@@ -43,6 +43,13 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
     row.style.cursor = "default";
   });
 
+  // 4b. Strip the amber "summary needs work" callout (preview-only affordance)
+  clone.querySelectorAll<HTMLElement>("[data-summary-flag]").forEach((row) => {
+    row.style.background = "transparent";
+    row.style.boxShadow = "none";
+    row.style.cursor = "default";
+  });
+
   if (!highlightsEnabled) {
     clone.querySelectorAll("mark.az-metric").forEach((el) => {
       const text = el.textContent ?? "";
@@ -74,6 +81,7 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
 
     /* Ensure annotation backgrounds never bleed through */
     [data-bullet-idx]            { background: transparent !important; border-left: none !important; }
+    [data-summary-flag]          { background: transparent !important; box-shadow: none !important; }
     .az-pdf-ignore               { display: none !important; }
     .az-highlights-off .az-metric { font-weight: inherit !important; color: inherit !important; background: transparent !important; }
 

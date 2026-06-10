@@ -1035,6 +1035,14 @@ interface Props {
   tailorAppliedBulletIndices?: ReadonlySet<number>;
   /** Score / gap / metric tinting on bullets and lines (off = clean résumé for preview + PDF). */
   highlightsEnabled?: boolean;
+  /** Analyze: the professional-summary paragraph has issues — amber-highlight it + make it clickable. */
+  summaryFlagged?: boolean;
+  /** Click handler on the flagged summary block (opens the Summary Rewrite fix). */
+  onSummarySelect?: () => void;
+  /** Tooltip on the flagged summary, e.g. "89 words · 4 issues — click to fix". */
+  summaryHint?: string;
+  /** Applied summary rewrite — replaces the summary paragraph text in preview + PDF. */
+  summaryOverride?: string;
 }
 
 export default function AnalyzeLiveResumeBody({
@@ -1059,6 +1067,10 @@ export default function AnalyzeLiveResumeBody({
   gapFixTargetBulletIndices = [],
   tailorAppliedBulletIndices = new Set<number>(),
   highlightsEnabled = true,
+  summaryFlagged = false,
+  onSummarySelect,
+  summaryHint,
+  summaryOverride = "",
 }: Props) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   // Tracks which bullets are in "edit textarea" mode (after accepting or choosing to write own)
@@ -1345,10 +1357,58 @@ export default function AnalyzeLiveResumeBody({
             : inExperienceSection
               ? coalesceEmploymentParagraphLines(blk.lines)
               : blk.lines;
+          // Professional-summary paragraph. When a rewrite has been applied
+          // (summaryOverride) render it with a green "applied" tint; otherwise,
+          // if flagged, an amber "needs work" callout. Both are clickable → open
+          // the Summary Rewrite fix, and both are stripped from PDF export via
+          // cleanForExport's [data-summary-flag] rule.
+          const isSummaryBlock = sectionRole === "summary";
+          const summaryApplied = isSummaryBlock && !!summaryOverride.trim();
+          const isFlaggedSummary = isSummaryBlock && summaryFlagged && !summaryApplied && highlightsEnabled;
+          const isSummaryInteractive =
+            isSummaryBlock && highlightsEnabled && (isFlaggedSummary || summaryApplied);
+          const summaryDisplayLines = summaryApplied ? [summaryOverride.trim()] : paragraphLines;
 
           return (
-            <div key={bi} style={paragraphBlockStyle(sectionRole, paragraphLines)}>
-              {paragraphLines.map((ln, li) => {
+            <div
+              key={bi}
+              data-summary-flag={isSummaryInteractive ? "1" : undefined}
+              onClick={isSummaryInteractive ? onSummarySelect : undefined}
+              title={
+                summaryApplied
+                  ? "Summary rewrite applied — click to edit or reset"
+                  : isFlaggedSummary
+                    ? (summaryHint || "Summary needs work — click to see the rewrite")
+                    : undefined
+              }
+              style={{
+                ...paragraphBlockStyle(sectionRole, summaryDisplayLines),
+                ...(isFlaggedSummary
+                  ? {
+                      cursor: "pointer",
+                      background: "rgba(245,158,11,0.12)",
+                      boxShadow: "inset 3px 0 0 0 rgba(245,158,11,0.85)",
+                      borderRadius: 4,
+                      paddingLeft: 9,
+                      paddingTop: 3,
+                      paddingBottom: 3,
+                      transition: "background 0.15s",
+                    }
+                  : summaryApplied
+                    ? {
+                        cursor: "pointer",
+                        background: "rgba(34,197,94,0.10)",
+                        boxShadow: "inset 3px 0 0 0 rgba(34,197,94,0.7)",
+                        borderRadius: 4,
+                        paddingLeft: 9,
+                        paddingTop: 3,
+                        paddingBottom: 3,
+                        transition: "background 0.15s",
+                      }
+                    : null),
+              }}
+            >
+              {summaryDisplayLines.map((ln, li) => {
                 const t = ln.trim();
                 if (!t || isPlaceholderIdentityLine(ln)) return null;
                 if (looksLikeEntryHeader(t)) {

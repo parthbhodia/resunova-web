@@ -112,6 +112,7 @@ interface PersistedEdits {
   lineOverrides: Record<string, string>;
   rewriteEdits: Record<string, string>;
   acceptedBullets: Record<string, "ai" | "custom">;
+  summaryOverride?: string;
   savedAt: string;
 }
 
@@ -132,6 +133,7 @@ function savePersistedEdits(
   lineOverrides: Record<number, string>,
   rewriteEdits: Record<number, string>,
   acceptedBullets: Record<number, "ai" | "custom">,
+  summaryOverride: string,
 ) {
   if (typeof window === "undefined" || !id) return;
   const clean = <T>(rec: Record<number, T>): Record<string, T> => {
@@ -145,6 +147,7 @@ function savePersistedEdits(
       lineOverrides: clean(lineOverrides),
       rewriteEdits: clean(rewriteEdits),
       acceptedBullets: clean(acceptedBullets),
+      summaryOverride: summaryOverride || undefined,
       savedAt: new Date().toISOString(),
     } satisfies PersistedEdits));
   } catch { /* quota */ }
@@ -185,6 +188,8 @@ export interface ResumeAnalyzeStore {
   rewriteEdits: Record<number, string>;
   /** Formally accepted bullets: "ai" = accepted AI suggestion, "custom" = user wrote own. */
   acceptedBullets: Record<number, "ai" | "custom">;
+  /** Applied rewrite for the professional summary (preview + PDF). "" = keep original. */
+  summaryOverride: string;
 
   // ── UI state ──
   pulseBulletIndex: number | null;
@@ -201,6 +206,10 @@ export interface ResumeAnalyzeStore {
   patchRewrite: (index: number, text: string | null) => void;
   acceptBullet: (index: number, text: string, kind: "ai" | "custom") => void;
   unacceptBullet: (index: number) => void;
+  /** Apply an edited/AI summary rewrite to the preview (and PDF). */
+  setSummaryOverride: (text: string) => void;
+  /** Revert the summary to its original text. */
+  clearSummaryOverride: () => void;
 
   // ── Persistence actions ──
   /** Persist current edit state under a draft ID (replaces saveAnalyzeEditDraft). */
@@ -229,6 +238,7 @@ const emptyEdits = () => ({
   lineOverrides: {} as Record<number, string>,
   rewriteEdits: {} as Record<number, string>,
   acceptedBullets: {} as Record<number, "ai" | "custom">,
+  summaryOverride: "",
 });
 
 const initial = () => ({
@@ -327,9 +337,12 @@ export const useResumeAnalyzeStore = create<ResumeAnalyzeStore>((set, get) => ({
     });
   },
 
+  setSummaryOverride: (text) => set({ summaryOverride: (text ?? "").trim() }),
+  clearSummaryOverride: () => set({ summaryOverride: "" }),
+
   persistEdits: (draftId) => {
-    const { lineOverrides, rewriteEdits, acceptedBullets } = get();
-    savePersistedEdits(draftId, lineOverrides, rewriteEdits, acceptedBullets);
+    const { lineOverrides, rewriteEdits, acceptedBullets, summaryOverride } = get();
+    savePersistedEdits(draftId, lineOverrides, rewriteEdits, acceptedBullets, summaryOverride);
   },
 
   restoreEdits: (draftId) => {
@@ -348,7 +361,7 @@ export const useResumeAnalyzeStore = create<ResumeAnalyzeStore>((set, get) => ({
       const n = Number(k);
       if (Number.isFinite(n) && (v === "ai" || v === "custom")) ab[n] = v;
     }
-    set({ lineOverrides: toNum(saved.lineOverrides ?? {}), rewriteEdits: toNum(saved.rewriteEdits ?? {}), acceptedBullets: ab });
+    set({ lineOverrides: toNum(saved.lineOverrides ?? {}), rewriteEdits: toNum(saved.rewriteEdits ?? {}), acceptedBullets: ab, summaryOverride: saved.summaryOverride ?? "" });
     return true;
   },
 

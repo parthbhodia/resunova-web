@@ -1017,8 +1017,21 @@ export default function AnalyzeResume() {
   /** Résumé preview stays on whenever we have a result (no user toggle). */
   const workspaceSplit = !!result;
 
+  // Professional-summary fix — surfaced as its own sidebar entry (visible on any
+  // tab) + an amber highlight on the summary in the preview. "summary" is a
+  // pseudo-category for activeCategory (not a real categoryScores key).
+  const summaryAnalysis = result?.summaryAnalysis ?? null;
+  const summaryIssueCount = summaryAnalysis?.issues?.length ?? 0;
+  const summaryFlagged = !!summaryAnalysis && (summaryIssueCount > 0 || !!summaryAnalysis.improvedSummary);
+  const summaryHint = summaryFlagged && summaryAnalysis
+    ? `${summaryAnalysis.wordCount} words · ${summaryIssueCount} issue${summaryIssueCount === 1 ? "" : "s"} — click to fix`
+    : undefined;
+
   // For the active category detail view
-  const activeCategoryLabel = CATEGORY_LABELS.find(c => c.key === activeCategory)?.label ?? "";
+  const activeCategoryLabel =
+    activeCategory === "summary"
+      ? "Summary"
+      : CATEGORY_LABELS.find(c => c.key === activeCategory)?.label ?? "";
   const activeCategoryScore = activeCategory && result ? result.categoryScores[activeCategory as keyof AnalysisResult["categoryScores"]] : null;
   const activeBullets = activeCategory && result
     ? getBulletsForCategory(activeCategory, result.bulletAnalysis, categoryAssignmentOpts)
@@ -1320,6 +1333,49 @@ export default function AnalyzeResume() {
             </svg>
             Click a category or a bullet; they stay in sync. Copy improved text into your résumé.
           </div>
+
+          {/* SUMMARY — its own fix entry, visible on any tab so the biggest
+              issue (an 89-word buzzword summary) isn't buried under Readability. */}
+          {summaryFlagged && (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{
+                fontSize: 9, fontWeight: 800, color: "var(--amber-ink, #b45309)",
+                textTransform: "uppercase", letterSpacing: 1, marginBottom: 8,
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
+                Summary
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedBulletIndex(null);
+                  setActiveCategory(activeCategory === "summary" ? null : "summary");
+                }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "9px 10px", borderRadius: 8, width: "100%",
+                  border: `1px solid ${activeCategory === "summary" ? "rgba(245,158,11,0.55)" : "var(--border)"}`,
+                  background: activeCategory === "summary" ? "rgba(245,158,11,0.12)" : "var(--surface2)",
+                  cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+                  transition: "background 0.15s, border-color 0.15s",
+                }}
+                onMouseEnter={e => { if (activeCategory !== "summary") { e.currentTarget.style.background = "var(--surface3)"; e.currentTarget.style.borderColor = "var(--border-h)"; } }}
+                onMouseLeave={e => { if (activeCategory !== "summary") { e.currentTarget.style.background = "var(--surface2)"; e.currentTarget.style.borderColor = "var(--border)"; } }}
+              >
+                <span style={{ color: activeCategory === "summary" ? "#b45309" : "var(--dim)", flexShrink: 0 }}>
+                  {CATEGORY_ICONS.readability}
+                </span>
+                <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "var(--text)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  Professional Summary
+                </span>
+                {summaryIssueCount > 0 && (
+                  <Badge className="text-[10px] font-semibold px-1.5 py-0 h-4 border-0 shrink-0" style={{ background: "rgba(245,158,11,0.16)", color: "#b45309" }}>
+                    {summaryIssueCount}
+                  </Badge>
+                )}
+              </button>
+            </div>
+          )}
 
           {/* TOP FIXES */}
           {topFixCategories.length > 0 && (
@@ -2267,6 +2323,9 @@ export default function AnalyzeResume() {
               patchPreviewLine={patchPreviewLine}
               selectedBulletIndex={selectedBulletIndex}
               onBulletLinkedSelect={handleBulletSelectFromPreview}
+              summaryFlagged={summaryFlagged}
+              summaryHint={summaryHint}
+              onSummarySelect={() => { setSelectedBulletIndex(null); setActiveCategory("summary"); }}
               presentationOnly
               restoredResumeNoPdfHint={historyRestoreActive}
               categoryAssignmentOpts={categoryAssignmentOpts}
@@ -2504,7 +2563,9 @@ export default function AnalyzeResume() {
             )}
 
             {/* Summary rewrite card — shown under Readability when LLM produced one */}
-            {activeCategory === "readability" && result.summaryAnalysis?.improvedSummary && (
+            {(activeCategory === "summary" || activeCategory === "readability")
+              && result.summaryAnalysis
+              && (result.summaryAnalysis.improvedSummary || (result.summaryAnalysis.issues?.length ?? 0) > 0) && (
               <div>
                 <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", margin: "0 0 10px" }}>
                   Summary Rewrite
@@ -2535,27 +2596,31 @@ export default function AnalyzeResume() {
                   }}>
                     {result.summaryAnalysis.original}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                    Suggested rewrite
-                  </div>
-                  <div style={{
-                    fontSize: 12.5, color: "var(--text)", lineHeight: 1.55,
-                    padding: "8px 12px", background: "rgba(34,197,94,0.06)",
-                    borderRadius: 8, borderLeft: "3px solid rgba(34,197,94,0.4)",
-                  }}>
-                    {result.summaryAnalysis.improvedSummary}
-                  </div>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(result.summaryAnalysis!.improvedSummary!).catch(() => {})}
-                    style={{
-                      alignSelf: "flex-start", fontSize: 12, fontWeight: 600,
-                      padding: "5px 14px", borderRadius: 8, cursor: "pointer",
-                      background: "var(--surface2)", border: "1px solid var(--border)",
-                      color: "var(--text)",
-                    }}
-                  >
-                    Copy rewrite
-                  </button>
+                  {result.summaryAnalysis.improvedSummary && (
+                    <>
+                      <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        Suggested rewrite
+                      </div>
+                      <div style={{
+                        fontSize: 12.5, color: "var(--text)", lineHeight: 1.55,
+                        padding: "8px 12px", background: "rgba(34,197,94,0.06)",
+                        borderRadius: 8, borderLeft: "3px solid rgba(34,197,94,0.4)",
+                      }}>
+                        {result.summaryAnalysis.improvedSummary}
+                      </div>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(result.summaryAnalysis!.improvedSummary!).catch(() => {})}
+                        style={{
+                          alignSelf: "flex-start", fontSize: 12, fontWeight: 600,
+                          padding: "5px 14px", borderRadius: 8, cursor: "pointer",
+                          background: "var(--surface2)", border: "1px solid var(--border)",
+                          color: "var(--text)",
+                        }}
+                      >
+                        Copy rewrite
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -2813,7 +2878,7 @@ export default function AnalyzeResume() {
             )}
 
             {/* If no related issues or bullets */}
-            {activeBullets.length === 0 && relatedTopIssues.length === 0 && !(activeCategory === "readability" && result.summaryAnalysis?.improvedSummary) && (
+            {activeBullets.length === 0 && relatedTopIssues.length === 0 && !((activeCategory === "summary" || activeCategory === "readability") && result.summaryAnalysis && (result.summaryAnalysis.improvedSummary || (result.summaryAnalysis.issues?.length ?? 0) > 0)) && (
               <div style={{
                 padding: "32px", textAlign: "center",
                 border: "1px solid var(--border)", borderRadius: 14,

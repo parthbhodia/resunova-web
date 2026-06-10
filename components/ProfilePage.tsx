@@ -1169,10 +1169,10 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                       flexShrink: 0,
                       fontVariantNumeric: "tabular-nums",
                       fontWeight: 600,
-                      color: form.headline.length > 90 ? "var(--amber)" : "var(--dim)",
+                      color: form.headline.length > 120 ? "var(--amber)" : "var(--dim)",
                     }}
                   >
-                    {form.headline.length}/90
+                    {form.headline.length}/140
                   </span>
                 </div>
               </label>

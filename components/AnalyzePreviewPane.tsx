@@ -35,6 +35,12 @@ interface Props {
   patchPreviewLine: (bulletIndex: number, value: string | null) => void;
   selectedBulletIndex?: number | null;
   onBulletLinkedSelect?: (index: number) => void;
+  /** Analyze: the professional-summary paragraph has issues — amber-highlight it + make it clickable. */
+  summaryFlagged?: boolean;
+  /** Clicking the flagged summary opens the Summary Rewrite fix. */
+  onSummarySelect?: () => void;
+  /** Tooltip on the flagged summary block. */
+  summaryHint?: string;
   presentationOnly?: boolean;
   onOpenBuilder?: (opts?: { referenceFolder?: string }) => void;
   builderReady?: boolean;
@@ -59,6 +65,9 @@ export default function AnalyzePreviewPane({
   patchPreviewLine,
   selectedBulletIndex,
   onBulletLinkedSelect,
+  summaryFlagged,
+  onSummarySelect,
+  summaryHint,
   presentationOnly,
   onOpenBuilder,
   builderReady,
@@ -85,6 +94,7 @@ export default function AnalyzePreviewPane({
   const analysisBullets =
     snapBullets != null && snapBullets.length > 0 ? snapBullets : bulletsStore;
   const lineOverrides = useResumeAnalyzeStore((s) => s.lineOverrides);
+  const summaryOverride = useResumeAnalyzeStore((s) => s.summaryOverride);
   const pulseToken = useResumeAnalyzeStore((s) => s.pulseToken);
   const pulseBulletIndex = useResumeAnalyzeStore((s) => s.pulseBulletIndex);
   const clearPulse = useResumeAnalyzeStore((s) => s.clearPulse);
@@ -116,6 +126,10 @@ export default function AnalyzePreviewPane({
       resumeHeader={resumeHeader}
       selectedBulletIndex={selectedBulletIndex}
       onBulletLinkedSelect={onBulletLinkedSelect}
+      summaryFlagged={summaryFlagged}
+      onSummarySelect={onSummarySelect}
+      summaryHint={summaryHint}
+      summaryOverride={summaryOverride}
       presentationOnly={presentationOnly}
       onOpenBuilder={onOpenBuilder}
       builderReady={builderReady}

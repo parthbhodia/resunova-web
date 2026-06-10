@@ -50,6 +50,14 @@ interface Props {
   selectedBulletIndex?: number | null;
   /** Clicking a bullet syncs sidebar category */
   onBulletLinkedSelect?: (index: number) => void;
+  /** Analyze: the professional-summary paragraph has issues — amber-highlight it + make it clickable. */
+  summaryFlagged?: boolean;
+  /** Clicking the flagged summary opens the Summary Rewrite fix. */
+  onSummarySelect?: () => void;
+  /** Tooltip on the flagged summary block. */
+  summaryHint?: string;
+  /** Applied summary rewrite — replaces the summary text in the preview + PDF. */
+  summaryOverride?: string;
   /** Open Résumé Builder; optional `referenceFolder` selects LaTeX layout (see resumeTemplates). */
   onOpenBuilder?: (opts?: { referenceFolder?: string }) => void;
   builderReady?: boolean;
@@ -385,6 +393,10 @@ export default function AnnotatedResumePanel({
   patchPreviewLine,
   selectedBulletIndex = null,
   onBulletLinkedSelect,
+  summaryFlagged = false,
+  onSummarySelect,
+  summaryHint,
+  summaryOverride,
   extractedText,
   structuredResume = null,
   structuredResumeAuthoritative = false,
@@ -1123,7 +1135,24 @@ export default function AnnotatedResumePanel({
           ))}
         </div>
 
-      {activeCategory && flaggedCount > 0 && (
+      {activeCategory === "summary" && (
+        <div style={{
+          padding: "8px 14px",
+          borderBottom: "1px solid var(--border)",
+          fontSize: 11,
+          color: "var(--amber-ink, #b45309)",
+          fontWeight: 600,
+          flexShrink: 0,
+          background: "rgba(245,158,11,0.10)",
+        }}>
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ marginRight: 5, verticalAlign: "middle" }}>
+            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4"/>
+            <path d="M8 5v3.5l2 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          The highlighted summary needs work — see the rewrite on the left.
+        </div>
+      )}
+      {activeCategory && activeCategory !== "summary" && flaggedCount > 0 && (
         <div style={{
           padding: "8px 14px",
           borderBottom: "1px solid var(--border)",
@@ -1140,7 +1169,7 @@ export default function AnnotatedResumePanel({
           Highlighted bullets have issues in {categoryLabel}
         </div>
       )}
-      {activeCategory && flaggedCount === 0 && (
+      {activeCategory && activeCategory !== "summary" && flaggedCount === 0 && (
         <div style={{
           padding: "8px 14px",
           borderBottom: "1px solid var(--border)",
@@ -1218,6 +1247,10 @@ export default function AnnotatedResumePanel({
                 patchPreviewLine={patchPreviewLine}
                 selectedBulletIndex={selectedBulletIndex}
                 onBulletLinkedSelect={onBulletLinkedSelect}
+                summaryFlagged={summaryFlagged}
+                onSummarySelect={onSummarySelect}
+                summaryHint={summaryHint}
+                summaryOverride={summaryOverride}
                 presentationOnly={presentationOnly}
                 pulseBulletIndex={pulseBulletIndex}
                 categoryAssignmentOpts={categoryAssignmentOpts}
