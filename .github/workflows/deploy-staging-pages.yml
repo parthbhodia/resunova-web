@@ -31,7 +31,9 @@ jobs:
       - name: Build (staging)
         env:
           NEXT_PUBLIC_BASE_PATH: ""
-          NEXT_PUBLIC_ASSET_PREFIX: https://staging.resunova.io
+          # Relative assets (empty prefix) until GitHub provisions the staging TLS cert.
+          # Absolute https://staging.resunova.io breaks the page while cert state is "new".
+          NEXT_PUBLIC_ASSET_PREFIX: ""
           NEXT_PUBLIC_API_URL: ${{ secrets.RAILWAY_STAGING_API_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_STAGING_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_STAGING_PUBLISHABLE_KEY }}
