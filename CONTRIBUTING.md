@@ -7,7 +7,7 @@ This repo is the **Next.js frontend**. The NLP backend is in the private **resun
 | | Local dev | Staging (hosted) | Production |
 |---|-----------|------------------|------------|
 | **You clone** | `resunova-web` | same | same |
-| **URL** | `http://localhost:3000` | **https://staging.resunova.io** | https://www.resunova.io |
+| **URL** | `http://localhost:3000` | https://parthbhodia.github.io/resunova-web-staging/ (→ `staging.resunova.io` after DNS) | https://www.resunova.io |
 | **API** | `localhost:8765` or staging Railway URL | Railway staging | Railway production |
 | **Supabase** | Staging project (see below) | Staging project | Production project |
 | **Deploy** | `npm run dev` | push to `staging` branch | push to `main` |
