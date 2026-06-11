@@ -33,7 +33,7 @@ jobs:
           NEXT_PUBLIC_BASE_PATH: ""
           # Use github.io until staging.resunova.io DNS CNAME exists at Namecheap.
           # After DNS propagates, switch to: https://staging.resunova.io
-          NEXT_PUBLIC_ASSET_PREFIX: https://parthbhodia.github.io/resunova-web-staging
+          NEXT_PUBLIC_ASSET_PREFIX: https://staging.resunova.io
           NEXT_PUBLIC_API_URL: ${{ secrets.RAILWAY_STAGING_API_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_STAGING_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_STAGING_PUBLISHABLE_KEY }}
