@@ -113,6 +113,7 @@ interface PersistedEdits {
   rewriteEdits: Record<string, string>;
   acceptedBullets: Record<string, "ai" | "custom">;
   summaryOverride?: string;
+  fieldOverrides?: Record<string, string>;
   savedAt: string;
 }
 
@@ -134,6 +135,7 @@ function savePersistedEdits(
   rewriteEdits: Record<number, string>,
   acceptedBullets: Record<number, "ai" | "custom">,
   summaryOverride: string,
+  fieldOverrides: Record<string, string>,
 ) {
   if (typeof window === "undefined" || !id) return;
   const clean = <T>(rec: Record<number, T>): Record<string, T> => {
@@ -148,6 +150,7 @@ function savePersistedEdits(
       rewriteEdits: clean(rewriteEdits),
       acceptedBullets: clean(acceptedBullets),
       summaryOverride: summaryOverride || undefined,
+      fieldOverrides: Object.keys(fieldOverrides).length ? fieldOverrides : undefined,
       savedAt: new Date().toISOString(),
     } satisfies PersistedEdits));
   } catch { /* quota */ }
@@ -190,6 +193,10 @@ export interface ResumeAnalyzeStore {
   acceptedBullets: Record<number, "ai" | "custom">;
   /** Applied rewrite for the professional summary (preview + PDF). "" = keep original. */
   summaryOverride: string;
+  /** Inline edits to non-bullet structured fields, keyed by stable path
+   *  (e.g. "edu.0.1", "proj.1.head", "skills.2", "extra.0.3"). Applied to the
+   *  preview + PDF. Bullets use lineOverrides; the summary uses summaryOverride. */
+  fieldOverrides: Record<string, string>;
 
   // ── UI state ──
   pulseBulletIndex: number | null;
@@ -210,6 +217,10 @@ export interface ResumeAnalyzeStore {
   setSummaryOverride: (text: string) => void;
   /** Revert the summary to its original text. */
   clearSummaryOverride: () => void;
+  /** Apply an inline edit to a structured field by path (preview + PDF). Empty/unchanged text clears it. */
+  setFieldOverride: (path: string, text: string) => void;
+  /** Revert a single field to its original text. */
+  clearFieldOverride: (path: string) => void;
 
   // ── Persistence actions ──
   /** Persist current edit state under a draft ID (replaces saveAnalyzeEditDraft). */
@@ -239,6 +250,7 @@ const emptyEdits = () => ({
   rewriteEdits: {} as Record<number, string>,
   acceptedBullets: {} as Record<number, "ai" | "custom">,
   summaryOverride: "",
+  fieldOverrides: {} as Record<string, string>,
 });
 
 const initial = () => ({
@@ -340,9 +352,27 @@ export const useResumeAnalyzeStore = create<ResumeAnalyzeStore>((set, get) => ({
   setSummaryOverride: (text) => set({ summaryOverride: (text ?? "").trim() }),
   clearSummaryOverride: () => set({ summaryOverride: "" }),
 
+  setFieldOverride: (path, text) => {
+    set((s) => {
+      const next = { ...s.fieldOverrides };
+      const t = (text ?? "").trim();
+      if (!t) delete next[path];
+      else next[path] = t;
+      return { fieldOverrides: next };
+    });
+  },
+  clearFieldOverride: (path) => {
+    set((s) => {
+      if (!(path in s.fieldOverrides)) return {} as Partial<ResumeAnalyzeStore>;
+      const next = { ...s.fieldOverrides };
+      delete next[path];
+      return { fieldOverrides: next };
+    });
+  },
+
   persistEdits: (draftId) => {
-    const { lineOverrides, rewriteEdits, acceptedBullets, summaryOverride } = get();
-    savePersistedEdits(draftId, lineOverrides, rewriteEdits, acceptedBullets, summaryOverride);
+    const { lineOverrides, rewriteEdits, acceptedBullets, summaryOverride, fieldOverrides } = get();
+    savePersistedEdits(draftId, lineOverrides, rewriteEdits, acceptedBullets, summaryOverride, fieldOverrides);
   },
 
   restoreEdits: (draftId) => {
@@ -361,7 +391,11 @@ export const useResumeAnalyzeStore = create<ResumeAnalyzeStore>((set, get) => ({
       const n = Number(k);
       if (Number.isFinite(n) && (v === "ai" || v === "custom")) ab[n] = v;
     }
-    set({ lineOverrides: toNum(saved.lineOverrides ?? {}), rewriteEdits: toNum(saved.rewriteEdits ?? {}), acceptedBullets: ab, summaryOverride: saved.summaryOverride ?? "" });
+    const fo: Record<string, string> = {};
+    for (const [k, v] of Object.entries(saved.fieldOverrides ?? {})) {
+      if (typeof v === "string" && v.trim()) fo[k] = v;
+    }
+    set({ lineOverrides: toNum(saved.lineOverrides ?? {}), rewriteEdits: toNum(saved.rewriteEdits ?? {}), acceptedBullets: ab, summaryOverride: saved.summaryOverride ?? "", fieldOverrides: fo });
     return true;
   },
 

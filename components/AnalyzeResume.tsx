@@ -421,6 +421,9 @@ export default function AnalyzeResume() {
   /** Desktop: recent-analyses / improvement-plan column — open by default; user can hide via toggle. */
   const [improvementPlanVisible, setImprovementPlanVisible] = useState(true);
   const [selectedBulletIndex, setSelectedBulletIndex] = useState<number | null>(null);
+  /** Summary-card editor: draft text (null = not editing), and whether the textarea is open. */
+  const [summaryDraft, setSummaryDraft] = useState<string | null>(null);
+  const [summaryCopied, setSummaryCopied] = useState(false);
   /** User picked a row from Recent Analyses — original upload file is not available until they upload again. */
   const [historyRestoreActive, setHistoryRestoreActive] = useState(false);
   /** Keys local preview-edit drafts (`rn_az_edit_v1_*` in localStorage); set to history row id or optimistic `local_*` id. */
@@ -438,6 +441,9 @@ export default function AnalyzeResume() {
   const restoreEdits = useResumeAnalyzeStore((s) => s.restoreEdits);
   const clearEditsStore = useResumeAnalyzeStore((s) => s.clearEdits);
   const migrateEdits = useResumeAnalyzeStore((s) => s.migrateEdits);
+  const summaryOverride = useResumeAnalyzeStore((s) => s.summaryOverride);
+  const setSummaryOverride = useResumeAnalyzeStore((s) => s.setSummaryOverride);
+  const clearSummaryOverride = useResumeAnalyzeStore((s) => s.clearSummaryOverride);
 
   const analyzePreviewSnapshot = useMemo(
     () =>
@@ -2596,31 +2602,85 @@ export default function AnalyzeResume() {
                   }}>
                     {result.summaryAnalysis.original}
                   </div>
-                  {result.summaryAnalysis.improvedSummary && (
-                    <>
-                      <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                        Suggested rewrite
-                      </div>
-                      <div style={{
-                        fontSize: 12.5, color: "var(--text)", lineHeight: 1.55,
-                        padding: "8px 12px", background: "rgba(34,197,94,0.06)",
-                        borderRadius: 8, borderLeft: "3px solid rgba(34,197,94,0.4)",
-                      }}>
-                        {result.summaryAnalysis.improvedSummary}
-                      </div>
-                      <button
-                        onClick={() => navigator.clipboard.writeText(result.summaryAnalysis!.improvedSummary!).catch(() => {})}
-                        style={{
-                          alignSelf: "flex-start", fontSize: 12, fontWeight: 600,
-                          padding: "5px 14px", borderRadius: 8, cursor: "pointer",
-                          background: "var(--surface2)", border: "1px solid var(--border)",
-                          color: "var(--text)",
-                        }}
-                      >
-                        Copy rewrite
-                      </button>
-                    </>
-                  )}
+                  {result.summaryAnalysis.improvedSummary && (() => {
+                    const sa = result.summaryAnalysis!;
+                    const applied = !!summaryOverride.trim();
+                    const baseText = applied ? summaryOverride : (sa.improvedSummary || "");
+                    const editing = summaryDraft !== null;
+                    const shownText = editing ? (summaryDraft || "") : baseText;
+                    const btn: React.CSSProperties = {
+                      fontSize: 12, fontWeight: 600, padding: "5px 14px", borderRadius: 8,
+                      cursor: "pointer", background: "var(--surface2)",
+                      border: "1px solid var(--border)", color: "var(--text)",
+                    };
+                    const primaryBtn: React.CSSProperties = {
+                      ...btn, background: "#1565c0", border: "1px solid #1565c0", color: "#fff",
+                    };
+                    return (
+                      <>
+                        <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 8 }}>
+                          Suggested rewrite
+                          {applied && !editing && (
+                            <span style={{ fontSize: 10.5, color: "var(--green-ink, #047857)", fontWeight: 700 }}>· applied to preview ✓</span>
+                          )}
+                        </div>
+                        {editing ? (
+                          <textarea
+                            value={summaryDraft ?? ""}
+                            onChange={(e) => setSummaryDraft(e.target.value)}
+                            rows={4}
+                            autoFocus
+                            style={{
+                              fontSize: 12.5, color: "var(--text)", lineHeight: 1.55,
+                              padding: "8px 12px", background: "var(--surface)",
+                              borderRadius: 8, border: "1px solid #1565c0",
+                              fontFamily: "inherit", resize: "vertical", width: "100%",
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            fontSize: 12.5, color: "var(--text)", lineHeight: 1.55,
+                            padding: "8px 12px", background: "rgba(34,197,94,0.06)",
+                            borderRadius: 8, borderLeft: "3px solid rgba(34,197,94,0.4)",
+                          }}>
+                            {baseText}
+                          </div>
+                        )}
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button
+                            onClick={() => { setSummaryOverride(shownText); setSummaryDraft(null); }}
+                            style={primaryBtn}
+                          >
+                            {applied ? "Update preview" : "Apply to preview"}
+                          </button>
+                          <button
+                            onClick={() => setSummaryDraft(editing ? null : baseText)}
+                            style={btn}
+                          >
+                            {editing ? "Cancel" : "Edit"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(shownText).catch(() => {});
+                              setSummaryCopied(true);
+                              window.setTimeout(() => setSummaryCopied(false), 1500);
+                            }}
+                            style={btn}
+                          >
+                            {summaryCopied ? "Copied" : "Copy"}
+                          </button>
+                          {applied && (
+                            <button
+                              onClick={() => { clearSummaryOverride(); setSummaryDraft(null); }}
+                              style={btn}
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}

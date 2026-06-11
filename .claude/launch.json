@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "resunova-web",
+      "runtimeExecutable": "/Users/mslcomx/.nvm/versions/node/v20.18.1/bin/node",
+      "runtimeArgs": ["node_modules/.bin/next", "dev"],
+      "cwd": ".",
+      "port": 3000
+    }
+  ]
+}
