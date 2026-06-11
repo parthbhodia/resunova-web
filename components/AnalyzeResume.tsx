@@ -2382,42 +2382,60 @@ export default function AnalyzeResume() {
               Back to overview
             </button>
 
-            {/* Hero card */}
+            {/* Hero card. "summary" is a pseudo-category with no categoryScores
+                entry — show word count instead of a bogus "–/100" score. */}
             <div style={{
               display: "flex", alignItems: "flex-start", gap: 16,
               padding: "22px 24px",
               background: "var(--surface)",
-              border: `1px solid ${(activeCategoryScore ?? 0) >= 80
-                ? "rgba(52,211,153,0.3)"
-                : (activeCategoryScore ?? 0) >= 60
-                  ? "rgba(251,191,36,0.35)"
-                  : "rgba(248,113,113,0.3)"}`,
+              border: `1px solid ${activeCategory === "summary"
+                ? "rgba(245,158,11,0.4)"
+                : (activeCategoryScore ?? 0) >= 80
+                  ? "rgba(52,211,153,0.3)"
+                  : (activeCategoryScore ?? 0) >= 60
+                    ? "rgba(251,191,36,0.35)"
+                    : "rgba(248,113,113,0.3)"}`,
               borderRadius: 16,
             }}>
               <div style={{
                 width: 72, height: 72, borderRadius: 16, flexShrink: 0,
-                background: (activeCategoryScore ?? 0) >= 80
-                  ? "rgba(52,211,153,0.10)"
-                  : (activeCategoryScore ?? 0) >= 60
-                    ? "rgba(251,191,36,0.12)"
-                    : "rgba(248,113,113,0.10)",
+                background: activeCategory === "summary"
+                  ? "rgba(245,158,11,0.12)"
+                  : (activeCategoryScore ?? 0) >= 80
+                    ? "rgba(52,211,153,0.10)"
+                    : (activeCategoryScore ?? 0) >= 60
+                      ? "rgba(251,191,36,0.12)"
+                      : "rgba(248,113,113,0.10)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexDirection: "column", gap: 2,
               }}>
-                <span style={{
-                  fontSize: 22, fontWeight: 800, lineHeight: 1,
-                  color: scoreColor(activeCategoryScore ?? 0),
-                }}>
-                  {activeCategoryScore ?? "–"}
-                </span>
-                <span style={{ fontSize: 9, fontWeight: 600, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.4 }}>/100</span>
+                {activeCategory === "summary" ? (
+                  <>
+                    <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, color: "var(--amber-ink, #b45309)" }}>
+                      {summaryAnalysis?.wordCount ?? "–"}
+                    </span>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.4 }}>words</span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{
+                      fontSize: 22, fontWeight: 800, lineHeight: 1,
+                      color: scoreColor(activeCategoryScore ?? 0),
+                    }}>
+                      {activeCategoryScore ?? "–"}
+                    </span>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.4 }}>/100</span>
+                  </>
+                )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>
                   {activeCategoryLabel}
                 </div>
                 <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.7, margin: 0 }}>
-                  {CATEGORY_DESCRIPTIONS[activeCategory] ?? ""}
+                  {activeCategory === "summary"
+                    ? "Recruiters skim the summary first. Aim for 25-75 words leading with role + years + domain, with specifics instead of filler. Apply the rewrite below or edit it, and it updates the preview and PDF."
+                    : CATEGORY_DESCRIPTIONS[activeCategory] ?? ""}
                 </p>
                 {activeCategoryNeedsExplanation && (
                   <div style={{
@@ -2469,7 +2487,7 @@ export default function AnalyzeResume() {
               </div>
             </div>
 
-            {result.bulletAnalysis.length > 0 && (
+            {activeCategory !== "summary" && result.bulletAnalysis.length > 0 && (
               <div style={{
                 padding: "14px 16px",
                 background: "var(--surface2)",

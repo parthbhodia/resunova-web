@@ -842,7 +842,19 @@ export default function AnnotatedResumePanel({
           </div>
           ) : null}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginLeft: presentationOnly ? 0 : "auto" }}>
-          {activeCategory ? (
+          {activeCategory === "summary" ? (
+            <div style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--amber-ink, #b45309)",
+              background: "rgba(245,158,11,0.10)",
+              border: "1px solid rgba(245,158,11,0.35)",
+              padding: "3px 10px",
+              borderRadius: 20,
+            }}>
+              Summary flagged — rewrite available
+            </div>
+          ) : activeCategory ? (
             <div style={{
               fontSize: 11,
               fontWeight: 700,
