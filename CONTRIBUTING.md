@@ -4,12 +4,13 @@ This repo is the **Next.js frontend**. The NLP backend is in the private **resun
 
 ## Environments
 
-| | Local dev | Staging | Production |
-|---|-----------|---------|------------|
+| | Local dev | Staging (hosted) | Production |
+|---|-----------|------------------|------------|
 | **You clone** | `resunova-web` | same | same |
+| **URL** | `http://localhost:3000` | **https://staging.resunova.io** | https://www.resunova.io |
 | **API** | `localhost:8765` or staging Railway URL | Railway staging | Railway production |
 | **Supabase** | Staging project (see below) | Staging project | Production project |
-| **Deploy** | `npm run dev` | `staging` branch CI | `main` → GitHub Pages |
+| **Deploy** | `npm run dev` | push to `staging` branch | push to `main` |
 
 **Default for all contributors:** use the **staging Supabase project**, not production.
 
@@ -48,7 +49,7 @@ feature/my-thing  →  PR into staging  →  team QA  →  PR into main  →  pr
 
 | Branch | What happens |
 |--------|----------------|
-| `staging` | CI build with staging secrets; safe integration branch |
+| `staging` | Deploys to **staging.resunova.io** (staging API + Supabase) |
 | `main` | Deploys to **www.resunova.io** (production) |
 
 Open feature branches from `staging`, not `main`.

@@ -1,7 +1,7 @@
-name: Staging build
+name: Deploy staging to GitHub Pages
 
 on:
-  pull_request:
+  push:
     branches: [staging]
   workflow_dispatch:
 
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: staging-build
+  group: staging-pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build (staging env)
+      - name: Build (staging)
         env:
           NEXT_PUBLIC_BASE_PATH: ""
           NEXT_PUBLIC_ASSET_PREFIX: https://staging.resunova.io
@@ -37,5 +37,15 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_STAGING_PUBLISHABLE_KEY }}
         run: npm run build
 
-      - name: Typecheck
-        run: npx tsc --noEmit
+      - name: Add .nojekyll
+        run: touch out/.nojekyll
+
+      - name: Deploy to resunova-web-staging
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.STAGING_DEPLOY_PAT }}
+          external_repository: parthbhodia/resunova-web-staging
+          publish_branch: gh-pages
+          publish_dir: ./out
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
