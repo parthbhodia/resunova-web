@@ -31,16 +31,16 @@ jobs:
       - name: Build (staging)
         env:
           NEXT_PUBLIC_BASE_PATH: ""
-          # Use github.io until staging.resunova.io DNS CNAME exists at Namecheap.
-          # After DNS propagates, switch to: https://staging.resunova.io
           NEXT_PUBLIC_ASSET_PREFIX: https://staging.resunova.io
           NEXT_PUBLIC_API_URL: ${{ secrets.RAILWAY_STAGING_API_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_STAGING_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_STAGING_PUBLISHABLE_KEY }}
         run: npm run build
 
-      - name: Add .nojekyll
-        run: touch out/.nojekyll
+      - name: Add .nojekyll and CNAME
+        run: |
+          touch out/.nojekyll
+          echo "staging.resunova.io" > out/CNAME
 
       - name: Deploy to resunova-web-staging
         uses: peaceiris/actions-gh-pages@v4

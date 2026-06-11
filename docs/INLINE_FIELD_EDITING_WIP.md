@@ -1,6 +1,14 @@
-# WIP: inline editing for all résumé fields (Analyze preview)
+# Inline editing for all résumé fields (Analyze preview) — SHIPPED
 
-**Branch:** `feature/inline-field-editing` (off `staging`)
+**Status:** All five steps below are implemented and browser-verified (education head/degree,
+experience headers, project headers, skills lines, extra-section lines — certifications,
+publications, awards). Kept as a design note for the path scheme + landmines.
+
+**Verified live (Nityanshi CV, staging API):** 15 editable fields with correct paths;
+edit→blur commits to `fieldOverrides` (green tint + `data-field-edited`); typing the
+original text back clears the override; "Save preview edits" persists `fieldOverrides`
+to localStorage; summary flag/edit system unaffected; `[data-field-path]` stripped in
+`cleanForExport` so PDFs stay clean.
 **Goal:** Let the user edit *every* non-bullet field in the Analyze preview — education, certifications, publications, projects, skills, entry headers — the same way bullets and the summary already work: edit → applies to the live preview **and** the exported PDF. Reversible.
 
 ## Done so far (commit `89df777`)

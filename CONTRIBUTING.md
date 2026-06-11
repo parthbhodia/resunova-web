@@ -54,6 +54,8 @@ feature/my-thing  →  PR into staging  →  team QA  →  PR into main  →  pr
 
 Open feature branches from `staging`, not `main`.
 
+**Full step-by-step guide:** [`docs/MERGE_AND_DEPLOY.md`](docs/MERGE_AND_DEPLOY.md)
+
 ## Backend changes
 
 If your UI needs a new API field or endpoint:

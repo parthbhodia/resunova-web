@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useResumeAnalyzeStore, type StructuredResume } from "@/store/resumeAnalyzeStore";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, FocusEvent as ReactFocusEvent, HTMLAttributes, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import BulletImprovedEditor from "@/components/BulletImprovedEditor";
@@ -41,7 +41,10 @@ export { findBulletIndexForLine, normalizeForMatch } from "@/lib/resumeBulletMat
 export type Block =
   | { type: "header"; lines: string[] }
   | { type: "section"; text: string }
-  | { type: "paragraph"; lines: string[] }
+  /** `paths` (parallel to `lines`) carries the stable structuredResume path of each
+   *  editable line (e.g. `edu.0.head`, `skills.2`, `extra.1.0`) — used to key
+   *  `fieldOverrides`. Only the structured builder emits it; undefined = not editable. */
+  | { type: "paragraph"; lines: string[]; paths?: (string | undefined)[] }
   | { type: "bullets"; items: Array<{ rawLine: string; bulletIdx: number }> };
 
 /** Known resume section titles (full trimmed line). Strict mode avoids mistaking ALL-CAPS names for sections. */
@@ -359,27 +362,28 @@ export function buildBlocksFromStructured(
         );
         if (!rows.length) return;
         blocks.push({ type: "section", text: "EXPERIENCE" });
-        for (const e of rows) {
+        rows.forEach((e, ei) => {
           const head = _entryHeaderLine(e.role, e.company, e.location, e.dates);
-          if (head) blocks.push({ type: "paragraph", lines: [head] });
+          if (head) blocks.push({ type: "paragraph", lines: [head], paths: [`exp.${ei}.head`] });
           pushBullets(e.bullets || []);
           const techLines = _companyTechParagraphLines(_techLinesForExperience(e, techByCompany));
           if (techLines.length) blocks.push({ type: "paragraph", lines: techLines });
-        }
+        });
         return;
       }
       case "education": {
         const rows = (s.education || []).filter((e) => (e.institution || e.degree || "").trim());
         if (!rows.length) return;
         blocks.push({ type: "section", text: "EDUCATION" });
-        for (const e of rows) {
+        rows.forEach((e, ei) => {
           const head = _entryHeaderLine(e.institution, e.location, e.dates);
           const para: string[] = [];
-          if (head) para.push(head);
-          if ((e.degree || "").trim()) para.push(e.degree.trim());
-          if (para.length) blocks.push({ type: "paragraph", lines: para });
+          const paths: (string | undefined)[] = [];
+          if (head) { para.push(head); paths.push(`edu.${ei}.head`); }
+          if ((e.degree || "").trim()) { para.push(e.degree.trim()); paths.push(`edu.${ei}.degree`); }
+          if (para.length) blocks.push({ type: "paragraph", lines: para, paths });
           if ((e.bullets || []).length) pushBullets(e.bullets!);
-        }
+        });
         return;
       }
       case "projects": {
@@ -388,7 +392,7 @@ export function buildBlocksFromStructured(
         );
         if (!rows.length) return;
         blocks.push({ type: "section", text: "PROJECTS" });
-        for (const p of rows) {
+        rows.forEach((p, pi) => {
           let tech = (p.tech || "").trim();
           let bullets = (p.bullets || []).map((b) => _cleanBullet(b)).filter(Boolean);
           // Promote a tech-stack first bullet onto the header when tech is empty.
@@ -397,9 +401,9 @@ export function buildBlocksFromStructured(
             bullets = bullets.slice(1);
           }
           const head = _entryHeaderLine(p.name, tech);
-          if (head) blocks.push({ type: "paragraph", lines: [head] });
+          if (head) blocks.push({ type: "paragraph", lines: [head], paths: [`proj.${pi}.head`] });
           pushBullets(bullets);
-        }
+        });
         return;
       }
       case "skills": {
@@ -411,7 +415,7 @@ export function buildBlocksFromStructured(
           const items = (sk.items || []).map((i) => i.trim()).filter(Boolean).join(", ");
           return label ? `${label}: ${items}` : items;
         });
-        if (lines.length) blocks.push({ type: "paragraph", lines });
+        if (lines.length) blocks.push({ type: "paragraph", lines, paths: lines.map((_, j) => `skills.${j}`) });
         return;
       }
     }
@@ -431,13 +435,13 @@ export function buildBlocksFromStructured(
 
   // Extra sections (activities, certifications, etc.) appended last.
   // Per-company "Technologies (…)" blocks are merged under experience above.
-  for (const extra of otherExtras) {
+  otherExtras.forEach((extra, xi) => {
     const title = (extra.title || "").trim();
     const lines = (extra.lines || []).map((l) => (l || "").trim()).filter(Boolean);
-    if (!title || !lines.length) continue;
+    if (!title || !lines.length) return;
     blocks.push({ type: "section", text: title.toUpperCase() });
-    blocks.push({ type: "paragraph", lines });
-  }
+    blocks.push({ type: "paragraph", lines, paths: lines.map((_, li) => `extra.${xi}.${li}`) });
+  });
 
   return blocks;
 }
@@ -1043,6 +1047,12 @@ interface Props {
   summaryHint?: string;
   /** Applied summary rewrite — replaces the summary paragraph text in preview + PDF. */
   summaryOverride?: string;
+  /** Per-field edited text, keyed by stable structured path (`edu.0.head`, `skills.2`, …). */
+  fieldOverrides?: Record<string, string>;
+  /** Commit an inline field edit (path, new text; empty text clears the override). */
+  onFieldEdit?: (path: string, text: string) => void;
+  /** When true, lines with a structured path render as inline-editable (Analyze only). */
+  fieldsEditable?: boolean;
 }
 
 export default function AnalyzeLiveResumeBody({
@@ -1071,6 +1081,9 @@ export default function AnalyzeLiveResumeBody({
   onSummarySelect,
   summaryHint,
   summaryOverride = "",
+  fieldOverrides = {},
+  onFieldEdit,
+  fieldsEditable = false,
 }: Props) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   // Tracks which bullets are in "edit textarea" mode (after accepting or choosing to write own)
@@ -1253,6 +1266,9 @@ export default function AnalyzeLiveResumeBody({
           100% { outline: 2px solid transparent; outline-offset: 8px; }
         }
         ${RESUME_BULLET_STYLESHEET}
+        .az-editable-field { border-bottom: 1px dashed transparent; transition: background 0.12s, border-color 0.12s; }
+        .az-editable-field:hover { background: rgba(33,150,243,0.06); border-bottom-color: rgba(33,150,243,0.5); cursor: text; }
+        .az-editable-field:focus { outline: none; background: rgba(33,150,243,0.08); border-bottom-color: rgba(33,150,243,0.85); }
       `}</style>
 
       {blocks.length === 0 && (
@@ -1352,11 +1368,25 @@ export default function AnalyzeLiveResumeBody({
           const inSkillsSection = sectionRole === "skills";
           const inExperienceSection = sectionRole === "experience";
           const inEducationSection = sectionRole === "education";
+          // Substitute per-field overrides into the SOURCE lines before any
+          // merge/coalesce pass, so an edit always renders even when the merged
+          // row count no longer aligns with `paths`.
+          const sourceLines = blk.paths
+            ? blk.lines.map((l, i2) => {
+                const p = blk.paths?.[i2];
+                const o = p ? fieldOverrides[p] : undefined;
+                return o ?? l;
+              })
+            : blk.lines;
           const paragraphLines = inSkillsSection
-            ? mergeWrappedSkillsLines(blk.lines)
+            ? mergeWrappedSkillsLines(sourceLines)
             : inExperienceSection
-              ? coalesceEmploymentParagraphLines(blk.lines)
-              : blk.lines;
+              ? coalesceEmploymentParagraphLines(sourceLines)
+              : sourceLines;
+          // Inline editing only when rendered rows still align 1:1 with paths
+          // (skills/experience merges can change the row count).
+          const linePaths =
+            blk.paths && paragraphLines.length === blk.lines.length ? blk.paths : undefined;
           // Professional-summary paragraph. When a rewrite has been applied
           // (summaryOverride) render it with a green "applied" tint; otherwise,
           // if flagged, an amber "needs work" callout. Both are clickable → open
@@ -1411,16 +1441,52 @@ export default function AnalyzeLiveResumeBody({
               {summaryDisplayLines.map((ln, li) => {
                 const t = ln.trim();
                 if (!t || isPlaceholderIdentityLine(ln)) return null;
+                // Inline field editing: contentEditable + commit-on-blur. An
+                // edit equal to the original (or emptied) clears the override.
+                const fieldPath = isSummaryBlock ? undefined : linePaths?.[li];
+                const fieldEdited = !!(fieldPath && fieldOverrides[fieldPath] !== undefined);
+                const fieldEditable = !!(fieldsEditable && fieldPath && onFieldEdit);
+                const editableProps = (fieldEditable
+                  ? {
+                      contentEditable: true,
+                      suppressContentEditableWarning: true,
+                      "data-field-path": fieldPath,
+                      ...(fieldEdited ? { "data-field-edited": "1" } : {}),
+                      className: "az-editable-field",
+                      title: "Click to edit — applies to preview and PDF",
+                      onBlur: (e: ReactFocusEvent<HTMLDivElement>) => {
+                        const txt = (e.currentTarget.textContent ?? "").replace(/\s+/g, " ").trim();
+                        const original = (blk.lines[li] ?? "").replace(/\s+/g, " ").trim();
+                        onFieldEdit!(fieldPath!, txt === original ? "" : txt);
+                      },
+                      onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => {
+                        if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+                        else if (e.key === "Escape") {
+                          e.preventDefault();
+                          e.currentTarget.textContent = blk.lines[li] ?? "";
+                          e.currentTarget.blur();
+                        }
+                      },
+                    }
+                  : {}) as HTMLAttributes<HTMLDivElement>;
+                const fieldEditedStyle: CSSProperties | undefined =
+                  fieldEdited && highlightsEnabled
+                    ? {
+                        background: "rgba(34,197,94,0.08)",
+                        boxShadow: "inset 2px 0 0 0 rgba(34,197,94,0.55)",
+                        borderRadius: 3,
+                      }
+                    : undefined;
                 if (looksLikeEntryHeader(t)) {
                   return (
-                    <div key={li} style={{ marginBottom: inEducationSection ? 0 : 1 }}>
+                    <div key={li} {...editableProps} style={{ marginBottom: inEducationSection ? 0 : 1, ...fieldEditedStyle }}>
                       <EntryHeaderLine line={t} />
                     </div>
                   );
                 }
                 if (inEducationSection && looksLikeEducationInstitutionLine(t)) {
                   return (
-                    <div key={li} style={{
+                    <div key={li} {...editableProps} style={{
                       fontSize: 10.65,
                       fontWeight: 700,
                       color: "var(--resume-paper-ink)",
@@ -1430,6 +1496,7 @@ export default function AnalyzeLiveResumeBody({
                       fontFamily: RESUME_BODY_FONT,
                       overflowWrap: "anywhere",
                       wordBreak: "break-word",
+                      ...fieldEditedStyle,
                     }}>
                       {renderInline(softenRunOnExtractLine(t))}
                     </div>
@@ -1448,7 +1515,7 @@ export default function AnalyzeLiveResumeBody({
                       : undefined;
                 const summaryLine = sectionRole === "summary";
                 return (
-                  <div key={li} style={{
+                  <div key={li} {...editableProps} style={{
                     fontSize: summaryLine
                       ? "var(--az-resume-body-font-size, 10px)"
                       : inEducationSection ? 10.25 : "var(--az-resume-body-font-size, 10px)",
@@ -1461,6 +1528,7 @@ export default function AnalyzeLiveResumeBody({
                     overflowWrap: "anywhere",
                     wordBreak: "break-word",
                     ...tailorHlStyle,
+                    ...fieldEditedStyle,
                   }}>
                     {inSkillsSection
                       ? renderSkillsLine(normalizeSkillsLineSpacing(t))
