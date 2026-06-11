@@ -58,6 +58,12 @@ interface Props {
   summaryHint?: string;
   /** Applied summary rewrite — replaces the summary text in the preview + PDF. */
   summaryOverride?: string;
+  /** Per-field edited text overrides, keyed by field path. */
+  fieldOverrides?: Record<string, string>;
+  /** Called when a field is edited inline. */
+  onFieldEdit?: (path: string, text: string) => void;
+  /** When true, generic fields render as inline-editable. */
+  fieldsEditable?: boolean;
   /** Open Résumé Builder; optional `referenceFolder` selects LaTeX layout (see resumeTemplates). */
   onOpenBuilder?: (opts?: { referenceFolder?: string }) => void;
   builderReady?: boolean;
@@ -397,6 +403,9 @@ export default function AnnotatedResumePanel({
   onSummarySelect,
   summaryHint,
   summaryOverride,
+  fieldOverrides,
+  onFieldEdit,
+  fieldsEditable = false,
   extractedText,
   structuredResume = null,
   structuredResumeAuthoritative = false,
@@ -1263,6 +1272,9 @@ export default function AnnotatedResumePanel({
                 onSummarySelect={onSummarySelect}
                 summaryHint={summaryHint}
                 summaryOverride={summaryOverride}
+                fieldOverrides={fieldOverrides}
+                onFieldEdit={onFieldEdit}
+                fieldsEditable={fieldsEditable}
                 presentationOnly={presentationOnly}
                 pulseBulletIndex={pulseBulletIndex}
                 categoryAssignmentOpts={categoryAssignmentOpts}
