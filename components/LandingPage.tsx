@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
+import { goToFreeScan } from "@/lib/anonScan";
 import { SITE_URL } from "@/lib/brand";
 import { LogoFull, LogoMark } from "./BrandLogo";
 import { Button } from "@/components/ui/button";
@@ -235,10 +236,10 @@ export default function LandingPage() {
 
         {/* Nav */}
         <nav className="lp-nav" style={{ display: "flex", alignItems: "center", gap: 28 }}>
-          {/* Analyze link — always visible, including on mobile */}
+          {/* Analyze link — always visible, including on mobile. Free scan, no sign-in. */}
           <button
             type="button"
-            onClick={signIn}
+            onClick={() => goToFreeScan()}
             disabled={loading}
             style={{
               background: "none", border: "none", color: T.blue,
@@ -359,12 +360,17 @@ export default function LandingPage() {
             ).
           </p>
 
-          {/* CTA row */}
+          {/* CTA row — primary goes straight to a free scan, no sign-up */}
           <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 40 }}>
-            <Button onClick={signIn} disabled={loading}
+            <Button onClick={() => goToFreeScan()}
               className="inline-flex items-center gap-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold shadow-[0_6px_24px_rgba(37,99,235,0.38)] border-0 px-8 py-3.5 text-[16px] rounded-xl"
             >
-              <GoogleG /> Get started — it&apos;s free
+              Scan your résumé free — no sign-up
+            </Button>
+            <Button variant="outline" onClick={signIn} disabled={loading}
+              className="inline-flex items-center gap-2.5 px-6 py-3 text-[15px] rounded-[10px] border-border text-[color:var(--muted)] hover:border-accent hover:text-accent bg-transparent"
+            >
+              <GoogleG /> {loading ? "Loading…" : "Sign in to save reports"}
             </Button>
             {SHOW_HOW_SECTION && (
               <Button variant="outline" onClick={() => scrollTo("how")}
@@ -636,10 +642,10 @@ export default function LandingPage() {
           <strong style={{ color: "#fff", fontWeight: 600 }}>Completely free</strong>
           {" "}— for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Tailor in 60 seconds and apply with a résumé built to earn interview callbacks.
         </p>
-        <Button onClick={signIn} disabled={loading}
+        <Button onClick={() => goToFreeScan()}
           className="inline-flex items-center gap-2.5 bg-white text-[#2563eb] hover:opacity-90 border-0 px-9 py-4 text-[18px] font-bold rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.18)] tracking-tight"
         >
-          <GoogleG /> {loading ? "Loading…" : "Get started — it's free"}
+          Scan your résumé free — no sign-up
         </Button>
       </section>
 
