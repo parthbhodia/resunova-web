@@ -31,7 +31,6 @@ export const VIEW_ICONS: Record<AppView, ReactNode> = {
 };
 
 export const VIEW_BADGES: Partial<Record<AppView, string>> = {
-  jobs: "Soon",
   "cover-letter": "Soon",
 };
 

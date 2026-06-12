@@ -25,6 +25,7 @@ import ResumeLibrary from "@/components/ResumeLibrary";
 import AnalyzeResume from "@/components/AnalyzeResume";
 import ProfilePage from "@/components/ProfilePage";
 import AdvisorDashboard from "@/components/AdvisorDashboard";
+import JobsFeed from "@/components/JobsFeed";
 
 export default function HomePageClient() {
   return (
@@ -117,7 +118,7 @@ function RouterView() {
     return (
       <ViewFill>
         <ScrollPane>
-          <PlaceholderPanel title="Jobs" subtitle="Coming soon — autoapply will live here once your profile is set up." />
+          <JobsFeed />
         </ScrollPane>
       </ViewFill>
     );
