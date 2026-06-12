@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiUrl } from "@/lib/utils";
-import type { AdminAnalyticsResponse, AdminAnalyticsToolRow, AdminAnalyticsUserRow } from "@/lib/types";
+import type { AdminAnalyticsJobsBlock, AdminAnalyticsResponse, AdminAnalyticsToolRow, AdminAnalyticsUserRow } from "@/lib/types";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -244,6 +244,212 @@ function ActivityTable({ byUser }: { byUser: Array<{ user_id: string; user_email
   );
 }
 
+// ─── jobs pipeline ───────────────────────────────────────────────────────────
+
+function fmtRelativeOrLocal(iso: string): string {
+  if (!iso) return "—";
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return iso;
+  const diffMs = Date.now() - ts;
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(ts).toLocaleString();
+}
+
+function fmtDuration(ms: number | null): string {
+  if (ms == null) return "—";
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function ScanRunsTable({ recent }: { recent: AdminAnalyticsJobsBlock["scan_runs"]["recent"] }) {
+  if (!recent.length) return <p style={{ color: "#9ca3af", fontSize: 13 }}>No scan runs recorded yet.</p>;
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <thead>
+          <tr style={{ borderBottom: "1px solid #e5e7eb", textAlign: "left" }}>
+            {["Time", "Type", "Duration", "Fetched", "+Added", "Deactivated", "Extracted", "Failures", "Errors"].map(h =>
+              <th key={h} style={{ padding: "7px 6px", color: "#6b7280", fontWeight: 500 }}>{h}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {recent.map((r, i) => (
+            <tr key={`${r.started_at}-${i}`} style={{ borderBottom: "1px solid #f1f5f9" }}>
+              <td style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>{fmtRelativeOrLocal(r.started_at)}</td>
+              <td style={{ padding: "7px 6px" }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                  background: r.skip_fetch ? "#eff6ff" : "#f0fdf4",
+                  color: r.skip_fetch ? "#2563eb" : "#16a34a",
+                  border: `1px solid ${r.skip_fetch ? "#bfdbfe" : "#bbf7d0"}`,
+                }}>
+                  {r.skip_fetch ? "Extract-only" : "Full scan"}
+                </span>
+              </td>
+              <td style={{ padding: "7px 6px", color: "#6b7280" }}>{fmtDuration(r.duration_ms)}</td>
+              <td style={{ padding: "7px 6px" }}>{fmtInt(r.fetched)}</td>
+              <td style={{ padding: "7px 6px" }}>{fmtInt(r.upserted)}</td>
+              <td style={{ padding: "7px 6px" }}>{fmtInt(r.deactivated)}</td>
+              <td style={{ padding: "7px 6px" }}>{fmtInt(r.extracted)}</td>
+              <td style={{ padding: "7px 6px", fontWeight: r.extraction_failures > 0 ? 600 : 400, color: r.extraction_failures > 0 ? "var(--amber-ink, #b45309)" : "inherit" }}>
+                {fmtInt(r.extraction_failures)}
+              </td>
+              <td style={{ padding: "7px 6px", fontWeight: r.error_count > 0 ? 600 : 400, color: r.error_count > 0 ? "var(--red-ink, #b91c1c)" : "inherit" }}>
+                {fmtInt(r.error_count)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TopCompaniesList({ companies }: { companies: AdminAnalyticsJobsBlock["engagement"]["top_companies"] }) {
+  if (!companies.length) return <p style={{ color: "#9ca3af", fontSize: 13 }}>No apply clicks yet.</p>;
+  const max = Math.max(...companies.map(c => c.applies), 1);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+      {companies.map((c, i) => (
+        <div key={`${c.company}-${i}`}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+            <span style={{ fontWeight: i < 3 ? 600 : 400 }}>{c.company}</span>
+            <span style={{ color: "#6b7280" }}>{fmtInt(c.applies)}</span>
+          </div>
+          <MiniBar value={c.applies} max={max} color="#10b981" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TopPostingsList({ postings }: { postings: AdminAnalyticsJobsBlock["engagement"]["top_postings"] }) {
+  if (!postings.length) return <p style={{ color: "#9ca3af", fontSize: 13 }}>No apply clicks yet.</p>;
+  const max = Math.max(...postings.map(p => p.applies), 1);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+      {postings.map((p, i) => (
+        <div key={`${p.title}-${p.company}-${i}`}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
+            <span style={{ fontWeight: i < 3 ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {p.title} <span style={{ color: "#9ca3af" }}>· {p.company}</span>
+            </span>
+            <span style={{ color: "#6b7280", flexShrink: 0 }}>{fmtInt(p.applies)}</span>
+          </div>
+          <MiniBar value={p.applies} max={max} color="#6366f1" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DailyJobsAddedSparkline({ daily }: { daily: AdminAnalyticsJobsBlock["scan_runs"]["daily"] }) {
+  if (!daily.length) return <p style={{ color: "#9ca3af", fontSize: 13 }}>No daily scan data yet.</p>;
+  const max = Math.max(...daily.map(d => d.jobs_added), 1);
+  const last14 = daily.slice(-14);
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 48 }}>
+        {last14.map(d => {
+          const h = Math.max(3, Math.round((48 * d.jobs_added) / max));
+          return <div key={d.date} title={`${fmtDate(d.date)}: ${d.jobs_added} added, ${d.runs} runs, ${d.extracted} extracted`}
+            style={{ flex: 1, height: h, background: "#10b981", borderRadius: "2px 2px 0 0", opacity: 0.8 }} />;
+        })}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5, fontSize: 11, color: "#9ca3af" }}>
+        <span>{fmtDate(last14[0]?.date ?? "")}</span>
+        <span>{fmtDate(last14[last14.length - 1]?.date ?? "")}</span>
+      </div>
+    </div>
+  );
+}
+
+function JobsPipelineSection({ jobs, tools }: { jobs: AdminAnalyticsJobsBlock; tools: AdminAnalyticsToolRow[] }) {
+  const extractionTool = tools.find(t => t.tool_name === "jobs_extract");
+  return (
+    <section id="jobs-pipeline" style={{ marginTop: 22 }}>
+      <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Jobs pipeline</h2>
+
+      {/* KPI strip */}
+      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
+        <KPICard title="Active postings" value={fmtInt(jobs.postings.active)} sub={`${fmtInt(jobs.postings.total)} total`} />
+        <KPICard title="Extracted" value={fmtInt(jobs.postings.extracted)} sub={`${fmtInt(jobs.postings.pending_extraction)} pending`} />
+        <KPICard title="Jobs added (window)" value={fmtInt(jobs.scan_runs.jobs_added)} sub={`${fmtInt(jobs.scan_runs.total_runs)} scan runs`} />
+        <KPICard title="Apply clicks (window)" value={fmtInt(jobs.engagement.apply_clicks)} sub={`${fmtInt(jobs.engagement.unique_appliers)} unique users`} />
+        <KPICard title="Extraction LLM tokens" value={extractionTool ? fmtK(extractionTool.tokens) : "0"}
+          sub={extractionTool ? `${fmtInt(extractionTool.runs)} runs` : "no data"} />
+      </section>
+
+      {/* Daily jobs added + sources/companies */}
+      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 22 }}>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 14, background: "#fff" }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Jobs added per day (last 14 days)</div>
+          <DailyJobsAddedSparkline daily={jobs.scan_runs.daily} />
+        </div>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 14, background: "#fff" }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Active postings by source</div>
+          {jobs.postings.by_source.length === 0
+            ? <p style={{ color: "#9ca3af", fontSize: 13 }}>No source data yet.</p>
+            : <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {jobs.postings.by_source.map(s => (
+                  <div key={s.source} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ fontWeight: 500 }}>{s.source}</span>
+                    <span style={{ color: "#6b7280" }}>{fmtInt(s.active)}</span>
+                  </div>
+                ))}
+              </div>}
+        </div>
+      </section>
+
+      {/* Scan runs table */}
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 14, background: "#fff", marginBottom: 22 }}>
+        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>Scan runs</div>
+        <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 10 }}>Most recent runs of the job-board scanner (max 20).</div>
+        <ScanRunsTable recent={jobs.scan_runs.recent} />
+      </section>
+
+      {/* Top companies by active postings */}
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 14, background: "#fff", marginBottom: 22 }}>
+        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Active postings by company (top 15)</div>
+        {jobs.postings.by_company.length === 0
+          ? <p style={{ color: "#9ca3af", fontSize: 13 }}>No company data yet.</p>
+          : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "5px 16px" }}>
+              {jobs.postings.by_company.map(c => (
+                <div key={c.company} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.company}</span>
+                  <span style={{ color: "#6b7280", flexShrink: 0, marginLeft: 8 }}>{fmtInt(c.active)}</span>
+                </div>
+              ))}
+            </div>}
+      </section>
+
+      {/* Engagement */}
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 14, background: "#fff" }}>
+        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>Engagement</div>
+        <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 10 }}>
+          {fmtInt(jobs.engagement.apply_clicks)} apply clicks · {fmtInt(jobs.engagement.saves)} saves · {fmtInt(jobs.engagement.hides)} hides (window)
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: "#6b7280" }}>Top companies by applies</div>
+            <TopCompaniesList companies={jobs.engagement.top_companies} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: "#6b7280" }}>Top postings by applies</div>
+            <TopPostingsList postings={jobs.engagement.top_postings} />
+          </div>
+        </div>
+      </section>
+    </section>
+  );
+}
+
 // ─── panel (exported) ────────────────────────────────────────────────────────
 
 interface Props {
@@ -375,6 +581,9 @@ export default function AdminAnalyticsPanel({ getAuthHeaders }: Props) {
             <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 10 }}>From <code>resume_analyses</code> — populated from day one, no token data needed.</div>
             <ActivityTable byUser={data.activity?.by_user ?? []} />
           </section>
+
+          {/* Jobs pipeline */}
+          {data.jobs && <JobsPipelineSection jobs={data.jobs} tools={data.tools} />}
         </>
       )}
     </div>

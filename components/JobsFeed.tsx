@@ -122,6 +122,25 @@ export default function JobsFeed() {
     void loadFeed();
   }, [loadFeed]);
 
+  const trackApplyClick = useCallback(async (postingId: string) => {
+    try {
+      const supabase = getSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+      await fetch(apiUrl("/api/jobs/event"), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ posting_id: postingId, event: "apply_click" }),
+        keepalive: true,
+      });
+    } catch {
+      // tracking must never break the UX
+    }
+  }, []);
+
   const visibleJobs = useMemo(() => {
     if (state.status !== "ready") return [];
     const q = search.trim().toLowerCase();
@@ -301,6 +320,7 @@ export default function JobsFeed() {
                       href={job.url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => void trackApplyClick(job.id)}
                       style={{
                         flexShrink: 0,
                         fontSize: 12.5,

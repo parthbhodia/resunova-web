@@ -276,6 +276,45 @@ export interface AdminAnalyticsUserRow {
   tools: Record<string, number>;
 }
 
+export interface AdminAnalyticsJobsBlock {
+  postings: {
+    total: number;
+    active: number;
+    extracted: number;
+    pending_extraction: number;
+    by_source: Array<{ source: string; active: number }>;
+    by_company: Array<{ company: string; active: number }>;
+  };
+  scan_runs: {
+    total_runs: number;
+    jobs_added: number;
+    deactivated: number;
+    extracted: number;
+    extraction_failures: number;
+    daily: Array<{ date: string; runs: number; jobs_added: number; extracted: number }>;
+    recent: Array<{
+      started_at: string;
+      duration_ms: number | null;
+      skip_fetch: boolean;
+      fetched: number;
+      upserted: number;
+      deactivated: number;
+      extracted: number;
+      extraction_failures: number;
+      error_count: number;
+    }>;
+  };
+  engagement: {
+    apply_clicks: number;
+    saves: number;
+    hides: number;
+    unique_appliers: number;
+    daily_applies: Array<{ date: string; applies: number }>;
+    top_companies: Array<{ company: string; applies: number }>;
+    top_postings: Array<{ title: string; company: string; applies: number }>;
+  };
+}
+
 export interface AdminAnalyticsResponse {
   window_days: number;
   summary: AdminAnalyticsSummary;
@@ -289,4 +328,5 @@ export interface AdminAnalyticsResponse {
     by_user: Array<{ user_id: string; user_email: string | null; analyses: number }>;
     daily: Array<{ date: string; analyses: number }>;
   };
+  jobs?: AdminAnalyticsJobsBlock;
 }
