@@ -51,6 +51,15 @@ const SCORE_FILTERS = [
 
 type ScoreFilterKey = (typeof SCORE_FILTERS)[number]["key"];
 
+const AGE_FILTERS = [
+  { key: "1", label: "Past 24h", days: 1 },
+  { key: "7", label: "Past week", days: 7 },
+  { key: "30", label: "Past month", days: 30 },
+  { key: "all", label: "Any age", days: 0 },
+] as const;
+
+type AgeFilterKey = (typeof AGE_FILTERS)[number]["key"];
+
 function scoreColors(score: number): { fg: string; bg: string } {
   if (score >= 70) return { fg: "var(--green-ink)", bg: "color-mix(in srgb, var(--green-ink) 12%, transparent)" };
   if (score >= 50) return { fg: "var(--amber-ink)", bg: "color-mix(in srgb, var(--amber-ink) 12%, transparent)" };
@@ -85,6 +94,7 @@ export default function JobsFeed() {
   const [search, setSearch] = useState("");
   const [remoteOnly, setRemoteOnly] = useState(false);
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
+  const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
 
   const loadFeed = useCallback(async () => {
     setState({ status: "loading" });
@@ -96,7 +106,9 @@ export default function JobsFeed() {
       const headers: Record<string, string> = session?.access_token
         ? { Authorization: `Bearer ${session.access_token}` }
         : {};
-      const resp = await fetch(apiUrl("/api/jobs/feed"), { headers });
+      const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+      const qs = days ? `?max_age_days=${days}` : "";
+      const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
         // Only the backend's explicit "no saved analysis" codes mean the user
@@ -116,7 +128,7 @@ export default function JobsFeed() {
     } catch (err) {
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
     }
-  }, []);
+  }, [ageFilter]);
 
   useEffect(() => {
     void loadFeed();
@@ -168,8 +180,27 @@ export default function JobsFeed() {
         </Button>
       </div>
 
-      {state.status === "ready" && state.jobs.length > 0 && (
+      {state.status === "ready" && (
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "18px 0 14px" }}>
+          {AGE_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setAgeFilter(f.key)}
+              style={{
+                fontSize: 12.5,
+                padding: "5px 12px",
+                borderRadius: 999,
+                border: "1px solid " + (ageFilter === f.key ? "var(--accent)" : "var(--surface2)"),
+                background: ageFilter === f.key ? "var(--accent-bg)" : "transparent",
+                color: ageFilter === f.key ? "var(--accent)" : "var(--muted)",
+                cursor: "pointer",
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+          <span style={{ width: 1, height: 18, background: "var(--surface2)" }} />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -255,9 +286,9 @@ export default function JobsFeed() {
         {state.status === "ready" && state.jobs.length === 0 && (
           <Card>
             <CardContent style={{ padding: "40px 28px", textAlign: "center" }}>
-              <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: 0 }}>No openings yet</h2>
+              <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: 0 }}>No openings in this window</h2>
               <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 0", maxWidth: 440 }}>
-                The job feed is freshly stocked by daily scans of company career boards. Check back soon.
+                Try a wider posting-age filter above — the feed is restocked by daily scans of company career boards.
               </p>
             </CardContent>
           </Card>
