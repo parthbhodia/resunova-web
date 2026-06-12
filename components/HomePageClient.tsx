@@ -28,6 +28,7 @@ import AdvisorDashboard from "@/components/AdvisorDashboard";
 import JobsFeed from "@/components/JobsFeed";
 import JobDetail from "@/components/JobDetail";
 import ApplicationTracker from "@/components/ApplicationTracker";
+import CoverLetterBuilder from "@/components/CoverLetterBuilder";
 
 export default function HomePageClient() {
   return (
@@ -129,12 +130,7 @@ function RouterView() {
   if (view === "cover-letter") {
     return (
       <ViewFill>
-        <ScrollPane>
-          <PlaceholderPanel
-            title="Cover letter builder"
-            subtitle="Coming soon — tailor cover letters to each job using the same profile and job description as your résumé."
-          />
-        </ScrollPane>
+        <CoverLetterBuilder />
       </ViewFill>
     );
   }
