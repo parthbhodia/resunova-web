@@ -1053,6 +1053,14 @@ interface Props {
   onFieldEdit?: (path: string, text: string) => void;
   /** When true, lines with a structured path render as inline-editable (Analyze only). */
   fieldsEditable?: boolean;
+  /** Currently selected section block index for box-wise editing. */
+  selectedSectionIdx?: number | null;
+  /** Callback when a section is selected (clicked). */
+  onSectionSelected?: (blockIdx: number) => void;
+  /** Per-section edited text, keyed by block index. */
+  sectionEdits?: Record<number, string>;
+  /** Update section edit for a given block index. */
+  patchSectionEdit?: (blockIdx: number, value: string | null) => void;
 }
 
 export default function AnalyzeLiveResumeBody({
@@ -1084,6 +1092,10 @@ export default function AnalyzeLiveResumeBody({
   fieldOverrides = {},
   onFieldEdit,
   fieldsEditable = false,
+  selectedSectionIdx = null,
+  onSectionSelected,
+  sectionEdits = {},
+  patchSectionEdit,
 }: Props) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   // Tracks which bullets are in "edit textarea" mode (after accepting or choosing to write own)
@@ -1344,20 +1356,86 @@ export default function AnalyzeLiveResumeBody({
 
         /* ── Section heading (Template Builder SECTION_TITLE look) ── */
         if (blk.type === "section") {
+          const isSelected = selectedSectionIdx === bi;
+          const isEditing = isSelected && sectionEdits[bi] !== undefined;
+          const editValue = sectionEdits[bi] ?? blk.text;
+
           return (
-            <div key={bi} style={{
-              marginTop: "var(--az-resume-section-margin-top, 11px)",
-              marginBottom: "var(--az-resume-section-title-margin-bottom, 6px)",
-              paddingBottom: 2,
-              borderBottom: "0.5px solid var(--resume-paper-accent)",
-              fontSize: "var(--az-resume-section-size, 10.5px)",
-              fontWeight: 700,
-              letterSpacing: "var(--az-resume-section-tracking, 1px)",
-              color: "var(--resume-paper-accent)",
-              textTransform: "uppercase",
-              fontFamily: RESUME_HEADING_FONT,
-            }}>
-              {blk.text}
+            <div
+              key={bi}
+              data-section-idx={bi}
+              onClick={() => !presentationOnly && onSectionSelected?.(bi)}
+              style={{
+                marginTop: "var(--az-resume-section-margin-top, 11px)",
+                marginBottom: "var(--az-resume-section-title-margin-bottom, 6px)",
+                paddingBottom: isSelected ? 4 : 2,
+                paddingLeft: isSelected ? 8 : 0,
+                paddingRight: isSelected ? 8 : 0,
+                paddingTop: isSelected ? 4 : 0,
+                borderBottom: isSelected && !presentationOnly
+                  ? "2px solid var(--accent)"
+                  : "0.5px solid var(--resume-paper-accent)",
+                fontSize: "var(--az-resume-section-size, 10.5px)",
+                fontWeight: 700,
+                letterSpacing: "var(--az-resume-section-tracking, 1px)",
+                color: isSelected && !presentationOnly ? "var(--accent)" : "var(--resume-paper-accent)",
+                textTransform: "uppercase",
+                fontFamily: RESUME_HEADING_FONT,
+                background: isSelected && !presentationOnly ? "rgba(var(--accent-rgb, 200, 121, 58), 0.06)" : "transparent",
+                borderRadius: isSelected ? 4 : 0,
+                cursor: presentationOnly ? "default" : "pointer",
+                transition: "all 0.15s",
+                position: "relative",
+              }}
+            >
+              {!isEditing ? (
+                <>
+                  {blk.text}
+                  {isSelected && !presentationOnly && (
+                    <span style={{
+                      marginLeft: 8,
+                      fontSize: 9,
+                      fontWeight: 600,
+                      color: "var(--muted)",
+                      fontFamily: "system-ui, sans-serif",
+                    }}>
+                      [Click to edit]
+                    </span>
+                  )}
+                </>
+              ) : (
+                <textarea
+                  autoFocus
+                  value={editValue}
+                  onChange={(e) => patchSectionEdit?.(bi, e.target.value)}
+                  onBlur={() => {
+                    if (editValue === blk.text) {
+                      patchSectionEdit?.(bi, null);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      patchSectionEdit?.(bi, null);
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    minHeight: "24px",
+                    padding: "4px 8px",
+                    borderRadius: 4,
+                    border: "1px solid var(--accent)",
+                    background: "var(--surface)",
+                    color: "var(--text)",
+                    fontSize: "var(--az-resume-section-size, 10.5px)",
+                    fontWeight: 700,
+                    fontFamily: RESUME_HEADING_FONT,
+                    letterSpacing: "var(--az-resume-section-tracking, 1px)",
+                    textTransform: "uppercase",
+                    resize: "vertical",
+                  }}
+                />
+              )}
             </div>
           );
         }

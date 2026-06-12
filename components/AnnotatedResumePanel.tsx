@@ -431,6 +431,10 @@ export default function AnnotatedResumePanel({
 }: Props) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  // Section box-wise editing: track selected section by its block index
+  const [selectedSectionIdx, setSelectedSectionIdx] = useState<number | null>(null);
+  // Section edit overrides: key = block index, value = edited section content
+  const [sectionEdits, setSectionEdits] = useState<Record<number, string>>({});
   // Style preset selector removed from the toolbar — the preview uses a fixed
   // default preset; users adjust width / size / font via the icon controls.
   const previewStyleId: PreviewStyleId = "classic";
@@ -448,6 +452,22 @@ export default function AnnotatedResumePanel({
   });
   const scrollRef = useRef<HTMLDivElement>(null);
   const paperRef = useRef<HTMLDivElement>(null);
+
+  // Callback to handle section selection from preview
+  const onSectionSelected = useCallback((blockIdx: number) => {
+    setSelectedSectionIdx(selectedSectionIdx === blockIdx ? null : blockIdx);
+  }, [selectedSectionIdx]);
+
+  // Callback to update section edit
+  const patchSectionEdit = useCallback((blockIdx: number, value: string | null) => {
+    setSectionEdits((prev) => {
+      if (value === null || value === "") {
+        const { [blockIdx]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [blockIdx]: value };
+    });
+  }, []);
 
   // HTML→Chromium PDF export (same pipeline ResumeBuilder uses for its
   // "Download PDF rendered from HTML — WYSIWYG, no LaTeX" button). The
@@ -1283,6 +1303,10 @@ export default function AnnotatedResumePanel({
                 gapFixTargetBulletIndices={gapFixTargetBulletIndices}
                 tailorAppliedBulletIndices={tailorAppliedBulletIndices}
                 highlightsEnabled={highlightsEnabled}
+                selectedSectionIdx={selectedSectionIdx}
+                onSectionSelected={onSectionSelected}
+                sectionEdits={sectionEdits}
+                patchSectionEdit={patchSectionEdit}
               />
           ) : (
           <>
