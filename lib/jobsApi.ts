@@ -93,16 +93,25 @@ export async function fetchJobDetail(id: string): Promise<JobDetail> {
 
 /** Ordered logo URL candidates for a company, best guess first.
  *
- * ATS APIs don't expose the real domain, so we try the name-derived domain
- * (e.g. anthropic.com), then the ATS-slug guess (e.g. {slug}.com). The UI
- * walks these on <img> error and falls back to a monogram if all fail.
+ * ATS APIs don't expose the real domain, so we resolve a logo from the
+ * name-derived domain (e.g. anthropic.com), then the ATS-slug guess
+ * ({slug}.com). Source = Google's favicon service (free, no token, always
+ * reachable). NOTE: Clearbit's logo API (logo.clearbit.com) was decommissioned
+ * by HubSpot — it no longer resolves, so do not use it. For crisper logos,
+ * swap to logo.dev (needs a free publishable token).
+ *
+ * Caveat: Google returns a generic globe (not a 404) for unknown domains, so
+ * the monogram fallback only triggers when there's no domain/slug at all.
  */
 export function companyLogoCandidates(companyDomain: string, slug: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   const add = (host: string) => {
     const h = host.trim().toLowerCase();
-    if (h && !seen.has(h)) { seen.add(h); out.push(`https://logo.clearbit.com/${h}`); }
+    if (h && !seen.has(h)) {
+      seen.add(h);
+      out.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64`);
+    }
   };
   if (companyDomain) add(companyDomain);
   if (slug) add(`${slug}.com`);
