@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJobDetail, companyLogoUrl, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { stashBoostHandoff, canBoost } from "@/lib/boostPrefill";
 
 type LoadState =
   | { status: "loading" }
@@ -249,6 +250,7 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 function BoostPanel({ job, onClose }: { job: JobDetailData; onClose: () => void }) {
+  const router = useRouter();
   const sections = job.resumeSections.length ? job.resumeSections : ["summary", "skills"];
   const [selected, setSelected] = useState<Set<string>>(() => new Set(sections.filter((s) => s !== "projects")));
   const [expDepth, setExpDepth] = useState<"quick" | "full">("quick");
@@ -262,6 +264,27 @@ function BoostPanel({ job, onClose }: { job: JobDetailData; onClose: () => void 
     setKeywords((prev) => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
   const total = job.injectableKeywords.length;
+  const ready = canBoost(job);
+
+  const handleGenerate = () => {
+    if (!ready) {
+      router.push("/?view=analyze");
+      return;
+    }
+    stashBoostHandoff({
+      resumeText: job.resumeText,
+      structuredResume: job.structuredResume,
+      jd: job.jdText,
+      company: job.company,
+      role: job.title,
+      sections: [...selected],
+      keywords: [...keywords],
+      notes,
+      depth: expDepth,
+    });
+    // Hand off to the existing tailor builder (intent=job prefills résumé + JD).
+    router.push("/?view=builder&flow=tailor&intent=job");
+  };
 
   return (
     <>
@@ -340,14 +363,14 @@ function BoostPanel({ job, onClose }: { job: JobDetailData; onClose: () => void 
         {/* footer */}
         <div style={{ padding: "16px 24px 20px", background: "var(--surface)", borderTop: "1px solid var(--surface2)", display: "flex", flexDirection: "column", gap: 10 }}>
           <button
-            disabled
-            title="Wiring to the tailoring engine is the next step"
-            style={{ width: "100%", padding: "14px 0", borderRadius: 11, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 600, opacity: 0.55, cursor: "not-allowed" }}
+            onClick={handleGenerate}
+            disabled={selected.size === 0 && keywords.size === 0}
+            style={{ width: "100%", padding: "14px 0", borderRadius: 11, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 600, opacity: selected.size === 0 && keywords.size === 0 ? 0.55 : 1, cursor: selected.size === 0 && keywords.size === 0 ? "not-allowed" : "pointer" }}
           >
-            Generate tailored résumé
+            {ready ? "Generate tailored résumé →" : "Scan your résumé first"}
           </button>
           <div style={{ fontSize: 11.5, color: "var(--muted)", textAlign: "center" }}>
-            {selected.size} section{selected.size === 1 ? "" : "s"} · {keywords.size} keyword{keywords.size === 1 ? "" : "s"} selected · preview before anything is saved
+            {selected.size} section{selected.size === 1 ? "" : "s"} · {keywords.size} keyword{keywords.size === 1 ? "" : "s"} selected · opens the tailor with this job loaded
           </div>
         </div>
       </div>

@@ -58,6 +58,9 @@ export type JobDetail = {
   jdText: string;
   resumeAnalysisId: string | null;
   resumeSections: string[];
+  /** Owner's latest résumé text + structured doc, for the Boost → tailor handoff. */
+  resumeText: string;
+  structuredResume: Record<string, unknown> | null;
   matched: RequirementItem[];
   missing: RequirementItem[];
   injectableKeywords: string[];
