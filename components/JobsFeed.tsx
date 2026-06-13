@@ -22,11 +22,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient, upsertUserProfile } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
+import CompanyLogo from "@/components/CompanyLogo";
 
 type FeedJob = {
   id: string;
   title: string;
   company: string;
+  companySlug?: string;
+  companyDomain?: string;
   url: string;
   location: string;
   salaryMin: number | null;
@@ -468,6 +471,7 @@ export default function JobsFeed() {
                       <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1 }}>{job.matchScore}</span>
                       <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.85 }}>MATCH</span>
                     </div>
+                    <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
                     <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                       <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
                       <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap" }}>

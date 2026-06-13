@@ -16,8 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchJobDetail, companyLogoUrl, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { stashBoostHandoff, canBoost } from "@/lib/boostPrefill";
+import CompanyLogo from "@/components/CompanyLogo";
 
 type LoadState =
   | { status: "loading" }
@@ -118,8 +119,6 @@ export default function JobDetail({ jobId }: { jobId: string }) {
 function JobBody({ job, onBoost }: { job: JobDetailData; onBoost: () => void }) {
   const salary = formatSalary(job);
   const posted = formatPostedAt(job.postedAt);
-  const logo = companyLogoUrl(job.source, job.companySlug);
-  const [logoOk, setLogoOk] = useState(true);
 
   return (
     <div style={{ display: "flex", gap: 28, alignItems: "flex-start", flexWrap: "wrap" }}>
@@ -128,14 +127,7 @@ function JobBody({ job, onBoost }: { job: JobDetailData; onBoost: () => void }) 
         <Card>
           <CardContent style={{ padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-              <div style={{ width: 64, height: 64, borderRadius: 14, overflow: "hidden", flexShrink: 0, background: "#26221f", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {logo && logoOk ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logo} alt={job.company} width={64} height={64} onError={() => setLogoOk(false)} style={{ objectFit: "contain" }} />
-                ) : (
-                  <span style={{ fontSize: 30, fontWeight: 700, color: "#ee8c5c" }}>{(job.company || "?").charAt(0).toUpperCase()}</span>
-                )}
-              </div>
+              <CompanyLogo company={job.company} companyDomain={job.companyDomain} slug={job.companySlug} size={64} radius={14} />
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
                   {posted && <Badge variant="secondary" style={{ fontSize: 11 }}>Posted {posted}</Badge>}

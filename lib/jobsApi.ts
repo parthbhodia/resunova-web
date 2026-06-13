@@ -47,6 +47,7 @@ export type JobDetail = {
   title: string;
   company: string;
   companySlug: string;
+  companyDomain: string;
   source: string;
   url: string;
   location: string;
@@ -90,13 +91,20 @@ export async function fetchJobDetail(id: string): Promise<JobDetail> {
   return resp.json();
 }
 
-/** Company logo from its careers domain — derived, no storage needed. */
-export function companyLogoUrl(source: string, slug: string): string | null {
-  if (!slug) return null;
-  const domainBySource: Record<string, (s: string) => string | null> = {
-    // We only reliably know the ATS host, not the company's own domain, so use
-    // Clearbit's name-based logo guess; the monogram fallback covers misses.
+/** Ordered logo URL candidates for a company, best guess first.
+ *
+ * ATS APIs don't expose the real domain, so we try the name-derived domain
+ * (e.g. anthropic.com), then the ATS-slug guess (e.g. {slug}.com). The UI
+ * walks these on <img> error and falls back to a monogram if all fail.
+ */
+export function companyLogoCandidates(companyDomain: string, slug: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (host: string) => {
+    const h = host.trim().toLowerCase();
+    if (h && !seen.has(h)) { seen.add(h); out.push(`https://logo.clearbit.com/${h}`); }
   };
-  void domainBySource;
-  return `https://logo.clearbit.com/${slug}.com`;
+  if (companyDomain) add(companyDomain);
+  if (slug) add(`${slug}.com`);
+  return out;
 }
