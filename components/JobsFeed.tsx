@@ -12,7 +12,7 @@
  * submits applications on the user's behalf.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,9 @@ const AGE_FILTERS = [
 
 type AgeFilterKey = (typeof AGE_FILTERS)[number]["key"];
 
+/** How many job cards to render per lazy-load page. */
+const PAGE_SIZE = 25;
+
 function scoreColors(score: number): { fg: string; bg: string } {
   if (score >= 70) return { fg: "var(--green-ink)", bg: "color-mix(in srgb, var(--green-ink) 12%, transparent)" };
   if (score >= 50) return { fg: "var(--amber-ink)", bg: "color-mix(in srgb, var(--amber-ink) 12%, transparent)" };
@@ -112,6 +115,8 @@ export default function JobsFeed() {
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [nudgeRoles, setNudgeRoles] = useState<string[]>([]);
   const [nudgeSaving, setNudgeSaving] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const toggleNudgeRole = useCallback((r: string) => {
     setNudgeRoles((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
@@ -205,6 +210,32 @@ export default function JobsFeed() {
       return true;
     });
   }, [state, search, remoteOnly, rolesOnly, scoreFilter]);
+
+  // Reset the lazy-load window whenever the filtered result set changes, so a
+  // new filter/search starts from the top instead of keeping a stale offset.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [search, remoteOnly, rolesOnly, scoreFilter, ageFilter, state.status]);
+
+  const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
+  const hasMore = visibleCount < visibleJobs.length;
+
+  // Infinite scroll: reveal the next page when the sentinel enters the viewport.
+  useEffect(() => {
+    if (!hasMore) return;
+    const node = sentinelRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((c) => c + PAGE_SIZE);
+        }
+      },
+      { rootMargin: "400px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, pagedJobs.length]);
 
   return (
     <div style={{ maxWidth: 880, margin: "0 auto", padding: "28px 20px 64px", width: "100%" }}>
@@ -434,7 +465,7 @@ export default function JobsFeed() {
 
         {state.status === "ready" && state.jobs.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {visibleJobs.map((job) => {
+            {pagedJobs.map((job) => {
               const colors = scoreColors(job.matchScore);
               const salary = formatSalary(job);
               const posted = formatPostedAt(job.postedAt);
@@ -534,6 +565,20 @@ export default function JobsFeed() {
             {visibleJobs.length === 0 && (
               <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: "28px 0" }}>
                 No openings match the current filters.
+              </p>
+            )}
+
+            {hasMore && (
+              <div ref={sentinelRef} style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
+                <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+                  Load more ({visibleJobs.length - pagedJobs.length} more)
+                </Button>
+              </div>
+            )}
+
+            {!hasMore && visibleJobs.length > PAGE_SIZE && (
+              <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "16px 0 4px" }}>
+                You&apos;ve reached the end · {visibleJobs.length} openings
               </p>
             )}
           </div>
