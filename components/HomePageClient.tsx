@@ -26,6 +26,7 @@ import AnalyzeResume from "@/components/AnalyzeResume";
 import ProfilePage from "@/components/ProfilePage";
 import AdvisorDashboard from "@/components/AdvisorDashboard";
 import JobsFeed from "@/components/JobsFeed";
+import JobDetail from "@/components/JobDetail";
 
 export default function HomePageClient() {
   return (
@@ -115,10 +116,11 @@ function RouterView() {
     );
   }
   if (view === "jobs") {
+    const jobId = (params?.get("job") || "").trim();
     return (
       <ViewFill>
         <ScrollPane>
-          <JobsFeed />
+          {jobId ? <JobDetail jobId={jobId} /> : <JobsFeed />}
         </ScrollPane>
       </ViewFill>
     );

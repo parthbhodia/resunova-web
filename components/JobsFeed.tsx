@@ -301,7 +301,11 @@ export default function JobsFeed() {
               const salary = formatSalary(job);
               const posted = formatPostedAt(job.postedAt);
               return (
-                <Card key={job.id}>
+                <Card
+                  key={job.id}
+                  onClick={() => router.push(`/?view=jobs&job=${encodeURIComponent(job.id)}`)}
+                  style={{ cursor: "pointer" }}
+                >
                   <CardContent
                     style={{
                       padding: "16px 18px",
@@ -351,7 +355,7 @@ export default function JobsFeed() {
                       href={job.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={() => void trackApplyClick(job.id)}
+                      onClick={(e) => { e.stopPropagation(); void trackApplyClick(job.id); }}
                       style={{
                         flexShrink: 0,
                         fontSize: 12.5,
