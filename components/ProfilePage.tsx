@@ -35,6 +35,21 @@ const PROFILE_PREFILL_KEY = "rn_profile_prefill";
 const EMPTY_HINT_DISMISSED_KEY = "rn_profile_empty_hint_dismissed";
 const AUTO_SAVE_DEBOUNCE_MS = 1500;
 
+const ROLE_SUGGESTIONS = [
+  "Software Engineer",
+  "Backend Engineer",
+  "Frontend Engineer",
+  "Full-Stack Engineer",
+  "Data Engineer",
+  "Data Scientist",
+  "ML Engineer",
+  "DevOps / SRE",
+  "Product Manager",
+  "Platform Engineer",
+  "iOS / Android Engineer",
+  "QA Engineer",
+];
+
 /** Lightweight validators — show inline hints on blur, never block saves. */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LINKEDIN_RE = /^(https?:\/\/)?([\w.-]+\.)?linkedin\.com\/(in|pub|company)\/[\w%\-./]+/i;
@@ -647,6 +662,14 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
   }, [form, dirty, saving, save, initPhase]);
 
   const strength = profileStrength(form);
+  const _rolesArr = form.roles.split(",").map((r) => r.trim()).filter(Boolean);
+  const hasChipRole = (r: string) => _rolesArr.some((s) => s.toLowerCase() === r.toLowerCase());
+  const toggleChipRole = (r: string) => {
+    const next = hasChipRole(r)
+      ? _rolesArr.filter((s) => s.toLowerCase() !== r.toLowerCase())
+      : [..._rolesArr, r];
+    patch({ roles: next.join(", ") });
+  };
 
   const handleObPdf = useCallback(async (file: File) => {
     setObUploadFileName(file.name);
@@ -673,9 +696,9 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
       setObUploadOk(
         filled.length
           ? initPhase === "onboarding"
-            ? `Filled ${filled.length} empty field${filled.length === 1 ? "" : "s"} from your PDF. Use “Open Profile form” below to review.`
+            ? `Filled ${filled.length} empty field${filled.length === 1 ? "" : "s"} from your PDF. Use "Open Profile form" below to review.`
             : `Filled ${filled.length} empty field${filled.length === 1 ? "" : "s"} from your PDF. Review the updated fields below.`
-          : "No new fields — those values were already filled or we couldn’t read them from this PDF.",
+          : "No new fields — those values were already filled or we couldn't read them from this PDF.",
       );
     } catch (e: unknown) {
       setObUploadErr(e instanceof Error ? e.message : String(e));
@@ -808,11 +831,13 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                   <strong style={{ color: "var(--text)" }}>From scratch</strong>).
                 </p>
 
-                <Link
-                  href="/?view=manual-form"
+                <button
+                  type="button"
                   className="rn-profile-cta-card"
+                  onClick={finishOnboarding}
                   style={{
                     display: "block",
+                    width: "100%",
                     padding: "14px 16px",
                     minHeight: 44,
                     borderRadius: "var(--radius-lg)",
@@ -821,13 +846,14 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                     color: "var(--accent)",
                     fontWeight: 600,
                     fontSize: 13,
-                    textDecoration: "none",
                     textAlign: "center",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
                     marginBottom: 16,
                   }}
                 >
-                  Manual wizard →
-                </Link>
+                  Open profile form →
+                </button>
 
                 <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>Or upload a PDF</p>
                 <input ref={obFileRef} type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleObPdf(f); e.target.value = ""; }} />
@@ -1282,13 +1308,58 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
             </Card>
 
             <Card title="Job preferences" domId="rn-profile-roles">
-              <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: "-4px 0 14px" }}>
-                What kinds of roles and locations you&apos;re searching for. Used to focus tailoring and (soon) auto-apply.
-              </p>
-              <Field label="Roles you want" hint="Comma-separated — these guide which JD keywords get emphasised.">
-                <input value={form.roles} onChange={e => patch({ roles: e.target.value })} style={inputStyle()} placeholder="Backend intern, Platform intern…" />
-              </Field>
-              <Field label="Locations" hint="Cities, regions, or “Remote”. Separators are fine — we keep it as written.">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12 }}>
+                <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
+                  Powers your <strong style={{ color: "var(--text)" }}>Jobs tab</strong> — matching openings float to the top.
+                </p>
+                <Link href="/?view=jobs" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", flexShrink: 0 }}>
+                  See Jobs →
+                </Link>
+              </div>
+
+              {/* Role chips */}
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" as const, letterSpacing: 0.7, marginBottom: 8 }}>
+                  Roles you&apos;re targeting
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                  {ROLE_SUGGESTIONS.map(r => {
+                    const active = hasChipRole(r);
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => toggleChipRole(r)}
+                        style={{
+                          padding: "5px 11px",
+                          borderRadius: 20,
+                          border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                          background: active ? "rgba(47,129,247,0.1)" : "var(--surface2)",
+                          color: active ? "var(--accent)" : "var(--text)",
+                          fontSize: 12,
+                          fontWeight: active ? 700 : 500,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          transition: "all 0.1s",
+                        }}
+                      >
+                        {active ? "✓ " : ""}{r}
+                      </button>
+                    );
+                  })}
+                </div>
+                <input
+                  value={form.roles}
+                  onChange={e => patch({ roles: e.target.value })}
+                  style={{ ...inputStyle(), fontSize: 12 }}
+                  placeholder="Or type custom roles, comma-separated…"
+                />
+                <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 5, lineHeight: 1.45 }}>
+                  Guides which JD keywords get emphasised when tailoring.
+                </div>
+              </div>
+
+              <Field label="Locations" hint={'Cities, regions, or "Remote" — separators are fine.'}>
                 <input value={form.locations} onChange={e => patch({ locations: e.target.value })} style={inputStyle()} placeholder="Remote · NYC · …" />
               </Field>
             </Card>

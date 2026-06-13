@@ -114,21 +114,6 @@ export default function JobsFeed() {
     setNudgeRoles((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
   }, []);
 
-  const handleNudgeSave = useCallback(async () => {
-    if (!nudgeRoles.length) return;
-    setNudgeSaving(true);
-    try {
-      const current = loadProfile();
-      const next = { ...current, roles: nudgeRoles.join(", ") };
-      saveProfile(next);
-      await upsertUserProfile(next);
-      setNudgeDismissed(true);
-      void loadFeed();
-    } finally {
-      setNudgeSaving(false);
-    }
-  }, [nudgeRoles, loadFeed]);
-
   const loadFeed = useCallback(async () => {
     setState({ status: "loading" });
     try {
@@ -168,6 +153,21 @@ export default function JobsFeed() {
   useEffect(() => {
     void loadFeed();
   }, [loadFeed]);
+
+  const handleNudgeSave = useCallback(async () => {
+    if (!nudgeRoles.length) return;
+    setNudgeSaving(true);
+    try {
+      const current = loadProfile();
+      const next = { ...current, roles: nudgeRoles.join(", ") };
+      saveProfile(next);
+      await upsertUserProfile(next);
+      setNudgeDismissed(true);
+      void loadFeed();
+    } finally {
+      setNudgeSaving(false);
+    }
+  }, [nudgeRoles, loadFeed]);
 
   const trackApplyClick = useCallback(async (postingId: string) => {
     // Optimistically mark as applied immediately
@@ -351,6 +351,82 @@ export default function JobsFeed() {
               </p>
             </CardContent>
           </Card>
+        )}
+
+        {state.status === "ready" && state.profileRoles.length === 0 && !nudgeDismissed && (
+          <div
+            style={{
+              marginBottom: 16,
+              borderRadius: 14,
+              border: "1.5px solid rgba(47,129,247,0.22)",
+              background: "var(--surface)",
+              padding: "18px 20px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
+                  Tell us what you&apos;re targeting
+                </div>
+                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                  We&apos;ll sort matching jobs to the top of your feed.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNudgeDismissed(true)}
+                aria-label="Dismiss"
+                style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 18, cursor: "pointer", lineHeight: 1, padding: "0 2px", flexShrink: 0 }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {ROLE_CHIPS.map((r) => {
+                const active = nudgeRoles.includes(r);
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => toggleNudgeRole(r)}
+                    style={{
+                      padding: "5px 11px",
+                      borderRadius: 20,
+                      border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                      background: active ? "rgba(47,129,247,0.1)" : "var(--surface2)",
+                      color: active ? "var(--accent)" : "var(--text)",
+                      fontSize: 12,
+                      fontWeight: active ? 700 : 500,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      transition: "all 0.1s",
+                    }}
+                  >
+                    {active ? "✓ " : ""}{r}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => { void handleNudgeSave(); }}
+              disabled={!nudgeRoles.length || nudgeSaving}
+              style={{
+                padding: "9px 20px",
+                borderRadius: 10,
+                border: "none",
+                background: nudgeRoles.length ? "var(--accent)" : "var(--surface2)",
+                color: nudgeRoles.length ? "#fff" : "var(--dim)",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: nudgeRoles.length && !nudgeSaving ? "pointer" : "default",
+                fontFamily: "inherit",
+                boxShadow: nudgeRoles.length ? "0 2px 10px rgba(47,129,247,0.28)" : "none",
+              }}
+            >
+              {nudgeSaving ? "Saving…" : "Save preferences →"}
+            </button>
+          </div>
         )}
 
         {state.status === "ready" && state.jobs.length > 0 && (
