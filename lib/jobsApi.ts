@@ -14,6 +14,34 @@ export type RequirementItem = {
   matchedText: string | null;
 };
 
+export type JobFeedItem = {
+  id: string;
+  title: string;
+  company: string;
+  url: string;
+  location: string;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryCurrency: string | null;
+  postedAt: string | null;
+  matchScore: number;
+  matchedCount: number;
+  totalRequirements: number;
+  /** True when job title contains one of the user's target roles (from profile). */
+  titleMatch: boolean;
+  /** True when job location matches one of the user's preferred locations. */
+  locationMatch: boolean;
+};
+
+export type JobFeedResponse = {
+  jobs: JobFeedItem[];
+  resumeAnalysisId: string | null;
+  generatedAt: string;
+  /** Parsed profile roles that were used for boosting, e.g. ["backend engineer"]. */
+  profileRoles: string[];
+  profileLocations: string[];
+};
+
 export type JobDetail = {
   id: string;
   title: string;

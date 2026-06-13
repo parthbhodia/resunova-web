@@ -35,13 +35,15 @@ type FeedJob = {
   matchScore: number;
   matchedCount: number;
   totalRequirements: number;
+  titleMatch: boolean;
+  locationMatch: boolean;
 };
 
 type FeedState =
   | { status: "loading" }
   | { status: "no-resume" }
   | { status: "error"; message: string }
-  | { status: "ready"; jobs: FeedJob[]; generatedAt: string };
+  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[] };
 
 const SCORE_FILTERS = [
   { key: "all", label: "All matches", min: 0 },
@@ -93,6 +95,7 @@ export default function JobsFeed() {
   const [state, setState] = useState<FeedState>({ status: "loading" });
   const [search, setSearch] = useState("");
   const [remoteOnly, setRemoteOnly] = useState(false);
+  const [rolesOnly, setRolesOnly] = useState(false);
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
   const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
 
@@ -124,6 +127,8 @@ export default function JobsFeed() {
         status: "ready",
         jobs: Array.isArray(data?.jobs) ? data.jobs : [],
         generatedAt: data?.generatedAt || "",
+        profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
+        profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
       });
     } catch (err) {
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
@@ -160,10 +165,11 @@ export default function JobsFeed() {
     return state.jobs.filter((job) => {
       if (job.matchScore < minScore) return false;
       if (remoteOnly && !`${job.location} ${job.title}`.toLowerCase().includes("remote")) return false;
+      if (rolesOnly && !job.titleMatch) return false;
       if (q && !`${job.title} ${job.company} ${job.location}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [state, search, remoteOnly, scoreFilter]);
+  }, [state, search, remoteOnly, rolesOnly, scoreFilter]);
 
   return (
     <div style={{ maxWidth: 880, margin: "0 auto", padding: "28px 20px 64px", width: "100%" }}>
@@ -240,6 +246,27 @@ export default function JobsFeed() {
           >
             Remote
           </button>
+          {state.status === "ready" && state.profileRoles.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setRolesOnly((v) => !v)}
+              title={`Jobs matching: ${state.profileRoles.join(", ")}`}
+              style={{
+                fontSize: 12.5,
+                padding: "5px 12px",
+                borderRadius: 999,
+                border: "1px solid " + (rolesOnly ? "var(--accent)" : "var(--surface2)"),
+                background: rolesOnly ? "var(--accent-bg)" : "transparent",
+                color: rolesOnly ? "var(--accent)" : "var(--muted)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              🎯 Your roles
+            </button>
+          )}
           <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: "auto" }}>
             {visibleJobs.length} of {state.jobs.length} openings
           </span>
@@ -347,6 +374,18 @@ export default function JobsFeed() {
                         {salary && (
                           <Badge variant="secondary" style={{ fontSize: 11 }}>
                             {salary}/yr
+                          </Badge>
+                        )}
+                        {job.titleMatch && (
+                          <Badge
+                            style={{
+                              fontSize: 11,
+                              background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                              color: "var(--accent)",
+                              border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+                            }}
+                          >
+                            🎯 Target role
                           </Badge>
                         )}
                       </div>
