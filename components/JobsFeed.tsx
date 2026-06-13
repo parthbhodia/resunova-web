@@ -22,7 +22,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient, upsertUserProfile } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
+import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import CompanyLogo from "@/components/CompanyLogo";
+import BoostPanel from "@/components/BoostPanel";
 
 type FeedJob = {
   id: string;
@@ -117,6 +119,25 @@ export default function JobsFeed() {
   const [nudgeSaving, setNudgeSaving] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Boost slide-over: feed cards only carry summary fields, so fetch the full
+  // job detail on demand before mounting the shared BoostPanel in place.
+  const [boostJob, setBoostJob] = useState<JobDetailData | null>(null);
+  const [boostLoadingId, setBoostLoadingId] = useState<string | null>(null);
+  const [boostError, setBoostError] = useState<string | null>(null);
+
+  const openBoost = useCallback(async (id: string) => {
+    setBoostLoadingId(id);
+    setBoostError(null);
+    try {
+      const detail = await fetchJobDetail(id);
+      setBoostJob(detail);
+    } catch (err) {
+      setBoostError(err instanceof Error ? err.message : "Couldn't load this job to boost");
+    } finally {
+      setBoostLoadingId(null);
+    }
+  }, []);
 
   const toggleNudgeRole = useCallback((r: string) => {
     setNudgeRoles((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
@@ -533,31 +554,53 @@ export default function JobsFeed() {
                         )}
                       </div>
                     </div>
-                    <a
-                      href={job.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => { e.stopPropagation(); void trackApplyClick(job.id); }}
-                      style={{
-                        flexShrink: 0,
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        padding: "7px 14px",
-                        borderRadius: 8,
-                        border: appliedIds.has(job.id)
-                          ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
-                          : "1px solid var(--surface2)",
-                        color: appliedIds.has(job.id) ? "var(--green-ink)" : "var(--text)",
-                        background: appliedIds.has(job.id)
-                          ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
-                          : "transparent",
-                        textDecoration: "none",
-                        whiteSpace: "nowrap",
-                        transition: "color 0.15s, border-color 0.15s, background 0.15s",
-                      }}
-                    >
-                      {appliedIds.has(job.id) ? "Applied ✓" : "View & apply ↗"}
-                    </a>
+                    <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 7, alignItems: "stretch" }}>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); void openBoost(job.id); }}
+                        disabled={boostLoadingId === job.id}
+                        style={{
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          padding: "7px 14px",
+                          borderRadius: 8,
+                          border: "none",
+                          background: "#c4793a",
+                          color: "#fff",
+                          cursor: boostLoadingId === job.id ? "wait" : "pointer",
+                          whiteSpace: "nowrap",
+                          opacity: boostLoadingId === job.id ? 0.7 : 1,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {boostLoadingId === job.id ? "Loading…" : "✦ Boost"}
+                      </button>
+                      <a
+                        href={job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => { e.stopPropagation(); void trackApplyClick(job.id); }}
+                        style={{
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          padding: "7px 14px",
+                          borderRadius: 8,
+                          textAlign: "center",
+                          border: appliedIds.has(job.id)
+                            ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
+                            : "1px solid var(--surface2)",
+                          color: appliedIds.has(job.id) ? "var(--green-ink)" : "var(--text)",
+                          background: appliedIds.has(job.id)
+                            ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
+                            : "transparent",
+                          textDecoration: "none",
+                          whiteSpace: "nowrap",
+                          transition: "color 0.15s, border-color 0.15s, background 0.15s",
+                        }}
+                      >
+                        {appliedIds.has(job.id) ? "Applied ✓" : "View & apply ↗"}
+                      </a>
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -584,6 +627,32 @@ export default function JobsFeed() {
           </div>
         )}
       </div>
+
+      {boostJob && <BoostPanel job={boostJob} onClose={() => setBoostJob(null)} />}
+
+      {boostError && (
+        <div
+          onClick={() => setBoostError(null)}
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 70,
+            background: "var(--surface)",
+            border: "1px solid var(--surface2)",
+            borderRadius: 10,
+            padding: "10px 16px",
+            fontSize: 13,
+            color: "var(--text)",
+            boxShadow: "0 6px 24px rgba(0,0,0,0.18)",
+            cursor: "pointer",
+            maxWidth: "90vw",
+          }}
+        >
+          ⚠️ {boostError} <span style={{ color: "var(--muted)", marginLeft: 8 }}>(tap to dismiss)</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -70,6 +70,15 @@ export type JobDetail = {
   totalRequirements: number;
 };
 
+/** Short match-quality label for a 0–100 score (null = not yet scanned). */
+export function scoreLabel(score: number | null): string {
+  if (score == null) return "SCAN TO MATCH";
+  if (score >= 70) return "STRONG MATCH";
+  if (score >= 50) return "GOOD MATCH";
+  if (score >= 30) return "PARTIAL MATCH";
+  return "LOW MATCH";
+}
+
 export async function authHeaders(): Promise<Record<string, string>> {
   try {
     const {
