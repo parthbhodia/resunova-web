@@ -474,6 +474,9 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
   const autoSaveTimerRef = useRef<number | null>(null);
   const [matchCoach, setMatchCoach] = useState<ProfileFocusContext | null>(null);
 
+  // Profile view tabs (Dashboard / Career Profile / Settings) — form-phase only.
+  const [profileTab, setProfileTab] = useState<"dashboard" | "career" | "settings">("dashboard");
+
   // Notification preferences — persisted to user_profiles.notify_prefs via
   // /api/profile/notify-prefs (which also syncs the "features" flag to Brevo).
   // localStorage is an offline fallback + instant first render.
@@ -972,6 +975,188 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
           </p>
         </header>
 
+        {/* Profile section tabs */}
+        <div
+          role="tablist"
+          aria-label="Profile sections"
+          style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)", marginBottom: 24 }}
+        >
+          {([
+            { key: "dashboard" as const, label: "Dashboard" },
+            { key: "career" as const, label: "Career Profile" },
+            { key: "settings" as const, label: "Settings" },
+          ]).map(({ key, label }) => {
+            const active = profileTab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setProfileTab(key)}
+                style={{
+                  appearance: "none",
+                  background: "none",
+                  border: "none",
+                  borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
+                  color: active ? "var(--text)" : "var(--muted)",
+                  fontWeight: active ? 700 : 500,
+                  fontSize: 14,
+                  letterSpacing: -0.2,
+                  padding: "10px 16px",
+                  marginBottom: -1,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Dashboard tab ─────────────────────────────────────────────── */}
+        {profileTab === "dashboard" && (
+          <div
+            className="rn-profile-grid"
+            style={{ display: "grid", gridTemplateColumns: "minmax(0, 360px) minmax(0, 1fr)", gap: 22, alignItems: "start" }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <ScanUsageCard />
+              <Card title="Profile strength">
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={strength}
+                  aria-label={`Profile strength ${strength}%`}
+                  style={{ height: 6, borderRadius: 99, background: "var(--surface2)", overflow: "hidden", marginBottom: 8 }}
+                >
+                  <div
+                    style={{
+                      width: `${strength}%`,
+                      height: "100%",
+                      background: strength < 40 ? "var(--red)" : strength < 70 ? "var(--amber)" : "var(--green)",
+                      borderRadius: 99,
+                      transition: "width 0.35s ease-out, background 0.35s ease-out",
+                    }}
+                  />
+                </div>
+                <div style={{ fontSize: 12, color: "var(--dim)" }}>
+                  <span style={{ color: "var(--text)", fontWeight: 600 }}>{strength}%</span>
+                  {strength < 40 ? " · just getting started" : strength < 70 ? " · keep going" : " · looking great"}
+                </div>
+                <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: "12px 0 0" }}>
+                  Fill in your{" "}
+                  <button
+                    type="button"
+                    onClick={() => setProfileTab("career")}
+                    style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}
+                  >
+                    Career Profile
+                  </button>{" "}
+                  to strengthen tailoring + job matches.
+                </p>
+              </Card>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <Card title="Quick actions">
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <a
+                    href="/?view=analyze"
+                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 13, fontWeight: 600, padding: "11px 16px", borderRadius: "var(--radius)", background: "var(--accent)", color: "#fff" }}
+                  >
+                    Analyze a résumé →
+                  </a>
+                  <a
+                    href="/?view=jobs"
+                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 13, fontWeight: 600, padding: "11px 16px", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
+                  >
+                    Browse matched jobs →
+                  </a>
+                </div>
+              </Card>
+              {importDraft ? (
+                <Card title="Imported text waiting" badge="Reference">
+                  <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: 0 }}>
+                    You have text imported from Analyze / the template builder. Open the{" "}
+                    <button
+                      type="button"
+                      onClick={() => setProfileTab("career")}
+                      style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}
+                    >
+                      Career Profile
+                    </button>{" "}
+                    tab to copy it into structured fields.
+                  </p>
+                </Card>
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        {/* ── Settings tab ──────────────────────────────────────────────── */}
+        {profileTab === "settings" && (
+          <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
+            <Card title="Email preferences">
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
+                <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: 0 }}>
+                  We&apos;ll send at most 1–2 emails per week.
+                </p>
+                {notifySaveStatus === "saving" && (
+                  <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>Saving…</span>
+                )}
+                {notifySaveStatus === "saved" && (
+                  <span style={{ fontSize: 11, color: "var(--green-ink, #047857)", fontWeight: 600, flexShrink: 0 }}>✓ Saved</span>
+                )}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {(
+                  [
+                    { key: "accountChanges" as const, label: "Email me when my account changes", sub: "password, email, profile updates" },
+                    { key: "scanLimit" as const, label: "Notify me when I reach my daily scan limit", sub: null },
+                    { key: "features" as const, label: "Tell me about new features and updates", sub: null },
+                  ] satisfies { key: keyof NotifyPrefs; label: string; sub: string | null }[]
+                ).map(({ key, label, sub }) => (
+                  <label
+                    key={key}
+                    style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={notifyPrefs[key]}
+                      onChange={() => toggleNotifyPref(key)}
+                      style={{ marginTop: 2, width: 14, height: 14, flexShrink: 0, cursor: "pointer", accentColor: "var(--accent)" }}
+                    />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", lineHeight: 1.4 }}>{label}</div>
+                      {sub && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.4 }}>{sub}</div>}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </Card>
+
+            <Card title="Visibility" badge="Soon">
+              <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, marginBottom: 12 }}>
+                Control what appears on exported PDFs and shared links.
+              </p>
+              <div style={{ opacity: 0.45, pointerEvents: "none" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, marginBottom: 10 }}>
+                  <input type="checkbox" defaultChecked readOnly /> Show phone on résumé PDFs
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                  <input type="checkbox" readOnly /> Hide full address (city only)
+                </label>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* ── Career Profile tab (the editable form) ────────────────────── */}
+        {profileTab === "career" && (
+        <>
+
         {matchCoach ? (
           <div
             role="region"
@@ -1234,60 +1419,6 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
               </div>
             </div>
 
-            <ScanUsageCard />
-
-            <Card title="Email preferences">
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
-                <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: 0 }}>
-                  We&apos;ll send at most 1–2 emails per week.
-                </p>
-                {notifySaveStatus === "saving" && (
-                  <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>Saving…</span>
-                )}
-                {notifySaveStatus === "saved" && (
-                  <span style={{ fontSize: 11, color: "var(--green-ink, #047857)", fontWeight: 600, flexShrink: 0 }}>✓ Saved</span>
-                )}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {(
-                  [
-                    { key: "accountChanges" as const, label: "Email me when my account changes", sub: "password, email, profile updates" },
-                    { key: "scanLimit" as const, label: "Notify me when I reach my daily scan limit", sub: null },
-                    { key: "features" as const, label: "Tell me about new features and updates", sub: null },
-                  ] satisfies { key: keyof NotifyPrefs; label: string; sub: string | null }[]
-                ).map(({ key, label, sub }) => (
-                  <label
-                    key={key}
-                    style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={notifyPrefs[key]}
-                      onChange={() => toggleNotifyPref(key)}
-                      style={{ marginTop: 2, width: 14, height: 14, flexShrink: 0, cursor: "pointer", accentColor: "var(--accent)" }}
-                    />
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", lineHeight: 1.4 }}>{label}</div>
-                      {sub && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.4 }}>{sub}</div>}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </Card>
-
-            <Card title="Visibility" badge="Soon">
-              <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, marginBottom: 12 }}>
-                Control what appears on exported PDFs and shared links.
-              </p>
-              <div style={{ opacity: 0.45, pointerEvents: "none" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, marginBottom: 10 }}>
-                  <input type="checkbox" defaultChecked readOnly /> Show phone on résumé PDFs
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
-                  <input type="checkbox" readOnly /> Hide full address (city only)
-                </label>
-              </div>
-            </Card>
           </div>
 
           <div>
@@ -1617,6 +1748,8 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
             </Card>
           </div>
         </div>
+        </>
+        )}
       </div>
       )}
 
