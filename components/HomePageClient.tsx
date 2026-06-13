@@ -15,7 +15,7 @@
  * `output: "export"` build, which can't enumerate runtime-minted IDs.
  */
 
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import AppShell, { useAppView } from "@/components/AppShell";
 import ResumeBuilder from "@/components/ResumeBuilder";
@@ -27,6 +27,7 @@ import ProfilePage from "@/components/ProfilePage";
 import AdvisorDashboard from "@/components/AdvisorDashboard";
 import JobsFeed from "@/components/JobsFeed";
 import JobDetail from "@/components/JobDetail";
+import ApplicationTracker from "@/components/ApplicationTracker";
 
 export default function HomePageClient() {
   return (
@@ -120,7 +121,7 @@ function RouterView() {
     return (
       <ViewFill>
         <ScrollPane>
-          {jobId ? <JobDetail jobId={jobId} /> : <JobsFeed />}
+          {jobId ? <JobDetail jobId={jobId} /> : <JobsTabShell />}
         </ScrollPane>
       </ViewFill>
     );
@@ -194,6 +195,57 @@ function ShellSkeleton() {
         width: 22, height: 22, border: "2px solid var(--surface2)", borderTopColor: "var(--accent)",
         borderRadius: "50%", animation: "spin 0.8s linear infinite",
       }} />
+    </div>
+  );
+}
+
+type JobsTab = "recommended" | "tracker";
+
+function JobsTabShell() {
+  const [tab, setTab] = useState<JobsTab>("recommended");
+  const tabs: { key: JobsTab; label: string }[] = [
+    { key: "recommended", label: "Recommended" },
+    { key: "tracker", label: "My Applications" },
+  ];
+
+  return (
+    <div style={{ width: "100%" }}>
+      {/* Tab bar */}
+      <div
+        style={{
+          maxWidth: 880,
+          margin: "0 auto",
+          padding: "20px 20px 0",
+          display: "flex",
+          gap: 8,
+          borderBottom: "1px solid var(--surface2)",
+        }}
+      >
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            style={{
+              fontSize: 13.5,
+              fontWeight: tab === t.key ? 600 : 400,
+              padding: "7px 14px",
+              borderRadius: "8px 8px 0 0",
+              border: "none",
+              borderBottom: tab === t.key ? "2px solid var(--accent)" : "2px solid transparent",
+              background: "transparent",
+              color: tab === t.key ? "var(--text)" : "var(--muted)",
+              cursor: "pointer",
+              marginBottom: -1,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {tab === "recommended" ? <JobsFeed /> : <ApplicationTracker />}
     </div>
   );
 }

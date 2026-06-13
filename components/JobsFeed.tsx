@@ -20,7 +20,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
-import { getSupabaseClient } from "@/lib/supabase";
+import { getSupabaseClient, upsertUserProfile } from "@/lib/supabase";
+import { loadProfile, saveProfile } from "@/lib/profileStorage";
 
 type FeedJob = {
   id: string;
@@ -44,6 +45,12 @@ type FeedState =
   | { status: "no-resume" }
   | { status: "error"; message: string }
   | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[] };
+
+const ROLE_CHIPS = [
+  "Software Engineer", "Backend Engineer", "Frontend Engineer", "Full-Stack Engineer",
+  "Data Engineer", "Data Scientist", "ML Engineer", "DevOps / SRE",
+  "Product Manager", "Platform Engineer", "iOS / Android Engineer", "QA Engineer",
+];
 
 const SCORE_FILTERS = [
   { key: "all", label: "All matches", min: 0 },
@@ -98,6 +105,29 @@ export default function JobsFeed() {
   const [rolesOnly, setRolesOnly] = useState(false);
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
   const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
+  const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const [nudgeRoles, setNudgeRoles] = useState<string[]>([]);
+  const [nudgeSaving, setNudgeSaving] = useState(false);
+
+  const toggleNudgeRole = useCallback((r: string) => {
+    setNudgeRoles((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
+  }, []);
+
+  const handleNudgeSave = useCallback(async () => {
+    if (!nudgeRoles.length) return;
+    setNudgeSaving(true);
+    try {
+      const current = loadProfile();
+      const next = { ...current, roles: nudgeRoles.join(", ") };
+      saveProfile(next);
+      await upsertUserProfile(next);
+      setNudgeDismissed(true);
+      void loadFeed();
+    } finally {
+      setNudgeSaving(false);
+    }
+  }, [nudgeRoles, loadFeed]);
 
   const loadFeed = useCallback(async () => {
     setState({ status: "loading" });
@@ -140,6 +170,8 @@ export default function JobsFeed() {
   }, [loadFeed]);
 
   const trackApplyClick = useCallback(async (postingId: string) => {
+    // Optimistically mark as applied immediately
+    setAppliedIds((prev) => new Set(prev).add(postingId));
     try {
       const supabase = getSupabaseClient();
       const {
@@ -154,7 +186,7 @@ export default function JobsFeed() {
         keepalive: true,
       });
     } catch {
-      // tracking must never break the UX
+      // tracking must never break the UX; keep the applied mark
     }
   }, []);
 
@@ -401,13 +433,19 @@ export default function JobsFeed() {
                         fontWeight: 600,
                         padding: "7px 14px",
                         borderRadius: 8,
-                        border: "1px solid var(--surface2)",
-                        color: "var(--text)",
+                        border: appliedIds.has(job.id)
+                          ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
+                          : "1px solid var(--surface2)",
+                        color: appliedIds.has(job.id) ? "var(--green-ink)" : "var(--text)",
+                        background: appliedIds.has(job.id)
+                          ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
+                          : "transparent",
                         textDecoration: "none",
                         whiteSpace: "nowrap",
+                        transition: "color 0.15s, border-color 0.15s, background 0.15s",
                       }}
                     >
-                      View &amp; apply ↗
+                      {appliedIds.has(job.id) ? "Applied ✓" : "View & apply ↗"}
                     </a>
                   </CardContent>
                 </Card>
