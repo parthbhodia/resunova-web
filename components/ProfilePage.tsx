@@ -474,6 +474,71 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
   const autoSaveTimerRef = useRef<number | null>(null);
   const [matchCoach, setMatchCoach] = useState<ProfileFocusContext | null>(null);
 
+  // Notification preferences — persisted to user_profiles.notify_prefs via
+  // /api/profile/notify-prefs (which also syncs the "features" flag to Brevo).
+  // localStorage is an offline fallback + instant first render.
+  type NotifyPrefs = { accountChanges: boolean; scanLimit: boolean; features: boolean };
+  const NOTIFY_DEFAULTS: NotifyPrefs = { accountChanges: true, scanLimit: false, features: false };
+  const [notifyPrefs, setNotifyPrefs] = useState<NotifyPrefs>(() => {
+    if (typeof window === "undefined") return NOTIFY_DEFAULTS;
+    try {
+      const raw = localStorage.getItem("rn_notify_prefs_v1");
+      return raw ? { ...NOTIFY_DEFAULTS, ...JSON.parse(raw) } : NOTIFY_DEFAULTS;
+    } catch { return NOTIFY_DEFAULTS; }
+  });
+  const [notifySaveStatus, setNotifySaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const notifyPrefsRef = useRef<NotifyPrefs>(notifyPrefs);
+  notifyPrefsRef.current = notifyPrefs;
+  const notifySaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load saved prefs from backend on mount (DB is source of truth; overrides localStorage).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = getSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const resp = await fetch(apiUrl("/api/profile/notify-prefs"), {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!resp.ok || cancelled) return;
+        const prefs = (await resp.json()) as NotifyPrefs;
+        const merged = { ...NOTIFY_DEFAULTS, ...prefs };
+        setNotifyPrefs(merged);
+        try { localStorage.setItem("rn_notify_prefs_v1", JSON.stringify(merged)); } catch {}
+      } catch { /* keep localStorage value already in state */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const toggleNotifyPref = useCallback((key: keyof NotifyPrefs) => {
+    const next = { ...notifyPrefsRef.current, [key]: !notifyPrefsRef.current[key] };
+    notifyPrefsRef.current = next;
+    setNotifyPrefs(next);
+    try { localStorage.setItem("rn_notify_prefs_v1", JSON.stringify(next)); } catch {}
+
+    // Debounced backend persist (also subscribes/unsubscribes from Brevo server-side).
+    setNotifySaveStatus("saving");
+    if (notifySaveTimer.current) clearTimeout(notifySaveTimer.current);
+    notifySaveTimer.current = setTimeout(async () => {
+      try {
+        const supabase = getSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const resp = await fetch(apiUrl("/api/profile/notify-prefs"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify(next),
+        });
+        setNotifySaveStatus(resp.ok ? "saved" : "idle");
+        if (resp.ok) setTimeout(() => setNotifySaveStatus("idle"), 2000);
+      } catch { setNotifySaveStatus("idle"); }
+    }, 500);
+  }, []);
+
   const dismissEmptyHint = useCallback(() => {
     setEmptyHintDismissed(true);
     if (typeof window === "undefined") return;
@@ -1170,6 +1235,45 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
             </div>
 
             <ScanUsageCard />
+
+            <Card title="Email preferences">
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
+                <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: 0 }}>
+                  We&apos;ll send at most 1–2 emails per week.
+                </p>
+                {notifySaveStatus === "saving" && (
+                  <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>Saving…</span>
+                )}
+                {notifySaveStatus === "saved" && (
+                  <span style={{ fontSize: 11, color: "var(--green-ink, #047857)", fontWeight: 600, flexShrink: 0 }}>✓ Saved</span>
+                )}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {(
+                  [
+                    { key: "accountChanges" as const, label: "Email me when my account changes", sub: "password, email, profile updates" },
+                    { key: "scanLimit" as const, label: "Notify me when I reach my daily scan limit", sub: null },
+                    { key: "features" as const, label: "Tell me about new features and updates", sub: null },
+                  ] satisfies { key: keyof NotifyPrefs; label: string; sub: string | null }[]
+                ).map(({ key, label, sub }) => (
+                  <label
+                    key={key}
+                    style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={notifyPrefs[key]}
+                      onChange={() => toggleNotifyPref(key)}
+                      style={{ marginTop: 2, width: 14, height: 14, flexShrink: 0, cursor: "pointer", accentColor: "var(--accent)" }}
+                    />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", lineHeight: 1.4 }}>{label}</div>
+                      {sub && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.4 }}>{sub}</div>}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </Card>
 
             <Card title="Visibility" badge="Soon">
               <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, marginBottom: 12 }}>
