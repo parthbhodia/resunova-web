@@ -45,7 +45,10 @@ export type Block =
    *  editable line (e.g. `edu.0.head`, `skills.2`, `extra.1.0`) — used to key
    *  `fieldOverrides`. Only the structured builder emits it; undefined = not editable. */
   | { type: "paragraph"; lines: string[]; paths?: (string | undefined)[] }
-  | { type: "bullets"; items: Array<{ rawLine: string; bulletIdx: number }> };
+  /** `path` (per item) is the stable structuredResume path of the bullet
+   *  (e.g. `exp.0.bullets.2`) — used to key `fieldOverrides` for inline bullet
+   *  editing. Undefined = not editable (legacy text-path payloads). */
+  | { type: "bullets"; items: Array<{ rawLine: string; bulletIdx: number; path?: string }> };
 
 /** Known resume section titles (full trimmed line). Strict mode avoids mistaking ALL-CAPS names for sections. */
 const KNOWN_SECTIONS =
@@ -336,13 +339,16 @@ export function buildBlocksFromStructured(
   if (headerLines.length) blocks.push({ type: "header", lines: headerLines });
 
   // Bullets block builder — fuzzy-match each bullet to its (sparse) analysis entry.
-  const pushBullets = (rawBullets: string[]) => {
+  // `pathPrefix` (e.g. `exp.0.bullets`) makes each bullet inline-editable; the
+  // post-filter index keys the override and is stable for a given input.
+  const pushBullets = (rawBullets: string[], pathPrefix?: string) => {
     const items = rawBullets
       .map((b) => _cleanBullet(b))
       .filter(Boolean)
-      .map((clean) => ({
+      .map((clean, i) => ({
         rawLine: `• ${clean}`,
         bulletIdx: findBulletIndexForLine(clean, bulletAnalysis),
+        path: pathPrefix ? `${pathPrefix}.${i}` : undefined,
       }));
     if (items.length) blocks.push({ type: "bullets", items });
   };
@@ -365,7 +371,7 @@ export function buildBlocksFromStructured(
         rows.forEach((e, ei) => {
           const head = _entryHeaderLine(e.role, e.company, e.location, e.dates);
           if (head) blocks.push({ type: "paragraph", lines: [head], paths: [`exp.${ei}.head`] });
-          pushBullets(e.bullets || []);
+          pushBullets(e.bullets || [], `exp.${ei}.bullets`);
           const techLines = _companyTechParagraphLines(_techLinesForExperience(e, techByCompany));
           if (techLines.length) blocks.push({ type: "paragraph", lines: techLines });
         });
@@ -382,7 +388,7 @@ export function buildBlocksFromStructured(
           if (head) { para.push(head); paths.push(`edu.${ei}.head`); }
           if ((e.degree || "").trim()) { para.push(e.degree.trim()); paths.push(`edu.${ei}.degree`); }
           if (para.length) blocks.push({ type: "paragraph", lines: para, paths });
-          if ((e.bullets || []).length) pushBullets(e.bullets!);
+          if ((e.bullets || []).length) pushBullets(e.bullets!, `edu.${ei}.bullets`);
         });
         return;
       }
@@ -402,7 +408,7 @@ export function buildBlocksFromStructured(
           }
           const head = _entryHeaderLine(p.name, tech);
           if (head) blocks.push({ type: "paragraph", lines: [head], paths: [`proj.${pi}.head`] });
-          pushBullets(bullets);
+          pushBullets(bullets, `proj.${pi}.bullets`);
         });
         return;
       }
@@ -528,10 +534,10 @@ function sanitizeHeaderLineArray(lines: string[]): string[] {
 
 /** PDF extract often wraps one logical bullet across lines; keep a single row per bullet index. */
 function collapseAdjacentSameBulletRows(
-  items: Array<{ rawLine: string; bulletIdx: number }>,
+  items: Array<{ rawLine: string; bulletIdx: number; path?: string }>,
   bullets: LiveBulletItem[],
-): Array<{ rawLine: string; bulletIdx: number }> {
-  const out: Array<{ rawLine: string; bulletIdx: number }> = [];
+): Array<{ rawLine: string; bulletIdx: number; path?: string }> {
+  const out: Array<{ rawLine: string; bulletIdx: number; path?: string }> = [];
 
   const isLikelyBulletContinuation = (line: string): boolean => {
     const t = normalizeForMatch(line).trim();
@@ -557,7 +563,8 @@ function collapseAdjacentSameBulletRows(
       prev.rawLine = `${prev.rawLine} ${normalizeForMatch(it.rawLine)}`.replace(/\s+/g, " ").trim();
       continue;
     }
-    out.push({ rawLine: it.rawLine, bulletIdx: it.bulletIdx });
+    // Keep the first item's path for the merged row (its stable override key).
+    out.push({ rawLine: it.rawLine, bulletIdx: it.bulletIdx, path: it.path });
   }
   return out;
 }
@@ -1356,6 +1363,13 @@ export default function AnalyzeLiveResumeBody({
 
         /* ── Section heading (Template Builder SECTION_TITLE look) ── */
         if (blk.type === "section") {
+          // Inline section editing is gated on `sectionEditable`, NOT on
+          // `presentationOnly`. The Analyze preview runs in presentation mode
+          // (full-width, clean WYSIWYG) but still opts into editing via
+          // `fieldsEditable`; flipping presentationOnly would collapse the panel
+          // to 460px (the Tailor-builder layout). Tailor keeps its incidental
+          // section editing via `!presentationOnly`.
+          const sectionEditable = fieldsEditable || !presentationOnly;
           const isSelected = selectedSectionIdx === bi;
           const isEditing = isSelected && sectionEdits[bi] !== undefined;
           const editValue = sectionEdits[bi] ?? blk.text;
@@ -1364,7 +1378,15 @@ export default function AnalyzeLiveResumeBody({
             <div
               key={bi}
               data-section-idx={bi}
-              onClick={() => !presentationOnly && onSectionSelected?.(bi)}
+              className={sectionEditable ? "az-editable-section" : undefined}
+              title={sectionEditable && !isSelected ? "Click to edit this section heading" : undefined}
+              onClick={() => {
+                if (!sectionEditable || isEditing) return;
+                // First click selects (shows the hint); a second click on an
+                // already-selected heading drops into the edit textarea.
+                if (isSelected) patchSectionEdit?.(bi, blk.text);
+                else onSectionSelected?.(bi);
+              }}
               style={{
                 marginTop: "var(--az-resume-section-margin-top, 11px)",
                 marginBottom: "var(--az-resume-section-title-margin-bottom, 6px)",
@@ -1372,27 +1394,27 @@ export default function AnalyzeLiveResumeBody({
                 paddingLeft: isSelected ? 8 : 0,
                 paddingRight: isSelected ? 8 : 0,
                 paddingTop: isSelected ? 4 : 0,
-                borderBottom: isSelected && !presentationOnly
+                borderBottom: isSelected && sectionEditable
                   ? "2px solid var(--accent)"
                   : "0.5px solid var(--resume-paper-accent)",
                 fontSize: "var(--az-resume-section-size, 10.5px)",
                 fontWeight: 700,
                 letterSpacing: "var(--az-resume-section-tracking, 1px)",
-                color: isSelected && !presentationOnly ? "var(--accent)" : "var(--resume-paper-accent)",
+                color: isSelected && sectionEditable ? "var(--accent)" : "var(--resume-paper-accent)",
                 textTransform: "uppercase",
                 fontFamily: RESUME_HEADING_FONT,
-                background: isSelected && !presentationOnly ? "rgba(var(--accent-rgb, 200, 121, 58), 0.06)" : "transparent",
+                background: isSelected && sectionEditable ? "rgba(var(--accent-rgb, 200, 121, 58), 0.06)" : "transparent",
                 borderRadius: isSelected ? 4 : 0,
-                cursor: presentationOnly ? "default" : "pointer",
+                cursor: sectionEditable ? "pointer" : "default",
                 transition: "all 0.15s",
                 position: "relative",
               }}
             >
               {!isEditing ? (
                 <>
-                  {blk.text}
-                  {isSelected && !presentationOnly && (
-                    <span style={{
+                  {sectionEdits[bi] ?? blk.text}
+                  {isSelected && sectionEditable && (
+                    <span className="az-pdf-ignore" style={{
                       marginLeft: 8,
                       fontSize: 9,
                       fontWeight: 600,
@@ -1623,7 +1645,7 @@ export default function AnalyzeLiveResumeBody({
         const bulletSectionRole = currentSectionRole(blocks, bi);
         return (
           <div key={bi} style={bulletsBlockStyle(bulletSectionRole)}>
-            {bulletRows.map(({ rawLine, bulletIdx }, ii) => {
+            {bulletRows.map(({ rawLine, bulletIdx, path }, ii) => {
               const bullet = bulletAnalysis[bulletIdx];
 
               // Neutral render for bullets with no analysis entry (bulletIdx < 0 /
@@ -1633,10 +1655,16 @@ export default function AnalyzeLiveResumeBody({
               // highlight. Keep `.az-resume-bullet` so the CSS marker + indent
               // and the PDF clean-export path still apply.
               if (!bullet) {
-                const neutralText = softenRunOnExtractLine(
-                  rawLine.replace(/^[\s•\-–—*·◦▪▸→>]+/, "").trimStart(),
-                );
-                if (!neutralText) return null;
+                const strippedRaw = rawLine.replace(/^[\s•\-–—*·◦▪▸→>]+/, "").trimStart();
+                // Inline edit: a per-bullet override (keyed by structured path)
+                // replaces the displayed text. Editing is contentEditable on the
+                // span (see editableProps) — neutral bullets have no popup/card,
+                // so there's no click conflict.
+                const bulletEdited = !!(path && fieldOverrides[path] !== undefined);
+                const bulletEditable = !!(fieldsEditable && path && onFieldEdit);
+                const neutralSource = bulletEdited ? fieldOverrides[path!] : strippedRaw;
+                const neutralText = softenRunOnExtractLine(neutralSource);
+                if (!neutralText && !bulletEditable) return null;
                 const tailorHl = highlightsEnabled && presentationOnly
                   ? tailorHighlightKind(neutralText, tailorGapFixHighlights, tailorAppliedHighlights)
                   : null;
@@ -1646,6 +1674,37 @@ export default function AnalyzeLiveResumeBody({
                     : tailorHl === "gap"
                       ? TAILOR_GAP_HIGHLIGHT
                       : undefined;
+                const bulletEditedStyle: CSSProperties | undefined =
+                  bulletEdited && highlightsEnabled
+                    ? {
+                        background: "rgba(34,197,94,0.08)",
+                        boxShadow: "inset 2px 0 0 0 rgba(34,197,94,0.55)",
+                        borderRadius: 3,
+                      }
+                    : undefined;
+                const editableSpanProps = (bulletEditable
+                  ? {
+                      contentEditable: true,
+                      suppressContentEditableWarning: true,
+                      "data-field-path": path,
+                      ...(bulletEdited ? { "data-field-edited": "1" } : {}),
+                      className: "az-editable-field",
+                      title: "Click to edit — applies to preview and PDF",
+                      onBlur: (e: ReactFocusEvent<HTMLSpanElement>) => {
+                        const txt = (e.currentTarget.textContent ?? "").replace(/\s+/g, " ").trim();
+                        const original = strippedRaw.replace(/\s+/g, " ").trim();
+                        onFieldEdit!(path!, txt === original ? "" : txt);
+                      },
+                      onKeyDown: (e: ReactKeyboardEvent<HTMLSpanElement>) => {
+                        if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+                        else if (e.key === "Escape") {
+                          e.preventDefault();
+                          e.currentTarget.textContent = strippedRaw;
+                          e.currentTarget.blur();
+                        }
+                      },
+                    }
+                  : {}) as HTMLAttributes<HTMLSpanElement>;
                 return (
                   <div
                     key={`neutral-${bi}-${ii}`}
@@ -1655,9 +1714,10 @@ export default function AnalyzeLiveResumeBody({
                       marginLeft: 0,
                       lineHeight: "var(--az-resume-line-height, 1.45)",
                       ...tailorHlStyle,
+                      ...bulletEditedStyle,
                     }}
                   >
-                    <span style={{ flex: 1, fontSize: "var(--az-resume-body-font-size, 10px)", lineHeight: "inherit", color: "var(--resume-paper-ink)", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                    <span {...editableSpanProps} style={{ flex: 1, fontSize: "var(--az-resume-body-font-size, 10px)", lineHeight: "inherit", color: "var(--resume-paper-ink)", overflowWrap: "anywhere", wordBreak: "break-word" }}>
                       {renderMetricLineWithLabel(neutralText, highlightsEnabled)}
                     </span>
                   </div>

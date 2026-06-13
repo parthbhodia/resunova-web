@@ -2400,7 +2400,7 @@ export default function AnalyzeResume() {
               summaryFlagged={summaryFlagged}
               summaryHint={summaryHint}
               onSummarySelect={() => { setSelectedBulletIndex(null); setActiveCategory("summary"); }}
-              presentationOnly={false}
+              presentationOnly
               restoredResumeNoPdfHint={historyRestoreActive}
               categoryAssignmentOpts={categoryAssignmentOpts}
             />
