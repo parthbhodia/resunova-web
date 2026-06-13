@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * BoostPanel — right-side slide-over with the 3-step in-place "Boost my résumé"
+ * BoostPanel — right-side slide-over with the 3-step in-place "Optimize my résumé"
  * flow. Shared by the job detail page (JobDetail.tsx) and the job feed cards
  * (JobsFeed.tsx) so the Boost action works the same wherever it's launched.
  *
@@ -138,7 +138,7 @@ export default function BoostPanel({ job, onClose }: { job: JobDetailData; onClo
         <div style={{ padding: "20px 24px 14px", background: "var(--surface)", borderBottom: "1px solid var(--surface2)", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <span style={{ color: "var(--accent)", fontSize: 16 }}>✦</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: "var(--text)" }}>Boost my résumé</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: "var(--text)" }}>Optimize my résumé</span>
             <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--muted)" }}>✕</button>
           </div>
           {/* stepper */}

@@ -4,7 +4,7 @@
  * JobDetail — in-place job detail view (/?view=jobs&job=<id>).
  *
  * Left: job header + full JD. Right: dark match panel (score ring, matched /
- * missing requirements, "Boost my résumé"). Clicking Boost opens a right-side
+ * missing requirements, "Optimize my résumé"). Clicking it opens a right-side
  * slide-over (BoostPanel) with a 3-step in-place flow:
  *   Step 1 — See your difference (match diff summary)
  *   Step 2 — Align (section + keyword picks)
@@ -212,7 +212,7 @@ function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void 
         onClick={onBoost}
         style={{ width: "100%", padding: "13px 0", borderRadius: 10, border: "none", background: "#c4793a", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 2 }}
       >
-        ✦ Boost my résumé
+        ✦ Optimize my résumé
       </button>
       <a
         href={job.url}

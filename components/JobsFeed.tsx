@@ -573,7 +573,7 @@ export default function JobsFeed() {
                           fontFamily: "inherit",
                         }}
                       >
-                        {boostLoadingId === job.id ? "Loading…" : "✦ Boost"}
+                        {boostLoadingId === job.id ? "Loading…" : "✦ Optimize"}
                       </button>
                       <a
                         href={job.url}
