@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import AnonReportTeaser from "@/components/AnonReportTeaser";
 import { stashAnonAnalysis, takeAnonAnalysisStash } from "@/lib/anonScan";
+import JobSearchActivationWidget, { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 // Full strongly-typed shape of the AI analysis response.
@@ -437,6 +438,8 @@ export default function AnalyzeResume() {
   const [userEmail, setUserEmail]           = useState<string | null>(null);
   /** Signed-out free-scan visitor — full report locks behind sign-in. */
   const [isAnon, setIsAnon]                 = useState(false);
+  /** Show job activation widget in sidebar after a successful scan. */
+  const [showJobActivation, setShowJobActivation] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const rewriteEdits = useResumeAnalyzeStore((s) => s.rewriteEdits);
   const patchRewrite = useResumeAnalyzeStore((s) => s.patchRewrite);
@@ -665,6 +668,7 @@ export default function AnalyzeResume() {
       const draftId = `local_${Date.now()}`;
       setActiveEditDraftId(draftId);
       setResult(resWithMeta);
+      if (!isAnon && shouldShowJobActivation()) setShowJobActivation(true);
       if (res.scanLimitStatus) {
         setScansRemaining(res.scanLimitStatus.remaining);
         const { remaining, limit } = res.scanLimitStatus;
@@ -1322,6 +1326,17 @@ export default function AnalyzeResume() {
     </>
   ) : (
     <>
+          {/* Job search activation — shown once after first scan if roles not set */}
+          {showJobActivation && (
+            <JobSearchActivationWidget
+              onActivated={(_roles, _locs) => {
+                setShowJobActivation(false);
+                setFeedbackToast("Job preferences saved — check the Jobs tab for matching openings.");
+              }}
+              onSkip={() => setShowJobActivation(false)}
+            />
+          )}
+
           {/* Local preview draft — New Scan lives in the pinned sidebar header */}
           <div style={{
             marginBottom: 12,
