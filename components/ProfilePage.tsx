@@ -1016,13 +1016,14 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                 >
                   {obUploadBusy ? "Extracting…" : "Upload PDF here"}
                 </button>
-                <Link
-                  href="/?view=manual-form"
+                <button
+                  type="button"
                   className="rn-profile-link"
-                  style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", alignSelf: "center", textDecoration: "none", padding: "8px 4px", borderRadius: "var(--radius)" }}
+                  onClick={finishOnboarding}
+                  style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", alignSelf: "center", background: "none", border: "none", padding: "8px 4px", borderRadius: "var(--radius)", cursor: "pointer", fontFamily: "inherit" }}
                 >
                   Manual wizard →
-                </Link>
+                </button>
               </div>
               <ProfilePdfUploadFeedback
                 busy={obUploadBusy}
