@@ -432,9 +432,13 @@ export default function AnnotatedResumePanel({
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   // Section box-wise editing: track selected section by its block index
+  // (transient highlight only — cleared on reorder).
   const [selectedSectionIdx, setSelectedSectionIdx] = useState<number | null>(null);
-  // Section edit overrides: key = block index, value = edited section content
-  const [sectionEdits, setSectionEdits] = useState<Record<number, string>>({});
+  // Section heading edits: key = stable section key (`experience`, `extra.0`, …)
+  // so an edited name survives a reorder. Session-only.
+  const [sectionEdits, setSectionEdits] = useState<Record<string, string>>({});
+  // Session reorder override: array of section keys in the desired order.
+  const [sectionOrderOverride, setSectionOrderOverride] = useState<string[] | null>(null);
   // Style preset selector removed from the toolbar — the preview uses a fixed
   // default preset; users adjust width / size / font via the icon controls.
   const previewStyleId: PreviewStyleId = "classic";
@@ -458,15 +462,23 @@ export default function AnnotatedResumePanel({
     setSelectedSectionIdx(selectedSectionIdx === blockIdx ? null : blockIdx);
   }, [selectedSectionIdx]);
 
-  // Callback to update section edit
-  const patchSectionEdit = useCallback((blockIdx: number, value: string | null) => {
+  // Callback to update a section heading edit (keyed by section key)
+  const patchSectionEdit = useCallback((sectionKey: string, value: string | null) => {
     setSectionEdits((prev) => {
       if (value === null || value === "") {
-        const { [blockIdx]: _, ...rest } = prev;
+        const { [sectionKey]: _omit, ...rest } = prev;
         return rest;
       }
-      return { ...prev, [blockIdx]: value };
+      return { ...prev, [sectionKey]: value };
     });
+  }, []);
+
+  // Commit a new section order from the inline up/down controls. Reordering
+  // shifts block indices, so drop any transient selection to avoid a stale
+  // highlight landing on the wrong heading.
+  const onReorderSections = useCallback((order: string[]) => {
+    setSectionOrderOverride(order);
+    setSelectedSectionIdx(null);
   }, []);
 
   // HTML→Chromium PDF export (same pipeline ResumeBuilder uses for its
@@ -1307,6 +1319,8 @@ export default function AnnotatedResumePanel({
                 onSectionSelected={onSectionSelected}
                 sectionEdits={sectionEdits}
                 patchSectionEdit={patchSectionEdit}
+                sectionOrderOverride={sectionOrderOverride}
+                onReorderSections={onReorderSections}
               />
           ) : (
           <>
