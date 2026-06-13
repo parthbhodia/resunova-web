@@ -104,7 +104,7 @@ export default function AnonReportTeaser({
       "Formatting and parsing problems applicant-tracking systems trip on.",
     ],
     ["Download the polished PDF", "WYSIWYG export of your improved résumé."],
-    ["Saved history + 5 free scans/day", "Track your score as you improve. Still completely free."],
+    ["Saved history + 3 free scans/day", "Track your score as you improve. Still completely free."],
   ];
 
   return (
