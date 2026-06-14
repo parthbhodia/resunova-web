@@ -824,6 +824,74 @@ select option { background: var(--surface); }
 .az-score-badge--strong { background: var(--az-strong-bg); color: var(--az-strong-text); border: 1px solid rgba(34,197,94,0.25); }
 .az-score-badge--accepted { background: var(--az-accepted-ai-bg); color: var(--az-strong-text); border: 1px solid rgba(34,197,94,0.35); }
 
+/* ── Inline editable fields / sections (Analyze box-wise edit) ──────────────
+   Discoverability: a dashed outline + subtle tint appears on hover so users
+   can see what's editable without clicking blindly. The committed "edited"
+   state (data-field-edited) keeps a persistent green rail. These are stripped
+   from the PDF/DOCX export via the az-pdf-ignore / cleanForExport pass. */
+.az-editable-field {
+  border-radius: 3px;
+  outline: 1px dashed transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.12s ease, background 0.12s ease;
+  cursor: text;
+}
+.az-editable-field:hover {
+  outline-color: var(--accent, #c4793a);
+  background: rgba(var(--accent-rgb, 196, 121, 58), 0.05);
+}
+.az-editable-field:focus,
+.az-editable-field:focus-visible {
+  outline: 1.5px solid var(--accent, #c4793a);
+  outline-offset: 2px;
+  background: rgba(var(--accent-rgb, 196, 121, 58), 0.06);
+}
+.az-editable-field[data-field-edited="1"] {
+  box-shadow: inset 2px 0 0 0 rgba(34, 197, 94, 0.55);
+  background: rgba(34, 197, 94, 0.08);
+}
+/* Section headings: same hover affordance, scoped so it never fights the
+   selected/edit-mode inline styles set in JS. */
+.az-editable-section:hover {
+  background: rgba(var(--accent-rgb, 196, 121, 58), 0.06) !important;
+  border-radius: 4px;
+}
+/* Up/down reorder controls — hidden until the heading is hovered/focused so
+   the clean preview isn't cluttered. Stripped from PDF via .az-pdf-ignore. */
+.az-section-move {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+.az-editable-section:hover .az-section-move,
+.az-editable-section:focus-within .az-section-move {
+  opacity: 1;
+  pointer-events: auto;
+}
+.az-section-move-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid var(--accent, #c4793a);
+  background: var(--surface, #fff);
+  color: var(--accent, #c4793a);
+  font-size: 8px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.1s ease, opacity 0.1s ease;
+}
+.az-section-move-btn:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb, 196, 121, 58), 0.14);
+}
+.az-section-move-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 /* ── Issue chips ─────────────────────────────────────────────────────────── */
 .az-chips {
   display: flex;

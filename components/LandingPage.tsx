@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
+import { goToFreeScan } from "@/lib/anonScan";
 import { SITE_URL } from "@/lib/brand";
 import { LogoFull, LogoMark } from "./BrandLogo";
 import { Button } from "@/components/ui/button";
@@ -159,6 +160,15 @@ export default function LandingPage() {
   const [error,   setError]   = useState<string | null>(null);
   const [theme, toggleTheme]  = useLandingTheme();
   const dark = theme === "dark";
+  const [showBanner, setShowBanner] = useState(false);
+  useEffect(() => {
+    const dismissed = localStorage.getItem("rn-banner-v2");
+    if (!dismissed) setShowBanner(true);
+  }, []);
+  const dismissBanner = useCallback(() => {
+    setShowBanner(false);
+    localStorage.setItem("rn-banner-v2", "1");
+  }, []);
 
   const C = {
     bg:      dark ? T.dBg      : T.bg,
@@ -217,6 +227,47 @@ export default function LandingPage() {
 
   return (
     <div style={{ background: C.bg, color: C.ink, fontFamily: "'DM Sans', -apple-system, sans-serif", minHeight: "100vh" }}>
+
+      {/* ───────────── Announcement banner ──────────────────── */}
+      {showBanner && (
+        <div style={{
+          position: "relative", zIndex: 101,
+          background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
+          padding: "11px 48px 11px 20px",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+          textAlign: "center",
+        }}>
+          <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.4 }}>
+            <span style={{ marginRight: 8, fontSize: 15 }}>✨</span>
+            <strong style={{ fontWeight: 700 }}>New:</strong>
+            {" "}AI bullet rewrites + ATS scoring — scan your résumé free, no account needed.
+            {" "}
+            <button
+              onClick={() => { goToFreeScan(); }}
+              style={{
+                background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.35)",
+                color: "#fff", borderRadius: 6, padding: "2px 10px",
+                fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                marginLeft: 6, transition: "background 0.15s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.28)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.18)"; }}
+            >Try it free →</button>
+          </span>
+          <button
+            onClick={dismissBanner}
+            aria-label="Dismiss banner"
+            style={{
+              position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
+              background: "none", border: "none", color: "rgba(255,255,255,0.6)",
+              cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4,
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
+          >×</button>
+        </div>
+      )}
 
       {/* ───────────── Header ───────────────────────────────── */}
       <header className="lp-header" style={{
@@ -347,30 +398,79 @@ export default function LandingPage() {
           </h1>
 
           <p style={{ fontSize: "var(--font-size-xl)", color: C.muted, lineHeight: 1.72, maxWidth: 480, margin: "0 0 44px", letterSpacing: -0.15 }}>
-            Paste any job description and get an AI-tailored resume in 60 seconds — with a match score, gap analysis, and ATS-safe PDF.
-            {" "}
-            <strong style={{ color: C.ink, fontWeight: 600 }}>Built to get you interview callbacks</strong>
-            {" "}— recruiter screens and phone screens that get you in the door.
-            {" "}
-            <strong style={{ color: C.ink, fontWeight: 600 }}>Completely free</strong>
-            {" "}for students and the community, without paywalls or surprise charges.
-            {" "}Sign in with Google to save analyses — we only receive your email, name, and profile picture (
-            <Link href="/privacy/" prefetch={false} style={{ color: T.blue, textDecoration: "none", fontWeight: 600 }}>Privacy Policy</Link>
-            ).
+            Upload your résumé and get an 8-dimension score, bullet-by-bullet AI rewrites, and a tailored PDF — in under 60 seconds.{" "}
+            <strong style={{ color: C.ink, fontWeight: 600 }}>No account needed. Completely free.</strong>
           </p>
 
           {/* CTA row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 40 }}>
-            <Button onClick={signIn} disabled={loading}
-              className="inline-flex items-center gap-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold shadow-[0_6px_24px_rgba(37,99,235,0.38)] border-0 px-8 py-3.5 text-[16px] rounded-xl"
-            >
-              <GoogleG /> Get started — it&apos;s free
-            </Button>
-            {SHOW_HOW_SECTION && (
-              <Button variant="outline" onClick={() => scrollTo("how")}
-                className="px-6 py-3 text-[15px] rounded-[10px] border-border text-[color:var(--muted)] hover:border-accent hover:text-accent bg-transparent"
-              >See how it works</Button>
-            )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 40, alignItems: "flex-start" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              {/* Primary — frictionless scan, no OAuth required */}
+              <button
+                onClick={() => { goToFreeScan(); }}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 10,
+                  padding: "18px 36px",
+                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                  color: "#fff", border: "none", borderRadius: 14,
+                  fontSize: 18, fontWeight: 800, letterSpacing: -0.3,
+                  cursor: "pointer", fontFamily: "inherit",
+                  boxShadow: "0 8px 32px rgba(37,99,235,0.45), 0 2px 8px rgba(37,99,235,0.20)",
+                  transition: "transform 0.15s, box-shadow 0.15s",
+                  whiteSpace: "nowrap",
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.transform = "translateY(-2px)";
+                  el.style.boxShadow = "0 12px 40px rgba(37,99,235,0.55), 0 2px 8px rgba(37,99,235,0.20)";
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.transform = "";
+                  el.style.boxShadow = "0 8px 32px rgba(37,99,235,0.45), 0 2px 8px rgba(37,99,235,0.20)";
+                }}
+              >
+                Score my résumé free
+                <span style={{ fontSize: 20, lineHeight: 1 }}>→</span>
+              </button>
+
+              {/* Secondary — sign in to save */}
+              <button
+                onClick={signIn}
+                disabled={loading}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 9,
+                  padding: "17px 28px",
+                  background: dark ? "rgba(255,255,255,0.06)" : "#fff",
+                  color: dark ? "#e6edf3" : "#0d1117",
+                  border: `1.5px solid ${dark ? "rgba(255,255,255,0.14)" : "#d0d7de"}`,
+                  borderRadius: 14,
+                  fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
+                  cursor: loading ? "wait" : "pointer", fontFamily: "inherit",
+                  boxShadow: dark ? "none" : "0 2px 8px rgba(13,17,23,0.06)",
+                  transition: "border-color 0.15s, box-shadow 0.15s",
+                  opacity: loading ? 0.7 : 1,
+                  whiteSpace: "nowrap",
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.borderColor = T.blue;
+                  el.style.boxShadow = `0 0 0 3px ${T.blueGlow}`;
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.borderColor = dark ? "rgba(255,255,255,0.14)" : "#d0d7de";
+                  el.style.boxShadow = dark ? "none" : "0 2px 8px rgba(13,17,23,0.06)";
+                }}
+              >
+                <GoogleG /> {loading ? "Loading…" : "Sign in with Google"}
+              </button>
+            </div>
+
+            {/* Trust micro-copy */}
+            <p style={{ fontSize: 13, color: C.muted, margin: 0, letterSpacing: -0.1 }}>
+              No account needed to score &nbsp;·&nbsp; Sign in to save your analysis &nbsp;·&nbsp; Always free
+            </p>
           </div>
 
           {error && <p style={{ fontSize: "var(--font-size-base)", color: "#f85149", marginBottom: 16 }}>{error}</p>}
@@ -457,6 +557,8 @@ export default function LandingPage() {
         C={C}
         wide
         animationOnly={!SHOW_LANDING_CARDS}
+        ctaLabel="Fix my bullets free"
+        ctaHref="/?view=analyze"
       >
         <VariantB embedded />
       </LandingPreviewSection>
@@ -490,6 +592,8 @@ export default function LandingPage() {
         C={C}
         wide
         animationOnly={!SHOW_LANDING_CARDS}
+        ctaLabel="Scan my résumé free"
+        ctaHref="/?view=analyze"
       >
         <VariantE embedded />
       </LandingPreviewSection>
@@ -526,9 +630,122 @@ export default function LandingPage() {
         bg={C.surface}
         wide
         animationOnly={!SHOW_LANDING_CARDS}
+        ctaLabel="Tailor my résumé now"
+        ctaHref="/?view=analyze"
       >
         <VariantD embedded />
       </LandingPreviewSection>
+
+      {/* ───────────── Jobs section ──────────────────────────── */}
+      <section style={{ padding: "100px 40px", maxWidth: 1200, margin: "0 auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }} className="lp-jobs-grid">
+
+          {/* Left — copy + features */}
+          <div>
+            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 16px" }}>
+              Your job search, upgraded
+            </p>
+            <h2 style={{ fontSize: "clamp(28px, 3.5vw, 42px)", fontWeight: 800, lineHeight: 1.15, letterSpacing: -1, margin: "0 0 20px", color: C.ink }}>
+              Find jobs that fit —<br />before you apply.
+            </h2>
+            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.7, margin: "0 0 40px" }}>
+              A scored, profile-aware feed so you spend time on the roles most likely to call you back.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 40 }}>
+              {([
+                {
+                  svg: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+                  bg: "rgba(37,99,235,0.10)", color: T.blue, title: "Role-matched feed", desc: "Postings scored against your saved target roles and preferred locations.",
+                },
+                {
+                  svg: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>,
+                  bg: "rgba(22,163,74,0.10)", color: "#16a34a", title: "Résumé match score", desc: "See exactly how well your résumé fits each job before you write a word.",
+                },
+                {
+                  svg: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h0"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>,
+                  bg: "rgba(217,119,6,0.10)", color: "#d97706", title: "One-click tailor", desc: "Paste the posting, close keyword gaps, and download a tailored PDF.",
+                },
+                {
+                  svg: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>,
+                  bg: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: C.muted, title: "Track applications", desc: "Save jobs, track your status, never lose a follow-up.",
+                },
+              ] as Array<{ svg: React.ReactNode; bg: string; color: string; title: string; desc: string }>).map(({ svg, bg, color, title, desc }) => (
+                <div key={title} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, color }}>
+                    {svg}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "var(--font-size-base)", fontWeight: 700, color: C.ink, marginBottom: 3 }}>{title}</div>
+                    <div style={{ fontSize: "var(--font-size-sm)", color: C.muted, lineHeight: 1.6 }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => { window.location.href = "/?view=jobs"; }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "14px 28px",
+                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                color: "#fff", border: "none", borderRadius: 12,
+                fontSize: "var(--font-size-base)", fontWeight: 700,
+                cursor: "pointer", fontFamily: "inherit",
+                boxShadow: "0 4px 20px rgba(37,99,235,0.35)",
+                transition: "transform 0.15s, box-shadow 0.15s",
+              }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.boxShadow = "0 8px 28px rgba(37,99,235,0.45)"; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.boxShadow = "0 4px 20px rgba(37,99,235,0.35)"; }}
+            >
+              Browse matched jobs <span style={{ fontSize: 18 }}>→</span>
+            </button>
+          </div>
+
+          {/* Right — job card stack */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+
+            {/* Top card — featured / target role */}
+            {[
+              { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>, title: "Software Engineer II", company: "Google · Remote · Full-time", match: 91, target: true, featured: true, opacity: 1 },
+              { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z" fill="#635BFF"/></svg>, title: "Backend Engineer", company: "Stripe · New York · Full-time", match: 78, target: false, featured: false, opacity: 0.78 },
+              { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z" fill="#1877F2"/></svg>, title: "Product Manager", company: "Meta · Menlo Park · Full-time", match: 44, target: false, featured: false, opacity: 0.38 },
+            ].map(({ logo, title, company, match, target, featured, opacity }) => (
+              <div key={title} style={{
+                background: C.surface,
+                border: featured ? `2px solid ${T.blue}` : `1px solid ${C.border}`,
+                borderRadius: 14,
+                padding: "16px 18px",
+                display: "flex", alignItems: "center", gap: 14,
+                opacity,
+                transition: "opacity 0.2s",
+              }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: C.bg2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {logo}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" as const }}>
+                    <span style={{ fontSize: "var(--font-size-base)", fontWeight: 700, color: C.ink }}>{title}</span>
+                    {target && (
+                      <span style={{ background: "rgba(37,99,235,0.10)", color: T.blue, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        <i className="ti ti-target" style={{ fontSize: 11 }} aria-hidden="true" /> Target role
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: "var(--font-size-sm)", color: C.muted, margin: "0 0 8px" }}>{company}</p>
+                  <div style={{ height: 4, background: C.bg2, borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${match}%`, background: match >= 70 ? "#16a34a" : match >= 50 ? "#d97706" : C.muted, borderRadius: 99, transition: "width 0.6s ease" }} />
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: match >= 70 ? "#16a34a" : match >= 50 ? "#d97706" : C.muted, lineHeight: 1 }}>{match}</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>match</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* ───────────── Research & data approach ─────────────── */}
       <section id="approach" style={{ padding: "100px 40px", maxWidth: 1200, margin: "0 auto", scrollMarginTop: 76 }}>
@@ -627,20 +844,112 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ───────────── Post-logos CTA nudge ─────────────────── */}
+      <div style={{ background: C.bg2, borderBottom: `1px solid ${C.border}`, padding: "36px 40px", textAlign: "center" }}>
+        <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, margin: "0 0 18px", fontWeight: 500 }}>
+          Is your résumé ready for these companies?
+        </p>
+        <button
+          onClick={() => { goToFreeScan(); }}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            padding: "14px 32px",
+            background: T.blue, color: "#fff",
+            border: "none", borderRadius: 12,
+            fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
+            cursor: "pointer", fontFamily: "inherit",
+            boxShadow: "0 4px 20px rgba(37,99,235,0.35)",
+            transition: "transform 0.15s, box-shadow 0.15s",
+          }}
+          onMouseEnter={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.transform = "translateY(-2px)";
+            el.style.boxShadow = "0 8px 28px rgba(37,99,235,0.5)";
+          }}
+          onMouseLeave={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.transform = "";
+            el.style.boxShadow = "0 4px 20px rgba(37,99,235,0.35)";
+          }}
+        >
+          Check my résumé score — it&apos;s free <span style={{ fontSize: 18 }}>→</span>
+        </button>
+      </div>
+
       {/* ───────────── Final CTA ────────────────────────────── */}
-      <section style={{ background: T.blue, padding: "100px 40px", textAlign: "center" }}>
+      <section style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>
         <h2 style={{ fontSize: "clamp(40px, 5.5vw, 68px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", color: "#fff", margin: "0 0 20px" }}>
           Your next interview<br />starts here.
         </h2>
-        <p style={{ fontSize: "var(--font-size-xl)", color: "rgba(255,255,255,0.78)", margin: "0 0 44px", lineHeight: 1.65, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
-          <strong style={{ color: "#fff", fontWeight: 600 }}>Completely free</strong>
-          {" "}— for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Tailor in 60 seconds and apply with a résumé built to earn interview callbacks.
+        <p style={{ fontSize: "var(--font-size-xl)", color: "rgba(255,255,255,0.82)", margin: "0 0 44px", lineHeight: 1.65, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
+          <strong style={{ color: "#fff", fontWeight: 700 }}>Completely free</strong>
+          {" "}— for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Tailor in 60 seconds and apply with a résumé built to earn callbacks.
         </p>
-        <Button onClick={signIn} disabled={loading}
-          className="inline-flex items-center gap-2.5 bg-white text-[#2563eb] hover:opacity-90 border-0 px-9 py-4 text-[18px] font-bold rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.18)] tracking-tight"
-        >
-          <GoogleG /> {loading ? "Loading…" : "Get started — it's free"}
-        </Button>
+
+        {/* Dual CTA */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+          <button
+            onClick={() => { goToFreeScan(); }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 10,
+              padding: "18px 40px",
+              background: "#fff", color: T.blue,
+              border: "none", borderRadius: 14,
+              fontSize: 18, fontWeight: 800, letterSpacing: -0.3,
+              cursor: "pointer", fontFamily: "inherit",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.20)",
+              transition: "transform 0.15s, box-shadow 0.15s",
+              whiteSpace: "nowrap",
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.transform = "translateY(-2px)";
+              el.style.boxShadow = "0 12px 40px rgba(0,0,0,0.28)";
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.transform = "";
+              el.style.boxShadow = "0 8px 32px rgba(0,0,0,0.20)";
+            }}
+          >
+            Score my résumé free <span style={{ fontSize: 20 }}>→</span>
+          </button>
+
+          <button
+            onClick={signIn}
+            disabled={loading}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 9,
+              padding: "17px 30px",
+              background: "rgba(255,255,255,0.12)",
+              color: "#fff",
+              border: "1.5px solid rgba(255,255,255,0.30)",
+              borderRadius: 14,
+              fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
+              cursor: loading ? "wait" : "pointer", fontFamily: "inherit",
+              transition: "background 0.15s, border-color 0.15s",
+              whiteSpace: "nowrap",
+              opacity: loading ? 0.7 : 1,
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "rgba(255,255,255,0.22)";
+              el.style.borderColor = "rgba(255,255,255,0.50)";
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "rgba(255,255,255,0.12)";
+              el.style.borderColor = "rgba(255,255,255,0.30)";
+            }}
+          >
+            <GoogleG /> {loading ? "Loading…" : "Sign in with Google"}
+          </button>
+        </div>
+
+        {/* Micro-copy */}
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", margin: 0 }}>
+          No credit card &nbsp;·&nbsp; No paywall &nbsp;·&nbsp; Cancel-nothing
+        </p>
       </section>
 
       {/* ───────────── Footer ───────────────────────────────── */}
@@ -728,6 +1037,7 @@ export default function LandingPage() {
           .lp-rev-grid  { grid-template-columns: 1fr !important; }
           .lp-platform-grid { grid-template-columns: 1fr !important; }
           .lp-approach-grid { grid-template-columns: 1fr !important; }
+          .lp-jobs-grid { grid-template-columns: 1fr !important; }
           .lp-hero-h1   { font-size: 48px !important; }
         }
         @media (max-width: 640px) {
@@ -769,6 +1079,8 @@ function LandingPreviewSection({
   wide = false,
   bg,
   animationOnly = false,
+  ctaLabel,
+  ctaHref,
   C,
   children,
 }: {
@@ -780,6 +1092,8 @@ function LandingPreviewSection({
   wide?: boolean;
   bg?: string;
   animationOnly?: boolean;
+  ctaLabel?: string;
+  ctaHref?: string;
   C: Record<string, string>;
   children: React.ReactNode;
 }) {
@@ -817,6 +1131,37 @@ function LandingPreviewSection({
           }}>{desc}</p>
         ) : null}
         {children}
+        {ctaLabel && ctaHref && (
+          <div style={{ marginTop: 36, textAlign: animationOnly ? "center" : undefined }}>
+            <button
+              onClick={() => { ctaHref === "/?view=analyze" ? goToFreeScan() : (window.location.href = ctaHref); }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "13px 28px",
+                background: dark ? "rgba(255,255,255,0.10)" : T.blue,
+                color: "#fff",
+                border: dark ? "1.5px solid rgba(255,255,255,0.20)" : "none",
+                borderRadius: 12,
+                fontSize: 15, fontWeight: 700, letterSpacing: -0.2,
+                cursor: "pointer", fontFamily: "inherit",
+                boxShadow: dark ? "none" : "0 4px 20px rgba(37,99,235,0.35)",
+                transition: "transform 0.15s, box-shadow 0.15s",
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.transform = "translateY(-1px)";
+                el.style.boxShadow = dark ? "none" : "0 8px 28px rgba(37,99,235,0.45)";
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.transform = "";
+                el.style.boxShadow = dark ? "none" : "0 4px 20px rgba(37,99,235,0.35)";
+              }}
+            >
+              {ctaLabel} <span style={{ fontSize: 17 }}>→</span>
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

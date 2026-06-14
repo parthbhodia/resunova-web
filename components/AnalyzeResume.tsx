@@ -35,6 +35,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
+import AnonReportTeaser from "@/components/AnonReportTeaser";
+import { stashAnonAnalysis, takeAnonAnalysisStash } from "@/lib/anonScan";
+import JobSearchActivationWidget, { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 // Full strongly-typed shape of the AI analysis response.
@@ -433,6 +436,10 @@ export default function AnalyzeResume() {
   const [azHistory, setAzHistory]           = useState<AnalyzeRecord[]>([]);
   const [userId, setUserId]                 = useState<string | null>(null);
   const [userEmail, setUserEmail]           = useState<string | null>(null);
+  /** Signed-out free-scan visitor — full report locks behind sign-in. */
+  const [isAnon, setIsAnon]                 = useState(false);
+  /** Show job activation widget in sidebar after a successful scan. */
+  const [showJobActivation, setShowJobActivation] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const rewriteEdits = useResumeAnalyzeStore((s) => s.rewriteEdits);
   const patchRewrite = useResumeAnalyzeStore((s) => s.patchRewrite);
@@ -461,7 +468,21 @@ export default function AnalyzeResume() {
   useEffect(() => {
     const supabase = getSupabaseClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user?.id) { setLoadingHistory(false); return; }
+      if (!user?.id) {
+        setIsAnon(true);
+        setLoadingHistory(false);
+        // Anonymous quota (per-IP) so the remaining count still shows.
+        fetch(apiUrl("/api/scan-limit-status"))
+          .then(r => r.json())
+          .then((data: Record<string, unknown>) => {
+            if (data.enforced && !data.unlimited && typeof data.remaining === "number") {
+              setScansRemaining(data.remaining as number);
+            }
+          })
+          .catch(() => { /* non-critical */ });
+        return;
+      }
+      setIsAnon(false);
       setUserId(user.id);
       setUserEmail(user.email ?? null);
       // Seed from localStorage immediately so UI isn't empty while fetching
@@ -489,6 +510,18 @@ export default function AnalyzeResume() {
       }
     });
   }, []);
+
+  // Anonymous flow: keep the finished scan in localStorage at all times so the
+  // OAuth redirect (full page unload) can't lose it. One stash, overwritten on
+  // each new anonymous result.
+  useEffect(() => {
+    if (!isAnon || !result) return;
+    const label =
+      result.resumeHeader?.[0]?.trim() ||
+      result.structuredResume?.full_name?.trim() ||
+      "Resume";
+    stashAnonAnalysis(label, result);
+  }, [isAnon, result]);
 
   // Cycle loader steps and coach tips while analysis runs
   useEffect(() => {
@@ -573,6 +606,26 @@ export default function AnalyzeResume() {
     } catch { /* DB save failed — localStorage copy is still intact */ }
   }, [userId, azHistory]);
 
+  // After sign-in lands (fresh mount post-OAuth), restore the stashed anonymous
+  // scan: the user arrives on their already-finished, now-unlocked report and
+  // it persists to their history like any signed-in scan.
+  useEffect(() => {
+    if (!userId) return;
+    const stash = takeAnonAnalysisStash();
+    if (!stash) return;
+    const res = mergeAnalyzeApiJson(stash.result) as unknown as AnalysisResult;
+    if (typeof res?.overallScore !== "number") return;
+    const resWithMeta: AnalysisResult = { ...res, libraryFolder: null };
+    const draftId = `local_${Date.now()}`;
+    setActiveEditDraftId(draftId);
+    setResult(resWithMeta);
+    setFeedbackToast("Report unlocked — saved to your history.");
+    void persistResult(stash.label, resWithMeta, draftId);
+    // persistResult is intentionally omitted: this must run exactly once when
+    // the session lands, and the stash read is one-shot either way.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
   const run = useCallback(async (file: File) => {
     setLoading(true);
     setError(null);
@@ -601,9 +654,11 @@ export default function AnalyzeResume() {
       if (!resp.ok) {
         if (resp.status === 429 && json?.code === "daily_scan_limit_reached") {
           const limit = Number(json?.limit);
-          const freeLimit = Number.isFinite(limit) && limit > 0 ? limit : 5;
+          const freeLimit = Number.isFinite(limit) && limit > 0 ? limit : 3;
           setFeedbackToast(
-            `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
+            json?.reason === "anonymous_daily_ip_limit"
+              ? "Free scans used for today — sign in (it's free) for 3 scans/day and saved reports."
+              : `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
           );
         }
         throw new Error(json.error || "Analysis failed");
@@ -613,6 +668,7 @@ export default function AnalyzeResume() {
       const draftId = `local_${Date.now()}`;
       setActiveEditDraftId(draftId);
       setResult(resWithMeta);
+      if (!isAnon && shouldShowJobActivation()) setShowJobActivation(true);
       if (res.scanLimitStatus) {
         setScansRemaining(res.scanLimitStatus.remaining);
         const { remaining, limit } = res.scanLimitStatus;
@@ -1270,6 +1326,17 @@ export default function AnalyzeResume() {
     </>
   ) : (
     <>
+          {/* Job search activation — shown once after first scan if roles not set */}
+          {showJobActivation && (
+            <JobSearchActivationWidget
+              onActivated={(_roles, _locs) => {
+                setShowJobActivation(false);
+                setFeedbackToast("Job preferences saved — check the Jobs tab for matching openings.");
+              }}
+              onSkip={() => setShowJobActivation(false)}
+            />
+          )}
+
           {/* Local preview draft — New Scan lives in the pinned sidebar header */}
           <div style={{
             marginBottom: 12,
@@ -1535,6 +1602,22 @@ export default function AnalyzeResume() {
           )}
     </>
   );
+
+  // Anonymous visitor with a finished scan: show the score teaser with the
+  // full report locked behind sign-in (the result is stashed for the OAuth
+  // round-trip by the effect above). The upload/loading states fall through to
+  // the normal flow below.
+  if (isAnon && result && !loading) {
+    return (
+      <AnonReportTeaser
+        result={result}
+        onNewScan={() => {
+          setResult(null);
+          setError(null);
+        }}
+      />
+    );
+  }
 
   return (
     <div

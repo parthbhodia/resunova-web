@@ -95,6 +95,8 @@ export default function AnalyzePreviewPane({
     snapBullets != null && snapBullets.length > 0 ? snapBullets : bulletsStore;
   const lineOverrides = useResumeAnalyzeStore((s) => s.lineOverrides);
   const summaryOverride = useResumeAnalyzeStore((s) => s.summaryOverride);
+  const fieldOverrides = useResumeAnalyzeStore((s) => s.fieldOverrides);
+  const setFieldOverride = useResumeAnalyzeStore((s) => s.setFieldOverride);
   const pulseToken = useResumeAnalyzeStore((s) => s.pulseToken);
   const pulseBulletIndex = useResumeAnalyzeStore((s) => s.pulseBulletIndex);
   const clearPulse = useResumeAnalyzeStore((s) => s.clearPulse);
@@ -130,6 +132,9 @@ export default function AnalyzePreviewPane({
       onSummarySelect={onSummarySelect}
       summaryHint={summaryHint}
       summaryOverride={summaryOverride}
+      fieldOverrides={fieldOverrides}
+      onFieldEdit={setFieldOverride}
+      fieldsEditable={true}
       presentationOnly={presentationOnly}
       onOpenBuilder={onOpenBuilder}
       builderReady={builderReady}

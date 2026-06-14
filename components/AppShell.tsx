@@ -10,6 +10,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { UmbcProvider } from "@/contexts/UmbcContext";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
+import { signInWithGoogle } from "@/lib/anonScan";
 import { getSupabaseClient } from "@/lib/supabase";
 import { apiUrl } from "@/lib/utils";
 import { isUmbcUser } from "@/lib/userDomainDetection";
@@ -97,6 +98,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     flowRaw === "template" ? "template" : "tailor";
   const [layoutOnlyForNav, setLayoutOnlyForNav] = useState(readBuilderLayoutOnlyFlag);
   const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [isUmbc, setIsUmbc] = useState(false);
   const [theme, toggleTheme] = useTheme();
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -156,6 +158,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       const currentUser = data.session?.user ?? null;
       setUser(currentUser);
+      setAuthChecked(true);
       setIsUmbc(isUmbcUser(currentUser?.email));
       void syncAdvisorAccess(data.session?.access_token);
       void syncInstitutionStudent(currentUser?.email, data.session?.access_token);
@@ -204,6 +207,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
     void signOutAndReturnHome();
   };
 
+  // Anonymous free-scan visitor (AuthGate let them in via /?view=analyze):
+  // locked nav items route to Google sign-in instead of their views.
+  const anonMode = authChecked && !user;
+  const onSignIn = () => {
+    void signInWithGoogle();
+  };
+
   const initial = (user?.email || "?").charAt(0).toUpperCase();
   const builderActive = active === "builder" || onTemplateBuilderPage;
   const navBuilderSubflow: "tailor" | "template" = onTemplateBuilderPage
@@ -246,6 +256,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 onSwitchView={switchView}
                 onGoBuilderFlow={goBuilderFlow}
                 onSignOut={onSignOut}
+                anonMode={anonMode}
+                onSignIn={onSignIn}
               />
             )}
 
@@ -270,6 +282,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
               onSignOut={onSignOut}
               userInitial={initial}
               advisorAllowed={advisorAllowed}
+              anonMode={anonMode}
+              onSignIn={onSignIn}
             />
             <BugReportDialog open={mobileBugReportOpen} onOpenChange={setMobileBugReportOpen} />
 

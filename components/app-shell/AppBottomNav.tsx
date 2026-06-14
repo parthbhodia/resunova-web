@@ -24,6 +24,9 @@ type Props = {
   onSignOut: () => void;
   userInitial: string;
   advisorAllowed?: boolean;
+  /** Signed-out free-scan visitor: locked tabs route to sign-in. */
+  anonMode?: boolean;
+  onSignIn?: () => void;
 };
 
 export function AppBottomNav({
@@ -38,8 +41,18 @@ export function AppBottomNav({
   onSignOut,
   userInitial,
   advisorAllowed = false,
+  anonMode = false,
+  onSignIn,
 }: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const handleTab = (v: AppView) => {
+    if (anonMode && v !== "analyze") {
+      onSignIn?.();
+      return;
+    }
+    if (v === "builder") onBuilder();
+    else onSelect(v);
+  };
 
   return (
     <>
@@ -58,7 +71,7 @@ export function AppBottomNav({
                 "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 border-none bg-transparent font-inherit text-[9px] font-semibold tracking-wide text-[var(--dim)] uppercase transition-[color,transform] duration-200 active:scale-[0.96]",
                 isAct && "text-accent [&_.app-nav-icon]:opacity-100",
               )}
-              onClick={() => (v === "builder" ? onBuilder() : onSelect(v))}
+              onClick={() => handleTab(v)}
             >
               <span className="app-nav-icon" aria-hidden>
                 {VIEW_ICONS[v]}
@@ -90,12 +103,25 @@ export function AppBottomNav({
           <SheetTitle className="sr-only">More options</SheetTitle>
 
           {/* User row */}
-          <div className="flex items-center gap-3 border-b border-border px-5 pb-4 pt-2">
-            <span className="flex size-9 items-center justify-center rounded-full bg-accent text-[13px] font-bold text-white">
-              {userInitial}
-            </span>
-            <span className="text-sm font-medium text-[var(--text)]">Account</span>
-          </div>
+          {anonMode ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 border-b border-border px-5 pb-4 pt-2 text-left"
+              onClick={() => { setMoreOpen(false); onSignIn?.(); }}
+            >
+              <span className="flex size-9 items-center justify-center rounded-full bg-accent text-[13px] font-bold text-white">
+                →
+              </span>
+              <span className="text-sm font-semibold text-accent">Sign in — free</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-3 border-b border-border px-5 pb-4 pt-2">
+              <span className="flex size-9 items-center justify-center rounded-full bg-accent text-[13px] font-bold text-white">
+                {userInitial}
+              </span>
+              <span className="text-sm font-medium text-[var(--text)]">Account</span>
+            </div>
+          )}
 
           <div className="flex flex-col py-2">
             {/* Advisor / Analytics — only for advisors */}
@@ -153,15 +179,17 @@ export function AppBottomNav({
               Report a bug
             </button>
 
-            {/* Sign out */}
-            <button
-              type="button"
-              className="flex w-full items-center gap-3 px-5 py-3.5 text-left text-sm text-red-500 hover:bg-[var(--surface2)] active:bg-[var(--surface2)]"
-              onClick={() => { setMoreOpen(false); onSignOut(); }}
-            >
-              <span className="text-red-500">{NAV_ICONS.signOut}</span>
-              Sign out
-            </button>
+            {/* Sign out (hidden for anonymous visitors — they get the sign-in row above) */}
+            {!anonMode && (
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 px-5 py-3.5 text-left text-sm text-red-500 hover:bg-[var(--surface2)] active:bg-[var(--surface2)]"
+                onClick={() => { setMoreOpen(false); onSignOut(); }}
+              >
+                <span className="text-red-500">{NAV_ICONS.signOut}</span>
+                Sign out
+              </button>
+            )}
           </div>
         </SheetContent>
       </Sheet>

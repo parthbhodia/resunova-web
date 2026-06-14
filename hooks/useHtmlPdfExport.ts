@@ -50,6 +50,29 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
     row.style.cursor = "default";
   });
 
+  // 4c. Strip inline-editable field affordances (Analyze field-level edits)
+  clone.querySelectorAll<HTMLElement>("[data-field-path]").forEach((el) => {
+    el.style.background = "transparent";
+    el.style.boxShadow = "none";
+    el.style.cursor = "default";
+    el.style.textDecoration = "none";
+    el.removeAttribute("contenteditable");
+  });
+
+  // 4d. Neutralize section-heading edit affordances (selected accent border/bg)
+  //     so a left-selected heading never exports with the edit highlight. The
+  //     edited heading TEXT is preserved; only the selection chrome is reset.
+  clone.querySelectorAll<HTMLElement>("[data-section-idx]").forEach((el) => {
+    el.style.background = "transparent";
+    el.style.color = "var(--resume-paper-accent)";
+    el.style.borderBottom = "0.5px solid var(--resume-paper-accent)";
+    el.style.borderRadius = "0";
+    el.style.paddingLeft = "0";
+    el.style.paddingRight = "0";
+    el.style.paddingTop = "0";
+    el.style.cursor = "default";
+  });
+
   if (!highlightsEnabled) {
     clone.querySelectorAll("mark.az-metric").forEach((el) => {
       const text = el.textContent ?? "";
@@ -82,6 +105,8 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
     /* Ensure annotation backgrounds never bleed through */
     [data-bullet-idx]            { background: transparent !important; border-left: none !important; }
     [data-summary-flag]          { background: transparent !important; box-shadow: none !important; }
+    [data-field-path]            { background: transparent !important; box-shadow: none !important; text-decoration: none !important; outline: none !important; }
+    [data-section-idx]           { background: transparent !important; outline: none !important; }
     .az-pdf-ignore               { display: none !important; }
     .az-highlights-off .az-metric { font-weight: inherit !important; color: inherit !important; background: transparent !important; }
 

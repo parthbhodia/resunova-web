@@ -58,6 +58,12 @@ interface Props {
   summaryHint?: string;
   /** Applied summary rewrite — replaces the summary text in the preview + PDF. */
   summaryOverride?: string;
+  /** Per-field edited text overrides, keyed by field path. */
+  fieldOverrides?: Record<string, string>;
+  /** Called when a field is edited inline. */
+  onFieldEdit?: (path: string, text: string) => void;
+  /** When true, generic fields render as inline-editable. */
+  fieldsEditable?: boolean;
   /** Open Résumé Builder; optional `referenceFolder` selects LaTeX layout (see resumeTemplates). */
   onOpenBuilder?: (opts?: { referenceFolder?: string }) => void;
   builderReady?: boolean;
@@ -397,6 +403,9 @@ export default function AnnotatedResumePanel({
   onSummarySelect,
   summaryHint,
   summaryOverride,
+  fieldOverrides,
+  onFieldEdit,
+  fieldsEditable = false,
   extractedText,
   structuredResume = null,
   structuredResumeAuthoritative = false,
@@ -422,6 +431,14 @@ export default function AnnotatedResumePanel({
 }: Props) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  // Section box-wise editing: track selected section by its block index
+  // (transient highlight only — cleared on reorder).
+  const [selectedSectionIdx, setSelectedSectionIdx] = useState<number | null>(null);
+  // Section heading edits: key = stable section key (`experience`, `extra.0`, …)
+  // so an edited name survives a reorder. Session-only.
+  const [sectionEdits, setSectionEdits] = useState<Record<string, string>>({});
+  // Session reorder override: array of section keys in the desired order.
+  const [sectionOrderOverride, setSectionOrderOverride] = useState<string[] | null>(null);
   // Style preset selector removed from the toolbar — the preview uses a fixed
   // default preset; users adjust width / size / font via the icon controls.
   const previewStyleId: PreviewStyleId = "classic";
@@ -439,6 +456,30 @@ export default function AnnotatedResumePanel({
   });
   const scrollRef = useRef<HTMLDivElement>(null);
   const paperRef = useRef<HTMLDivElement>(null);
+
+  // Callback to handle section selection from preview
+  const onSectionSelected = useCallback((blockIdx: number) => {
+    setSelectedSectionIdx(selectedSectionIdx === blockIdx ? null : blockIdx);
+  }, [selectedSectionIdx]);
+
+  // Callback to update a section heading edit (keyed by section key)
+  const patchSectionEdit = useCallback((sectionKey: string, value: string | null) => {
+    setSectionEdits((prev) => {
+      if (value === null || value === "") {
+        const { [sectionKey]: _omit, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [sectionKey]: value };
+    });
+  }, []);
+
+  // Commit a new section order from the inline up/down controls. Reordering
+  // shifts block indices, so drop any transient selection to avoid a stale
+  // highlight landing on the wrong heading.
+  const onReorderSections = useCallback((order: string[]) => {
+    setSectionOrderOverride(order);
+    setSelectedSectionIdx(null);
+  }, []);
 
   // HTML→Chromium PDF export (same pipeline ResumeBuilder uses for its
   // "Download PDF rendered from HTML — WYSIWYG, no LaTeX" button). The
@@ -1263,6 +1304,9 @@ export default function AnnotatedResumePanel({
                 onSummarySelect={onSummarySelect}
                 summaryHint={summaryHint}
                 summaryOverride={summaryOverride}
+                fieldOverrides={fieldOverrides}
+                onFieldEdit={onFieldEdit}
+                fieldsEditable={fieldsEditable}
                 presentationOnly={presentationOnly}
                 pulseBulletIndex={pulseBulletIndex}
                 categoryAssignmentOpts={categoryAssignmentOpts}
@@ -1271,6 +1315,12 @@ export default function AnnotatedResumePanel({
                 gapFixTargetBulletIndices={gapFixTargetBulletIndices}
                 tailorAppliedBulletIndices={tailorAppliedBulletIndices}
                 highlightsEnabled={highlightsEnabled}
+                selectedSectionIdx={selectedSectionIdx}
+                onSectionSelected={onSectionSelected}
+                sectionEdits={sectionEdits}
+                patchSectionEdit={patchSectionEdit}
+                sectionOrderOverride={sectionOrderOverride}
+                onReorderSections={onReorderSections}
               />
           ) : (
           <>
