@@ -476,14 +476,15 @@ export default function LandingPage() {
           </h1>
 
           <p style={{ fontSize: "var(--font-size-xl)", color: C.muted, lineHeight: 1.72, maxWidth: 480, margin: "0 0 44px", letterSpacing: -0.15 }}>
-            {/* Full copy on desktop; trimmed on phones (see .lp-hero-sub-* media rules). */}
+            {/* Full copy on desktop; trimmed on phones. Key phrases highlighted. */}
             <span className="lp-hero-sub-full">
-              Upload your résumé and get an 8-dimension score, bullet-by-bullet AI rewrites, and a tailored PDF — in under 60 seconds.{" "}
+              Upload your résumé for an <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>bullet-by-bullet AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>under 60 seconds</b>.{" "}
             </span>
             <span className="lp-hero-sub-short">
-              An 8-dimension résumé score, AI rewrites, and a tailored PDF — in 60 seconds.{" "}
+              An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
             </span>
-            <strong style={{ color: C.ink, fontWeight: 600 }}>No account needed. Completely free.</strong>
+            <strong style={{ color: C.ink, fontWeight: 700 }}>No account needed.</strong>{" "}
+            <strong style={{ color: "#16a34a", fontWeight: 700 }}>Completely free.</strong>
           </p>
 
           {/* CTA row */}
@@ -981,6 +982,8 @@ export default function LandingPage() {
         @keyframes lpCheckPop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         @keyframes lpCursorIn { from { transform: translate(12px,10px); opacity: 0; } to { transform: translate(0,0); opacity: 1; } }
         @keyframes lpTapPress { 0% { transform: translate(0,0); } 45% { transform: translate(-2px,-3px) scale(0.86); } 100% { transform: translate(0,0); } }
+        @keyframes lpScorePulse { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+        @keyframes lpArrowPop { from { transform: translateY(4px) scale(0); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
         .lp-hero-sub-short { display: none; }
         .lp-nav-burger { display: none; }
         @media (min-width: 769px) { .lp-nav-menu { display: none !important; } }
@@ -1010,7 +1013,7 @@ export default function LandingPage() {
           /* Eye-catchy mobile hero: tighter, centered, visual pulled above the fold */
           .lp-hero-grid { padding: 26px 20px 48px !important; min-height: 0 !important; gap: 26px !important; }
           .lp-hero-left { text-align: center !important; }
-          .lp-hero-badge { margin-bottom: 18px !important; font-size: 12px !important; }
+          .lp-hero-badge { display: none !important; }
           .lp-hero-h1 { margin-bottom: 16px !important; }
           .lp-hero-left > p { margin-bottom: 26px !important; margin-left: auto !important; margin-right: auto !important; }
           .lp-hero-actions { align-items: stretch !important; margin-bottom: 26px !important; }
@@ -1160,6 +1163,7 @@ function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, st
   const N = jobs.length;
   const [idx, setIdx] = useState(0);
   const [stage, setStage] = useState<"enter" | "idle" | "tap" | "applied" | "leave">("enter");
+  const [displayScore, setDisplayScore] = useState(jobs[0].match);
 
   useEffect(() => {
     setStage("enter");
@@ -1178,8 +1182,22 @@ function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, st
   const showCursor = stage === "idle" || stage === "tap";
   const green = "#16a34a";
   const matchColor = job.match >= 70 ? green : job.match >= 50 ? "#d97706" : C.muted;
+  const optimized = Math.min(99, job.match + 8);
+  const scoreColor = applied ? green : matchColor;
   const cardTransform = stage === "enter" ? "translateY(48px)" : stage === "leave" ? "translateY(-48px)" : "translateY(0)";
   const cardOpacity = stage === "enter" || stage === "leave" ? 0 : 1;
+
+  // On apply, the match score climbs to its optimized value — visual "approved" cue.
+  useEffect(() => {
+    if (!applied) { setDisplayScore(job.match); return; }
+    let cur = job.match;
+    let id = window.setTimeout(function tick() {
+      cur = Math.min(cur + 1, optimized);
+      setDisplayScore(cur);
+      if (cur < optimized) id = window.setTimeout(tick, 32);
+    }, 32);
+    return () => clearTimeout(id);
+  }, [applied, idx, job.match, optimized]);
 
   return (
     <div style={{ position: "relative", minHeight: 250, display: "flex", alignItems: "center" }}>
@@ -1210,13 +1228,20 @@ function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, st
             <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>{job.company}</p>
           </div>
           <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: matchColor, lineHeight: 1 }}>{job.match}</div>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>match</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3 }}>
+              {applied && (
+                <span aria-hidden style={{ color: green, display: "inline-flex", animation: "lpArrowPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+                </span>
+              )}
+              <div style={{ fontSize: 22, fontWeight: 800, color: scoreColor, lineHeight: 1, transition: "color 0.3s", animation: applied ? "lpScorePulse 0.5s ease" : undefined }}>{displayScore}</div>
+            </div>
+            <div style={{ fontSize: 11, color: applied ? green : C.muted, marginTop: 2, fontWeight: applied ? 600 : 400, transition: "color 0.3s" }}>{applied ? "optimized" : "match"}</div>
           </div>
         </div>
 
         <div style={{ height: 5, background: C.bg2, borderRadius: 99, overflow: "hidden", marginBottom: 16 }}>
-          <div style={{ height: "100%", width: `${job.match}%`, background: matchColor, borderRadius: 99 }} />
+          <div style={{ height: "100%", width: `${displayScore}%`, background: scoreColor, borderRadius: 99, transition: "background 0.3s" }} />
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
