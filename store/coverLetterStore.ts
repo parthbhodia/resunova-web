@@ -80,7 +80,7 @@ export const useCoverLetterStore = create<CLStore>((set, get) => {
         },
 
         prefillFromProfile: (profile: ProfileFormState) => {
-            const name = [profile.firstName, profile.lastName].filter(Boolean).join(" ");
+            const name = (profile.displayName || "").trim();
             set((s) => ({
                 data: {
                     ...s.data,
@@ -89,8 +89,8 @@ export const useCoverLetterStore = create<CLStore>((set, get) => {
                         ...(name && { name }),
                         ...(profile.email && { email: profile.email }),
                         ...(profile.phone && { phone: profile.phone }),
-                        ...(profile.linkedinUrl && { linkedin: profile.linkedinUrl }),
-                        ...(profile.location && { location: profile.location }),
+                        ...(profile.linkedin && { linkedin: profile.linkedin }),
+                        ...(profile.locations && { location: profile.locations }),
                     }
                 }
             }));
