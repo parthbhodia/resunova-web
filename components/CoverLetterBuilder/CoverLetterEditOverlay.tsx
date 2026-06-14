@@ -41,6 +41,17 @@ export function CoverLetterEditOverlay({ field, data, rect, onClose, onUpdate }:
     onClose();
   };
 
+  // Clamp position so overlay never goes off-screen
+  const OVERLAY_W = Math.max(rect.width + 16, 260);
+  const OVERLAY_H = 160; // approximate max height
+  const MARGIN = 12;
+  const rawTop = rect.top - 8;
+  const rawLeft = rect.left - 8;
+  const clampedTop = Math.min(rawTop, window.innerHeight - OVERLAY_H - MARGIN);
+  const clampedLeft = Math.min(rawLeft, window.innerWidth - OVERLAY_W - MARGIN);
+  const finalTop = Math.max(MARGIN, clampedTop);
+  const finalLeft = Math.max(MARGIN, clampedLeft);
+
   return (
     <>
       {/* Invisible backdrop to capture clicks outside */}
@@ -51,9 +62,9 @@ export function CoverLetterEditOverlay({ field, data, rect, onClose, onUpdate }:
       <div 
         style={{
           position: "fixed",
-          top: rect.top - 8,
-          left: rect.left - 8,
-          width: Math.max(rect.width + 16, 200),
+          top: finalTop,
+          left: finalLeft,
+          width: OVERLAY_W,
           zIndex: 50,
           background: "var(--surface)",
           border: "1px solid var(--accent)",

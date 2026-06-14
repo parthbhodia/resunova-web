@@ -46,15 +46,50 @@ export default function CoverLetterBuilder() {
     }
   };
 
-  const handleDownloadPdf = () => {
-    if (previewRef.current) {
-        // Disable highlights just like resume builder
-      exportPdf(previewRef.current, `CoverLetter.pdf`, { highlightsEnabled: false });
+  const handleDownloadPdf = async () => {
+    if (!previewRef.current) return;
+    try {
+      await exportPdf(previewRef.current, `CoverLetter.pdf`, { highlightsEnabled: false });
+    } catch {
+      // Playwright backend not available — fallback to browser print dialog
+      const w = window.open("", "_blank");
+      if (w && previewRef.current) {
+        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0}@page{size:Letter;margin:0.75in}</style></head><body>${previewRef.current.outerHTML}</body></html>`);
+        w.document.close();
+        w.onload = () => { w.focus(); w.print(); };
+      }
     }
   };
 
-  const handleDownloadDocx = async () => {
-    // Phase 2 placeholder
+  const handleDownloadDocx = () => {
+    const { recipient, author, content } = data;
+    const lines = [
+      author.name, author.email, author.phone, author.location, author.linkedin,
+      "",
+      new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }),
+      "",
+      recipient.hiringManagerName || "Hiring Manager",
+      recipient.companyName,
+      recipient.companyAddress,
+      "",
+      `Dear ${recipient.hiringManagerName || "Hiring Manager"},`,
+      "",
+      content.openingParagraph,
+      "",
+      content.whyCompany,
+      "",
+      content.whyFit,
+      "",
+      content.closingParagraph,
+      "",
+      "Sincerely,",
+      author.name,
+    ].join("\n");
+    const blob = new Blob([lines], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "CoverLetter.txt"; a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (!loaded) return null;
@@ -95,8 +130,8 @@ export default function CoverLetterBuilder() {
           <button onClick={handlePrefill} style={{ fontSize: 12, background: "var(--surface2)", border: "1px solid var(--border)", padding: "5px 10px", borderRadius: 6, cursor: "pointer" }}>
             Prefill from Profile
           </button>
-          <button disabled title="Coming in Phase 2" onClick={handleDownloadDocx} style={{ fontSize: 12, background: "var(--surface2)", border: "1px solid var(--border)", padding: "5px 10px", borderRadius: 6, cursor: "not-allowed", color: "var(--muted)", opacity: 0.6 }}>
-            ↓ DOCX
+          <button onClick={handleDownloadDocx} style={{ fontSize: 12, background: "var(--surface2)", border: "1px solid var(--border)", padding: "5px 10px", borderRadius: 6, cursor: "pointer", color: "var(--text)" }}>
+            ↓ TXT
           </button>
           <button 
             onClick={handleDownloadPdf} 
@@ -129,6 +164,12 @@ export default function CoverLetterBuilder() {
               </button>
             ))}
           </div>
+          {activeTab === "content" && (
+            <div style={{ padding: "8px 16px 0", fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 5 }}>
+              <span>✦</span>
+              <span>Type 3+ words in any field to unlock <strong>AI Enhance</strong></span>
+            </div>
+          )}
           <div style={{ flex: 1, overflowY: "auto" }}>
             <CoverLetterFormPanel activeTab={activeTab} />
           </div>
