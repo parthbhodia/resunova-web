@@ -31,6 +31,12 @@ const CSS = `
 @keyframes scoreArc { from { stroke-dashoffset:226 } to { stroke-dashoffset:59 } }
 @keyframes barShine { 0%{ transform:translateX(-120%) } 100%{ transform:translateX(220%) } }
 @keyframes chipPop  { from { opacity:0; transform:translateY(6px) scale(0.92) } to { opacity:1; transform:none } }
+.vd-tabbar { scrollbar-width: none; -ms-overflow-style: none; }
+.vd-tabbar::-webkit-scrollbar { display: none; }
+@media (max-width: 640px) {
+  .vd-tab { padding: 7px 11px !important; font-size: 12px !important; }
+  .vd-tabdots { display: none !important; }
+}
 `;
 
 function useInView(ref: React.RefObject<Element | null>) {
@@ -698,19 +704,20 @@ export function VariantD({ embedded = false }: VariantProps = {}) {
     >
       <div style={{ maxWidth: embedded ? "100%" : 720, margin:"0 auto" }}>
         {/* Tab bar */}
-        <div style={{ display:"flex", gap:4, marginBottom:0, background:BG2,
-          borderRadius:"14px 14px 0 0", padding:"10px 10px 0", border:`1px solid ${BOR}`, borderBottom:"none" }}>
+        <div className="vd-tabbar" style={{ display:"flex", gap:4, marginBottom:0, background:BG2,
+          borderRadius:"14px 14px 0 0", padding:"10px 10px 0", border:`1px solid ${BOR}`, borderBottom:"none",
+          flexWrap:"nowrap", overflowX:"auto" }}>
           {TABS.map((t, i) => (
-            <button key={t} type="button" onClick={() => setTab(i)} style={{
+            <button key={t} type="button" onClick={() => setTab(i)} className="vd-tab" style={{
               padding:"8px 18px", borderRadius:"10px 10px 0 0", border:"none",
               background: tab===i ? SUR : "transparent",
               color: tab===i ? A : MUT, fontSize:13, fontWeight: tab===i ? 700 : 500,
-              cursor:"pointer", transition:"all 0.2s",
+              cursor:"pointer", transition:"all 0.2s", flexShrink:0, whiteSpace:"nowrap",
               borderBottom: tab===i ? `2px solid ${A}` : "2px solid transparent",
             }}>{t}</button>
           ))}
           {/* Progress indicator */}
-          <div style={{ marginLeft:"auto", alignSelf:"center", marginRight:6 }}>
+          <div className="vd-tabdots" style={{ marginLeft:"auto", alignSelf:"center", marginRight:6, flexShrink:0 }}>
             <div style={{ display:"flex", gap:4 }}>
               {TABS.map((_,i) => (
                 <div key={i} style={{ width:6, height:6, borderRadius:"50%",
