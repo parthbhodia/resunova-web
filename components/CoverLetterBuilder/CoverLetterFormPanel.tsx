@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { useCoverLetterStore } from "@/store/coverLetterStore";
 import { CL_TEMPLATES } from "./types";
 import { apiUrl } from "@/lib/utils";
+import { getSupabaseClient } from "@/lib/supabase";
 
 const inputBase: React.CSSProperties = {
   width: "100%", padding: "8px 11px", borderRadius: 6,
@@ -46,8 +47,15 @@ function AITextarea({ field, context, onEnhanced, value, style, ...rest }: AITex
   const enhance = useCallback(async () => {
     setLoading(true); setError(null);
     try {
+      const db = getSupabaseClient();
+      const { data: { session } } = await db.auth.getSession();
+      
       const res = await fetch(apiUrl("/api/cl-enhance"), {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", 
+        headers: { 
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {})
+        },
         body: JSON.stringify({ text: String(value ?? ""), field, context }),
       });
       const data = await res.json();
