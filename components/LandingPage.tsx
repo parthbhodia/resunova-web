@@ -73,6 +73,8 @@ function useLandingTheme(): [Theme, () => void] {
 const SHOW_HOW_SECTION = false;
 /** Text card grids (features, platform, research pillars) — previews carry the story. */
 const SHOW_LANDING_CARDS = false;
+/** Line-by-line analysis preview (VariantE) — hidden for now. */
+const SHOW_SCAN_PREVIEW = false;
 
 const FEATURES = [
   {
@@ -641,6 +643,7 @@ export default function LandingPage() {
       </section>
       )}
 
+      {SHOW_SCAN_PREVIEW && (
       <LandingPreviewSection
         id="product-scan"
         eyebrow="Line-by-line analysis"
@@ -654,6 +657,7 @@ export default function LandingPage() {
       >
         <VariantE embedded />
       </LandingPreviewSection>
+      )}
 
       {SHOW_LANDING_CARDS && (
       <section id="platform" style={{ background: C.bg2, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, scrollMarginTop: 76 }}>
@@ -823,6 +827,45 @@ export default function LandingPage() {
           Check my résumé score — it&apos;s free <span style={{ fontSize: 18 }}>→</span>
         </button>
       </div>
+
+      {/* ───────────── Interview coaching ───────────────────── */}
+      <section id="interview" className="lp-interview-sec" style={{ borderTop: `1px solid ${C.border}`, background: C.bg, padding: "100px 40px", scrollMarginTop: 76 }}>
+        <div style={{ maxWidth: 1040, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "5px 13px", marginBottom: 16,
+              background: "rgba(37,99,235,0.10)", border: `1px solid ${T.blue}28`,
+              borderRadius: 100, fontSize: 12, fontWeight: 600, color: T.blue, letterSpacing: 0.2,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.amber, display: "inline-block" }} />
+              Interview coaching · Coming soon
+            </div>
+            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: C.ink, margin: "0 0 16px" }}>
+              Land the callback, then close it.
+            </h2>
+            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 580, margin: "0 auto" }}>
+              Practice real questions for the exact role you&apos;re targeting and get instant, specific feedback — so you walk in interview-ready, not winging it.
+            </p>
+          </div>
+
+          <div className="lp-interview-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+            {([
+              { icon: "ti-microphone", accent: T.blue, title: "AI mock interviews", desc: "Role-specific questions pulled from the exact job description you’re targeting." },
+              { icon: "ti-star", accent: "#16a34a", title: "Instant STAR feedback", desc: "Each answer scored on structure, specifics, and impact — so every story lands." },
+              { icon: "ti-bookmark", accent: T.teal, title: "Reusable answer bank", desc: "Save your best stories once, then tailor them per company in a click." },
+            ]).map(({ icon, accent, title, desc }) => (
+              <div key={title} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "26px 24px" }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: `${accent}18`, border: `1px solid ${accent}40`, display: "flex", alignItems: "center", justifyContent: "center", color: accent, marginBottom: 16 }}>
+                  <i className={`ti ${icon}`} style={{ fontSize: 20 }} aria-hidden="true" />
+                </div>
+                <h3 style={{ fontSize: 17, fontWeight: 700, color: C.ink, margin: "0 0 8px", letterSpacing: -0.3 }}>{title}</h3>
+                <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* ───────────── Final CTA ────────────────────────────── */}
       <section style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>
@@ -1020,6 +1063,8 @@ export default function LandingPage() {
           .lp-hero-cta-row { width: 100% !important; }
           .lp-hero-cta-btn { width: 100% !important; justify-content: center !important; padding: 17px 24px !important; }
           .lp-hero-social { justify-content: center !important; }
+          .lp-interview-grid { grid-template-columns: 1fr !important; }
+          .lp-interview-sec { padding: 64px 20px !important; }
           .lp-footer-top { flex-direction: column !important; gap: 24px !important; }
           .lp-footer-nav { width: 100%; gap: 16px !important; }
           .lp-footer-bottom { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
