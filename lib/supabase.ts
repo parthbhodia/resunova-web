@@ -52,12 +52,32 @@ export type LibraryItem =
       createdAt: string;
       isDefault: false;
       builder: BuilderResumeRecord;
+    }
+  | {
+      kind: "cover_letter";
+      key: string;
+      id: string;
+      title: string;
+      subtitle: string;
+      score: null;
+      createdAt: string;
+      isDefault: boolean;
+      coverLetter: CoverLetterRecord;
     };
 
 export interface BuilderResumeRecord {
   id: string;
   label: string;
   data: TBResumeData;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CoverLetterRecord {
+  id: string;
+  label: string;
+  data: any; // CLData
+  isDefault: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -553,6 +573,100 @@ export async function deleteBuilderResume(id: string): Promise<void> {
   dispatchResumeLibraryChanged();
 }
 
+/* ── Cover Letter Builder cloud saves ────────────────────────────── */
+
+export async function fetchCoverLetters(limit = 50): Promise<CoverLetterRecord[]> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return [];
+
+  const { data, error } = await db
+    .from("cover_letters")
+    .select("id, label, data, is_default, created_at, updated_at")
+    .eq("user_id", session.user.id)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    label: (row.label as string) || "Untitled Cover Letter",
+    data: row.data,
+    isDefault: !!row.is_default,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  }));
+}
+
+export async function fetchCoverLetterById(id: string): Promise<CoverLetterRecord | null> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return null;
+
+  const { data, error } = await db
+    .from("cover_letters")
+    .select("id, label, data, is_default, created_at, updated_at")
+    .eq("user_id", session.user.id)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    id: data.id as string,
+    label: (data.label as string) || "Untitled Cover Letter",
+    data: data.data,
+    isDefault: !!data.is_default,
+    createdAt: data.created_at as string,
+    updatedAt: data.updated_at as string,
+  };
+}
+
+export async function upsertCoverLetter(
+  label: string,
+  data: any, // CLData
+  id?: string | null,
+): Promise<string | null> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return null;
+
+  const now = new Date().toISOString();
+  const row: Record<string, unknown> = {
+    user_id: session.user.id,
+    label: label.trim() || "Untitled Cover Letter",
+    data,
+    updated_at: now,
+  };
+  if (id) row.id = id;
+
+  const { data: saved, error } = await db
+    .from("cover_letters")
+    .upsert(row, { onConflict: "id" })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+  dispatchResumeLibraryChanged();
+  return saved.id as string;
+}
+
+export async function deleteCoverLetter(id: string): Promise<void> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return;
+
+  const { error } = await db
+    .from("cover_letters")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", session.user.id);
+  if (error) throw error;
+  dispatchResumeLibraryChanged();
+}
+
 /** Unified Library feed: generated/tailored artifacts plus saved Analyze runs. */
 export async function fetchLibraryItems(): Promise<LibraryItem[]> {
   const [resumes, analyses, builders] = await Promise.all([
@@ -597,7 +711,20 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
     builder,
   }));
 
-  return [...tailored, ...analyzed, ...builderItems].sort((a, b) => {
+  const cls = await fetchCoverLetters(50);
+  const clItems: LibraryItem[] = cls.map((cl) => ({
+    kind: "cover_letter",
+    key: `cover_letter:${cl.id}`,
+    id: cl.id,
+    title: cl.label,
+    subtitle: "Cover Letter",
+    score: null,
+    createdAt: cl.updatedAt,
+    isDefault: cl.isDefault,
+    coverLetter: cl,
+  }));
+
+  return [...tailored, ...analyzed, ...builderItems, ...clItems].sort((a, b) => {
     const d = Number(b.isDefault) - Number(a.isDefault);
     if (d !== 0) return d;
     return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");

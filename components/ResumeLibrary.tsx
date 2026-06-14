@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type SortKey = "recent" | "score" | "name";
-type FilterKey = "all" | "analyzed" | "tailored" | "builder" | "default";
+type FilterKey = "all" | "analyzed" | "tailored" | "builder" | "cover_letter" | "default";
 
 /** Aligns with Analyze bullet bands: strong ≥70, improvable 55–69, weak &lt;55 */
 function matchScoreBand(score: number): "strong" | "mid" | "weak" {
@@ -67,6 +67,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
   const selectedFolder = (searchParams?.get("resume") ?? "").trim();
   const selectedAnalysisId = (searchParams?.get("analysis") ?? "").trim();
   const selectedBuilderId = (searchParams?.get("builder") ?? "").trim();
+  const selectedCoverLetterId = (searchParams?.get("cl") ?? "").trim();
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -148,6 +149,9 @@ export default function ResumeLibrary({ onUseAsBase }: {
     if (selectedBuilderId) {
       return items.find(item => item.kind === "builder" && item.id === selectedBuilderId) ?? null;
     }
+    if (selectedCoverLetterId) {
+      return items.find(item => item.kind === "cover_letter" && item.id === selectedCoverLetterId) ?? null;
+    }
     if (selectedFolder) {
       return items.find(item => item.kind === "tailored" && item.record.folder === selectedFolder) ?? null;
     }
@@ -160,6 +164,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
       if (kindFilter === "analyzed" && item.kind !== "analyzed") return false;
       if (kindFilter === "tailored" && item.kind !== "tailored") return false;
       if (kindFilter === "builder" && item.kind !== "builder") return false;
+      if (kindFilter === "cover_letter" && item.kind !== "cover_letter") return false;
       if (kindFilter === "default" && !item.isDefault) return false;
       if (!f) return true;
       const issueText = item.kind === "analyzed" ? getAnalysisIssues(item).join(" ") : "";
@@ -182,6 +187,10 @@ export default function ResumeLibrary({ onUseAsBase }: {
     }
     if (item.kind === "builder") {
       router.push(`/?view=library&builder=${encodeURIComponent(item.id)}`);
+      return;
+    }
+    if (item.kind === "cover_letter") {
+      router.push(`/?view=cover-letter`); // Could pass ?id= if builder supported it
       return;
     }
     router.push(`/?view=library&resume=${encodeURIComponent(item.record.folder)}`);
@@ -396,7 +405,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
         }
       `}</style>
 
-      {selectedFolder || selectedAnalysisId ? (
+      {selectedFolder || selectedAnalysisId || selectedBuilderId || selectedCoverLetterId ? (
         <button
           type="button"
           className={`library-backdrop is-open`}
@@ -523,6 +532,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                 <option value="analyzed">Analyzed</option>
                 <option value="tailored">Tailored</option>
                 <option value="builder">Builder drafts</option>
+                <option value="cover_letter">Cover Letters</option>
                 <option value="default">Default</option>
               </select>
               <select
@@ -569,7 +579,9 @@ export default function ResumeLibrary({ onUseAsBase }: {
                         ? selectedAnalysisId === item.id
                         : item.kind === "builder"
                           ? selectedBuilderId === item.id
-                          : selectedFolder === item.record.folder
+                          : item.kind === "cover_letter"
+                            ? selectedCoverLetterId === item.id
+                            : selectedFolder === item.record.folder
                     }
                     stagger={Math.min(i % 5, 4)}
                     onOpen={() => openItem(item)}
@@ -735,9 +747,11 @@ function ResumeCard({
           ? "Open analysis"
           : item.kind === "builder"
             ? "Open in Builder"
-            : "Details"}
+            : item.kind === "cover_letter"
+              ? "Open in Builder"
+              : "Details"}
       </Button>
-      {item.kind === "builder" ? (
+      {item.kind === "builder" || item.kind === "cover_letter" ? (
         <Button
           type="button"
           onClick={e => {

@@ -18,7 +18,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
 
 export default function CoverLetterBuilder() {
   const store = useCoverLetterStore();
-  const { data, loaded } = store;
+  const { data, loaded, saveStatus } = store;
   
   const [step, setStep] = useState<"pick" | "build">("pick");
   const [activeTab, setActiveTab] = useState<TabKey>("recipient");
@@ -55,7 +55,6 @@ export default function CoverLetterBuilder() {
 
   const handleDownloadDocx = async () => {
     // Phase 2 placeholder
-    alert("DOCX download coming in Phase 2!");
   };
 
   if (!loaded) return null;
@@ -86,12 +85,17 @@ export default function CoverLetterBuilder() {
             ← Change Template
           </button>
           <span style={{ fontSize: 15, fontWeight: 700 }}>Cover Letter Builder</span>
+          {saveStatus !== "idle" && (
+            <span style={{ fontSize: 12, color: saveStatus === "error" ? "var(--red)" : "var(--muted)", marginLeft: 8 }}>
+              {saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Error saving"}
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={handlePrefill} style={{ fontSize: 12, background: "var(--surface2)", border: "1px solid var(--border)", padding: "5px 10px", borderRadius: 6, cursor: "pointer" }}>
             Prefill from Profile
           </button>
-          <button onClick={handleDownloadDocx} style={{ fontSize: 12, background: "var(--surface2)", border: "1px solid var(--border)", padding: "5px 10px", borderRadius: 6, cursor: "pointer", color: "var(--text)" }}>
+          <button disabled title="Coming in Phase 2" onClick={handleDownloadDocx} style={{ fontSize: 12, background: "var(--surface2)", border: "1px solid var(--border)", padding: "5px 10px", borderRadius: 6, cursor: "not-allowed", color: "var(--muted)", opacity: 0.6 }}>
             ↓ DOCX
           </button>
           <button 
