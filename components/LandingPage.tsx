@@ -977,11 +977,10 @@ export default function LandingPage() {
         @keyframes cardSlide { from { opacity: 0; transform: translateY(32px) rotate(1.5deg); } to { opacity: 1; transform: rotate(1.5deg); } }
         @keyframes heroFloat { 0%, 100% { transform: rotate(1.5deg) translateY(0); } 50% { transform: rotate(1.5deg) translateY(-6px); } }
         @keyframes lpMenuIn { from { opacity: 0; transform: translateY(-10px) scaleY(0.97); } to { opacity: 1; transform: translateY(0) scaleY(1); } }
-        @keyframes lpJobsScroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
-        .lp-jobs-track { display: flex; flex-direction: column; animation: lpJobsScroll 16s linear infinite; will-change: transform; }
-        .lp-jobs-marquee:hover .lp-jobs-track { animation-play-state: paused; }
-        .lp-job-card-featured { box-shadow: 0 12px 30px rgba(37,99,235,0.18); }
-        @media (prefers-reduced-motion: reduce) { .lp-jobs-track { animation: none; } }
+        @keyframes lpTapRipple { from { transform: scale(0.4); opacity: 0.85; } to { transform: scale(2.4); opacity: 0; } }
+        @keyframes lpCheckPop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes lpCursorIn { from { transform: translate(12px,10px); opacity: 0; } to { transform: translate(0,0); opacity: 1; } }
+        @keyframes lpTapPress { 0% { transform: translate(0,0); } 45% { transform: translate(-2px,-3px) scale(0.86); } 100% { transform: translate(0,0); } }
         .lp-hero-sub-short { display: none; }
         .lp-nav-burger { display: none; }
         @media (min-width: 769px) { .lp-nav-menu { display: none !important; } }
@@ -1144,6 +1143,119 @@ function LandingPreviewSection({
   );
 }
 
+// ── Animated "apply" job feed ───────────────────────────────────────────────
+// Self-playing demo: each role slides up, a cursor taps Apply, the card turns
+// green with a tick, then it slides away and the next role rises in. Loops.
+type JobCard = { logo: React.ReactNode; title: string; company: string; match: number; target: boolean; featured: boolean; opacity: number };
+
+function CheckPop() {
+  return (
+    <span style={{ display: "inline-flex", animation: "lpCheckPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both" }} aria-hidden>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12.5l5 5L20 6" /></svg>
+    </span>
+  );
+}
+
+function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, string>; dark: boolean }) {
+  const N = jobs.length;
+  const [idx, setIdx] = useState(0);
+  const [stage, setStage] = useState<"enter" | "idle" | "tap" | "applied" | "leave">("enter");
+
+  useEffect(() => {
+    setStage("enter");
+    const raf = requestAnimationFrame(() => setStage("idle"));
+    const timers: number[] = [];
+    timers.push(window.setTimeout(() => setStage("tap"), 1300));
+    timers.push(window.setTimeout(() => setStage("applied"), 1750));
+    timers.push(window.setTimeout(() => setStage("leave"), 3150));
+    timers.push(window.setTimeout(() => setIdx((i) => (i + 1) % N), 3700));
+    return () => { cancelAnimationFrame(raf); timers.forEach(clearTimeout); };
+  }, [idx, N]);
+
+  const job = jobs[idx];
+  const applied = stage === "applied" || stage === "leave";
+  const tapping = stage === "tap";
+  const showCursor = stage === "idle" || stage === "tap";
+  const green = "#16a34a";
+  const matchColor = job.match >= 70 ? green : job.match >= 50 ? "#d97706" : C.muted;
+  const cardTransform = stage === "enter" ? "translateY(48px)" : stage === "leave" ? "translateY(-48px)" : "translateY(0)";
+  const cardOpacity = stage === "enter" || stage === "leave" ? 0 : 1;
+
+  return (
+    <div style={{ position: "relative", minHeight: 250, display: "flex", alignItems: "center" }}>
+      {/* Ghost stack behind for depth (suggests a queue of roles) */}
+      <div aria-hidden style={{ position: "absolute", left: 26, right: 26, top: 32, height: 168, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.45 }} />
+      <div aria-hidden style={{ position: "absolute", left: 14, right: 14, top: 17, height: 184, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.7 }} />
+
+      <div style={{
+        position: "relative", width: "100%",
+        background: applied ? (dark ? "rgba(22,163,74,0.13)" : "#f0fdf4") : C.surface,
+        border: `2px solid ${applied ? green : T.blue}`,
+        borderRadius: 16, padding: "18px 20px",
+        boxShadow: applied ? "0 14px 32px rgba(22,163,74,0.20)" : "0 14px 32px rgba(37,99,235,0.18)",
+        transform: cardTransform, opacity: cardOpacity,
+        transition: "transform 0.55s cubic-bezier(0.22,1,0.36,1), opacity 0.5s ease, background 0.3s, border-color 0.3s, box-shadow 0.3s",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 11, background: C.bg2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{job.logo}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const, marginBottom: 2 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{job.title}</span>
+              {job.target && (
+                <span style={{ background: "rgba(37,99,235,0.10)", color: T.blue, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                  <i className="ti ti-target" style={{ fontSize: 11 }} aria-hidden="true" /> Target role
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>{job.company}</p>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: matchColor, lineHeight: 1 }}>{job.match}</div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>match</div>
+          </div>
+        </div>
+
+        <div style={{ height: 5, background: C.bg2, borderRadius: 99, overflow: "hidden", marginBottom: 16 }}>
+          <div style={{ height: "100%", width: `${job.match}%`, background: matchColor, borderRadius: 99 }} />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ position: "relative", display: "inline-flex" }}>
+            <button type="button" tabIndex={-1} aria-hidden style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+              minWidth: 124, padding: "9px 18px", borderRadius: 10, border: "none",
+              fontSize: 14, fontWeight: 700, fontFamily: "inherit", color: "#fff", cursor: "default",
+              background: applied ? green : T.blue,
+              transform: tapping ? "scale(0.95)" : "scale(1)",
+              transition: "background 0.25s ease, transform 0.12s ease",
+            }}>
+              {applied ? (<><CheckPop /> Applied</>) : "Apply"}
+            </button>
+
+            {tapping && (
+              <span aria-hidden style={{
+                position: "absolute", left: "50%", top: "50%", width: 22, height: 22, marginLeft: -11, marginTop: -11,
+                borderRadius: "50%", border: `2px solid ${T.blue}`, pointerEvents: "none",
+                animation: "lpTapRipple 0.55s ease-out forwards",
+              }} />
+            )}
+
+            {showCursor && (
+              <span aria-hidden style={{
+                position: "absolute", right: -8, bottom: -12, pointerEvents: "none",
+                filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.3))",
+                animation: tapping ? "lpTapPress 0.5s ease" : "lpCursorIn 0.5s ease both",
+              }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="#ffffff" stroke="#0d1117" strokeWidth="1.5" strokeLinejoin="round"><path d="M5 2.5l14.5 7.6-6.3 1.4-1.4 6.3z" /></svg>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Jobs band ───────────────────────────────────────────────────────────────
 // Promoted to the first full-width band right after the hero so the job-search
 // story leads the page. Two-column on desktop (copy + scored job cards), stacks
@@ -1168,51 +1280,12 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
     },
   ];
 
-  type JobCard = { logo: React.ReactNode; title: string; company: string; match: number; target: boolean; featured: boolean; opacity: number };
   const jobs: JobCard[] = [
     { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>, title: "Software Engineer II", company: "Google · Remote · Full-time", match: 91, target: true, featured: true, opacity: 1 },
     { logo: <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><text x="12" y="18" textAnchor="middle" fontSize="19" fontWeight="800" fontStyle="italic" fontFamily="Arial, Helvetica, sans-serif" fill="#76B900">N</text></svg>, title: "Machine Learning Engineer", company: "NVIDIA · Santa Clara · Hybrid", match: 86, target: false, featured: false, opacity: 0.96 },
     { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z" fill="#635BFF"/></svg>, title: "Backend Engineer", company: "Stripe · New York · Full-time", match: 78, target: false, featured: false, opacity: 0.9 },
     { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z" fill="#1877F2"/></svg>, title: "Product Manager", company: "Meta · Menlo Park · Full-time", match: 44, target: false, featured: false, opacity: 0.62 },
   ];
-
-  const renderJobCard = (
-    { logo, title, company, match, target, featured, opacity }: JobCard,
-    key: number,
-  ) => (
-    <div key={key} className={featured ? "lp-job-card-featured" : undefined} style={{
-      background: C.surface,
-      border: featured ? `2px solid ${T.blue}` : `1px solid ${C.border}`,
-      borderRadius: 14,
-      padding: "16px 18px",
-      marginBottom: 12,
-      display: "flex", alignItems: "center", gap: 14,
-      opacity,
-      flexShrink: 0,
-    }}>
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: C.bg2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        {logo}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" as const }}>
-          <span style={{ fontSize: "var(--font-size-base)", fontWeight: 700, color: C.ink }}>{title}</span>
-          {target && (
-            <span style={{ background: "rgba(37,99,235,0.10)", color: T.blue, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, display: "inline-flex", alignItems: "center", gap: 3 }}>
-              <i className="ti ti-target" style={{ fontSize: 11 }} aria-hidden="true" /> Target role
-            </span>
-          )}
-        </div>
-        <p style={{ fontSize: "var(--font-size-sm)", color: C.muted, margin: "0 0 8px" }}>{company}</p>
-        <div style={{ height: 4, background: C.bg2, borderRadius: 99, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${match}%`, background: match >= 70 ? "#16a34a" : match >= 50 ? "#d97706" : C.muted, borderRadius: 99 }} />
-        </div>
-      </div>
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: match >= 70 ? "#16a34a" : match >= 50 ? "#d97706" : C.muted, lineHeight: 1 }}>{match}</div>
-        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>match</div>
-      </div>
-    </div>
-  );
 
   return (
     <section id="jobs" style={{ background: C.bg2, borderTop: `1px solid ${C.border}`, scrollMarginTop: 76 }}>
@@ -1273,21 +1346,8 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
             </button>
           </div>
 
-          {/* Right — auto-rotating job feed (vertical marquee; pauses on hover) */}
-          <div
-            className="lp-jobs-marquee"
-            style={{
-              position: "relative",
-              height: 320,
-              overflow: "hidden",
-              WebkitMaskImage: "linear-gradient(to bottom, transparent 0, #000 13%, #000 87%, transparent 100%)",
-              maskImage: "linear-gradient(to bottom, transparent 0, #000 13%, #000 87%, transparent 100%)",
-            }}
-          >
-            <div className="lp-jobs-track">
-              {[...jobs, ...jobs].map((job, i) => renderJobCard(job, i))}
-            </div>
-          </div>
+          {/* Right — self-playing apply demo (cycles roles, taps Apply, slides up) */}
+          <JobApplyFeed jobs={jobs} C={C} dark={dark} />
         </div>
       </div>
     </section>
