@@ -77,6 +77,8 @@ export default function InsiderPanel({
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** Id of the row whose status/delete request is in flight (disables its controls). */
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     contactName: "",
     contactTitle: "",
@@ -135,22 +137,34 @@ export default function InsiderPanel({
   }
 
   async function handleStatus(id: string, status: ReferralStatus) {
+    if (pendingId) return;
     const prev = contacts;
+    setPendingId(id);
+    setError(null);
     setContacts((cs) => (cs ?? []).map((c) => (c.id === id ? { ...c, status } : c)));
     try {
       await updateReferral(id, { status });
     } catch {
       setContacts(prev); // rollback
+      setError("Couldn't update status — please try again.");
+    } finally {
+      setPendingId(null);
     }
   }
 
   async function handleDelete(id: string) {
+    if (pendingId) return;
     const prev = contacts;
+    setPendingId(id);
+    setError(null);
     setContacts((cs) => (cs ?? []).filter((c) => c.id !== id));
     try {
       await deleteReferral(id);
     } catch {
       setContacts(prev);
+      setError("Couldn't remove contact — please try again.");
+    } finally {
+      setPendingId(null);
     }
   }
 
@@ -165,7 +179,7 @@ export default function InsiderPanel({
         </div>
         {!adding && (
           <button
-            onClick={() => setAdding(true)}
+            onClick={() => { setError(null); setAdding(true); }}
             style={{
               fontSize: 12.5,
               fontWeight: 600,
@@ -245,6 +259,9 @@ export default function InsiderPanel({
               onChange={(e) => setForm((f) => ({ ...f, contactUrl: e.target.value }))}
             />
           </div>
+          {error && (
+            <div style={{ fontSize: 12, color: "var(--red-ink)", lineHeight: 1.5 }}>{error}</div>
+          )}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button
               onClick={() => { setAdding(false); setError(null); }}
@@ -273,7 +290,7 @@ export default function InsiderPanel({
         </div>
       )}
 
-      {error && (
+      {!adding && error && (
         <div style={{ marginTop: 12, fontSize: 12, color: "var(--red-ink)" }}>{error}</div>
       )}
 
@@ -340,6 +357,7 @@ export default function InsiderPanel({
             </div>
             <select
               value={c.status}
+              disabled={pendingId === c.id}
               onChange={(e) => void handleStatus(c.id, e.target.value as ReferralStatus)}
               style={{
                 fontSize: 11.5,
@@ -349,7 +367,8 @@ export default function InsiderPanel({
                 border: "1px solid var(--border)",
                 background: "var(--surface)",
                 color: STATUS_INK[c.status],
-                cursor: "pointer",
+                cursor: pendingId === c.id ? "wait" : "pointer",
+                opacity: pendingId === c.id ? 0.55 : 1,
                 flexShrink: 0,
               }}
             >
@@ -359,8 +378,9 @@ export default function InsiderPanel({
             </select>
             <button
               onClick={() => void handleDelete(c.id)}
+              disabled={pendingId === c.id}
               aria-label={`Remove ${c.contactName}`}
-              style={{ background: "none", border: "none", color: "var(--dim)", cursor: "pointer", fontSize: 15, padding: 2, flexShrink: 0 }}
+              style={{ background: "none", border: "none", color: "var(--dim)", cursor: pendingId === c.id ? "wait" : "pointer", opacity: pendingId === c.id ? 0.55 : 1, fontSize: 15, padding: 2, flexShrink: 0 }}
             >
               ×
             </button>
