@@ -83,7 +83,7 @@ export default function JobDetail({ jobId }: { jobId: string }) {
   const backToFeed = () => router.push("/?view=jobs");
 
   return (
-    <div style={{ maxWidth: 980, margin: "0 auto", padding: "24px 20px 64px", width: "100%" }}>
+    <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 28px 64px", width: "100%" }}>
       {/* breadcrumb */}
       <button
         onClick={backToFeed}
@@ -203,19 +203,23 @@ function JobBody({ job, onBoost }: { job: JobDetailData; onBoost: () => void }) 
 
 function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void }) {
   const score = job.matchScore;
-  const ringColor = score == null ? "#9aa0a6" : score >= 70 ? "#4ddb9e" : score >= 50 ? "#e0a35c" : "#d98";
+  const arcColor =
+    score == null ? "var(--muted)"
+    : score >= 70 ? "var(--green-ink, #34d399)"
+    : score >= 50 ? "var(--amber-ink, #e0a35c)"
+    : "var(--red-ink, #d97757)";
   const pct = score == null ? 0 : Math.max(0, Math.min(100, score));
-  const ring = `conic-gradient(${ringColor} ${pct * 3.6}deg, rgba(255,255,255,0.12) 0deg)`;
+  const ring = `conic-gradient(${arcColor} ${pct * 3.6}deg, var(--surface2) 0deg)`;
 
   return (
-    <div style={{ borderRadius: 18, padding: "28px 24px", background: "linear-gradient(160deg, #131311 0%, #1a2a22 100%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+    <div style={{ borderRadius: 18, padding: "28px 24px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
       <div style={{ width: 128, height: 128, borderRadius: "50%", background: ring, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 104, height: 104, borderRadius: "50%", background: "#15201b", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontSize: 32, fontWeight: 700, color: "#fff" }}>{score == null ? "—" : `${score}%`}</span>
+        <div style={{ width: 104, height: 104, borderRadius: "50%", background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: 32, fontWeight: 700, color: "var(--text)" }}>{score == null ? "—" : `${score}%`}</span>
         </div>
       </div>
-      <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.04em", color: "#fff" }}>{scoreLabel(score)}</div>
-      <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.62)", textAlign: "center" }}>
+      <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.04em", color: "var(--text)" }}>{scoreLabel(score)}</div>
+      <div style={{ fontSize: 12.5, color: "var(--muted)", textAlign: "center" }}>
         {score == null
           ? "Scan your résumé to see how you match this role."
           : `Your résumé matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
@@ -223,16 +227,16 @@ function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void 
 
       {job.totalRequirements > 0 && (
         <>
-          <div style={{ width: "100%", height: 1, background: "rgba(255,255,255,0.1)" }} />
-          <div style={{ width: "100%", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", color: "rgba(255,255,255,0.55)" }}>
+          <div style={{ width: "100%", height: 1, background: "var(--border)" }} />
+          <div style={{ width: "100%", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>
             REQUIREMENTS · {job.matchedCount}/{job.totalRequirements} MATCHED
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, width: "100%" }}>
             {[...job.matched.map((m) => ({ ...m, ok: true })), ...job.missing.map((m) => ({ ...m, ok: false }))]
               .slice(0, 14)
               .map((r, i) => (
-                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, fontSize: 12, background: r.ok ? "rgba(77,219,158,0.14)" : "rgba(255,255,255,0.07)", color: r.ok ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.6)" }}>
-                  <span style={{ color: r.ok ? "#6be8ad" : "#ff9e8c", fontWeight: 600 }}>{r.ok ? "✓" : "✗"}</span>
+                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, fontSize: 12, background: r.ok ? "color-mix(in srgb, var(--green-ink, #34d399) 14%, transparent)" : "var(--surface2)", color: r.ok ? "var(--text)" : "var(--muted)" }}>
+                  <span style={{ color: r.ok ? "var(--green-ink, #34d399)" : "var(--red-ink, #d97757)", fontWeight: 600 }}>{r.ok ? "✓" : "✗"}</span>
                   {r.canonical}
                 </span>
               ))}
@@ -241,7 +245,7 @@ function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void 
       )}
 
       {job.missing.length > 0 && (
-        <div style={{ fontSize: 12, lineHeight: 1.5, color: "rgba(255,255,255,0.55)", width: "100%" }}>
+        <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
           Tailoring can close {job.missing.length} missing requirement{job.missing.length === 1 ? "" : "s"} using your real experience.
         </div>
       )}
@@ -256,7 +260,7 @@ function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void 
         href={job.url}
         target="_blank"
         rel="noopener noreferrer"
-        style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.92)", fontSize: 13.5, fontWeight: 600, textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}
+        style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 13.5, fontWeight: 600, textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}
       >
         Apply on company site ↗
       </a>

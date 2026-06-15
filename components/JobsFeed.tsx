@@ -12,7 +12,7 @@
  * submits applications on the user's behalf.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,55 @@ const AGE_FILTERS = [
 
 type AgeFilterKey = (typeof AGE_FILTERS)[number]["key"];
 
+const WORK_MODELS = [
+  { key: "remote", label: "Remote" },
+  { key: "hybrid", label: "Hybrid" },
+  { key: "onsite", label: "On-site" },
+] as const;
+
+/** Experience-level facet — buckets the granular `seniority` values jobright-style. */
+const SENIORITY_BUCKETS = [
+  { key: "entry", label: "Entry", vals: ["intern", "entry"] },
+  { key: "mid", label: "Mid", vals: ["mid"] },
+  { key: "senior", label: "Senior", vals: ["senior"] },
+  { key: "lead", label: "Lead+", vals: ["lead", "principal", "director", "executive"] },
+] as const;
+
+const SORT_OPTIONS = [
+  { key: "match", label: "Best match" },
+  { key: "newest", label: "Newest" },
+  { key: "salary", label: "Salary" },
+] as const;
+type SortKey = (typeof SORT_OPTIONS)[number]["key"];
+
+function seniorityBucketKey(seniority: string | null): string | null {
+  if (!seniority) return null;
+  for (const b of SENIORITY_BUCKETS) if ((b.vals as readonly string[]).includes(seniority)) return b.key;
+  return null;
+}
+
+/** Shared pill style for the filter-bar toggle chips. */
+function filterChipStyle(active: boolean): CSSProperties {
+  return {
+    fontSize: 12.5,
+    padding: "5px 12px",
+    borderRadius: 999,
+    border: "1px solid " + (active ? "var(--accent)" : "var(--surface2)"),
+    background: active ? "var(--accent-bg)" : "transparent",
+    color: active ? "var(--accent)" : "var(--muted)",
+    cursor: "pointer",
+  };
+}
+
+/** Toggle a key in a Set-valued filter state. */
+function toggleInSet(setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) {
+  setter((prev) => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
+}
+
 /** How many job cards to render per lazy-load page. */
 const PAGE_SIZE = 25;
 
@@ -146,7 +195,9 @@ export default function JobsFeed() {
   const router = useRouter();
   const [state, setState] = useState<FeedState>({ status: "loading" });
   const [search, setSearch] = useState("");
-  const [remoteOnly, setRemoteOnly] = useState(false);
+  const [workModels, setWorkModels] = useState<Set<string>>(new Set());
+  const [seniorities, setSeniorities] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<SortKey>("match");
   const [rolesOnly, setRolesOnly] = useState(false);
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
   const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
@@ -269,20 +320,37 @@ export default function JobsFeed() {
     if (state.status !== "ready") return [];
     const q = search.trim().toLowerCase();
     const minScore = SCORE_FILTERS.find((f) => f.key === scoreFilter)?.min ?? 0;
-    return state.jobs.filter((job) => {
+    const filtered = state.jobs.filter((job) => {
       if (job.matchScore < minScore) return false;
-      if (remoteOnly && !`${job.location} ${job.title}`.toLowerCase().includes("remote")) return false;
+      if (workModels.size > 0) {
+        // Fall back to a text heuristic when the posting has no structured work_model.
+        const wm = job.workModel
+          || (`${job.location} ${job.title}`.toLowerCase().includes("remote") ? "remote" : null);
+        if (!wm || !workModels.has(wm)) return false;
+      }
+      if (seniorities.size > 0) {
+        const b = seniorityBucketKey(job.seniority);
+        if (!b || !seniorities.has(b)) return false;
+      }
       if (rolesOnly && !job.titleMatch) return false;
       if (q && !`${job.title} ${job.company} ${job.location}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [state, search, remoteOnly, rolesOnly, scoreFilter]);
+    if (sortBy === "newest") {
+      return [...filtered].sort((a, b) => (Date.parse(b.postedAt || "") || 0) - (Date.parse(a.postedAt || "") || 0));
+    }
+    if (sortBy === "salary") {
+      const sal = (j: FeedJob) => j.salaryMax ?? j.salaryMin ?? -1;
+      return [...filtered].sort((a, b) => sal(b) - sal(a));
+    }
+    return filtered; // "match" — the backend already ranks by match score
+  }, [state, search, workModels, seniorities, rolesOnly, scoreFilter, sortBy]);
 
   // Reset the lazy-load window whenever the filtered result set changes, so a
   // new filter/search starts from the top instead of keeping a stale offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, remoteOnly, rolesOnly, scoreFilter, ageFilter, state.status]);
+  }, [search, workModels, seniorities, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
 
   const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
   const hasMore = visibleCount < visibleJobs.length;
@@ -364,21 +432,20 @@ export default function JobsFeed() {
               {f.label}
             </button>
           ))}
-          <button
-            type="button"
-            onClick={() => setRemoteOnly((v) => !v)}
-            style={{
-              fontSize: 12.5,
-              padding: "5px 12px",
-              borderRadius: 999,
-              border: "1px solid " + (remoteOnly ? "var(--accent)" : "var(--surface2)"),
-              background: remoteOnly ? "var(--accent-bg)" : "transparent",
-              color: remoteOnly ? "var(--accent)" : "var(--muted)",
-              cursor: "pointer",
-            }}
-          >
-            Remote
-          </button>
+          <span style={{ width: 1, height: 18, background: "var(--surface2)" }} />
+          <span style={{ fontSize: 11.5, color: "var(--dim)" }}>Work</span>
+          {WORK_MODELS.map((w) => (
+            <button key={w.key} type="button" onClick={() => toggleInSet(setWorkModels, w.key)} style={filterChipStyle(workModels.has(w.key))}>
+              {w.label}
+            </button>
+          ))}
+          <span style={{ width: 1, height: 18, background: "var(--surface2)" }} />
+          <span style={{ fontSize: 11.5, color: "var(--dim)" }}>Level</span>
+          {SENIORITY_BUCKETS.map((b) => (
+            <button key={b.key} type="button" onClick={() => toggleInSet(setSeniorities, b.key)} style={filterChipStyle(seniorities.has(b.key))}>
+              {b.label}
+            </button>
+          ))}
           {state.status === "ready" && state.profileRoles.length > 0 && (
             <button
               type="button"
@@ -400,9 +467,21 @@ export default function JobsFeed() {
               🎯 Your roles
             </button>
           )}
-          <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: "auto" }}>
-            {visibleJobs.length} of {state.jobs.length} openings
-          </span>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortKey)}
+              aria-label="Sort jobs"
+              style={{ fontSize: 12.5, padding: "5px 8px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--surface)", color: "var(--text)", cursor: "pointer" }}
+            >
+              {SORT_OPTIONS.map((s) => (
+                <option key={s.key} value={s.key}>{`Sort: ${s.label}`}</option>
+              ))}
+            </select>
+            <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+              {visibleJobs.length} of {state.jobs.length}
+            </span>
+          </div>
         </div>
       )}
 
