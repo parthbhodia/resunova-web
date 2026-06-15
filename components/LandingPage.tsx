@@ -164,20 +164,31 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
-        <rect x="56" y="22" width="88" height="11" rx="3" fill="#1e293b" />
-        <rect x="68" y="40" width="64" height="5" rx="2.5" fill="#cbd5e1" />
-        <rect x="24" y="58" width="152" height="2" rx="1" fill="#e2e8f0" />
-        <rect x="24" y="74" width="46" height="7" rx="3" fill="#2563eb" />
-        <rect x="24" y="90" width="152" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="24" y="102" width="152" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="24" y="114" width="120" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="24" y="138" width="46" height="7" rx="3" fill="#2563eb" />
-        <rect x="24" y="154" width="152" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="24" y="166" width="152" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="24" y="178" width="100" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="24" y="202" width="46" height="7" rx="3" fill="#2563eb" />
-        <rect x="24" y="218" width="152" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="24" y="230" width="134" height="5" rx="2.5" fill="#e2e8f0" />
+        <text x="100" y="27" textAnchor="middle" fontFamily="Helvetica, Arial, sans-serif" fontSize="12.5" fontWeight="700" fill="#1e293b" letterSpacing="0.5">MORGAN AVERY</text>
+        <text x="100" y="37" textAnchor="middle" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">Senior Product Manager · morgan.avery@email.com · San Francisco</text>
+        <line x1="18" y1="44" x2="182" y2="44" stroke="#1e3a5f" strokeWidth="0.9" />
+        <text x="18" y="58" fontFamily="Helvetica, Arial, sans-serif" fontSize="7" fontWeight="700" fill="#1e3a5f" letterSpacing="0.9">EXPERIENCE</text>
+        <text x="18" y="70" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.3" fontWeight="700" fill="#1e293b">Senior Product Manager</text>
+        <text x="182" y="70" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">2021 – Present</text>
+        <text x="18" y="78" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.1" fontStyle="italic" fill="#475569">Stripe — San Francisco, CA</text>
+        <text x="20" y="87" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">• Led 0→1 launch of a merchant analytics suite (12k+ users)</text>
+        <text x="20" y="95" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">• Grew activation 28% via an onboarding redesign</text>
+        <text x="18" y="108" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.3" fontWeight="700" fill="#1e293b">Product Manager</text>
+        <text x="182" y="108" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">2018 – 2021</text>
+        <text x="18" y="116" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.1" fontStyle="italic" fill="#475569">Asana — San Francisco, CA</text>
+        <text x="20" y="125" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">• Shipped 3 core features adopted by 60% of teams</text>
+        <text x="20" y="133" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">• Built the experimentation roadmap with design + eng</text>
+        <text x="18" y="146" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.3" fontWeight="700" fill="#1e293b">Associate Product Manager</text>
+        <text x="182" y="146" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">2016 – 2018</text>
+        <text x="18" y="154" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.1" fontStyle="italic" fill="#475569">Intuit — Mountain View, CA</text>
+        <text x="20" y="163" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">• Owned billing experiments lifting retention 9%</text>
+        <text x="18" y="178" fontFamily="Helvetica, Arial, sans-serif" fontSize="7" fontWeight="700" fill="#1e3a5f" letterSpacing="0.9">EDUCATION</text>
+        <text x="18" y="190" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.7" fontWeight="700" fill="#1e293b">B.S. Computer Science</text>
+        <text x="182" y="190" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">2016</text>
+        <text x="18" y="198" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.1" fill="#475569">University of California, Berkeley</text>
+        <text x="18" y="213" fontFamily="Helvetica, Arial, sans-serif" fontSize="7" fontWeight="700" fill="#1e3a5f" letterSpacing="0.9">SKILLS</text>
+        <text x="18" y="225" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">Product strategy · Roadmapping · SQL · Figma · A/B testing</text>
+        <text x="18" y="234" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">Go-to-market · Stakeholder management · Analytics</text>
       </svg>
     ),
   },
@@ -186,23 +197,29 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
-        <rect x="22" y="22" width="92" height="11" rx="3" fill="#1e293b" />
-        <rect x="22" y="40" width="120" height="5" rx="2.5" fill="#cbd5e1" />
-        <rect x="22" y="60" width="40" height="6" rx="3" fill="#0d9488" />
-        <rect x="22" y="74" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
-        <rect x="22" y="84" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
-        <rect x="22" y="94" width="130" height="4.5" rx="2.25" fill="#e2e8f0" />
-        <rect x="22" y="112" width="40" height="6" rx="3" fill="#0d9488" />
-        <rect x="22" y="126" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
-        <rect x="22" y="136" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
-        <rect x="22" y="146" width="118" height="4.5" rx="2.25" fill="#e2e8f0" />
-        <rect x="22" y="164" width="40" height="6" rx="3" fill="#0d9488" />
-        <rect x="22" y="178" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
-        <rect x="22" y="188" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
-        <rect x="22" y="198" width="108" height="4.5" rx="2.25" fill="#e2e8f0" />
-        <rect x="22" y="216" width="40" height="6" rx="3" fill="#0d9488" />
-        <rect x="22" y="230" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
-        <rect x="22" y="240" width="138" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <text x="18" y="26" fontFamily="Helvetica, Arial, sans-serif" fontSize="13" fontWeight="700" fill="#0f172a" letterSpacing="0.3">JORDAN LEE</text>
+        <text x="18" y="36" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#64748b">jordan.lee@email.com · (206) 555-0140 · Seattle, WA · github.com/jlee</text>
+        <text x="18" y="50" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.8" fontWeight="700" fill="#0f5561" letterSpacing="0.8">EXPERIENCE</text>
+        <text x="18" y="61" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#0f172a">Software Engineer II</text>
+        <text x="182" y="61" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">NVIDIA · 2022–Present</text>
+        <text x="20" y="70" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">• Built a GPU job scheduler cutting queue time 35%</text>
+        <text x="20" y="77" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">• Shipped a Go telemetry pipeline at 2M events/s</text>
+        <text x="18" y="89" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#0f172a">Software Engineer</text>
+        <text x="182" y="89" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">Cloudflare · 2020–2022</text>
+        <text x="20" y="98" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">• Cut p99 latency 40% via a Rust edge cache</text>
+        <text x="20" y="105" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">• Owned the rollout of zero-downtime deploys</text>
+        <text x="18" y="117" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#0f172a">SDE Intern</text>
+        <text x="182" y="117" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">Amazon · 2019</text>
+        <text x="20" y="126" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">• Automated CI checks, saving ~10 hrs/week</text>
+        <text x="18" y="140" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.8" fontWeight="700" fill="#0f5561" letterSpacing="0.8">EDUCATION</text>
+        <text x="18" y="151" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.6" fontWeight="700" fill="#0f172a">B.S. Computer Science &amp; Engineering</text>
+        <text x="18" y="159" fontFamily="Helvetica, Arial, sans-serif" fontSize="5" fill="#475569">University of Washington · GPA 3.8 · 2020</text>
+        <text x="18" y="173" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.8" fontWeight="700" fill="#0f5561" letterSpacing="0.8">SKILLS</text>
+        <text x="18" y="184" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">Go · Rust · Python · Kubernetes · AWS · gRPC · Postgres</text>
+        <text x="18" y="192" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">React · TypeScript · Kafka · Terraform · CI/CD</text>
+        <text x="18" y="206" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.8" fontWeight="700" fill="#0f5561" letterSpacing="0.8">PROJECTS</text>
+        <text x="18" y="217" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.3" fontWeight="700" fill="#0f172a">distcache — distributed KV store (4k★)</text>
+        <text x="18" y="225" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">Raft consensus, &lt;1ms reads; 2k req/s per node in Go</text>
       </svg>
     ),
   },
@@ -211,20 +228,29 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
-        <rect x="52" y="24" width="96" height="11" rx="2" fill="#111111" />
-        <rect x="64" y="42" width="72" height="5" rx="2" fill="#9ca3af" />
-        <rect x="40" y="56" width="120" height="1.5" rx="0.75" fill="#b45309" />
-        <rect x="24" y="72" width="48" height="6" rx="2" fill="#b45309" />
-        <rect x="24" y="88" width="152" height="5" rx="2" fill="#e2e8f0" />
-        <rect x="24" y="100" width="152" height="5" rx="2" fill="#e2e8f0" />
-        <rect x="24" y="112" width="124" height="5" rx="2" fill="#e2e8f0" />
-        <rect x="24" y="136" width="48" height="6" rx="2" fill="#b45309" />
-        <rect x="24" y="152" width="152" height="5" rx="2" fill="#e2e8f0" />
-        <rect x="24" y="164" width="152" height="5" rx="2" fill="#e2e8f0" />
-        <rect x="24" y="176" width="104" height="5" rx="2" fill="#e2e8f0" />
-        <rect x="24" y="200" width="48" height="6" rx="2" fill="#b45309" />
-        <rect x="24" y="216" width="152" height="5" rx="2" fill="#e2e8f0" />
-        <rect x="24" y="228" width="132" height="5" rx="2" fill="#e2e8f0" />
+        <text x="100" y="28" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="13.5" fontWeight="700" fill="#1a1a1a">Eleanor R. Whitman</text>
+        <text x="100" y="39" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">Boston, MA · eleanor.whitman@email.com · (617) 555-0119</text>
+        <line x1="20" y1="46" x2="180" y2="46" stroke="#1a1a1a" strokeWidth="0.7" />
+        <text x="18" y="60" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">EXPERIENCE</text>
+        <text x="18" y="72" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.4" fontWeight="700" fill="#1a1a1a">Associate Attorney</text>
+        <text x="182" y="72" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2019 – Present</text>
+        <text x="18" y="80" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fontStyle="italic" fill="#444444">Ropes &amp; Gray LLP — Boston, MA</text>
+        <text x="22" y="89" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Second-chaired three M&amp;A deals totaling $1.2B</text>
+        <text x="22" y="97" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Drafted and negotiated commercial agreements</text>
+        <text x="18" y="110" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.4" fontWeight="700" fill="#1a1a1a">Judicial Law Clerk</text>
+        <text x="182" y="110" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2018 – 2019</text>
+        <text x="18" y="118" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fontStyle="italic" fill="#444444">U.S. District Court, D. Mass.</text>
+        <text x="22" y="127" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Authored bench memoranda for federal civil matters</text>
+        <text x="18" y="142" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">EDUCATION</text>
+        <text x="18" y="154" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.8" fontWeight="700" fill="#1a1a1a">J.D., Harvard Law School</text>
+        <text x="182" y="154" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2018</text>
+        <text x="18" y="162" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fontStyle="italic" fill="#444444">cum laude · Harvard Law Review</text>
+        <text x="18" y="173" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.8" fontWeight="700" fill="#1a1a1a">B.A., Yale University</text>
+        <text x="182" y="173" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2015</text>
+        <text x="18" y="188" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">BAR ADMISSIONS</text>
+        <text x="18" y="200" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">Massachusetts (2018) · New York (2019)</text>
+        <text x="18" y="214" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">HONORS</text>
+        <text x="18" y="226" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">Order of the Coif · Moot Court Champion</text>
       </svg>
     ),
   },
@@ -233,24 +259,32 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
-        <rect x="50" y="18" width="100" height="10" rx="3" fill="#1e293b" />
-        <rect x="64" y="33" width="72" height="4" rx="2" fill="#cbd5e1" />
-        <rect x="20" y="48" width="160" height="1.5" rx="1" fill="#e2e8f0" />
-        <rect x="20" y="60" width="50" height="6" rx="3" fill="#7c3aed" />
-        <rect x="20" y="74" width="160" height="4" rx="2" fill="#e2e8f0" />
-        <rect x="20" y="84" width="140" height="4" rx="2" fill="#e2e8f0" />
-        <rect x="20" y="104" width="54" height="6" rx="3" fill="#7c3aed" />
-        <rect x="20" y="118" width="160" height="3.5" rx="1.75" fill="#e2e8f0" />
-        <rect x="20" y="127" width="160" height="3.5" rx="1.75" fill="#e2e8f0" />
-        <rect x="20" y="136" width="120" height="3.5" rx="1.75" fill="#e2e8f0" />
-        <rect x="20" y="145" width="160" height="3.5" rx="1.75" fill="#e2e8f0" />
-        <rect x="20" y="154" width="140" height="3.5" rx="1.75" fill="#e2e8f0" />
-        <rect x="20" y="163" width="160" height="3.5" rx="1.75" fill="#e2e8f0" />
-        <rect x="20" y="172" width="100" height="3.5" rx="1.75" fill="#e2e8f0" />
-        <rect x="20" y="192" width="54" height="6" rx="3" fill="#7c3aed" />
-        <rect x="20" y="206" width="160" height="4" rx="2" fill="#e2e8f0" />
-        <rect x="20" y="216" width="150" height="4" rx="2" fill="#e2e8f0" />
-        <rect x="20" y="226" width="120" height="4" rx="2" fill="#e2e8f0" />
+        <text x="100" y="24" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="12.5" fontWeight="700" fill="#1a1a1a">Priya N. Raman, Ph.D.</text>
+        <text x="100" y="34" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#555555">Dept. of Computer Science · Stanford University · praman@stanford.edu</text>
+        <line x1="20" y1="41" x2="180" y2="41" stroke="#1a1a1a" strokeWidth="0.6" />
+        <text x="18" y="53" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">EDUCATION</text>
+        <text x="18" y="63" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Ph.D., Computer Science — MIT</text>
+        <text x="182" y="63" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2020</text>
+        <text x="18" y="71" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">B.S., Computer Science — Caltech</text>
+        <text x="182" y="71" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2015</text>
+        <text x="18" y="84" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">SELECTED PUBLICATIONS</text>
+        <text x="18" y="94" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">1. Raman P., Chen L. Sparse Attention at Scale. NeurIPS 2023.</text>
+        <text x="18" y="101" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">2. Raman P. et al. Efficient Transformers for Long Context. ICML 2023.</text>
+        <text x="18" y="108" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">3. Raman P., Gupta S. Retrieval-Augmented Pretraining. ACL 2022.</text>
+        <text x="18" y="115" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">4. Raman P. et al. Calibrated Uncertainty in LLMs. ICLR 2022.</text>
+        <text x="18" y="122" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">5. Raman P., Lee J. Robust Fine-Tuning of Encoders. EMNLP 2021.</text>
+        <text x="18" y="129" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">6. Raman P. Data-Efficient Representation Learning. NeurIPS 2020.</text>
+        <text x="18" y="142" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">APPOINTMENTS</text>
+        <text x="18" y="152" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Assistant Professor — Stanford University</text>
+        <text x="182" y="152" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2021–</text>
+        <text x="18" y="160" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Research Scientist — Google DeepMind</text>
+        <text x="182" y="160" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2020–21</text>
+        <text x="18" y="173" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">GRANTS &amp; AWARDS</text>
+        <text x="18" y="183" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">NSF CAREER Award (2023) · Best Paper, NeurIPS 2023</text>
+        <text x="18" y="191" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">Google Research Scholar (2022) · MIT Presidential Fellow</text>
+        <text x="18" y="204" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">TEACHING</text>
+        <text x="18" y="214" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">CS224N: NLP with Deep Learning · CS161: Algorithms</text>
+        <text x="18" y="222" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">Advising 5 Ph.D. students · 3 M.S. theses</text>
       </svg>
     ),
   },
