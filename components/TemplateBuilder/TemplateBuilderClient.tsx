@@ -266,6 +266,7 @@ export default function TemplateBuilderClient() {
   const { exportPdf: exportHtmlPdf, exporting: isGenerating, error: htmlPdfError } = useHtmlPdfExport();
 
   const builderIdFromUrl = (searchParams?.get("builder") ?? "").trim();
+  const presetFromUrl = (searchParams?.get("preset") ?? "").trim().toLowerCase();
 
   const showFeedback = useCallback((kind: "success" | "error" | "info", message: string) => {
     setFeedbackToast({ kind, message });
@@ -321,6 +322,17 @@ export default function TemplateBuilderClient() {
       });
     return () => { cancelled = true; };
   }, [loaded, builderIdFromUrl, showFeedback]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Preselect a style preset from the landing template gallery
+  // (?preset=executive|modern|classic). Skipped when loading a specific saved
+  // résumé (?builder=) so we don't clobber that résumé's saved style.
+  useEffect(() => {
+    if (!loaded || !presetFromUrl || builderIdFromUrl) return;
+    const VALID_PRESETS = ["executive", "modern", "classic"];
+    if (!VALID_PRESETS.includes(presetFromUrl)) return;
+    if (data.customization.stylePreset === presetFromUrl) return;
+    store.setCustomization("stylePreset", presetFromUrl);
+  }, [loaded, presetFromUrl, builderIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSaveToLibrary = useCallback(async () => {
     if (signedIn === false) {

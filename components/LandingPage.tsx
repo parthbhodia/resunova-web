@@ -156,11 +156,11 @@ const RESEARCH_PILLARS = [
 ];
 
 // ── Résumé / CV templates (landing showcase) ────────────────────────────────
-type TemplateDef = { name: string; type: "Résumé" | "CV"; accent: string; thumb: React.ReactNode };
+type TemplateDef = { name: string; type: "Résumé" | "CV"; accent: string; href: string; thumb: React.ReactNode };
 
 const RESUME_TEMPLATES: TemplateDef[] = [
   {
-    name: "Classic", type: "Résumé", accent: "#2563eb",
+    name: "Executive", type: "Résumé", accent: "#2563eb", href: "/template-builder/?preset=executive",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -182,58 +182,54 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     ),
   },
   {
-    name: "Modern", type: "Résumé", accent: "#0d9488",
+    name: "Modern", type: "Résumé", accent: "#0d9488", href: "/template-builder/?preset=modern",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
-        <rect x="0" y="0" width="68" height="264" fill="#0d9488" fillOpacity="0.12" />
-        <circle cx="34" cy="36" r="16" fill="#0d9488" fillOpacity="0.4" />
-        <rect x="14" y="62" width="40" height="5" rx="2.5" fill="#0d9488" fillOpacity="0.55" />
-        <rect x="16" y="74" width="30" height="4" rx="2" fill="#cbd5e1" />
-        <rect x="14" y="98" width="38" height="6" rx="3" fill="#0d9488" />
-        <rect x="14" y="112" width="40" height="4" rx="2" fill="#cbd5e1" />
-        <rect x="14" y="122" width="34" height="4" rx="2" fill="#cbd5e1" />
-        <rect x="14" y="132" width="38" height="4" rx="2" fill="#cbd5e1" />
-        <rect x="14" y="160" width="38" height="6" rx="3" fill="#0d9488" />
-        <rect x="14" y="174" width="36" height="4" rx="2" fill="#cbd5e1" />
-        <rect x="14" y="184" width="40" height="4" rx="2" fill="#cbd5e1" />
-        <rect x="82" y="22" width="86" height="11" rx="3" fill="#1e293b" />
-        <rect x="82" y="40" width="60" height="5" rx="2.5" fill="#cbd5e1" />
-        <rect x="82" y="64" width="44" height="7" rx="3" fill="#0d9488" />
-        <rect x="82" y="80" width="94" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="82" y="92" width="94" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="82" y="104" width="70" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="82" y="128" width="44" height="7" rx="3" fill="#0d9488" />
-        <rect x="82" y="144" width="94" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="82" y="156" width="94" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="82" y="168" width="60" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="82" y="192" width="44" height="7" rx="3" fill="#0d9488" />
-        <rect x="82" y="208" width="94" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="82" y="220" width="80" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="22" y="22" width="92" height="11" rx="3" fill="#1e293b" />
+        <rect x="22" y="40" width="120" height="5" rx="2.5" fill="#cbd5e1" />
+        <rect x="22" y="60" width="40" height="6" rx="3" fill="#0d9488" />
+        <rect x="22" y="74" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <rect x="22" y="84" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <rect x="22" y="94" width="130" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <rect x="22" y="112" width="40" height="6" rx="3" fill="#0d9488" />
+        <rect x="22" y="126" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <rect x="22" y="136" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <rect x="22" y="146" width="118" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <rect x="22" y="164" width="40" height="6" rx="3" fill="#0d9488" />
+        <rect x="22" y="178" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <rect x="22" y="188" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <rect x="22" y="198" width="108" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <rect x="22" y="216" width="40" height="6" rx="3" fill="#0d9488" />
+        <rect x="22" y="230" width="156" height="4.5" rx="2.25" fill="#e2e8f0" />
+        <rect x="22" y="240" width="138" height="4.5" rx="2.25" fill="#e2e8f0" />
       </svg>
     ),
   },
   {
-    name: "Minimal", type: "Résumé", accent: "#334155",
+    name: "Classic", type: "Résumé", accent: "#b45309", href: "/template-builder/?preset=classic",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
-        <rect x="28" y="34" width="96" height="12" rx="3" fill="#0f172a" />
-        <rect x="28" y="54" width="70" height="5" rx="2.5" fill="#94a3b8" />
-        <rect x="28" y="74" width="144" height="1.5" rx="1" fill="#e2e8f0" />
-        <rect x="28" y="92" width="40" height="6" rx="3" fill="#334155" />
-        <rect x="28" y="108" width="144" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="28" y="120" width="120" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="28" y="150" width="40" height="6" rx="3" fill="#334155" />
-        <rect x="28" y="166" width="144" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="28" y="178" width="110" height="5" rx="2.5" fill="#e2e8f0" />
-        <rect x="28" y="208" width="40" height="6" rx="3" fill="#334155" />
-        <rect x="28" y="224" width="144" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="52" y="24" width="96" height="11" rx="2" fill="#111111" />
+        <rect x="64" y="42" width="72" height="5" rx="2" fill="#9ca3af" />
+        <rect x="40" y="56" width="120" height="1.5" rx="0.75" fill="#b45309" />
+        <rect x="24" y="72" width="48" height="6" rx="2" fill="#b45309" />
+        <rect x="24" y="88" width="152" height="5" rx="2" fill="#e2e8f0" />
+        <rect x="24" y="100" width="152" height="5" rx="2" fill="#e2e8f0" />
+        <rect x="24" y="112" width="124" height="5" rx="2" fill="#e2e8f0" />
+        <rect x="24" y="136" width="48" height="6" rx="2" fill="#b45309" />
+        <rect x="24" y="152" width="152" height="5" rx="2" fill="#e2e8f0" />
+        <rect x="24" y="164" width="152" height="5" rx="2" fill="#e2e8f0" />
+        <rect x="24" y="176" width="104" height="5" rx="2" fill="#e2e8f0" />
+        <rect x="24" y="200" width="48" height="6" rx="2" fill="#b45309" />
+        <rect x="24" y="216" width="152" height="5" rx="2" fill="#e2e8f0" />
+        <rect x="24" y="228" width="132" height="5" rx="2" fill="#e2e8f0" />
       </svg>
     ),
   },
   {
-    name: "Academic CV", type: "CV", accent: "#7c3aed",
+    name: "Academic CV", type: "CV", accent: "#7c3aed", href: "/template-builder/?preset=classic",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -263,7 +259,7 @@ const RESUME_TEMPLATES: TemplateDef[] = [
 function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string>; dark: boolean }) {
   return (
     <Link
-      href="/template-builder/"
+      href={t.href}
       prefetch={false}
       aria-label={`Build with the ${t.name} ${t.type} template`}
       style={{
@@ -439,6 +435,7 @@ export default function LandingPage() {
 
           {[
             ["Jobs", "jobs"],
+            ["Templates", "templates"],
             ...(SHOW_LANDING_CARDS ? [["Features", "features"]] as const : []),
             ...(SHOW_LANDING_CARDS ? [["Platform", "platform"]] as const : []),
             ["Approach", "approach"],
@@ -548,6 +545,7 @@ export default function LandingPage() {
             {([
               { lbl: "Analyze Resume", run: () => { setMenuOpen(false); goToFreeScan(); } },
               { lbl: "Jobs", run: () => { setMenuOpen(false); scrollTo("jobs"); } },
+              { lbl: "Templates", run: () => { setMenuOpen(false); scrollTo("templates"); } },
               { lbl: "Approach", run: () => { setMenuOpen(false); scrollTo("approach"); } },
               { lbl: "Reviews", run: () => { setMenuOpen(false); scrollTo("reviews"); } },
             ]).map(({ lbl, run }) => (
