@@ -8,7 +8,8 @@ export type AppView =
   | "profile"
   | "jobs"
   | "cover-letter"
-  | "advisor";
+  | "advisor"
+  | "account";
 
 export const VIEW_LABELS: Record<AppView, string> = {
   builder: "Resume Builder",
@@ -18,6 +19,7 @@ export const VIEW_LABELS: Record<AppView, string> = {
   jobs: "Jobs",
   "cover-letter": "Cover letter",
   advisor: "Advisor",
+  account: "Account settings",
 };
 
 export const VIEW_ICONS: Record<AppView, ReactNode> = {
@@ -28,6 +30,7 @@ export const VIEW_ICONS: Record<AppView, ReactNode> = {
   jobs: NAV_ICONS.jobs,
   "cover-letter": NAV_ICONS["cover-letter"],
   advisor: NAV_ICONS.advisor,
+  account: NAV_ICONS.account,
 };
 
 export const VIEW_BADGES: Partial<Record<AppView, string>> = {

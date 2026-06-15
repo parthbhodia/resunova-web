@@ -165,6 +165,17 @@ export const NAV_ICONS = {
       <path d="M14 8H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   ),
+  account: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="2.25" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M8 1.5l1 1.6 1.85-.5.35 1.9 1.9.35-.5 1.85 1.6 1-1.6 1 .5 1.85-1.9.35-.35 1.9-1.85-.5-1 1.6-1-1.6-1.85.5-.35-1.9-1.9-.35.5-1.85-1.6-1 1.6-1-.5-1.85 1.9-.35.35-1.9 1.85.5 1-1.6z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export const BUILDER_SUBFLOW_ICONS = {

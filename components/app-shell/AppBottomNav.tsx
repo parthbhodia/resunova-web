@@ -124,6 +124,18 @@ export function AppBottomNav({
           )}
 
           <div className="flex flex-col py-2">
+            {/* Account settings — signed-in users only */}
+            {!anonMode && (
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 px-5 py-3.5 text-left text-sm text-[var(--text)] hover:bg-[var(--surface2)] active:bg-[var(--surface2)]"
+                onClick={() => { setMoreOpen(false); onSelect("account"); }}
+              >
+                <span className="text-[var(--muted)]">{NAV_ICONS.account}</span>
+                Account settings
+              </button>
+            )}
+
             {/* Advisor / Analytics — only for advisors */}
             {advisorAllowed && (
               <button

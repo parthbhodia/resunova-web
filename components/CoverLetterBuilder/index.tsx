@@ -64,7 +64,7 @@ export default function CoverLetterBuilder() {
     if (profile) {
       store.prefillFromProfile(profile);
     } else {
-      alert("No profile saved yet — visit Profile tab first.");
+      alert("No profile saved yet — visit your Profile page first.");
     }
   };
 

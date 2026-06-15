@@ -13,10 +13,11 @@ import { cn } from "@/lib/utils";
 type Props = {
   initial: string;
   onProfile: () => void;
+  onAccount: () => void;
   onSignOut: () => void;
 };
 
-export function AppSidebarUser({ initial, onProfile, onSignOut }: Props) {
+export function AppSidebarUser({ initial, onProfile, onAccount, onSignOut }: Props) {
   const { state } = useSidebar();
   const showLabels = state === "expanded";
 
@@ -48,7 +49,8 @@ export function AppSidebarUser({ initial, onProfile, onSignOut }: Props) {
         sideOffset={8}
         className="z-[100] w-auto min-w-44"
       >
-        <DropdownMenuItem onClick={onProfile}>Profile settings</DropdownMenuItem>
+        <DropdownMenuItem onClick={onProfile}>Profile</DropdownMenuItem>
+        <DropdownMenuItem onClick={onAccount}>Account settings</DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
           closeOnClick

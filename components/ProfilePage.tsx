@@ -6,9 +6,9 @@
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseClient, fetchUserProfile, upsertUserProfile } from "@/lib/supabase";
-import { apiUrl, isResumeUploadFile, parseJsonOrThrow } from "@/lib/utils";
+import { apiUrl, parseJsonOrThrow, resumeFileClientError } from "@/lib/utils";
 import { extractProfileHintsFromResumeText } from "@/lib/profileFromResumeText";
 import {
   type ProfileFormState,
@@ -28,6 +28,7 @@ import {
   readProfileFocusContext,
   type ProfileFocusContext,
 } from "@/lib/profileFocusFromMatch";
+import { Card, Field, inputStyle } from "@/components/profileSettingsUi";
 
 export type { ProfileFormState };
 
@@ -161,216 +162,6 @@ function profileStrength(s: ProfileFormState): number {
   return Math.min(96, Math.max(8, Math.round((filled / keys.length) * 100)));
 }
 
-function inputStyle(): CSSProperties {
-  return {
-    width: "100%",
-    fontSize: 13,
-    padding: "10px 12px",
-    borderRadius: "var(--radius)",
-    border: "1px solid var(--border)",
-    background: "var(--surface2)",
-    color: "var(--text)",
-    outline: "none",
-    fontFamily: "inherit",
-    letterSpacing: -0.15,
-  };
-}
-
-function Field({
-  label,
-  hint,
-  error,
-  errorId,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  error?: string;
-  errorId?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label style={{ display: "block", marginBottom: 18 }}>
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 600,
-          color: "var(--text)",
-          letterSpacing: -0.2,
-          marginBottom: 6,
-        }}
-      >
-        {label}
-      </div>
-      {children}
-      {error ? (
-        <div
-          id={errorId}
-          aria-live="polite"
-          style={{ fontSize: 11, color: "var(--red)", marginTop: 5, lineHeight: 1.45, display: "flex", alignItems: "flex-start", gap: 5 }}
-        >
-          <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden style={{ flexShrink: 0, marginTop: 1 }}>
-            <circle cx="5.5" cy="5.5" r="4.8" stroke="currentColor" strokeWidth="1" fill="none" />
-            <path d="M5.5 3.1v3.3M5.5 7.7v.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          </svg>
-          <span>{error}</span>
-        </div>
-      ) : hint ? (
-        <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 5, lineHeight: 1.45 }}>{hint}</div>
-      ) : null}
-    </label>
-  );
-}
-
-function Card({
-  title,
-  badge,
-  children,
-  domId,
-}: {
-  title: string;
-  badge?: string;
-  children: React.ReactNode;
-  /** Stable anchor for deep-links from match breakdown → profile. */
-  domId?: string;
-}) {
-  return (
-    <section
-      id={domId}
-      style={{
-        borderRadius: "var(--radius-xl)",
-        border: "1px solid var(--border)",
-        background: "var(--surface)",
-        boxShadow: "var(--shadow-card)",
-        padding: "20px 22px 22px",
-        marginBottom: 16,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.35, color: "var(--text)" }}>{title}</h2>
-        {badge ? (
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: 0.08,
-              color: "var(--amber)",
-              background: "var(--amber-bg)",
-              padding: "4px 10px",
-              borderRadius: "var(--radius-pill)",
-            }}
-          >
-            {badge}
-          </span>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-type ScanUsageStatus = {
-  enforced: boolean;
-  unlimited: boolean;
-  anonymous?: boolean;
-  limit?: number;
-  used?: number;
-  remaining?: number;
-  resetAt?: string | null;
-};
-
-function ScanUsageCard() {
-  const [status, setStatus] = useState<ScanUsageStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const supabase = getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const headers: Record<string, string> = session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : {};
-        const resp = await fetch(apiUrl("/api/scan-limit-status"), { headers });
-        const data = (await resp.json()) as ScanUsageStatus;
-        if (!cancelled) setStatus(data);
-      } catch {
-        /* non-critical */
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  if (loading) {
-    return (
-      <Card title="Plan & usage">
-        <p style={{ fontSize: 12, color: "var(--muted)" }}>Checking your scan quota…</p>
-      </Card>
-    );
-  }
-
-  if (!status || !status.enforced) {
-    return (
-      <Card title="Plan & usage" badge="Free">
-        <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
-          Your account includes <strong style={{ color: "var(--text)" }}>3 résumé scans per day</strong>, free.
-        </p>
-      </Card>
-    );
-  }
-
-  if (status.unlimited) {
-    return (
-      <Card title="Plan & usage" badge="UMBC">
-        <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
-          Unlimited résumé scans — included with your UMBC account.
-        </p>
-      </Card>
-    );
-  }
-
-  const limit = status.limit ?? 3;
-  const used = status.used ?? 0;
-  const remaining = status.remaining ?? Math.max(0, limit - used);
-  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
-
-  return (
-    <Card title="Plan & usage" badge="Free">
-      <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, marginBottom: 12 }}>
-        Free plan includes <strong style={{ color: "var(--text)" }}>{limit} résumé scans per day</strong>.
-      </p>
-      <div
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={limit}
-        aria-valuenow={used}
-        aria-label={`${used} of ${limit} scans used today`}
-        style={{ height: 6, borderRadius: 99, background: "var(--surface2)", overflow: "hidden", marginBottom: 8 }}
-      >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            background: remaining === 0 ? "var(--red)" : "var(--accent)",
-            borderRadius: 99,
-            transition: "width 0.35s ease-out",
-          }}
-        />
-      </div>
-      <div style={{ fontSize: 11, color: "var(--dim)" }}>
-        {remaining === 0
-          ? `0 of ${limit} scans remaining today`
-          : `${remaining} of ${limit} scan${limit !== 1 ? "s" : ""} remaining today`}
-        {" · "}Resets at midnight UTC
-      </div>
-    </Card>
-  );
-}
-
 function EeoRadioGroup({
   label,
   name,
@@ -473,74 +264,6 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
   const obFileRef = useRef<HTMLInputElement>(null);
   const autoSaveTimerRef = useRef<number | null>(null);
   const [matchCoach, setMatchCoach] = useState<ProfileFocusContext | null>(null);
-
-  // Profile view tabs (Dashboard / Career Profile / Settings) — form-phase only.
-  const [profileTab, setProfileTab] = useState<"dashboard" | "career" | "settings">("dashboard");
-
-  // Notification preferences — persisted to user_profiles.notify_prefs via
-  // /api/profile/notify-prefs (which also syncs the "features" flag to Brevo).
-  // localStorage is an offline fallback + instant first render.
-  type NotifyPrefs = { accountChanges: boolean; scanLimit: boolean; features: boolean };
-  const NOTIFY_DEFAULTS: NotifyPrefs = { accountChanges: true, scanLimit: false, features: false };
-  const [notifyPrefs, setNotifyPrefs] = useState<NotifyPrefs>(() => {
-    if (typeof window === "undefined") return NOTIFY_DEFAULTS;
-    try {
-      const raw = localStorage.getItem("rn_notify_prefs_v1");
-      return raw ? { ...NOTIFY_DEFAULTS, ...JSON.parse(raw) } : NOTIFY_DEFAULTS;
-    } catch { return NOTIFY_DEFAULTS; }
-  });
-  const [notifySaveStatus, setNotifySaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const notifyPrefsRef = useRef<NotifyPrefs>(notifyPrefs);
-  notifyPrefsRef.current = notifyPrefs;
-  const notifySaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Load saved prefs from backend on mount (DB is source of truth; overrides localStorage).
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const supabase = getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) return;
-        const resp = await fetch(apiUrl("/api/profile/notify-prefs"), {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        if (!resp.ok || cancelled) return;
-        const prefs = (await resp.json()) as NotifyPrefs;
-        const merged = { ...NOTIFY_DEFAULTS, ...prefs };
-        setNotifyPrefs(merged);
-        try { localStorage.setItem("rn_notify_prefs_v1", JSON.stringify(merged)); } catch {}
-      } catch { /* keep localStorage value already in state */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const toggleNotifyPref = useCallback((key: keyof NotifyPrefs) => {
-    const next = { ...notifyPrefsRef.current, [key]: !notifyPrefsRef.current[key] };
-    notifyPrefsRef.current = next;
-    setNotifyPrefs(next);
-    try { localStorage.setItem("rn_notify_prefs_v1", JSON.stringify(next)); } catch {}
-
-    // Debounced backend persist (also subscribes/unsubscribes from Brevo server-side).
-    setNotifySaveStatus("saving");
-    if (notifySaveTimer.current) clearTimeout(notifySaveTimer.current);
-    notifySaveTimer.current = setTimeout(async () => {
-      try {
-        const supabase = getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const resp = await fetch(apiUrl("/api/profile/notify-prefs"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-          },
-          body: JSON.stringify(next),
-        });
-        setNotifySaveStatus(resp.ok ? "saved" : "idle");
-        if (resp.ok) setTimeout(() => setNotifySaveStatus("idle"), 2000);
-      } catch { setNotifySaveStatus("idle"); }
-    }, 500);
-  }, []);
 
   const dismissEmptyHint = useCallback(() => {
     setEmptyHintDismissed(true);
@@ -743,8 +466,9 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
     setObUploadFileName(file.name);
     setObUploadErr(null);
     setObUploadOk(null);
-    if (!isResumeUploadFile(file)) {
-      setObUploadErr("Please choose a PDF or Word (.doc/.docx) file.");
+    const fileErr = resumeFileClientError(file);
+    if (fileErr) {
+      setObUploadErr(fileErr);
       return;
     }
     setObUploadBusy(true);
@@ -974,188 +698,6 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
             local copy stays on this device — we never sell your data.
           </p>
         </header>
-
-        {/* Profile section tabs */}
-        <div
-          role="tablist"
-          aria-label="Profile sections"
-          style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)", marginBottom: 24 }}
-        >
-          {([
-            { key: "dashboard" as const, label: "Dashboard" },
-            { key: "career" as const, label: "Career Profile" },
-            { key: "settings" as const, label: "Settings" },
-          ]).map(({ key, label }) => {
-            const active = profileTab === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setProfileTab(key)}
-                style={{
-                  appearance: "none",
-                  background: "none",
-                  border: "none",
-                  borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
-                  color: active ? "var(--text)" : "var(--muted)",
-                  fontWeight: active ? 700 : 500,
-                  fontSize: 14,
-                  letterSpacing: -0.2,
-                  padding: "10px 16px",
-                  marginBottom: -1,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ── Dashboard tab ─────────────────────────────────────────────── */}
-        {profileTab === "dashboard" && (
-          <div
-            className="rn-profile-grid"
-            style={{ display: "grid", gridTemplateColumns: "minmax(0, 360px) minmax(0, 1fr)", gap: 22, alignItems: "start" }}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <ScanUsageCard />
-              <Card title="Profile strength">
-                <div
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={strength}
-                  aria-label={`Profile strength ${strength}%`}
-                  style={{ height: 6, borderRadius: 99, background: "var(--surface2)", overflow: "hidden", marginBottom: 8 }}
-                >
-                  <div
-                    style={{
-                      width: `${strength}%`,
-                      height: "100%",
-                      background: strength < 40 ? "var(--red)" : strength < 70 ? "var(--amber)" : "var(--green)",
-                      borderRadius: 99,
-                      transition: "width 0.35s ease-out, background 0.35s ease-out",
-                    }}
-                  />
-                </div>
-                <div style={{ fontSize: 12, color: "var(--dim)" }}>
-                  <span style={{ color: "var(--text)", fontWeight: 600 }}>{strength}%</span>
-                  {strength < 40 ? " · just getting started" : strength < 70 ? " · keep going" : " · looking great"}
-                </div>
-                <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: "12px 0 0" }}>
-                  Fill in your{" "}
-                  <button
-                    type="button"
-                    onClick={() => setProfileTab("career")}
-                    style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}
-                  >
-                    Career Profile
-                  </button>{" "}
-                  to strengthen tailoring + job matches.
-                </p>
-              </Card>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <Card title="Quick actions">
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <a
-                    href="/?view=analyze"
-                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 13, fontWeight: 600, padding: "11px 16px", borderRadius: "var(--radius)", background: "var(--accent)", color: "#fff" }}
-                  >
-                    Analyze a résumé →
-                  </a>
-                  <a
-                    href="/?view=jobs"
-                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 13, fontWeight: 600, padding: "11px 16px", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
-                  >
-                    Browse matched jobs →
-                  </a>
-                </div>
-              </Card>
-              {importDraft ? (
-                <Card title="Imported text waiting" badge="Reference">
-                  <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: 0 }}>
-                    You have text imported from Analyze / the template builder. Open the{" "}
-                    <button
-                      type="button"
-                      onClick={() => setProfileTab("career")}
-                      style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}
-                    >
-                      Career Profile
-                    </button>{" "}
-                    tab to copy it into structured fields.
-                  </p>
-                </Card>
-              ) : null}
-            </div>
-          </div>
-        )}
-
-        {/* ── Settings tab ──────────────────────────────────────────────── */}
-        {profileTab === "settings" && (
-          <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
-            <Card title="Email preferences">
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
-                <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: 0 }}>
-                  We&apos;ll send at most 1–2 emails per week.
-                </p>
-                {notifySaveStatus === "saving" && (
-                  <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>Saving…</span>
-                )}
-                {notifySaveStatus === "saved" && (
-                  <span style={{ fontSize: 11, color: "var(--green-ink, #047857)", fontWeight: 600, flexShrink: 0 }}>✓ Saved</span>
-                )}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {(
-                  [
-                    { key: "accountChanges" as const, label: "Email me when my account changes", sub: "password, email, profile updates" },
-                    { key: "scanLimit" as const, label: "Notify me when I reach my daily scan limit", sub: null },
-                    { key: "features" as const, label: "Tell me about new features and updates", sub: null },
-                  ] satisfies { key: keyof NotifyPrefs; label: string; sub: string | null }[]
-                ).map(({ key, label, sub }) => (
-                  <label
-                    key={key}
-                    style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={notifyPrefs[key]}
-                      onChange={() => toggleNotifyPref(key)}
-                      style={{ marginTop: 2, width: 14, height: 14, flexShrink: 0, cursor: "pointer", accentColor: "var(--accent)" }}
-                    />
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", lineHeight: 1.4 }}>{label}</div>
-                      {sub && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.4 }}>{sub}</div>}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </Card>
-
-            <Card title="Visibility" badge="Soon">
-              <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, marginBottom: 12 }}>
-                Control what appears on exported PDFs and shared links.
-              </p>
-              <div style={{ opacity: 0.45, pointerEvents: "none" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, marginBottom: 10 }}>
-                  <input type="checkbox" defaultChecked readOnly /> Show phone on résumé PDFs
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
-                  <input type="checkbox" readOnly /> Hide full address (city only)
-                </label>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* ── Career Profile tab (the editable form) ────────────────────── */}
-        {profileTab === "career" && (
-        <>
 
         {matchCoach ? (
           <div
@@ -1418,6 +960,23 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                 {strength < 40 ? " · just getting started" : strength < 70 ? " · keep going" : " · looking great"}
               </div>
             </div>
+
+            <Card title="Quick actions">
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <Link
+                  href="/?view=analyze"
+                  style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 13, fontWeight: 600, padding: "11px 16px", borderRadius: "var(--radius)", background: "var(--accent)", color: "#fff" }}
+                >
+                  Analyze a résumé →
+                </Link>
+                <Link
+                  href="/?view=jobs"
+                  style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none", fontSize: 13, fontWeight: 600, padding: "11px 16px", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
+                >
+                  Browse matched jobs →
+                </Link>
+              </div>
+            </Card>
 
           </div>
 
@@ -1748,8 +1307,6 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
             </Card>
           </div>
         </div>
-        </>
-        )}
       </div>
       )}
 

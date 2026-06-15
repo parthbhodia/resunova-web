@@ -81,6 +81,7 @@ export function useAppView(): AppView {
     "jobs",
     "cover-letter",
     "advisor",
+    "account",
   ];
   return valid.includes(raw as AppView) ? (raw as AppView) : "analyze";
 }

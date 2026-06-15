@@ -365,6 +365,7 @@ export function AppSidebar({
               <AppSidebarUser
                 initial={userInitial}
                 onProfile={() => onSwitchView("profile")}
+                onAccount={() => onSwitchView("account")}
                 onSignOut={onSignOut}
               />
             )}

@@ -24,6 +24,7 @@ import ManualResumeForm from "@/components/ManualResumeForm";
 import ResumeLibrary from "@/components/ResumeLibrary";
 import AnalyzeResume from "@/components/AnalyzeResume";
 import ProfilePage from "@/components/ProfilePage";
+import AccountSettingsPage from "@/components/AccountSettingsPage";
 import AdvisorDashboard from "@/components/AdvisorDashboard";
 import JobsFeed from "@/components/JobsFeed";
 import JobDetail from "@/components/JobDetail";
@@ -113,6 +114,15 @@ function RouterView() {
       <ViewFill>
         <ScrollPane>
           <ProfilePage prefill={prefill} />
+        </ScrollPane>
+      </ViewFill>
+    );
+  }
+  if (view === "account") {
+    return (
+      <ViewFill>
+        <ScrollPane>
+          <AccountSettingsPage />
         </ScrollPane>
       </ViewFill>
     );
