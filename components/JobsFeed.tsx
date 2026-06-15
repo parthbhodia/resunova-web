@@ -56,7 +56,7 @@ type FeedJob = {
   h1bCertifiedCount: number | null;
   h1bMedianWage: number | null;
   postedAt: string | null;
-  matchScore: number;
+  matchScore: number | null;
   matchedCount: number;
   totalRequirements: number;
   titleMatch: boolean;
@@ -67,7 +67,7 @@ type FeedState =
   | { status: "loading" }
   | { status: "no-resume" }
   | { status: "error"; message: string }
-  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[] };
+  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[]; ranked: boolean };
 
 const ROLE_CHIPS = [
   "Software Engineer", "Backend Engineer", "Frontend Engineer", "Full-Stack Engineer",
@@ -317,6 +317,9 @@ export default function JobsFeed() {
         generatedAt: data?.generatedAt || "",
         profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
         profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
+        // Backend omits/false `ranked` for the signed-out / no-résumé browse feed
+        // (no match scores). Default true so the ranked path is unaffected.
+        ranked: data?.ranked !== false,
       };
       feedCache = { key: cacheKey, at: Date.now(), data: ready };
       setState(ready);
@@ -370,7 +373,7 @@ export default function JobsFeed() {
     const q = search.trim().toLowerCase();
     const minScore = SCORE_FILTERS.find((f) => f.key === scoreFilter)?.min ?? 0;
     const filtered = state.jobs.filter((job) => {
-      if (job.matchScore < minScore) return false;
+      if (job.matchScore != null && job.matchScore < minScore) return false;
       if (workModels.size > 0) {
         // Fall back to a text heuristic when the posting has no structured work_model.
         const wm = job.workModel
@@ -466,8 +469,9 @@ export default function JobsFeed() {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", margin: 0 }}>Jobs for you</h1>
           <p style={{ fontSize: 13, color: "var(--muted)", margin: "6px 0 0" }}>
-            Live openings ranked against your latest analyzed résumé. Apply on the company&apos;s site — we hand you the
-            match, you make the call.
+            {state.status === "ready" && state.ranked === false
+              ? "Live openings from company career boards — search and apply for free. Sign in and scan your résumé to rank them by fit."
+              : "Live openings ranked against your latest analyzed résumé. Apply on the company's site — we hand you the match, you make the call."}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
@@ -502,7 +506,7 @@ export default function JobsFeed() {
             placeholder="Search title, company, location…"
             style={{ maxWidth: 280 }}
           />
-          {SCORE_FILTERS.map((f) => (
+          {state.ranked && SCORE_FILTERS.map((f) => (
             <button
               key={f.key}
               type="button"
@@ -598,6 +602,20 @@ export default function JobsFeed() {
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-[92px] w-full rounded-xl" />
             ))}
+          </div>
+        )}
+
+        {state.status === "ready" && state.ranked === false && (
+          <div style={{ marginBottom: 16, borderRadius: 14, border: "1.5px solid rgba(47,129,247,0.22)", background: "var(--surface)", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
+                Browsing all live jobs
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                Search and apply for free. Sign in and scan your résumé to rank these by fit and unlock per-job match scores.
+              </div>
+            </div>
+            <Button onClick={() => router.push("/?view=analyze")} style={{ flexShrink: 0 }}>Scan my résumé</Button>
           </div>
         )}
 
@@ -719,7 +737,7 @@ export default function JobsFeed() {
         {state.status === "ready" && state.jobs.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {pagedJobs.map((job) => {
-              const colors = scoreColors(job.matchScore);
+              const colors = job.matchScore != null ? scoreColors(job.matchScore) : null;
               const salary = formatSalary(job);
               const posted = formatPostedAt(job.postedAt);
               return (
@@ -737,6 +755,7 @@ export default function JobsFeed() {
                       flexWrap: "wrap",
                     }}
                   >
+                    {job.matchScore != null && colors && (
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, width: 56 }}>
                       <div
                         title={`Matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
@@ -759,6 +778,7 @@ export default function JobsFeed() {
                         {matchTierLabel(job.matchScore)}
                       </span>
                     </div>
+                    )}
                     <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
                     <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                       <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
