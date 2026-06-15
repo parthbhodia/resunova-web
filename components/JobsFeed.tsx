@@ -23,6 +23,13 @@ import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient, upsertUserProfile } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import {
+  fetchJobFilters,
+  createJobFilter,
+  deleteJobFilter,
+  type SavedFilter,
+  type FilterSnapshot,
+} from "@/lib/jobFiltersApi";
 import CompanyLogo from "@/components/CompanyLogo";
 import BoostPanel from "@/components/BoostPanel";
 
@@ -42,6 +49,9 @@ type FeedJob = {
   workModel: string | null;
   seniority: string | null;
   visaSponsorship: string | null;
+  employmentType: string | null;
+  industry: string | null;
+  minYears: number | null;
   h1bSponsor: boolean | null;
   h1bCertifiedCount: number | null;
   h1bMedianWage: number | null;
@@ -103,10 +113,34 @@ const SORT_OPTIONS = [
 ] as const;
 type SortKey = (typeof SORT_OPTIONS)[number]["key"];
 
+const EMPLOYMENT_OPTIONS = [
+  { key: "", label: "Any type" },
+  { key: "full_time", label: "Full-time" },
+  { key: "part_time", label: "Part-time" },
+  { key: "contract", label: "Contract" },
+  { key: "internship", label: "Internship" },
+  { key: "temporary", label: "Temporary" },
+] as const;
+
+const YEARS_OPTIONS = [
+  { key: "any", label: "Any experience", min: 0, max: 99 },
+  { key: "0-2", label: "0–2 yrs", min: 0, max: 2 },
+  { key: "3-5", label: "3–5 yrs", min: 3, max: 5 },
+  { key: "6+", label: "6+ yrs", min: 6, max: 99 },
+] as const;
+
 function seniorityBucketKey(seniority: string | null): string | null {
   if (!seniority) return null;
   for (const b of SENIORITY_BUCKETS) if ((b.vals as readonly string[]).includes(seniority)) return b.key;
   return null;
+}
+
+/** Short match-strength tier shown under each card's score (jobright-style). */
+function matchTierLabel(score: number): string {
+  if (score >= 85) return "Strong";
+  if (score >= 70) return "Good";
+  if (score >= 50) return "Fair";
+  return "Low";
 }
 
 /** Shared pill style for the filter-bar toggle chips. */
@@ -121,6 +155,17 @@ function filterChipStyle(active: boolean): CSSProperties {
     cursor: "pointer",
   };
 }
+
+const FILTER_SELECT_STYLE: CSSProperties = {
+  fontSize: 12.5,
+  padding: "5px 8px",
+  borderRadius: 8,
+  border: "1px solid var(--surface2)",
+  background: "var(--surface)",
+  color: "var(--text)",
+  cursor: "pointer",
+  maxWidth: 150,
+};
 
 /** Toggle a key in a Set-valued filter state. */
 function toggleInSet(setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) {
@@ -197,7 +242,11 @@ export default function JobsFeed() {
   const [search, setSearch] = useState("");
   const [workModels, setWorkModels] = useState<Set<string>>(new Set());
   const [seniorities, setSeniorities] = useState<Set<string>>(new Set());
+  const [empType, setEmpType] = useState<string>("");
+  const [industry, setIndustry] = useState<string>("");
+  const [yearsBucket, setYearsBucket] = useState<string>("any");
   const [sortBy, setSortBy] = useState<SortKey>("match");
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [rolesOnly, setRolesOnly] = useState(false);
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
   const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
@@ -332,6 +381,12 @@ export default function JobsFeed() {
         const b = seniorityBucketKey(job.seniority);
         if (!b || !seniorities.has(b)) return false;
       }
+      if (empType && job.employmentType !== empType) return false;
+      if (industry && job.industry !== industry) return false;
+      if (yearsBucket !== "any") {
+        const yb = YEARS_OPTIONS.find((y) => y.key === yearsBucket);
+        if (yb && (job.minYears == null || job.minYears < yb.min || job.minYears > yb.max)) return false;
+      }
       if (rolesOnly && !job.titleMatch) return false;
       if (q && !`${job.title} ${job.company} ${job.location}`.toLowerCase().includes(q)) return false;
       return true;
@@ -344,13 +399,45 @@ export default function JobsFeed() {
       return [...filtered].sort((a, b) => sal(b) - sal(a));
     }
     return filtered; // "match" — the backend already ranks by match score
-  }, [state, search, workModels, seniorities, rolesOnly, scoreFilter, sortBy]);
+  }, [state, search, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
+
+  // Distinct industries present in the current feed, for the Industry dropdown.
+  const industryOptions = useMemo(() => {
+    if (state.status !== "ready") return [];
+    const set = new Set<string>();
+    for (const j of state.jobs) if (j.industry) set.add(j.industry);
+    return [...set].sort();
+  }, [state]);
+
+  // ── Saved filters ──
+  useEffect(() => {
+    fetchJobFilters().then(setSavedFilters).catch(() => { /* unauth / offline → none */ });
+  }, []);
+
+  const currentSnapshot = useMemo<FilterSnapshot>(() => ({
+    workModels: [...workModels],
+    seniorities: [...seniorities],
+    empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly,
+  }), [workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly]);
+
+  const applySnapshot = useCallback((f: Partial<FilterSnapshot>) => {
+    setWorkModels(new Set(f.workModels ?? []));
+    setSeniorities(new Set(f.seniorities ?? []));
+    setEmpType(f.empType ?? "");
+    setIndustry(f.industry ?? "");
+    setYearsBucket(f.yearsBucket ?? "any");
+    setScoreFilter((f.scoreFilter as ScoreFilterKey) ?? "all");
+    setAgeFilter((f.ageFilter as AgeFilterKey) ?? "30");
+    setSearch(f.search ?? "");
+    setSortBy((f.sortBy as SortKey) ?? "match");
+    setRolesOnly(!!f.rolesOnly);
+  }, []);
 
   // Reset the lazy-load window whenever the filtered result set changes, so a
   // new filter/search starts from the top instead of keeping a stale offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, workModels, seniorities, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
+  }, [search, workModels, seniorities, empType, industry, yearsBucket, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
 
   const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
   const hasMore = visibleCount < visibleJobs.length;
@@ -373,7 +460,8 @@ export default function JobsFeed() {
   }, [hasMore, pagedJobs.length]);
 
   return (
-    <div style={{ maxWidth: 880, margin: "0 auto", padding: "28px 20px 64px", width: "100%" }}>
+    <div style={{ maxWidth: 1240, margin: "0 auto", padding: "28px 20px 64px", width: "100%", display: "flex", gap: 28, alignItems: "flex-start" }}>
+      <div style={{ flex: "1 1 0", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", margin: 0 }}>Jobs for you</h1>
@@ -446,6 +534,25 @@ export default function JobsFeed() {
               {b.label}
             </button>
           ))}
+          <span style={{ width: 1, height: 18, background: "var(--surface2)" }} />
+          <select value={empType} onChange={(e) => setEmpType(e.target.value)} aria-label="Job type" style={FILTER_SELECT_STYLE}>
+            {EMPLOYMENT_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </select>
+          <select value={yearsBucket} onChange={(e) => setYearsBucket(e.target.value)} aria-label="Years of experience" style={FILTER_SELECT_STYLE}>
+            {YEARS_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </select>
+          {industryOptions.length > 0 && (
+            <select value={industry} onChange={(e) => setIndustry(e.target.value)} aria-label="Industry" style={FILTER_SELECT_STYLE}>
+              <option value="">Any industry</option>
+              {industryOptions.map((ind) => (
+                <option key={ind} value={ind}>{ind}</option>
+              ))}
+            </select>
+          )}
           {state.status === "ready" && state.profileRoles.length > 0 && (
             <button
               type="button"
@@ -630,23 +737,27 @@ export default function JobsFeed() {
                       flexWrap: "wrap",
                     }}
                   >
-                    <div
-                      title={`Matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
-                      style={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: 12,
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: colors.bg,
-                        color: colors.fg,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1 }}>{job.matchScore}</span>
-                      <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.85 }}>MATCH</span>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, width: 56 }}>
+                      <div
+                        title={`Matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
+                        style={{
+                          width: 52,
+                          height: 52,
+                          borderRadius: 12,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: colors.bg,
+                          color: colors.fg,
+                        }}
+                      >
+                        <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1 }}>{job.matchScore}</span>
+                        <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.85 }}>MATCH</span>
+                      </div>
+                      <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.03em", textTransform: "uppercase", color: colors.fg, textAlign: "center", lineHeight: 1.1 }}>
+                        {matchTierLabel(job.matchScore)}
+                      </span>
                     </div>
                     <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
                     <div style={{ flex: "1 1 240px", minWidth: 0 }}>
@@ -776,6 +887,18 @@ export default function JobsFeed() {
           </div>
         )}
       </div>
+      </div>{/* /main column */}
+
+      {state.status === "ready" && (
+        <JobsSidebar
+          savedFilters={savedFilters}
+          currentSnapshot={currentSnapshot}
+          onApply={applySnapshot}
+          onSaved={(f) => setSavedFilters((prev) => [f, ...prev])}
+          onDeleted={(id) => setSavedFilters((prev) => prev.filter((x) => x.id !== id))}
+          onNavigate={(v) => router.push(`/?view=${v}`)}
+        />
+      )}
 
       {boostJob && <BoostPanel job={boostJob} onClose={() => setBoostJob(null)} />}
 
@@ -803,5 +926,144 @@ export default function JobsFeed() {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Right sidebar: saved filters + a Resunova-native widget ──────────────────
+
+const SIDEBAR_CARD: CSSProperties = {
+  background: "var(--surface)",
+  border: "1px solid var(--border)",
+  borderRadius: 12,
+  padding: "16px 18px",
+};
+const SIDEBAR_INPUT: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  fontSize: 12.5,
+  padding: "7px 10px",
+  borderRadius: 8,
+  border: "1px solid var(--surface2)",
+  background: "var(--bg)",
+  color: "var(--text)",
+};
+
+function JobsSidebar({
+  savedFilters,
+  currentSnapshot,
+  onApply,
+  onSaved,
+  onDeleted,
+  onNavigate,
+}: {
+  savedFilters: SavedFilter[];
+  currentSnapshot: FilterSnapshot;
+  onApply: (f: Partial<FilterSnapshot>) => void;
+  onSaved: (f: SavedFilter) => void;
+  onDeleted: (id: string) => void;
+  onNavigate: (view: string) => void;
+}) {
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const n = name.trim();
+    if (!n || saving) return;
+    setSaving(true);
+    try {
+      const created = await createJobFilter(n, currentSnapshot);
+      onSaved(created);
+      setName("");
+      setNaming(false);
+    } catch {
+      /* ignore — sidebar is best-effort */
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(id: string) {
+    onDeleted(id);
+    try {
+      await deleteJobFilter(id);
+    } catch {
+      /* optimistic; ignore */
+    }
+  }
+
+  return (
+    <aside style={{ width: 264, flexShrink: 0, position: "sticky", top: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={SIDEBAR_CARD}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Your saved filters</span>
+          {!naming && (
+            <button
+              onClick={() => setNaming(true)}
+              style={{ fontSize: 12, fontWeight: 600, padding: "4px 9px", borderRadius: 7, border: "1px solid var(--surface2)", background: "transparent", color: "var(--accent)", cursor: "pointer" }}
+            >
+              + Save
+            </button>
+          )}
+        </div>
+
+        {naming && (
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") void save(); }}
+              placeholder="Name this filter set"
+              style={SIDEBAR_INPUT}
+            />
+            <button
+              onClick={() => void save()}
+              disabled={!name.trim() || saving}
+              style={{ fontSize: 12, fontWeight: 600, padding: "0 12px", borderRadius: 8, border: "none", background: "#c4793a", color: "#fff", cursor: name.trim() && !saving ? "pointer" : "not-allowed", opacity: name.trim() && !saving ? 1 : 0.6 }}
+            >
+              {saving ? "…" : "Save"}
+            </button>
+          </div>
+        )}
+
+        {savedFilters.length === 0 ? (
+          <p style={{ fontSize: 12, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
+            Save the current filter set to reuse it in one click.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {savedFilters.map((f) => (
+              <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  onClick={() => onApply(f.filters)}
+                  title="Apply this filter set"
+                  style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 12.5, fontWeight: 500, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--surface2)", color: "var(--text)", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {f.name}
+                </button>
+                <button onClick={() => void remove(f.id)} aria-label={`Delete ${f.name}`} style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 15, cursor: "pointer", padding: 2, flexShrink: 0 }}>
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Resunova-native widget — replaces jobright's "Career Coach" upsell. */}
+      <div style={SIDEBAR_CARD}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>Sharpen your matches</div>
+        <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 12px" }}>
+          Your résumé is the match profile. Re-scan after edits to refresh every score across the feed.
+        </p>
+        <button
+          onClick={() => onNavigate("analyze")}
+          style={{ width: "100%", fontSize: 13, fontWeight: 600, padding: "10px 0", borderRadius: 9, border: "1px solid var(--surface2)", background: "transparent", color: "var(--text)", cursor: "pointer" }}
+        >
+          Re-scan my résumé →
+        </button>
+      </div>
+    </aside>
   );
 }
