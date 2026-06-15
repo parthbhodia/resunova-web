@@ -76,7 +76,9 @@ function NavItem({
   /** Render a "Sign in" badge; onClick is expected to start sign-in. */
   locked?: boolean;
 }) {
-  const badge = locked ? "Sign in" : VIEW_BADGES[view];
+  // Locked views show a lock icon (instead of a "Sign in" text badge); other
+  // views may carry a short text badge (e.g. "NEW").
+  const textBadge = locked ? null : VIEW_BADGES[view];
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -89,15 +91,20 @@ function NavItem({
           {VIEW_ICONS[view]}
         </span>
         {showLabels ? <span className="app-nav-label">{VIEW_LABELS[view]}</span> : null}
-        {showLabels && badge ? (
+        {showLabels && locked ? (
           <Badge
             variant="secondary"
-            className={cn(
-              "ml-auto px-1.5 py-0 text-[9px] font-bold tracking-wide uppercase",
-              locked && "bg-[var(--accent-bg)] text-accent",
-            )}
+            aria-label="Sign in to use"
+            className="ml-auto flex items-center justify-center px-1.5 py-0 bg-[var(--accent-bg)] text-accent [&>svg]:size-3"
           >
-            {badge}
+            {NAV_ICONS.lock}
+          </Badge>
+        ) : showLabels && textBadge ? (
+          <Badge
+            variant="secondary"
+            className="ml-auto px-1.5 py-0 text-[9px] font-bold tracking-wide uppercase"
+          >
+            {textBadge}
           </Badge>
         ) : null}
       </SidebarMenuButton>

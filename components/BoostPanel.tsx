@@ -18,6 +18,8 @@ import { authHeaders, scoreLabel, type JobDetail as JobDetailData } from "@/lib/
 import { canBoost } from "@/lib/boostPrefill";
 import { apiUrl } from "@/lib/utils";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
+import AnalyzeLiveResumeBody from "@/components/AnalyzeLiveResumeBody";
+import { resumeLayoutFromPreviewStyle, resumeLayoutCssVars, resumePageRootStyle, RESUME_BULLET_STYLESHEET } from "@/lib/resumeLayout";
 
 // ─── Boost API response ────────────────────────────────────────────────────
 
@@ -47,7 +49,7 @@ const SECTION_LABELS: Record<string, string> = {
   projects: "Projects",
 };
 
-export default function BoostPanel({ job, onClose }: { job: JobDetailData; onClose: () => void }) {
+export default function BoostPanel({ job, onClose, open = true }: { job: JobDetailData; onClose: () => void; open?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -120,6 +122,11 @@ export default function BoostPanel({ job, onClose }: { job: JobDetailData; onClo
 
   // Stepper labels
   const stepLabels = ["See your difference", "Align", "Review"];
+
+  // Keep the component mounted while closed so step/boostResult/picks survive a
+  // reopen — re-running the boost just to see a result you already generated is
+  // the bug this guards against. All hooks above run unconditionally.
+  if (!open) return null;
 
   return (
     <>
@@ -454,6 +461,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
   if (!result) return null;
 
   const afterColor = result.afterScore >= 70 ? "var(--green-ink)" : result.afterScore >= 50 ? "#e0a35c" : "var(--muted)";
+  const previewCtx = resumeLayoutFromPreviewStyle("classic");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
@@ -493,27 +501,37 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
         </div>
       )}
 
-      {/* tailored résumé preview */}
+      {/* tailored résumé preview — same formatted/annotated viewer as Analyze,
+          rendered from the tailored text (not a raw blob). previewRef stays on
+          the paper root so the Chromium PDF export captures this exact DOM. */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>TAILORED RÉSUMÉ</span>
         <div
-          ref={previewRef}
           style={{
-            background: "#fff",
-            color: "#0f172a",
             borderRadius: 12,
             border: "1px solid var(--surface2)",
-            padding: "32px 36px",
-            fontFamily: "Georgia, 'Times New Roman', serif",
-            fontSize: 13,
-            lineHeight: 1.65,
-            whiteSpace: "pre-wrap",
-            maxHeight: 520,
+            background: "var(--surface2)",
+            padding: 14,
+            maxHeight: 560,
             overflowY: "auto",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
           }}
         >
-          {result.tailoredText}
+          <div ref={previewRef} style={{ ...resumePageRootStyle(previewCtx, { showShadow: false }), ...resumeLayoutCssVars(previewCtx) }}>
+            <style dangerouslySetInnerHTML={{ __html: RESUME_BULLET_STYLESHEET }} />
+            <AnalyzeLiveResumeBody
+              extractedText={result.tailoredText}
+              bulletAnalysis={[]}
+              activeCategory={null}
+              rewriteEdits={{}}
+              patchBulletRewrite={() => {}}
+              previewLineOverrides={{}}
+              patchPreviewLine={() => {}}
+              structuredResume={null}
+              structuredResumeAuthoritative
+              presentationOnly
+              highlightsEnabled={false}
+            />
+          </div>
         </div>
       </div>
 

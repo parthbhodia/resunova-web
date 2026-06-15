@@ -23,6 +23,20 @@ export type JobFeedItem = {
   salaryMin: number | null;
   salaryMax: number | null;
   salaryCurrency: string | null;
+  /** Pay period the salary figures refer to: "year" | "hour" | etc. */
+  salaryPeriod: string | null;
+  /** Where the salary came from: "listing" (ATS feed) | "jd" (extracted) | null. */
+  salarySource: string | null;
+  /** "remote" | "hybrid" | "onsite" (null = unstated). */
+  workModel: string | null;
+  /** "intern" | "entry" | "mid" | "senior" | "lead" | "principal" | "director" | "executive". */
+  seniority: string | null;
+  /** "yes" | "no" (null = JD didn't say). */
+  visaSponsorship: string | null;
+  /** Company-level H-1B history from the DOL LCA dataset (fuzzy-matched). */
+  h1bSponsor: boolean | null;
+  h1bCertifiedCount: number | null;
+  h1bMedianWage: number | null;
   postedAt: string | null;
   matchScore: number;
   matchedCount: number;
@@ -54,6 +68,14 @@ export type JobDetail = {
   salaryMin: number | null;
   salaryMax: number | null;
   salaryCurrency: string | null;
+  salaryPeriod: string | null;
+  salarySource: string | null;
+  workModel: string | null;
+  seniority: string | null;
+  visaSponsorship: string | null;
+  h1bSponsor: boolean | null;
+  h1bCertifiedCount: number | null;
+  h1bMedianWage: number | null;
   postedAt: string | null;
   isActive: boolean;
   jdText: string;

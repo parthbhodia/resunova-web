@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJobDetail, scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import BoostPanel from "@/components/BoostPanel";
 import CompanyLogo from "@/components/CompanyLogo";
+import InsiderPanel from "@/components/InsiderPanel";
 
 type LoadState =
   | { status: "loading" }
@@ -30,12 +31,23 @@ type LoadState =
 function formatSalary(job: JobDetailData): string | null {
   if (job.salaryMin == null && job.salaryMax == null) return null;
   const cur = job.salaryCurrency === "USD" || !job.salaryCurrency ? "$" : `${job.salaryCurrency} `;
-  const fmt = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : `${Math.round(n)}`);
+  const period = job.salaryPeriod || "year";
+  const hourly = period === "hour";
+  const fmt = (n: number) =>
+    hourly ? `${Math.round(n * 100) / 100}` : n >= 1000 ? `${Math.round(n / 1000)}k` : `${Math.round(n)}`;
   const lo = job.salaryMin ?? job.salaryMax;
   const hi = job.salaryMax ?? job.salaryMin;
   if (lo == null || hi == null) return null;
-  return lo === hi ? `${cur}${fmt(lo)}` : `${cur}${fmt(lo)}–${fmt(hi)}`;
+  const suffix = hourly ? "/hr" : period === "month" ? "/mo" : period === "week" ? "/wk" : period === "day" ? "/day" : "/yr";
+  const range = lo === hi ? `${cur}${fmt(lo)}` : `${cur}${fmt(lo)}–${fmt(hi)}`;
+  return `${range}${suffix}`;
 }
+
+const WM_LABEL: Record<string, string> = { remote: "Remote", hybrid: "Hybrid", onsite: "On-site" };
+const SEN_LABEL: Record<string, string> = {
+  intern: "Intern", entry: "Entry-level", mid: "Mid-level", senior: "Senior",
+  lead: "Lead", principal: "Principal", director: "Director", executive: "Executive",
+};
 
 function formatPostedAt(iso: string | null): string | null {
   if (!iso) return null;
@@ -103,8 +115,10 @@ export default function JobDetail({ jobId }: { jobId: string }) {
         <JobBody job={state.job} onBoost={() => setBoostOpen(true)} />
       )}
 
-      {state.status === "ready" && boostOpen && (
-        <BoostPanel job={state.job} onClose={() => setBoostOpen(false)} />
+      {/* Stays mounted while the job is loaded so the optimize step/result
+          survives closing + reopening the slide-over (no re-generation). */}
+      {state.status === "ready" && (
+        <BoostPanel job={state.job} open={boostOpen} onClose={() => setBoostOpen(false)} />
       )}
     </div>
   );
@@ -134,12 +148,35 @@ function JobBody({ job, onBoost }: { job: JobDetailData; onBoost: () => void }) 
             <div style={{ height: 1, background: "var(--surface2)" }} />
             <div style={{ display: "flex", gap: 22, flexWrap: "wrap", fontSize: 13, color: "var(--text)" }}>
               {job.location && <span>📍 {job.location}</span>}
+              {job.workModel && WM_LABEL[job.workModel] && <span>🏢 {WM_LABEL[job.workModel]}</span>}
+              {job.seniority && SEN_LABEL[job.seniority] && <span>📈 {SEN_LABEL[job.seniority]}</span>}
               <span>🕑 Full-time</span>
             </div>
-            {salary && (
+            {(salary || job.h1bSponsor || job.visaSponsorship === "yes") && (
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <Badge style={{ fontSize: 13, background: "var(--accent-bg)", color: "var(--accent)", border: "none" }}>{salary}/yr</Badge>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>Listed by the company on its careers page</span>
+                {salary && (
+                  <Badge style={{ fontSize: 13, background: "var(--accent-bg)", color: "var(--accent)", border: "none" }}>{salary}</Badge>
+                )}
+                {(job.h1bSponsor || job.visaSponsorship === "yes") && (
+                  <Badge style={{ fontSize: 13, background: "color-mix(in srgb, #16a34a 14%, transparent)", color: "#16a34a", border: "none" }}>
+                    {job.h1bSponsor && job.h1bCertifiedCount
+                      ? `H-1B sponsor · ${job.h1bCertifiedCount.toLocaleString()} approvals`
+                      : "H-1B sponsor"}
+                  </Badge>
+                )}
+                {salary && (
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    {job.salarySource === "jd" ? "Estimated from the job description" : "Listed by the company on its careers page"}
+                  </span>
+                )}
+              </div>
+            )}
+            {job.h1bSponsor && job.h1bMedianWage != null && (
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                DOL H-1B median offered wage at this employer:{" "}
+                <strong style={{ color: "var(--text)" }}>
+                  ${Math.round(job.h1bMedianWage / 1000)}k/yr
+                </strong>
               </div>
             )}
           </CardContent>
@@ -155,9 +192,10 @@ function JobBody({ job, onBoost }: { job: JobDetailData; onBoost: () => void }) 
         </Card>
       </div>
 
-      {/* RIGHT — match panel */}
-      <div style={{ width: 340, flexShrink: 0, position: "sticky", top: 16 }}>
+      {/* RIGHT — match panel + insider outreach */}
+      <div style={{ width: 340, flexShrink: 0, position: "sticky", top: 16, display: "flex", flexDirection: "column", gap: 20 }}>
         <MatchPanel job={job} onBoost={onBoost} />
+        <InsiderPanel postingId={job.id} company={job.company} />
       </div>
     </div>
   );

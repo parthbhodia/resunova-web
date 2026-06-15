@@ -37,6 +37,14 @@ type FeedJob = {
   salaryMin: number | null;
   salaryMax: number | null;
   salaryCurrency: string | null;
+  salaryPeriod: string | null;
+  salarySource: string | null;
+  workModel: string | null;
+  seniority: string | null;
+  visaSponsorship: string | null;
+  h1bSponsor: boolean | null;
+  h1bCertifiedCount: number | null;
+  h1bMedianWage: number | null;
   postedAt: string | null;
   matchScore: number;
   matchedCount: number;
@@ -77,6 +85,14 @@ type AgeFilterKey = (typeof AGE_FILTERS)[number]["key"];
 /** How many job cards to render per lazy-load page. */
 const PAGE_SIZE = 25;
 
+/** Module-level feed cache so switching away from and back to the Jobs tab
+ *  (which unmounts/remounts this component) doesn't refetch the ranked feed
+ *  every time. Keyed by the age filter; the manual refresh/retry bypass it with
+ *  `force`. TTL keeps it fresh enough after a re-scan without a hard reload. */
+type FeedReady = Extract<FeedState, { status: "ready" }>;
+const FEED_TTL_MS = 5 * 60 * 1000;
+let feedCache: { key: string; at: number; data: FeedReady } | null = null;
+
 function scoreColors(score: number): { fg: string; bg: string } {
   if (score >= 70) return { fg: "var(--green-ink)", bg: "color-mix(in srgb, var(--green-ink) 12%, transparent)" };
   if (score >= 50) return { fg: "var(--amber-ink)", bg: "color-mix(in srgb, var(--amber-ink) 12%, transparent)" };
@@ -86,12 +102,33 @@ function scoreColors(score: number): { fg: string; bg: string } {
 function formatSalary(job: FeedJob): string | null {
   if (job.salaryMin == null && job.salaryMax == null) return null;
   const cur = job.salaryCurrency === "USD" || !job.salaryCurrency ? "$" : `${job.salaryCurrency} `;
-  const fmt = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : `${Math.round(n)}`);
+  const period = job.salaryPeriod || "year";
+  const hourly = period === "hour";
+  const fmt = (n: number) =>
+    hourly ? `${Math.round(n * 100) / 100}` : n >= 1000 ? `${Math.round(n / 1000)}k` : `${Math.round(n)}`;
   const lo = job.salaryMin ?? job.salaryMax;
   const hi = job.salaryMax ?? job.salaryMin;
   if (lo == null || hi == null) return null;
-  return lo === hi ? `${cur}${fmt(lo)}` : `${cur}${fmt(lo)}–${fmt(hi)}`;
+  const suffix = hourly ? "/hr" : period === "month" ? "/mo" : period === "week" ? "/wk" : period === "day" ? "/day" : "/yr";
+  const range = lo === hi ? `${cur}${fmt(lo)}` : `${cur}${fmt(lo)}–${fmt(hi)}`;
+  return `${range}${suffix}`;
 }
+
+const WORK_MODEL_LABEL: Record<string, string> = {
+  remote: "Remote",
+  hybrid: "Hybrid",
+  onsite: "On-site",
+};
+const SENIORITY_LABEL: Record<string, string> = {
+  intern: "Intern",
+  entry: "Entry",
+  mid: "Mid",
+  senior: "Senior",
+  lead: "Lead",
+  principal: "Principal",
+  director: "Director",
+  executive: "Exec",
+};
 
 function formatPostedAt(iso: string | null): string | null {
   if (!iso) return null;
@@ -143,7 +180,14 @@ export default function JobsFeed() {
     setNudgeRoles((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
   }, []);
 
-  const loadFeed = useCallback(async () => {
+  const loadFeed = useCallback(async (force = false) => {
+    const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+    const cacheKey = String(days);
+    // Serve a fresh-enough cached feed on tab remount instead of refetching.
+    if (!force && feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) {
+      setState(feedCache.data);
+      return;
+    }
     setState({ status: "loading" });
     try {
       const supabase = getSupabaseClient();
@@ -153,7 +197,6 @@ export default function JobsFeed() {
       const headers: Record<string, string> = session?.access_token
         ? { Authorization: `Bearer ${session.access_token}` }
         : {};
-      const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
       const qs = days ? `?max_age_days=${days}` : "";
       const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
       if (!resp.ok) {
@@ -161,19 +204,22 @@ export default function JobsFeed() {
         // Only the backend's explicit "no saved analysis" codes mean the user
         // needs a scan — a bare 404 can be an API deploy that predates the route.
         if (resp.status === 404 && (body?.error === "no_resume_analysis" || body?.error === "no_resume_text")) {
+          feedCache = null;
           setState({ status: "no-resume" });
           return;
         }
         throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
       }
       const data = await resp.json();
-      setState({
+      const ready: FeedReady = {
         status: "ready",
         jobs: Array.isArray(data?.jobs) ? data.jobs : [],
         generatedAt: data?.generatedAt || "",
         profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
         profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
-      });
+      };
+      feedCache = { key: cacheKey, at: Date.now(), data: ready };
+      setState(ready);
     } catch (err) {
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
     }
@@ -192,7 +238,7 @@ export default function JobsFeed() {
       saveProfile(next);
       await upsertUserProfile(next);
       setNudgeDismissed(true);
-      void loadFeed();
+      void loadFeed(true);
     } finally {
       setNudgeSaving(false);
     }
@@ -268,7 +314,7 @@ export default function JobsFeed() {
             match, you make the call.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void loadFeed()} disabled={state.status === "loading"}>
+        <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
           Refresh
         </Button>
       </div>
@@ -390,7 +436,7 @@ export default function JobsFeed() {
               <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "0 0 14px" }}>
                 Couldn&apos;t load the job feed: {state.message}
               </p>
-              <Button variant="outline" onClick={() => void loadFeed()}>
+              <Button variant="outline" onClick={() => void loadFeed(true)}>
                 Try again
               </Button>
             </CardContent>
@@ -537,7 +583,31 @@ export default function JobsFeed() {
                         </Badge>
                         {salary && (
                           <Badge variant="secondary" style={{ fontSize: 11 }}>
-                            {salary}/yr
+                            {salary}
+                          </Badge>
+                        )}
+                        {job.workModel && WORK_MODEL_LABEL[job.workModel] && (
+                          <Badge variant="secondary" style={{ fontSize: 11 }}>
+                            {WORK_MODEL_LABEL[job.workModel]}
+                          </Badge>
+                        )}
+                        {job.seniority && SENIORITY_LABEL[job.seniority] && (
+                          <Badge variant="secondary" style={{ fontSize: 11 }}>
+                            {SENIORITY_LABEL[job.seniority]}
+                          </Badge>
+                        )}
+                        {(job.h1bSponsor || job.visaSponsorship === "yes") && (
+                          <Badge
+                            style={{
+                              fontSize: 11,
+                              background: "color-mix(in srgb, #16a34a 14%, transparent)",
+                              color: "#16a34a",
+                              border: "1px solid color-mix(in srgb, #16a34a 32%, transparent)",
+                            }}
+                          >
+                            {job.h1bSponsor && job.h1bCertifiedCount
+                              ? `H-1B sponsor · ${job.h1bCertifiedCount.toLocaleString()}`
+                              : "H-1B sponsor"}
                           </Badge>
                         )}
                         {job.titleMatch && (
