@@ -109,8 +109,8 @@ export function AppBottomNav({
               className="flex w-full items-center gap-3 border-b border-border px-5 pb-4 pt-2 text-left"
               onClick={() => { setMoreOpen(false); onSignIn?.(); }}
             >
-              <span className="flex size-9 items-center justify-center rounded-full bg-accent text-[13px] font-bold text-white">
-                →
+              <span className="flex size-9 items-center justify-center rounded-full bg-accent text-white">
+                {NAV_ICONS.lock}
               </span>
               <span className="text-sm font-semibold text-accent">Sign in — free</span>
             </button>

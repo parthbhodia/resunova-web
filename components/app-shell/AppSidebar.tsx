@@ -350,7 +350,7 @@ export function AppSidebar({
                 onClick={() => onSignIn?.()}
               >
                 <span className="app-nav-icon" aria-hidden>
-                  {NAV_ICONS.profile}
+                  {NAV_ICONS.lock}
                 </span>
                 {showLabels ? <span className="app-nav-label">Sign in — free</span> : null}
               </SidebarMenuButton>

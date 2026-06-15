@@ -151,6 +151,13 @@ export const NAV_ICONS = {
       <circle cx="12.5" cy="8" r="1.25" fill="currentColor" />
     </svg>
   ),
+  lock: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="3" y="7" width="10" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M5 7V5.4a3 3 0 016 0V7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="8" cy="10" r="0.9" fill="currentColor" />
+    </svg>
+  ),
   signOut: (
     <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path d="M6 3H3a1 1 0 00-1 1v8a1 1 0 001 1h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
