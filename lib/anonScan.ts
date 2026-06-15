@@ -23,6 +23,28 @@ export function urlRequestsAnalyzeView(): boolean {
   }
 }
 
+/**
+ * Views a signed-out visitor may enter without being bounced to the landing
+ * page. The app shell renders for these; individual gated actions (saving a
+ * résumé, downloading a PDF, applying) still prompt sign-in inline.
+ *
+ *   analyze  — free résumé scan (one free, full report behind sign-in)
+ *   jobs     — browse / search matched jobs
+ *   builder  — tailor a résumé; sign-in gates save & export
+ */
+const PUBLIC_APP_VIEWS = new Set(["analyze", "jobs", "builder"]);
+
+/** True when the URL requests a view that signed-out visitors are allowed to use. */
+export function urlRequestsPublicAppView(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const view = new URLSearchParams(window.location.search).get("view");
+    return view ? PUBLIC_APP_VIEWS.has(view) : false;
+  } catch {
+    return false;
+  }
+}
+
 export type AnonAnalysisStash = {
   label: string;
   result: Record<string, unknown>;

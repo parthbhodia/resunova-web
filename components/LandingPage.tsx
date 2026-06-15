@@ -155,6 +155,139 @@ const RESEARCH_PILLARS = [
   },
 ];
 
+// ── Résumé / CV templates (landing showcase) ────────────────────────────────
+type TemplateDef = { name: string; type: "Résumé" | "CV"; accent: string; thumb: React.ReactNode };
+
+const RESUME_TEMPLATES: TemplateDef[] = [
+  {
+    name: "Classic", type: "Résumé", accent: "#2563eb",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        <rect x="56" y="22" width="88" height="11" rx="3" fill="#1e293b" />
+        <rect x="68" y="40" width="64" height="5" rx="2.5" fill="#cbd5e1" />
+        <rect x="24" y="58" width="152" height="2" rx="1" fill="#e2e8f0" />
+        <rect x="24" y="74" width="46" height="7" rx="3" fill="#2563eb" />
+        <rect x="24" y="90" width="152" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="24" y="102" width="152" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="24" y="114" width="120" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="24" y="138" width="46" height="7" rx="3" fill="#2563eb" />
+        <rect x="24" y="154" width="152" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="24" y="166" width="152" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="24" y="178" width="100" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="24" y="202" width="46" height="7" rx="3" fill="#2563eb" />
+        <rect x="24" y="218" width="152" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="24" y="230" width="134" height="5" rx="2.5" fill="#e2e8f0" />
+      </svg>
+    ),
+  },
+  {
+    name: "Modern", type: "Résumé", accent: "#0d9488",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        <rect x="0" y="0" width="68" height="264" fill="#0d9488" fillOpacity="0.12" />
+        <circle cx="34" cy="36" r="16" fill="#0d9488" fillOpacity="0.4" />
+        <rect x="14" y="62" width="40" height="5" rx="2.5" fill="#0d9488" fillOpacity="0.55" />
+        <rect x="16" y="74" width="30" height="4" rx="2" fill="#cbd5e1" />
+        <rect x="14" y="98" width="38" height="6" rx="3" fill="#0d9488" />
+        <rect x="14" y="112" width="40" height="4" rx="2" fill="#cbd5e1" />
+        <rect x="14" y="122" width="34" height="4" rx="2" fill="#cbd5e1" />
+        <rect x="14" y="132" width="38" height="4" rx="2" fill="#cbd5e1" />
+        <rect x="14" y="160" width="38" height="6" rx="3" fill="#0d9488" />
+        <rect x="14" y="174" width="36" height="4" rx="2" fill="#cbd5e1" />
+        <rect x="14" y="184" width="40" height="4" rx="2" fill="#cbd5e1" />
+        <rect x="82" y="22" width="86" height="11" rx="3" fill="#1e293b" />
+        <rect x="82" y="40" width="60" height="5" rx="2.5" fill="#cbd5e1" />
+        <rect x="82" y="64" width="44" height="7" rx="3" fill="#0d9488" />
+        <rect x="82" y="80" width="94" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="82" y="92" width="94" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="82" y="104" width="70" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="82" y="128" width="44" height="7" rx="3" fill="#0d9488" />
+        <rect x="82" y="144" width="94" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="82" y="156" width="94" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="82" y="168" width="60" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="82" y="192" width="44" height="7" rx="3" fill="#0d9488" />
+        <rect x="82" y="208" width="94" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="82" y="220" width="80" height="5" rx="2.5" fill="#e2e8f0" />
+      </svg>
+    ),
+  },
+  {
+    name: "Minimal", type: "Résumé", accent: "#334155",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        <rect x="28" y="34" width="96" height="12" rx="3" fill="#0f172a" />
+        <rect x="28" y="54" width="70" height="5" rx="2.5" fill="#94a3b8" />
+        <rect x="28" y="74" width="144" height="1.5" rx="1" fill="#e2e8f0" />
+        <rect x="28" y="92" width="40" height="6" rx="3" fill="#334155" />
+        <rect x="28" y="108" width="144" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="28" y="120" width="120" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="28" y="150" width="40" height="6" rx="3" fill="#334155" />
+        <rect x="28" y="166" width="144" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="28" y="178" width="110" height="5" rx="2.5" fill="#e2e8f0" />
+        <rect x="28" y="208" width="40" height="6" rx="3" fill="#334155" />
+        <rect x="28" y="224" width="144" height="5" rx="2.5" fill="#e2e8f0" />
+      </svg>
+    ),
+  },
+  {
+    name: "Academic CV", type: "CV", accent: "#7c3aed",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        <rect x="50" y="18" width="100" height="10" rx="3" fill="#1e293b" />
+        <rect x="64" y="33" width="72" height="4" rx="2" fill="#cbd5e1" />
+        <rect x="20" y="48" width="160" height="1.5" rx="1" fill="#e2e8f0" />
+        <rect x="20" y="60" width="50" height="6" rx="3" fill="#7c3aed" />
+        <rect x="20" y="74" width="160" height="4" rx="2" fill="#e2e8f0" />
+        <rect x="20" y="84" width="140" height="4" rx="2" fill="#e2e8f0" />
+        <rect x="20" y="104" width="54" height="6" rx="3" fill="#7c3aed" />
+        <rect x="20" y="118" width="160" height="3.5" rx="1.75" fill="#e2e8f0" />
+        <rect x="20" y="127" width="160" height="3.5" rx="1.75" fill="#e2e8f0" />
+        <rect x="20" y="136" width="120" height="3.5" rx="1.75" fill="#e2e8f0" />
+        <rect x="20" y="145" width="160" height="3.5" rx="1.75" fill="#e2e8f0" />
+        <rect x="20" y="154" width="140" height="3.5" rx="1.75" fill="#e2e8f0" />
+        <rect x="20" y="163" width="160" height="3.5" rx="1.75" fill="#e2e8f0" />
+        <rect x="20" y="172" width="100" height="3.5" rx="1.75" fill="#e2e8f0" />
+        <rect x="20" y="192" width="54" height="6" rx="3" fill="#7c3aed" />
+        <rect x="20" y="206" width="160" height="4" rx="2" fill="#e2e8f0" />
+        <rect x="20" y="216" width="150" height="4" rx="2" fill="#e2e8f0" />
+        <rect x="20" y="226" width="120" height="4" rx="2" fill="#e2e8f0" />
+      </svg>
+    ),
+  },
+];
+
+function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string>; dark: boolean }) {
+  return (
+    <Link
+      href="/template-builder/"
+      prefetch={false}
+      aria-label={`Build with the ${t.name} ${t.type} template`}
+      style={{
+        display: "block", textDecoration: "none",
+        background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
+        overflow: "hidden", transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
+      }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-3px)"; el.style.boxShadow = C.shadow; el.style.borderColor = `${t.accent}66`; }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.boxShadow = "none"; el.style.borderColor = C.border; }}
+    >
+      <div style={{ position: "relative", padding: "20px 20px 0", background: dark ? "rgba(255,255,255,0.03)" : "#eef2f7" }}>
+        <span style={{ position: "absolute", top: 14, right: 14, zIndex: 1, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.accent, background: `${t.accent}1f`, padding: "3px 8px", borderRadius: 6 }}>{t.type}</span>
+        <div style={{ filter: "drop-shadow(0 8px 18px rgba(15,23,42,0.16))" }}>
+          {t.thumb}
+        </div>
+      </div>
+      <div style={{ padding: "14px 16px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: C.ink, letterSpacing: -0.2 }}>{t.name}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: t.accent }}>Use this →</span>
+      </div>
+    </Link>
+  );
+}
+
 
 // ── Root ────────────────────────────────────────────────────────────────────
 export default function LandingPage() {
@@ -693,10 +826,30 @@ export default function LandingPage() {
         wide
         animationOnly={!SHOW_LANDING_CARDS}
         ctaLabel="Tailor my résumé now"
-        ctaHref="/?view=analyze"
+        ctaHref="/?view=builder&flow=tailor"
       >
         <VariantD embedded />
       </LandingPreviewSection>
+
+      {/* ───────────── Templates showcase ───────────────────── */}
+      <section id="templates" style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "100px 40px", scrollMarginTop: 76 }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 14px" }}>Templates</p>
+            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", color: C.ink, margin: "0 0 14px" }}>
+              Start from a recruiter-ready template.
+            </h2>
+            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
+              Pick a résumé or CV layout, tailor it to the job, and export an ATS-safe PDF — no design work required.
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>
+            {RESUME_TEMPLATES.map((t) => (
+              <TemplateCard key={t.name} t={t} C={C} dark={dark} />
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Jobs section moved up — now rendered as <JobsBand /> directly after the hero. */}
 

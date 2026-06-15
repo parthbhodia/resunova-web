@@ -8,7 +8,7 @@ import {
   clearForceLandingAfterSignOut,
   readForceLandingAfterSignOut,
 } from "@/lib/authSignOut";
-import { urlRequestsAnalyzeView } from "@/lib/anonScan";
+import { urlRequestsPublicAppView } from "@/lib/anonScan";
 import LandingPage from "./LandingPage";
 
 // Routes that intentionally bypass auth — design-system / preview pages.
@@ -57,11 +57,11 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // landing HTML for a Suspense fallback in the static export. Entry points use
   // full navigations, so a mount-time read (+popstate) is sufficient. Sticky for
   // the JS session so in-app view switches don't bounce the user to landing.
-  const [anonAnalyze, setAnonAnalyze] = useState(false);
+  const [anonView, setAnonView] = useState(false);
 
   useEffect(() => {
     const check = () => {
-      if (urlRequestsAnalyzeView()) setAnonAnalyze(true);
+      if (urlRequestsPublicAppView()) setAnonView(true);
     };
     check();
     window.addEventListener("popstate", check);
@@ -106,9 +106,10 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // Do not show an auth spinner on `/` — static export would contain only the spinner otherwise.
   if (isHome) {
     if (forceLanding || !session) {
-      // Explicit free-scan entry — let the signed-out visitor into the app
-      // shell. Sign-in CTAs inside the shell take over from here.
-      if (anonAnalyze) return <>{children}</>;
+      // Public app views (analyze / jobs / builder) — let the signed-out
+      // visitor into the app shell. Sign-in CTAs inside the shell gate the
+      // actions that need an account (save, export, etc.).
+      if (anonView) return <>{children}</>;
       return <LandingPage />;
     }
     return <>{children}</>;
