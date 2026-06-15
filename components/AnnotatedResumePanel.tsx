@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import BulletImprovedEditor from "@/components/BulletImprovedEditor";
+import { AIEnhanceButton } from "@/components/AIEnhanceButton";
 import AnalyzeLiveResumeBody, {
   lineLooksLikeStandaloneSectionHeading,
   mergeResumeHeaderSources,
@@ -1478,7 +1479,20 @@ export default function AnnotatedResumePanel({
                     onChange={v => patchBulletRewrite(i, v)}
                     onReset={() => patchBulletRewrite(i, null)}
                     canReset={rewriteEdits[i] !== undefined}
-                    toolbarRight={<CopyButton text={draft} />}
+                    toolbarRight={
+                      <>
+                        <AIEnhanceButton
+                          bullet={draft}
+                          onEnhanced={(enhanced) => patchBulletRewrite(i, enhanced)}
+                          context={{
+                            jd: categoryAssignmentOpts?.jdText,
+                            role: effectiveStructured?.experience[bulletMap?.[i]?.experienceIdx]?.role,
+                            company: effectiveStructured?.experience[bulletMap?.[i]?.experienceIdx]?.company,
+                          }}
+                        />
+                        <CopyButton text={draft} />
+                      </>
+                    }
                     previewLineApplied={previewLineApplied}
                     onReplaceInPreview={() => patchPreviewLine(i, draft.trim())}
                     onRevertPreviewLine={() => patchPreviewLine(i, null)}
