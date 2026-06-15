@@ -143,28 +143,54 @@ function matchTierLabel(score: number): string {
   return "Low";
 }
 
-/** Shared pill style for the filter-bar toggle chips. */
-function filterChipStyle(active: boolean): CSSProperties {
-  return {
-    fontSize: 12.5,
-    padding: "5px 12px",
-    borderRadius: 999,
-    border: "1px solid " + (active ? "var(--accent)" : "var(--surface2)"),
-    background: active ? "var(--accent-bg)" : "transparent",
-    color: active ? "var(--accent)" : "var(--muted)",
-    cursor: "pointer",
-  };
+/** US states + DC for the Location filter (jobs carry free-text location only). */
+const US_STATES: { code: string; name: string }[] = [
+  { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" }, { code: "AZ", name: "Arizona" },
+  { code: "AR", name: "Arkansas" }, { code: "CA", name: "California" }, { code: "CO", name: "Colorado" },
+  { code: "CT", name: "Connecticut" }, { code: "DE", name: "Delaware" }, { code: "DC", name: "District of Columbia" },
+  { code: "FL", name: "Florida" }, { code: "GA", name: "Georgia" }, { code: "HI", name: "Hawaii" },
+  { code: "ID", name: "Idaho" }, { code: "IL", name: "Illinois" }, { code: "IN", name: "Indiana" },
+  { code: "IA", name: "Iowa" }, { code: "KS", name: "Kansas" }, { code: "KY", name: "Kentucky" },
+  { code: "LA", name: "Louisiana" }, { code: "ME", name: "Maine" }, { code: "MD", name: "Maryland" },
+  { code: "MA", name: "Massachusetts" }, { code: "MI", name: "Michigan" }, { code: "MN", name: "Minnesota" },
+  { code: "MS", name: "Mississippi" }, { code: "MO", name: "Missouri" }, { code: "MT", name: "Montana" },
+  { code: "NE", name: "Nebraska" }, { code: "NV", name: "Nevada" }, { code: "NH", name: "New Hampshire" },
+  { code: "NJ", name: "New Jersey" }, { code: "NM", name: "New Mexico" }, { code: "NY", name: "New York" },
+  { code: "NC", name: "North Carolina" }, { code: "ND", name: "North Dakota" }, { code: "OH", name: "Ohio" },
+  { code: "OK", name: "Oklahoma" }, { code: "OR", name: "Oregon" }, { code: "PA", name: "Pennsylvania" },
+  { code: "RI", name: "Rhode Island" }, { code: "SC", name: "South Carolina" }, { code: "SD", name: "South Dakota" },
+  { code: "TN", name: "Tennessee" }, { code: "TX", name: "Texas" }, { code: "UT", name: "Utah" },
+  { code: "VT", name: "Vermont" }, { code: "VA", name: "Virginia" }, { code: "WA", name: "Washington" },
+  { code: "WV", name: "West Virginia" }, { code: "WI", name: "Wisconsin" }, { code: "WY", name: "Wyoming" },
+];
+const US_STATE_BY_CODE: Record<string, string> = Object.fromEntries(US_STATES.map((s) => [s.code, s.name]));
+
+/** A job's free-text location matches a state by full name or boundary-delimited abbr (", CA"). */
+function locationMatchesState(location: string, code: string): boolean {
+  const raw = location || "";
+  const name = US_STATE_BY_CODE[code];
+  if (!name) return false;
+  if (raw.toLowerCase().includes(name.toLowerCase())) return true;
+  // Abbreviations are uppercase by convention ("Austin, TX") — match case-sensitively
+  // so prose like "Remote in US" doesn't false-match IN / OR / etc.
+  return new RegExp(`(^|[\\s,(/])${code}([\\s,)/.]|$)`).test(raw);
 }
 
-const FILTER_SELECT_STYLE: CSSProperties = {
-  fontSize: 12.5,
-  padding: "5px 8px",
-  borderRadius: 8,
-  border: "1px solid var(--surface2)",
-  background: "var(--surface)",
-  color: "var(--text)",
-  cursor: "pointer",
-  maxWidth: 150,
+/** Compact dropdown-trigger button style for the filter bar. */
+function filterButtonStyle(active: boolean): CSSProperties {
+  return {
+    display: "inline-flex", alignItems: "center", gap: 6,
+    fontSize: 13, fontWeight: 500, padding: "7px 12px", borderRadius: 9,
+    border: "1px solid " + (active ? "var(--accent)" : "var(--surface2)"),
+    background: active ? "var(--accent-bg)" : "var(--surface)",
+    color: active ? "var(--accent)" : "var(--text)",
+    cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit",
+  };
+}
+const COUNT_BADGE: CSSProperties = {
+  display: "inline-flex", alignItems: "center", justifyContent: "center",
+  minWidth: 16, height: 16, padding: "0 4px", borderRadius: 8,
+  fontSize: 10.5, fontWeight: 700, background: "var(--accent)", color: "#fff",
 };
 
 /** Toggle a key in a Set-valued filter state. */
@@ -174,6 +200,86 @@ function toggleInSet(setter: React.Dispatch<React.SetStateAction<Set<string>>>, 
     next.has(key) ? next.delete(key) : next.add(key);
     return next;
   });
+}
+
+/** Dropdown filter trigger + popover (closes on outside-click / Escape). */
+function FilterMenu({ label, count = 0, active = false, align = "left", width = 220, children }: {
+  label: string; count?: number; active?: boolean; align?: "left" | "right"; width?: number; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button" onClick={() => setOpen((o) => !o)} style={filterButtonStyle(active || count > 0 || open)}>
+        {label}
+        {count > 0 && <span style={COUNT_BADGE}>{count}</span>}
+        <span style={{ fontSize: 9, opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", [align]: 0, zIndex: 50, width,
+          background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
+          boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: 6,
+        } as CSSProperties}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A selectable row inside a FilterMenu — checkbox for multi, radio dot for single. */
+function MenuOption({ label, selected, multi = false, onClick }: { label: string; selected: boolean; multi?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} style={{
+      display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left",
+      fontSize: 13, padding: "8px 9px", borderRadius: 8, border: "none",
+      background: selected && !multi ? "var(--accent-bg)" : "transparent",
+      color: selected ? "var(--accent)" : "var(--text)", cursor: "pointer", fontFamily: "inherit",
+    }}>
+      <span style={{
+        width: 15, height: 15, flexShrink: 0, borderRadius: multi ? 4 : "50%",
+        border: "1.5px solid " + (selected ? "var(--accent)" : "var(--surface2)"),
+        background: selected ? "var(--accent)" : "transparent",
+        display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 10,
+      }}>{selected ? "✓" : ""}</span>
+      {label}
+    </button>
+  );
+}
+
+/** Searchable multi-select list of US states for the Location filter. */
+function StatesPicker({ selected, onToggle, onClear }: { selected: Set<string>; onToggle: (code: string) => void; onClear: () => void }) {
+  const [q, setQ] = useState("");
+  const ql = q.trim().toLowerCase();
+  const list = ql ? US_STATES.filter((s) => s.name.toLowerCase().includes(ql) || s.code.toLowerCase().includes(ql)) : US_STATES;
+  return (
+    <div>
+      <input
+        autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search states…"
+        style={{ width: "100%", fontSize: 13, padding: "7px 9px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--bg)", color: "var(--text)", marginBottom: 6, boxSizing: "border-box" }}
+      />
+      <div style={{ maxHeight: 220, overflowY: "auto" }}>
+        {list.map((s) => (
+          <MenuOption key={s.code} label={s.name} multi selected={selected.has(s.code)} onClick={() => onToggle(s.code)} />
+        ))}
+        {list.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 9px" }}>No match</div>}
+      </div>
+      {selected.size > 0 && (
+        <button type="button" onClick={onClear} style={{ width: "100%", marginTop: 6, fontSize: 12, padding: "6px 0", borderRadius: 8, border: "1px solid var(--surface2)", background: "transparent", color: "var(--muted)", cursor: "pointer" }}>
+          Clear {selected.size} selected
+        </button>
+      )}
+    </div>
+  );
 }
 
 /** How many job cards to render per lazy-load page. */
@@ -240,6 +346,7 @@ export default function JobsFeed() {
   const router = useRouter();
   const [state, setState] = useState<FeedState>({ status: "loading" });
   const [search, setSearch] = useState("");
+  const [locationStates, setLocationStates] = useState<Set<string>>(new Set());
   const [workModels, setWorkModels] = useState<Set<string>>(new Set());
   const [seniorities, setSeniorities] = useState<Set<string>>(new Set());
   const [empType, setEmpType] = useState<string>("");
@@ -374,6 +481,9 @@ export default function JobsFeed() {
     const minScore = SCORE_FILTERS.find((f) => f.key === scoreFilter)?.min ?? 0;
     const filtered = state.jobs.filter((job) => {
       if (job.matchScore != null && job.matchScore < minScore) return false;
+      if (locationStates.size > 0) {
+        if (![...locationStates].some((code) => locationMatchesState(job.location, code))) return false;
+      }
       if (workModels.size > 0) {
         // Fall back to a text heuristic when the posting has no structured work_model.
         const wm = job.workModel
@@ -402,7 +512,7 @@ export default function JobsFeed() {
       return [...filtered].sort((a, b) => sal(b) - sal(a));
     }
     return filtered; // "match" — the backend already ranks by match score
-  }, [state, search, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
+  }, [state, search, locationStates, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
 
   // Distinct industries present in the current feed, for the Industry dropdown.
   const industryOptions = useMemo(() => {
@@ -418,12 +528,14 @@ export default function JobsFeed() {
   }, []);
 
   const currentSnapshot = useMemo<FilterSnapshot>(() => ({
+    locationStates: [...locationStates],
     workModels: [...workModels],
     seniorities: [...seniorities],
     empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly,
-  }), [workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly]);
+  }), [locationStates, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly]);
 
   const applySnapshot = useCallback((f: Partial<FilterSnapshot>) => {
+    setLocationStates(new Set(f.locationStates ?? []));
     setWorkModels(new Set(f.workModels ?? []));
     setSeniorities(new Set(f.seniorities ?? []));
     setEmpType(f.empType ?? "");
@@ -436,11 +548,20 @@ export default function JobsFeed() {
     setRolesOnly(!!f.rolesOnly);
   }, []);
 
+  const anyFilterActive =
+    !!search || locationStates.size > 0 || workModels.size > 0 || seniorities.size > 0 ||
+    !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || rolesOnly || ageFilter !== "30";
+
+  const clearAllFilters = useCallback(() => {
+    setSearch(""); setLocationStates(new Set()); setWorkModels(new Set()); setSeniorities(new Set());
+    setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setRolesOnly(false); setAgeFilter("30");
+  }, []);
+
   // Reset the lazy-load window whenever the filtered result set changes, so a
   // new filter/search starts from the top instead of keeping a stale offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, workModels, seniorities, empType, industry, yearsBucket, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
+  }, [search, locationStates, workModels, seniorities, empType, industry, yearsBucket, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
 
   const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
   const hasMore = visibleCount < visibleJobs.length;
@@ -480,118 +601,105 @@ export default function JobsFeed() {
       </div>
 
       {state.status === "ready" && (
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "18px 0 14px" }}>
-          {AGE_FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setAgeFilter(f.key)}
-              style={{
-                fontSize: 12.5,
-                padding: "5px 12px",
-                borderRadius: 999,
-                border: "1px solid " + (ageFilter === f.key ? "var(--accent)" : "var(--surface2)"),
-                background: ageFilter === f.key ? "var(--accent-bg)" : "transparent",
-                color: ageFilter === f.key ? "var(--accent)" : "var(--muted)",
-                cursor: "pointer",
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-          <span style={{ width: 1, height: 18, background: "var(--surface2)" }} />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search title, company, location…"
-            style={{ maxWidth: 280 }}
-          />
-          {state.ranked && SCORE_FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setScoreFilter(f.key)}
-              style={{
-                fontSize: 12.5,
-                padding: "5px 12px",
-                borderRadius: 999,
-                border: "1px solid " + (scoreFilter === f.key ? "var(--accent)" : "var(--surface2)"),
-                background: scoreFilter === f.key ? "var(--accent-bg)" : "transparent",
-                color: scoreFilter === f.key ? "var(--accent)" : "var(--muted)",
-                cursor: "pointer",
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-          <span style={{ width: 1, height: 18, background: "var(--surface2)" }} />
-          <span style={{ fontSize: 11.5, color: "var(--dim)" }}>Work</span>
-          {WORK_MODELS.map((w) => (
-            <button key={w.key} type="button" onClick={() => toggleInSet(setWorkModels, w.key)} style={filterChipStyle(workModels.has(w.key))}>
-              {w.label}
-            </button>
-          ))}
-          <span style={{ width: 1, height: 18, background: "var(--surface2)" }} />
-          <span style={{ fontSize: 11.5, color: "var(--dim)" }}>Level</span>
-          {SENIORITY_BUCKETS.map((b) => (
-            <button key={b.key} type="button" onClick={() => toggleInSet(setSeniorities, b.key)} style={filterChipStyle(seniorities.has(b.key))}>
-              {b.label}
-            </button>
-          ))}
-          <span style={{ width: 1, height: 18, background: "var(--surface2)" }} />
-          <select value={empType} onChange={(e) => setEmpType(e.target.value)} aria-label="Job type" style={FILTER_SELECT_STYLE}>
-            {EMPLOYMENT_OPTIONS.map((o) => (
-              <option key={o.key} value={o.key}>{o.label}</option>
-            ))}
-          </select>
-          <select value={yearsBucket} onChange={(e) => setYearsBucket(e.target.value)} aria-label="Years of experience" style={FILTER_SELECT_STYLE}>
-            {YEARS_OPTIONS.map((o) => (
-              <option key={o.key} value={o.key}>{o.label}</option>
-            ))}
-          </select>
-          {industryOptions.length > 0 && (
-            <select value={industry} onChange={(e) => setIndustry(e.target.value)} aria-label="Industry" style={FILTER_SELECT_STYLE}>
-              <option value="">Any industry</option>
-              {industryOptions.map((ind) => (
-                <option key={ind} value={ind}>{ind}</option>
+        <div style={{ margin: "18px 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Row 1 — keyword + location (LinkedIn/Indeed style) */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search title or company…"
+              style={{ flex: "1 1 240px", maxWidth: 340 }}
+            />
+            <FilterMenu label="📍 Location" count={locationStates.size} width={250}>
+              <StatesPicker
+                selected={locationStates}
+                onToggle={(c) => toggleInSet(setLocationStates, c)}
+                onClear={() => setLocationStates(new Set())}
+              />
+            </FilterMenu>
+          </div>
+
+          {/* Row 2 — filter dropdowns */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <FilterMenu label={`Date: ${AGE_FILTERS.find((f) => f.key === ageFilter)?.label ?? "Any"}`} active={ageFilter !== "30"} width={180}>
+              {AGE_FILTERS.map((f) => (
+                <MenuOption key={f.key} label={f.label} selected={ageFilter === f.key} onClick={() => setAgeFilter(f.key)} />
               ))}
-            </select>
-          )}
-          {state.status === "ready" && state.profileRoles.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setRolesOnly((v) => !v)}
-              title={`Jobs matching: ${state.profileRoles.join(", ")}`}
-              style={{
-                fontSize: 12.5,
-                padding: "5px 12px",
-                borderRadius: 999,
-                border: "1px solid " + (rolesOnly ? "var(--accent)" : "var(--surface2)"),
-                background: rolesOnly ? "var(--accent-bg)" : "transparent",
-                color: rolesOnly ? "var(--accent)" : "var(--muted)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-              }}
-            >
-              🎯 Your roles
-            </button>
-          )}
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortKey)}
-              aria-label="Sort jobs"
-              style={{ fontSize: 12.5, padding: "5px 8px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--surface)", color: "var(--text)", cursor: "pointer" }}
-            >
-              {SORT_OPTIONS.map((s) => (
-                <option key={s.key} value={s.key}>{`Sort: ${s.label}`}</option>
+            </FilterMenu>
+
+            <FilterMenu label="Work model" count={workModels.size} width={180}>
+              {WORK_MODELS.map((w) => (
+                <MenuOption key={w.key} label={w.label} multi selected={workModels.has(w.key)} onClick={() => toggleInSet(setWorkModels, w.key)} />
               ))}
-            </select>
-            <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-              {visibleJobs.length} of {state.jobs.length}
-            </span>
+            </FilterMenu>
+
+            <FilterMenu label="Experience" count={seniorities.size} width={180}>
+              {SENIORITY_BUCKETS.map((b) => (
+                <MenuOption key={b.key} label={b.label} multi selected={seniorities.has(b.key)} onClick={() => toggleInSet(setSeniorities, b.key)} />
+              ))}
+            </FilterMenu>
+
+            <FilterMenu label={empType ? (EMPLOYMENT_OPTIONS.find((o) => o.key === empType)?.label ?? "Job type") : "Job type"} active={!!empType} width={190}>
+              {EMPLOYMENT_OPTIONS.map((o) => (
+                <MenuOption key={o.key || "any"} label={o.label} selected={empType === o.key} onClick={() => setEmpType(o.key)} />
+              ))}
+            </FilterMenu>
+
+            <FilterMenu label="More" count={(yearsBucket !== "any" ? 1 : 0) + (industry ? 1 : 0) + (state.ranked && scoreFilter !== "all" ? 1 : 0)} width={210}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "2px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Experience years</div>
+              {YEARS_OPTIONS.map((o) => (
+                <MenuOption key={o.key} label={o.label} selected={yearsBucket === o.key} onClick={() => setYearsBucket(o.key)} />
+              ))}
+              {state.ranked && (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "8px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Match score</div>
+                  {SCORE_FILTERS.map((f) => (
+                    <MenuOption key={f.key} label={f.label} selected={scoreFilter === f.key} onClick={() => setScoreFilter(f.key)} />
+                  ))}
+                </>
+              )}
+              {industryOptions.length > 0 && (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "8px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Industry</div>
+                  <MenuOption label="Any industry" selected={!industry} onClick={() => setIndustry("")} />
+                  {industryOptions.map((ind) => (
+                    <MenuOption key={ind} label={ind} selected={industry === ind} onClick={() => setIndustry(ind)} />
+                  ))}
+                </>
+              )}
+            </FilterMenu>
+
+            {state.profileRoles.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setRolesOnly((v) => !v)}
+                title={`Jobs matching: ${state.profileRoles.join(", ")}`}
+                style={filterButtonStyle(rolesOnly)}
+              >
+                🎯 Your roles
+              </button>
+            )}
+
+            {anyFilterActive && (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                style={{ fontSize: 12.5, padding: "7px 8px", borderRadius: 8, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}
+              >
+                Clear all
+              </button>
+            )}
+
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+              <FilterMenu label={`Sort: ${SORT_OPTIONS.find((s) => s.key === sortBy)?.label ?? "Best match"}`} align="right" width={170}>
+                {SORT_OPTIONS.map((s) => (
+                  <MenuOption key={s.key} label={s.label} selected={sortBy === s.key} onClick={() => setSortBy(s.key)} />
+                ))}
+              </FilterMenu>
+              <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                {visibleJobs.length} of {state.jobs.length}
+              </span>
+            </div>
           </div>
         </div>
       )}
