@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
 import { goToFreeScan } from "@/lib/anonScan";
@@ -1194,7 +1194,12 @@ function LandingPreviewSection({
 // ── Animated "apply" job feed ───────────────────────────────────────────────
 // Self-playing demo: each role slides up, a cursor taps Apply, the card turns
 // green with a tick, then it slides away and the next role rises in. Loops.
-type JobCard = { logo: React.ReactNode; title: string; company: string; match: number; target: boolean; featured: boolean; opacity: number };
+type JobCard = { logo: React.ReactNode; title: string; company: string; match: number; low: number; target: boolean; featured: boolean; opacity: number };
+
+// Shared clock for the apply demo: a single module-level epoch means any number
+// of interval ticks (StrictMode double-invoke, dev HMR remounts) compute the
+// exact same frame from the same timeline — so the demo can never run fast.
+let jobDemoEpoch = 0;
 
 function CheckPop() {
   return (
@@ -1205,44 +1210,45 @@ function CheckPop() {
 }
 
 function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, string>; dark: boolean }) {
-  const N = jobs.length;
   const [idx, setIdx] = useState(0);
   const [stage, setStage] = useState<"enter" | "idle" | "tap" | "applied" | "leave">("enter");
-  const [displayScore, setDisplayScore] = useState(jobs[0].match);
+  const [displayScore, setDisplayScore] = useState(jobs[0].low);
+  const jobsRef = useRef(jobs);
+  jobsRef.current = jobs;
 
+  // One interval drives the whole demo from elapsed time. Every value is derived
+  // purely from the clock, so writes are idempotent — even a stray second
+  // interval couldn't race or speed it up. Each ~4.2s cycle: slide in (low score,
+  // red) → cursor tap → score climbs to the optimized match (green) → hold → out.
   useEffect(() => {
-    setStage("enter");
-    const raf = requestAnimationFrame(() => setStage("idle"));
-    const timers: number[] = [];
-    timers.push(window.setTimeout(() => setStage("tap"), 1300));
-    timers.push(window.setTimeout(() => setStage("applied"), 1750));
-    timers.push(window.setTimeout(() => setStage("leave"), 3150));
-    timers.push(window.setTimeout(() => setIdx((i) => (i + 1) % N), 3700));
-    return () => { cancelAnimationFrame(raf); timers.forEach(clearTimeout); };
-  }, [idx, N]);
+    const CYCLE = 4200;
+    if (!jobDemoEpoch) jobDemoEpoch = performance.now();
+    const id = window.setInterval(() => {
+      const list = jobsRef.current;
+      const elapsed = performance.now() - jobDemoEpoch;
+      const t = elapsed % CYCLE;
+      const curIdx = Math.floor(elapsed / CYCLE) % list.length;
+      const job = list[curIdx];
+      const st: "enter" | "idle" | "tap" | "applied" | "leave" =
+        t < 500 ? "enter" : t < 1300 ? "idle" : t < 1750 ? "tap" : t < 3500 ? "applied" : "leave";
+      const p = Math.min(1, Math.max(0, (t - 1750) / 800));
+      const score = t < 1750 ? job.low : Math.round(job.low + (job.match - job.low) * p);
+      setIdx(curIdx);
+      setStage(st);
+      setDisplayScore(score);
+    }, 60);
+    return () => clearInterval(id);
+  }, []);
 
   const job = jobs[idx];
   const applied = stage === "applied" || stage === "leave";
   const tapping = stage === "tap";
   const showCursor = stage === "idle" || stage === "tap";
   const green = "#16a34a";
-  const matchColor = job.match >= 70 ? green : job.match >= 50 ? "#d97706" : C.muted;
-  const optimized = Math.min(99, job.match + 8);
-  const scoreColor = applied ? green : matchColor;
+  const red = "#dc2626";
+  const scoreColor = applied ? green : red;
   const cardTransform = stage === "enter" ? "translateY(48px)" : stage === "leave" ? "translateY(-48px)" : "translateY(0)";
   const cardOpacity = stage === "enter" || stage === "leave" ? 0 : 1;
-
-  // On apply, the match score climbs to its optimized value — visual "approved" cue.
-  useEffect(() => {
-    if (!applied) { setDisplayScore(job.match); return; }
-    let cur = job.match;
-    let id = window.setTimeout(function tick() {
-      cur = Math.min(cur + 1, optimized);
-      setDisplayScore(cur);
-      if (cur < optimized) id = window.setTimeout(tick, 32);
-    }, 32);
-    return () => clearTimeout(id);
-  }, [applied, idx, job.match, optimized]);
 
   return (
     <div style={{ position: "relative", minHeight: 250, display: "flex", alignItems: "center" }}>
@@ -1351,10 +1357,10 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
   ];
 
   const jobs: JobCard[] = [
-    { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>, title: "Software Engineer II", company: "Google · Remote · Full-time", match: 91, target: true, featured: true, opacity: 1 },
-    { logo: <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><text x="12" y="18" textAnchor="middle" fontSize="19" fontWeight="800" fontStyle="italic" fontFamily="Arial, Helvetica, sans-serif" fill="#76B900">N</text></svg>, title: "Machine Learning Engineer", company: "NVIDIA · Santa Clara · Hybrid", match: 86, target: false, featured: false, opacity: 0.96 },
-    { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z" fill="#635BFF"/></svg>, title: "Backend Engineer", company: "Stripe · New York · Full-time", match: 78, target: false, featured: false, opacity: 0.9 },
-    { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z" fill="#1877F2"/></svg>, title: "Product Manager", company: "Meta · Menlo Park · Full-time", match: 44, target: false, featured: false, opacity: 0.62 },
+    { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>, title: "Software Engineer II", company: "Google · Remote · Full-time", match: 91, low: 47, target: true, featured: true, opacity: 1 },
+    { logo: <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><text x="12" y="18" textAnchor="middle" fontSize="19" fontWeight="800" fontStyle="italic" fontFamily="Arial, Helvetica, sans-serif" fill="#76B900">N</text></svg>, title: "Machine Learning Engineer", company: "NVIDIA · Santa Clara · Hybrid", match: 86, low: 43, target: false, featured: false, opacity: 0.96 },
+    { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z" fill="#635BFF"/></svg>, title: "Backend Engineer", company: "Stripe · New York · Full-time", match: 88, low: 38, target: false, featured: false, opacity: 0.9 },
+    { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z" fill="#1877F2"/></svg>, title: "Product Manager", company: "Meta · Menlo Park · Full-time", match: 85, low: 41, target: false, featured: false, opacity: 0.62 },
   ];
 
   return (
