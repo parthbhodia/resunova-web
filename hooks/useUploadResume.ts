@@ -3,12 +3,11 @@
 import { useState, useCallback } from "react";
 import {
   apiErrorFromUnknown,
-  encodeResumeGateError,
   isEncodedResumeGateError,
-  RESUME_GATE_CODES,
+  resumeGateErrorFromResponse,
 } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
-import { apiUrl, parseJsonOrThrow, MAX_RESUME_UPLOAD_BYTES } from "@/lib/utils";
+import { apiUrl, parseJsonOrThrow, resumeFileClientError } from "@/lib/utils";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 
 export interface UploadResumeResult {
@@ -41,15 +40,10 @@ export function useUploadResume(): UseUploadResumeReturn {
 
   const upload = useCallback(async (file: File, jd = ""): Promise<UploadResumeResult> => {
     // Instant client-side guards — fail before any network round-trip.
-    if (!file || !file.size) {
-      const msg = "This file is empty (0 bytes). Please choose your résumé file and try again.";
-      setError(msg);
-      throw new Error(msg);
-    }
-    if (file.size > MAX_RESUME_UPLOAD_BYTES) {
-      const msg = `This file is ${(file.size / (1024 * 1024)).toFixed(1)} MB — over the 4 MB limit. Compress images or export a smaller PDF, then try again.`;
-      setError(msg);
-      throw new Error(msg);
+    const fileErr = resumeFileClientError(file);
+    if (fileErr) {
+      setError(fileErr);
+      throw new Error(fileErr);
     }
     setLoading(true);
     setError(null);
@@ -71,15 +65,11 @@ export function useUploadResume(): UseUploadResumeReturn {
       };
 
       if (!resp.ok) {
-        const code = typeof raw.code === "string" ? raw.code : "";
-        const message = typeof raw.error === "string" ? raw.error : "Could not extract text from your PDF.";
         // Content gate (422): carry the code/missing so the UI shows the calm
         // "invalid résumé" banner instead of a generic server error.
-        if (RESUME_GATE_CODES.has(code)) {
-          const missing = Array.isArray(raw.missing) ? (raw.missing as string[]) : [];
-          throw new Error(encodeResumeGateError(code, message, missing));
-        }
-        throw new Error(message);
+        const gateErr = resumeGateErrorFromResponse(resp.status, raw);
+        if (gateErr) throw new Error(gateErr);
+        throw new Error(typeof raw.error === "string" ? raw.error : "Could not extract text from your PDF.");
       }
 
       const extracted =

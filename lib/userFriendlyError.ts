@@ -53,6 +53,26 @@ export function isEncodedResumeGateError(s: string): boolean {
   return typeof s === "string" && s.startsWith(RESUME_GATE_PREFIX + "{");
 }
 
+/**
+ * Single source of truth for turning a backend response into a gate error.
+ * Returns an encoded error string (render via ApiErrorBanner for the calm
+ * banner) when the response is a content-gate rejection, else null so the
+ * caller falls through to its normal error handling.
+ */
+export function resumeGateErrorFromResponse(
+  status: number,
+  json: { code?: unknown; error?: unknown; missing?: unknown } | null | undefined,
+): string | null {
+  if (status !== 422 || !json) return null;
+  const code = typeof json.code === "string" ? json.code : "";
+  if (!RESUME_GATE_CODES.has(code)) return null;
+  const message = typeof json.error === "string" ? json.error : "";
+  const missing = Array.isArray(json.missing)
+    ? json.missing.filter((m): m is string => typeof m === "string")
+    : [];
+  return encodeResumeGateError(code, message, missing);
+}
+
 function resolveResumeContentError(
   code: string,
   message: string,

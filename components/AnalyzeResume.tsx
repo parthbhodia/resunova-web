@@ -17,8 +17,8 @@ import {
   isTrivialRewrite,
   type CategoryAssignmentOptions,
 } from "@/lib/analysisCategoryMatch";
-import { apiUrl, MAX_RESUME_UPLOAD_BYTES } from "@/lib/utils";
-import { apiErrorFromUnknown, toUserFriendlyErrorMessage, encodeResumeGateError, RESUME_GATE_CODES } from "@/lib/userFriendlyError";
+import { apiUrl, resumeFileClientError } from "@/lib/utils";
+import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
 import { useResumeAnalyzeStore } from "@/store/resumeAnalyzeStore";
@@ -668,10 +668,8 @@ export default function AnalyzeResume() {
         }
         // Content gate (422): not a résumé we can analyze — show a calm,
         // instructive banner instead of the generic "analysis failed" error.
-        if (resp.status === 422 && RESUME_GATE_CODES.has(json?.code)) {
-          setError(encodeResumeGateError(json.code, json.error, json.missing));
-          return;
-        }
+        const gateErr = resumeGateErrorFromResponse(resp.status, json);
+        if (gateErr) { setError(gateErr); return; }
         throw new Error(json.error || "Analysis failed");
       }
       const res = mergeAnalyzeApiJson(json as Record<string, unknown>) as unknown as AnalysisResult;
@@ -1035,15 +1033,11 @@ export default function AnalyzeResume() {
   }, [activeCategory]);
 
   const onFile = (f: File | null | undefined) => {
-    if (!f || !/\.(pdf|docx?)$/i.test(f.name)) { setError("Please upload a PDF or Word (.doc / .docx) file."); return; }
-    if (!f.size) { setError("This file is empty (0 bytes). Please choose your résumé file and try again."); return; }
-    if (f.size > MAX_RESUME_UPLOAD_BYTES) {
-      setError(`This file is ${(f.size / (1024 * 1024)).toFixed(1)} MB — over the 4 MB limit. Compress images or export a smaller PDF, then try again.`);
-      return;
-    }
+    const fileErr = resumeFileClientError(f);
+    if (fileErr) { setError(fileErr); return; }
     // First scan free; a second scan for a signed-out visitor asks them to sign in.
     if (isAnon && hasUsedAnonScan()) { setAnonGateOpen(true); return; }
-    run(f);
+    run(f as File);
   };
 
   // Sort issues high → medium → low
