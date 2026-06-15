@@ -1396,8 +1396,8 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
                     {svg}
                   </div>
                   <div>
-                    <div style={{ fontSize: "var(--font-size-base)", fontWeight: 700, color: C.ink, marginBottom: 3 }}>{title}</div>
-                    <div style={{ fontSize: "var(--font-size-sm)", color: C.muted, lineHeight: 1.6 }}>{desc}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, marginBottom: 4 }}>{title}</div>
+                    <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>{desc}</div>
                   </div>
                 </div>
               ))}
