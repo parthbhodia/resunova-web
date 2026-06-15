@@ -35,8 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
-import AnonReportTeaser from "@/components/AnonReportTeaser";
-import { stashAnonAnalysis, takeAnonAnalysisStash } from "@/lib/anonScan";
+import { stashAnonAnalysis, takeAnonAnalysisStash, signInWithGoogle, markAnonScanUsed, hasUsedAnonScan } from "@/lib/anonScan";
 import JobSearchActivationWidget, { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -436,8 +435,11 @@ export default function AnalyzeResume() {
   const [azHistory, setAzHistory]           = useState<AnalyzeRecord[]>([]);
   const [userId, setUserId]                 = useState<string | null>(null);
   const [userEmail, setUserEmail]           = useState<string | null>(null);
-  /** Signed-out free-scan visitor — full report locks behind sign-in. */
+  /** Signed-out visitor: first scan is free + fully unlocked; a 2nd asks to sign in. */
   const [isAnon, setIsAnon]                 = useState(false);
+  /** Anon visitor who already used their free scan attempted another → sign-in prompt. */
+  const [anonGateOpen, setAnonGateOpen]     = useState(false);
+  const [gateSigningIn, setGateSigningIn]   = useState(false);
   /** Show job activation widget in sidebar after a successful scan. */
   const [showJobActivation, setShowJobActivation] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -516,6 +518,9 @@ export default function AnalyzeResume() {
   // each new anonymous result.
   useEffect(() => {
     if (!isAnon || !result) return;
+    // First free scan is now fully unlocked; record that it was used so the
+    // next scan attempt asks the visitor to sign in.
+    markAnonScanUsed();
     const label =
       result.resumeHeader?.[0]?.trim() ||
       result.structuredResume?.full_name?.trim() ||
@@ -1018,6 +1023,8 @@ export default function AnalyzeResume() {
 
   const onFile = (f: File | null | undefined) => {
     if (!f || !/\.(pdf|docx?)$/i.test(f.name)) { setError("Please upload a PDF or Word (.doc / .docx) file."); return; }
+    // First scan free; a second scan for a signed-out visitor asks them to sign in.
+    if (isAnon && hasUsedAnonScan()) { setAnonGateOpen(true); return; }
     run(f);
   };
 
@@ -1603,21 +1610,9 @@ export default function AnalyzeResume() {
     </>
   );
 
-  // Anonymous visitor with a finished scan: show the score teaser with the
-  // full report locked behind sign-in (the result is stashed for the OAuth
-  // round-trip by the effect above). The upload/loading states fall through to
-  // the normal flow below.
-  if (isAnon && result && !loading) {
-    return (
-      <AnonReportTeaser
-        result={result}
-        onNewScan={() => {
-          setResult(null);
-          setError(null);
-        }}
-      />
-    );
-  }
+  // Anonymous visitors now see their full first-scan report (no teaser lock).
+  // The result is still stashed for the OAuth round-trip; a second scan is
+  // intercepted in onFile() and routed to the sign-in prompt below.
 
   return (
     <div
@@ -3691,6 +3686,73 @@ export default function AnalyzeResume() {
         style={{ display: "none" }}
         onChange={e => onFile(e.target.files?.[0])}
       />
+
+      {/* Free scan used → ask the signed-out visitor to sign in for another. */}
+      {anonGateOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sign in to scan again"
+          onClick={() => { if (!gateSigningIn) setAnonGateOpen(false); }}
+          style={{
+            position: "absolute", inset: 0, zIndex: 60,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+            background: "rgba(13,17,23,0.55)",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%", maxWidth: 420, position: "relative",
+              background: "var(--surface)", border: "1px solid var(--border)",
+              borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-card)",
+              padding: "28px 24px", textAlign: "center",
+            }}
+          >
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setAnonGateOpen(false)}
+              style={{ position: "absolute", top: 12, right: 12, width: 28, height: 28, borderRadius: 8, border: "none", background: "transparent", color: "var(--dim)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}
+            >×</button>
+            <div style={{ width: 46, height: 46, borderRadius: 12, margin: "0 auto 14px", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--accent-bg)", color: "var(--accent)" }}>
+              <svg width="22" height="22" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+                <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.4" />
+              </svg>
+            </div>
+            <h2 style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.4, color: "var(--text)", margin: "0 0 8px" }}>
+              That was your free scan
+            </h2>
+            <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.6, margin: "0 0 20px" }}>
+              Sign in free to run more scans, save your reports, and unlock every feature — your first report stays right here.
+            </p>
+            <button
+              type="button"
+              disabled={gateSigningIn}
+              onClick={async () => { setGateSigningIn(true); const err = await signInWithGoogle(); if (err) { setGateSigningIn(false); setError(err); } }}
+              style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10,
+                width: "100%", padding: "13px 24px", borderRadius: 12, border: "none",
+                background: "var(--accent)", color: "#fff", fontSize: 15, fontWeight: 700, letterSpacing: -0.2,
+                cursor: gateSigningIn ? "wait" : "pointer", fontFamily: "inherit", opacity: gateSigningIn ? 0.7 : 1,
+                boxShadow: "0 6px 24px rgba(47,129,247,0.35)",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden>
+                <path d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.49h4.84a4.14 4.14 0 0 1-1.8 2.71v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z" fill="#4285F4" />
+                <path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z" fill="#34A853" />
+                <path d="M3.97 10.72a5.41 5.41 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z" fill="#FBBC05" />
+                <path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.42 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z" fill="#EA4335" />
+              </svg>
+              {gateSigningIn ? "Opening Google…" : "Sign in free to scan again"}
+            </button>
+            <p style={{ fontSize: 11.5, color: "var(--dim)", margin: "12px 0 0", lineHeight: 1.5 }}>
+              No credit card. We only get your name, email, and avatar.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

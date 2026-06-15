@@ -73,6 +73,28 @@ export function clearAnonAnalysisStash(): void {
 }
 
 /**
+ * Tracks whether a signed-out visitor has already spent their one free scan.
+ * The first scan is free and fully unlocked; a second scan asks them to sign in.
+ * UX-only — the backend per-IP cap is still the real enforcement.
+ */
+const ANON_SCAN_USED_KEY = "rn_anon_scan_used_v1";
+
+export function markAnonScanUsed(): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(ANON_SCAN_USED_KEY, "1"); } catch { /* quota */ }
+}
+
+export function hasUsedAnonScan(): boolean {
+  if (typeof window === "undefined") return false;
+  try { return localStorage.getItem(ANON_SCAN_USED_KEY) === "1"; } catch { return false; }
+}
+
+export function clearAnonScanUsed(): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.removeItem(ANON_SCAN_USED_KEY); } catch { /* ignore */ }
+}
+
+/**
  * Shared Google OAuth entry — same redirect target as the landing page so the
  * user lands back on the app shell with their session (and any stashed scan).
  */
