@@ -18,6 +18,13 @@ export function ApiErrorBanner({
 
   const d = resolveApiError(error);
 
+  // A failed content gate is a user-input problem, not a server failure — show a
+  // calm amber banner instead of the red "something broke" treatment.
+  const calm = d.kind === "invalid_resume";
+  const accent = calm ? "var(--amber)" : "var(--red)";
+  const bg = calm ? "var(--amber-bg)" : "var(--red-bg)";
+  const borderColor = calm ? "rgba(245, 158, 11, 0.30)" : "rgba(248, 113, 113, 0.28)";
+
   return (
     <div
       role="alert"
@@ -25,8 +32,8 @@ export function ApiErrorBanner({
       style={{
         marginBottom: 16,
         padding: "14px 16px 12px",
-        background: "var(--red-bg)",
-        border: "1px solid rgba(248, 113, 113, 0.28)",
+        background: bg,
+        border: `1px solid ${borderColor}`,
         borderRadius: 12,
         color: "var(--text)",
         fontSize: 13,
@@ -37,7 +44,7 @@ export function ApiErrorBanner({
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 650, color: "var(--red)", marginBottom: 4, fontSize: 14 }}>
+          <div style={{ fontWeight: 650, color: accent, marginBottom: 4, fontSize: 14 }}>
             {d.title}
           </div>
           <p style={{ margin: 0, color: "var(--text)", opacity: 0.92 }}>{d.message}</p>

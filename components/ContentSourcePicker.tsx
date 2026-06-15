@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiErrorBanner } from "@/components/ApiErrorBanner";
-import { apiErrorFromUnknown } from "@/lib/userFriendlyError";
-import { apiUrl, isResumeUploadFile, parseJsonOrThrow } from "@/lib/utils";
+import { apiErrorFromUnknown, encodeResumeGateError, RESUME_GATE_CODES } from "@/lib/userFriendlyError";
+import { apiUrl, isResumeUploadFile, parseJsonOrThrow, MAX_RESUME_UPLOAD_BYTES } from "@/lib/utils";
 import { fetchResumes } from "@/lib/supabase";
 import type { ResumeRecord } from "@/lib/types";
 
@@ -30,14 +30,26 @@ export function UploadResumePdfPanel({ onDone }: { onDone: (profileText: string)
 
   const handleFile = useCallback(async (file: File) => {
     if (!isResumeUploadFile(file)) { setError("Please upload a PDF or Word (.doc/.docx) file."); return; }
+    if (!file.size) { setError("This file is empty (0 bytes). Please choose your résumé file and try again."); return; }
+    if (file.size > MAX_RESUME_UPLOAD_BYTES) {
+      setError(`This file is ${(file.size / (1024 * 1024)).toFixed(1)} MB — over the 4 MB limit. Compress images or export a smaller PDF, then try again.`);
+      return;
+    }
     setUploading(true);
     setError(null);
     try {
       const fd = new FormData();
       fd.append("file", file);
       const resp = await fetch(apiUrl("/api/upload-resume"), { method: "POST", body: fd });
-      const json = await parseJsonOrThrow<{ error?: string; text?: string }>(resp);
-      if (!resp.ok) throw new Error(json.error ?? "Upload failed");
+      const json = await parseJsonOrThrow<{ error?: string; text?: string; code?: string; missing?: string[] }>(resp);
+      if (!resp.ok) {
+        // Content gate (422): show the calm, instructive banner.
+        if (RESUME_GATE_CODES.has(json.code ?? "")) {
+          setError(encodeResumeGateError(json.code!, json.error ?? "", json.missing));
+          return;
+        }
+        throw new Error(json.error ?? "Upload failed");
+      }
       onDone(json.text ?? "");
     } catch (e: unknown) {
       setError(apiErrorFromUnknown(e));

@@ -17,8 +17,8 @@ import {
   isTrivialRewrite,
   type CategoryAssignmentOptions,
 } from "@/lib/analysisCategoryMatch";
-import { apiUrl } from "@/lib/utils";
-import { apiErrorFromUnknown, toUserFriendlyErrorMessage } from "@/lib/userFriendlyError";
+import { apiUrl, MAX_RESUME_UPLOAD_BYTES } from "@/lib/utils";
+import { apiErrorFromUnknown, toUserFriendlyErrorMessage, encodeResumeGateError, RESUME_GATE_CODES } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
 import { useResumeAnalyzeStore } from "@/store/resumeAnalyzeStore";
@@ -666,6 +666,12 @@ export default function AnalyzeResume() {
               : `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
           );
         }
+        // Content gate (422): not a résumé we can analyze — show a calm,
+        // instructive banner instead of the generic "analysis failed" error.
+        if (resp.status === 422 && RESUME_GATE_CODES.has(json?.code)) {
+          setError(encodeResumeGateError(json.code, json.error, json.missing));
+          return;
+        }
         throw new Error(json.error || "Analysis failed");
       }
       const res = mergeAnalyzeApiJson(json as Record<string, unknown>) as unknown as AnalysisResult;
@@ -674,8 +680,15 @@ export default function AnalyzeResume() {
       setActiveEditDraftId(draftId);
       setResult(resWithMeta);
       if (!isAnon && shouldShowJobActivation()) setShowJobActivation(true);
-      if (res.scanLimitStatus) {
-        setScansRemaining(res.scanLimitStatus.remaining);
+      if (res.scanLimitStatus) setScansRemaining(res.scanLimitStatus.remaining);
+      // Non-blocking nudges from the content gate (e.g. missing contact info)
+      // take precedence over the scan-count toast — they're actionable.
+      const inputWarnings: string[] = Array.isArray((json as Record<string, unknown>)?.inputWarnings)
+        ? ((json as Record<string, unknown>).inputWarnings as string[])
+        : [];
+      if (inputWarnings.length > 0) {
+        setFeedbackToast(`Analyzed — heads-up: we couldn't find ${inputWarnings.join(", ")} on your résumé.`);
+      } else if (res.scanLimitStatus) {
         const { remaining, limit } = res.scanLimitStatus;
         setFeedbackToast(
           remaining === 0
@@ -1023,6 +1036,11 @@ export default function AnalyzeResume() {
 
   const onFile = (f: File | null | undefined) => {
     if (!f || !/\.(pdf|docx?)$/i.test(f.name)) { setError("Please upload a PDF or Word (.doc / .docx) file."); return; }
+    if (!f.size) { setError("This file is empty (0 bytes). Please choose your résumé file and try again."); return; }
+    if (f.size > MAX_RESUME_UPLOAD_BYTES) {
+      setError(`This file is ${(f.size / (1024 * 1024)).toFixed(1)} MB — over the 4 MB limit. Compress images or export a smaller PDF, then try again.`);
+      return;
+    }
     // First scan free; a second scan for a signed-out visitor asks them to sign in.
     if (isAnon && hasUsedAnonScan()) { setAnonGateOpen(true); return; }
     run(f);

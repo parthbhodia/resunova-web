@@ -29,6 +29,9 @@ export function apiUrl(path: string): string {
   return `${base}${path}`;
 }
 
+/** Max résumé upload size — mirrors backend RESUME_UPLOAD_MAX_BYTES (4 MB). */
+export const MAX_RESUME_UPLOAD_BYTES = 4 * 1024 * 1024;
+
 export function isResumeUploadFile(file: File): boolean {
   const t = (file.type || "").toLowerCase();
   if (t.includes("pdf")) return true;
