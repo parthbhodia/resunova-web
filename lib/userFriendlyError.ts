@@ -48,6 +48,11 @@ export function encodeResumeGateError(
   return RESUME_GATE_PREFIX + JSON.stringify({ code, message, missing: missing ?? [] });
 }
 
+/** True if a string carries an encoded gate payload (vs. a flattened message). */
+export function isEncodedResumeGateError(s: string): boolean {
+  return typeof s === "string" && s.startsWith(RESUME_GATE_PREFIX + "{");
+}
+
 function resolveResumeContentError(
   code: string,
   message: string,
