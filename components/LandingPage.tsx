@@ -242,7 +242,7 @@ export default function LandingPage() {
           textAlign: "center",
         }}>
           <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.4 }}>
-            <span style={{ marginRight: 8, fontSize: 15 }}>✨</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ display: "inline-block", verticalAlign: "-2px", marginRight: 8 }}><path d="M12 2l1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7z" /></svg>
             <strong style={{ fontWeight: 700 }}>New:</strong>
             {" "}AI bullet rewrites + ATS scoring — scan your résumé free, no account needed.
             {" "}
@@ -269,7 +269,7 @@ export default function LandingPage() {
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#fff"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
-          >×</button>
+          ><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true" style={{ display: "block" }}><path d="M6 6l12 12M18 6L6 18" /></svg></button>
         </div>
       )}
 
@@ -829,6 +829,20 @@ export default function LandingPage() {
         </button>
       </div>
 
+      {/* ───────────── Interview coaching announcement strip ── */}
+      <div role="region" aria-label="Interview coaching — coming soon" style={{
+        background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
+        padding: "14px 24px",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 11, flexWrap: "wrap", textAlign: "center",
+      }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+          <rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="19" x2="12" y2="22" /><line x1="8.5" y1="22" x2="15.5" y2="22" />
+        </svg>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.45 }}>
+          <strong style={{ fontWeight: 700 }}>Coming soon:</strong> AI mock interviews tailored to the exact role — part of our growing university partnerships, including <strong style={{ fontWeight: 700 }}>UMBC</strong>.
+        </span>
+      </div>
+
       {/* ───────────── Interview coaching ───────────────────── */}
       <section id="interview" className="lp-interview-sec" style={{ borderTop: `1px solid ${C.border}`, background: C.bg, padding: "100px 40px", scrollMarginTop: 76 }}>
         <div style={{ maxWidth: 1040, margin: "0 auto" }}>
@@ -852,13 +866,13 @@ export default function LandingPage() {
 
           <div className="lp-interview-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
             {([
-              { icon: "ti-microphone", accent: T.blue, title: "AI mock interviews", desc: "Role-specific questions pulled from the exact job description you’re targeting." },
-              { icon: "ti-star", accent: "#16a34a", title: "Instant STAR feedback", desc: "Each answer scored on structure, specifics, and impact — so every story lands." },
-              { icon: "ti-bookmark", accent: T.teal, title: "Reusable answer bank", desc: "Save your best stories once, then tailor them per company in a click." },
+              { icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="19" x2="12" y2="22" /><line x1="8.5" y1="22" x2="15.5" y2="22" /></svg>), accent: T.blue, title: "AI mock interviews", desc: "Role-specific questions pulled from the exact job description you’re targeting." },
+              { icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2.5l2.95 5.98 6.6.96-4.78 4.66 1.13 6.57L12 17.52l-5.9 3.1 1.13-6.57L2.45 9.44l6.6-.96z" /></svg>), accent: "#16a34a", title: "Instant STAR feedback", desc: "Each answer scored on structure, specifics, and impact — so every story lands." },
+              { icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" /></svg>), accent: T.teal, title: "Reusable answer bank", desc: "Save your best stories once, then tailor them per company in a click." },
             ]).map(({ icon, accent, title, desc }) => (
               <div key={title} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "26px 24px" }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: `${accent}18`, border: `1px solid ${accent}40`, display: "flex", alignItems: "center", justifyContent: "center", color: accent, marginBottom: 16 }}>
-                  <i className={`ti ${icon}`} style={{ fontSize: 20 }} aria-hidden="true" />
+                  {icon}
                 </div>
                 <h3 style={{ fontSize: 17, fontWeight: 700, color: C.ink, margin: "0 0 8px", letterSpacing: -0.3 }}>{title}</h3>
                 <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>{desc}</p>
@@ -866,6 +880,20 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* ───────────── University partnerships banner (image) ── */}
+      <section aria-label="University partnerships" style={{ background: C.bg, padding: "76px 40px", borderTop: `1px solid ${C.border}` }}>
+        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova — university career centers" style={{ display: "block", maxWidth: 1040, margin: "0 auto", borderRadius: 24, overflow: "hidden", boxShadow: C.shadow }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG banner; next/image can't optimize SVG and breaks `output: export` */}
+          <img
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/university-partners-banner.svg`}
+            alt="Resunova partners with university career centers, including UMBC (University of Maryland, Baltimore County) — unlimited scans and Career Center-aligned feedback for students, with more campuses joining."
+            width={1200}
+            height={360}
+            style={{ display: "block", width: "100%", height: "auto" }}
+          />
+        </Link>
       </section>
 
       {/* ───────────── Final CTA ────────────────────────────── */}
@@ -939,8 +967,8 @@ export default function LandingPage() {
         </div>
 
         {/* Micro-copy */}
-        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", margin: 0 }}>
-          No credit card &nbsp;·&nbsp; No paywall &nbsp;·&nbsp; Cancel-nothing
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", margin: 0 }}>
+          No credit card &nbsp;·&nbsp; No paywall &nbsp;·&nbsp; Nothing to cancel
         </p>
       </section>
 
@@ -999,11 +1027,11 @@ export default function LandingPage() {
             paddingTop: 24,
             borderTop: `1px solid ${C.border}`,
           }}>
-            <span style={{ fontSize: "var(--font-size-xs)", color: C.muted }}>© 2026 Resunova. All rights reserved.</span>
+            <span style={{ fontSize: 12, color: C.muted }}>© 2026 Resunova. All rights reserved.</span>
             <a
               href={SITE_URL}
               className="lp-footer-link"
-              style={{ fontSize: "var(--font-size-xs)", color: C.muted, textDecoration: "none", fontWeight: 500, transition: "color 0.15s" }}
+              style={{ fontSize: 12, color: C.muted, textDecoration: "none", fontWeight: 500, transition: "color 0.15s" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T.blue; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = C.muted; }}
             >
@@ -1272,7 +1300,7 @@ function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, st
               <span style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{job.title}</span>
               {job.target && (
                 <span style={{ background: "rgba(37,99,235,0.10)", color: T.blue, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, display: "inline-flex", alignItems: "center", gap: 3 }}>
-                  <i className="ti ti-target" style={{ fontSize: 11 }} aria-hidden="true" /> Target role
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true" style={{ display: "block", flexShrink: 0 }}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /></svg> Target role
                 </span>
               )}
             </div>
