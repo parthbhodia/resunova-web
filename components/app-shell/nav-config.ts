@@ -33,9 +33,7 @@ export const VIEW_ICONS: Record<AppView, ReactNode> = {
   account: NAV_ICONS.account,
 };
 
-export const VIEW_BADGES: Partial<Record<AppView, string>> = {
-  "cover-letter": "Soon",
-};
+export const VIEW_BADGES: Partial<Record<AppView, string>> = {};
 
 export const BUILDER_SUBFLOWS = [
   { key: "tailor" as const, label: "Tailor to a job", icon: BUILDER_SUBFLOW_ICONS.tailor },

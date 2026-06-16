@@ -41,9 +41,7 @@ export const useCoverLetterStore = create<CLStore>((set, get) => {
 
         if (cloudSaveTimeout) clearTimeout(cloudSaveTimeout);
         cloudSaveTimeout = setTimeout(() => {
-            if (get().savedId) {
-                get().saveToServer();
-            }
+            void get().saveToServer();
         }, 2000);
     };
 
@@ -103,7 +101,12 @@ export const useCoverLetterStore = create<CLStore>((set, get) => {
         },
 
         reset: () => {
-            set({ data: { ...DEFAULT_CL_DATA } });
+            set({ 
+                data: { ...DEFAULT_CL_DATA },
+                savedId: null,
+                label: "Untitled Cover Letter",
+                saveStatus: "idle"
+            });
             scheduleSave();
         },
 
@@ -112,7 +115,12 @@ export const useCoverLetterStore = create<CLStore>((set, get) => {
                 const raw = localStorage.getItem(STORAGE_KEY);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    set({ data: { ...DEFAULT_CL_DATA, ...parsed }, loaded: true });
+                    set({
+                        data: { ...DEFAULT_CL_DATA, ...(parsed.data ?? parsed) },
+                        savedId: parsed.savedId ?? null,
+                        label: parsed.label ?? "Untitled Cover Letter",
+                        loaded: true,
+                    });
                     return;
                 }
             } catch (e) {
@@ -123,8 +131,8 @@ export const useCoverLetterStore = create<CLStore>((set, get) => {
 
         saveToStorage: () => {
             try {
-                const { data } = get();
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                const { data, savedId, label } = get();
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ data, savedId, label }));
             } catch (e) {
                 console.warn("CL save err", e);
             }
@@ -156,8 +164,10 @@ export const useCoverLetterStore = create<CLStore>((set, get) => {
                 const newId = await upsertCoverLetter(label, data, savedId);
                 if (newId) {
                     set({ savedId: newId, saveStatus: "saved" });
+                    get().saveToStorage();
                 } else {
-                    set({ saveStatus: "error" });
+                    // Logged out or missing session: keep the draft locally saved only.
+                    set({ saveStatus: "idle" });
                 }
             } catch (e) {
                 console.error("Failed to save cover letter to cloud", e);
@@ -170,6 +180,7 @@ export const useCoverLetterStore = create<CLStore>((set, get) => {
                 await deleteCoverLetter(id);
                 if (get().savedId === id) {
                     set({ savedId: null, saveStatus: "idle" });
+                    get().saveToStorage();
                 }
             } catch (e) {
                 console.error("Failed to delete cover letter", e);
