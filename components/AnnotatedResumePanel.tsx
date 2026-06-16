@@ -1485,9 +1485,10 @@ export default function AnnotatedResumePanel({
                           bullet={draft}
                           onEnhanced={(enhanced) => patchBulletRewrite(i, enhanced)}
                           context={{
-                            jd: categoryAssignmentOpts?.jdText,
-                            role: effectiveStructured?.experience[bulletMap?.[i]?.experienceIdx]?.role,
-                            company: effectiveStructured?.experience[bulletMap?.[i]?.experienceIdx]?.company,
+                            // Full JD text isn't available in this panel — pass the
+                            // matched JD keywords + the target role as rewrite hints.
+                            jd: categoryAssignmentOpts?.jdKeywords?.join(", ") || undefined,
+                            role: exportRoleLabel || undefined,
                           }}
                         />
                         <CopyButton text={draft} />
