@@ -156,11 +156,11 @@ const RESEARCH_PILLARS = [
 ];
 
 // ── Résumé / CV templates (landing showcase) ────────────────────────────────
-type TemplateDef = { name: string; type: "Résumé" | "CV"; accent: string; href: string; thumb: React.ReactNode };
+type TemplateDef = { name: string; type: "Résumé" | "CV"; accent: string; darkAccent: string; href: string; thumb: React.ReactNode };
 
 const RESUME_TEMPLATES: TemplateDef[] = [
   {
-    name: "Executive", type: "Résumé", accent: "#2563eb", href: "/template-builder/?preset=executive",
+    name: "Executive", type: "Résumé", accent: "#2563eb", darkAccent: "#60a5fa", href: "/template-builder/?preset=executive",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -193,7 +193,7 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     ),
   },
   {
-    name: "Modern", type: "Résumé", accent: "#0d9488", href: "/template-builder/?preset=modern",
+    name: "Modern", type: "Résumé", accent: "#0d9488", darkAccent: "#2dd4bf", href: "/template-builder/?preset=modern",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -224,7 +224,7 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     ),
   },
   {
-    name: "Classic", type: "Résumé", accent: "#b45309", href: "/template-builder/?preset=classic",
+    name: "Classic", type: "Résumé", accent: "#b45309", darkAccent: "#fbbf24", href: "/template-builder/?preset=classic",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -255,7 +255,7 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     ),
   },
   {
-    name: "Academic CV", type: "CV", accent: "#7c3aed", href: "/template-builder/?preset=classic",
+    name: "Academic CV", type: "CV", accent: "#7c3aed", darkAccent: "#a78bfa", href: "/template-builder/?preset=classic",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -291,6 +291,9 @@ const RESUME_TEMPLATES: TemplateDef[] = [
 ];
 
 function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string>; dark: boolean }) {
+  // Card chrome (type badge, "Use this", hover ring) needs a theme-legible accent.
+  // The print ink colors (navy / bronze) are too dark to read on the dark card surface.
+  const a = dark ? t.darkAccent : t.accent;
   return (
     <Link
       href={t.href}
@@ -301,18 +304,18 @@ function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
         overflow: "hidden", transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
       }}
-      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-3px)"; el.style.boxShadow = C.shadow; el.style.borderColor = `${t.accent}66`; }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-3px)"; el.style.boxShadow = C.shadow; el.style.borderColor = `${a}66`; }}
       onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.boxShadow = "none"; el.style.borderColor = C.border; }}
     >
       <div style={{ position: "relative", padding: "20px 20px 0", background: dark ? "rgba(255,255,255,0.03)" : "#eef2f7" }}>
-        <span style={{ position: "absolute", top: 14, right: 14, zIndex: 1, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.accent, background: `${t.accent}1f`, padding: "3px 8px", borderRadius: 6 }}>{t.type}</span>
+        <span style={{ position: "absolute", top: 14, right: 14, zIndex: 1, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: a, background: `${a}1f`, padding: "3px 8px", borderRadius: 6 }}>{t.type}</span>
         <div style={{ filter: "drop-shadow(0 8px 18px rgba(15,23,42,0.16))" }}>
           {t.thumb}
         </div>
       </div>
       <div style={{ padding: "14px 16px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: C.ink, letterSpacing: -0.2 }}>{t.name}</span>
-        <span style={{ fontSize: 13, fontWeight: 600, color: t.accent }}>Use this →</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: a }}>Use this →</span>
       </div>
     </Link>
   );
