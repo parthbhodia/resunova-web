@@ -46,10 +46,33 @@ import { DIFFICULTY_OPTIONS } from "./practiceSetupConfig";
 import { INTERVIEW_TYPES_BY_CATEGORY } from "./interviewTypeConfig";
 import {
   buildQuestionSections,
-  type QuestionSection,
 } from "./dashboardMockQuestions";
 import WorkflowStepper from "./WorkflowStepper";
-import { fetchLatestPrepSession } from "@/lib/supabase";
+import { fetchLatestPrepSession, type PrepQuestion } from "@/lib/supabase";
+
+export interface QuestionItem {
+  question: string;
+  reason?: string | null;
+  source?: string | null;
+  star_framework?: {
+    situation: string;
+    task: string;
+    action: string;
+    result: string;
+    reflection: string;
+  } | null;
+  best_story?: {
+    title: string;
+    reason: string;
+  } | null;
+}
+
+export interface QuestionSection {
+  id: string;
+  title: string;
+  description: string;
+  questions: QuestionItem[];
+}
 
 
 // ── Section icon map ─────────────────────────────────────────────────────────
@@ -82,6 +105,8 @@ export default function PrepDashboardView() {
   const selectedInterviewType = useInterviewPrepStore((s) => s.selectedInterviewType);
   const difficulty            = useInterviewPrepStore((s) => s.difficulty);
   const questionCount         = useInterviewPrepStore((s) => s.questionCount);
+  const selectedSources       = useInterviewPrepStore((s) => s.selectedSources);
+  const selectedFocusAreas    = useInterviewPrepStore((s) => s.selectedFocusAreas);
   const storeSessionId        = useInterviewPrepStore((s) => s.sessionId);
   const loadedFromDb          = useInterviewPrepStore((s) => s.loadedFromDb);
   const setSessionId          = useInterviewPrepStore((s) => s.setSessionId);
@@ -100,7 +125,25 @@ export default function PrepDashboardView() {
 
   // AI-generated sections state (falls back to mock builder on error)
   const [sections, setSections] = useState<QuestionSection[]>(() =>
-    buildQuestionSections(category, company, role, selectedInterviewType, questionCount),
+    buildQuestionSections(category, company, role, selectedInterviewType, questionCount).map((s) => ({
+      ...s,
+      questions: s.questions.map((q) => ({
+        question: q,
+        reason: "Standard question optimized for your background",
+        source: s.id,
+        star_framework: {
+          situation: "Worked on key projects from the resume",
+          task: "Address critical goals and meet project requirements",
+          action: "Applied technical stack and coordinated with the team",
+          result: "Successfully delivered the project with positive feedback",
+          reflection: "Learned to handle constraints and optimize code quality"
+        },
+        best_story: {
+          title: "Resume Project",
+          reason: "Demonstrates core technical proficiency from your resume"
+        }
+      }))
+    }))
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,21 +154,24 @@ export default function PrepDashboardView() {
     id: string,
     title: string,
     description: string,
-    items: { question: string }[],
+    items: QuestionItem[],
   ): QuestionSection => ({
     id,
     title,
     description,
-    questions: (items ?? []).map((q) => q.question).filter(Boolean),
+    questions: (items ?? []).filter((item) => item && item.question),
   });
 
-  const fetchQuestions = async () => {
+  const fetchQuestions = async (isRegenerate: boolean = false) => {
     // If no resume data is available (e.g. direct navigation), skip the API
     // call and keep the mock-built sections — no error shown to the user.
     const hasResume = !!(extractedText.trim() || structuredResume);
     if (!hasResume) return;
 
-    setLoading(true);
+    // Only show full-page loading if it's not a background regeneration
+    if (!isRegenerate) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await fetch(apiUrl("/api/generate-interview-questions"), {
@@ -141,6 +187,10 @@ export default function PrepDashboardView() {
           interview_type: selectedInterviewType ?? "mixed",
           difficulty,
           question_count: questionCount,
+          sources: selectedSources,
+          focus_areas: selectedFocusAreas,
+          regenerate: isRegenerate,
+          session_id: storeSessionId,
         }),
       });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
@@ -166,7 +216,9 @@ export default function PrepDashboardView() {
       setError(msg);
       // Keep existing mock-built sections visible on error
     } finally {
-      setLoading(false);
+      if (!isRegenerate) {
+        setLoading(false);
+      }
     }
   };
 
@@ -206,11 +258,15 @@ export default function PrepDashboardView() {
 
   const totalQuestions = sections.reduce((sum, s) => sum + s.questions.length, 0);
 
-  // Per-section "regenerate" state — just a visual toggle for now
+  // Per-section "regenerate" state
   const [regenerating, setRegenerating] = useState<Record<string, boolean>>({});
-  const triggerRegenerate = (id: string) => {
+  const triggerRegenerate = async (id: string) => {
     setRegenerating((prev) => ({ ...prev, [id]: true }));
-    setTimeout(() => setRegenerating((prev) => ({ ...prev, [id]: false })), 1200);
+    try {
+      await fetchQuestions(true);
+    } finally {
+      setRegenerating((prev) => ({ ...prev, [id]: false }));
+    }
   };
 
   return (
@@ -269,7 +325,7 @@ export default function PrepDashboardView() {
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 border border-dashed border-destructive/50 rounded-2xl bg-destructive/5">
             <p className="text-sm font-semibold text-destructive">Error: {error}</p>
-            <Button variant="outline" size="sm" onClick={fetchQuestions}>
+            <Button variant="outline" size="sm" onClick={() => void fetchQuestions()}>
               Try Again
             </Button>
           </div>
@@ -294,7 +350,7 @@ export default function PrepDashboardView() {
         sections={sections}
         sessionId={storeSessionId}
         onBack={() => router.push("/interview-prep/setup")}
-        onRegenerateAll={fetchQuestions}
+        onRegenerateAll={() => fetchQuestions(true)}
       />
     </div>
   );
@@ -357,9 +413,30 @@ function QuestionCard({
 }) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [expandedQuestions, setExpandedQuestions] = useState<Record<number, boolean>>({});
+
+  const toggleQuestion = (idx: number) => {
+    setExpandedQuestions((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
 
   const handleCopy = async () => {
-    const text = section.questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
+    const text = section.questions.map((q, i) => {
+      let str = `${i + 1}. ${q.question}`;
+      if (q.reason) str += `\n   Why: ${q.reason}`;
+      if (q.best_story && q.best_story.title) {
+        str += `\n   Best Resume Story: ${q.best_story.title} (${q.best_story.reason})`;
+      }
+      if (q.star_framework) {
+        str += `\n   Suggested STAR Answer Structure:`;
+        str += `\n     Situation: ${q.star_framework.situation}`;
+        str += `\n     Task: ${q.star_framework.task}`;
+        str += `\n     Action: ${q.star_framework.action}`;
+        str += `\n     Result: ${q.star_framework.result}`;
+        str += `\n     Reflection: ${q.star_framework.reflection}`;
+      }
+      return str;
+    }).join("\n\n");
+
     await navigator.clipboard.writeText(text).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -408,15 +485,86 @@ function QuestionCard({
       {expanded ? (
         <CardContent className="flex flex-col gap-4 pt-4">
           <Separator />
-          <ol className="flex flex-col gap-3">
-            {section.questions.map((q, i) => (
-              <li key={i} className="flex gap-3">
-                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums text-muted-foreground">
-                  {i + 1}
-                </span>
-                <p className="flex-1 text-sm leading-relaxed text-foreground">{q}</p>
-              </li>
-            ))}
+          <ol className="flex flex-col gap-4">
+            {section.questions.map((q, i) => {
+              const isStarExpanded = !!expandedQuestions[i];
+              return (
+                <li key={i} className="flex flex-col gap-2 rounded-xl border border-border/40 bg-muted/20 p-4 transition-all hover:bg-muted/40">
+                  <div className="flex gap-3">
+                    <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums text-muted-foreground">
+                      {i + 1}
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium leading-relaxed text-foreground">{q.question}</p>
+                      {q.reason && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          <span className="font-semibold text-muted-foreground/80">Context:</span> {q.reason}
+                        </p>
+                      )}
+                      {q.best_story && q.best_story.title && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                          <span className="font-semibold text-accent/90">Best Story Recommendation:</span>
+                          <Badge variant="outline" className="px-1.5 py-0 bg-accent/5 border-accent/20 text-accent-foreground text-[10px]">
+                            {q.best_story.title}
+                          </Badge>
+                          {q.best_story.reason && (
+                            <span className="text-muted-foreground/80">— {q.best_story.reason}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {q.star_framework && (
+                    <div className="mt-2 pl-9">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleQuestion(i)}
+                        className="h-8 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {isStarExpanded ? (
+                          <>
+                            <ChevronUp className="size-3.5" />
+                            Hide Answer Structure
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="size-3.5" />
+                            Suggested Answer Structure (STAR+R)
+                          </>
+                        )}
+                      </Button>
+
+                      {isStarExpanded && (
+                        <div className="mt-3 rounded-lg border border-border/60 bg-background/50 p-4 text-xs shadow-sm space-y-3 animate-in fade-in duration-200">
+                          <div>
+                            <span className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">Situation</span>
+                            <p className="mt-0.5 text-foreground leading-relaxed">{q.star_framework.situation}</p>
+                          </div>
+                          <div>
+                            <span className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">Task</span>
+                            <p className="mt-0.5 text-foreground leading-relaxed">{q.star_framework.task}</p>
+                          </div>
+                          <div>
+                            <span className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">Action</span>
+                            <p className="mt-0.5 text-foreground leading-relaxed">{q.star_framework.action}</p>
+                          </div>
+                          <div>
+                            <span className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">Result</span>
+                            <p className="mt-0.5 text-foreground leading-relaxed">{q.star_framework.result}</p>
+                          </div>
+                          <div>
+                            <span className="font-bold uppercase tracking-wider text-accent/80 text-[10px]">Reflection</span>
+                            <p className="mt-0.5 text-foreground leading-relaxed font-medium">{q.star_framework.reflection}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ol>
 
           <Separator />
@@ -484,7 +632,21 @@ function StickyActionBar({
     const lines: string[] = ["INTERVIEW PREP KIT\n", `Resume Category: ${category}\n`];
     for (const section of sections) {
       lines.push(`\n── ${section.title} ──`);
-      section.questions.forEach((q, i) => lines.push(`${i + 1}. ${q}`));
+      section.questions.forEach((q, i) => {
+        lines.push(`\n${i + 1}. ${q.question}`);
+        if (q.reason) lines.push(`   Why: ${q.reason}`);
+        if (q.best_story && q.best_story.title) {
+          lines.push(`   Best Resume Story: ${q.best_story.title} (${q.best_story.reason})`);
+        }
+        if (q.star_framework) {
+          lines.push(`   STAR Answer Structure:`);
+          lines.push(`     Situation: ${q.star_framework.situation}`);
+          lines.push(`     Task: ${q.star_framework.task}`);
+          lines.push(`     Action: ${q.star_framework.action}`);
+          lines.push(`     Result: ${q.star_framework.result}`);
+          lines.push(`     Reflection: ${q.star_framework.reflection}`);
+        }
+      });
     }
     const blob = new Blob([lines.join("\n")], { type: "text/plain" });
     const url = URL.createObjectURL(blob);

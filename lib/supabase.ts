@@ -664,6 +664,17 @@ export interface PrepQuestion {
   question: string;
   reason: string | null;
   source: string;
+  star_framework?: {
+    situation: string;
+    task: string;
+    action: string;
+    result: string;
+    reflection: string;
+  } | null;
+  best_story?: {
+    title: string;
+    reason: string;
+  } | null;
 }
 
 export interface PrepSessionRecord {
@@ -735,10 +746,34 @@ export async function fetchLatestPrepSession(): Promise<PrepSessionRecord | null
       createdAt:      String(s.created_at ?? ""),
       updatedAt:      String(s.updated_at ?? ""),
       questions: {
-        resume_questions:     q.resume_questions     ?? [],
-        jd_questions:         q.jd_questions         ?? [],
-        behavioral_questions: q.behavioral_questions ?? [],
-        company_questions:    q.company_questions    ?? [],
+        resume_questions:     (q.resume_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+        jd_questions:         (q.jd_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+        behavioral_questions: (q.behavioral_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+        company_questions:    (q.company_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
       },
     };
   } catch (e) {
