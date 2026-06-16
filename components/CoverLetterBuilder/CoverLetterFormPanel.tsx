@@ -3,6 +3,8 @@ import { useCoverLetterStore } from "@/store/coverLetterStore";
 import { CL_TEMPLATES } from "./types";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
+import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
+import SignInToUseAi from "./SignInToUseAi";
 
 const inputBase: React.CSSProperties = {
   width: "100%", padding: "8px 11px", borderRadius: 6,
@@ -35,29 +37,40 @@ interface AITextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaEleme
   field: "opening" | "whyCompany" | "whyFit" | "closing";
   context: { role?: string; company?: string };
   onEnhanced: (text: string) => void;
+  /** null = auth state still loading, false = signed out, true = signed in. */
+  signedIn: boolean | null;
+  signingIn: boolean;
+  onSignIn: () => void;
 }
 
-function AITextarea({ field, context, onEnhanced, value, style, ...rest }: AITextareaProps) {
+function AITextarea({ field, context, onEnhanced, value, style, signedIn, signingIn, onSignIn, ...rest }: AITextareaProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [undoVal, setUndoVal] = useState<string | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
   const wordCount = countWords(String(value ?? ""));
   const showBtn = wordCount >= 3;
 
   const enhance = useCallback(async () => {
-    setLoading(true); setError(null);
+    // Account-only feature: don't fire a doomed request for signed-out users —
+    // surface the sign-in prompt instead of a cryptic 401.
+    if (signedIn === false) { setError(null); setShowSignIn(true); return; }
+    setLoading(true); setError(null); setShowSignIn(false);
     try {
       const db = getSupabaseClient();
       const { data: { session } } = await db.auth.getSession();
-      
+      if (!session?.access_token) { setShowSignIn(true); return; }
+
       const res = await fetch(apiUrl("/api/cl-enhance"), {
-        method: "POST", 
-        headers: { 
+        method: "POST",
+        headers: {
           "Content-Type": "application/json",
-          ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {})
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ text: String(value ?? ""), field, context }),
       });
+      // Session expired / rejected by the backend → prompt to sign in again.
+      if (res.status === 401 || res.status === 403) { setShowSignIn(true); return; }
       const data = await res.json();
       if (!res.ok || !data.enhanced) throw new Error(data.error || "AI error");
       setUndoVal(String(value ?? ""));
@@ -67,7 +80,7 @@ function AITextarea({ field, context, onEnhanced, value, style, ...rest }: AITex
     } finally {
       setLoading(false);
     }
-  }, [value, field, context, onEnhanced]);
+  }, [value, field, context, onEnhanced, signedIn]);
 
   const undo = useCallback(() => {
     if (undoVal !== null) { onEnhanced(undoVal); setUndoVal(null); }
@@ -86,9 +99,27 @@ function AITextarea({ field, context, onEnhanced, value, style, ...rest }: AITex
           {undoVal !== null && !loading && (
             <button type="button" onClick={undo} style={{ fontSize: 10, color: "var(--muted)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 5, padding: "3px 7px", cursor: "pointer" }}>↩ Undo</button>
           )}
-          <button type="button" onClick={enhance} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, color: loading ? "var(--muted)" : "#fff", background: loading ? "var(--surface2)" : "var(--accent)", border: "none", borderRadius: 5, padding: "4px 9px", cursor: loading ? "not-allowed" : "pointer", }}>
-            {loading ? "Enhancing…" : "✦ AI Enhance"}
+          <button
+            type="button"
+            onClick={enhance}
+            disabled={loading}
+            title={signedIn === false ? "Sign in to use AI Enhance" : undefined}
+            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, color: loading ? "var(--muted)" : "#fff", background: loading ? "var(--surface2)" : "var(--accent)", border: "none", borderRadius: 5, padding: "4px 9px", cursor: loading ? "not-allowed" : "pointer", }}
+          >
+            {loading ? "Enhancing…" : <>✦ AI Enhance{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.85 }}>🔒</span>}</>}
           </button>
+        </div>
+      )}
+      {showSignIn && (
+        <div style={{ position: "absolute", bottom: 44, right: 8, zIndex: 20 }}>
+          <SignInToUseAi
+            variant="popover"
+            signingIn={signingIn}
+            onSignIn={onSignIn}
+            onDismiss={() => setShowSignIn(false)}
+            title="Sign in to use AI Enhance"
+            subtitle="Polish your wording with AI — free with a Google account."
+          />
         </div>
       )}
     </div>
@@ -98,6 +129,8 @@ function AITextarea({ field, context, onEnhanced, value, style, ...rest }: AITex
 export default function CoverLetterFormPanel({ activeTab }: { activeTab: string }) {
   const store = useCoverLetterStore();
   const { data } = store;
+  const { signedIn, signingIn, signIn } = useSupabaseSignedIn();
+  const ai = { signedIn, signingIn, onSignIn: signIn };
 
   const context = { role: data.recipient.roleTitle, company: data.recipient.companyName };
 
@@ -150,16 +183,16 @@ export default function CoverLetterFormPanel({ activeTab }: { activeTab: string 
         <>
           <h3 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 14px" }}>Letter Content</h3>
           <Field label="Opening Paragraph">
-            <AITextarea field="opening" context={context} value={data.content.openingParagraph} onChange={e => store.setContent("openingParagraph", e.target.value)} onEnhanced={v => store.setContent("openingParagraph", v)} placeholder="I am writing to express my interest in..." />
+            <AITextarea {...ai} field="opening" context={context} value={data.content.openingParagraph} onChange={e => store.setContent("openingParagraph", e.target.value)} onEnhanced={v => store.setContent("openingParagraph", v)} placeholder="I am writing to express my interest in..." />
           </Field>
           <Field label="Why this company?">
-            <AITextarea field="whyCompany" context={context} value={data.content.whyCompany} onChange={e => store.setContent("whyCompany", e.target.value)} onEnhanced={v => store.setContent("whyCompany", v)} placeholder="What draws me to your company is..." />
+            <AITextarea {...ai} field="whyCompany" context={context} value={data.content.whyCompany} onChange={e => store.setContent("whyCompany", e.target.value)} onEnhanced={v => store.setContent("whyCompany", v)} placeholder="What draws me to your company is..." />
           </Field>
           <Field label="Why are you a fit?">
-            <AITextarea field="whyFit" context={context} value={data.content.whyFit} onChange={e => store.setContent("whyFit", e.target.value)} onEnhanced={v => store.setContent("whyFit", v)} style={{ minHeight: 120 }} placeholder="My background makes me a great fit because..." />
+            <AITextarea {...ai} field="whyFit" context={context} value={data.content.whyFit} onChange={e => store.setContent("whyFit", e.target.value)} onEnhanced={v => store.setContent("whyFit", v)} style={{ minHeight: 120 }} placeholder="My background makes me a great fit because..." />
           </Field>
           <Field label="Closing Paragraph">
-            <AITextarea field="closing" context={context} value={data.content.closingParagraph} onChange={e => store.setContent("closingParagraph", e.target.value)} onEnhanced={v => store.setContent("closingParagraph", v)} placeholder="I look forward to discussing..." />
+            <AITextarea {...ai} field="closing" context={context} value={data.content.closingParagraph} onChange={e => store.setContent("closingParagraph", e.target.value)} onEnhanced={v => store.setContent("closingParagraph", v)} placeholder="I look forward to discussing..." />
           </Field>
         </>
       )}

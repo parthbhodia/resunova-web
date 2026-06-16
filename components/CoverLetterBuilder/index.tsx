@@ -10,6 +10,8 @@ import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import { fetchUserProfile, getSupabaseClient } from "@/lib/supabase";
 import { AlignmentType, Document, Packer, Paragraph, TextRun } from "docx";
 import { apiUrl, parseJsonOrThrow } from "@/lib/utils";
+import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
+import SignInToUseAi from "./SignInToUseAi";
 
 type TabKey = "recipient" | "author" | "content" | "style";
 type Step = "mode" | "pick" | "jd" | "build";
@@ -39,7 +41,8 @@ export default function CoverLetterBuilder() {
   const [jdCompany, setJdCompany] = useState("");
   const [jdGenerating, setJdGenerating] = useState(false);
   const [jdError, setJdError] = useState<string | null>(null);
-  
+  const { signedIn, signingIn, signIn } = useSupabaseSignedIn();
+
   const previewRef = useRef<HTMLDivElement>(null);
   const { exportPdf, exporting } = useHtmlPdfExport();
 
@@ -111,17 +114,21 @@ export default function CoverLetterBuilder() {
   }, [store]);
 
   const handleGenerateFromJD = useCallback(async () => {
+    // AI generation is an account-only feature — show the sign-in prompt rather
+    // than firing a request the backend will reject with a 401.
+    if (signedIn === false) { setJdError(null); return; }
     setJdError(null);
     setJdGenerating(true);
     try {
       const db = getSupabaseClient();
       const { data: { session } } = await db.auth.getSession();
+      if (!session?.access_token) { setJdGenerating(false); return; }
 
       const response = await fetch(apiUrl("/api/cl-generate"), {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {})
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           jd: jdText,
@@ -130,6 +137,10 @@ export default function CoverLetterBuilder() {
           name: data.author.name || "Applicant",
         }),
       });
+      if (response.status === 401 || response.status === 403) {
+        setJdError("Your session expired — please sign in again to generate with AI.");
+        return;
+      }
 
       const result = await parseJsonOrThrow<any>(response);
       store.setContent("openingParagraph", result.openingParagraph);
@@ -145,7 +156,7 @@ export default function CoverLetterBuilder() {
     } finally {
       setJdGenerating(false);
     }
-  }, [jdText, jdRole, jdCompany, data.author.name, store]);
+  }, [jdText, jdRole, jdCompany, data.author.name, store, signedIn]);
 
   const validateForExport = useCallback((): string | null => {
     const { author, content } = data;
@@ -402,6 +413,18 @@ export default function CoverLetterBuilder() {
             </div>
           )}
 
+          {signedIn === false && (
+            <div style={{ marginBottom: 16 }}>
+              <SignInToUseAi
+                variant="banner"
+                signingIn={signingIn}
+                onSignIn={signIn}
+                title="Sign in to generate with AI"
+                subtitle="Paste a job description and let AI draft a tailored cover letter — free with a Google account."
+              />
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 10 }}>
             <button
               onClick={() => setStep("mode")}
@@ -410,8 +433,9 @@ export default function CoverLetterBuilder() {
               Cancel
             </button>
             <button
-              onClick={handleGenerateFromJD}
-              disabled={!jdText.trim() || jdGenerating}
+              onClick={signedIn === false ? signIn : handleGenerateFromJD}
+              disabled={(!jdText.trim() && signedIn !== false) || jdGenerating || signingIn}
+              title={signedIn === false ? "Sign in to generate with AI" : undefined}
               style={{
                 padding: "10px 20px",
                 borderRadius: 6,
@@ -420,11 +444,11 @@ export default function CoverLetterBuilder() {
                 color: "#fff",
                 fontSize: 13,
                 fontWeight: 600,
-                cursor: jdGenerating ? "wait" : "pointer",
-                opacity: jdGenerating || !jdText.trim() ? 0.7 : 1,
+                cursor: jdGenerating || signingIn ? "wait" : "pointer",
+                opacity: jdGenerating || signingIn || (!jdText.trim() && signedIn !== false) ? 0.7 : 1,
               }}
             >
-              {jdGenerating ? "Generating…" : "Generate Cover Letter"}
+              {jdGenerating ? "Generating…" : signedIn === false ? "🔒 Sign in to generate" : "Generate Cover Letter"}
             </button>
           </div>
         </div>
