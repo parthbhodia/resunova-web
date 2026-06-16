@@ -8,10 +8,12 @@ import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import ResumePreview from "./ResumePreview";
 import type { TBFont } from "./types";
 import { PAGE_WIDTH_OPTIONS, STYLE_PRESETS } from "./templateStyles";
-import { apiUrl } from "@/lib/utils";
+import { apiUrl, resumeFileClientError } from "@/lib/utils";
 import { buildNameRoleExportFilename } from "@/lib/resumeFileName";
-import { consumeTemplateBuilderStructuredPrefill } from "@/lib/templateBuilderPrefill";
+import { consumeTemplateBuilderStructuredPrefill, stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/templateBuilderPrefill";
 import TemplateBuilderSectionsPanel from "./TemplateBuilderSectionsPanel";
+import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
+import SignInToUseAi from "@/components/CoverLetterBuilder/SignInToUseAi";
 
 /* ── Shared style helpers ──────────────────────────────────────── */
 const inputBase: React.CSSProperties = {
@@ -263,6 +265,9 @@ export default function TemplateBuilderClient() {
     message: string;
   } | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const { exportPdf: exportHtmlPdf, exporting: isGenerating, error: htmlPdfError } = useHtmlPdfExport();
 
   const builderIdFromUrl = (searchParams?.get("builder") ?? "").trim();
@@ -386,6 +391,50 @@ export default function TemplateBuilderClient() {
     void exportHtmlPdf(previewRef.current, filename);
   }, [data.profile.name, data.workExperiences, exportHtmlPdf]);
 
+  const handleImportFile = useCallback(async (file: File) => {
+    setImportError(null);
+    const fileErr = resumeFileClientError(file);
+    if (fileErr) {
+      setImportError(fileErr);
+      return;
+    }
+    // Confirm overwrite if builder already has meaningful content
+    const hasContent =
+      data.profile.name.trim() ||
+      data.workExperiences.some((w) => w.company.trim() || w.bullets.trim());
+    if (hasContent && typeof window !== "undefined") {
+      const ok = window.confirm(
+        "This will replace your current builder content with the imported resume. Continue?",
+      );
+      if (!ok) return;
+    }
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const resp = await fetch(apiUrl("/api/upload-resume"), { method: "POST", body: fd });
+      const json = (await resp.json()) as { error?: string; structuredResume?: unknown };
+      if (!resp.ok) {
+        throw new Error(json.error ?? `Upload failed (${resp.status})`);
+      }
+      const ok = stashTemplateBuilderStructuredPrefillFromAnalysisResult(json);
+      if (!ok) {
+        throw new Error("Could not extract structured data from this file. Try a more complete PDF résumé.");
+      }
+      const prefill = consumeTemplateBuilderStructuredPrefill();
+      if (!prefill) {
+        throw new Error("Failed to map the extracted resume into the builder. Please try again.");
+      }
+      store.replaceData(prefill);
+      showFeedback("success", "Resume imported — fill in any missing details below.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Import failed. Please try again.";
+      setImportError(msg);
+    } finally {
+      setImporting(false);
+    }
+  }, [data.profile.name, data.workExperiences, store, showFeedback]);
+
   if (!loaded) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--muted)" }}>
@@ -488,6 +537,54 @@ export default function TemplateBuilderClient() {
           >
             Load Example
           </button>
+          {/* ── Import resume ─────────────────────────────────── */}
+          {importError && (
+            <span style={{ fontSize: 11, color: "var(--red, #ef4444)", maxWidth: 200 }}>{importError}</span>
+          )}
+          <button
+            onClick={() => { setImportError(null); importFileRef.current?.click(); }}
+            disabled={importing}
+            title="Import an existing PDF or Word résumé — extracts content and fills the builder"
+            style={{
+              fontSize: 12,
+              color: importing ? "var(--muted)" : "var(--text)",
+              background: "none",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              padding: "5px 11px",
+              cursor: importing ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              opacity: importing ? 0.7 : 1,
+            }}
+          >
+            {importing ? (
+              <>
+                <span style={{ width: 10, height: 10, border: "1.5px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
+                Importing…
+              </>
+            ) : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden style={{ flexShrink: 0 }}>
+                  <path d="M6.5 1v7.5M3 6l3.5 3.5L10 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M1 10.5v1a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5v-1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+                Import Resume
+              </>
+            )}
+          </button>
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleImportFile(f);
+              e.target.value = "";
+            }}
+          />
           <button
             onClick={() => void handleSaveToLibrary()}
             disabled={saveBusy || signedIn === false}
