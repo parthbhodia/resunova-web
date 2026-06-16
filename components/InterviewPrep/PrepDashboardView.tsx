@@ -25,9 +25,11 @@ import {
   Copy,
   Database,
   Download,
+  Library,
   RefreshCw,
   Save,
   Sparkles,
+  Trash2,
   User,
   X,
 } from "lucide-react";
@@ -49,7 +51,13 @@ import {
   buildQuestionSections,
 } from "./dashboardMockQuestions";
 import WorkflowStepper from "./WorkflowStepper";
-import { fetchLatestPrepSession, type PrepQuestion } from "@/lib/supabase";
+import {
+  fetchLatestPrepSession,
+  fetchStoryBank,
+  deleteStory,
+  type PrepQuestion,
+  type PrepStory,
+} from "@/lib/supabase";
 
 export interface QuestionItem {
   question: string;
@@ -149,6 +157,9 @@ export default function PrepDashboardView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dbBannerDismissed, setDbBannerDismissed] = useState(false);
+  // Bumped whenever a generation/load completes so the Story Bank panel re-fetches
+  // the (now-updated) master story bank.
+  const [bankRefresh, setBankRefresh] = useState(0);
 
   // Map API response shape → QuestionSection[]
   const toSection = (
@@ -223,6 +234,8 @@ export default function PrepDashboardView() {
 
       if (built.length === 0) throw new Error("No questions returned from AI");
       setSections(built);
+      // New stories were just accumulated into the bank server-side — refresh it.
+      setBankRefresh((n) => n + 1);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(msg);
@@ -328,6 +341,9 @@ export default function PrepDashboardView() {
           difficultyLabel={difficultyLabel}
         />
 
+        {/* Master story bank — accumulates across every prep session */}
+        <StoryBankPanel refreshSignal={bankRefresh} />
+
         {/* Question section cards */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -364,6 +380,150 @@ export default function PrepDashboardView() {
         onBack={() => router.push("/interview-prep/setup")}
         onRegenerateAll={() => fetchQuestions(true)}
       />
+    </div>
+  );
+}
+
+// ── Story bank ───────────────────────────────────────────────────────────────
+
+const MASTER_STORY_CAP = 10;
+
+function StoryBankPanel({ refreshSignal }: { refreshSignal: number }) {
+  const [stories, setStories] = useState<PrepStory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const bank = await fetchStoryBank();
+      if (!cancelled) {
+        setStories(bank);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshSignal]);
+
+  const handleDelete = async (id: string) => {
+    if (typeof window !== "undefined" && !window.confirm("Remove this story from your bank?")) return;
+    setDeletingId(id);
+    const ok = await deleteStory(id);
+    if (ok) setStories((prev) => prev.filter((s) => s.id !== id));
+    setDeletingId(null);
+  };
+
+  // Don't show an empty panel before the first fetch resolves, or for signed-out
+  // users with nothing saved (avoids a confusing empty box under dev-bypass).
+  if (loading && stories.length === 0) return null;
+  if (!loading && stories.length === 0) return null;
+
+  return (
+    <Card className="rounded-2xl border-accent/30 bg-[var(--accent-bg)]">
+      <CardHeader className="pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-accent/15 text-accent">
+              <Library className="size-4" aria-hidden />
+            </span>
+            <div>
+              <CardTitle className="text-base">Your Story Bank</CardTitle>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Reusable STAR+R master stories — these accumulate across every prep and answer most behavioral questions.
+              </p>
+            </div>
+          </div>
+          <Badge variant="secondary" className="shrink-0 text-xs">
+            {stories.length} / {MASTER_STORY_CAP}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2.5 pt-0">
+        {stories.map((story) => (
+          <StoryBankItem
+            key={story.id}
+            story={story}
+            deleting={deletingId === story.id}
+            onDelete={() => handleDelete(story.id)}
+          />
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function StoryBankItem({
+  story,
+  deleting,
+  onDelete,
+}: {
+  story: PrepStory;
+  deleting: boolean;
+  onDelete: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const star: Array<[string, string, boolean]> = [
+    ["Situation", story.situation, false],
+    ["Task", story.task, false],
+    ["Action", story.action, false],
+    ["Result", story.result, false],
+    ["Reflection", story.reflection, true],
+  ];
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/60">
+      <div className="flex items-center gap-2 p-3">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex flex-1 items-center gap-2 text-left"
+          aria-expanded={expanded}
+        >
+          {expanded ? (
+            <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+          )}
+          <span className="text-sm font-semibold text-foreground">{story.title}</span>
+          {story.theme && (
+            <Badge variant="outline" className="ml-1 shrink-0 text-[10px]">
+              {story.theme}
+            </Badge>
+          )}
+        </button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={deleting}
+          aria-label="Remove story from bank"
+          className="size-8 shrink-0 p-0 text-muted-foreground hover:text-destructive"
+        >
+          {deleting ? <RefreshCw className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+        </Button>
+      </div>
+
+      {expanded && (
+        <div className="space-y-3 border-t border-border/50 p-4 text-xs animate-in fade-in duration-200">
+          {star.map(([label, value, isReflection]) => (
+            <div key={label}>
+              <span
+                className={cn(
+                  "text-[10px] font-bold uppercase tracking-wider",
+                  isReflection ? "text-accent/80" : "text-muted-foreground",
+                )}
+              >
+                {label}
+              </span>
+              <p className={cn("mt-0.5 leading-relaxed text-foreground", isReflection && "font-medium")}>
+                {value || <span className="italic text-muted-foreground">—</span>}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

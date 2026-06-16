@@ -932,3 +932,83 @@ export async function deletePrepSession(sessionId: string): Promise<boolean> {
     return false;
   }
 }
+
+/* ── Interview Story Bank ────────────────────────────────────────────────── */
+
+export interface PrepStory {
+  id: string;
+  title: string;
+  theme: string | null;
+  sourceExperience: string | null;
+  situation: string;
+  task: string;
+  action: string;
+  result: string;
+  reflection: string;
+  createdAt: string | null;
+}
+
+/**
+ * Fetch the authenticated user's master story bank — the curated set of reusable
+ * STAR+R stories that accumulates across every prep session
+ * (GET /api/interview-prep/stories). Empty array when signed out or on error.
+ */
+export async function fetchStoryBank(): Promise<PrepStory[]> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token) return [];
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/stories`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+    if (!res.ok) return [];
+    const body = await res.json() as { stories?: Array<Record<string, unknown>> };
+    return (body.stories ?? []).map((s) => ({
+      id:               String(s.id ?? ""),
+      title:            String(s.title ?? ""),
+      theme:            s.theme != null ? String(s.theme) : null,
+      sourceExperience: s.source_experience != null ? String(s.source_experience) : null,
+      situation:        String(s.situation ?? ""),
+      task:             String(s.task ?? ""),
+      action:           String(s.action ?? ""),
+      result:           String(s.result ?? ""),
+      reflection:       String(s.reflection ?? ""),
+      createdAt:        s.created_at != null ? String(s.created_at) : null,
+    }));
+  } catch (e) {
+    console.warn("[interview-prep] fetchStoryBank:", e);
+    return [];
+  }
+}
+
+/**
+ * Delete one master story via DELETE /api/interview-prep/story/{id} (curation).
+ * Returns true on success.
+ */
+export async function deleteStory(storyId: string): Promise<boolean> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token || !storyId) return false;
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/story/${encodeURIComponent(storyId)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      },
+    );
+    return res.ok;
+  } catch (e) {
+    console.warn("[interview-prep] deleteStory:", e);
+    return false;
+  }
+}
