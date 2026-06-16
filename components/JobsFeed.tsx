@@ -541,7 +541,10 @@ export default function JobsFeed() {
         const yb = YEARS_OPTIONS.find((y) => y.key === yearsBucket);
         if (yb && (job.minYears == null || job.minYears < yb.min || job.minYears > yb.max)) return false;
       }
-      if (rolesOnly && !job.titleMatch) return false;
+      // titleMatch is only computed for the résumé-ranked feed; in the unranked
+      // browse feed it's always false, so a restored rolesOnly filter would empty
+      // the list with no visible toggle to undo it. Only apply it when ranked.
+      if (rolesOnly && state.ranked && !job.titleMatch) return false;
       if (q && !`${job.title} ${job.company} ${job.location}`.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -998,9 +1001,11 @@ export default function JobsFeed() {
                         {posted && <span>· {posted}</span>}
                       </div>
                       <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
-                        <Badge variant="secondary" style={{ fontSize: 11 }}>
-                          {job.matchedCount}/{job.totalRequirements} requirements
-                        </Badge>
+                        {job.matchScore != null && (
+                          <Badge variant="secondary" style={{ fontSize: 11 }}>
+                            {job.matchedCount}/{job.totalRequirements} requirements
+                          </Badge>
+                        )}
                         {salary && (
                           <Badge variant="secondary" style={{ fontSize: 11 }}>
                             {salary}
