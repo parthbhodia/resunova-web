@@ -23,6 +23,7 @@ import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient, upsertUserProfile } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { signInWithGoogle } from "@/lib/anonScan";
 import {
   fetchJobFilters,
   createJobFilter,
@@ -67,6 +68,7 @@ type FeedState =
   | { status: "loading" }
   | { status: "no-resume" }
   | { status: "needs-role" }
+  | { status: "signin" }
   | { status: "error"; message: string }
   | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[]; ranked: boolean; role?: string };
 
@@ -498,6 +500,13 @@ export default function JobsFeed() {
           setState({ status: "no-resume" });
           return;
         }
+        // Jobs require sign-in (backend 401s anonymous feed requests). Show an
+        // in-view sign-in prompt rather than bouncing to the marketing landing.
+        if (resp.status === 401) {
+          feedCache = null;
+          setState({ status: "signin" });
+          return;
+        }
         throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
       }
       const data = await resp.json();
@@ -823,6 +832,20 @@ export default function JobsFeed() {
               <Button onClick={() => router.push("/?view=analyze")}>Scan my résumé</Button>
             </div>
           </div>
+        )}
+
+        {state.status === "signin" && (
+          <Card>
+            <CardContent style={{ padding: "44px 28px", textAlign: "center" }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--text)", margin: 0 }}>
+                Sign in to browse jobs
+              </h2>
+              <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 20px", maxWidth: 440, lineHeight: 1.6 }}>
+                See live openings from company career boards, then scan your résumé to rank them by fit. Free — no credit card.
+              </p>
+              <Button onClick={() => void signInWithGoogle()}>Sign in with Google</Button>
+            </CardContent>
+          </Card>
         )}
 
         {state.status === "no-resume" && (

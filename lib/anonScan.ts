@@ -20,12 +20,12 @@ export const ANON_ANALYSIS_STASH_KEY = "rn_anon_analysis_v1";
  *
  *   analyze  — free résumé scan (one free, full report behind sign-in)
  *   builder  — tailor a résumé; sign-in gates save & export
- *
- * NOTE: "jobs" is intentionally NOT public — the jobs feed requires sign-in
- * (the backend 401s anonymous feed requests). Individual job *detail* pages
- * stay public for SEO / Google for Jobs, but the browsable feed does not.
+ *   jobs     — the jobs view renders for anon, but the FEED requires sign-in:
+ *              JobsFeed shows an in-view "sign in to browse jobs" prompt (the
+ *              backend 401s anonymous feed requests) instead of redirecting to
+ *              the marketing landing. Job *detail* pages stay public for SEO.
  */
-const PUBLIC_APP_VIEWS = new Set(["analyze", "builder"]);
+const PUBLIC_APP_VIEWS = new Set(["analyze", "builder", "jobs"]);
 
 /** True when the URL requests a view that signed-out visitors are allowed to use. */
 export function urlRequestsPublicAppView(): boolean {
