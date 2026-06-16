@@ -22,6 +22,7 @@ import {
   type ReferralRelationship,
   type ReferralStatus,
 } from "@/lib/referralsApi";
+import { loadProfile } from "@/lib/profileStorage";
 
 const STATUS_ORDER: ReferralStatus[] = ["to_contact", "contacted", "responded", "referred", "declined"];
 const RELATIONSHIPS: ReferralRelationship[] = ["alumni", "colleague", "recruiter", "mutual", "other"];
@@ -66,12 +67,38 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+const discoverBtnStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  padding: "7px 11px",
+  borderRadius: "var(--radius)",
+  border: "1px solid var(--border)",
+  background: "var(--surface2)",
+  color: "var(--text)",
+  textDecoration: "none",
+  whiteSpace: "nowrap",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+};
+
+/** localStorage key for the user's school (drives the alumni-at-company search). */
+const SCHOOL_KEY = "rn_insider_school_v1";
+
+/** A LinkedIn people-search deep link. We route the user into LinkedIn's OWN
+ *  search (no scraping, no stored data) and they make the warm connection there. */
+function linkedinPeopleSearch(query: string): string {
+  return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(query)}`;
+}
+
 export default function InsiderPanel({
   postingId,
   company,
+  defaultSchool,
 }: {
   postingId?: string;
   company?: string;
+  defaultSchool?: string;
 }) {
   const [contacts, setContacts] = useState<ReferralContact[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +111,20 @@ export default function InsiderPanel({
     contactTitle: "",
     contactUrl: "",
     relationship: "alumni" as ReferralRelationship,
+  });
+  // The user's school powers the alumni-at-company LinkedIn search. Persisted so
+  // it follows them across jobs; pre-filled from the résumé when available.
+  const [school, setSchool] = useState<string>(() => {
+    if (typeof window === "undefined") return defaultSchool || "";
+    try {
+      const stored = localStorage.getItem(SCHOOL_KEY);
+      if (stored) return stored;
+    } catch { /* ignore */ }
+    try {
+      const p = loadProfile();
+      if (p?.school?.trim()) return p.school.trim();
+    } catch { /* ignore */ }
+    return defaultSchool || "";
   });
 
   const load = useCallback(async () => {
@@ -197,21 +238,60 @@ export default function InsiderPanel({
         )}
       </div>
 
-      {/* phase-2 discovery note */}
+      {/* Find insiders on LinkedIn — deep links into LinkedIn's OWN people search
+          (no scraping; the user makes the warm connection there). */}
       <div
         style={{
           marginTop: 14,
-          padding: "10px 12px",
+          padding: "12px 13px",
           borderRadius: "var(--radius)",
           background: "color-mix(in srgb, var(--accent) 9%, transparent)",
           border: "1px solid color-mix(in srgb, var(--accent) 22%, transparent)",
-          fontSize: 11.5,
-          lineHeight: 1.5,
-          color: "var(--muted)",
         }}
       >
-        A warm referral lifts your reply rate ~4×. Auto-matching alumni &amp; recruiters is coming soon —
-        for now, add the people you plan to reach out to and track each ask.
+        <div style={{ fontSize: 11.5, lineHeight: 1.5, color: "var(--muted)", marginBottom: company ? 10 : 0 }}>
+          A warm referral lifts your reply rate ~4×.{" "}
+          {company
+            ? <>Find alumni &amp; recruiters at {company} on LinkedIn, then add the ones you&apos;ll message.</>
+            : "Add the people you plan to reach out to and track each ask."}
+        </div>
+        {company && (
+          <>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <a href={linkedinPeopleSearch(company)} target="_blank" rel="noopener noreferrer" style={discoverBtnStyle}>
+                👥 People at {company}
+              </a>
+              <a
+                href={linkedinPeopleSearch(`${company} recruiter OR "talent acquisition" OR sourcer`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={discoverBtnStyle}
+              >
+                🧑‍💼 Recruiters
+              </a>
+              {school.trim() && (
+                <a
+                  href={linkedinPeopleSearch(`"${school.trim()}" ${company}`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={discoverBtnStyle}
+                >
+                  🎓 Alumni
+                </a>
+              )}
+            </div>
+            <input
+              style={{ ...inputStyle, marginTop: 8, fontSize: 12, background: "var(--surface)" }}
+              value={school}
+              placeholder="Your school — unlocks an alumni-at-company search"
+              onChange={(e) => {
+                const v = e.target.value;
+                setSchool(v);
+                try { localStorage.setItem(SCHOOL_KEY, v); } catch { /* quota */ }
+              }}
+            />
+          </>
+        )}
       </div>
 
       {/* add form */}
@@ -301,8 +381,8 @@ export default function InsiderPanel({
         )}
         {contacts !== null && sorted.length === 0 && !adding && (
           <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 0", lineHeight: 1.6 }}>
-            No contacts yet. Add someone who can refer you — an alumnus, a former colleague, or a
-            recruiter at {company || "the company"}.
+            No contacts yet — use the LinkedIn searches above to find an alumnus, a former colleague,
+            or a recruiter at {company || "the company"}, then add the ones you&apos;ll reach out to.
           </div>
         )}
         {sorted.map((c) => (
