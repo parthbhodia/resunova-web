@@ -1466,6 +1466,80 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
     <>
       <SectionHeading>Style & Customization</SectionHeading>
 
+      {/* Layout */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={labelStyle}>Layout</label>
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
+          Two-column places contact, education, and skills in a sidebar.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+          {([
+            {
+              id: "single" as const,
+              label: "Single column",
+              desc: "Classic top-to-bottom",
+              preview: (
+                <svg width="36" height="28" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                  <rect x="4" y="3" width="28" height="3" rx="1" fill="currentColor" opacity="0.7" />
+                  <rect x="4" y="9" width="28" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="4" y="13" width="22" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="4" y="17" width="28" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="4" y="21" width="18" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                </svg>
+              ),
+            },
+            {
+              id: "twoColumn" as const,
+              label: "Two column",
+              desc: "Sidebar + main",
+              preview: (
+                <svg width="36" height="28" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                  <rect x="2" y="2" width="11" height="24" rx="1" fill="currentColor" opacity="0.12" />
+                  <rect x="3" y="4" width="9" height="2" rx="1" fill="currentColor" opacity="0.6" />
+                  <rect x="3" y="8" width="9" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="3" y="11" width="7" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="3" y="14" width="9" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="16" y="4" width="18" height="2" rx="1" fill="currentColor" opacity="0.7" />
+                  <rect x="16" y="9" width="18" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="16" y="13" width="14" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="16" y="17" width="18" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="16" y="21" width="12" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                </svg>
+              ),
+            },
+          ] as const).map((opt) => {
+            const active = (c.layout ?? "single") === opt.id;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => store.setCustomization("layout", opt.id)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 8px",
+                  borderRadius: 9,
+                  border: active ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
+                  background: active ? "color-mix(in srgb, var(--accent) 8%, var(--bg))" : "var(--bg)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  color: active ? "var(--accent)" : "var(--text)",
+                  transition: "border-color 0.15s, background 0.15s",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ color: active ? "var(--accent)" : "var(--muted)" }}>
+                  {opt.preview}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700 }}>{opt.label}</div>
+                <div style={{ fontSize: 10, color: "var(--muted)", lineHeight: 1.3 }}>{opt.desc}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Style Presets */}
       <div style={{ marginBottom: 20 }}>
         <label style={labelStyle}>Template style</label>
