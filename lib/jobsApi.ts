@@ -37,6 +37,8 @@ export type JobFeedItem = {
   h1bSponsor: boolean | null;
   h1bCertifiedCount: number | null;
   h1bMedianWage: number | null;
+  /** How many applied. null = unknown; UI shows "Less than 25" when <25. */
+  applicantCount: number | null;
   postedAt: string | null;
   matchScore: number;
   matchedCount: number;
@@ -84,6 +86,7 @@ export type JobDetail = {
   h1bSponsor: boolean | null;
   h1bCertifiedCount: number | null;
   h1bMedianWage: number | null;
+  applicantCount: number | null;
   postedAt: string | null;
   isActive: boolean;
   jdText: string;

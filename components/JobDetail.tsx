@@ -43,6 +43,12 @@ function formatSalary(job: JobDetailData): string | null {
   return `${range}${suffix}`;
 }
 
+function formatApplicants(n: number | null): string {
+  // First-party count (how many of our users applied). Per spec: show the exact
+  // number only once it reaches 25; below that (incl. null/0) show the band.
+  return n != null && n >= 25 ? `${n.toLocaleString()} applicants` : "Less than 25 applicants";
+}
+
 const WM_LABEL: Record<string, string> = { remote: "Remote", hybrid: "Hybrid", onsite: "On-site" };
 const SEN_LABEL: Record<string, string> = {
   intern: "Intern", entry: "Entry-level", mid: "Mid-level", senior: "Senior",
@@ -150,6 +156,7 @@ function JobBody({ job, onBoost }: { job: JobDetailData; onBoost: () => void }) 
               {job.location && <span>📍 {job.location}</span>}
               {job.workModel && WM_LABEL[job.workModel] && <span>🏢 {WM_LABEL[job.workModel]}</span>}
               {job.seniority && SEN_LABEL[job.seniority] && <span>📈 {SEN_LABEL[job.seniority]}</span>}
+              {formatApplicants(job.applicantCount) && <span>👥 {formatApplicants(job.applicantCount)}</span>}
               <span>🕑 Full-time</span>
             </div>
             {(salary || job.h1bSponsor || job.visaSponsorship === "yes") && (
