@@ -93,6 +93,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const active = useAppView();
   const onTemplateBuilderPage =
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
+  const onInterviewPrepPage =
+    (pathname ?? "").replace(/\/$/, "") === "/interview-prep";
   const isMobile = useIsMobile();
   const flowRaw = (searchParams?.get("flow") || "tailor").toLowerCase();
   const builderFlow: "tailor" | "template" =
@@ -253,6 +255,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               <AppSidebar
                 active={active}
                 onTemplateBuilderPage={onTemplateBuilderPage}
+                onInterviewPrepPage={onInterviewPrepPage}
                 builderActive={builderActive}
                 builderOpen={builderOpen}
                 onBuilderOpenChange={setBuilderOpen}

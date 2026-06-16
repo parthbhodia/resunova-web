@@ -784,3 +784,151 @@ export async function upsertUserProfile(profile: ProfileFormState): Promise<void
     console.warn("[user_profiles] upsert:", e);
   }
 }
+
+/* ── Interview Prep persistence ──────────────────────────────────────────── */
+
+export interface PrepQuestion {
+  question: string;
+  reason: string | null;
+  source: string;
+  star_framework?: {
+    situation: string;
+    task: string;
+    action: string;
+    result: string;
+    reflection: string;
+  } | null;
+  best_story?: {
+    title: string;
+    reason: string;
+  } | null;
+}
+
+export interface PrepSessionRecord {
+  id: string;
+  company: string | null;
+  role: string;
+  category: string;
+  difficulty: string;
+  interviewType: string;
+  jobDescription: string | null;
+  sources: string[];
+  focusAreas: string[];
+  questionCount: number;
+  createdAt: string;
+  updatedAt: string;
+  questions: {
+    resume_questions:     PrepQuestion[];
+    jd_questions:         PrepQuestion[];
+    behavioral_questions: PrepQuestion[];
+    company_questions:    PrepQuestion[];
+  };
+}
+
+/**
+ * Fetch the authenticated user's most recent interview prep session + questions
+ * from the backend (GET /api/interview-prep/latest).
+ *
+ * Returns null when unauthenticated, when no session exists, or on error.
+ */
+export async function fetchLatestPrepSession(): Promise<PrepSessionRecord | null> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token) return null;
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/latest`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+
+    if (!res.ok) return null;
+    const body = await res.json() as { session: null } | {
+      session: Record<string, unknown>;
+      questions: Record<string, PrepQuestion[]>;
+    };
+
+    if (!body.session) return null;
+
+    const s = body.session as Record<string, unknown>;
+    const q = (body as { questions: Record<string, PrepQuestion[]> }).questions;
+
+    return {
+      id:             String(s.id ?? ""),
+      company:        (s.company as string | null) ?? null,
+      role:           String(s.role ?? ""),
+      category:       String(s.category ?? "General"),
+      difficulty:     String(s.difficulty ?? "medium"),
+      interviewType:  String(s.interview_type ?? "mixed"),
+      jobDescription: (s.job_description as string | null) ?? null,
+      sources:        (s.sources as string[]) ?? [],
+      focusAreas:     (s.focus_areas as string[]) ?? [],
+      questionCount:  Number(s.question_count ?? 20),
+      createdAt:      String(s.created_at ?? ""),
+      updatedAt:      String(s.updated_at ?? ""),
+      questions: {
+        resume_questions:     (q.resume_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+        jd_questions:         (q.jd_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+        behavioral_questions: (q.behavioral_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+        company_questions:    (q.company_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+      },
+    };
+  } catch (e) {
+    console.warn("[interview-prep] fetchLatestPrepSession:", e);
+    return null;
+  }
+}
+
+/**
+ * Delete a prep session via DELETE /api/interview-prep/session/{id}.
+ * Returns true on success, false on failure.
+ */
+export async function deletePrepSession(sessionId: string): Promise<boolean> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token || !sessionId) return false;
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/session/${encodeURIComponent(sessionId)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      },
+    );
+    return res.ok;
+  } catch (e) {
+    console.warn("[interview-prep] deletePrepSession:", e);
+    return false;
+  }
+}

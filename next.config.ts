@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const isProd = process.env.NODE_ENV === "production";
 const basePath = isProd ? (process.env.NEXT_PUBLIC_BASE_PATH ?? "") : "";
@@ -14,9 +15,9 @@ const nextConfig: NextConfig = {
   basePath,
   assetPrefix,
   transpilePackages: ["react-pdf", "pdfjs-dist", "@react-pdf/renderer"],
-  // Turbopack is the default in Next.js 16; provide an empty config to silence
-  // the "webpack config ignored" warning while keeping webpack fallbacks for CI.
-  turbopack: {},
+  turbopack: {
+    root: path.resolve(process.cwd()),
+  },
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
