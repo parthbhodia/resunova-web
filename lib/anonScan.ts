@@ -29,10 +29,13 @@ export function urlRequestsAnalyzeView(): boolean {
  * résumé, downloading a PDF, applying) still prompt sign-in inline.
  *
  *   analyze  — free résumé scan (one free, full report behind sign-in)
- *   jobs     — browse / search matched jobs
  *   builder  — tailor a résumé; sign-in gates save & export
+ *
+ * NOTE: "jobs" is intentionally NOT public — the jobs feed requires sign-in
+ * (the backend 401s anonymous feed requests). Individual job *detail* pages
+ * stay public for SEO / Google for Jobs, but the browsable feed does not.
  */
-const PUBLIC_APP_VIEWS = new Set(["analyze", "jobs", "builder"]);
+const PUBLIC_APP_VIEWS = new Set(["analyze", "builder"]);
 
 /** True when the URL requests a view that signed-out visitors are allowed to use. */
 export function urlRequestsPublicAppView(): boolean {

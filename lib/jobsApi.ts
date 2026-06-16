@@ -54,6 +54,14 @@ export type JobFeedResponse = {
   /** Parsed profile roles that were used for boosting, e.g. ["backend engineer"]. */
   profileRoles: string[];
   profileLocations: string[];
+  /** True for the résumé-ranked feed; false/absent for the no-résumé role browse. */
+  ranked?: boolean;
+  signedIn?: boolean;
+  /** Set when a signed-in user has no résumé and hasn't picked a role yet. */
+  needsRole?: boolean;
+  /** Echo of the role the no-résumé browse feed was scoped to, + its family. */
+  role?: string;
+  roleFamily?: string;
 };
 
 export type JobDetail = {
