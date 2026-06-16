@@ -38,6 +38,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useInterviewPrepStore } from "@/store/interviewPrepStore";
 import { apiUrl } from "@/lib/utils";
+import { getSupabaseClient } from "@/lib/supabase";
 import {
   classifyResumeCategory,
   type ResumeCategory,
@@ -174,9 +175,20 @@ export default function PrepDashboardView() {
     }
     setError(null);
     try {
+      // Send the auth token so the backend can persist the session + questions
+      // + story bank (persistence is gated on an authenticated user_id). Without
+      // it, generation still returns questions but nothing is saved, so the
+      // "resume your latest prep session" feature would never see this run.
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      try {
+        const { data: { session } } = await getSupabaseClient().auth.getSession();
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+      } catch {
+        // Supabase env not configured / signed out — proceed anonymously.
+      }
       const res = await fetch(apiUrl("/api/generate-interview-questions"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           structured_resume: structuredResume,
           extracted_text: extractedText,
