@@ -217,6 +217,143 @@ function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AIText
   );
 }
 
+/* ── AI Generate button (writes section from scratch) ──────────── */
+
+interface AIGenerateButtonProps {
+  /** Determines the endpoint kind and context shape. */
+  kind: "summary" | "skills";
+  /** Context pulled from the current builder data. */
+  buildContext: {
+    name?: string;
+    role?: string;
+    company?: string;
+    experiences?: Array<{ jobTitle: string; company: string; bullets: string }>;
+    education?: Array<{ degree: string; school: string }>;
+    skills?: string;
+  };
+  /** Called with the generated text when the request succeeds. */
+  onGenerated: (result: string | string[]) => void;
+  /** Visual label for the button. */
+  label?: string;
+}
+
+/**
+ * A standalone "Generate with AI" button for template builder sections.
+ * Gates on sign-in (consistent with CoverLetterBuilder AITextarea). Shows
+ * a popover sign-in prompt for signed-out users instead of firing a doomed
+ * request, and handles 401/403 the same way.
+ */
+function AIGenerateButton({ kind, buildContext, onGenerated, label = "✦ Generate with AI" }: AIGenerateButtonProps) {
+  const { signedIn, signingIn, signIn } = useSupabaseSignedIn();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
+
+  const generate = useCallback(async () => {
+    setError(null);
+    if (signedIn === false) {
+      setShowSignIn(true);
+      return;
+    }
+    setLoading(true);
+    setShowSignIn(false);
+    try {
+      const db = getSupabaseClient();
+      const { data: { session } } = await db.auth.getSession();
+      if (!session?.access_token) {
+        setShowSignIn(true);
+        setLoading(false);
+        return;
+      }
+      const res = await fetch(apiUrl("/api/tb-generate"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ kind, context: buildContext }),
+      });
+      if (res.status === 401 || res.status === 403) {
+        setShowSignIn(true);
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "AI error");
+      if (kind === "summary") {
+        const generated = (data.generated || "").trim();
+        if (!generated) throw new Error("Empty response from AI");
+        onGenerated(generated);
+      } else {
+        const skills = Array.isArray(data.skills) ? data.skills : [];
+        if (!skills.length) throw new Error("Empty response from AI");
+        onGenerated(skills);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setLoading(false);
+    }
+  }, [kind, buildContext, onGenerated, signedIn]);
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        type="button"
+        onClick={generate}
+        disabled={loading}
+        title={signedIn === false ? "Sign in to use AI generation" : `Generate ${kind} with AI`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          fontSize: 12,
+          fontWeight: 600,
+          color: loading ? "var(--muted)" : "var(--accent)",
+          background: "var(--surface2)",
+          border: "1.5px solid var(--border)",
+          borderRadius: 7,
+          padding: "6px 12px",
+          cursor: loading ? "not-allowed" : "pointer",
+          whiteSpace: "nowrap",
+          transition: "border-color 0.15s, background 0.15s",
+        }}
+      >
+        {loading ? (
+          <>
+            <span style={{
+              width: 10, height: 10,
+              border: "1.5px solid var(--border)", borderTopColor: "var(--accent)",
+              borderRadius: "50%", animation: "spin 0.8s linear infinite",
+              display: "inline-block", flexShrink: 0,
+            }} />
+            Generating…
+          </>
+        ) : (
+          <>
+            {label}
+            {signedIn === false && <span aria-hidden="true" style={{ opacity: 0.75, fontSize: 11 }}>🔒</span>}
+          </>
+        )}
+      </button>
+      {error && (
+        <div style={{ marginTop: 5, fontSize: 11, color: "var(--red, #ef4444)" }}>{error}</div>
+      )}
+      {showSignIn && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 20 }}>
+          <SignInToUseAi
+            variant="popover"
+            signingIn={signingIn}
+            onSignIn={signIn}
+            onDismiss={() => setShowSignIn(false)}
+            title="Sign in to generate with AI"
+            subtitle="AI section generation is free with a Google account."
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Customization constants ───────────────────────────────────── */
 const ACCENT_PRESETS = [
   { label: "Charcoal", value: "#1a1a1a" },
@@ -933,6 +1070,23 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 function ProfileSection({ store, data }: { store: StoreType; data: StoreType["data"] }) {
   const p = data.profile;
+
+  // Build context for AI summary generation from current builder data
+  const summaryGenContext = {
+    name: p.name,
+    role: data.workExperiences[0]?.jobTitle || "",
+    company: data.workExperiences[0]?.company || "",
+    experiences: data.workExperiences.map((w) => ({
+      jobTitle: w.jobTitle,
+      company: w.company,
+      bullets: w.bullets,
+    })),
+    education: data.educations.map((e) => ({
+      degree: e.degree,
+      school: e.school,
+    })),
+  };
+
   return (
     <>
       <SectionHeading>Personal Info</SectionHeading>
@@ -973,15 +1127,23 @@ function ProfileSection({ store, data }: { store: StoreType; data: StoreType["da
         </Field>
       </Row>
       <FieldWrap>
-        <Field label="Professional Summary">
-          <AITextarea
-            type="summary"
-            value={p.summary}
-            onChange={(e) => store.setProfile("summary", e.target.value)}
-            onEnhanced={(v) => store.setProfile("summary", v)}
-            placeholder="Brief 2–3 sentence summary of your experience and goals..."
+        {/* Summary label row with Generate button alongside */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <label style={{ ...labelStyle, marginBottom: 0 }}>Professional Summary</label>
+          <AIGenerateButton
+            kind="summary"
+            buildContext={summaryGenContext}
+            onGenerated={(result) => store.setProfile("summary", result as string)}
+            label="✦ Generate summary"
           />
-        </Field>
+        </div>
+        <AITextarea
+          type="summary"
+          value={p.summary}
+          onChange={(e) => store.setProfile("summary", e.target.value)}
+          onEnhanced={(v) => store.setProfile("summary", v)}
+          placeholder="Brief 2–3 sentence summary of your experience and goals..."
+        />
       </FieldWrap>
     </>
   );
@@ -1210,6 +1372,21 @@ function ProjectsSection({ store, data }: { store: StoreType; data: StoreType["d
 
 function SkillsSection({ store, data }: { store: StoreType; data: StoreType["data"] }) {
   const { featuredSkills, descriptions } = data.skills;
+
+  // Build context for AI skills suggestion from current builder data
+  const skillsGenContext = {
+    experiences: data.workExperiences.map((w) => ({
+      jobTitle: w.jobTitle,
+      company: w.company,
+      bullets: w.bullets,
+    })),
+    education: data.educations.map((e) => ({
+      degree: e.degree,
+      school: e.school,
+    })),
+    skills: descriptions,
+  };
+
   return (
     <>
       <SectionHeading>Skills</SectionHeading>
@@ -1251,8 +1428,20 @@ function SkillsSection({ store, data }: { store: StoreType; data: StoreType["dat
         ))}
       </div>
 
-      {/* Category description lines */}
-      <label style={labelStyle}>Skill categories</label>
+      {/* Category description lines — label row with Suggest skills button */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <label style={{ ...labelStyle, marginBottom: 0 }}>Skill categories</label>
+        <AIGenerateButton
+          kind="skills"
+          buildContext={skillsGenContext}
+          onGenerated={(result) => {
+            // result is string[] of "Category: A, B, C" lines — join to textarea value
+            const lines = Array.isArray(result) ? result : [result as string];
+            store.setSkillDescriptions(lines.join("\n"));
+          }}
+          label="✦ Suggest skills"
+        />
+      </div>
       <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
         One category per line, e.g. "Languages: Python, Go"
       </p>
