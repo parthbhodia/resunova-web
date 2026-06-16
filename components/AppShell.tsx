@@ -156,6 +156,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
       }
     };
 
+    // Warm the jobs feed (data + its JS chunk) as soon as a signed-in session is
+    // known, so the Jobs tab opens instantly instead of fetching on first open.
+    // Dynamic import keeps the heavy JobsFeed module out of the shell bundle.
+    const warmJobsFeed = (accessToken?: string | null) => {
+      if (!accessToken) return;
+      void import("@/components/JobsFeed").then((m) => m.prefetchJobsFeed()).catch(() => {});
+    };
+
     supabase.auth.getSession().then(({ data }) => {
       const currentUser = data.session?.user ?? null;
       setUser(currentUser);
@@ -163,6 +171,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       setIsUmbc(isUmbcUser(currentUser?.email));
       void syncAdvisorAccess(data.session?.access_token);
       void syncInstitutionStudent(currentUser?.email, data.session?.access_token);
+      warmJobsFeed(data.session?.access_token);
     });
     const {
       data: { subscription },
@@ -172,6 +181,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       setIsUmbc(isUmbcUser(currentUser?.email));
       void syncAdvisorAccess(s?.access_token);
       void syncInstitutionStudent(currentUser?.email, s?.access_token);
+      if (_ev === "SIGNED_IN") warmJobsFeed(s?.access_token);
     });
     return () => subscription.unsubscribe();
   }, []);

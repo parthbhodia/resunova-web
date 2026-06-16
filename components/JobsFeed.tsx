@@ -298,6 +298,55 @@ type FeedReady = Extract<FeedState, { status: "ready" }>;
 const FEED_TTL_MS = 5 * 60 * 1000;
 let feedCache: { key: string; at: number; data: FeedReady } | null = null;
 
+/**
+ * Warm the module-level feed cache so opening the Jobs tab is instant. Called
+ * (best-effort) from the app shell once a signed-in session resolves — "start
+ * the call when the user lands". Mirrors loadFeed's DEFAULT request: the
+ * 30-day window + any role the no-résumé visitor previously picked. Anything
+ * that doesn't map cleanly (no session, needsRole, error) is a silent no-op —
+ * JobsFeed then just fetches on mount as before. The dynamic import that calls
+ * this also warms the Jobs view's JS chunk, so both data and code are ready.
+ */
+export async function prefetchJobsFeed(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const days = AGE_FILTERS.find((f) => f.key === "30")?.days ?? 0;
+    let roleQuery = "";
+    try { roleQuery = localStorage.getItem(JOBS_ROLE_KEY) || ""; } catch { /* ignore */ }
+    const cacheKey = `${days}|${roleQuery}`;
+    // Already warm → nothing to do.
+    if (feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) return;
+
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
+    if (!session?.access_token) return; // feed requires sign-in
+    const params = new URLSearchParams();
+    if (days) params.set("max_age_days", String(days));
+    if (roleQuery) params.set("role", roleQuery);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data?.needsRole) return; // no rows to cache; the tab renders the role prompt
+    feedCache = {
+      key: cacheKey,
+      at: Date.now(),
+      data: {
+        status: "ready",
+        jobs: Array.isArray(data?.jobs) ? data.jobs : [],
+        generatedAt: data?.generatedAt || "",
+        profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
+        profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
+        ranked: data?.ranked !== false,
+        role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+      },
+    };
+  } catch {
+    /* best-effort — JobsFeed fetches on mount if the warm-up didn't land */
+  }
+}
+
 function scoreColors(score: number): { fg: string; bg: string } {
   if (score >= 70) return { fg: "var(--green-ink)", bg: "color-mix(in srgb, var(--green-ink) 12%, transparent)" };
   if (score >= 50) return { fg: "var(--amber-ink)", bg: "color-mix(in srgb, var(--amber-ink) 12%, transparent)" };
