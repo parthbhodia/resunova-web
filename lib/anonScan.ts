@@ -13,16 +13,6 @@ import { getSupabaseClient } from "@/lib/supabase";
 
 export const ANON_ANALYSIS_STASH_KEY = "rn_anon_analysis_v1";
 
-/** True when the current URL explicitly requests the Analyze view. */
-export function urlRequestsAnalyzeView(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return new URLSearchParams(window.location.search).get("view") === "analyze";
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Views a signed-out visitor may enter without being bounced to the landing
  * page. The app shell renders for these; individual gated actions (saving a
@@ -41,7 +31,7 @@ const PUBLIC_APP_VIEWS = new Set(["analyze", "builder"]);
 export function urlRequestsPublicAppView(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    const view = new URLSearchParams(window.location.search).get("view");
+    const view = (new URLSearchParams(window.location.search).get("view") || "").toLowerCase();
     return view ? PUBLIC_APP_VIEWS.has(view) : false;
   } catch {
     return false;
