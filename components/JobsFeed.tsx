@@ -33,6 +33,8 @@ import {
 } from "@/lib/jobFiltersApi";
 import CompanyLogo from "@/components/CompanyLogo";
 import BoostPanel from "@/components/BoostPanel";
+import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
+import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
 
 type FeedJob = {
   id: string;
@@ -292,6 +294,28 @@ const PAGE_SIZE = 25;
  *  role-scoped browse feed until they scan a résumé. */
 const JOBS_ROLE_KEY = "rn_jobs_role_v1";
 
+/** localStorage key for the no-résumé visitor's full browse selection (role +
+ *  title/location alias terms + work model) collected by the onboarding wizard. */
+const JOBS_BROWSE_KEY = "rn_jobs_browse_v1";
+
+/** Feed cache key — identical in loadFeed and prefetchJobsFeed so a warmed
+ *  prefetch entry is actually reused by the on-mount fetch. */
+function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null): string {
+  const f = sel
+    ? `${(sel.titleTerms || []).join(",")}~${(sel.locationTerms || []).join(",")}~${sel.location || ""}~${sel.workModel || ""}`
+    : "";
+  return `${days}|${roleQuery}|${f}`;
+}
+
+/** Append the wizard's title/location/work-model filters to a feed request. */
+function appendBrowseParams(params: URLSearchParams, sel: JobsBrowseSelection | null): void {
+  if (!sel) return;
+  if (sel.titleTerms?.length) params.set("title_any", sel.titleTerms.join("|"));
+  if (sel.locationTerms?.length) params.set("location_any", sel.locationTerms.join("|"));
+  else if (sel.location?.trim() && !sel.workModel) params.set("location", sel.location.trim());
+  if (sel.workModel) params.set("work_model", sel.workModel);
+}
+
 /** Module-level feed cache so switching away from and back to the Jobs tab
  *  (which unmounts/remounts this component) doesn't refetch the ranked feed
  *  every time. Keyed by the age filter; the manual refresh/retry bypass it with
@@ -314,8 +338,10 @@ export async function prefetchJobsFeed(): Promise<void> {
   try {
     const days = AGE_FILTERS.find((f) => f.key === "30")?.days ?? 0;
     let roleQuery = "";
+    let browseSel: JobsBrowseSelection | null = null;
     try { roleQuery = localStorage.getItem(JOBS_ROLE_KEY) || ""; } catch { /* ignore */ }
-    const cacheKey = `${days}|${roleQuery}`;
+    try { const raw = localStorage.getItem(JOBS_BROWSE_KEY); if (raw) browseSel = JSON.parse(raw) as JobsBrowseSelection; } catch { /* ignore */ }
+    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel);
     // Already warm → nothing to do.
     if (feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) return;
 
@@ -324,6 +350,7 @@ export async function prefetchJobsFeed(): Promise<void> {
     const params = new URLSearchParams();
     if (days) params.set("max_age_days", String(days));
     if (roleQuery) params.set("role", roleQuery);
+    appendBrowseParams(params, browseSel);
     const qs = params.toString() ? `?${params.toString()}` : "";
     const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), {
       headers: { Authorization: `Bearer ${session.access_token}` },
@@ -407,7 +434,10 @@ export default function JobsFeed() {
     if (typeof window === "undefined") return "";
     try { return localStorage.getItem(JOBS_ROLE_KEY) || ""; } catch { return ""; }
   });
-  const [roleInput, setRoleInput] = useState("");
+  const [browseSel, setBrowseSel] = useState<JobsBrowseSelection | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { const raw = localStorage.getItem(JOBS_BROWSE_KEY); return raw ? (JSON.parse(raw) as JobsBrowseSelection) : null; } catch { return null; }
+  });
   const [search, setSearch] = useState("");
   const [locationStates, setLocationStates] = useState<Set<string>>(new Set());
   const [workModels, setWorkModels] = useState<Set<string>>(new Set());
@@ -452,26 +482,28 @@ export default function JobsFeed() {
 
   // No-résumé visitor picks/changes their target role. Persist it and let the
   // loadFeed effect (keyed on roleQuery) refetch the role-scoped browse feed.
-  const submitRole = useCallback((role: string) => {
-    const r = role.trim();
-    if (!r) return;
-    try { localStorage.setItem(JOBS_ROLE_KEY, r); } catch { /* quota */ }
+  const submitBrowse = useCallback((sel: JobsBrowseSelection) => {
+    try {
+      localStorage.setItem(JOBS_BROWSE_KEY, JSON.stringify(sel));
+      if (sel.role.trim()) localStorage.setItem(JOBS_ROLE_KEY, sel.role.trim());
+    } catch { /* quota */ }
     feedCache = null;
+    setBrowseSel(sel);
     setState({ status: "loading" });
-    setRoleQuery(r);
+    setRoleQuery(sel.role.trim());
   }, []);
 
   const changeRole = useCallback(() => {
-    try { localStorage.removeItem(JOBS_ROLE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(JOBS_ROLE_KEY); localStorage.removeItem(JOBS_BROWSE_KEY); } catch { /* ignore */ }
     feedCache = null;
-    setRoleInput("");
+    setBrowseSel(null);
     setState({ status: "loading" });
     setRoleQuery("");
   }, []);
 
   const loadFeed = useCallback(async (force = false) => {
     const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
-    const cacheKey = `${days}|${roleQuery}`;
+    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel);
     // Serve a fresh-enough cached feed on tab remount instead of refetching.
     if (!force && feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) {
       setState(feedCache.data);
@@ -489,6 +521,7 @@ export default function JobsFeed() {
       const params = new URLSearchParams();
       if (days) params.set("max_age_days", String(days));
       if (roleQuery) params.set("role", roleQuery);
+      appendBrowseParams(params, browseSel);
       const qs = params.toString() ? `?${params.toString()}` : "";
       const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
       if (!resp.ok) {
@@ -532,7 +565,7 @@ export default function JobsFeed() {
     } catch (err) {
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
     }
-  }, [ageFilter, roleQuery]);
+  }, [ageFilter, roleQuery, browseSel]);
 
   useEffect(() => {
     void loadFeed();
@@ -864,59 +897,10 @@ export default function JobsFeed() {
         )}
 
         {state.status === "needs-role" && (
-          <Card>
-            <CardContent style={{ padding: "36px 28px" }}>
-              <div style={{ maxWidth: 560, margin: "0 auto" }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", margin: 0, textAlign: "center" }}>
-                  What role are you looking for?
-                </h2>
-                <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "8px auto 18px", maxWidth: 430, textAlign: "center" }}>
-                  We&apos;ll pull live openings for that role. Scan your résumé anytime to rank them by fit and unlock per-job match scores.
-                </p>
-                <form
-                  onSubmit={(e) => { e.preventDefault(); submitRole(roleInput); }}
-                  style={{ display: "flex", gap: 8, marginBottom: 18 }}
-                >
-                  <Input
-                    value={roleInput}
-                    onChange={(e) => setRoleInput(e.target.value)}
-                    placeholder="e.g. Frontend Engineer, Data Scientist, Product Manager"
-                    autoFocus
-                    style={{ flex: 1 }}
-                  />
-                  <Button type="submit" disabled={!roleInput.trim()}>Search</Button>
-                </form>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>
-                  Popular roles
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {ROLE_CHIPS.map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => submitRole(r)}
-                      style={{
-                        padding: "6px 12px", borderRadius: 20, border: "1.5px solid var(--border)",
-                        background: "var(--surface2)", color: "var(--text)", fontSize: 12.5,
-                        cursor: "pointer", fontFamily: "inherit",
-                      }}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ textAlign: "center", marginTop: 22 }}>
-                  <button
-                    type="button"
-                    onClick={() => router.push("/?view=analyze")}
-                    style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 13, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}
-                  >
-                    Or scan your résumé to auto-match →
-                  </button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <JobsOnboardingWizard
+            onBrowse={submitBrowse}
+            onResumeReady={submitBrowse}
+          />
         )}
 
         {state.status === "error" && (
