@@ -12,7 +12,7 @@
  * No navigation to the builder.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -255,6 +255,36 @@ function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void 
   const pct = score == null ? 0 : Math.max(0, Math.min(100, score));
   const ring = `conic-gradient(${arcColor} ${pct * 3.6}deg, var(--surface2) 0deg)`;
 
+  // Order so the most decision-relevant requirements survive the collapsed view:
+  // required gaps first, then required strengths, then preferred gaps, etc.
+  // (the old code sliced [matched, missing] at 14 with matched first, which hid
+  // the actionable missing requirements first — see avg 18.3 reqs/posting.)
+  const reqs = useMemo(() => {
+    const all = [
+      ...job.matched.map((m) => ({ ...m, ok: true })),
+      ...job.missing.map((m) => ({ ...m, ok: false })),
+    ];
+    const impRank = (s: string) => (s === "required" ? 0 : s === "preferred" ? 1 : 2);
+    return all
+      .map((r, i) => ({ r, i }))
+      .sort((a, b) => {
+        const ra = impRank(a.r.importance) * 2 + (a.r.ok ? 1 : 0);
+        const rb = impRank(b.r.importance) * 2 + (b.r.ok ? 1 : 0);
+        return ra - rb || a.i - b.i; // stable within the same rank
+      })
+      .map(({ r }) => r);
+  }, [job.matched, job.missing]);
+
+  const REQ_COLLAPSED = 12;
+  const [showAllReqs, setShowAllReqs] = useState(false);
+  const visibleReqs = showAllReqs ? reqs : reqs.slice(0, REQ_COLLAPSED);
+  const hasReqChips = reqs.length > 0;
+  const matchPct = job.totalRequirements > 0 ? Math.round((job.matchedCount / job.totalRequirements) * 100) : 0;
+  const [boostHover, setBoostHover] = useState(false);
+  // Brand warm accent (same terracotta as the Optimize CTA) — ties the progress
+  // bar + "add these" chips to the action, for a cohesive tangy feel.
+  const AMBER = "#c4793a";
+
   return (
     <div style={{ borderRadius: 18, padding: "28px 24px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
       <div style={{ width: 128, height: 128, borderRadius: "50%", background: ring, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -269,34 +299,77 @@ function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void 
           : `Your résumé matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
       </div>
 
-      {job.totalRequirements > 0 && (
+      {hasReqChips ? (
         <>
           <div style={{ width: "100%", height: 1, background: "var(--border)" }} />
-          <div style={{ width: "100%", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>
-            REQUIREMENTS · {job.matchedCount}/{job.totalRequirements} MATCHED
+          <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>
+            <span>REQUIREMENTS</span>
+            <span>{job.matchedCount}/{job.totalRequirements} MATCHED</span>
+          </div>
+          <div style={{ width: "100%", height: 7, borderRadius: 999, background: "var(--surface2)", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${matchPct}%`, background: AMBER, borderRadius: 999, transition: "width .6s cubic-bezier(.22,1,.36,1)" }} />
+          </div>
+          <div style={{ width: "100%", fontSize: 12, lineHeight: 1.45, color: "var(--muted)" }}>
+            {job.missing.length === 0
+              ? "Every requirement covered — you're ready to apply. ✦"
+              : `You're ${matchPct}% there — add a few below to stand out.`}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, width: "100%" }}>
-            {[...job.matched.map((m) => ({ ...m, ok: true })), ...job.missing.map((m) => ({ ...m, ok: false }))]
-              .slice(0, 14)
-              .map((r, i) => (
-                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, fontSize: 12, background: r.ok ? "color-mix(in srgb, var(--green-ink, #34d399) 14%, transparent)" : "var(--surface2)", color: r.ok ? "var(--text)" : "var(--muted)" }}>
-                  <span style={{ color: r.ok ? "var(--green-ink, #34d399)" : "var(--red-ink, #d97757)", fontWeight: 600 }}>{r.ok ? "✓" : "✗"}</span>
-                  {r.canonical}
-                </span>
-              ))}
+            {visibleReqs.map((r) => (
+              <span
+                key={`${r.ok ? "y" : "n"}-${r.canonical}`}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 999,
+                  fontSize: 12, fontWeight: 500, lineHeight: 1,
+                  background: r.ok ? "color-mix(in srgb, var(--green-ink, #34d399) 13%, transparent)" : "color-mix(in srgb, #c4793a 12%, transparent)",
+                  border: r.ok
+                    ? "1px solid color-mix(in srgb, var(--green-ink, #34d399) 30%, transparent)"
+                    : "1px solid color-mix(in srgb, #c4793a 34%, transparent)",
+                  color: "var(--text)",
+                }}
+              >
+                <span style={{ color: r.ok ? "var(--green-ink, #34d399)" : AMBER, fontWeight: 700 }}>{r.ok ? "✓" : "+"}</span>
+                {r.canonical}
+              </span>
+            ))}
+          </div>
+          {reqs.length > REQ_COLLAPSED && (
+            <button
+              onClick={() => setShowAllReqs((v) => !v)}
+              style={{ alignSelf: "flex-start", background: "none", border: "none", padding: "2px 0", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--accent)" }}
+            >
+              {showAllReqs ? "Show fewer" : `Show all ${reqs.length} requirements ›`}
+            </button>
+          )}
+        </>
+      ) : job.totalRequirements > 0 ? (
+        <>
+          <div style={{ width: "100%", height: 1, background: "var(--border)" }} />
+          <div style={{ width: "100%", fontSize: 12, lineHeight: 1.5, color: "var(--muted)" }}>
+            {job.totalRequirements} requirement{job.totalRequirements === 1 ? "" : "s"} extracted from this posting.
+            {score == null ? " Scan your résumé to see which ones you match." : ""}
           </div>
         </>
-      )}
+      ) : null}
 
       {job.missing.length > 0 && (
         <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
-          Tailoring can close {job.missing.length} missing requirement{job.missing.length === 1 ? "" : "s"} using your real experience.
+          One tap tailors your résumé to add {job.missing.length} of these — from your real experience.
         </div>
       )}
 
       <button
         onClick={onBoost}
-        style={{ width: "100%", padding: "13px 0", borderRadius: 10, border: "none", background: "#c4793a", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 2 }}
+        onMouseEnter={() => setBoostHover(true)}
+        onMouseLeave={() => setBoostHover(false)}
+        style={{
+          width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
+          background: boostHover ? "#b06a30" : "#c4793a", color: "#fff", fontSize: 14, fontWeight: 600,
+          cursor: "pointer", marginTop: 2,
+          transition: "background .15s ease, transform .15s ease, box-shadow .15s ease",
+          transform: boostHover ? "translateY(-1px)" : "none",
+          boxShadow: boostHover ? "0 6px 16px rgba(196,121,58,0.32)" : "none",
+        }}
       >
         ✦ Optimize my résumé
       </button>

@@ -1037,6 +1037,7 @@ export default function JobsFeed() {
               const colors = job.matchScore != null ? scoreColors(job.matchScore) : null;
               const salary = formatSalary(job);
               const posted = formatPostedAt(job.postedAt);
+              const reqPct = job.totalRequirements > 0 ? Math.round((job.matchedCount / job.totalRequirements) * 100) : 0;
               return (
                 <Card
                   key={job.id}
@@ -1086,9 +1087,19 @@ export default function JobsFeed() {
                       </div>
                       <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
                         {job.matchScore != null && (
-                          <Badge variant="secondary" style={{ fontSize: 11 }}>
-                            {job.matchedCount}/{job.totalRequirements} requirements
-                          </Badge>
+                          <span
+                            title={`Matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 7,
+                              padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 500,
+                              background: "var(--surface2)", color: "var(--muted)",
+                            }}
+                          >
+                            <span style={{ position: "relative", display: "inline-block", width: 42, height: 5, borderRadius: 999, background: "color-mix(in srgb, var(--muted) 22%, transparent)", overflow: "hidden" }}>
+                              <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${reqPct}%`, background: "#c4793a", borderRadius: 999 }} />
+                            </span>
+                            {job.matchedCount}/{job.totalRequirements} matched
+                          </span>
                         )}
                         {salary && (
                           <Badge variant="secondary" style={{ fontSize: 11 }}>

@@ -239,7 +239,12 @@ function Step1({ job, ready, onNext, onScanFirst }: {
 }) {
   const score = job.matchScore;
   const scoreColor = score == null ? "var(--muted)" : score >= 70 ? "var(--green-ink)" : score >= 50 ? "#e0a35c" : "#d97757";
-  const capped = <T,>(arr: T[], n: number) => arr.slice(0, n);
+  const CAP = 8;
+  const [showAllMatched, setShowAllMatched] = useState(false);
+  const [showAllGaps, setShowAllGaps] = useState(false);
+  const visMatched = showAllMatched ? job.matched : job.matched.slice(0, CAP);
+  const visGaps = showAllGaps ? job.missing : job.missing.slice(0, CAP);
+  const toggleStyle = { alignSelf: "flex-start" as const, background: "none", border: "none", padding: "2px 0", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--accent)" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -263,30 +268,40 @@ function Step1({ job, ready, onNext, onScanFirst }: {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>YOU HAVE</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-            {capped(job.matched, 8).map((r, i) => (
+            {visMatched.map((r, i) => (
               <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, fontSize: 12.5, background: "rgba(var(--green-ink-rgb, 4,120,87),0.08)", color: "var(--text)", border: "1px solid rgba(var(--green-ink-rgb, 4,120,87),0.18)" }}>
                 <span style={{ color: "var(--green-ink)", fontWeight: 700 }}>✓</span>
                 {r.canonical}
               </span>
             ))}
           </div>
+          {job.matched.length > CAP && (
+            <button onClick={() => setShowAllMatched((v) => !v)} style={toggleStyle}>
+              {showAllMatched ? "Show fewer" : `Show all ${job.matched.length} ›`}
+            </button>
+          )}
         </div>
       )}
 
-      {/* missing */}
+      {/* missing — framed as an encouraging "add these" list, not failures */}
       {job.missing.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>GAPS</span>
+          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>ADD THESE TO LEVEL UP</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-            {capped(job.missing, 8).map((r, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, fontSize: 12.5, background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--surface2)" }}>
-                <span style={{ color: "#d97757", fontWeight: 700 }}>✗</span>
+            {visGaps.map((r, i) => (
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 999, fontSize: 12.5, fontWeight: 500, background: "color-mix(in srgb, #c4793a 12%, transparent)", color: "var(--text)", border: "1px solid color-mix(in srgb, #c4793a 34%, transparent)" }}>
+                <span style={{ color: "#c4793a", fontWeight: 700 }}>+</span>
                 {r.canonical}
               </span>
             ))}
           </div>
+          {job.missing.length > CAP && (
+            <button onClick={() => setShowAllGaps((v) => !v)} style={toggleStyle}>
+              {showAllGaps ? "Show fewer" : `Show all ${job.missing.length} ›`}
+            </button>
+          )}
           <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
-            Tailoring can close <strong style={{ color: "var(--text)" }}>{job.missing.length}</strong> missing requirement{job.missing.length === 1 ? "" : "s"} using your real experience.
+            One tap tailors your résumé to add <strong style={{ color: "var(--text)" }}>{job.missing.length}</strong> of these — from your real experience.
           </p>
         </div>
       )}
