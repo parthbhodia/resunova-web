@@ -63,6 +63,7 @@ export default function LibraryResumeDetailPanel({
   onEditInTemplateBuilder,
   onOpenInBuilder,
   onDeleteBuilder,
+  onDeleteCoverLetter,
 }: {
   item: LibraryItem | null;
   loading: boolean;
@@ -74,6 +75,7 @@ export default function LibraryResumeDetailPanel({
   onEditInTemplateBuilder: () => void;
   onOpenInBuilder: () => void;
   onDeleteBuilder: () => void;
+  onDeleteCoverLetter?: () => void;
 }) {
   const [user, setUser] = useState<User | null>(null);
 
@@ -139,7 +141,9 @@ export default function LibraryResumeDetailPanel({
               ? "Analysis details"
               : item?.kind === "builder"
                 ? "Builder draft"
-                : "Résumé details"}
+                : item?.kind === "cover_letter"
+                  ? "Cover letter"
+                  : "Résumé details"}
           </div>
           <h2
             style={{
@@ -179,6 +183,31 @@ export default function LibraryResumeDetailPanel({
           <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55, margin: 0 }}>
             This résumé is not in your library. It may have been removed or the link is outdated.
           </p>
+        )}
+
+        {!loading && !notFound && item?.kind === "cover_letter" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
+              <span style={{ fontWeight: 600, color: "var(--text)" }}>{item.title}</span>
+              <br />
+              Saved {dateShort}
+            </div>
+            <a
+              href={`/?view=cover-letter&cl=${encodeURIComponent(item.id)}`}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8, background: "var(--accent)", color: "#fff", textDecoration: "none", width: "fit-content" }}
+            >
+              ✎ Open &amp; Edit
+            </a>
+            {onDeleteCoverLetter && (
+              <button
+                type="button"
+                onClick={onDeleteCoverLetter}
+                style={{ fontSize: 11, fontWeight: 600, padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.4)", background: "transparent", color: "var(--red)", cursor: "pointer", width: "fit-content" }}
+              >
+                Delete cover letter
+              </button>
+            )}
+          </div>
         )}
 
         {!loading && !notFound && item?.kind === "builder" && builder && (

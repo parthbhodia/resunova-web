@@ -74,6 +74,24 @@ export const NAV_ICONS = {
       <path d="M2 8h12" stroke="currentColor" strokeWidth="1.3" />
     </svg>
   ),
+  interviewPrep: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M8 2.5 14.5 5.5 8 8.5 1.5 5.5 8 2.5z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 7v3.5c0 .9 1.8 2 4 2s4-1.1 4-2V7"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M14.5 5.5v3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
   "cover-letter": (
     <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path
@@ -151,11 +169,29 @@ export const NAV_ICONS = {
       <circle cx="12.5" cy="8" r="1.25" fill="currentColor" />
     </svg>
   ),
+  lock: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="3" y="7" width="10" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M5 7V5.4a3 3 0 016 0V7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="8" cy="10" r="0.9" fill="currentColor" />
+    </svg>
+  ),
   signOut: (
     <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path d="M6 3H3a1 1 0 00-1 1v8a1 1 0 001 1h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M10.5 11L14 8l-3.5-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M14 8H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  ),
+  account: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="2.25" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M8 1.5l1 1.6 1.85-.5.35 1.9 1.9.35-.5 1.85 1.6 1-1.6 1 .5 1.85-1.9.35-.35 1.9-1.85-.5-1 1.6-1-1.6-1.85.5-.35-1.9-1.9-.35.5-1.85-1.6-1 1.6-1-.5-1.85 1.9-.35.35-1.9 1.85.5 1-1.6z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
     </svg>
   ),
 } satisfies Record<string, ReactNode>;

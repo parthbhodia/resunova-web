@@ -36,7 +36,7 @@ export function FreeScanWelcomeBanner({ userId, isUmbc }: FreeScanWelcomeBannerP
     <div className="flex items-center justify-between gap-3 border-b border-blue-200/60 bg-blue-50 px-4 py-3 text-[13px] text-blue-900 dark:border-blue-800/70 dark:bg-blue-950/40 dark:text-blue-100">
       <p className="flex-1">
         <span className="mr-1.5">🎉</span>
-        <strong>New here?</strong> You can scan your resume up to <strong>5 times per day for free</strong>.
+        <strong>New here?</strong> You can scan your resume up to <strong>3 times per day for free</strong>.
       </p>
       <Button
         variant="ghost"

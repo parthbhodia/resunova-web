@@ -29,6 +29,27 @@ export function apiUrl(path: string): string {
   return `${base}${path}`;
 }
 
+/** Max résumé upload size — mirrors backend RESUME_UPLOAD_MAX_BYTES (4 MB). */
+export const MAX_RESUME_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Single source of truth for client-side résumé file validation (type, empty,
+ * size). Returns a user-facing message, or null when the file is acceptable.
+ * Used by every upload entry point so the checks never drift.
+ */
+export function resumeFileClientError(file: File | null | undefined): string | null {
+  if (!file || !isResumeUploadFile(file)) {
+    return "Please upload a PDF or Word (.doc / .docx) file.";
+  }
+  if (!file.size) {
+    return "This file is empty (0 bytes). Please choose your résumé file and try again.";
+  }
+  if (file.size > MAX_RESUME_UPLOAD_BYTES) {
+    return `This file is ${(file.size / (1024 * 1024)).toFixed(1)} MB — over the 4 MB limit. Compress images or export a smaller PDF, then try again.`;
+  }
+  return null;
+}
+
 export function isResumeUploadFile(file: File): boolean {
   const t = (file.type || "").toLowerCase();
   if (t.includes("pdf")) return true;

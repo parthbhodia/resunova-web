@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
+import { goToFreeScan } from "@/lib/anonScan";
 import { SITE_URL } from "@/lib/brand";
 import { LogoFull, LogoMark } from "./BrandLogo";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,8 @@ function useLandingTheme(): [Theme, () => void] {
 const SHOW_HOW_SECTION = false;
 /** Text card grids (features, platform, research pillars) — previews carry the story. */
 const SHOW_LANDING_CARDS = false;
+/** Line-by-line analysis preview (VariantE) — hidden for now. */
+const SHOW_SCAN_PREVIEW = false;
 
 const FEATURES = [
   {
@@ -152,6 +155,172 @@ const RESEARCH_PILLARS = [
   },
 ];
 
+// ── Résumé / CV templates (landing showcase) ────────────────────────────────
+type TemplateDef = { name: string; type: "Résumé" | "CV"; accent: string; darkAccent: string; href: string; thumb: React.ReactNode };
+
+const RESUME_TEMPLATES: TemplateDef[] = [
+  {
+    name: "Executive", type: "Résumé", accent: "#2563eb", darkAccent: "#60a5fa", href: "/template-builder/?preset=executive",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        <text x="100" y="27" textAnchor="middle" fontFamily="Helvetica, Arial, sans-serif" fontSize="12.5" fontWeight="700" fill="#1e293b" letterSpacing="0.5">MORGAN AVERY</text>
+        <text x="100" y="37" textAnchor="middle" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">Senior Product Manager · morgan.avery@email.com · San Francisco</text>
+        <line x1="18" y1="44" x2="182" y2="44" stroke="#1e3a5f" strokeWidth="0.9" />
+        <text x="18" y="58" fontFamily="Helvetica, Arial, sans-serif" fontSize="7" fontWeight="700" fill="#1e3a5f" letterSpacing="0.9">EXPERIENCE</text>
+        <text x="18" y="70" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.3" fontWeight="700" fill="#1e293b">Senior Product Manager</text>
+        <text x="182" y="70" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">2021 – Present</text>
+        <text x="18" y="78" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.1" fontStyle="italic" fill="#475569">Stripe — San Francisco, CA</text>
+        <text x="20" y="87" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">• Led 0→1 launch of a merchant analytics suite (12k+ users)</text>
+        <text x="20" y="95" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">• Grew activation 28% via an onboarding redesign</text>
+        <text x="18" y="108" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.3" fontWeight="700" fill="#1e293b">Product Manager</text>
+        <text x="182" y="108" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">2018 – 2021</text>
+        <text x="18" y="116" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.1" fontStyle="italic" fill="#475569">Asana — San Francisco, CA</text>
+        <text x="20" y="125" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">• Shipped 3 core features adopted by 60% of teams</text>
+        <text x="20" y="133" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">• Built the experimentation roadmap with design + eng</text>
+        <text x="18" y="146" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.3" fontWeight="700" fill="#1e293b">Associate Product Manager</text>
+        <text x="182" y="146" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">2016 – 2018</text>
+        <text x="18" y="154" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.1" fontStyle="italic" fill="#475569">Intuit — Mountain View, CA</text>
+        <text x="20" y="163" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">• Owned billing experiments lifting retention 9%</text>
+        <text x="18" y="178" fontFamily="Helvetica, Arial, sans-serif" fontSize="7" fontWeight="700" fill="#1e3a5f" letterSpacing="0.9">EDUCATION</text>
+        <text x="18" y="190" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.7" fontWeight="700" fill="#1e293b">B.S. Computer Science</text>
+        <text x="182" y="190" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">2016</text>
+        <text x="18" y="198" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.1" fill="#475569">University of California, Berkeley</text>
+        <text x="18" y="213" fontFamily="Helvetica, Arial, sans-serif" fontSize="7" fontWeight="700" fill="#1e3a5f" letterSpacing="0.9">SKILLS</text>
+        <text x="18" y="225" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">Product strategy · Roadmapping · SQL · Figma · A/B testing</text>
+        <text x="18" y="234" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fill="#334155">Go-to-market · Stakeholder management · Analytics</text>
+      </svg>
+    ),
+  },
+  {
+    name: "Modern", type: "Résumé", accent: "#0d9488", darkAccent: "#2dd4bf", href: "/template-builder/?preset=modern",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        <text x="18" y="26" fontFamily="Helvetica, Arial, sans-serif" fontSize="13" fontWeight="700" fill="#0f172a" letterSpacing="0.3">JORDAN LEE</text>
+        <text x="18" y="36" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#64748b">jordan.lee@email.com · (206) 555-0140 · Seattle, WA · github.com/jlee</text>
+        <text x="18" y="50" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.8" fontWeight="700" fill="#0f5561" letterSpacing="0.8">EXPERIENCE</text>
+        <text x="18" y="61" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#0f172a">Software Engineer II</text>
+        <text x="182" y="61" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">NVIDIA · 2022–Present</text>
+        <text x="20" y="70" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">• Built a GPU job scheduler cutting queue time 35%</text>
+        <text x="20" y="77" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">• Shipped a Go telemetry pipeline at 2M events/s</text>
+        <text x="18" y="89" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#0f172a">Software Engineer</text>
+        <text x="182" y="89" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">Cloudflare · 2020–2022</text>
+        <text x="20" y="98" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">• Cut p99 latency 40% via a Rust edge cache</text>
+        <text x="20" y="105" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">• Owned the rollout of zero-downtime deploys</text>
+        <text x="18" y="117" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#0f172a">SDE Intern</text>
+        <text x="182" y="117" textAnchor="end" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fill="#64748b">Amazon · 2019</text>
+        <text x="20" y="126" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">• Automated CI checks, saving ~10 hrs/week</text>
+        <text x="18" y="140" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.8" fontWeight="700" fill="#0f5561" letterSpacing="0.8">EDUCATION</text>
+        <text x="18" y="151" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.6" fontWeight="700" fill="#0f172a">B.S. Computer Science &amp; Engineering</text>
+        <text x="18" y="159" fontFamily="Helvetica, Arial, sans-serif" fontSize="5" fill="#475569">University of Washington · GPA 3.8 · 2020</text>
+        <text x="18" y="173" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.8" fontWeight="700" fill="#0f5561" letterSpacing="0.8">SKILLS</text>
+        <text x="18" y="184" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">Go · Rust · Python · Kubernetes · AWS · gRPC · Postgres</text>
+        <text x="18" y="192" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">React · TypeScript · Kafka · Terraform · CI/CD</text>
+        <text x="18" y="206" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.8" fontWeight="700" fill="#0f5561" letterSpacing="0.8">PROJECTS</text>
+        <text x="18" y="217" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.3" fontWeight="700" fill="#0f172a">distcache — distributed KV store (4k★)</text>
+        <text x="18" y="225" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.8" fill="#334155">Raft consensus, &lt;1ms reads; 2k req/s per node in Go</text>
+      </svg>
+    ),
+  },
+  {
+    name: "Classic", type: "Résumé", accent: "#b45309", darkAccent: "#fbbf24", href: "/template-builder/?preset=classic",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        <text x="100" y="28" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="13.5" fontWeight="700" fill="#1a1a1a">Eleanor R. Whitman</text>
+        <text x="100" y="39" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">Boston, MA · eleanor.whitman@email.com · (617) 555-0119</text>
+        <line x1="20" y1="46" x2="180" y2="46" stroke="#1a1a1a" strokeWidth="0.7" />
+        <text x="18" y="60" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">EXPERIENCE</text>
+        <text x="18" y="72" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.4" fontWeight="700" fill="#1a1a1a">Associate Attorney</text>
+        <text x="182" y="72" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2019 – Present</text>
+        <text x="18" y="80" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fontStyle="italic" fill="#444444">Ropes &amp; Gray LLP — Boston, MA</text>
+        <text x="22" y="89" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Second-chaired three M&amp;A deals totaling $1.2B</text>
+        <text x="22" y="97" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Drafted and negotiated commercial agreements</text>
+        <text x="18" y="110" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.4" fontWeight="700" fill="#1a1a1a">Judicial Law Clerk</text>
+        <text x="182" y="110" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2018 – 2019</text>
+        <text x="18" y="118" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fontStyle="italic" fill="#444444">U.S. District Court, D. Mass.</text>
+        <text x="22" y="127" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Authored bench memoranda for federal civil matters</text>
+        <text x="18" y="142" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">EDUCATION</text>
+        <text x="18" y="154" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.8" fontWeight="700" fill="#1a1a1a">J.D., Harvard Law School</text>
+        <text x="182" y="154" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2018</text>
+        <text x="18" y="162" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fontStyle="italic" fill="#444444">cum laude · Harvard Law Review</text>
+        <text x="18" y="173" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.8" fontWeight="700" fill="#1a1a1a">B.A., Yale University</text>
+        <text x="182" y="173" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2015</text>
+        <text x="18" y="188" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">BAR ADMISSIONS</text>
+        <text x="18" y="200" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">Massachusetts (2018) · New York (2019)</text>
+        <text x="18" y="214" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">HONORS</text>
+        <text x="18" y="226" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">Order of the Coif · Moot Court Champion</text>
+      </svg>
+    ),
+  },
+  {
+    name: "Academic CV", type: "CV", accent: "#7c3aed", darkAccent: "#a78bfa", href: "/template-builder/?preset=classic",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        <text x="100" y="24" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="12.5" fontWeight="700" fill="#1a1a1a">Priya N. Raman, Ph.D.</text>
+        <text x="100" y="34" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#555555">Dept. of Computer Science · Stanford University · praman@stanford.edu</text>
+        <line x1="20" y1="41" x2="180" y2="41" stroke="#1a1a1a" strokeWidth="0.6" />
+        <text x="18" y="53" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">EDUCATION</text>
+        <text x="18" y="63" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Ph.D., Computer Science — MIT</text>
+        <text x="182" y="63" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2020</text>
+        <text x="18" y="71" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">B.S., Computer Science — Caltech</text>
+        <text x="182" y="71" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2015</text>
+        <text x="18" y="84" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">SELECTED PUBLICATIONS</text>
+        <text x="18" y="94" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">1. Raman P., Chen L. Sparse Attention at Scale. NeurIPS 2023.</text>
+        <text x="18" y="101" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">2. Raman P. et al. Efficient Transformers for Long Context. ICML 2023.</text>
+        <text x="18" y="108" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">3. Raman P., Gupta S. Retrieval-Augmented Pretraining. ACL 2022.</text>
+        <text x="18" y="115" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">4. Raman P. et al. Calibrated Uncertainty in LLMs. ICLR 2022.</text>
+        <text x="18" y="122" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">5. Raman P., Lee J. Robust Fine-Tuning of Encoders. EMNLP 2021.</text>
+        <text x="18" y="129" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">6. Raman P. Data-Efficient Representation Learning. NeurIPS 2020.</text>
+        <text x="18" y="142" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">APPOINTMENTS</text>
+        <text x="18" y="152" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Assistant Professor — Stanford University</text>
+        <text x="182" y="152" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2021–</text>
+        <text x="18" y="160" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Research Scientist — Google DeepMind</text>
+        <text x="182" y="160" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2020–21</text>
+        <text x="18" y="173" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">GRANTS &amp; AWARDS</text>
+        <text x="18" y="183" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">NSF CAREER Award (2023) · Best Paper, NeurIPS 2023</text>
+        <text x="18" y="191" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">Google Research Scholar (2022) · MIT Presidential Fellow</text>
+        <text x="18" y="204" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">TEACHING</text>
+        <text x="18" y="214" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">CS224N: NLP with Deep Learning · CS161: Algorithms</text>
+        <text x="18" y="222" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">Advising 5 Ph.D. students · 3 M.S. theses</text>
+      </svg>
+    ),
+  },
+];
+
+function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string>; dark: boolean }) {
+  // Card chrome (type badge, "Use this", hover ring) needs a theme-legible accent.
+  // The print ink colors (navy / bronze) are too dark to read on the dark card surface.
+  const a = dark ? t.darkAccent : t.accent;
+  return (
+    <Link
+      href={t.href}
+      prefetch={false}
+      aria-label={`Build with the ${t.name} ${t.type} template`}
+      style={{
+        display: "block", textDecoration: "none",
+        background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
+        overflow: "hidden", transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
+      }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-3px)"; el.style.boxShadow = C.shadow; el.style.borderColor = `${a}66`; }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.boxShadow = "none"; el.style.borderColor = C.border; }}
+    >
+      <div style={{ position: "relative", padding: "20px 20px 0", background: dark ? "rgba(255,255,255,0.03)" : "#eef2f7" }}>
+        <span style={{ position: "absolute", top: 14, right: 14, zIndex: 1, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: a, background: `${a}1f`, padding: "3px 8px", borderRadius: 6 }}>{t.type}</span>
+        <div style={{ filter: "drop-shadow(0 8px 18px rgba(15,23,42,0.16))" }}>
+          {t.thumb}
+        </div>
+      </div>
+      <div style={{ padding: "14px 16px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: C.ink, letterSpacing: -0.2 }}>{t.name}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: a }}>Use this →</span>
+      </div>
+    </Link>
+  );
+}
+
 
 // ── Root ────────────────────────────────────────────────────────────────────
 export default function LandingPage() {
@@ -159,6 +328,17 @@ export default function LandingPage() {
   const [error,   setError]   = useState<string | null>(null);
   const [theme, toggleTheme]  = useLandingTheme();
   const dark = theme === "dark";
+  const [showBanner, setShowBanner] = useState(false);
+  /** Mobile hamburger menu (≤768px). */
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    const dismissed = localStorage.getItem("rn-banner-v2");
+    if (!dismissed) setShowBanner(true);
+  }, []);
+  const dismissBanner = useCallback(() => {
+    setShowBanner(false);
+    localStorage.setItem("rn-banner-v2", "1");
+  }, []);
 
   const C = {
     bg:      dark ? T.dBg      : T.bg,
@@ -218,6 +398,47 @@ export default function LandingPage() {
   return (
     <div style={{ background: C.bg, color: C.ink, fontFamily: "'DM Sans', -apple-system, sans-serif", minHeight: "100vh" }}>
 
+      {/* ───────────── Announcement banner ──────────────────── */}
+      {showBanner && (
+        <div style={{
+          position: "relative", zIndex: 101,
+          background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
+          padding: "11px 48px 11px 20px",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+          textAlign: "center",
+        }}>
+          <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.4 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ display: "inline-block", verticalAlign: "-2px", marginRight: 8 }}><path d="M12 2l1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7z" /></svg>
+            <strong style={{ fontWeight: 700 }}>New:</strong>
+            {" "}AI bullet rewrites + ATS scoring — scan your résumé free, no account needed.
+            {" "}
+            <button
+              onClick={() => { goToFreeScan(); }}
+              style={{
+                background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.35)",
+                color: "#fff", borderRadius: 6, padding: "2px 10px",
+                fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                marginLeft: 6, transition: "background 0.15s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.28)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.18)"; }}
+            >Try it free →</button>
+          </span>
+          <button
+            onClick={dismissBanner}
+            aria-label="Dismiss banner"
+            style={{
+              position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
+              background: "none", border: "none", color: "rgba(255,255,255,0.6)",
+              cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4,
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
+          ><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true" style={{ display: "block" }}><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+        </div>
+      )}
+
       {/* ───────────── Header ───────────────────────────────── */}
       <header className="lp-header" style={{
         position: "sticky", top: 0, zIndex: 100, width: "100%",
@@ -235,11 +456,11 @@ export default function LandingPage() {
 
         {/* Nav */}
         <nav className="lp-nav" style={{ display: "flex", alignItems: "center", gap: 28 }}>
-          {/* Analyze link — always visible, including on mobile */}
+          {/* Analyze — desktop only; collapses into the hamburger on mobile */}
           <button
             type="button"
-            onClick={signIn}
-            disabled={loading}
+            className="lp-nav-cta"
+            onClick={() => { goToFreeScan(); }}
             style={{
               background: "none", border: "none", color: T.blue,
               fontSize: 13.5, cursor: "pointer", fontFamily: "inherit",
@@ -250,6 +471,8 @@ export default function LandingPage() {
           >Analyze Resume</button>
 
           {[
+            ["Jobs", "jobs"],
+            ["Templates", "templates"],
             ...(SHOW_LANDING_CARDS ? [["Features", "features"]] as const : []),
             ...(SHOW_LANDING_CARDS ? [["Platform", "platform"]] as const : []),
             ["Approach", "approach"],
@@ -308,12 +531,82 @@ export default function LandingPage() {
             }
           </button>
 
+          {/* Sign in — lock icon only (replaces the "Sign in" label; signals sign-in-to-unlock) */}
           <Button onClick={signIn} disabled={loading}
-            className="inline-flex items-center gap-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold shadow-[0_4px_16px_rgba(37,99,235,0.22)] border-0 px-5 py-2.5 text-[15px]"
+            aria-label="Sign in"
+            title="Sign in"
+            className="lp-signin-btn inline-flex items-center justify-center bg-[#2563eb] hover:bg-[#1d4ed8] text-white border-0 px-4 py-2.5 shadow-[0_4px_16px_rgba(37,99,235,0.22)]"
           >
-            <GoogleG /> {loading ? "Loading…" : "Sign in"}
+            <LockIcon />
           </Button>
+
+          {/* Hamburger — mobile only */}
+          <button
+            type="button"
+            className="lp-nav-burger"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(o => !o)}
+            style={{
+              width: 36, height: 36, borderRadius: 8,
+              background: dark ? T.dBg2 : T.bg2,
+              border: `1px solid ${C.border}`,
+              cursor: "pointer", alignItems: "center", justifyContent: "center",
+              color: C.ink,
+            }}
+          >
+            {menuOpen
+              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            }
+          </button>
         </nav>
+
+        {/* Mobile dropdown menu (hamburger target) */}
+        {menuOpen && (
+          <div
+            className="lp-nav-menu"
+            style={{
+              position: "absolute", top: "100%", left: 0, right: 0, zIndex: 99,
+              background: dark ? "rgba(13,17,23,0.98)" : "rgba(255,255,255,0.98)",
+              backdropFilter: "blur(20px) saturate(160%)",
+              WebkitBackdropFilter: "blur(20px) saturate(160%)",
+              borderBottom: `1px solid ${C.border}`,
+              boxShadow: dark ? "0 16px 32px rgba(0,0,0,0.5)" : "0 16px 32px rgba(13,17,23,0.12)",
+              display: "flex", flexDirection: "column",
+              padding: "8px 16px 14px",
+              animation: "lpMenuIn 0.22s cubic-bezier(0.22,1,0.36,1) both",
+              transformOrigin: "top",
+            }}
+          >
+            {([
+              { lbl: "Analyze Resume", run: () => { setMenuOpen(false); goToFreeScan(); } },
+              { lbl: "Jobs", run: () => { setMenuOpen(false); scrollTo("jobs"); } },
+              { lbl: "Templates", run: () => { setMenuOpen(false); scrollTo("templates"); } },
+              { lbl: "Approach", run: () => { setMenuOpen(false); scrollTo("approach"); } },
+              { lbl: "Reviews", run: () => { setMenuOpen(false); scrollTo("reviews"); } },
+            ]).map(({ lbl, run }) => (
+              <button
+                key={lbl}
+                type="button"
+                onClick={run}
+                style={{
+                  background: "none", border: "none", textAlign: "left",
+                  padding: "13px 6px", fontSize: 16, fontWeight: 600,
+                  color: lbl === "Analyze Resume" ? T.blue : C.ink,
+                  fontFamily: "inherit", cursor: "pointer",
+                  borderBottom: `1px solid ${C.border}`,
+                }}
+              >{lbl}</button>
+            ))}
+            <Link
+              href="/privacy/"
+              prefetch={false}
+              onClick={() => setMenuOpen(false)}
+              style={{ padding: "13px 6px", fontSize: 16, fontWeight: 600, color: C.ink, textDecoration: "none" }}
+            >Privacy</Link>
+          </div>
+        )}
       </header>
 
       {/* overflow-x only below header — overflow on a sticky ancestor breaks position:sticky */}
@@ -322,61 +615,93 @@ export default function LandingPage() {
       <section className="lp-hero-grid" style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 40px 80px", display: "grid", gridTemplateColumns: "1fr 460px", gap: 56, alignItems: "center", minHeight: "88vh" }}>
 
         {/* Left */}
-        <div style={{ animation: "lpFadeUp 0.7s ease both" }}>
+        <div className="lp-hero-left" style={{ animation: "lpFadeUp 0.7s ease both" }}>
           {/* Pill badge */}
-          <div style={{
+          <div className="lp-hero-badge" style={{
             display: "inline-flex", alignItems: "center", gap: 8,
             padding: "5px 14px", marginBottom: 36,
             background: C.glow, border: `1px solid ${T.blue}28`,
             borderRadius: 100, fontSize: "var(--font-size-sm)", color: T.blue,
-            fontWeight: 600, letterSpacing: 0.2,
+            fontWeight: 600, letterSpacing: 0.2, maxWidth: "100%",
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.blue, display: "inline-block" }} />
-            Completely free · For students &amp; the community · AI-powered · ATS-safe
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.blue, display: "inline-block", flexShrink: 0 }} />
+            <span className="lp-hero-sub-full">Completely free · For students &amp; the community · AI-powered · ATS-safe</span>
+            <span className="lp-hero-sub-short">Free forever · AI-powered · ATS-safe</span>
           </div>
 
-          {/* Headline — DM Sans 800, not serif */}
+          {/* Headline — DM Sans 800. Full on desktop; punchy 2-liner on phones. */}
           <h1 className="lp-hero-h1" style={{
             fontSize: "clamp(48px, 5.5vw, 72px)",
             fontWeight: 800, lineHeight: 1.05, letterSpacing: "-0.03em",
             color: C.ink, margin: "0 0 28px",
           }}>
-            Your résumé,<br />
-            <span style={{ color: T.blue }}>finally fluent</span><br />
-            in the language<br />of opportunity.
+            <span className="lp-hero-sub-full">
+              Your résumé,<br />
+              <span style={{ color: T.blue }}>finally fluent</span><br />
+              in the language<br />of opportunity.
+            </span>
+            <span className="lp-hero-sub-short">
+              Your résumé,<br />
+              <span style={{ color: T.blue }}>finally fluent.</span>
+            </span>
           </h1>
 
           <p style={{ fontSize: "var(--font-size-xl)", color: C.muted, lineHeight: 1.72, maxWidth: 480, margin: "0 0 44px", letterSpacing: -0.15 }}>
-            Paste any job description and get an AI-tailored resume in 60 seconds — with a match score, gap analysis, and ATS-safe PDF.
-            {" "}
-            <strong style={{ color: C.ink, fontWeight: 600 }}>Built to get you interview callbacks</strong>
-            {" "}— recruiter screens and phone screens that get you in the door.
-            {" "}
-            <strong style={{ color: C.ink, fontWeight: 600 }}>Completely free</strong>
-            {" "}for students and the community, without paywalls or surprise charges.
-            {" "}Sign in with Google to save analyses — we only receive your email, name, and profile picture (
-            <Link href="/privacy/" prefetch={false} style={{ color: T.blue, textDecoration: "none", fontWeight: 600 }}>Privacy Policy</Link>
-            ).
+            {/* Full copy on desktop; trimmed on phones. Key phrases highlighted. */}
+            <span className="lp-hero-sub-full">
+              Upload your résumé for an <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>bullet-by-bullet AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>under 60 seconds</b>.{" "}
+            </span>
+            <span className="lp-hero-sub-short">
+              An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
+            </span>
+            <strong style={{ color: C.ink, fontWeight: 700 }}>No account needed.</strong>{" "}
+            <strong style={{ color: "#16a34a", fontWeight: 700 }}>Completely free.</strong>
           </p>
 
           {/* CTA row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 40 }}>
-            <Button onClick={signIn} disabled={loading}
-              className="inline-flex items-center gap-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold shadow-[0_6px_24px_rgba(37,99,235,0.38)] border-0 px-8 py-3.5 text-[16px] rounded-xl"
-            >
-              <GoogleG /> Get started — it&apos;s free
-            </Button>
-            {SHOW_HOW_SECTION && (
-              <Button variant="outline" onClick={() => scrollTo("how")}
-                className="px-6 py-3 text-[15px] rounded-[10px] border-border text-[color:var(--muted)] hover:border-accent hover:text-accent bg-transparent"
-              >See how it works</Button>
-            )}
+          <div className="lp-hero-actions" style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 40, alignItems: "flex-start" }}>
+            <div className="lp-hero-cta-row" style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              {/* Primary — frictionless scan, no OAuth required */}
+              <button
+                className="lp-hero-cta-btn"
+                onClick={() => { goToFreeScan(); }}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 10,
+                  padding: "18px 36px",
+                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                  color: "#fff", border: "none", borderRadius: 14,
+                  fontSize: 18, fontWeight: 800, letterSpacing: -0.3,
+                  cursor: "pointer", fontFamily: "inherit",
+                  boxShadow: "0 8px 32px rgba(37,99,235,0.45), 0 2px 8px rgba(37,99,235,0.20)",
+                  transition: "transform 0.15s, box-shadow 0.15s",
+                  whiteSpace: "nowrap",
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.transform = "translateY(-2px)";
+                  el.style.boxShadow = "0 12px 40px rgba(37,99,235,0.55), 0 2px 8px rgba(37,99,235,0.20)";
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.transform = "";
+                  el.style.boxShadow = "0 8px 32px rgba(37,99,235,0.45), 0 2px 8px rgba(37,99,235,0.20)";
+                }}
+              >
+                Score my résumé free
+                <span style={{ fontSize: 20, lineHeight: 1 }}>→</span>
+              </button>
+            </div>
+
+            {/* Trust micro-copy */}
+            <p style={{ fontSize: 13, color: C.muted, margin: 0, letterSpacing: -0.1 }}>
+              No account needed to score &nbsp;·&nbsp; Sign in to save your analysis &nbsp;·&nbsp; Always free
+            </p>
           </div>
 
           {error && <p style={{ fontSize: "var(--font-size-base)", color: "#f85149", marginBottom: 16 }}>{error}</p>}
 
           {/* Social proof */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div className="lp-hero-social" style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ display: "flex" }}>
               {[["P","#4285f4"],["R","#ff9900"],["V","#276ef1"],["A","#7c3aed"],["M","#0d9488"],["N","#2563eb"]].map(([l,bg], i) => (
                 <div key={i} style={{
@@ -426,6 +751,9 @@ export default function LandingPage() {
 
       <LandingPreviewStyles />
 
+      {/* ───────────── Jobs — promoted to first band after the hero ─────── */}
+      <JobsBand C={C} dark={dark} />
+
       {/* ───────────── Stats ticker ─────────────────────────── */}
       <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, overflow: "hidden", padding: "18px 0" }}>
         <div style={{ display: "flex", gap: 0, width: "max-content", animation: "ticker 36s linear infinite" }}>
@@ -457,6 +785,8 @@ export default function LandingPage() {
         C={C}
         wide
         animationOnly={!SHOW_LANDING_CARDS}
+        ctaLabel="Fix my bullets free"
+        ctaHref="/?view=analyze"
       >
         <VariantB embedded />
       </LandingPreviewSection>
@@ -482,6 +812,7 @@ export default function LandingPage() {
       </section>
       )}
 
+      {SHOW_SCAN_PREVIEW && (
       <LandingPreviewSection
         id="product-scan"
         eyebrow="Line-by-line analysis"
@@ -490,9 +821,12 @@ export default function LandingPage() {
         C={C}
         wide
         animationOnly={!SHOW_LANDING_CARDS}
+        ctaLabel="Scan my résumé free"
+        ctaHref="/?view=analyze"
       >
         <VariantE embedded />
       </LandingPreviewSection>
+      )}
 
       {SHOW_LANDING_CARDS && (
       <section id="platform" style={{ background: C.bg2, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, scrollMarginTop: 76 }}>
@@ -526,9 +860,33 @@ export default function LandingPage() {
         bg={C.surface}
         wide
         animationOnly={!SHOW_LANDING_CARDS}
+        ctaLabel="Tailor my résumé now"
+        ctaHref="/?view=builder&flow=tailor"
       >
         <VariantD embedded />
       </LandingPreviewSection>
+
+      {/* ───────────── Templates showcase ───────────────────── */}
+      <section id="templates" style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "100px 40px", scrollMarginTop: 76 }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 14px" }}>Templates</p>
+            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", color: C.ink, margin: "0 0 14px" }}>
+              Start from a recruiter-ready template.
+            </h2>
+            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
+              Pick a résumé or CV layout, tailor it to the job, and export an ATS-safe PDF — no design work required.
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>
+            {RESUME_TEMPLATES.map((t) => (
+              <TemplateCard key={t.name} t={t} C={C} dark={dark} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Jobs section moved up — now rendered as <JobsBand /> directly after the hero. */}
 
       {/* ───────────── Research & data approach ─────────────── */}
       <section id="approach" style={{ padding: "100px 40px", maxWidth: 1200, margin: "0 auto", scrollMarginTop: 76 }}>
@@ -627,20 +985,179 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ───────────── Post-logos CTA nudge ─────────────────── */}
+      <div style={{ background: C.bg2, borderBottom: `1px solid ${C.border}`, padding: "36px 40px", textAlign: "center" }}>
+        <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, margin: "0 0 18px", fontWeight: 500 }}>
+          Is your résumé ready for these companies?
+        </p>
+        <button
+          onClick={() => { goToFreeScan(); }}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            padding: "14px 32px",
+            background: T.blue, color: "#fff",
+            border: "none", borderRadius: 12,
+            fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
+            cursor: "pointer", fontFamily: "inherit",
+            boxShadow: "0 4px 20px rgba(37,99,235,0.35)",
+            transition: "transform 0.15s, box-shadow 0.15s",
+          }}
+          onMouseEnter={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.transform = "translateY(-2px)";
+            el.style.boxShadow = "0 8px 28px rgba(37,99,235,0.5)";
+          }}
+          onMouseLeave={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.transform = "";
+            el.style.boxShadow = "0 4px 20px rgba(37,99,235,0.35)";
+          }}
+        >
+          Check my résumé score — it&apos;s free <span style={{ fontSize: 18 }}>→</span>
+        </button>
+      </div>
+
+      {/* ───────────── Interview coaching announcement strip ── */}
+      <div role="region" aria-label="Interview coaching — coming soon" style={{
+        background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
+        padding: "14px 24px",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 11, flexWrap: "wrap", textAlign: "center",
+      }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+          <rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="19" x2="12" y2="22" /><line x1="8.5" y1="22" x2="15.5" y2="22" />
+        </svg>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.45 }}>
+          <strong style={{ fontWeight: 700 }}>Coming soon:</strong> AI mock interviews tailored to the exact role — part of our growing university partnerships, including <strong style={{ fontWeight: 700 }}>UMBC</strong>.
+        </span>
+      </div>
+
+      {/* ───────────── Interview coaching ───────────────────── */}
+      <section id="interview" className="lp-interview-sec" style={{ borderTop: `1px solid ${C.border}`, background: C.bg, padding: "100px 40px", scrollMarginTop: 76 }}>
+        <div style={{ maxWidth: 1040, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "5px 13px", marginBottom: 16,
+              background: "rgba(37,99,235,0.10)", border: `1px solid ${T.blue}28`,
+              borderRadius: 100, fontSize: 12, fontWeight: 600, color: T.blue, letterSpacing: 0.2,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.amber, display: "inline-block" }} />
+              Interview coaching · Coming soon
+            </div>
+            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: C.ink, margin: "0 0 16px" }}>
+              Land the callback, then close it.
+            </h2>
+            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 580, margin: "0 auto" }}>
+              Practice real questions for the exact role you&apos;re targeting and get instant, specific feedback — so you walk in interview-ready, not winging it.
+            </p>
+          </div>
+
+          <div className="lp-interview-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+            {([
+              { icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="19" x2="12" y2="22" /><line x1="8.5" y1="22" x2="15.5" y2="22" /></svg>), accent: T.blue, title: "AI mock interviews", desc: "Role-specific questions pulled from the exact job description you’re targeting." },
+              { icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2.5l2.95 5.98 6.6.96-4.78 4.66 1.13 6.57L12 17.52l-5.9 3.1 1.13-6.57L2.45 9.44l6.6-.96z" /></svg>), accent: "#16a34a", title: "Instant STAR feedback", desc: "Each answer scored on structure, specifics, and impact — so every story lands." },
+              { icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" /></svg>), accent: T.teal, title: "Reusable answer bank", desc: "Save your best stories once, then tailor them per company in a click." },
+            ]).map(({ icon, accent, title, desc }) => (
+              <div key={title} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "26px 24px" }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: `${accent}18`, border: `1px solid ${accent}40`, display: "flex", alignItems: "center", justifyContent: "center", color: accent, marginBottom: 16 }}>
+                  {icon}
+                </div>
+                <h3 style={{ fontSize: 17, fontWeight: 700, color: C.ink, margin: "0 0 8px", letterSpacing: -0.3 }}>{title}</h3>
+                <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────── University partnerships banner (image) ── */}
+      <section aria-label="University partnerships" style={{ background: C.bg, padding: "76px 40px", borderTop: `1px solid ${C.border}` }}>
+        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova — university career centers" style={{ display: "block", maxWidth: 1040, margin: "0 auto", borderRadius: 24, overflow: "hidden", boxShadow: C.shadow }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG banner; next/image can't optimize SVG and breaks `output: export` */}
+          <img
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/university-partners-banner.svg`}
+            alt="Resunova partners with university career centers, including UMBC (University of Maryland, Baltimore County) — unlimited scans and Career Center-aligned feedback for students, with more campuses joining."
+            width={1200}
+            height={360}
+            style={{ display: "block", width: "100%", height: "auto" }}
+          />
+        </Link>
+      </section>
+
       {/* ───────────── Final CTA ────────────────────────────── */}
-      <section style={{ background: T.blue, padding: "100px 40px", textAlign: "center" }}>
+      <section style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>
         <h2 style={{ fontSize: "clamp(40px, 5.5vw, 68px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", color: "#fff", margin: "0 0 20px" }}>
           Your next interview<br />starts here.
         </h2>
-        <p style={{ fontSize: "var(--font-size-xl)", color: "rgba(255,255,255,0.78)", margin: "0 0 44px", lineHeight: 1.65, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
-          <strong style={{ color: "#fff", fontWeight: 600 }}>Completely free</strong>
-          {" "}— for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Tailor in 60 seconds and apply with a résumé built to earn interview callbacks.
+        <p style={{ fontSize: "var(--font-size-xl)", color: "rgba(255,255,255,0.82)", margin: "0 0 44px", lineHeight: 1.65, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
+          <strong style={{ color: "#fff", fontWeight: 700 }}>Completely free</strong>
+          {" "}— for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Tailor in 60 seconds and apply with a résumé built to earn callbacks.
         </p>
-        <Button onClick={signIn} disabled={loading}
-          className="inline-flex items-center gap-2.5 bg-white text-[#2563eb] hover:opacity-90 border-0 px-9 py-4 text-[18px] font-bold rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.18)] tracking-tight"
-        >
-          <GoogleG /> {loading ? "Loading…" : "Get started — it's free"}
-        </Button>
+
+        {/* Dual CTA */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+          <button
+            onClick={() => { goToFreeScan(); }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 10,
+              padding: "18px 40px",
+              background: "#fff", color: T.blue,
+              border: "none", borderRadius: 14,
+              fontSize: 18, fontWeight: 800, letterSpacing: -0.3,
+              cursor: "pointer", fontFamily: "inherit",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.20)",
+              transition: "transform 0.15s, box-shadow 0.15s",
+              whiteSpace: "nowrap",
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.transform = "translateY(-2px)";
+              el.style.boxShadow = "0 12px 40px rgba(0,0,0,0.28)";
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.transform = "";
+              el.style.boxShadow = "0 8px 32px rgba(0,0,0,0.20)";
+            }}
+          >
+            Score my résumé free <span style={{ fontSize: 20 }}>→</span>
+          </button>
+
+          <button
+            onClick={signIn}
+            disabled={loading}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 9,
+              padding: "17px 30px",
+              background: "rgba(255,255,255,0.12)",
+              color: "#fff",
+              border: "1.5px solid rgba(255,255,255,0.30)",
+              borderRadius: 14,
+              fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
+              cursor: loading ? "wait" : "pointer", fontFamily: "inherit",
+              transition: "background 0.15s, border-color 0.15s",
+              whiteSpace: "nowrap",
+              opacity: loading ? 0.7 : 1,
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "rgba(255,255,255,0.22)";
+              el.style.borderColor = "rgba(255,255,255,0.50)";
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "rgba(255,255,255,0.12)";
+              el.style.borderColor = "rgba(255,255,255,0.30)";
+            }}
+          >
+            <GoogleG /> {loading ? "Loading…" : "Sign in with Google"}
+          </button>
+        </div>
+
+        {/* Micro-copy */}
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", margin: 0 }}>
+          No credit card &nbsp;·&nbsp; No paywall &nbsp;·&nbsp; Nothing to cancel
+        </p>
       </section>
 
       {/* ───────────── Footer ───────────────────────────────── */}
@@ -698,11 +1215,11 @@ export default function LandingPage() {
             paddingTop: 24,
             borderTop: `1px solid ${C.border}`,
           }}>
-            <span style={{ fontSize: "var(--font-size-xs)", color: C.muted }}>© 2026 Resunova. All rights reserved.</span>
+            <span style={{ fontSize: 12, color: C.muted }}>© 2026 Resunova. All rights reserved.</span>
             <a
               href={SITE_URL}
               className="lp-footer-link"
-              style={{ fontSize: "var(--font-size-xs)", color: C.muted, textDecoration: "none", fontWeight: 500, transition: "color 0.15s" }}
+              style={{ fontSize: 12, color: C.muted, textDecoration: "none", fontWeight: 500, transition: "color 0.15s" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T.blue; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = C.muted; }}
             >
@@ -720,6 +1237,23 @@ export default function LandingPage() {
         @keyframes ringDraw  { from { stroke-dashoffset: var(--full); } to { stroke-dashoffset: var(--off); } }
         @keyframes cardSlide { from { opacity: 0; transform: translateY(32px) rotate(1.5deg); } to { opacity: 1; transform: rotate(1.5deg); } }
         @keyframes heroFloat { 0%, 100% { transform: rotate(1.5deg) translateY(0); } 50% { transform: rotate(1.5deg) translateY(-6px); } }
+        @keyframes lpMenuIn { from { opacity: 0; transform: translateY(-10px) scaleY(0.97); } to { opacity: 1; transform: translateY(0) scaleY(1); } }
+        @keyframes lpTapRipple { from { transform: scale(0.4); opacity: 0.85; } to { transform: scale(2.4); opacity: 0; } }
+        @keyframes lpCheckPop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes lpCursorIn { from { transform: translate(12px,10px); opacity: 0; } to { transform: translate(0,0); opacity: 1; } }
+        @keyframes lpTapPress { 0% { transform: translate(0,0); } 45% { transform: translate(-2px,-3px) scale(0.86); } 100% { transform: translate(0,0); } }
+        @keyframes lpScorePulse { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+        @keyframes lpArrowPop { from { transform: translateY(4px) scale(0); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+        .lp-hero-sub-short { display: none; }
+        .lp-nav-burger { display: none; }
+        @media (min-width: 769px) { .lp-nav-menu { display: none !important; } }
+        @media (max-width: 768px) {
+          .lp-nav-cta { display: none !important; }
+          .lp-nav-section { display: none !important; }
+          .lp-nav-burger { display: inline-flex !important; }
+          .lp-signin-btn { padding-left: 11px !important; padding-right: 11px !important; }
+          .lp-nav { gap: 10px !important; }
+        }
         @media (max-width: 860px) {
           .lp-hero-grid { grid-template-columns: 1fr !important; }
           .lp-hero-preview { transform: none !important; max-width: 420px; margin: 0 auto; }
@@ -728,9 +1262,25 @@ export default function LandingPage() {
           .lp-rev-grid  { grid-template-columns: 1fr !important; }
           .lp-platform-grid { grid-template-columns: 1fr !important; }
           .lp-approach-grid { grid-template-columns: 1fr !important; }
+          .lp-jobs-grid { grid-template-columns: 1fr !important; gap: 36px !important; }
+          .lp-jobs-band { padding: 64px 20px !important; }
           .lp-hero-h1   { font-size: 48px !important; }
         }
         @media (max-width: 640px) {
+          .lp-hero-sub-full { display: none !important; }
+          .lp-hero-sub-short { display: inline !important; }
+          /* Eye-catchy mobile hero: tighter, centered, visual pulled above the fold */
+          .lp-hero-grid { padding: 26px 20px 48px !important; min-height: 0 !important; gap: 26px !important; }
+          .lp-hero-left { text-align: center !important; }
+          .lp-hero-badge { display: none !important; }
+          .lp-hero-h1 { margin-bottom: 16px !important; }
+          .lp-hero-left > p { margin-bottom: 26px !important; margin-left: auto !important; margin-right: auto !important; }
+          .lp-hero-actions { align-items: stretch !important; margin-bottom: 26px !important; }
+          .lp-hero-cta-row { width: 100% !important; }
+          .lp-hero-cta-btn { width: 100% !important; justify-content: center !important; padding: 17px 24px !important; }
+          .lp-hero-social { justify-content: center !important; }
+          .lp-interview-grid { grid-template-columns: 1fr !important; }
+          .lp-interview-sec { padding: 64px 20px !important; }
           .lp-footer-top { flex-direction: column !important; gap: 24px !important; }
           .lp-footer-nav { width: 100%; gap: 16px !important; }
           .lp-footer-bottom { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
@@ -769,6 +1319,8 @@ function LandingPreviewSection({
   wide = false,
   bg,
   animationOnly = false,
+  ctaLabel,
+  ctaHref,
   C,
   children,
 }: {
@@ -780,6 +1332,8 @@ function LandingPreviewSection({
   wide?: boolean;
   bg?: string;
   animationOnly?: boolean;
+  ctaLabel?: string;
+  ctaHref?: string;
   C: Record<string, string>;
   children: React.ReactNode;
 }) {
@@ -817,6 +1371,276 @@ function LandingPreviewSection({
           }}>{desc}</p>
         ) : null}
         {children}
+        {ctaLabel && ctaHref && (
+          <div style={{ marginTop: 36, textAlign: animationOnly ? "center" : undefined }}>
+            <button
+              onClick={() => { ctaHref === "/?view=analyze" ? goToFreeScan() : (window.location.href = ctaHref); }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "13px 28px",
+                background: dark ? "rgba(255,255,255,0.10)" : T.blue,
+                color: "#fff",
+                border: dark ? "1.5px solid rgba(255,255,255,0.20)" : "none",
+                borderRadius: 12,
+                fontSize: 15, fontWeight: 700, letterSpacing: -0.2,
+                cursor: "pointer", fontFamily: "inherit",
+                boxShadow: dark ? "none" : "0 4px 20px rgba(37,99,235,0.35)",
+                transition: "transform 0.15s, box-shadow 0.15s",
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.transform = "translateY(-1px)";
+                el.style.boxShadow = dark ? "none" : "0 8px 28px rgba(37,99,235,0.45)";
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.transform = "";
+                el.style.boxShadow = dark ? "none" : "0 4px 20px rgba(37,99,235,0.35)";
+              }}
+            >
+              {ctaLabel} <span style={{ fontSize: 17 }}>→</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ── Animated "apply" job feed ───────────────────────────────────────────────
+// Self-playing demo: each role slides up, a cursor taps Apply, the card turns
+// green with a tick, then it slides away and the next role rises in. Loops.
+type JobCard = { logo: React.ReactNode; title: string; company: string; match: number; low: number; target: boolean; featured: boolean; opacity: number };
+
+// Shared clock for the apply demo: a single module-level epoch means any number
+// of interval ticks (StrictMode double-invoke, dev HMR remounts) compute the
+// exact same frame from the same timeline — so the demo can never run fast.
+let jobDemoEpoch = 0;
+
+function CheckPop() {
+  return (
+    <span style={{ display: "inline-flex", animation: "lpCheckPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both" }} aria-hidden>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12.5l5 5L20 6" /></svg>
+    </span>
+  );
+}
+
+function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, string>; dark: boolean }) {
+  const [idx, setIdx] = useState(0);
+  const [stage, setStage] = useState<"enter" | "idle" | "tap" | "applied" | "leave">("enter");
+  const [displayScore, setDisplayScore] = useState(jobs[0].low);
+  const jobsRef = useRef(jobs);
+  jobsRef.current = jobs;
+
+  // One interval drives the whole demo from elapsed time. Every value is derived
+  // purely from the clock, so writes are idempotent — even a stray second
+  // interval couldn't race or speed it up. Each ~4.2s cycle: slide in (low score,
+  // red) → cursor tap → score climbs to the optimized match (green) → hold → out.
+  useEffect(() => {
+    const CYCLE = 4200;
+    if (!jobDemoEpoch) jobDemoEpoch = performance.now();
+    const id = window.setInterval(() => {
+      const list = jobsRef.current;
+      const elapsed = performance.now() - jobDemoEpoch;
+      const t = elapsed % CYCLE;
+      const curIdx = Math.floor(elapsed / CYCLE) % list.length;
+      const job = list[curIdx];
+      const st: "enter" | "idle" | "tap" | "applied" | "leave" =
+        t < 500 ? "enter" : t < 1300 ? "idle" : t < 1750 ? "tap" : t < 3500 ? "applied" : "leave";
+      const p = Math.min(1, Math.max(0, (t - 1750) / 800));
+      const score = t < 1750 ? job.low : Math.round(job.low + (job.match - job.low) * p);
+      setIdx(curIdx);
+      setStage(st);
+      setDisplayScore(score);
+    }, 60);
+    return () => clearInterval(id);
+  }, []);
+
+  const job = jobs[idx];
+  const applied = stage === "applied" || stage === "leave";
+  const tapping = stage === "tap";
+  const showCursor = stage === "idle" || stage === "tap";
+  const green = "#16a34a";
+  const red = "#dc2626";
+  const scoreColor = applied ? green : red;
+  const cardTransform = stage === "enter" ? "translateY(48px)" : stage === "leave" ? "translateY(-48px)" : "translateY(0)";
+  const cardOpacity = stage === "enter" || stage === "leave" ? 0 : 1;
+
+  return (
+    <div style={{ position: "relative", minHeight: 250, display: "flex", alignItems: "center" }}>
+      {/* Ghost stack behind for depth (suggests a queue of roles) */}
+      <div aria-hidden style={{ position: "absolute", left: 26, right: 26, top: 32, height: 168, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.45 }} />
+      <div aria-hidden style={{ position: "absolute", left: 14, right: 14, top: 17, height: 184, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.7 }} />
+
+      <div style={{
+        position: "relative", width: "100%",
+        background: applied ? (dark ? "rgba(22,163,74,0.13)" : "#f0fdf4") : C.surface,
+        border: `2px solid ${applied ? green : T.blue}`,
+        borderRadius: 16, padding: "18px 20px",
+        boxShadow: applied ? "0 14px 32px rgba(22,163,74,0.20)" : "0 14px 32px rgba(37,99,235,0.18)",
+        transform: cardTransform, opacity: cardOpacity,
+        transition: "transform 0.55s cubic-bezier(0.22,1,0.36,1), opacity 0.5s ease, background 0.3s, border-color 0.3s, box-shadow 0.3s",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 11, background: C.bg2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{job.logo}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const, marginBottom: 2 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{job.title}</span>
+              {job.target && (
+                <span style={{ background: "rgba(37,99,235,0.10)", color: T.blue, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true" style={{ display: "block", flexShrink: 0 }}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /></svg> Target role
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>{job.company}</p>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3 }}>
+              {applied && (
+                <span aria-hidden style={{ color: green, display: "inline-flex", animation: "lpArrowPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+                </span>
+              )}
+              <div style={{ fontSize: 22, fontWeight: 800, color: scoreColor, lineHeight: 1, transition: "color 0.3s", animation: applied ? "lpScorePulse 0.5s ease" : undefined }}>{displayScore}</div>
+            </div>
+            <div style={{ fontSize: 11, color: applied ? green : C.muted, marginTop: 2, fontWeight: applied ? 600 : 400, transition: "color 0.3s" }}>{applied ? "optimized" : "match"}</div>
+          </div>
+        </div>
+
+        <div style={{ height: 5, background: C.bg2, borderRadius: 99, overflow: "hidden", marginBottom: 16 }}>
+          <div style={{ height: "100%", width: `${displayScore}%`, background: scoreColor, borderRadius: 99, transition: "background 0.3s" }} />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ position: "relative", display: "inline-flex" }}>
+            <button type="button" tabIndex={-1} aria-hidden style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+              minWidth: 124, padding: "9px 18px", borderRadius: 10, border: "none",
+              fontSize: 14, fontWeight: 700, fontFamily: "inherit", color: "#fff", cursor: "default",
+              background: applied ? green : T.blue,
+              transform: tapping ? "scale(0.95)" : "scale(1)",
+              transition: "background 0.25s ease, transform 0.12s ease",
+            }}>
+              {applied ? (<><CheckPop /> Applied</>) : "Apply"}
+            </button>
+
+            {tapping && (
+              <span aria-hidden style={{
+                position: "absolute", left: "50%", top: "50%", width: 22, height: 22, marginLeft: -11, marginTop: -11,
+                borderRadius: "50%", border: `2px solid ${T.blue}`, pointerEvents: "none",
+                animation: "lpTapRipple 0.55s ease-out forwards",
+              }} />
+            )}
+
+            {showCursor && (
+              <span aria-hidden style={{
+                position: "absolute", right: -8, bottom: -12, pointerEvents: "none",
+                filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.3))",
+                animation: tapping ? "lpTapPress 0.5s ease" : "lpCursorIn 0.5s ease both",
+              }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="#ffffff" stroke="#0d1117" strokeWidth="1.5" strokeLinejoin="round"><path d="M5 2.5l14.5 7.6-6.3 1.4-1.4 6.3z" /></svg>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Jobs band ───────────────────────────────────────────────────────────────
+// Promoted to the first full-width band right after the hero so the job-search
+// story leads the page. Two-column on desktop (copy + scored job cards), stacks
+// to a single column on mobile via `.lp-jobs-grid` / `.lp-jobs-band`.
+function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
+  const features: Array<{ svg: React.ReactNode; bg: string; color: string; title: string; desc: string }> = [
+    {
+      svg: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+      bg: "rgba(37,99,235,0.10)", color: T.blue, title: "Role-matched feed", desc: "Postings scored against your saved target roles and preferred locations.",
+    },
+    {
+      svg: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>,
+      bg: "rgba(22,163,74,0.10)", color: "#16a34a", title: "Résumé match score", desc: "See exactly how well your résumé fits each job before you write a word.",
+    },
+    {
+      svg: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h0"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>,
+      bg: "rgba(217,119,6,0.10)", color: "#d97706", title: "One-click tailor", desc: "Paste the posting, close keyword gaps, and download a tailored PDF.",
+    },
+    {
+      svg: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>,
+      bg: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: C.muted, title: "Track applications", desc: "Save jobs, track your status, never lose a follow-up.",
+    },
+  ];
+
+  const jobs: JobCard[] = [
+    { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>, title: "Software Engineer II", company: "Google · Remote · Full-time", match: 91, low: 47, target: true, featured: true, opacity: 1 },
+    { logo: <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><text x="12" y="18" textAnchor="middle" fontSize="19" fontWeight="800" fontStyle="italic" fontFamily="Arial, Helvetica, sans-serif" fill="#76B900">N</text></svg>, title: "Machine Learning Engineer", company: "NVIDIA · Santa Clara · Hybrid", match: 86, low: 43, target: false, featured: false, opacity: 0.96 },
+    { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z" fill="#635BFF"/></svg>, title: "Backend Engineer", company: "Stripe · New York · Full-time", match: 88, low: 38, target: false, featured: false, opacity: 0.9 },
+    { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z" fill="#1877F2"/></svg>, title: "Product Manager", company: "Meta · Menlo Park · Full-time", match: 85, low: 41, target: false, featured: false, opacity: 0.62 },
+  ];
+
+  return (
+    <section id="jobs" style={{ background: C.bg2, borderTop: `1px solid ${C.border}`, scrollMarginTop: 76 }}>
+      <div className="lp-jobs-band" style={{ padding: "100px 40px", maxWidth: 1200, margin: "0 auto" }}>
+        <div className="lp-jobs-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+
+          {/* Left — copy + features */}
+          <div>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "5px 13px", marginBottom: 18,
+              background: "rgba(37,99,235,0.10)", border: `1px solid ${T.blue}28`,
+              borderRadius: 100, fontSize: 12, fontWeight: 600, color: T.blue, letterSpacing: 0.2,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a", boxShadow: "0 0 8px #16a34a", display: "inline-block" }} />
+              New · Job matching
+            </div>
+            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 14px" }}>
+              Your job search, upgraded
+            </p>
+            <h2 style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 20px", color: C.ink }}>
+              Find jobs that fit —<br />before you apply.
+            </h2>
+            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.7, margin: "0 0 40px", maxWidth: 460 }}>
+              A scored, profile-aware feed so you spend time on the roles most likely to call you back.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 40 }}>
+              {features.map(({ svg, bg, color, title, desc }) => (
+                <div key={title} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, color }}>
+                    {svg}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, marginBottom: 4 }}>{title}</div>
+                    <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => { window.location.href = "/?view=jobs"; }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "14px 28px",
+                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                color: "#fff", border: "none", borderRadius: 12,
+                fontSize: "var(--font-size-base)", fontWeight: 700,
+                cursor: "pointer", fontFamily: "inherit",
+                boxShadow: "0 4px 20px rgba(37,99,235,0.35)",
+                transition: "transform 0.15s, box-shadow 0.15s",
+              }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.boxShadow = "0 8px 28px rgba(37,99,235,0.45)"; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.boxShadow = "0 4px 20px rgba(37,99,235,0.35)"; }}
+            >
+              Browse matched jobs <span style={{ fontSize: 18 }}>→</span>
+            </button>
+          </div>
+
+          {/* Right — self-playing apply demo (cycles roles, taps Apply, slides up) */}
+          <JobApplyFeed jobs={jobs} C={C} dark={dark} />
+        </div>
       </div>
     </section>
   );
@@ -936,6 +1760,16 @@ function FeatureCell({ f, dark, C }: { f: typeof FEATURES[0]; dark: boolean; C: 
       <h3 style={{ fontSize: "var(--font-size-2xl)", fontWeight: 700, color: C.ink, margin: "0 0 10px", letterSpacing: -0.4 }}>{f.title}</h3>
       <p style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.72, margin: 0 }}>{f.desc}</p>
     </div>
+  );
+}
+
+// ── Lock icon ─────────────────────────────────────────────────────────────────
+function LockIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" style={{ width: 18, height: 18, flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="11" width="16" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
   );
 }
 

@@ -3,10 +3,10 @@
   "configurations": [
     {
       "name": "resunova-web",
-      "runtimeExecutable": "/Users/mslcomx/.nvm/versions/node/v20.18.1/bin/node",
-      "runtimeArgs": ["node_modules/.bin/next", "dev"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/next/dist/bin/next", "dev"],
       "cwd": ".",
-      "port": 3000
+      "autoPort": true
     }
   ]
 }

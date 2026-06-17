@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiErrorBanner } from "@/components/ApiErrorBanner";
-import { apiErrorFromUnknown } from "@/lib/userFriendlyError";
-import { apiUrl, isResumeUploadFile, parseJsonOrThrow } from "@/lib/utils";
+import { apiErrorFromUnknown, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
+import { apiUrl, parseJsonOrThrow, resumeFileClientError } from "@/lib/utils";
 import { fetchResumes } from "@/lib/supabase";
 import type { ResumeRecord } from "@/lib/types";
 
@@ -29,15 +29,21 @@ export function UploadResumePdfPanel({ onDone }: { onDone: (profileText: string)
   const [dragging, setDragging] = useState(false);
 
   const handleFile = useCallback(async (file: File) => {
-    if (!isResumeUploadFile(file)) { setError("Please upload a PDF or Word (.doc/.docx) file."); return; }
+    const fileErr = resumeFileClientError(file);
+    if (fileErr) { setError(fileErr); return; }
     setUploading(true);
     setError(null);
     try {
       const fd = new FormData();
       fd.append("file", file);
       const resp = await fetch(apiUrl("/api/upload-resume"), { method: "POST", body: fd });
-      const json = await parseJsonOrThrow<{ error?: string; text?: string }>(resp);
-      if (!resp.ok) throw new Error(json.error ?? "Upload failed");
+      const json = await parseJsonOrThrow<{ error?: string; text?: string; code?: string; missing?: string[] }>(resp);
+      if (!resp.ok) {
+        // Content gate (422): show the calm, instructive banner.
+        const gateErr = resumeGateErrorFromResponse(resp.status, json);
+        if (gateErr) { setError(gateErr); return; }
+        throw new Error(json.error ?? "Upload failed");
+      }
       onDone(json.text ?? "");
     } catch (e: unknown) {
       setError(apiErrorFromUnknown(e));

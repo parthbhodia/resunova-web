@@ -129,6 +129,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* Inline theme-init: read localStorage before first paint → no FOUC. Default = light. */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('rn-theme')||'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();` }} />
+        {/* GitHub Pages may serve staging over HTTP before the custom-domain TLS cert is ready. */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var c=globalThis.crypto;if(c&&!c.randomUUID){c.randomUUID=function(){return'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,function(n){var r=c.getRandomValues(new Uint8Array(1))[0];return(Number(n)^r&15>>Number(n)/4).toString(16)})};}}catch(e){}})();` }} />
         <link rel="preconnect" href="https://www.googletagmanager.com" />
         {process.env.NEXT_PUBLIC_SUPABASE_URL && (
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />

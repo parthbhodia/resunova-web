@@ -20,9 +20,10 @@ import { stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/t
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 type SortKey = "recent" | "score" | "name";
-type FilterKey = "all" | "analyzed" | "tailored" | "builder" | "default";
+type FilterKey = "all" | "analyzed" | "tailored" | "builder" | "cover_letter" | "default";
 
 /** Aligns with Analyze bullet bands: strong ≥70, improvable 55–69, weak &lt;55 */
 function matchScoreBand(score: number): "strong" | "mid" | "weak" {
@@ -67,12 +68,19 @@ export default function ResumeLibrary({ onUseAsBase }: {
   const selectedFolder = (searchParams?.get("resume") ?? "").trim();
   const selectedAnalysisId = (searchParams?.get("analysis") ?? "").trim();
   const selectedBuilderId = (searchParams?.get("builder") ?? "").trim();
+  const selectedCoverLetterId = (searchParams?.get("cl") ?? "").trim();
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   /** `null` until first auth check completes — avoids flashing the wrong empty state. */
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [oauthBusy, setOauthBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  } | null>(null);
   const [filter, setFilter] = useState("");
   const [kindFilter, setKindFilter] = useState<FilterKey>("all");
   const [sort, setSort] = useState<SortKey>("recent");
@@ -148,11 +156,14 @@ export default function ResumeLibrary({ onUseAsBase }: {
     if (selectedBuilderId) {
       return items.find(item => item.kind === "builder" && item.id === selectedBuilderId) ?? null;
     }
+    if (selectedCoverLetterId) {
+      return items.find(item => item.kind === "cover_letter" && item.id === selectedCoverLetterId) ?? null;
+    }
     if (selectedFolder) {
       return items.find(item => item.kind === "tailored" && item.record.folder === selectedFolder) ?? null;
     }
     return null;
-  }, [items, selectedAnalysisId, selectedBuilderId, selectedFolder]);
+  }, [items, selectedAnalysisId, selectedBuilderId, selectedFolder, selectedCoverLetterId]);
 
   const filtered = useMemo(() => {
     const f = filter.trim().toLowerCase();
@@ -160,6 +171,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
       if (kindFilter === "analyzed" && item.kind !== "analyzed") return false;
       if (kindFilter === "tailored" && item.kind !== "tailored") return false;
       if (kindFilter === "builder" && item.kind !== "builder") return false;
+      if (kindFilter === "cover_letter" && item.kind !== "cover_letter") return false;
       if (kindFilter === "default" && !item.isDefault) return false;
       if (!f) return true;
       const issueText = item.kind === "analyzed" ? getAnalysisIssues(item).join(" ") : "";
@@ -182,6 +194,10 @@ export default function ResumeLibrary({ onUseAsBase }: {
     }
     if (item.kind === "builder") {
       router.push(`/?view=library&builder=${encodeURIComponent(item.id)}`);
+      return;
+    }
+    if (item.kind === "cover_letter") {
+      router.push(`/?view=library&cl=${encodeURIComponent(item.id)}`);
       return;
     }
     router.push(`/?view=library&resume=${encodeURIComponent(item.record.folder)}`);
@@ -235,16 +251,43 @@ export default function ResumeLibrary({ onUseAsBase }: {
 
   const deleteBuilderItem = async (item: LibraryItem) => {
     if (item.kind !== "builder") return;
-    if (!window.confirm(`Delete “${item.title}” from Resume Hub?`)) return;
-    try {
-      await deleteBuilderResume(item.id);
-      setItems(prev => prev.filter(i => i.key !== item.key));
-      if (selectedBuilderId === item.id) {
-        router.push("/?view=library");
+    setConfirmConfig({
+      title: "Delete Resume Draft",
+      description: `Delete "${item.title}" from Resume Hub? This cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await deleteBuilderResume(item.id);
+          setItems(prev => prev.filter(i => i.key !== item.key));
+          if (selectedBuilderId === item.id) {
+            router.push("/?view=library");
+          }
+        } catch (e: unknown) {
+          setLoadError(e instanceof Error ? e.message : String(e));
+        }
       }
-    } catch (e: unknown) {
-      setLoadError(e instanceof Error ? e.message : String(e));
-    }
+    });
+    setConfirmOpen(true);
+  };
+
+  const deleteCoverLetterItem = async (item: LibraryItem) => {
+    if (item.kind !== "cover_letter") return;
+    setConfirmConfig({
+      title: "Delete Cover Letter",
+      description: `Delete "${item.title}"? This cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          const { deleteCoverLetter } = await import("@/lib/supabase");
+          await deleteCoverLetter(item.id);
+          setItems(prev => prev.filter(i => i.key !== item.key));
+          if (selectedCoverLetterId === item.id) {
+            router.push("/?view=library");
+          }
+        } catch (e: unknown) {
+          setLoadError(e instanceof Error ? e.message : String(e));
+        }
+      }
+    });
+    setConfirmOpen(true);
   };
 
   return (
@@ -396,7 +439,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
         }
       `}</style>
 
-      {selectedFolder || selectedAnalysisId ? (
+      {selectedFolder || selectedAnalysisId || selectedBuilderId || selectedCoverLetterId ? (
         <button
           type="button"
           className={`library-backdrop is-open`}
@@ -523,6 +566,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                 <option value="analyzed">Analyzed</option>
                 <option value="tailored">Tailored</option>
                 <option value="builder">Builder drafts</option>
+                <option value="cover_letter">Cover Letters</option>
                 <option value="default">Default</option>
               </select>
               <select
@@ -569,7 +613,9 @@ export default function ResumeLibrary({ onUseAsBase }: {
                         ? selectedAnalysisId === item.id
                         : item.kind === "builder"
                           ? selectedBuilderId === item.id
-                          : selectedFolder === item.record.folder
+                          : item.kind === "cover_letter"
+                            ? selectedCoverLetterId === item.id
+                            : selectedFolder === item.record.folder
                     }
                     stagger={Math.min(i % 5, 4)}
                     onOpen={() => openItem(item)}
@@ -585,7 +631,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
           </div>
         </div>
 
-        {selectedFolder || selectedAnalysisId || selectedBuilderId ? (
+        {selectedFolder || selectedAnalysisId || selectedBuilderId || selectedCoverLetterId ? (
           <LibraryResumeDetailPanel
             item={selectedItem}
             loading={loading}
@@ -609,9 +655,22 @@ export default function ResumeLibrary({ onUseAsBase }: {
             onDeleteBuilder={() => {
               if (selectedItem) void deleteBuilderItem(selectedItem);
             }}
+            onDeleteCoverLetter={() => {
+              if (selectedItem) void deleteCoverLetterItem(selectedItem);
+            }}
           />
         ) : null}
       </div>
+
+      {confirmConfig && (
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          title={confirmConfig.title}
+          description={confirmConfig.description}
+          onConfirm={confirmConfig.onConfirm}
+        />
+      )}
     </div>
   );
 }
@@ -735,9 +794,11 @@ function ResumeCard({
           ? "Open analysis"
           : item.kind === "builder"
             ? "Open in Builder"
-            : "Details"}
+            : item.kind === "cover_letter"
+              ? "Open in Builder"
+              : "Details"}
       </Button>
-      {item.kind === "builder" ? (
+      {item.kind === "builder" || item.kind === "cover_letter" ? (
         <Button
           type="button"
           onClick={e => {
@@ -907,7 +968,7 @@ function ResumeCard({
             {displayPdf ? (
               <Badge
                 variant="secondary"
-                title={item.record.pdf_url ? "Stored PDF link" : "API PDF path (not saved to library — open to verify)"}
+                title={item.kind === "tailored" && item.record.pdf_url ? "Stored PDF link" : "API PDF path (not saved to library — open to verify)"}
                 style={{
                   fontSize: 10,
                   fontWeight: 700,

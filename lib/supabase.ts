@@ -52,12 +52,32 @@ export type LibraryItem =
       createdAt: string;
       isDefault: false;
       builder: BuilderResumeRecord;
+    }
+  | {
+      kind: "cover_letter";
+      key: string;
+      id: string;
+      title: string;
+      subtitle: string;
+      score: null;
+      createdAt: string;
+      isDefault: boolean;
+      coverLetter: CoverLetterRecord;
     };
 
 export interface BuilderResumeRecord {
   id: string;
   label: string;
   data: TBResumeData;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CoverLetterRecord {
+  id: string;
+  label: string;
+  data: any; // CLData
+  isDefault: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -553,6 +573,100 @@ export async function deleteBuilderResume(id: string): Promise<void> {
   dispatchResumeLibraryChanged();
 }
 
+/* ── Cover Letter Builder cloud saves ────────────────────────────── */
+
+export async function fetchCoverLetters(limit = 50): Promise<CoverLetterRecord[]> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return [];
+
+  const { data, error } = await db
+    .from("cover_letters")
+    .select("id, label, data, is_default, created_at, updated_at")
+    .eq("user_id", session.user.id)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    label: (row.label as string) || "Untitled Cover Letter",
+    data: row.data,
+    isDefault: !!row.is_default,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  }));
+}
+
+export async function fetchCoverLetterById(id: string): Promise<CoverLetterRecord | null> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return null;
+
+  const { data, error } = await db
+    .from("cover_letters")
+    .select("id, label, data, is_default, created_at, updated_at")
+    .eq("user_id", session.user.id)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    id: data.id as string,
+    label: (data.label as string) || "Untitled Cover Letter",
+    data: data.data,
+    isDefault: !!data.is_default,
+    createdAt: data.created_at as string,
+    updatedAt: data.updated_at as string,
+  };
+}
+
+export async function upsertCoverLetter(
+  label: string,
+  data: any, // CLData
+  id?: string | null,
+): Promise<string | null> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return null;
+
+  const now = new Date().toISOString();
+  const row: Record<string, unknown> = {
+    user_id: session.user.id,
+    label: label.trim() || "Untitled Cover Letter",
+    data,
+    updated_at: now,
+  };
+  if (id) row.id = id;
+
+  const { data: saved, error } = await db
+    .from("cover_letters")
+    .upsert(row, { onConflict: "id" })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+  dispatchResumeLibraryChanged();
+  return saved.id as string;
+}
+
+export async function deleteCoverLetter(id: string): Promise<void> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return;
+
+  const { error } = await db
+    .from("cover_letters")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", session.user.id);
+  if (error) throw error;
+  dispatchResumeLibraryChanged();
+}
+
 /** Unified Library feed: generated/tailored artifacts plus saved Analyze runs. */
 export async function fetchLibraryItems(): Promise<LibraryItem[]> {
   const [resumes, analyses, builders] = await Promise.all([
@@ -597,7 +711,20 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
     builder,
   }));
 
-  return [...tailored, ...analyzed, ...builderItems].sort((a, b) => {
+  const cls = await fetchCoverLetters(50);
+  const clItems: LibraryItem[] = cls.map((cl) => ({
+    kind: "cover_letter",
+    key: `cover_letter:${cl.id}`,
+    id: cl.id,
+    title: cl.label,
+    subtitle: "Cover Letter",
+    score: null,
+    createdAt: cl.updatedAt,
+    isDefault: cl.isDefault,
+    coverLetter: cl,
+  }));
+
+  return [...tailored, ...analyzed, ...builderItems, ...clItems].sort((a, b) => {
     const d = Number(b.isDefault) - Number(a.isDefault);
     if (d !== 0) return d;
     return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
@@ -655,5 +782,279 @@ export async function upsertUserProfile(profile: ProfileFormState): Promise<void
     if (error) console.warn("[user_profiles] upsert:", error.message);
   } catch (e) {
     console.warn("[user_profiles] upsert:", e);
+  }
+}
+
+/* ── Interview Prep persistence ──────────────────────────────────────────── */
+
+export interface PrepQuestion {
+  question: string;
+  reason: string | null;
+  source: string;
+  star_framework?: {
+    situation: string;
+    task: string;
+    action: string;
+    result: string;
+    reflection: string;
+  } | null;
+  best_story?: {
+    title: string;
+    reason: string;
+  } | null;
+}
+
+export interface PrepSessionRecord {
+  id: string;
+  company: string | null;
+  role: string;
+  category: string;
+  difficulty: string;
+  interviewType: string;
+  jobDescription: string | null;
+  sources: string[];
+  focusAreas: string[];
+  questionCount: number;
+  createdAt: string;
+  updatedAt: string;
+  questions: {
+    resume_questions:     PrepQuestion[];
+    jd_questions:         PrepQuestion[];
+    behavioral_questions: PrepQuestion[];
+    company_questions:    PrepQuestion[];
+  };
+}
+
+/**
+ * Fetch the authenticated user's most recent interview prep session + questions
+ * from the backend (GET /api/interview-prep/latest).
+ *
+ * Returns null when unauthenticated, when no session exists, or on error.
+ */
+export async function fetchLatestPrepSession(): Promise<PrepSessionRecord | null> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token) return null;
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/latest`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+
+    if (!res.ok) return null;
+    const body = await res.json() as { session: null } | {
+      session: Record<string, unknown>;
+      questions: Record<string, PrepQuestion[]>;
+    };
+
+    if (!body.session) return null;
+
+    const s = body.session as Record<string, unknown>;
+    const q = (body as { questions: Record<string, PrepQuestion[]> }).questions;
+
+    return {
+      id:             String(s.id ?? ""),
+      company:        (s.company as string | null) ?? null,
+      role:           String(s.role ?? ""),
+      category:       String(s.category ?? "General"),
+      difficulty:     String(s.difficulty ?? "medium"),
+      interviewType:  String(s.interview_type ?? "mixed"),
+      jobDescription: (s.job_description as string | null) ?? null,
+      sources:        (s.sources as string[]) ?? [],
+      focusAreas:     (s.focus_areas as string[]) ?? [],
+      questionCount:  Number(s.question_count ?? 20),
+      createdAt:      String(s.created_at ?? ""),
+      updatedAt:      String(s.updated_at ?? ""),
+      questions: {
+        resume_questions:     (q.resume_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+        jd_questions:         (q.jd_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+        behavioral_questions: (q.behavioral_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+        company_questions:    (q.company_questions ?? []).map((item) => ({
+          question: item.question,
+          reason: item.reason,
+          source: item.source,
+          star_framework: item.star_framework ?? null,
+          best_story: item.best_story ?? null,
+        })),
+      },
+    };
+  } catch (e) {
+    console.warn("[interview-prep] fetchLatestPrepSession:", e);
+    return null;
+  }
+}
+
+/**
+ * Delete a prep session via DELETE /api/interview-prep/session/{id}.
+ * Returns true on success, false on failure.
+ */
+export async function deletePrepSession(sessionId: string): Promise<boolean> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token || !sessionId) return false;
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/session/${encodeURIComponent(sessionId)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      },
+    );
+    return res.ok;
+  } catch (e) {
+    console.warn("[interview-prep] deletePrepSession:", e);
+    return false;
+  }
+}
+
+/* ── Interview Story Bank ────────────────────────────────────────────────── */
+
+export interface PrepStory {
+  id: string;
+  title: string;
+  theme: string | null;
+  sourceExperience: string | null;
+  situation: string;
+  task: string;
+  action: string;
+  result: string;
+  reflection: string;
+  createdAt: string | null;
+}
+
+/**
+ * Fetch the authenticated user's master story bank — the curated set of reusable
+ * STAR+R stories that accumulates across every prep session
+ * (GET /api/interview-prep/stories). Empty array when signed out or on error.
+ */
+export async function fetchStoryBank(): Promise<PrepStory[]> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token) return [];
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/stories`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+    if (!res.ok) return [];
+    const body = await res.json() as { stories?: Array<Record<string, unknown>> };
+    return (body.stories ?? []).map((s) => ({
+      id:               String(s.id ?? ""),
+      title:            String(s.title ?? ""),
+      theme:            s.theme != null ? String(s.theme) : null,
+      sourceExperience: s.source_experience != null ? String(s.source_experience) : null,
+      situation:        String(s.situation ?? ""),
+      task:             String(s.task ?? ""),
+      action:           String(s.action ?? ""),
+      result:           String(s.result ?? ""),
+      reflection:       String(s.reflection ?? ""),
+      createdAt:        s.created_at != null ? String(s.created_at) : null,
+    }));
+  } catch (e) {
+    console.warn("[interview-prep] fetchStoryBank:", e);
+    return [];
+  }
+}
+
+/**
+ * Delete one master story via DELETE /api/interview-prep/story/{id} (curation).
+ * Returns true on success.
+ */
+export async function deleteStory(storyId: string): Promise<boolean> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token || !storyId) return false;
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/story/${encodeURIComponent(storyId)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      },
+    );
+    return res.ok;
+  } catch (e) {
+    console.warn("[interview-prep] deleteStory:", e);
+    return false;
+  }
+}
+
+export interface JobPrepStatus {
+  sessionId: string;
+  questionCount: number;
+}
+
+/**
+ * For a set of Jobs-feed posting ids, return which the signed-in user already has
+ * an interview-prep kit for (GET /api/interview-prep/job-statuses). Powers the
+ * "Prep ready" state on job cards / detail. Empty map when signed out or on error.
+ */
+export async function fetchJobPrepStatuses(
+  jobIds: string[],
+): Promise<Record<string, JobPrepStatus>> {
+  try {
+    const ids = jobIds.filter(Boolean);
+    if (!ids.length) return {};
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token) return {};
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/job-statuses?ids=${encodeURIComponent(ids.join(","))}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+    if (!res.ok) return {};
+    const body = await res.json() as { statuses?: Record<string, { session_id?: string; question_count?: number }> };
+    const out: Record<string, JobPrepStatus> = {};
+    for (const [jobId, s] of Object.entries(body.statuses ?? {})) {
+      out[jobId] = {
+        sessionId: String(s.session_id ?? ""),
+        questionCount: Number(s.question_count ?? 0),
+      };
+    }
+    return out;
+  } catch (e) {
+    console.warn("[interview-prep] fetchJobPrepStatuses:", e);
+    return {};
   }
 }

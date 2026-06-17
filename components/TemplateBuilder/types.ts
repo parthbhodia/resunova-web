@@ -44,6 +44,7 @@ export type TBFont = "Helvetica" | "Times-Roman" | "Courier";
 export type TBStylePreset = "executive" | "modern" | "classic";
 export type TBPageWidth = "narrow" | "standard" | "wide";
 export type TBFontSize = "small" | "medium" | "large";
+export type TBLayout = "single" | "twoColumn";
 
 export interface TBCustomization {
   font: TBFont;
@@ -51,6 +52,8 @@ export interface TBCustomization {
   stylePreset: TBStylePreset;
   pageWidth: TBPageWidth;
   fontSize: TBFontSize;
+  /** Column layout: "single" (default) or "twoColumn" (sidebar + main). */
+  layout: TBLayout;
 }
 
 export interface TBFeaturedSkill {
@@ -202,6 +205,7 @@ export const DEFAULT_CUSTOMIZATION: TBCustomization = {
   stylePreset: "executive",
   pageWidth: "standard",
   fontSize: "medium",
+  layout: "single",
 };
 
 export const DEFAULT_PROFILE: TBProfile = {

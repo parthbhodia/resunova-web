@@ -10,6 +10,7 @@ export type ApiErrorKind =
   | "server_error"
   | "auth"
   | "capacity"
+  | "invalid_resume"
   | "generic";
 
 export interface ApiErrorDisplay {
@@ -19,6 +20,81 @@ export interface ApiErrorDisplay {
   steps: string[];
   healthUrl?: string;
   statusUrl?: string;
+}
+
+/**
+ * Backend résumé content-gate reject codes (see resume_gui/extract/resume_gate.py).
+ * These are NOT server failures — they mean the upload isn't a résumé we can
+ * analyze, so the UI shows a calm, instructive banner rather than a red error.
+ */
+export const RESUME_GATE_CODES: ReadonlySet<string> = new Set([
+  "empty_resume",
+  "resume_too_short",
+  "not_a_resume",
+  "insufficient_resume_content",
+]);
+
+// Sentinel so a gate error can ride the existing `error: string` channel and be
+// decoded back into structured display data — keyed on our own machine code,
+// never on the (translatable) human message.
+const RESUME_GATE_PREFIX = "resume_gate";
+
+/** Encode a backend gate rejection into a string for the `error` state. */
+export function encodeResumeGateError(
+  code: string,
+  message: string,
+  missing?: string[],
+): string {
+  return RESUME_GATE_PREFIX + JSON.stringify({ code, message, missing: missing ?? [] });
+}
+
+/** True if a string carries an encoded gate payload (vs. a flattened message). */
+export function isEncodedResumeGateError(s: string): boolean {
+  return typeof s === "string" && s.startsWith(RESUME_GATE_PREFIX + "{");
+}
+
+/**
+ * Single source of truth for turning a backend response into a gate error.
+ * Returns an encoded error string (render via ApiErrorBanner for the calm
+ * banner) when the response is a content-gate rejection, else null so the
+ * caller falls through to its normal error handling.
+ */
+export function resumeGateErrorFromResponse(
+  status: number,
+  json: { code?: unknown; error?: unknown; missing?: unknown } | null | undefined,
+): string | null {
+  if (status !== 422 || !json) return null;
+  const code = typeof json.code === "string" ? json.code : "";
+  if (!RESUME_GATE_CODES.has(code)) return null;
+  const message = typeof json.error === "string" ? json.error : "";
+  const missing = Array.isArray(json.missing)
+    ? json.missing.filter((m): m is string => typeof m === "string")
+    : [];
+  return encodeResumeGateError(code, message, missing);
+}
+
+function resolveResumeContentError(
+  code: string,
+  message: string,
+  missing: string[],
+): ApiErrorDisplay {
+  const titleByCode: Record<string, string> = {
+    empty_resume: "We couldn't read your résumé",
+    resume_too_short: "That looks too short to be a résumé",
+    not_a_resume: "That doesn't look like a résumé",
+    insufficient_resume_content: "Your résumé needs a bit more detail",
+  };
+  const steps: string[] = [];
+  if (missing.length > 0) steps.push(`Add: ${missing.join(", ")}.`);
+  steps.push(
+    "Export your résumé as a PDF with selectable text (not a scan/photo) or a Word .docx, then upload again.",
+  );
+  return {
+    kind: "invalid_resume",
+    title: titleByCode[code] ?? "We couldn't read enough of your résumé",
+    message: message || "Please upload a complete résumé as a PDF or Word .docx.",
+    steps,
+  };
 }
 
 export function apiBackendBaseUrl(): string {
@@ -208,6 +284,23 @@ export function resolveApiError(raw: string): ApiErrorDisplay {
       message: "Please try again.",
       steps: [],
     };
+  }
+
+  if (s.startsWith(RESUME_GATE_PREFIX + "{")) {
+    try {
+      const parsed = JSON.parse(s.slice(RESUME_GATE_PREFIX.length)) as {
+        code?: string;
+        message?: string;
+        missing?: string[];
+      };
+      return resolveResumeContentError(
+        parsed.code ?? "",
+        parsed.message ?? "",
+        Array.isArray(parsed.missing) ? parsed.missing : [],
+      );
+    } catch {
+      /* malformed — fall through to generic handling */
+    }
   }
 
   const lower = s.toLowerCase();

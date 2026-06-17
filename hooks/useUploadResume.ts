@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { apiErrorFromUnknown } from "@/lib/userFriendlyError";
+import {
+  apiErrorFromUnknown,
+  isEncodedResumeGateError,
+  resumeGateErrorFromResponse,
+} from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
-import { apiUrl, parseJsonOrThrow } from "@/lib/utils";
+import { apiUrl, parseJsonOrThrow, resumeFileClientError } from "@/lib/utils";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 
 export interface UploadResumeResult {
@@ -35,6 +39,12 @@ export function useUploadResume(): UseUploadResumeReturn {
   const [error, setError] = useState<string | null>(null);
 
   const upload = useCallback(async (file: File, jd = ""): Promise<UploadResumeResult> => {
+    // Instant client-side guards — fail before any network round-trip.
+    const fileErr = resumeFileClientError(file);
+    if (fileErr) {
+      setError(fileErr);
+      throw new Error(fileErr);
+    }
     setLoading(true);
     setError(null);
     try {
@@ -54,7 +64,13 @@ export function useUploadResume(): UseUploadResumeReturn {
         structured?: StructuredResume | null;
       };
 
-      if (!resp.ok) throw new Error(json.error ?? "Could not extract text from your PDF.");
+      if (!resp.ok) {
+        // Content gate (422): carry the code/missing so the UI shows the calm
+        // "invalid résumé" banner instead of a generic server error.
+        const gateErr = resumeGateErrorFromResponse(resp.status, raw);
+        if (gateErr) throw new Error(gateErr);
+        throw new Error(typeof raw.error === "string" ? raw.error : "Could not extract text from your PDF.");
+      }
 
       const extracted =
         (typeof json.extractedText === "string" && json.extractedText.trim())
@@ -73,7 +89,10 @@ export function useUploadResume(): UseUploadResumeReturn {
         structuredResume: structured,
       };
     } catch (e: unknown) {
-      const msg = apiErrorFromUnknown(e);
+      const rawMsg = e instanceof Error ? e.message : String(e);
+      // Preserve the encoded gate payload so the renderer can show the calm
+      // banner; flatten everything else into friendly copy.
+      const msg = isEncodedResumeGateError(rawMsg) ? rawMsg : apiErrorFromUnknown(e);
       setError(msg);
       throw new Error(msg);
     } finally {

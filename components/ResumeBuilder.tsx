@@ -10,6 +10,7 @@ import { accentCardBorder } from "@/lib/accentCardBorder";
 import { getBaseResumeBanner } from "@/lib/libraryFolderLabel";
 import { apiUrl, isResumeUploadFile, parseJsonOrThrow, scoreColor } from "@/lib/utils";
 import { toUserFriendlyErrorMessage, messageForNonJsonApiFailure } from "@/lib/userFriendlyError";
+import { ApiErrorBanner } from "@/components/ApiErrorBanner";
 import { Button } from "@/components/ui/button";
 import { upsertResume, getSupabaseClient, upsertUserProfile } from "@/lib/supabase";
 import { TAILOR_PREFILL_JD, TAILOR_PREFILL_COMPANY, TAILOR_PREFILL_ROLE } from "@/lib/tailorPrefill";
@@ -2992,9 +2993,11 @@ export default function ResumeBuilder({
             )}
 
             {(uploadError || uploadTypeError) && (
-              <div style={{ marginTop: 8, color: "var(--red)", fontSize: 12 }}>
-                {uploadTypeError || uploadError}
-              </div>
+              <ApiErrorBanner
+                error={uploadTypeError || uploadError}
+                onDismiss={() => { setUploadTypeError(null); clearUploadError(); }}
+                style={{ marginTop: 8, marginBottom: 0 }}
+              />
             )}
 
             {!candidateProfile && (

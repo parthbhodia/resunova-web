@@ -8,6 +8,7 @@ import {
   clearForceLandingAfterSignOut,
   readForceLandingAfterSignOut,
 } from "@/lib/authSignOut";
+import { urlRequestsPublicAppView } from "@/lib/anonScan";
 import LandingPage from "./LandingPage";
 
 // Routes that intentionally bypass auth — design-system / preview pages.
@@ -50,6 +51,22 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [checked, setChecked] = useState(false);
   const [forceLanding, setForceLanding] = useState(false);
+  // Anonymous free-scan entry: `/?view=analyze` renders the app shell without a
+  // session (one free scan; full report locks behind sign-in). Read from
+  // window.location — NOT useSearchParams, which would swap the prerendered
+  // landing HTML for a Suspense fallback in the static export. Entry points use
+  // full navigations, so a mount-time read (+popstate) is sufficient. Sticky for
+  // the JS session so in-app view switches don't bounce the user to landing.
+  const [anonView, setAnonView] = useState(false);
+
+  useEffect(() => {
+    const check = () => {
+      if (urlRequestsPublicAppView()) setAnonView(true);
+    };
+    check();
+    window.addEventListener("popstate", check);
+    return () => window.removeEventListener("popstate", check);
+  }, []);
 
   useEffect(() => {
     setForceLanding(readForceLandingAfterSignOut());
@@ -88,7 +105,13 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // Homepage: always ship marketing HTML first (Google OAuth reviewers, bots, signed-out users).
   // Do not show an auth spinner on `/` — static export would contain only the spinner otherwise.
   if (isHome) {
-    if (forceLanding || !session) return <LandingPage />;
+    if (forceLanding || !session) {
+      // Public app views (analyze / jobs / builder) — let the signed-out
+      // visitor into the app shell. Sign-in CTAs inside the shell gate the
+      // actions that need an account (save, export, etc.).
+      if (anonView) return <>{children}</>;
+      return <LandingPage />;
+    }
     return <>{children}</>;
   }
 
