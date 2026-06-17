@@ -531,13 +531,14 @@ export default function LandingPage() {
             }
           </button>
 
-          {/* Sign in — lock icon only (replaces the "Sign in" label; signals sign-in-to-unlock) */}
+          {/* Sign up — labeled CTA (consistent with the in-app top bar: EnhanceCV /
+              Kickresume / Jobright all use a clear "Sign up / Log in", not a bare icon). */}
           <Button onClick={signIn} disabled={loading}
-            aria-label="Sign in"
-            title="Sign in"
-            className="lp-signin-btn inline-flex items-center justify-center bg-[#2563eb] hover:bg-[#1d4ed8] text-white border-0 px-4 py-2.5 shadow-[0_4px_16px_rgba(37,99,235,0.22)]"
+            aria-label="Sign up — free"
+            title="Sign up — free"
+            className="lp-signin-btn inline-flex items-center justify-center gap-1.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white border-0 px-4 py-2.5 font-semibold shadow-[0_4px_16px_rgba(37,99,235,0.22)]"
           >
-            <LockIcon />
+            {loading ? "Loading…" : "Sign up — free"}
           </Button>
 
           {/* Hamburger — mobile only */}
@@ -1764,15 +1765,6 @@ function FeatureCell({ f, dark, C }: { f: typeof FEATURES[0]; dark: boolean; C: 
 }
 
 // ── Lock icon ─────────────────────────────────────────────────────────────────
-function LockIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" style={{ width: 18, height: 18, flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="4" y="11" width="16" height="9" rx="2" />
-      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-    </svg>
-  );
-}
-
 // ── Google G icon ─────────────────────────────────────────────────────────────
 function GoogleG() {
   return (

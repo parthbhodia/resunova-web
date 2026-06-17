@@ -18,6 +18,7 @@ import { RESUME_LIBRARY_CHANGED_EVENT } from "@/lib/resumeLibraryEvents";
 import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
 import { stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/templateBuilderPrefill";
 import { Button } from "@/components/ui/button";
+import { useSignInDialog } from "@/components/SignInDialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -74,7 +75,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
   const [loadError, setLoadError] = useState<string | null>(null);
   /** `null` until first auth check completes — avoids flashing the wrong empty state. */
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
-  const [oauthBusy, setOauthBusy] = useState(false);
+  const { openSignIn } = useSignInDialog();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -128,26 +129,6 @@ export default function ResumeLibrary({ onUseAsBase }: {
       }
     };
   }, []);
-
-  const signInWithGoogle = async () => {
-    setOauthBusy(true);
-    setLoadError(null);
-    try {
-      const redirectTo =
-        typeof window !== "undefined"
-          ? window.location.origin + (process.env.NEXT_PUBLIC_BASE_PATH ?? "")
-          : undefined;
-      const { error } = await getSupabaseClient().auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo },
-      });
-      if (error) setLoadError(error.message);
-    } catch (e: unknown) {
-      setLoadError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setOauthBusy(false);
-    }
-  };
 
   const selectedItem = useMemo(() => {
     if (selectedAnalysisId) {
@@ -522,11 +503,10 @@ export default function ResumeLibrary({ onUseAsBase }: {
                 </span>
                 <Button
                   type="button"
-                  disabled={oauthBusy}
-                  onClick={() => void signInWithGoogle()}
+                  onClick={() => openSignIn({ title: "Sign in to your Resume Hub", reason: "Analyze runs and Builder exports are saved to your account automatically once you sign in." })}
                   className="shrink-0"
                 >
-                  {oauthBusy ? "Redirecting…" : "Sign in with Google"}
+                  Sign in with Google
                 </Button>
               </div>
             ) : null}

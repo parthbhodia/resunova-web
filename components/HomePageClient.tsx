@@ -16,6 +16,7 @@
  */
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import { getSupabaseClient } from "@/lib/supabase";
 import { useSearchParams, useRouter } from "next/navigation";
 import AppShell, { useAppView } from "@/components/AppShell";
 import ResumeBuilder from "@/components/ResumeBuilder";
@@ -209,10 +210,24 @@ type JobsTab = "recommended" | "tracker";
 
 function JobsTabShell() {
   const [tab, setTab] = useState<JobsTab>("recommended");
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const tabs: { key: JobsTab; label: string }[] = [
     { key: "recommended", label: "Recommended" },
     { key: "tracker", label: "My Applications" },
   ];
+
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    let active = true;
+    sb.auth.getSession().then(({ data }) => { if (active) setSignedIn(!!data.session); });
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_e, s) => setSignedIn(!!s));
+    return () => { active = false; subscription.unsubscribe(); };
+  }, []);
+
+  // Signed-out (or while auth is still resolving): no tabs — JobsFeed renders
+  // the focused sign-in hero, and "My Applications" is meaningless without an
+  // account. Tabs appear only once we've confirmed a session.
+  if (signedIn !== true) return <JobsFeed />;
 
   return (
     <div style={{ width: "100%" }}>

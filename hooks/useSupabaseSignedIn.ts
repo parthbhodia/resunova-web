@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
-import { signInWithGoogle } from "@/lib/anonScan";
+import { useSignInDialog } from "@/components/SignInDialog";
 
 /**
  * Lightweight, shared "is the user signed in?" hook for gating account-only
@@ -8,13 +8,16 @@ import { signInWithGoogle } from "@/lib/anonScan";
  * `/api/cl-*` endpoints).
  *
  * `signedIn` is `null` while the first session lookup is in flight, then a
- * boolean. `signIn()` kicks off the Google OAuth redirect and returns an error
- * string on failure (on success the browser navigates away, so the promise
- * never resolves into the same page).
+ * boolean. `signIn()` opens the shared sign-in modal (the one consistent
+ * sign-in surface — see SignInDialog), so every gated AI action funnels through
+ * the same place rather than each kicking off its own OAuth redirect.
  */
 export function useSupabaseSignedIn() {
+  const { openSignIn } = useSignInDialog();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
-  const [signingIn, setSigningIn] = useState(false);
+  // Kept for API compatibility with consumers that read it for a busy label;
+  // the modal now owns the OAuth busy state, so this stays false here.
+  const [signingIn] = useState(false);
 
   useEffect(() => {
     const sb = getSupabaseClient();
@@ -31,13 +34,10 @@ export function useSupabaseSignedIn() {
     };
   }, []);
 
-  const signIn = useCallback(async () => {
-    setSigningIn(true);
-    const err = await signInWithGoogle();
-    // On success the page redirects to Google; only reach here if it failed.
-    if (err) setSigningIn(false);
-    return err;
-  }, []);
+  const signIn = useCallback(async (): Promise<string | null> => {
+    openSignIn();
+    return null;
+  }, [openSignIn]);
 
   return { signedIn, signingIn, signIn };
 }
