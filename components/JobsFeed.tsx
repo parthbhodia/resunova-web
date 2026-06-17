@@ -25,6 +25,7 @@ import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { useSignInDialog } from "@/components/SignInDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   fetchJobFilters,
   createJobFilter,
@@ -429,6 +430,7 @@ function formatPostedAt(iso: string | null): string | null {
 export default function JobsFeed() {
   const router = useRouter();
   const { openSignIn } = useSignInDialog();
+  const isMobile = useIsMobile();
   const [state, setState] = useState<FeedState>({ status: "loading" });
   // Coarse public count for the signed-out hero's proof chip (no auth). Best
   // effort — stays null on failure so the chip simply doesn't render.
@@ -775,7 +777,7 @@ export default function JobsFeed() {
   }
 
   return (
-    <div style={{ maxWidth: 1240, margin: "0 auto", padding: "28px 20px 64px", width: "100%", display: "flex", gap: 28, alignItems: "flex-start" }}>
+    <div style={{ maxWidth: 1240, margin: "0 auto", padding: isMobile ? "18px 14px 88px" : "28px 20px 64px", width: "100%", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 28, alignItems: isMobile ? "stretch" : "flex-start" }}>
       <div style={{ flex: "1 1 0", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
@@ -1093,7 +1095,7 @@ export default function JobsFeed() {
                     </div>
                     )}
                     <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
-                    <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                    <div style={{ flex: isMobile ? "1 1 140px" : "1 1 240px", minWidth: 0 }}>
                       <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
                       <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 500 }}>{job.company}</span>
@@ -1159,7 +1161,7 @@ export default function JobsFeed() {
                         )}
                       </div>
                     </div>
-                    <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 7, alignItems: "stretch" }}>
+                    <div style={{ flexShrink: 0, display: "flex", flexDirection: isMobile ? "row" : "column", gap: 7, alignItems: "stretch", flexWrap: isMobile ? "wrap" : "nowrap", width: isMobile ? "100%" : "auto" }}>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); void openBoost(job.id); }}
@@ -1176,6 +1178,7 @@ export default function JobsFeed() {
                           whiteSpace: "nowrap",
                           opacity: boostLoadingId === job.id ? 0.7 : 1,
                           fontFamily: "inherit",
+                          flex: isMobile ? "1 1 auto" : undefined,
                         }}
                       >
                         {boostLoadingId === job.id ? "Loading…" : "✦ Optimize"}
@@ -1200,6 +1203,7 @@ export default function JobsFeed() {
                           whiteSpace: "nowrap",
                           opacity: prepLoadingId === job.id ? 0.7 : 1,
                           fontFamily: "inherit",
+                          flex: isMobile ? "1 1 auto" : undefined,
                         }}
                       >
                         {prepLoadingId === job.id
@@ -1219,6 +1223,7 @@ export default function JobsFeed() {
                           padding: "7px 14px",
                           borderRadius: 8,
                           textAlign: "center",
+                          flex: isMobile ? "1 1 100%" : undefined,
                           border: appliedIds.has(job.id)
                             ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
                             : "1px solid var(--surface2)",
@@ -1264,6 +1269,7 @@ export default function JobsFeed() {
 
       {state.status === "ready" && (
         <JobsSidebar
+          isMobile={isMobile}
           savedFilters={savedFilters}
           currentSnapshot={currentSnapshot}
           onApply={applySnapshot}
@@ -1322,6 +1328,7 @@ const SIDEBAR_INPUT: CSSProperties = {
 };
 
 function JobsSidebar({
+  isMobile,
   savedFilters,
   currentSnapshot,
   onApply,
@@ -1329,6 +1336,7 @@ function JobsSidebar({
   onDeleted,
   onNavigate,
 }: {
+  isMobile: boolean;
   savedFilters: SavedFilter[];
   currentSnapshot: FilterSnapshot;
   onApply: (f: Partial<FilterSnapshot>) => void;
@@ -1366,7 +1374,7 @@ function JobsSidebar({
   }
 
   return (
-    <aside style={{ width: 264, flexShrink: 0, position: "sticky", top: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+    <aside style={{ width: isMobile ? "100%" : 264, flexShrink: 0, position: isMobile ? "static" : "sticky", top: 16, display: "flex", flexDirection: "column", gap: 16, order: isMobile ? 1 : 0 }}>
       <div style={SIDEBAR_CARD}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Your saved filters</span>
