@@ -791,6 +791,7 @@ export default function JobsFeed({
       ? { width: "100%", display: "flex", flexDirection: "column" }
       : { maxWidth: 1240, margin: "0 auto", padding: isMobile ? "18px 14px 88px" : "28px 20px 64px", width: "100%", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 28, alignItems: isMobile ? "stretch" : "flex-start" }}>
       <div style={{ flex: "1 1 0", minWidth: 0 }}>
+      {!listMode ? (
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", margin: 0 }}>Jobs for you</h1>
@@ -806,16 +807,26 @@ export default function JobsFeed({
           Refresh
         </Button>
       </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)" }}>
+            {state.status === "ready" ? `${visibleJobs.length} job${visibleJobs.length === 1 ? "" : "s"}` : "Jobs"}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
+            Refresh
+          </Button>
+        </div>
+      )}
 
       {state.status === "ready" && (
-        <div style={{ margin: "18px 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ margin: listMode ? "10px 0 12px" : "18px 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Row 1 — keyword + location (LinkedIn/Indeed style) */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search title or company…"
-              style={{ flex: "1 1 240px", maxWidth: 340 }}
+              style={{ flex: "1 1 240px", maxWidth: listMode ? undefined : 340 }}
             />
             <FilterMenu label="📍 Location" count={locationStates.size} width={250}>
               <StatesPicker
@@ -903,9 +914,11 @@ export default function JobsFeed({
                   <MenuOption key={s.key} label={s.label} selected={sortBy === s.key} onClick={() => setSortBy(s.key)} />
                 ))}
               </FilterMenu>
-              <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                {visibleJobs.length} of {state.jobs.length}
-              </span>
+              {!listMode && (
+                <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  {visibleJobs.length} of {state.jobs.length}
+                </span>
+              )}
             </div>
           </div>
         </div>
