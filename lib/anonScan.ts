@@ -109,16 +109,28 @@ export function clearAnonScanUsed(): void {
   try { localStorage.removeItem(ANON_SCAN_USED_KEY); } catch { /* ignore */ }
 }
 
+/** localStorage key: where to send the user after OAuth (e.g. "/?view=jobs"). */
+export const POST_LOGIN_DEST_KEY = "rn_post_login_dest";
+
 /**
- * Shared Google OAuth entry — same redirect target as the landing page so the
- * user lands back on the app shell with their session (and any stashed scan).
+ * Shared Google OAuth entry. Returns the user to where they started sign-in
+ * (e.g. `?view=jobs` so the jobs onboarding wizard shows) instead of the default
+ * Analyze view. Belt-and-suspenders: pass the full current URL as the OAuth
+ * `redirectTo`, AND stash the destination so AppShell can restore it on mount if
+ * Supabase's redirect allowlist strips the query back to the bare origin.
  */
 export async function signInWithGoogle(): Promise<string | null> {
   const sb = getSupabaseClient();
-  const redirectTo =
-    typeof window !== "undefined"
-      ? window.location.origin + (process.env.NEXT_PUBLIC_BASE_PATH ?? "")
-      : undefined;
+  let redirectTo: string | undefined;
+  if (typeof window !== "undefined") {
+    try {
+      const dest = window.location.pathname + window.location.search;
+      if (window.location.search) window.localStorage.setItem(POST_LOGIN_DEST_KEY, dest);
+    } catch {
+      /* ignore */
+    }
+    redirectTo = window.location.href;
+  }
   const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo } });
   return error ? error.message : null;
 }
