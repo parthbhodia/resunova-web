@@ -427,10 +427,20 @@ function formatPostedAt(iso: string | null): string | null {
   return months === 1 ? "1 month ago" : `${months} months ago`;
 }
 
-export default function JobsFeed() {
+export default function JobsFeed({
+  selectedJobId = "",
+  variant = "full",
+}: {
+  /** Currently-open job (desktop split view) — its card is highlighted. */
+  selectedJobId?: string;
+  /** "list" = compact rail beside a detail pane: no own sidebar, no per-card
+   *  action buttons (the detail pane owns them). "full" = standalone feed. */
+  variant?: "full" | "list";
+} = {}) {
   const router = useRouter();
   const { openSignIn } = useSignInDialog();
   const isMobile = useIsMobile();
+  const listMode = variant === "list";
   const [state, setState] = useState<FeedState>({ status: "loading" });
   // Coarse public count for the signed-out hero's proof chip (no auth). Best
   // effort — stays null on failure so the chip simply doesn't render.
@@ -777,7 +787,9 @@ export default function JobsFeed() {
   }
 
   return (
-    <div style={{ maxWidth: 1240, margin: "0 auto", padding: isMobile ? "18px 14px 88px" : "28px 20px 64px", width: "100%", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 28, alignItems: isMobile ? "stretch" : "flex-start" }}>
+    <div style={listMode
+      ? { width: "100%", display: "flex", flexDirection: "column" }
+      : { maxWidth: 1240, margin: "0 auto", padding: isMobile ? "18px 14px 88px" : "28px 20px 64px", width: "100%", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 28, alignItems: isMobile ? "stretch" : "flex-start" }}>
       <div style={{ flex: "1 1 0", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
@@ -1059,7 +1071,12 @@ export default function JobsFeed() {
                 <Card
                   key={job.id}
                   onClick={() => router.push(`/?view=jobs&job=${encodeURIComponent(job.id)}`)}
-                  style={{ cursor: "pointer" }}
+                  style={{
+                    cursor: "pointer",
+                    ...(job.id === selectedJobId
+                      ? { outline: "2px solid var(--accent)", outlineOffset: -1, background: "var(--accent-bg)" }
+                      : null),
+                  }}
                 >
                   <CardContent
                     style={{
@@ -1161,6 +1178,7 @@ export default function JobsFeed() {
                         )}
                       </div>
                     </div>
+                    {!listMode && (
                     <div style={{ flexShrink: 0, display: "flex", flexDirection: isMobile ? "row" : "column", gap: 7, alignItems: "stretch", flexWrap: isMobile ? "wrap" : "nowrap", width: isMobile ? "100%" : "auto" }}>
                       <button
                         type="button"
@@ -1239,6 +1257,7 @@ export default function JobsFeed() {
                         {appliedIds.has(job.id) ? "Applied ✓" : "View & apply ↗"}
                       </a>
                     </div>
+                    )}
                   </CardContent>
                 </Card>
               );
@@ -1267,7 +1286,7 @@ export default function JobsFeed() {
       </div>
       </div>{/* /main column */}
 
-      {state.status === "ready" && (
+      {state.status === "ready" && !listMode && (
         <JobsSidebar
           isMobile={isMobile}
           savedFilters={savedFilters}

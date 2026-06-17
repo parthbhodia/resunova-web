@@ -29,6 +29,7 @@ import AccountSettingsPage from "@/components/AccountSettingsPage";
 import AdvisorDashboard from "@/components/AdvisorDashboard";
 import JobsFeed from "@/components/JobsFeed";
 import JobDetail from "@/components/JobDetail";
+import { useIsDesktop } from "@/hooks/use-mobile";
 import ApplicationTracker from "@/components/ApplicationTracker";
 import CoverLetterBuilder from "@/components/CoverLetterBuilder";
 
@@ -133,7 +134,7 @@ function RouterView() {
     return (
       <ViewFill>
         <ScrollPane>
-          {jobId ? <JobDetail jobId={jobId} /> : <JobsTabShell />}
+          <JobsView selectedJobId={jobId} />
         </ScrollPane>
       </ViewFill>
     );
@@ -202,6 +203,52 @@ function ShellSkeleton() {
         width: 22, height: 22, border: "2px solid var(--surface2)", borderTopColor: "var(--accent)",
         borderRadius: "50%", animation: "spin 0.8s linear infinite",
       }} />
+    </div>
+  );
+}
+
+/**
+ * Jobs routing/layout:
+ *  - No job selected → the tabbed feed shell (Recommended / My Applications).
+ *  - A job selected on a narrow screen → full-page detail (the list is a
+ *    separate screen, LinkedIn-mobile style).
+ *  - A job selected on a wide screen (≥1024px) → split view: a compact list
+ *    rail on the left, the selected job's detail pinned on the right.
+ */
+function JobsView({ selectedJobId }: { selectedJobId: string }) {
+  const isDesktop = useIsDesktop();
+
+  if (!selectedJobId) return <JobsTabShell />;
+  if (!isDesktop) return <JobDetail jobId={selectedJobId} />;
+
+  return (
+    <div
+      style={{
+        maxWidth: 1500,
+        margin: "0 auto",
+        width: "100%",
+        padding: "20px 20px 56px",
+        display: "flex",
+        gap: 24,
+        alignItems: "flex-start",
+      }}
+    >
+      <div style={{ flex: "0 0 420px", minWidth: 0 }}>
+        <JobsFeed selectedJobId={selectedJobId} variant="list" />
+      </div>
+      <div
+        style={{
+          flex: "1 1 0",
+          minWidth: 0,
+          position: "sticky",
+          top: 0,
+          alignSelf: "flex-start",
+          maxHeight: "calc(100dvh - 88px)",
+          overflowY: "auto",
+        }}
+      >
+        <JobDetail jobId={selectedJobId} embedded />
+      </div>
     </div>
   );
 }
