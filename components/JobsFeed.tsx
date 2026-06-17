@@ -430,6 +430,17 @@ export default function JobsFeed() {
   const router = useRouter();
   const { openSignIn } = useSignInDialog();
   const [state, setState] = useState<FeedState>({ status: "loading" });
+  // Coarse public count for the signed-out hero's proof chip (no auth). Best
+  // effort — stays null on failure so the chip simply doesn't render.
+  const [publicCount, setPublicCount] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(apiUrl("/api/jobs/public-count?max_age_days=30"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d && typeof d.count === "number") setPublicCount(d.count); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   // A no-résumé visitor's chosen target role (free text or a suggested chip).
   // Restored from localStorage so it sticks across reloads until they scan.
   const [roleQuery, setRoleQuery] = useState<string>(() => {
@@ -747,6 +758,22 @@ export default function JobsFeed() {
     return () => observer.disconnect();
   }, [hasMore, pagedJobs.length]);
 
+  // Signed-out visitors get one focused sign-in moment — no dashboard header,
+  // tabs, Refresh, or résumé-ranking copy (which assumes a résumé they lack).
+  if (state.status === "signin") {
+    return (
+      <SignedOutJobsHero
+        count={publicCount}
+        onSignIn={() =>
+          openSignIn({
+            title: "Sign in to browse jobs",
+            reason: "See live openings from company career boards and rank them against your résumé. Free — no credit card.",
+          })
+        }
+      />
+    );
+  }
+
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "28px 20px 64px", width: "100%", display: "flex", gap: 28, alignItems: "flex-start" }}>
       <div style={{ flex: "1 1 0", minWidth: 0 }}>
@@ -896,19 +923,6 @@ export default function JobsFeed() {
           </div>
         )}
 
-        {state.status === "signin" && (
-          <Card>
-            <CardContent style={{ padding: "44px 28px", textAlign: "center" }}>
-              <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--text)", margin: 0 }}>
-                Sign in to browse jobs
-              </h2>
-              <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 20px", maxWidth: 440, lineHeight: 1.6 }}>
-                See live openings from company career boards, then scan your résumé to rank them by fit. Free — no credit card.
-              </p>
-              <Button onClick={() => openSignIn({ title: "Sign in to browse jobs", reason: "See live openings from company career boards, then scan your résumé to rank them by fit. Free — no credit card." })}>Sign in with Google</Button>
-            </CardContent>
-          </Card>
-        )}
 
         {state.status === "no-resume" && (
           <Card>
@@ -1424,5 +1438,56 @@ function JobsSidebar({
         </button>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Signed-out Jobs landing — one focused sign-in moment. Lean by design: a proof
+ * chip + a blurred teaser of real-looking openings + a single CTA, with the full
+ * value props living in the shared sign-in modal (onSignIn) rather than repeated
+ * on the page. Replaces the old header + tabs + Refresh + sign-in card stack.
+ */
+function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn: () => void }) {
+  const rounded =
+    count && count > 200
+      ? count >= 1000
+        ? Math.floor(count / 1000) * 1000
+        : Math.floor(count / 100) * 100
+      : null;
+  const sample = [
+    { title: "Frontend Engineer", co: "Stripe · Remote (US)", match: "92%" },
+    { title: "Product Designer", co: "Figma · New York, NY", match: "88%" },
+    { title: "Machine Learning Engineer", co: "Notion · San Francisco, CA", match: "90%" },
+  ];
+  return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "56px 24px 72px", textAlign: "center", width: "100%" }}>
+      {rounded && (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg, rgba(47,129,247,0.1))", padding: "5px 12px", borderRadius: 999, marginBottom: 16 }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)" }} />
+          {rounded.toLocaleString()}+ live openings this week
+        </div>
+      )}
+      <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, color: "var(--text)", margin: "0 0 8px", lineHeight: 1.2 }}>
+        Browse live jobs, ranked to your résumé
+      </h1>
+      <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 auto 24px", maxWidth: 360, lineHeight: 1.55 }}>
+        Openings from company career boards, matched to your résumé.
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 420, margin: "0 auto 24px", filter: "blur(2.5px)", opacity: 0.5, pointerEvents: "none", userSelect: "none" }} aria-hidden>
+        {sample.map((j) => (
+          <div key={j.title} style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", padding: "12px 14px", textAlign: "left" }}>
+            <div style={{ width: 38, height: 38, borderRadius: 9, background: "var(--surface2)", flexShrink: 0 }} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{j.title}</div>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 1 }}>{j.co}</div>
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>{j.match}</div>
+          </div>
+        ))}
+      </div>
+
+      <Button size="lg" onClick={onSignIn} style={{ minWidth: 220 }}>Sign in to browse</Button>
+    </div>
   );
 }
