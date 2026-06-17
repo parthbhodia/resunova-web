@@ -10,7 +10,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { UmbcProvider } from "@/contexts/UmbcContext";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
-import { signInWithGoogle } from "@/lib/anonScan";
+import { signInWithGoogle, POST_LOGIN_DEST_KEY } from "@/lib/anonScan";
 import { getSupabaseClient } from "@/lib/supabase";
 import { apiUrl } from "@/lib/utils";
 import { isUmbcUser } from "@/lib/userDomainDetection";
@@ -166,6 +166,30 @@ export default function AppShell({ children }: { children: ReactNode }) {
       void import("@/components/JobsFeed").then((m) => m.prefetchJobsFeed()).catch(() => {});
     };
 
+    // After OAuth, send the user back to where they started sign-in (e.g.
+    // ?view=jobs → the jobs onboarding wizard) instead of the default Analyze
+    // view. One-shot (atomic read+remove so it never hijacks later "/" visits),
+    // and only when we landed without an explicit view (Supabase dropped the
+    // query back to the bare origin). See signInWithGoogle in lib/anonScan.
+    const restorePostLoginDest = () => {
+      if (typeof window === "undefined") return;
+      let dest: string | null = null;
+      try {
+        dest = window.localStorage.getItem(POST_LOGIN_DEST_KEY);
+        if (dest) window.localStorage.removeItem(POST_LOGIN_DEST_KEY);
+      } catch {
+        return;
+      }
+      if (!dest) return;
+      try {
+        const hasView = new URLSearchParams(window.location.search).get("view");
+        const here = window.location.pathname + window.location.search;
+        if (!hasView && dest !== here) router.replace(dest);
+      } catch {
+        /* ignore */
+      }
+    };
+
     supabase.auth.getSession().then(({ data }) => {
       const currentUser = data.session?.user ?? null;
       setUser(currentUser);
@@ -174,6 +198,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       void syncAdvisorAccess(data.session?.access_token);
       void syncInstitutionStudent(currentUser?.email, data.session?.access_token);
       warmJobsFeed(data.session?.access_token);
+      if (currentUser) restorePostLoginDest();
     });
     const {
       data: { subscription },
@@ -183,7 +208,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
       setIsUmbc(isUmbcUser(currentUser?.email));
       void syncAdvisorAccess(s?.access_token);
       void syncInstitutionStudent(currentUser?.email, s?.access_token);
-      if (_ev === "SIGNED_IN") warmJobsFeed(s?.access_token);
+      if (_ev === "SIGNED_IN") {
+        warmJobsFeed(s?.access_token);
+        restorePostLoginDest();
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
