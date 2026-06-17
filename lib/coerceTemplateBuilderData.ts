@@ -1,10 +1,14 @@
-import type { TBResumeData, TBSkills } from "@/components/TemplateBuilder/types";
+import type { TBResumeData, TBSkills, TBLayout } from "@/components/TemplateBuilder/types";
 import {
   DEFAULT_CUSTOMIZATION,
   DEFAULT_RESUME,
   DEFAULT_SKILLS,
   normalizeSectionOrder,
 } from "@/components/TemplateBuilder/types";
+
+function coerceLayout(v: unknown): TBLayout {
+  return v === "twoColumn" ? "twoColumn" : "single";
+}
 
 /** Normalize JSON from Supabase or legacy localStorage into a full TBResumeData. */
 export function coerceTemplateBuilderData(raw: unknown): TBResumeData | null {
@@ -20,7 +24,11 @@ export function coerceTemplateBuilderData(raw: unknown): TBResumeData | null {
     ...DEFAULT_RESUME,
     ...parsed,
     skills,
-    customization: { ...DEFAULT_CUSTOMIZATION, ...(parsed.customization ?? {}) },
+    customization: {
+      ...DEFAULT_CUSTOMIZATION,
+      ...(parsed.customization ?? {}),
+      layout: coerceLayout((parsed.customization as Record<string, unknown> | undefined)?.layout),
+    },
     customSections: Array.isArray(parsed.customSections) ? parsed.customSections : [],
     sectionOrder: normalizeSectionOrder(parsed.sectionOrder, parsed.customSections ?? []),
     hiddenSections: Array.isArray(parsed.hiddenSections) ? parsed.hiddenSections : [],

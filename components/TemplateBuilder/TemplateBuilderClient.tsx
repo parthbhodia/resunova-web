@@ -8,10 +8,13 @@ import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import ResumePreview from "./ResumePreview";
 import type { TBFont } from "./types";
 import { PAGE_WIDTH_OPTIONS, STYLE_PRESETS } from "./templateStyles";
-import { apiUrl } from "@/lib/utils";
+import { apiUrl, resumeFileClientError } from "@/lib/utils";
 import { buildNameRoleExportFilename } from "@/lib/resumeFileName";
-import { consumeTemplateBuilderStructuredPrefill } from "@/lib/templateBuilderPrefill";
+import { consumeTemplateBuilderStructuredPrefill, stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/templateBuilderPrefill";
 import TemplateBuilderSectionsPanel from "./TemplateBuilderSectionsPanel";
+import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
+import SignInToUseAi from "@/components/CoverLetterBuilder/SignInToUseAi";
+import TemplateBuilderReviewPanel, { reviewScoreColor, type ReviewResult } from "./TemplateBuilderReviewPanel";
 
 /* ── Shared style helpers ──────────────────────────────────────── */
 const inputBase: React.CSSProperties = {
@@ -119,6 +122,36 @@ function countWords(s: string) {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
 
+/** Gated /api/tb-enhance call. AI is an account feature (consistent with
+ *  section generation + the Cover Letter builder), so we require a Supabase
+ *  session and return `{needSignIn:true}` when signed out for the caller to
+ *  prompt sign-in. */
+async function tbEnhanceCall(
+  text: string,
+  type: "bullets" | "summary",
+  context?: { role?: string; company?: string },
+): Promise<{ ok: true; enhanced: string } | { ok: false; needSignIn?: boolean; error?: string }> {
+  let token: string | undefined;
+  try {
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
+    token = session?.access_token;
+  } catch { /* treat as signed out */ }
+  if (!token) return { ok: false, needSignIn: true };
+  try {
+    const res = await fetch(apiUrl("/api/tb-enhance"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ text, type, context: context ?? {} }),
+    });
+    if (res.status === 401 || res.status === 403) return { ok: false, needSignIn: true };
+    const data = await res.json();
+    if (!res.ok || !data.enhanced) return { ok: false, error: data.error || "AI error" };
+    return { ok: true, enhanced: String(data.enhanced) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Network error" };
+  }
+}
+
 interface AITextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   type: "bullets" | "summary";
   context?: { role?: string; company?: string };
@@ -126,31 +159,29 @@ interface AITextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaEleme
 }
 
 function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AITextareaProps) {
+  const { signedIn, signingIn, signIn } = useSupabaseSignedIn();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [undoVal, setUndoVal] = useState<string | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
   const wordCount = countWords(String(value ?? ""));
-  const showBtn = wordCount >= 8;
+  const showBtn = wordCount >= 3;
 
   const enhance = useCallback(async () => {
-    setLoading(true);
     setError(null);
-    try {
-      const res = await fetch(apiUrl("/api/tb-enhance"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: String(value ?? ""), type, context: context ?? {} }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.enhanced) throw new Error(data.error || "AI error");
-      setUndoVal(String(value ?? ""));
-      onEnhanced(data.enhanced);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
-    } finally {
-      setLoading(false);
+    if (signedIn === false) { setShowSignIn(true); return; }
+    setLoading(true);
+    setShowSignIn(false);
+    const r = await tbEnhanceCall(String(value ?? ""), type, context);
+    setLoading(false);
+    if (!r.ok) {
+      if (r.needSignIn) { setShowSignIn(true); return; }
+      setError(r.error || "Failed");
+      return;
     }
-  }, [value, type, context, onEnhanced]);
+    setUndoVal(String(value ?? ""));
+    onEnhanced(r.enhanced);
+  }, [value, type, context, onEnhanced, signedIn]);
 
   const undo = useCallback(() => {
     if (undoVal !== null) {
@@ -207,8 +238,157 @@ function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AIText
           >
             {loading
               ? <><span style={{ width: 10, height: 10, border: "1.5px solid var(--border)", borderTopColor: "var(--muted)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Enhancing…</>
-              : <>✦ AI Enhance</>}
+              : <>✦ AI Enhance{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.8, fontSize: 10 }}>🔒</span>}</>}
           </button>
+        </div>
+      )}
+      {showSignIn && (
+        <div style={{ position: "absolute", bottom: 44, right: 8, zIndex: 20 }}>
+          <SignInToUseAi
+            variant="popover"
+            signingIn={signingIn}
+            onSignIn={signIn}
+            onDismiss={() => setShowSignIn(false)}
+            title="Sign in to use AI Enhance"
+            subtitle="AI rewriting is free with a Google account."
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── AI Generate button (writes section from scratch) ──────────── */
+
+interface AIGenerateButtonProps {
+  /** Determines the endpoint kind and context shape. */
+  kind: "summary" | "skills";
+  /** Context pulled from the current builder data. */
+  buildContext: {
+    name?: string;
+    role?: string;
+    company?: string;
+    experiences?: Array<{ jobTitle: string; company: string; bullets: string }>;
+    education?: Array<{ degree: string; school: string }>;
+    skills?: string;
+  };
+  /** Called with the generated text when the request succeeds. */
+  onGenerated: (result: string | string[]) => void;
+  /** Visual label for the button. */
+  label?: string;
+}
+
+/**
+ * A standalone "Generate with AI" button for template builder sections.
+ * Gates on sign-in (consistent with CoverLetterBuilder AITextarea). Shows
+ * a popover sign-in prompt for signed-out users instead of firing a doomed
+ * request, and handles 401/403 the same way.
+ */
+function AIGenerateButton({ kind, buildContext, onGenerated, label = "✦ Generate with AI" }: AIGenerateButtonProps) {
+  const { signedIn, signingIn, signIn } = useSupabaseSignedIn();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
+
+  const generate = useCallback(async () => {
+    setError(null);
+    if (signedIn === false) {
+      setShowSignIn(true);
+      return;
+    }
+    setLoading(true);
+    setShowSignIn(false);
+    try {
+      const db = getSupabaseClient();
+      const { data: { session } } = await db.auth.getSession();
+      if (!session?.access_token) {
+        setShowSignIn(true);
+        setLoading(false);
+        return;
+      }
+      const res = await fetch(apiUrl("/api/tb-generate"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ kind, context: buildContext }),
+      });
+      if (res.status === 401 || res.status === 403) {
+        setShowSignIn(true);
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "AI error");
+      if (kind === "summary") {
+        const generated = (data.generated || "").trim();
+        if (!generated) throw new Error("Empty response from AI");
+        onGenerated(generated);
+      } else {
+        const skills = Array.isArray(data.skills) ? data.skills : [];
+        if (!skills.length) throw new Error("Empty response from AI");
+        onGenerated(skills);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setLoading(false);
+    }
+  }, [kind, buildContext, onGenerated, signedIn]);
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        type="button"
+        onClick={generate}
+        disabled={loading}
+        title={signedIn === false ? "Sign in to use AI generation" : `Generate ${kind} with AI`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          fontSize: 12,
+          fontWeight: 600,
+          color: loading ? "var(--muted)" : "var(--accent)",
+          background: "var(--surface2)",
+          border: "1.5px solid var(--border)",
+          borderRadius: 7,
+          padding: "6px 12px",
+          cursor: loading ? "not-allowed" : "pointer",
+          whiteSpace: "nowrap",
+          transition: "border-color 0.15s, background 0.15s",
+        }}
+      >
+        {loading ? (
+          <>
+            <span style={{
+              width: 10, height: 10,
+              border: "1.5px solid var(--border)", borderTopColor: "var(--accent)",
+              borderRadius: "50%", animation: "spin 0.8s linear infinite",
+              display: "inline-block", flexShrink: 0,
+            }} />
+            Generating…
+          </>
+        ) : (
+          <>
+            {label}
+            {signedIn === false && <span aria-hidden="true" style={{ opacity: 0.75, fontSize: 11 }}>🔒</span>}
+          </>
+        )}
+      </button>
+      {error && (
+        <div style={{ marginTop: 5, fontSize: 11, color: "var(--red, #ef4444)" }}>{error}</div>
+      )}
+      {showSignIn && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 20 }}>
+          <SignInToUseAi
+            variant="popover"
+            signingIn={signingIn}
+            onSignIn={signIn}
+            onDismiss={() => setShowSignIn(false)}
+            title="Sign in to generate with AI"
+            subtitle="AI section generation is free with a Google account."
+          />
         </div>
       )}
     </div>
@@ -233,7 +413,7 @@ const FONT_OPTIONS: { label: string; value: TBFont; sub: string }[] = [
   { label: "Courier", value: "Courier",     sub: "Technical / developer" },
 ];
 
-type SectionKey = "sections" | "profile" | "experience" | "education" | "projects" | "skills" | "customize";
+type SectionKey = "sections" | "profile" | "experience" | "education" | "projects" | "skills" | "customize" | "review";
 
 const TABS: { key: SectionKey; label: string; icon: string }[] = [
   { key: "sections",   label: "Sections",   icon: "☰" },
@@ -243,6 +423,7 @@ const TABS: { key: SectionKey; label: string; icon: string }[] = [
   { key: "projects",   label: "Projects",   icon: "🚀" },
   { key: "skills",     label: "Skills",     icon: "⚡" },
   { key: "customize",  label: "Style",      icon: "🎨" },
+  { key: "review",     label: "Review",     icon: "✦" },
 ];
 
 export default function TemplateBuilderClient() {
@@ -251,6 +432,7 @@ export default function TemplateBuilderClient() {
   const store = useTemplateBuilderStore();
   const { data, loaded } = store;
   const [activeTab, setActiveTab] = useState<SectionKey>("sections");
+  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
   const [editingCustomId, setEditingCustomId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
@@ -263,7 +445,17 @@ export default function TemplateBuilderClient() {
     message: string;
   } | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const { exportPdf: exportHtmlPdf, exporting: isGenerating, error: htmlPdfError } = useHtmlPdfExport();
+
+  // Responsive: on iPad / narrow widths the 340px form panel + preview don't
+  // both fit, so the form collapses to a vertical icon rail and the active
+  // section opens as a flyout drawer over the preview.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const builderIdFromUrl = (searchParams?.get("builder") ?? "").trim();
   const presetFromUrl = (searchParams?.get("preset") ?? "").trim().toLowerCase();
@@ -282,6 +474,21 @@ export default function TemplateBuilderClient() {
     const t = window.setTimeout(() => setFeedbackToast(null), ms);
     return () => window.clearTimeout(t);
   }, [feedbackToast]);
+
+  // Watch the builder's own width (robust to the app nav sidebar state). Deps
+  // include `loaded` because the root div only mounts once loaded — without it
+  // the observer would attach to a null ref and never fire (same gotcha the
+  // Cover Letter builder hit).
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) setNarrow(w < 880);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loaded]);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -386,6 +593,50 @@ export default function TemplateBuilderClient() {
     void exportHtmlPdf(previewRef.current, filename);
   }, [data.profile.name, data.workExperiences, exportHtmlPdf]);
 
+  const handleImportFile = useCallback(async (file: File) => {
+    setImportError(null);
+    const fileErr = resumeFileClientError(file);
+    if (fileErr) {
+      setImportError(fileErr);
+      return;
+    }
+    // Confirm overwrite if builder already has meaningful content
+    const hasContent =
+      data.profile.name.trim() ||
+      data.workExperiences.some((w) => w.company.trim() || w.bullets.trim());
+    if (hasContent && typeof window !== "undefined") {
+      const ok = window.confirm(
+        "This will replace your current builder content with the imported resume. Continue?",
+      );
+      if (!ok) return;
+    }
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const resp = await fetch(apiUrl("/api/upload-resume"), { method: "POST", body: fd });
+      const json = (await resp.json()) as { error?: string; structuredResume?: unknown };
+      if (!resp.ok) {
+        throw new Error(json.error ?? `Upload failed (${resp.status})`);
+      }
+      const ok = stashTemplateBuilderStructuredPrefillFromAnalysisResult(json);
+      if (!ok) {
+        throw new Error("Could not extract structured data from this file. Try a more complete PDF résumé.");
+      }
+      const prefill = consumeTemplateBuilderStructuredPrefill();
+      if (!prefill) {
+        throw new Error("Failed to map the extracted resume into the builder. Please try again.");
+      }
+      store.replaceData(prefill);
+      showFeedback("success", "Resume imported — fill in any missing details below.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Import failed. Please try again.";
+      setImportError(msg);
+    } finally {
+      setImporting(false);
+    }
+  }, [data.profile.name, data.workExperiences, store, showFeedback]);
+
   if (!loaded) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--muted)" }}>
@@ -403,8 +654,37 @@ export default function TemplateBuilderClient() {
         ? "rgba(185, 28, 28, 0.96)"
         : "rgba(30, 41, 59, 0.96)";
 
+  // The active section's editor — rendered in the full side panel (wide) or in
+  // the flyout drawer (narrow / iPad).
+  const sectionContent = (
+    <>
+      {activeTab === "sections" && (
+        <TemplateBuilderSectionsPanel
+          store={store}
+          sectionOrder={data.sectionOrder}
+          hiddenSections={data.hiddenSections}
+          customSections={data.customSections}
+          editingCustomId={editingCustomId}
+          onEditCustomSection={setEditingCustomId}
+          onEditSection={(tab) => {
+            setEditingCustomId(null);
+            setActiveTab(tab);
+          }}
+        />
+      )}
+      {activeTab === "profile" && <ProfileSection store={store} data={data} />}
+      {activeTab === "experience" && <ExperienceSection store={store} data={data} />}
+      {activeTab === "education" && <EducationSection store={store} data={data} />}
+      {activeTab === "projects" && <ProjectsSection store={store} data={data} />}
+      {activeTab === "skills" && <SkillsSection store={store} data={data} />}
+      {activeTab === "customize" && <CustomizeSection store={store} c={c} />}
+      {activeTab === "review" && <TemplateBuilderReviewPanel data={data} result={reviewResult} onResult={setReviewResult} />}
+    </>
+  );
+  const activeTabMeta = TABS.find((t) => t.key === activeTab);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
+    <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       {feedbackToast ? (
         <div
           role="status"
@@ -457,6 +737,22 @@ export default function TemplateBuilderClient() {
           <span style={{ fontSize: 11, color: "var(--muted)", padding: "2px 7px", border: "1px solid var(--border)", borderRadius: 10 }}>
             Free
           </span>
+          <button
+            type="button"
+            onClick={() => setActiveTab("review")}
+            title={reviewResult ? "Open ATS & Job Match review" : "Score your résumé against a job"}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontFamily: "inherit",
+              fontSize: 11, fontWeight: 700,
+              padding: "3px 9px", borderRadius: 10,
+              border: `1px solid ${reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : "var(--border)"}`,
+              background: "transparent",
+              color: reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : "var(--muted)",
+            }}
+          >
+            <span aria-hidden>✦</span>
+            {reviewResult?.overallScore != null ? `ATS ${reviewResult.overallScore}` : "Check ATS"}
+          </button>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {saveFlash ? (
@@ -488,6 +784,54 @@ export default function TemplateBuilderClient() {
           >
             Load Example
           </button>
+          {/* ── Import resume ─────────────────────────────────── */}
+          {importError && (
+            <span style={{ fontSize: 11, color: "var(--red, #ef4444)", maxWidth: 200 }}>{importError}</span>
+          )}
+          <button
+            onClick={() => { setImportError(null); importFileRef.current?.click(); }}
+            disabled={importing}
+            title="Import an existing PDF or Word résumé — extracts content and fills the builder"
+            style={{
+              fontSize: 12,
+              color: importing ? "var(--muted)" : "var(--text)",
+              background: "none",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              padding: "5px 11px",
+              cursor: importing ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              opacity: importing ? 0.7 : 1,
+            }}
+          >
+            {importing ? (
+              <>
+                <span style={{ width: 10, height: 10, border: "1.5px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
+                Importing…
+              </>
+            ) : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden style={{ flexShrink: 0 }}>
+                  <path d="M6.5 1v7.5M3 6l3.5 3.5L10 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M1 10.5v1a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5v-1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+                Import Resume
+              </>
+            )}
+          </button>
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleImportFile(f);
+              e.target.value = "";
+            }}
+          />
           <button
             onClick={() => void handleSaveToLibrary()}
             disabled={saveBusy || signedIn === false}
@@ -538,88 +882,107 @@ export default function TemplateBuilderClient() {
       </div>
 
       {/* ── Body ────────────────────────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden", position: "relative" }}>
         {/* ── Left: Form Panel ──────────────────────────────── */}
-        <div style={{
-          width: 340,
-          minWidth: 300,
-          flexShrink: 0,
-          display: "flex",
-          flexDirection: "column",
-          borderRight: "1px solid var(--border)",
-          background: "var(--surface)",
-          overflow: "hidden",
-        }}>
-          {/* Section Tabs */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 0,
-            borderBottom: "1px solid var(--border)",
-            flexShrink: 0,
-          }}>
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                style={{
-                  background: activeTab === tab.key ? "var(--bg)" : "transparent",
-                  border: "none",
-                  borderBottom: activeTab === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
-                  borderRight: "1px solid var(--border)",
-                  padding: "10px 4px",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 3,
-                  transition: "background 0.12s",
-                  color: activeTab === tab.key ? "var(--accent)" : "var(--muted)",
-                  fontFamily: "inherit",
-                }}
-              >
-                <span style={{ fontSize: 15 }}>{tab.icon}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{tab.label}</span>
-              </button>
-            ))}
-          </div>
+        {narrow ? (
+          <>
+            {/* Collapsed icon rail — taps open the section as a flyout */}
+            <div style={{
+              width: 56, flexShrink: 0, display: "flex", flexDirection: "column",
+              borderRight: "1px solid var(--border)", background: "var(--surface)", overflowY: "auto", zIndex: 27,
+            }}>
+              {TABS.map((tab) => {
+                const isOpen = panelOpen && activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    title={tab.label}
+                    onClick={() => {
+                      if (panelOpen && activeTab === tab.key) setPanelOpen(false);
+                      else { setActiveTab(tab.key); setPanelOpen(true); }
+                    }}
+                    style={{
+                      border: "none",
+                      borderLeft: isOpen ? "3px solid var(--accent)" : "3px solid transparent",
+                      background: isOpen ? "var(--bg)" : "transparent",
+                      cursor: "pointer", fontFamily: "inherit",
+                      padding: "11px 2px 9px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                      color: isOpen ? "var(--accent)" : "var(--muted)",
+                    }}
+                  >
+                    <span style={{ fontSize: 17 }}>{tab.icon}</span>
+                    <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.1, textAlign: "center" }}>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* Section Content */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "18px 16px 32px" }}>
-            {activeTab === "sections" && (
-              <TemplateBuilderSectionsPanel
-                store={store}
-                sectionOrder={data.sectionOrder}
-                hiddenSections={data.hiddenSections}
-                customSections={data.customSections}
-                editingCustomId={editingCustomId}
-                onEditCustomSection={setEditingCustomId}
-                onEditSection={(tab) => {
-                  setEditingCustomId(null);
-                  setActiveTab(tab);
-                }}
-              />
+            {/* Flyout drawer over the preview */}
+            {panelOpen && (
+              <>
+                <div
+                  onClick={() => setPanelOpen(false)}
+                  style={{ position: "absolute", left: 56, top: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.28)", zIndex: 25 }}
+                />
+                <div style={{
+                  position: "absolute", left: 56, top: 0, bottom: 0,
+                  width: "min(340px, calc(100% - 56px))", zIndex: 26,
+                  background: "var(--surface)", borderRight: "1px solid var(--border)",
+                  boxShadow: "8px 0 28px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column",
+                }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "10px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0,
+                  }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span aria-hidden style={{ fontSize: 15 }}>{activeTabMeta?.icon}</span>{activeTabMeta?.label}
+                    </span>
+                    <button
+                      onClick={() => setPanelOpen(false)}
+                      title="Hide editor"
+                      style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}
+                    >‹ Hide</button>
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 36px" }}>
+                    {sectionContent}
+                  </div>
+                </div>
+              </>
             )}
-            {activeTab === "profile" && (
-              <ProfileSection store={store} data={data} />
-            )}
-            {activeTab === "experience" && (
-              <ExperienceSection store={store} data={data} />
-            )}
-            {activeTab === "education" && (
-              <EducationSection store={store} data={data} />
-            )}
-            {activeTab === "projects" && (
-              <ProjectsSection store={store} data={data} />
-            )}
-            {activeTab === "skills" && (
-              <SkillsSection store={store} data={data} />
-            )}
-            {activeTab === "customize" && (
-              <CustomizeSection store={store} c={c} />
-            )}
+          </>
+        ) : (
+          <div style={{
+            width: 340, minWidth: 300, flexShrink: 0, display: "flex", flexDirection: "column",
+            borderRight: "1px solid var(--border)", background: "var(--surface)", overflow: "hidden",
+          }}>
+            {/* Section Tabs */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    background: activeTab === tab.key ? "var(--bg)" : "transparent",
+                    border: "none",
+                    borderBottom: activeTab === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
+                    borderRight: "1px solid var(--border)",
+                    padding: "10px 4px", cursor: "pointer", display: "flex", flexDirection: "column",
+                    alignItems: "center", gap: 3, transition: "background 0.12s",
+                    color: activeTab === tab.key ? "var(--accent)" : "var(--muted)", fontFamily: "inherit",
+                  }}
+                >
+                  <span style={{ fontSize: 15 }}>{tab.icon}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Section Content */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "18px 16px 32px" }}>
+              {sectionContent}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Right: Preview Panel ──────────────────────────── */}
         <div style={{
@@ -671,33 +1034,32 @@ interface BulletRowProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
+  signedIn?: boolean | null;
+  onRequireSignIn?: () => void;
 }
 
-function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMoveDown, onRemove }: BulletRowProps) {
+function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMoveDown, onRemove, signedIn, onRequireSignIn }: BulletRowProps) {
   const [aiLoading, setAiLoading] = useState(false);
   const [undoVal, setUndoVal] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const wordCount = value.trim().split(/\s+/).filter(Boolean).length;
-  const showAi = wordCount >= 6;
+  const showAi = wordCount >= 3;
 
   const enhance = useCallback(async () => {
+    setAiError(null);
+    if (signedIn === false) { onRequireSignIn?.(); return; }
     setAiLoading(true);
-    try {
-      const res = await fetch(apiUrl("/api/tb-enhance"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: value, type: "bullets", context: context ?? {} }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.enhanced) throw new Error(data.error || "AI error");
-      setUndoVal(value);
-      const enhanced = String(data.enhanced).split("\n")[0].replace(/^[•·\-*]\s*/, "").trim();
-      onChange(enhanced);
-    } catch {
-      // silently fail
-    } finally {
-      setAiLoading(false);
+    const r = await tbEnhanceCall(value, "bullets", context);
+    setAiLoading(false);
+    if (!r.ok) {
+      if (r.needSignIn) { onRequireSignIn?.(); return; }
+      setAiError(r.error || "Failed");
+      return;
     }
-  }, [value, context, onChange]);
+    setUndoVal(value);
+    const enhanced = r.enhanced.split("\n")[0].replace(/^[•·\-*]\s*/, "").trim();
+    onChange(enhanced);
+  }, [value, context, onChange, signedIn, onRequireSignIn]);
 
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 6 }}>
@@ -719,6 +1081,9 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
         />
         {showAi && (
           <div style={{ position: "absolute", bottom: 7, right: 7, display: "flex", gap: 4, alignItems: "center" }}>
+            {aiError && (
+              <span style={{ fontSize: 9, color: "var(--red, #ef4444)", maxWidth: 110, textAlign: "right", lineHeight: 1.2 }}>{aiError}</span>
+            )}
             {undoVal !== null && !aiLoading && (
               <button
                 type="button"
@@ -733,6 +1098,7 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
               type="button"
               onClick={enhance}
               disabled={aiLoading}
+              title={signedIn === false ? "Sign in to rewrite this bullet with AI" : "Rewrite this bullet with AI"}
               style={{
                 fontSize: 10, fontWeight: 600, padding: "3px 7px", borderRadius: 4, border: "none",
                 background: aiLoading ? "var(--surface2)" : "var(--accent)",
@@ -743,7 +1109,7 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
             >
               {aiLoading
                 ? <span style={{ width: 8, height: 8, border: "1.5px solid var(--border)", borderTopColor: "var(--muted)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
-                : <>✦ AI</>}
+                : <>✦ AI{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.85 }}>🔒</span>}</>}
             </button>
           </div>
         )}
@@ -778,13 +1144,54 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
   minRows?: number;
   label?: string;
 }) {
+  const { signedIn, signingIn, signIn } = useSupabaseSignedIn();
   const items = parseBulletsToArray(bullets, minRows);
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [rewriteAllLoading, setRewriteAllLoading] = useState(false);
+  const [undoAll, setUndoAll] = useState<string | null>(null);
+  const [rewriteAllError, setRewriteAllError] = useState<string | null>(null);
 
   const updateItems = (next: string[]) => onChange(joinBulletsFromArray(next));
+  const filledCount = items.filter((b) => b.trim()).length;
+
+  const rewriteAll = useCallback(async () => {
+    setRewriteAllError(null);
+    if (signedIn === false) { setShowSignIn(true); return; }
+    const block = joinBulletsFromArray(items);
+    if (!block.trim()) return;
+    setRewriteAllLoading(true);
+    const r = await tbEnhanceCall(block, "bullets", context);
+    setRewriteAllLoading(false);
+    if (!r.ok) {
+      if (r.needSignIn) { setShowSignIn(true); return; }
+      setRewriteAllError(r.error || "Failed");
+      return;
+    }
+    setUndoAll(bullets);
+    onChange(r.enhanced);
+  }, [items, bullets, context, signedIn, onChange]);
 
   return (
-    <div>
-      <label style={{ ...labelStyle, marginBottom: 8 }}>{label}</label>
+    <div style={{ position: "relative" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <label style={{ ...labelStyle, marginBottom: 0 }}>{label}</label>
+        {filledCount >= 2 && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {rewriteAllError && <span style={{ fontSize: 9, color: "var(--red, #ef4444)" }}>{rewriteAllError}</span>}
+            {undoAll !== null && !rewriteAllLoading && (
+              <button type="button" onClick={() => { onChange(undoAll); setUndoAll(null); }}
+                style={{ fontSize: 9, color: "var(--muted)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}>↩ Undo</button>
+            )}
+            <button type="button" onClick={rewriteAll} disabled={rewriteAllLoading}
+              title={signedIn === false ? "Sign in to rewrite all bullets with AI" : "Rewrite every bullet with AI"}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: rewriteAllLoading ? "var(--muted)" : "var(--accent)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 5, padding: "3px 8px", cursor: rewriteAllLoading ? "wait" : "pointer", whiteSpace: "nowrap" }}>
+              {rewriteAllLoading
+                ? <><span style={{ width: 8, height: 8, border: "1.5px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Rewriting…</>
+                : <>✦ Rewrite all{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.8 }}>🔒</span>}</>}
+            </button>
+          </div>
+        )}
+      </div>
       {items.map((item, idx) => (
         <BulletRow
           key={idx}
@@ -792,6 +1199,8 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
           isFirst={idx === 0}
           isLast={idx === items.length - 1}
           context={context}
+          signedIn={signedIn}
+          onRequireSignIn={() => setShowSignIn(true)}
           onChange={(v) => { const next = [...items]; next[idx] = v; updateItems(next); }}
           onMoveUp={() => {
             if (idx === 0) return;
@@ -818,6 +1227,18 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
       <button style={{ ...addBtnStyle, marginTop: 2 }} onClick={() => updateItems([...items, ""])}>
         + Add Bullet
       </button>
+      {showSignIn && (
+        <div style={{ position: "absolute", top: 28, right: 0, zIndex: 20 }}>
+          <SignInToUseAi
+            variant="popover"
+            signingIn={signingIn}
+            onSignIn={signIn}
+            onDismiss={() => setShowSignIn(false)}
+            title="Sign in to use AI rewrite"
+            subtitle="AI rewriting is free with a Google account."
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -836,6 +1257,23 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 function ProfileSection({ store, data }: { store: StoreType; data: StoreType["data"] }) {
   const p = data.profile;
+
+  // Build context for AI summary generation from current builder data
+  const summaryGenContext = {
+    name: p.name,
+    role: data.workExperiences[0]?.jobTitle || "",
+    company: data.workExperiences[0]?.company || "",
+    experiences: data.workExperiences.map((w) => ({
+      jobTitle: w.jobTitle,
+      company: w.company,
+      bullets: w.bullets,
+    })),
+    education: data.educations.map((e) => ({
+      degree: e.degree,
+      school: e.school,
+    })),
+  };
+
   return (
     <>
       <SectionHeading>Personal Info</SectionHeading>
@@ -876,15 +1314,23 @@ function ProfileSection({ store, data }: { store: StoreType; data: StoreType["da
         </Field>
       </Row>
       <FieldWrap>
-        <Field label="Professional Summary">
-          <AITextarea
-            type="summary"
-            value={p.summary}
-            onChange={(e) => store.setProfile("summary", e.target.value)}
-            onEnhanced={(v) => store.setProfile("summary", v)}
-            placeholder="Brief 2–3 sentence summary of your experience and goals..."
+        {/* Summary label row with Generate button alongside */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <label style={{ ...labelStyle, marginBottom: 0 }}>Professional Summary</label>
+          <AIGenerateButton
+            kind="summary"
+            buildContext={summaryGenContext}
+            onGenerated={(result) => store.setProfile("summary", result as string)}
+            label="✦ Generate summary"
           />
-        </Field>
+        </div>
+        <AITextarea
+          type="summary"
+          value={p.summary}
+          onChange={(e) => store.setProfile("summary", e.target.value)}
+          onEnhanced={(v) => store.setProfile("summary", v)}
+          placeholder="Brief 2–3 sentence summary of your experience and goals..."
+        />
       </FieldWrap>
     </>
   );
@@ -1113,6 +1559,21 @@ function ProjectsSection({ store, data }: { store: StoreType; data: StoreType["d
 
 function SkillsSection({ store, data }: { store: StoreType; data: StoreType["data"] }) {
   const { featuredSkills, descriptions } = data.skills;
+
+  // Build context for AI skills suggestion from current builder data
+  const skillsGenContext = {
+    experiences: data.workExperiences.map((w) => ({
+      jobTitle: w.jobTitle,
+      company: w.company,
+      bullets: w.bullets,
+    })),
+    education: data.educations.map((e) => ({
+      degree: e.degree,
+      school: e.school,
+    })),
+    skills: descriptions,
+  };
+
   return (
     <>
       <SectionHeading>Skills</SectionHeading>
@@ -1154,8 +1615,20 @@ function SkillsSection({ store, data }: { store: StoreType; data: StoreType["dat
         ))}
       </div>
 
-      {/* Category description lines */}
-      <label style={labelStyle}>Skill categories</label>
+      {/* Category description lines — label row with Suggest skills button */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <label style={{ ...labelStyle, marginBottom: 0 }}>Skill categories</label>
+        <AIGenerateButton
+          kind="skills"
+          buildContext={skillsGenContext}
+          onGenerated={(result) => {
+            // result is string[] of "Category: A, B, C" lines — join to textarea value
+            const lines = Array.isArray(result) ? result : [result as string];
+            store.setSkillDescriptions(lines.join("\n"));
+          }}
+          label="✦ Suggest skills"
+        />
+      </div>
       <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
         One category per line, e.g. "Languages: Python, Go"
       </p>
@@ -1179,6 +1652,80 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
   return (
     <>
       <SectionHeading>Style & Customization</SectionHeading>
+
+      {/* Layout */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={labelStyle}>Layout</label>
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
+          Two-column places contact, education, and skills in a sidebar.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+          {([
+            {
+              id: "single" as const,
+              label: "Single column",
+              desc: "Classic top-to-bottom",
+              preview: (
+                <svg width="36" height="28" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                  <rect x="4" y="3" width="28" height="3" rx="1" fill="currentColor" opacity="0.7" />
+                  <rect x="4" y="9" width="28" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="4" y="13" width="22" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="4" y="17" width="28" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="4" y="21" width="18" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                </svg>
+              ),
+            },
+            {
+              id: "twoColumn" as const,
+              label: "Two column",
+              desc: "Sidebar + main",
+              preview: (
+                <svg width="36" height="28" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                  <rect x="2" y="2" width="11" height="24" rx="1" fill="currentColor" opacity="0.12" />
+                  <rect x="3" y="4" width="9" height="2" rx="1" fill="currentColor" opacity="0.6" />
+                  <rect x="3" y="8" width="9" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="3" y="11" width="7" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="3" y="14" width="9" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="16" y="4" width="18" height="2" rx="1" fill="currentColor" opacity="0.7" />
+                  <rect x="16" y="9" width="18" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="16" y="13" width="14" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="16" y="17" width="18" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                  <rect x="16" y="21" width="12" height="1.5" rx="1" fill="currentColor" opacity="0.3" />
+                </svg>
+              ),
+            },
+          ] as const).map((opt) => {
+            const active = (c.layout ?? "single") === opt.id;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => store.setCustomization("layout", opt.id)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 8px",
+                  borderRadius: 9,
+                  border: active ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
+                  background: active ? "color-mix(in srgb, var(--accent) 8%, var(--bg))" : "var(--bg)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  color: active ? "var(--accent)" : "var(--text)",
+                  transition: "border-color 0.15s, background 0.15s",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ color: active ? "var(--accent)" : "var(--muted)" }}>
+                  {opt.preview}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700 }}>{opt.label}</div>
+                <div style={{ fontSize: 10, color: "var(--muted)", lineHeight: 1.3 }}>{opt.desc}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Style Presets */}
       <div style={{ marginBottom: 20 }}>
