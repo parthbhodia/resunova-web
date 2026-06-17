@@ -10,6 +10,9 @@
  */
 
 import { getSupabaseClient } from "@/lib/supabase";
+import { buildOAuthReturnUrl, stashPostLoginDest } from "@/lib/oauthRedirect";
+
+export { POST_LOGIN_DEST_KEY } from "@/lib/oauthRedirect";
 
 export const ANON_ANALYSIS_STASH_KEY = "rn_anon_analysis_v1";
 
@@ -109,9 +112,6 @@ export function clearAnonScanUsed(): void {
   try { localStorage.removeItem(ANON_SCAN_USED_KEY); } catch { /* ignore */ }
 }
 
-/** localStorage key: where to send the user after OAuth (e.g. "/?view=jobs"). */
-export const POST_LOGIN_DEST_KEY = "rn_post_login_dest";
-
 /**
  * Shared Google OAuth entry. Returns the user to where they started sign-in
  * (e.g. `?view=jobs` so the jobs onboarding wizard shows) instead of the default
@@ -121,16 +121,8 @@ export const POST_LOGIN_DEST_KEY = "rn_post_login_dest";
  */
 export async function signInWithGoogle(): Promise<string | null> {
   const sb = getSupabaseClient();
-  let redirectTo: string | undefined;
-  if (typeof window !== "undefined") {
-    try {
-      const dest = window.location.pathname + window.location.search;
-      if (window.location.search) window.localStorage.setItem(POST_LOGIN_DEST_KEY, dest);
-    } catch {
-      /* ignore */
-    }
-    redirectTo = window.location.href;
-  }
+  if (typeof window !== "undefined") stashPostLoginDest();
+  const redirectTo = typeof window !== "undefined" ? buildOAuthReturnUrl() : undefined;
   const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo } });
   return error ? error.message : null;
 }

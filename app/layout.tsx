@@ -2,16 +2,23 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import AuthGate from "@/components/AuthGate";
+import AuthHostRedirect from "@/components/AuthHostRedirect";
 import { Geist, Inter, DM_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { SITE_URL as BRAND_SITE_URL } from "@/lib/brand";
 
 // Self-hosted via next/font — no render-blocking Google Fonts request.
 const geist  = Geist({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 const inter  = Inter({ subsets: ['latin'], variable: '--font-inter', weight: ['400','500','600','700'], style: ['normal','italic'], display: 'swap' });
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans', weight: ['300','400','500','600','700','800'], style: ['normal','italic'], display: 'swap' });
 
-const SITE_URL  = "https://www.resunova.io";
+const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL ?? BRAND_SITE_URL;
 const SITE_NAME = "Resunova";
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const CANONICAL_SITE_URL = SITE_URL.replace(/\/$/, "");
+
+/** Runs before React hydrates so OAuth hash tokens survive github.io → custom domain. */
+const OAUTH_HOST_REDIRECT_SCRIPT = `(function(){try{var site=${JSON.stringify(CANONICAL_SITE_URL)};var base=${JSON.stringify(BASE_PATH)};var h=location.hostname;if(h==="localhost"||h==="127.0.0.1")return;if(h.indexOf(".github.io")===-1)return;var c=new URL(site).hostname;if(h===c)return;var path=location.pathname+location.search+location.hash;if(base&&path.indexOf(base)===0)path=path.slice(base.length)||"/";var target=site+path;if(target!==location.href)location.replace(target);}catch(e){}})();`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -129,6 +136,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* Inline theme-init: read localStorage before first paint → no FOUC. Default = light. */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('rn-theme')||'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();` }} />
+        {/* OAuth may land on *.github.io; jump to custom domain before React hydrates (keep hash tokens). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: OAUTH_HOST_REDIRECT_SCRIPT,
+          }}
+        />
         {/* GitHub Pages may serve staging over HTTP before the custom-domain TLS cert is ready. */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var c=globalThis.crypto;if(c&&!c.randomUUID){c.randomUUID=function(){return'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,function(n){var r=c.getRandomValues(new Uint8Array(1))[0];return(Number(n)^r&15>>Number(n)/4).toString(16)})};}}catch(e){}})();` }} />
         <link rel="preconnect" href="https://www.googletagmanager.com" />
@@ -154,6 +167,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <AuthHostRedirect />
         <AuthGate>{children}</AuthGate>
       </body>
     </html>

@@ -1,8 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { getSupabaseClient } from "@/lib/supabase";
-import { goToFreeScan } from "@/lib/anonScan";
+import { goToFreeScan, signInWithGoogle } from "@/lib/anonScan";
 import { SITE_URL } from "@/lib/brand";
 import { LogoFull, LogoMark } from "./BrandLogo";
 import { Button } from "@/components/ui/button";
@@ -353,12 +352,8 @@ export default function LandingPage() {
 
   async function signIn() {
     setLoading(true); setError(null);
-    const sb = getSupabaseClient();
-    const redirectTo = typeof window !== "undefined"
-      ? window.location.origin + (process.env.NEXT_PUBLIC_BASE_PATH ?? "")
-      : undefined;
-    const { error: err } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo } });
-    if (err) { setError(err.message); setLoading(false); }
+    const err = await signInWithGoogle();
+    if (err) { setError(err); setLoading(false); }
   }
 
   const scrollTo = useCallback((id: string) => {
