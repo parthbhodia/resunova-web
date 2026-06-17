@@ -40,13 +40,24 @@ export const BUILDER_SUBFLOWS = [
   { key: "template" as const, label: "Template Builder", icon: BUILDER_SUBFLOW_ICONS.template },
 ];
 
+// Mobile bottom bar: 4 primary tabs + the "More" button = 5 slots (the platform
+// max). Profile is intentionally NOT here — it's reachable from the top-bar
+// account avatar and the More sheet, which frees a slot and removes redundancy.
 export const MOBILE_TAB_VIEWS: AppView[] = [
   "analyze",
+  "jobs",
   "builder",
   "library",
-  "jobs",
-  "profile",
 ];
+
+// Short, one-word labels for the bottom bar so nothing truncates at phone width
+// (e.g. "Resume Builder" → "Resume"). Falls back to VIEW_LABELS if unset.
+export const MOBILE_TAB_LABELS: Partial<Record<AppView, string>> = {
+  analyze: "Analyze",
+  jobs: "Jobs",
+  builder: "Resume",
+  library: "Library",
+};
 
 /** Wrapper + menu button: original muted icons, accent when active. */
 export const NAV_MENU_BTN_CLASS =
