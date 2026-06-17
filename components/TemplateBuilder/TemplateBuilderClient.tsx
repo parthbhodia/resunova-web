@@ -450,6 +450,13 @@ export default function TemplateBuilderClient() {
   const [importError, setImportError] = useState<string | null>(null);
   const { exportPdf: exportHtmlPdf, exporting: isGenerating, error: htmlPdfError } = useHtmlPdfExport();
 
+  // Responsive: on iPad / narrow widths the 340px form panel + preview don't
+  // both fit, so the form collapses to a vertical icon rail and the active
+  // section opens as a flyout drawer over the preview.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+
   const builderIdFromUrl = (searchParams?.get("builder") ?? "").trim();
   const presetFromUrl = (searchParams?.get("preset") ?? "").trim().toLowerCase();
 
@@ -467,6 +474,21 @@ export default function TemplateBuilderClient() {
     const t = window.setTimeout(() => setFeedbackToast(null), ms);
     return () => window.clearTimeout(t);
   }, [feedbackToast]);
+
+  // Watch the builder's own width (robust to the app nav sidebar state). Deps
+  // include `loaded` because the root div only mounts once loaded — without it
+  // the observer would attach to a null ref and never fire (same gotcha the
+  // Cover Letter builder hit).
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) setNarrow(w < 880);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loaded]);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -632,8 +654,37 @@ export default function TemplateBuilderClient() {
         ? "rgba(185, 28, 28, 0.96)"
         : "rgba(30, 41, 59, 0.96)";
 
+  // The active section's editor — rendered in the full side panel (wide) or in
+  // the flyout drawer (narrow / iPad).
+  const sectionContent = (
+    <>
+      {activeTab === "sections" && (
+        <TemplateBuilderSectionsPanel
+          store={store}
+          sectionOrder={data.sectionOrder}
+          hiddenSections={data.hiddenSections}
+          customSections={data.customSections}
+          editingCustomId={editingCustomId}
+          onEditCustomSection={setEditingCustomId}
+          onEditSection={(tab) => {
+            setEditingCustomId(null);
+            setActiveTab(tab);
+          }}
+        />
+      )}
+      {activeTab === "profile" && <ProfileSection store={store} data={data} />}
+      {activeTab === "experience" && <ExperienceSection store={store} data={data} />}
+      {activeTab === "education" && <EducationSection store={store} data={data} />}
+      {activeTab === "projects" && <ProjectsSection store={store} data={data} />}
+      {activeTab === "skills" && <SkillsSection store={store} data={data} />}
+      {activeTab === "customize" && <CustomizeSection store={store} c={c} />}
+      {activeTab === "review" && <TemplateBuilderReviewPanel data={data} result={reviewResult} onResult={setReviewResult} />}
+    </>
+  );
+  const activeTabMeta = TABS.find((t) => t.key === activeTab);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
+    <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       {feedbackToast ? (
         <div
           role="status"
@@ -831,91 +882,107 @@ export default function TemplateBuilderClient() {
       </div>
 
       {/* ── Body ────────────────────────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden", position: "relative" }}>
         {/* ── Left: Form Panel ──────────────────────────────── */}
-        <div style={{
-          width: 340,
-          minWidth: 300,
-          flexShrink: 0,
-          display: "flex",
-          flexDirection: "column",
-          borderRight: "1px solid var(--border)",
-          background: "var(--surface)",
-          overflow: "hidden",
-        }}>
-          {/* Section Tabs */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 0,
-            borderBottom: "1px solid var(--border)",
-            flexShrink: 0,
-          }}>
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                style={{
-                  background: activeTab === tab.key ? "var(--bg)" : "transparent",
-                  border: "none",
-                  borderBottom: activeTab === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
-                  borderRight: "1px solid var(--border)",
-                  padding: "10px 4px",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 3,
-                  transition: "background 0.12s",
-                  color: activeTab === tab.key ? "var(--accent)" : "var(--muted)",
-                  fontFamily: "inherit",
-                }}
-              >
-                <span style={{ fontSize: 15 }}>{tab.icon}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{tab.label}</span>
-              </button>
-            ))}
-          </div>
+        {narrow ? (
+          <>
+            {/* Collapsed icon rail — taps open the section as a flyout */}
+            <div style={{
+              width: 56, flexShrink: 0, display: "flex", flexDirection: "column",
+              borderRight: "1px solid var(--border)", background: "var(--surface)", overflowY: "auto", zIndex: 27,
+            }}>
+              {TABS.map((tab) => {
+                const isOpen = panelOpen && activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    title={tab.label}
+                    onClick={() => {
+                      if (panelOpen && activeTab === tab.key) setPanelOpen(false);
+                      else { setActiveTab(tab.key); setPanelOpen(true); }
+                    }}
+                    style={{
+                      border: "none",
+                      borderLeft: isOpen ? "3px solid var(--accent)" : "3px solid transparent",
+                      background: isOpen ? "var(--bg)" : "transparent",
+                      cursor: "pointer", fontFamily: "inherit",
+                      padding: "11px 2px 9px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                      color: isOpen ? "var(--accent)" : "var(--muted)",
+                    }}
+                  >
+                    <span style={{ fontSize: 17 }}>{tab.icon}</span>
+                    <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.1, textAlign: "center" }}>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* Section Content */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "18px 16px 32px" }}>
-            {activeTab === "sections" && (
-              <TemplateBuilderSectionsPanel
-                store={store}
-                sectionOrder={data.sectionOrder}
-                hiddenSections={data.hiddenSections}
-                customSections={data.customSections}
-                editingCustomId={editingCustomId}
-                onEditCustomSection={setEditingCustomId}
-                onEditSection={(tab) => {
-                  setEditingCustomId(null);
-                  setActiveTab(tab);
-                }}
-              />
+            {/* Flyout drawer over the preview */}
+            {panelOpen && (
+              <>
+                <div
+                  onClick={() => setPanelOpen(false)}
+                  style={{ position: "absolute", left: 56, top: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.28)", zIndex: 25 }}
+                />
+                <div style={{
+                  position: "absolute", left: 56, top: 0, bottom: 0,
+                  width: "min(340px, calc(100% - 56px))", zIndex: 26,
+                  background: "var(--surface)", borderRight: "1px solid var(--border)",
+                  boxShadow: "8px 0 28px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column",
+                }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "10px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0,
+                  }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span aria-hidden style={{ fontSize: 15 }}>{activeTabMeta?.icon}</span>{activeTabMeta?.label}
+                    </span>
+                    <button
+                      onClick={() => setPanelOpen(false)}
+                      title="Hide editor"
+                      style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}
+                    >‹ Hide</button>
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 36px" }}>
+                    {sectionContent}
+                  </div>
+                </div>
+              </>
             )}
-            {activeTab === "profile" && (
-              <ProfileSection store={store} data={data} />
-            )}
-            {activeTab === "experience" && (
-              <ExperienceSection store={store} data={data} />
-            )}
-            {activeTab === "education" && (
-              <EducationSection store={store} data={data} />
-            )}
-            {activeTab === "projects" && (
-              <ProjectsSection store={store} data={data} />
-            )}
-            {activeTab === "skills" && (
-              <SkillsSection store={store} data={data} />
-            )}
-            {activeTab === "customize" && (
-              <CustomizeSection store={store} c={c} />
-            )}
-            {activeTab === "review" && (
-              <TemplateBuilderReviewPanel data={data} result={reviewResult} onResult={setReviewResult} />
-            )}
+          </>
+        ) : (
+          <div style={{
+            width: 340, minWidth: 300, flexShrink: 0, display: "flex", flexDirection: "column",
+            borderRight: "1px solid var(--border)", background: "var(--surface)", overflow: "hidden",
+          }}>
+            {/* Section Tabs */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    background: activeTab === tab.key ? "var(--bg)" : "transparent",
+                    border: "none",
+                    borderBottom: activeTab === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
+                    borderRight: "1px solid var(--border)",
+                    padding: "10px 4px", cursor: "pointer", display: "flex", flexDirection: "column",
+                    alignItems: "center", gap: 3, transition: "background 0.12s",
+                    color: activeTab === tab.key ? "var(--accent)" : "var(--muted)", fontFamily: "inherit",
+                  }}
+                >
+                  <span style={{ fontSize: 15 }}>{tab.icon}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Section Content */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "18px 16px 32px" }}>
+              {sectionContent}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Right: Preview Panel ──────────────────────────── */}
         <div style={{
