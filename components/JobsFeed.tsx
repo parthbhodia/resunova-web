@@ -1347,6 +1347,10 @@ function JobsSidebar({
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  // On mobile the sidebar is a collapsed disclosure (closed by default) so the
+  // job feed stays the sole focus, LinkedIn-style. Desktop renders it expanded.
+  const [expanded, setExpanded] = useState(false);
+  const showCards = !isMobile || expanded;
 
   async function save() {
     const n = name.trim();
@@ -1375,6 +1379,19 @@ function JobsSidebar({
 
   return (
     <aside style={{ width: isMobile ? "100%" : 264, flexShrink: 0, position: isMobile ? "static" : "sticky", top: 16, display: "flex", flexDirection: "column", gap: 16, order: isMobile ? 1 : 0 }}>
+      {isMobile && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", fontSize: 13.5, fontWeight: 600, color: "var(--text)", padding: "11px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", fontFamily: "inherit" }}
+        >
+          Saved filters &amp; tools
+          <span style={{ fontSize: 10, opacity: 0.6, transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
+        </button>
+      )}
+      {showCards && (
+      <>
       <div style={SIDEBAR_CARD}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Your saved filters</span>
@@ -1445,6 +1462,8 @@ function JobsSidebar({
           Re-scan my résumé →
         </button>
       </div>
+      </>
+      )}
     </aside>
   );
 }
