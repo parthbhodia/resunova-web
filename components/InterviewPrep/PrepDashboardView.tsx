@@ -22,9 +22,11 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Code2,
   Copy,
   Database,
   Download,
+  ExternalLink,
   Library,
   RefreshCw,
   Save,
@@ -161,6 +163,8 @@ export default function PrepDashboardView() {
   // Bumped whenever a generation/load completes so the Story Bank panel re-fetches
   // the (now-updated) master story bank.
   const [bankRefresh, setBankRefresh] = useState(0);
+  // Real, sourced coding questions for this company (from the shared question bank).
+  const [codingQuestions, setCodingQuestions] = useState<BankCodingQuestion[]>([]);
 
   // Map API response shape → QuestionSection[]
   const toSection = (
@@ -220,6 +224,7 @@ export default function PrepDashboardView() {
       });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       const data = await res.json();
+      setCodingQuestions(Array.isArray(data.coding_questions) ? data.coding_questions : []);
 
       // Capture session_id returned by the backend persistence layer
       if (data.session_id) {
@@ -343,6 +348,9 @@ export default function PrepDashboardView() {
           difficultyLabel={difficultyLabel}
         />
 
+        {/* Real coding questions reported at this company (shared question bank) */}
+        <CodingBankSection questions={codingQuestions} company={company} />
+
         {/* Master story bank — accumulates across every prep session */}
         <StoryBankPanel refreshSignal={bankRefresh} />
 
@@ -383,6 +391,92 @@ export default function PrepDashboardView() {
         onRegenerateAll={() => fetchQuestions(true)}
       />
     </div>
+  );
+}
+
+// ── Coding question bank (real, sourced) ──────────────────────────────────────
+
+interface BankCodingQuestion {
+  question: string;
+  source: string;
+  source_url: string | null;
+  is_inferred: boolean;
+  difficulty: string | null;
+  tags: string[];
+}
+
+function difficultyStyle(d: string | null): { color: string; bg: string } {
+  const x = (d || "").toLowerCase();
+  if (x === "easy") return { color: "var(--green-ink)", bg: "color-mix(in srgb, var(--green-ink) 12%, transparent)" };
+  if (x === "hard") return { color: "var(--red-ink)", bg: "color-mix(in srgb, var(--red-ink) 12%, transparent)" };
+  return { color: "var(--amber-ink)", bg: "color-mix(in srgb, var(--amber-ink) 12%, transparent)" }; // medium/unknown
+}
+
+function CodingBankSection({ questions, company }: { questions: BankCodingQuestion[]; company: string }) {
+  const [showAll, setShowAll] = useState(false);
+  if (!questions.length) return null;
+  const shown = showAll ? questions : questions.slice(0, 8);
+
+  return (
+    <Card className="rounded-2xl border-accent/30 bg-[var(--accent-bg)]">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-accent/15 text-accent">
+            <Code2 className="size-4" aria-hidden />
+          </span>
+          <div>
+            <CardTitle className="text-base">
+              Coding questions reported at {company || "this company"}
+            </CardTitle>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Real LeetCode problems tagged to this company, most frequent first — not AI-generated.
+            </p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2 pt-0">
+        {shown.map((q, i) => {
+          const d = difficultyStyle(q.difficulty);
+          return (
+            <div key={`${q.question}-${i}`} className="flex items-start gap-3 rounded-xl border border-border/60 bg-background/60 p-3">
+              {q.difficulty && (
+                <span className="mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                  style={{ color: d.color, background: d.bg }}>
+                  {q.difficulty}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                {q.source_url ? (
+                  <a href={q.source_url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:text-accent">
+                    {q.question}
+                    <ExternalLink className="size-3 shrink-0 opacity-60" />
+                  </a>
+                ) : (
+                  <span className="text-sm font-medium text-foreground">{q.question}</span>
+                )}
+                {q.tags?.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {q.tags.slice(0, 4).map((t) => (
+                      <span key={t} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {!q.is_inferred && (
+                <Badge variant="outline" className="shrink-0 text-[10px]">Reported · LeetCode</Badge>
+              )}
+            </div>
+          );
+        })}
+        {questions.length > 8 && (
+          <Button variant="ghost" size="sm" onClick={() => setShowAll((v) => !v)}
+            className="self-start text-xs text-muted-foreground hover:text-foreground">
+            {showAll ? "Show fewer" : `Show all ${questions.length}`}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
