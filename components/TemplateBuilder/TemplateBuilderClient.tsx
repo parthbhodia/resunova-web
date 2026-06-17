@@ -14,6 +14,7 @@ import { consumeTemplateBuilderStructuredPrefill, stashTemplateBuilderStructured
 import TemplateBuilderSectionsPanel from "./TemplateBuilderSectionsPanel";
 import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "@/components/CoverLetterBuilder/SignInToUseAi";
+import TemplateBuilderReviewPanel, { reviewScoreColor, type ReviewResult } from "./TemplateBuilderReviewPanel";
 
 /* ── Shared style helpers ──────────────────────────────────────── */
 const inputBase: React.CSSProperties = {
@@ -372,7 +373,7 @@ const FONT_OPTIONS: { label: string; value: TBFont; sub: string }[] = [
   { label: "Courier", value: "Courier",     sub: "Technical / developer" },
 ];
 
-type SectionKey = "sections" | "profile" | "experience" | "education" | "projects" | "skills" | "customize";
+type SectionKey = "sections" | "profile" | "experience" | "education" | "projects" | "skills" | "customize" | "review";
 
 const TABS: { key: SectionKey; label: string; icon: string }[] = [
   { key: "sections",   label: "Sections",   icon: "☰" },
@@ -382,6 +383,7 @@ const TABS: { key: SectionKey; label: string; icon: string }[] = [
   { key: "projects",   label: "Projects",   icon: "🚀" },
   { key: "skills",     label: "Skills",     icon: "⚡" },
   { key: "customize",  label: "Style",      icon: "🎨" },
+  { key: "review",     label: "Review",     icon: "✦" },
 ];
 
 export default function TemplateBuilderClient() {
@@ -390,6 +392,7 @@ export default function TemplateBuilderClient() {
   const store = useTemplateBuilderStore();
   const { data, loaded } = store;
   const [activeTab, setActiveTab] = useState<SectionKey>("sections");
+  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
   const [editingCustomId, setEditingCustomId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
@@ -643,6 +646,22 @@ export default function TemplateBuilderClient() {
           <span style={{ fontSize: 11, color: "var(--muted)", padding: "2px 7px", border: "1px solid var(--border)", borderRadius: 10 }}>
             Free
           </span>
+          <button
+            type="button"
+            onClick={() => setActiveTab("review")}
+            title={reviewResult ? "Open ATS & Job Match review" : "Score your résumé against a job"}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontFamily: "inherit",
+              fontSize: 11, fontWeight: 700,
+              padding: "3px 9px", borderRadius: 10,
+              border: `1px solid ${reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : "var(--border)"}`,
+              background: "transparent",
+              color: reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : "var(--muted)",
+            }}
+          >
+            <span aria-hidden>✦</span>
+            {reviewResult?.overallScore != null ? `ATS ${reviewResult.overallScore}` : "Check ATS"}
+          </button>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {saveFlash ? (
@@ -851,6 +870,9 @@ export default function TemplateBuilderClient() {
             )}
             {activeTab === "customize" && (
               <CustomizeSection store={store} c={c} />
+            )}
+            {activeTab === "review" && (
+              <TemplateBuilderReviewPanel data={data} result={reviewResult} onResult={setReviewResult} />
             )}
           </div>
         </div>
