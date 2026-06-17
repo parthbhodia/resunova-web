@@ -66,6 +66,7 @@ import {
   stripeStyleForPriority,
 } from "@/lib/suggestionPriorityStyles";
 import { useUploadResume } from "@/hooks/useUploadResume";
+import { useSignInDialog } from "@/components/SignInDialog";
 import {
   nameAndSubtitleLineIndices,
   isPlaceholderResumeHeaderLine,
@@ -414,6 +415,7 @@ export default function ResumeBuilder({
   initialBaseFolder?: string | null;
 } = {}) {
   const router = useRouter();
+  const { openSignIn } = useSignInDialog();
   const searchParams = useSearchParams();
   const draft0: Record<string, unknown> = loadDraft();
   const builderSession0 = parseBuilderSessionFromDraft(draft0);
@@ -917,7 +919,9 @@ export default function ResumeBuilder({
   const [atsResult,    setAtsResult]    = useState<AtsResult | null>(null);
   const [atsLoading,   setAtsLoading]   = useState(false);
   const [atsError,     setAtsError]     = useState<string | null>(null);
-  const [atsOAuthBusy, setAtsOAuthBusy] = useState(false);
+  // OAuth busy state now lives in the shared sign-in modal; kept as a constant
+  // so the ATS sign-in prompt's API is unchanged.
+  const atsOAuthBusy = false;
 
   const importFromUrl = useCallback(async (): Promise<{ company?: string; role?: string; job_description?: string } | null> => {
     const url = jobUrl.trim();
@@ -1002,24 +1006,9 @@ export default function ResumeBuilder({
   }, []);
 
   const signInForAts = useCallback(async () => {
-    setAtsOAuthBusy(true);
     setAtsError(null);
-    try {
-      const redirectTo =
-        typeof window !== "undefined"
-          ? window.location.origin + (process.env.NEXT_PUBLIC_BASE_PATH ?? "")
-          : undefined;
-      const { error } = await getSupabaseClient().auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo },
-      });
-      if (error) setAtsError(error.message);
-    } catch (e: unknown) {
-      setAtsError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setAtsOAuthBusy(false);
-    }
-  }, []);
+    openSignIn({ title: "Sign in to run ATS & job match", reason: "Sign in free to score your résumé against the job and unlock per-bullet fixes." });
+  }, [openSignIn]);
 
   const runAtsCheck = useCallback(async (folder: string, updateMatchScore = false) => {
     if (!user?.id) {

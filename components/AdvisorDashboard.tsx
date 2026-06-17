@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useSignInDialog } from "@/components/SignInDialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -931,7 +932,7 @@ export default function AdvisorDashboard() {
   const [bugReports, setBugReports] = useState<BugReportRow[]>([]);
   const [bugReportsLoading, setBugReportsLoading] = useState(false);
   const [bugReportsError, setBugReportsError] = useState<string | null>(null);
-  const [oauthBusy, setOauthBusy] = useState(false);
+  const { openSignIn } = useSignInDialog();
   const authUserIdRef = useRef<string | null>(null);
 
   const loadBugReports = useCallback(async () => {
@@ -1055,23 +1056,6 @@ export default function AdvisorDashboard() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [authChecked, userEmail, loading, error, data, load]);
 
-  const signInWithGoogle = async () => {
-    setOauthBusy(true);
-    setError(null);
-    try {
-      const redirectTo = typeof window !== "undefined" ? window.location.href : undefined;
-      const { error: signInError } = await getSupabaseClient().auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo },
-      });
-      if (signInError) setError(signInError.message);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to start Google sign-in.");
-    } finally {
-      setOauthBusy(false);
-    }
-  };
-
   if (loading) return (
     <div className="mx-auto grid min-h-[60vh] max-w-[760px] content-center gap-4 px-8">
       <Skeleton className="h-24 rounded-xl" />
@@ -1094,8 +1078,8 @@ export default function AdvisorDashboard() {
       </CardHeader>
       <Separator />
       <CardContent>
-        <Button onClick={() => void signInWithGoogle()} disabled={oauthBusy}>
-          {oauthBusy ? "Redirecting..." : "Sign in with Google"}
+        <Button onClick={() => openSignIn({ title: "Sign in to open the advisor dashboard", reason: "UMBC advisors use their Google account so access can be checked against the institution roster." })}>
+          Sign in with Google
         </Button>
       </CardContent>
     </Card>
