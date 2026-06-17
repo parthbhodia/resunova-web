@@ -117,6 +117,7 @@ export default function PrepDashboardView() {
   const selectedSources       = useInterviewPrepStore((s) => s.selectedSources);
   const selectedFocusAreas    = useInterviewPrepStore((s) => s.selectedFocusAreas);
   const storeSessionId        = useInterviewPrepStore((s) => s.sessionId);
+  const jobPostingId          = useInterviewPrepStore((s) => s.jobPostingId);
   const loadedFromDb          = useInterviewPrepStore((s) => s.loadedFromDb);
   const setSessionId          = useInterviewPrepStore((s) => s.setSessionId);
   const setLoadedFromDb       = useInterviewPrepStore((s) => s.setLoadedFromDb);
@@ -214,6 +215,7 @@ export default function PrepDashboardView() {
           focus_areas: selectedFocusAreas,
           regenerate: isRegenerate,
           session_id: storeSessionId,
+          job_id: jobPostingId,
         }),
       });
       if (!res.ok) throw new Error(`Server error ${res.status}`);

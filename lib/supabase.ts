@@ -1012,3 +1012,49 @@ export async function deleteStory(storyId: string): Promise<boolean> {
     return false;
   }
 }
+
+export interface JobPrepStatus {
+  sessionId: string;
+  questionCount: number;
+}
+
+/**
+ * For a set of Jobs-feed posting ids, return which the signed-in user already has
+ * an interview-prep kit for (GET /api/interview-prep/job-statuses). Powers the
+ * "Prep ready" state on job cards / detail. Empty map when signed out or on error.
+ */
+export async function fetchJobPrepStatuses(
+  jobIds: string[],
+): Promise<Record<string, JobPrepStatus>> {
+  try {
+    const ids = jobIds.filter(Boolean);
+    if (!ids.length) return {};
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token) return {};
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/job-statuses?ids=${encodeURIComponent(ids.join(","))}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+    if (!res.ok) return {};
+    const body = await res.json() as { statuses?: Record<string, { session_id?: string; question_count?: number }> };
+    const out: Record<string, JobPrepStatus> = {};
+    for (const [jobId, s] of Object.entries(body.statuses ?? {})) {
+      out[jobId] = {
+        sessionId: String(s.session_id ?? ""),
+        questionCount: Number(s.question_count ?? 0),
+      };
+    }
+    return out;
+  } catch (e) {
+    console.warn("[interview-prep] fetchJobPrepStatuses:", e);
+    return {};
+  }
+}

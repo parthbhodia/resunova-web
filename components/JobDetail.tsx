@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJobDetail, scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { fetchJobPrepStatuses, type JobPrepStatus } from "@/lib/supabase";
+import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import BoostPanel from "@/components/BoostPanel";
 import CompanyLogo from "@/components/CompanyLogo";
 import InsiderPanel from "@/components/InsiderPanel";
@@ -71,6 +73,8 @@ export default function JobDetail({ jobId }: { jobId: string }) {
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [boostOpen, setBoostOpen] = useState(false);
+  const [prepStatus, setPrepStatus] = useState<JobPrepStatus | null>(null);
+  const [prepLaunching, setPrepLaunching] = useState(false);
 
   const load = useCallback(async () => {
     setState({ status: "loading" });
@@ -85,6 +89,20 @@ export default function JobDetail({ jobId }: { jobId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Has the user already built a prep kit for this job? (signed-in only)
+  useEffect(() => {
+    let cancelled = false;
+    void fetchJobPrepStatuses([jobId]).then((m) => { if (!cancelled) setPrepStatus(m[jobId] ?? null); });
+    return () => { cancelled = true; };
+  }, [jobId]);
+
+  const onPrep = useCallback(() => {
+    if (state.status !== "ready") return;
+    setPrepLaunching(true);
+    prefillPrepFromJob(state.job);
+    router.push("/interview-prep/dashboard");
+  }, [state, router]);
 
   const backToFeed = () => router.push("/?view=jobs");
 
@@ -118,7 +136,13 @@ export default function JobDetail({ jobId }: { jobId: string }) {
       )}
 
       {state.status === "ready" && (
-        <JobBody job={state.job} onBoost={() => setBoostOpen(true)} />
+        <JobBody
+          job={state.job}
+          onBoost={() => setBoostOpen(true)}
+          onPrep={onPrep}
+          prepStatus={prepStatus}
+          prepLaunching={prepLaunching}
+        />
       )}
 
       {/* Stays mounted while the job is loaded so the optimize step/result
@@ -130,7 +154,19 @@ export default function JobDetail({ jobId }: { jobId: string }) {
   );
 }
 
-function JobBody({ job, onBoost }: { job: JobDetailData; onBoost: () => void }) {
+function JobBody({
+  job,
+  onBoost,
+  onPrep,
+  prepStatus,
+  prepLaunching,
+}: {
+  job: JobDetailData;
+  onBoost: () => void;
+  onPrep: () => void;
+  prepStatus: JobPrepStatus | null;
+  prepLaunching: boolean;
+}) {
   const salary = formatSalary(job);
   const posted = formatPostedAt(job.postedAt);
 
@@ -202,6 +238,7 @@ function JobBody({ job, onBoost }: { job: JobDetailData; onBoost: () => void }) 
       {/* RIGHT — match panel + insider outreach */}
       <div style={{ width: 340, flexShrink: 0, position: "sticky", top: 16, display: "flex", flexDirection: "column", gap: 20 }}>
         <MatchPanel job={job} onBoost={onBoost} />
+        <PrepCard job={job} onPrep={onPrep} prepStatus={prepStatus} prepLaunching={prepLaunching} />
         <InsiderPanel postingId={job.id} company={job.company} />
       </div>
     </div>
@@ -271,6 +308,52 @@ function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void 
       >
         Apply on company site ↗
       </a>
+    </div>
+  );
+}
+
+function PrepCard({
+  job,
+  onPrep,
+  prepStatus,
+  prepLaunching,
+}: {
+  job: JobDetailData;
+  onPrep: () => void;
+  prepStatus: JobPrepStatus | null;
+  prepLaunching: boolean;
+}) {
+  const ready = !!prepStatus;
+  return (
+    <div style={{ borderRadius: 18, padding: "22px 24px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 20 }}>🎤</span>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Prepare for your interview</div>
+      </div>
+      <div style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--muted)" }}>
+        {ready
+          ? `Your prep kit for ${job.company || "this role"} is ready — ${prepStatus!.questionCount} questions with STAR+R answers and best-story matches.`
+          : `Generate company-specific questions for ${job.company || "this role"} from your résumé and this job description — with STAR+R answer structures.`}
+      </div>
+      <button
+        onClick={onPrep}
+        disabled={prepLaunching}
+        style={{
+          width: "100%",
+          padding: "12px 0",
+          borderRadius: 10,
+          border: ready ? "1px solid color-mix(in srgb, var(--green-ink) 40%, transparent)" : "none",
+          background: ready ? "color-mix(in srgb, var(--green-ink) 12%, transparent)" : "var(--accent)",
+          color: ready ? "var(--green-ink)" : "var(--accent-ink, #fff)",
+          fontSize: 13.5,
+          fontWeight: 600,
+          cursor: prepLaunching ? "wait" : "pointer",
+          opacity: prepLaunching ? 0.7 : 1,
+          boxSizing: "border-box",
+        }}
+      >
+        {prepLaunching ? "Opening…" : ready ? "🎤 Open prep kit →" : "🎤 Generate prep kit"}
+      </button>
     </div>
   );
 }

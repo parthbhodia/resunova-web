@@ -20,9 +20,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
-import { getSupabaseClient, upsertUserProfile } from "@/lib/supabase";
+import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, type JobPrepStatus } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { signInWithGoogle } from "@/lib/anonScan";
 import {
   fetchJobFilters,
@@ -475,6 +476,33 @@ export default function JobsFeed() {
       setBoostLoadingId(null);
     }
   }, []);
+
+  // Interview Prep: which jobs the user already has a prep kit for ("Prep ready"),
+  // and launching prep prefilled from a job (fetch detail → seed store → navigate).
+  const [prepStatuses, setPrepStatuses] = useState<Record<string, JobPrepStatus>>({});
+  const [prepLoadingId, setPrepLoadingId] = useState<string | null>(null);
+
+  const openPrep = useCallback(async (id: string) => {
+    setPrepLoadingId(id);
+    setBoostError(null);
+    try {
+      const detail = await fetchJobDetail(id);
+      prefillPrepFromJob(detail);
+      router.push("/interview-prep/dashboard");
+    } catch (err) {
+      setBoostError(err instanceof Error ? err.message : "Couldn't load this job to prep");
+      setPrepLoadingId(null);
+    }
+  }, [router]);
+
+  // Load "Prep ready" status for the jobs in the current feed (signed-in only).
+  useEffect(() => {
+    if (state.status !== "ready" || state.jobs.length === 0) return;
+    const ids = state.jobs.map((j) => j.id);
+    let cancelled = false;
+    void fetchJobPrepStatuses(ids).then((m) => { if (!cancelled) setPrepStatuses(m); });
+    return () => { cancelled = true; };
+  }, [state]);
 
   const toggleNudgeRole = useCallback((r: string) => {
     setNudgeRoles((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
@@ -1125,6 +1153,34 @@ export default function JobsFeed() {
                         }}
                       >
                         {boostLoadingId === job.id ? "Loading…" : "✦ Optimize"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); void openPrep(job.id); }}
+                        disabled={prepLoadingId === job.id}
+                        style={{
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          padding: "7px 14px",
+                          borderRadius: 8,
+                          border: prepStatuses[job.id]
+                            ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
+                            : "1px solid var(--surface2)",
+                          background: prepStatuses[job.id]
+                            ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
+                            : "transparent",
+                          color: prepStatuses[job.id] ? "var(--green-ink)" : "var(--text)",
+                          cursor: prepLoadingId === job.id ? "wait" : "pointer",
+                          whiteSpace: "nowrap",
+                          opacity: prepLoadingId === job.id ? 0.7 : 1,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {prepLoadingId === job.id
+                          ? "Loading…"
+                          : prepStatuses[job.id]
+                            ? "🎤 Prep ready"
+                            : "🎤 Prep interview"}
                       </button>
                       <a
                         href={job.url}

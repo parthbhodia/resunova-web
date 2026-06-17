@@ -34,6 +34,8 @@ export interface InterviewPrepStore {
   jobDescription: string;
   company: string;
   role: string;
+  /** Set when prep was launched from a specific Jobs-feed posting (links the kit to it). */
+  jobPostingId: string | null;
 
   // ── Step 2: interview type selection ──
   selectedInterviewType: string | null;
@@ -52,6 +54,7 @@ export interface InterviewPrepStore {
   setJobDescription: (jd: string) => void;
   setCompany: (company: string) => void;
   setRole: (role: string) => void;
+  setJobPostingId: (id: string | null) => void;
   setSelectedInterviewType: (id: string | null) => void;
   setDifficulty: (difficulty: "easy" | "medium" | "hard") => void;
   setQuestionCount: (count: number) => void;
@@ -82,6 +85,7 @@ export const useInterviewPrepStore = create<InterviewPrepStore>((set) => ({
   jobDescription: "",
   company: "",
   role: "",
+  jobPostingId: null,
   selectedInterviewType: null,
   difficulty: "medium",
   questionCount: 10,
@@ -106,6 +110,7 @@ export const useInterviewPrepStore = create<InterviewPrepStore>((set) => ({
   setJobDescription: (jobDescription) => set({ jobDescription }),
   setCompany: (company) => set({ company }),
   setRole: (role) => set({ role }),
+  setJobPostingId: (jobPostingId) => set({ jobPostingId }),
   setSelectedInterviewType: (selectedInterviewType) => set({ selectedInterviewType }),
   setDifficulty: (difficulty) => set({ difficulty }),
   setQuestionCount: (questionCount) => set({ questionCount }),
@@ -131,6 +136,7 @@ export const useInterviewPrepStore = create<InterviewPrepStore>((set) => ({
       jobDescription: "",
       company: "",
       role: "",
+      jobPostingId: null,
       selectedInterviewType: null,
       difficulty: "medium",
       questionCount: 10,
