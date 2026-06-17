@@ -122,6 +122,36 @@ function countWords(s: string) {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
 
+/** Gated /api/tb-enhance call. AI is an account feature (consistent with
+ *  section generation + the Cover Letter builder), so we require a Supabase
+ *  session and return `{needSignIn:true}` when signed out for the caller to
+ *  prompt sign-in. */
+async function tbEnhanceCall(
+  text: string,
+  type: "bullets" | "summary",
+  context?: { role?: string; company?: string },
+): Promise<{ ok: true; enhanced: string } | { ok: false; needSignIn?: boolean; error?: string }> {
+  let token: string | undefined;
+  try {
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
+    token = session?.access_token;
+  } catch { /* treat as signed out */ }
+  if (!token) return { ok: false, needSignIn: true };
+  try {
+    const res = await fetch(apiUrl("/api/tb-enhance"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ text, type, context: context ?? {} }),
+    });
+    if (res.status === 401 || res.status === 403) return { ok: false, needSignIn: true };
+    const data = await res.json();
+    if (!res.ok || !data.enhanced) return { ok: false, error: data.error || "AI error" };
+    return { ok: true, enhanced: String(data.enhanced) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Network error" };
+  }
+}
+
 interface AITextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   type: "bullets" | "summary";
   context?: { role?: string; company?: string };
@@ -129,31 +159,29 @@ interface AITextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaEleme
 }
 
 function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AITextareaProps) {
+  const { signedIn, signingIn, signIn } = useSupabaseSignedIn();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [undoVal, setUndoVal] = useState<string | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
   const wordCount = countWords(String(value ?? ""));
-  const showBtn = wordCount >= 8;
+  const showBtn = wordCount >= 3;
 
   const enhance = useCallback(async () => {
-    setLoading(true);
     setError(null);
-    try {
-      const res = await fetch(apiUrl("/api/tb-enhance"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: String(value ?? ""), type, context: context ?? {} }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.enhanced) throw new Error(data.error || "AI error");
-      setUndoVal(String(value ?? ""));
-      onEnhanced(data.enhanced);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
-    } finally {
-      setLoading(false);
+    if (signedIn === false) { setShowSignIn(true); return; }
+    setLoading(true);
+    setShowSignIn(false);
+    const r = await tbEnhanceCall(String(value ?? ""), type, context);
+    setLoading(false);
+    if (!r.ok) {
+      if (r.needSignIn) { setShowSignIn(true); return; }
+      setError(r.error || "Failed");
+      return;
     }
-  }, [value, type, context, onEnhanced]);
+    setUndoVal(String(value ?? ""));
+    onEnhanced(r.enhanced);
+  }, [value, type, context, onEnhanced, signedIn]);
 
   const undo = useCallback(() => {
     if (undoVal !== null) {
@@ -210,8 +238,20 @@ function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AIText
           >
             {loading
               ? <><span style={{ width: 10, height: 10, border: "1.5px solid var(--border)", borderTopColor: "var(--muted)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Enhancing…</>
-              : <>✦ AI Enhance</>}
+              : <>✦ AI Enhance{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.8, fontSize: 10 }}>🔒</span>}</>}
           </button>
+        </div>
+      )}
+      {showSignIn && (
+        <div style={{ position: "absolute", bottom: 44, right: 8, zIndex: 20 }}>
+          <SignInToUseAi
+            variant="popover"
+            signingIn={signingIn}
+            onSignIn={signIn}
+            onDismiss={() => setShowSignIn(false)}
+            title="Sign in to use AI Enhance"
+            subtitle="AI rewriting is free with a Google account."
+          />
         </div>
       )}
     </div>
@@ -927,33 +967,32 @@ interface BulletRowProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
+  signedIn?: boolean | null;
+  onRequireSignIn?: () => void;
 }
 
-function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMoveDown, onRemove }: BulletRowProps) {
+function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMoveDown, onRemove, signedIn, onRequireSignIn }: BulletRowProps) {
   const [aiLoading, setAiLoading] = useState(false);
   const [undoVal, setUndoVal] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const wordCount = value.trim().split(/\s+/).filter(Boolean).length;
-  const showAi = wordCount >= 6;
+  const showAi = wordCount >= 3;
 
   const enhance = useCallback(async () => {
+    setAiError(null);
+    if (signedIn === false) { onRequireSignIn?.(); return; }
     setAiLoading(true);
-    try {
-      const res = await fetch(apiUrl("/api/tb-enhance"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: value, type: "bullets", context: context ?? {} }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.enhanced) throw new Error(data.error || "AI error");
-      setUndoVal(value);
-      const enhanced = String(data.enhanced).split("\n")[0].replace(/^[•·\-*]\s*/, "").trim();
-      onChange(enhanced);
-    } catch {
-      // silently fail
-    } finally {
-      setAiLoading(false);
+    const r = await tbEnhanceCall(value, "bullets", context);
+    setAiLoading(false);
+    if (!r.ok) {
+      if (r.needSignIn) { onRequireSignIn?.(); return; }
+      setAiError(r.error || "Failed");
+      return;
     }
-  }, [value, context, onChange]);
+    setUndoVal(value);
+    const enhanced = r.enhanced.split("\n")[0].replace(/^[•·\-*]\s*/, "").trim();
+    onChange(enhanced);
+  }, [value, context, onChange, signedIn, onRequireSignIn]);
 
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 6 }}>
@@ -975,6 +1014,9 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
         />
         {showAi && (
           <div style={{ position: "absolute", bottom: 7, right: 7, display: "flex", gap: 4, alignItems: "center" }}>
+            {aiError && (
+              <span style={{ fontSize: 9, color: "var(--red, #ef4444)", maxWidth: 110, textAlign: "right", lineHeight: 1.2 }}>{aiError}</span>
+            )}
             {undoVal !== null && !aiLoading && (
               <button
                 type="button"
@@ -989,6 +1031,7 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
               type="button"
               onClick={enhance}
               disabled={aiLoading}
+              title={signedIn === false ? "Sign in to rewrite this bullet with AI" : "Rewrite this bullet with AI"}
               style={{
                 fontSize: 10, fontWeight: 600, padding: "3px 7px", borderRadius: 4, border: "none",
                 background: aiLoading ? "var(--surface2)" : "var(--accent)",
@@ -999,7 +1042,7 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
             >
               {aiLoading
                 ? <span style={{ width: 8, height: 8, border: "1.5px solid var(--border)", borderTopColor: "var(--muted)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
-                : <>✦ AI</>}
+                : <>✦ AI{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.85 }}>🔒</span>}</>}
             </button>
           </div>
         )}
@@ -1034,13 +1077,54 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
   minRows?: number;
   label?: string;
 }) {
+  const { signedIn, signingIn, signIn } = useSupabaseSignedIn();
   const items = parseBulletsToArray(bullets, minRows);
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [rewriteAllLoading, setRewriteAllLoading] = useState(false);
+  const [undoAll, setUndoAll] = useState<string | null>(null);
+  const [rewriteAllError, setRewriteAllError] = useState<string | null>(null);
 
   const updateItems = (next: string[]) => onChange(joinBulletsFromArray(next));
+  const filledCount = items.filter((b) => b.trim()).length;
+
+  const rewriteAll = useCallback(async () => {
+    setRewriteAllError(null);
+    if (signedIn === false) { setShowSignIn(true); return; }
+    const block = joinBulletsFromArray(items);
+    if (!block.trim()) return;
+    setRewriteAllLoading(true);
+    const r = await tbEnhanceCall(block, "bullets", context);
+    setRewriteAllLoading(false);
+    if (!r.ok) {
+      if (r.needSignIn) { setShowSignIn(true); return; }
+      setRewriteAllError(r.error || "Failed");
+      return;
+    }
+    setUndoAll(bullets);
+    onChange(r.enhanced);
+  }, [items, bullets, context, signedIn, onChange]);
 
   return (
-    <div>
-      <label style={{ ...labelStyle, marginBottom: 8 }}>{label}</label>
+    <div style={{ position: "relative" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <label style={{ ...labelStyle, marginBottom: 0 }}>{label}</label>
+        {filledCount >= 2 && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {rewriteAllError && <span style={{ fontSize: 9, color: "var(--red, #ef4444)" }}>{rewriteAllError}</span>}
+            {undoAll !== null && !rewriteAllLoading && (
+              <button type="button" onClick={() => { onChange(undoAll); setUndoAll(null); }}
+                style={{ fontSize: 9, color: "var(--muted)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}>↩ Undo</button>
+            )}
+            <button type="button" onClick={rewriteAll} disabled={rewriteAllLoading}
+              title={signedIn === false ? "Sign in to rewrite all bullets with AI" : "Rewrite every bullet with AI"}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: rewriteAllLoading ? "var(--muted)" : "var(--accent)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 5, padding: "3px 8px", cursor: rewriteAllLoading ? "wait" : "pointer", whiteSpace: "nowrap" }}>
+              {rewriteAllLoading
+                ? <><span style={{ width: 8, height: 8, border: "1.5px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Rewriting…</>
+                : <>✦ Rewrite all{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.8 }}>🔒</span>}</>}
+            </button>
+          </div>
+        )}
+      </div>
       {items.map((item, idx) => (
         <BulletRow
           key={idx}
@@ -1048,6 +1132,8 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
           isFirst={idx === 0}
           isLast={idx === items.length - 1}
           context={context}
+          signedIn={signedIn}
+          onRequireSignIn={() => setShowSignIn(true)}
           onChange={(v) => { const next = [...items]; next[idx] = v; updateItems(next); }}
           onMoveUp={() => {
             if (idx === 0) return;
@@ -1074,6 +1160,18 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
       <button style={{ ...addBtnStyle, marginTop: 2 }} onClick={() => updateItems([...items, ""])}>
         + Add Bullet
       </button>
+      {showSignIn && (
+        <div style={{ position: "absolute", top: 28, right: 0, zIndex: 20 }}>
+          <SignInToUseAi
+            variant="popover"
+            signingIn={signingIn}
+            onSignIn={signIn}
+            onDismiss={() => setShowSignIn(false)}
+            title="Sign in to use AI rewrite"
+            subtitle="AI rewriting is free with a Google account."
+          />
+        </div>
+      )}
     </div>
   );
 }
