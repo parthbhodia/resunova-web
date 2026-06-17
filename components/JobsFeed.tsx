@@ -25,6 +25,7 @@ import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { useSignInDialog } from "@/components/SignInDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   fetchJobFilters,
   createJobFilter,
@@ -426,9 +427,20 @@ function formatPostedAt(iso: string | null): string | null {
   return months === 1 ? "1 month ago" : `${months} months ago`;
 }
 
-export default function JobsFeed() {
+export default function JobsFeed({
+  selectedJobId = "",
+  variant = "full",
+}: {
+  /** Currently-open job (desktop split view) — its card is highlighted. */
+  selectedJobId?: string;
+  /** "list" = compact rail beside a detail pane: no own sidebar, no per-card
+   *  action buttons (the detail pane owns them). "full" = standalone feed. */
+  variant?: "full" | "list";
+} = {}) {
   const router = useRouter();
   const { openSignIn } = useSignInDialog();
+  const isMobile = useIsMobile();
+  const listMode = variant === "list";
   const [state, setState] = useState<FeedState>({ status: "loading" });
   // Coarse public count for the signed-out hero's proof chip (no auth). Best
   // effort — stays null on failure so the chip simply doesn't render.
@@ -775,8 +787,11 @@ export default function JobsFeed() {
   }
 
   return (
-    <div style={{ maxWidth: 1240, margin: "0 auto", padding: "28px 20px 64px", width: "100%", display: "flex", gap: 28, alignItems: "flex-start" }}>
+    <div style={listMode
+      ? { width: "100%", display: "flex", flexDirection: "column" }
+      : { maxWidth: 1240, margin: "0 auto", padding: isMobile ? "18px 14px 88px" : "28px 20px 64px", width: "100%", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 28, alignItems: isMobile ? "stretch" : "flex-start" }}>
       <div style={{ flex: "1 1 0", minWidth: 0 }}>
+      {!listMode ? (
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", margin: 0 }}>Jobs for you</h1>
@@ -792,16 +807,26 @@ export default function JobsFeed() {
           Refresh
         </Button>
       </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)" }}>
+            {state.status === "ready" ? `${visibleJobs.length} job${visibleJobs.length === 1 ? "" : "s"}` : "Jobs"}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
+            Refresh
+          </Button>
+        </div>
+      )}
 
       {state.status === "ready" && (
-        <div style={{ margin: "18px 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ margin: listMode ? "10px 0 12px" : "18px 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Row 1 — keyword + location (LinkedIn/Indeed style) */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search title or company…"
-              style={{ flex: "1 1 240px", maxWidth: 340 }}
+              style={{ flex: "1 1 240px", maxWidth: listMode ? undefined : 340 }}
             />
             <FilterMenu label="📍 Location" count={locationStates.size} width={250}>
               <StatesPicker
@@ -889,9 +914,11 @@ export default function JobsFeed() {
                   <MenuOption key={s.key} label={s.label} selected={sortBy === s.key} onClick={() => setSortBy(s.key)} />
                 ))}
               </FilterMenu>
-              <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                {visibleJobs.length} of {state.jobs.length}
-              </span>
+              {!listMode && (
+                <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  {visibleJobs.length} of {state.jobs.length}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -1057,7 +1084,12 @@ export default function JobsFeed() {
                 <Card
                   key={job.id}
                   onClick={() => router.push(`/?view=jobs&job=${encodeURIComponent(job.id)}`)}
-                  style={{ cursor: "pointer" }}
+                  style={{
+                    cursor: "pointer",
+                    ...(job.id === selectedJobId
+                      ? { outline: "2px solid var(--accent)", outlineOffset: -1, background: "var(--accent-bg)" }
+                      : null),
+                  }}
                 >
                   <CardContent
                     style={{
@@ -1093,7 +1125,7 @@ export default function JobsFeed() {
                     </div>
                     )}
                     <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
-                    <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                    <div style={{ flex: isMobile ? "1 1 140px" : "1 1 240px", minWidth: 0 }}>
                       <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
                       <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 500 }}>{job.company}</span>
@@ -1159,7 +1191,8 @@ export default function JobsFeed() {
                         )}
                       </div>
                     </div>
-                    <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 7, alignItems: "stretch" }}>
+                    {!listMode && (
+                    <div style={{ flexShrink: 0, display: "flex", flexDirection: isMobile ? "row" : "column", gap: 7, alignItems: "stretch", flexWrap: isMobile ? "wrap" : "nowrap", width: isMobile ? "100%" : "auto" }}>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); void openBoost(job.id); }}
@@ -1176,6 +1209,7 @@ export default function JobsFeed() {
                           whiteSpace: "nowrap",
                           opacity: boostLoadingId === job.id ? 0.7 : 1,
                           fontFamily: "inherit",
+                          flex: isMobile ? "1 1 auto" : undefined,
                         }}
                       >
                         {boostLoadingId === job.id ? "Loading…" : "✦ Optimize"}
@@ -1200,6 +1234,7 @@ export default function JobsFeed() {
                           whiteSpace: "nowrap",
                           opacity: prepLoadingId === job.id ? 0.7 : 1,
                           fontFamily: "inherit",
+                          flex: isMobile ? "1 1 auto" : undefined,
                         }}
                       >
                         {prepLoadingId === job.id
@@ -1219,6 +1254,7 @@ export default function JobsFeed() {
                           padding: "7px 14px",
                           borderRadius: 8,
                           textAlign: "center",
+                          flex: isMobile ? "1 1 100%" : undefined,
                           border: appliedIds.has(job.id)
                             ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
                             : "1px solid var(--surface2)",
@@ -1234,6 +1270,7 @@ export default function JobsFeed() {
                         {appliedIds.has(job.id) ? "Applied ✓" : "View & apply ↗"}
                       </a>
                     </div>
+                    )}
                   </CardContent>
                 </Card>
               );
@@ -1262,8 +1299,9 @@ export default function JobsFeed() {
       </div>
       </div>{/* /main column */}
 
-      {state.status === "ready" && (
+      {state.status === "ready" && !listMode && (
         <JobsSidebar
+          isMobile={isMobile}
           savedFilters={savedFilters}
           currentSnapshot={currentSnapshot}
           onApply={applySnapshot}
@@ -1322,6 +1360,7 @@ const SIDEBAR_INPUT: CSSProperties = {
 };
 
 function JobsSidebar({
+  isMobile,
   savedFilters,
   currentSnapshot,
   onApply,
@@ -1329,6 +1368,7 @@ function JobsSidebar({
   onDeleted,
   onNavigate,
 }: {
+  isMobile: boolean;
   savedFilters: SavedFilter[];
   currentSnapshot: FilterSnapshot;
   onApply: (f: Partial<FilterSnapshot>) => void;
@@ -1339,6 +1379,10 @@ function JobsSidebar({
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  // On mobile the sidebar is a collapsed disclosure (closed by default) so the
+  // job feed stays the sole focus, LinkedIn-style. Desktop renders it expanded.
+  const [expanded, setExpanded] = useState(false);
+  const showCards = !isMobile || expanded;
 
   async function save() {
     const n = name.trim();
@@ -1366,7 +1410,20 @@ function JobsSidebar({
   }
 
   return (
-    <aside style={{ width: 264, flexShrink: 0, position: "sticky", top: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+    <aside style={{ width: isMobile ? "100%" : 264, flexShrink: 0, position: isMobile ? "static" : "sticky", top: 16, display: "flex", flexDirection: "column", gap: 16, order: isMobile ? 1 : 0 }}>
+      {isMobile && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", fontSize: 13.5, fontWeight: 600, color: "var(--text)", padding: "11px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", fontFamily: "inherit" }}
+        >
+          Saved filters &amp; tools
+          <span style={{ fontSize: 10, opacity: 0.6, transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
+        </button>
+      )}
+      {showCards && (
+      <>
       <div style={SIDEBAR_CARD}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Your saved filters</span>
@@ -1437,6 +1494,8 @@ function JobsSidebar({
           Re-scan my résumé →
         </button>
       </div>
+      </>
+      )}
     </aside>
   );
 }

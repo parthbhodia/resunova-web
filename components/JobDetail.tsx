@@ -69,7 +69,7 @@ function formatPostedAt(iso: string | null): string | null {
   return m === 1 ? "1 month ago" : `${m} months ago`;
 }
 
-export default function JobDetail({ jobId }: { jobId: string }) {
+export default function JobDetail({ jobId, embedded = false }: { jobId: string; embedded?: boolean }) {
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [boostOpen, setBoostOpen] = useState(false);
@@ -107,14 +107,29 @@ export default function JobDetail({ jobId }: { jobId: string }) {
   const backToFeed = () => router.push("/?view=jobs");
 
   return (
-    <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 28px 64px", width: "100%" }}>
-      {/* breadcrumb */}
-      <button
-        onClick={backToFeed}
-        style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: "2px 0", marginBottom: 18 }}
-      >
-        <span style={{ fontSize: 13.5, color: "var(--muted)" }}>‹ Back to Jobs</span>
-      </button>
+    <div style={embedded
+      ? { width: "100%", padding: "2px 2px 24px" }
+      : { maxWidth: 1280, margin: "0 auto", padding: "24px 28px 64px", width: "100%" }}>
+      {/* Embedded (split view): the list rail is alongside, so offer a compact
+          close instead of a back breadcrumb. Standalone: full back breadcrumb. */}
+      {embedded ? (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          <button
+            onClick={backToFeed}
+            aria-label="Close job detail"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer", padding: "5px 10px", fontSize: 12.5, color: "var(--muted)" }}
+          >
+            ✕ Close
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={backToFeed}
+          style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: "2px 0", marginBottom: 18 }}
+        >
+          <span style={{ fontSize: 13.5, color: "var(--muted)" }}>‹ Back to Jobs</span>
+        </button>
+      )}
 
       {state.status === "loading" && (
         <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
