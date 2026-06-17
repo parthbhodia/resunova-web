@@ -24,7 +24,7 @@ import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, type JobPre
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
-import { signInWithGoogle } from "@/lib/anonScan";
+import { useSignInDialog } from "@/components/SignInDialog";
 import {
   fetchJobFilters,
   createJobFilter,
@@ -428,6 +428,7 @@ function formatPostedAt(iso: string | null): string | null {
 
 export default function JobsFeed() {
   const router = useRouter();
+  const { openSignIn } = useSignInDialog();
   const [state, setState] = useState<FeedState>({ status: "loading" });
   // A no-résumé visitor's chosen target role (free text or a suggested chip).
   // Restored from localStorage so it sticks across reloads until they scan.
@@ -904,7 +905,7 @@ export default function JobsFeed() {
               <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 20px", maxWidth: 440, lineHeight: 1.6 }}>
                 See live openings from company career boards, then scan your résumé to rank them by fit. Free — no credit card.
               </p>
-              <Button onClick={() => void signInWithGoogle()}>Sign in with Google</Button>
+              <Button onClick={() => openSignIn({ title: "Sign in to browse jobs", reason: "See live openings from company career boards, then scan your résumé to rank them by fit. Free — no credit card." })}>Sign in with Google</Button>
             </CardContent>
           </Card>
         )}

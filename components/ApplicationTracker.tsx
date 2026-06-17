@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
+import { useSignInDialog } from "@/components/SignInDialog";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -500,6 +501,7 @@ function StatsStrip({ stats }: { stats: Stats }) {
 // ---------------------------------------------------------------------------
 
 export default function ApplicationTracker() {
+  const { openSignIn } = useSignInDialog();
   const [state, setState] = useState<TrackerState>({ status: "loading" });
   const [showAddForm, setShowAddForm] = useState(false);
   const [activeGroup, setActiveGroup] = useState<AppStatus | "all">("all");
@@ -652,9 +654,12 @@ export default function ApplicationTracker() {
         <Card>
           <CardContent style={{ padding: "40px 28px", textAlign: "center" }}>
             <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: 0 }}>Sign in to use the tracker</h2>
-            <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 0", maxWidth: 420 }}>
+            <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 18px", maxWidth: 420 }}>
               Your application tracker is saved to your account — sign in to get started.
             </p>
+            <Button onClick={() => openSignIn({ title: "Sign in to use the tracker", reason: "Your application tracker is saved to your account — sign in to get started." })}>
+              Sign in with Google
+            </Button>
           </CardContent>
         </Card>
       </div>

@@ -10,7 +10,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { UmbcProvider } from "@/contexts/UmbcContext";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
-import { signInWithGoogle, POST_LOGIN_DEST_KEY } from "@/lib/anonScan";
+import { POST_LOGIN_DEST_KEY } from "@/lib/anonScan";
 import { getSupabaseClient } from "@/lib/supabase";
 import { apiUrl } from "@/lib/utils";
 import { isUmbcUser } from "@/lib/userDomainDetection";
@@ -26,6 +26,9 @@ import { BugReportDialog } from "./app-shell/BugReportDialog";
 import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
 import { UmbcWelcomeBanner } from "./UmbcWelcomeBanner";
+import { AppTopBar } from "./app-shell/AppTopBar";
+import { SignInDialogProvider, useSignInDialog } from "./SignInDialog";
+import FirstRunWizard from "./FirstRunWizard";
 import {
   readSidebarCollapsed,
   writeSidebarCollapsed,
@@ -86,10 +89,11 @@ export function useAppView(): AppView {
   return valid.includes(raw as AppView) ? (raw as AppView) : "analyze";
 }
 
-export default function AppShell({ children }: { children: ReactNode }) {
+function AppShellBody({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { openSignIn } = useSignInDialog();
   const active = useAppView();
   const onTemplateBuilderPage =
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
@@ -249,11 +253,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
   };
 
   // Anonymous free-scan visitor (AuthGate let them in via /?view=analyze):
-  // locked nav items route to Google sign-in instead of their views.
+  // locked nav items open the one shared sign-in modal instead of their views.
   const anonMode = authChecked && !user;
-  const onSignIn = () => {
-    void signInWithGoogle();
-  };
+  const onSignIn = () => openSignIn();
 
   const initial = (user?.email || "?").charAt(0).toUpperCase();
   const builderActive = active === "builder" || onTemplateBuilderPage;
@@ -307,6 +309,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
               key={active}
               className="app-shell-main app-shell-view-pane min-h-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0"
             >
+              <AppTopBar
+                anonMode={anonMode}
+                isUmbc={isUmbc}
+                userInitial={initial}
+                userEmail={user?.email ?? null}
+                onSwitchView={switchView}
+                onSignOut={onSignOut}
+              />
               <FreeScanWelcomeBanner userId={user?.id ?? null} isUmbc={isUmbc} />
               <UmbcWelcomeBanner userId={user?.id ?? null} />
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
@@ -328,6 +338,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               onSignIn={onSignIn}
             />
             <BugReportDialog open={mobileBugReportOpen} onOpenChange={setMobileBugReportOpen} />
+            <FirstRunWizard user={user} isUmbc={isUmbc} />
 
             <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
               <SheetContent
@@ -356,5 +367,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </SidebarProvider>
       </TooltipProvider>
     </UmbcProvider>
+  );
+}
+
+export default function AppShell({ children }: { children: ReactNode }) {
+  // The provider wraps the whole shell so the sidebar, top bar, bottom nav, AND
+  // every view rendered as children share one sign-in modal (useSignInDialog).
+  return (
+    <SignInDialogProvider>
+      <AppShellBody>{children}</AppShellBody>
+    </SignInDialogProvider>
   );
 }
