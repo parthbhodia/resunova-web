@@ -1442,10 +1442,10 @@ function JobsSidebar({
 }
 
 /**
- * Signed-out Jobs landing — one focused sign-in moment. Lean by design: a proof
- * chip + a blurred teaser of real-looking openings + a single CTA, with the full
- * value props living in the shared sign-in modal (onSignIn) rather than repeated
- * on the page. Replaces the old header + tabs + Refresh + sign-in card stack.
+ * Signed-out Jobs landing — a full job-board-style preview that's gated, not a
+ * tiny card. Real-looking search + filter bar + category chips over a larger
+ * blurred grid of openings; ANY interaction opens the shared sign-in modal
+ * (onSignIn). Low on prose by design — the "more" is interactive, not paragraphs.
  */
 function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn: () => void }) {
   const rounded =
@@ -1454,40 +1454,97 @@ function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn
         ? Math.floor(count / 1000) * 1000
         : Math.floor(count / 100) * 100
       : null;
-  const sample = [
-    { title: "Frontend Engineer", co: "Stripe · Remote (US)", match: "92%" },
-    { title: "Product Designer", co: "Figma · New York, NY", match: "88%" },
-    { title: "Machine Learning Engineer", co: "Notion · San Francisco, CA", match: "90%" },
-  ];
-  return (
-    <div style={{ maxWidth: 560, margin: "0 auto", padding: "56px 24px 72px", textAlign: "center", width: "100%" }}>
-      {rounded && (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg, rgba(47,129,247,0.1))", padding: "5px 12px", borderRadius: 999, marginBottom: 16 }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)" }} />
-          {rounded.toLocaleString()}+ live openings this week
-        </div>
-      )}
-      <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, color: "var(--text)", margin: "0 0 8px", lineHeight: 1.2 }}>
-        Browse live jobs, ranked to your résumé
-      </h1>
-      <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 auto 24px", maxWidth: 360, lineHeight: 1.55 }}>
-        Openings from company career boards, matched to your résumé.
-      </p>
+  const proofText = rounded ? `${rounded.toLocaleString()}+ live openings this week` : "Live openings updated daily";
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 420, margin: "0 auto 24px", filter: "blur(2.5px)", opacity: 0.5, pointerEvents: "none", userSelect: "none" }} aria-hidden>
-        {sample.map((j) => (
-          <div key={j.title} style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", padding: "12px 14px", textAlign: "left" }}>
-            <div style={{ width: 38, height: 38, borderRadius: 9, background: "var(--surface2)", flexShrink: 0 }} />
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{j.title}</div>
-              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 1 }}>{j.co}</div>
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>{j.match}</div>
-          </div>
+  const categories = [
+    "Software Engineer", "Data Scientist", "Product Manager", "Product Designer",
+    "Data Analyst", "DevOps / SRE", "Marketing", "Sales",
+  ];
+  const sample = [
+    { title: "Frontend Engineer", co: "Stripe", loc: "Remote (US)", match: "92%" },
+    { title: "Product Designer", co: "Figma", loc: "New York, NY", match: "88%" },
+    { title: "Machine Learning Engineer", co: "Notion", loc: "San Francisco, CA", match: "90%" },
+    { title: "Data Scientist", co: "Airbnb", loc: "Remote", match: "85%" },
+    { title: "Product Manager", co: "Linear", loc: "Remote (US)", match: "87%" },
+    { title: "Backend Engineer", co: "Vercel", loc: "Remote", match: "91%" },
+  ];
+
+  const chevron = (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m6 9 6 6 6-6" /></svg>
+  );
+  const filterBtn: CSSProperties = {
+    display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 500,
+    color: "var(--text)", background: "var(--surface)", border: "1px solid var(--border)",
+    borderRadius: 10, padding: "9px 13px", cursor: "pointer", fontFamily: "inherit",
+  };
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 20px 72px", width: "100%" }}>
+      {/* Header */}
+      <div style={{ textAlign: "center", marginBottom: 22 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg, rgba(47,129,247,0.1))", padding: "5px 12px", borderRadius: 999, marginBottom: 14 }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)" }} />
+          {proofText}
+        </div>
+        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: -0.6, color: "var(--text)", margin: "0 0 8px", lineHeight: 1.15 }}>
+          Find jobs that match your résumé
+        </h1>
+        <p style={{ fontSize: 14.5, color: "var(--muted)", margin: "0 auto", maxWidth: 420, lineHeight: 1.5 }}>
+          Live openings from company career boards, ranked by fit.
+        </p>
+      </div>
+
+      {/* Search + filters (gated) */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+        <button type="button" onClick={onSignIn} style={{ display: "flex", alignItems: "center", gap: 9, flex: "1 1 320px", maxWidth: 440, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "11px 14px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+          <span style={{ color: "var(--muted)", display: "inline-flex" }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+          </span>
+          <span style={{ fontSize: 14, color: "var(--dim)" }}>Search title or company…</span>
+        </button>
+        <button type="button" onClick={onSignIn} style={filterBtn}>Location {chevron}</button>
+        <button type="button" onClick={onSignIn} style={filterBtn}>Past month {chevron}</button>
+        <button type="button" onClick={onSignIn} style={filterBtn}>Work model {chevron}</button>
+      </div>
+
+      {/* Category quick-picks (gated) */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 26 }}>
+        {categories.map((c) => (
+          <button key={c} type="button" onClick={onSignIn} style={{ fontSize: 12.5, fontWeight: 500, color: "var(--muted)", background: "transparent", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 13px", cursor: "pointer", fontFamily: "inherit" }}>
+            {c}
+          </button>
         ))}
       </div>
 
-      <Button size="lg" onClick={onSignIn} style={{ minWidth: 220 }}>Sign in to browse</Button>
+      {/* Blurred results grid + centered unlock CTA. Height-capped so the unlock
+          card stays in view even on a tall single-column mobile grid. */}
+      <div style={{ position: "relative", minHeight: 320 }}>
+        <div onClick={onSignIn} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, maxHeight: 400, overflow: "hidden", filter: "blur(3px)", opacity: 0.5, pointerEvents: "none", userSelect: "none" }} aria-hidden>
+          {sample.map((j) => (
+            <div key={j.title} style={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", padding: "14px 16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--surface2)", flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{j.title}</div>
+                  <div style={{ fontSize: 11.5, color: "var(--muted)" }}>{j.co} · {j.loc}</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 11, color: "var(--muted)" }}>Full-time</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>{j.match} match</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 96, background: "linear-gradient(to bottom, transparent, var(--bg))", pointerEvents: "none" }} aria-hidden />
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ textAlign: "center", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, boxShadow: "0 16px 48px rgba(0,0,0,0.18)", padding: "24px 28px", maxWidth: 360 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 12 }}>Sign in to see your matches</div>
+            <Button size="lg" onClick={onSignIn} style={{ minWidth: 230 }}>Sign in to browse</Button>
+            <div style={{ fontSize: 11.5, color: "var(--dim)", marginTop: 11 }}>Free · no credit card</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
