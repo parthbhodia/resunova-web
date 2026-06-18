@@ -31,6 +31,7 @@ jobs:
       - name: Build (staging env)
         env:
           NEXT_PUBLIC_BASE_PATH: ""
+          NEXT_PUBLIC_SITE_URL: https://staging.resunova.io
           NEXT_PUBLIC_ASSET_PREFIX: https://staging.resunova.io
           NEXT_PUBLIC_API_URL: ${{ secrets.RAILWAY_STAGING_API_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_STAGING_URL }}

@@ -186,9 +186,8 @@ function AppShellBody({ children }: { children: ReactNode }) {
       }
       if (!dest) return;
       try {
-        const hasView = new URLSearchParams(window.location.search).get("view");
         const here = window.location.pathname + window.location.search;
-        if (!hasView && dest !== here) router.replace(dest);
+        if (dest !== here) router.replace(dest);
       } catch {
         /* ignore */
       }
