@@ -934,7 +934,7 @@ export default function JobsFeed({
         )}
 
         {state.status === "ready" && state.ranked === false && (
-          <div style={{ marginBottom: 16, borderRadius: 14, border: "1.5px solid rgba(47,129,247,0.22)", background: "var(--surface)", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ marginBottom: 16, borderRadius: 14, border: "1.5px solid color-mix(in srgb, var(--accent) 22%, transparent)", background: "var(--surface)", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
                 {state.role ? <>Showing <span style={{ color: "var(--accent)" }}>{state.role}</span> roles</> : "Browsing live jobs"}
@@ -1002,7 +1002,7 @@ export default function JobsFeed({
             style={{
               marginBottom: 16,
               borderRadius: 14,
-              border: "1.5px solid rgba(47,129,247,0.22)",
+              border: "1.5px solid color-mix(in srgb, var(--accent) 22%, transparent)",
               background: "var(--surface)",
               padding: "18px 20px",
             }}
@@ -1037,7 +1037,7 @@ export default function JobsFeed({
                       padding: "5px 11px",
                       borderRadius: 20,
                       border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                      background: active ? "rgba(47,129,247,0.1)" : "var(--surface2)",
+                      background: active ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "var(--surface2)",
                       color: active ? "var(--accent)" : "var(--text)",
                       fontSize: 12,
                       fontWeight: active ? 700 : 500,
@@ -1065,7 +1065,7 @@ export default function JobsFeed({
                 fontWeight: 600,
                 cursor: nudgeRoles.length && !nudgeSaving ? "pointer" : "default",
                 fontFamily: "inherit",
-                boxShadow: nudgeRoles.length ? "0 2px 10px rgba(47,129,247,0.28)" : "none",
+                boxShadow: nudgeRoles.length ? "0 2px 10px color-mix(in srgb, var(--accent) 28%, transparent)" : "none",
               }}
             >
               {nudgeSaving ? "Saving…" : "Save preferences →"}
@@ -1541,7 +1541,7 @@ function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 20px 72px", width: "100%" }}>
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 22 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg, rgba(47,129,247,0.1))", padding: "5px 12px", borderRadius: 999, marginBottom: 14 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg, color-mix(in srgb, var(--accent) 10%, transparent))", padding: "5px 12px", borderRadius: 999, marginBottom: 14 }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)" }} />
           {proofText}
         </div>

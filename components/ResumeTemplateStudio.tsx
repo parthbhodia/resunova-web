@@ -246,7 +246,7 @@ function TemplateCard({
         textAlign: "left",
         transition: "border-color 0.15s, box-shadow 0.15s",
         boxShadow: selected
-          ? "0 0 0 3px rgba(47,129,247,0.15), var(--shadow-sm)"
+          ? "0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent), var(--shadow-sm)"
           : hovered
           ? "var(--shadow)"
           : "var(--shadow-sm)",

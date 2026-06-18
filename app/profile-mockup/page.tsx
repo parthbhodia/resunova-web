@@ -224,7 +224,7 @@ export default function ProfileMockupPage() {
                   fontWeight: 700,
                   color: active ? "var(--accent)" : "var(--muted)",
                   background: active ? "var(--accent-bg)" : "transparent",
-                  border: active ? "1px solid rgba(47,129,247,0.25)" : "1px solid transparent",
+                  border: active ? "1px solid color-mix(in srgb, var(--accent) 25%, transparent)" : "1px solid transparent",
                   position: "relative",
                 }}
               >
@@ -494,7 +494,7 @@ export default function ProfileMockupPage() {
               background: "var(--accent)",
               color: "#fff",
               cursor: "default",
-              boxShadow: "0 1px 8px rgba(47,129,247,0.35)",
+              boxShadow: "0 1px 8px color-mix(in srgb, var(--accent) 35%, transparent)",
             }}
           >
             Save profile

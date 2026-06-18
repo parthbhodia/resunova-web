@@ -118,7 +118,7 @@ export default function SearchableSelect({
               style={{
                 display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
                 padding: "9px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "inherit",
-                background: i === highlight ? "var(--accent-bg, rgba(47,129,247,0.10))" : "transparent",
+                background: i === highlight ? "var(--accent-bg, color-mix(in srgb, var(--accent) 10%, transparent))" : "transparent",
               }}
             >
               {item.icon && <span style={{ display: "inline-flex", flexShrink: 0, color: i === highlight ? "var(--accent)" : "var(--dim)" }}>{item.icon}</span>}

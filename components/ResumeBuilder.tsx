@@ -2946,7 +2946,7 @@ export default function ResumeBuilder({
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handlePdfUpload(f); }}
                 style={{
-                  border: uploadingPdf ? "1.5px solid rgba(47,129,247,0.35)" : "1.5px dashed var(--border-h)",
+                  border: uploadingPdf ? "1.5px solid color-mix(in srgb, var(--accent) 35%, transparent)" : "1.5px dashed var(--border-h)",
                   borderRadius: 12,
                   padding: uploadingPdf ? 0 : "28px 20px",
                   textAlign: uploadingPdf ? "left" : "center",
@@ -3138,7 +3138,7 @@ export default function ResumeBuilder({
                   letterSpacing: -0.4, transition: "background 0.2s",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                   opacity: !(candidateProfile ?? "").trim() || !jd.trim() ? 0.5 : 1,
-                  boxShadow: analyzing ? "0 0 0 3px rgba(47,129,247,0.25)" : "none",
+                  boxShadow: analyzing ? "0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent)" : "none",
                 }}
                 onMouseEnter={e => { if (!analyzing && !generating && (candidateProfile ?? "").trim() && jd.trim()) e.currentTarget.style.background = "var(--accent-h)"; }}
                 onMouseLeave={e => { if (!analyzing && !generating) e.currentTarget.style.background = "var(--accent)"; }}
@@ -5006,7 +5006,7 @@ function ResumeStyleTemplateGrid({
                 cursor: "pointer",
                 fontFamily: "inherit",
                 overflow: "hidden",
-                boxShadow: selected ? "0 0 0 3px rgba(47,129,247,0.15)" : "none",
+                boxShadow: selected ? "0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent)" : "none",
                 transition: "border-color 0.15s, box-shadow 0.15s",
               }}
             >
@@ -5302,7 +5302,7 @@ function TailorBuildProgressBanner({ statusMsg }: { statusMsg: string }) {
         marginBottom: 16,
         padding: "16px 18px",
         borderRadius: 14,
-        border: "1px solid rgba(47,129,247,0.35)",
+        border: "1px solid color-mix(in srgb, var(--accent) 35%, transparent)",
         background: "var(--accent-bg)",
         boxShadow: "var(--shadow-card)",
       }}
@@ -5539,7 +5539,7 @@ function BuilderUploadExtractLoader({
           <div style={{
             width: 40, height: 40, borderRadius: 10, flexShrink: 0,
             background: "var(--accent-bg)",
-            border: "1px solid rgba(47,129,247,0.2)",
+            border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
           >
@@ -5590,7 +5590,7 @@ function BuilderUploadExtractLoader({
             padding: "10px 12px",
             borderRadius: 8,
             background: "var(--accent-bg)",
-            border: "1px solid rgba(47,129,247,0.18)",
+            border: "1px solid color-mix(in srgb, var(--accent) 18%, transparent)",
           }}
         >
           <span style={{ fontWeight: 700, marginRight: 6 }}>Tip:</span>
@@ -5726,7 +5726,7 @@ function BuilderGeneratePdfLoader({
             padding: "10px 12px",
             borderRadius: 8,
             background: "var(--accent-bg)",
-            border: "1px solid rgba(47,129,247,0.18)",
+            border: "1px solid color-mix(in srgb, var(--accent) 18%, transparent)",
           }}
         >
           <span style={{ fontWeight: 700, marginRight: 6 }}>Working:</span>
@@ -5832,7 +5832,7 @@ function BuilderSuggestAnalysisLoader({
             padding: "12px 14px",
             borderRadius: 10,
             background: "var(--accent-bg)",
-            border: "1px solid rgba(47,129,247,0.18)",
+            border: "1px solid color-mix(in srgb, var(--accent) 18%, transparent)",
           }}
         >
           {tip}

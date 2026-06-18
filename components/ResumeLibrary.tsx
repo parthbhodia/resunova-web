@@ -361,7 +361,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
           min-height: 280px;
         }
         .library-card:hover {
-          border-color: rgba(47, 129, 247, 0.35);
+          border-color: color-mix(in srgb, var(--accent) 35%, transparent);
           box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
         }
         [data-theme="dark"] .library-card:hover {
@@ -485,7 +485,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                   marginBottom: 18,
                   padding: "14px 16px",
                   borderRadius: "var(--radius-xl, 14px)",
-                  border: "1px solid rgba(47, 129, 247, 0.35)",
+                  border: "1px solid color-mix(in srgb, var(--accent) 35%, transparent)",
                   background: "var(--accent-bg)",
                   fontSize: 13,
                   color: "var(--text)",
@@ -866,7 +866,7 @@ function ResumeCard({
       style={{
         borderWidth: isSelected ? 2 : 1,
         borderColor: isSelected ? "var(--accent)" : "var(--border)",
-        boxShadow: isSelected ? "0 0 0 3px rgba(47, 129, 247, 0.18)" : undefined,
+        boxShadow: isSelected ? "0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)" : undefined,
       }}
       onClick={onOpen}
       onKeyDown={e => {
@@ -911,7 +911,7 @@ function ResumeCard({
               flexDirection: "column",
               justifyContent: "space-between",
               background:
-                "radial-gradient(circle at top left, rgba(47,129,247,0.16), transparent 42%), linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%)",
+                "radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 16%, transparent), transparent 42%), linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>

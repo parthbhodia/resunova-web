@@ -707,7 +707,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
               marginBottom: 22,
               padding: "16px 18px",
               borderRadius: "var(--radius-xl)",
-              border: "1px solid rgba(47,129,247,0.28)",
+              border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
               background: "var(--accent-bg)",
             }}
           >
@@ -772,7 +772,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
               marginBottom: 20,
               padding: "16px 18px",
               borderRadius: "var(--radius-xl)",
-              border: "1px solid rgba(47,129,247,0.28)",
+              border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
               background: "var(--accent-bg)",
               display: "flex",
               flexWrap: "wrap",
@@ -1129,7 +1129,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                           padding: "5px 11px",
                           borderRadius: 20,
                           border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                          background: active ? "rgba(47,129,247,0.1)" : "var(--surface2)",
+                          background: active ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "var(--surface2)",
                           color: active ? "var(--accent)" : "var(--text)",
                           fontSize: 12,
                           fontWeight: active ? 700 : 500,
@@ -1388,7 +1388,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                 cursor: obUploadBusy ? "not-allowed" : "pointer",
                 opacity: obUploadBusy ? 0.55 : 1,
                 fontFamily: "inherit",
-                boxShadow: "0 1px 8px rgba(47,129,247,0.35)",
+                boxShadow: "0 1px 8px color-mix(in srgb, var(--accent) 35%, transparent)",
               }}
             >
               Next
@@ -1411,7 +1411,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                 cursor: obUploadBusy ? "not-allowed" : "pointer",
                 opacity: obUploadBusy ? 0.55 : 1,
                 fontFamily: "inherit",
-                boxShadow: "0 1px 8px rgba(47,129,247,0.35)",
+                boxShadow: "0 1px 8px color-mix(in srgb, var(--accent) 35%, transparent)",
               }}
             >
               Open Profile form
@@ -1511,7 +1511,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
               cursor: dirty && !saving ? "pointer" : "not-allowed",
               opacity: dirty && !saving ? 1 : 0.55,
               fontFamily: "inherit",
-              boxShadow: dirty && !saving ? "0 1px 8px rgba(47,129,247,0.35)" : "none",
+              boxShadow: dirty && !saving ? "0 1px 8px color-mix(in srgb, var(--accent) 35%, transparent)" : "none",
             }}
           >
             {saving ? (
