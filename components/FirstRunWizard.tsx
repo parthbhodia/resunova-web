@@ -160,7 +160,7 @@ export default function FirstRunWizard({
                     aria-pressed={selected}
                     className={
                       selected
-                        ? "rounded-full border border-accent bg-[var(--accent-bg,color-mix(in srgb, var(--accent) 12%, transparent))] px-3 py-1.5 text-[12.5px] font-medium text-accent transition-colors"
+                        ? "rounded-full border border-accent bg-[var(--accent-bg)] px-3 py-1.5 text-[12.5px] font-medium text-accent transition-colors"
                         : "rounded-full border border-border bg-transparent px-3 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:border-accent/60"
                     }
                   >

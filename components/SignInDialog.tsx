@@ -128,7 +128,7 @@ export function SignInDialogProvider({ children }: { children: ReactNode }) {
           <ul className="mx-auto mt-1 flex w-full max-w-xs flex-col gap-2">
             {VALUE_PROPS.map((p) => (
               <li key={p} className="flex items-center gap-2.5 text-[13px] text-foreground">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg,color-mix(in srgb, var(--accent) 12%, transparent))] text-accent">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] text-accent">
                   {CheckIcon}
                 </span>
                 {p}
