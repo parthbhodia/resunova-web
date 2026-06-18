@@ -1488,7 +1488,7 @@ function GenerateSkillsModal({
             placeholder="Job you're applying for"
             style={{
               width: "100%", fontSize: 14, padding: "12px 14px",
-              border: "2px solid #2f81f7", borderRadius: 10,
+              border: "2px solid var(--accent)", borderRadius: 10,
               color: "#0f172a", background: "#fff",
               outline: "none", fontFamily: "inherit", boxSizing: "border-box",
             }}
@@ -1510,7 +1510,7 @@ function GenerateSkillsModal({
                     background: "none", border: "none", cursor: "pointer",
                     fontFamily: "inherit", borderBottom: "1px solid rgba(255,255,255,0.06)",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(47,129,247,0.2)"; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "color-mix(in srgb, var(--accent) 20%, transparent)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "none"; }}
                 >
                   {s}
@@ -1539,7 +1539,7 @@ function GenerateSkillsModal({
                     onClick={() => toggleSkill(skill)}
                     style={{
                       padding: "6px 12px", borderRadius: 99,
-                      border: on ? "1.5px solid #2f81f7" : "1.5px solid #cbd5e1",
+                      border: on ? "1.5px solid var(--accent)" : "1.5px solid #cbd5e1",
                       background: on ? "#dbeafe" : "#f8fafc",
                       color: on ? "#1d4ed8" : "#475569",
                       fontSize: 12.5, fontWeight: on ? 600 : 400,
@@ -1556,7 +1556,7 @@ function GenerateSkillsModal({
             <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
               <button
                 onClick={() => setSelected(new Set(generated))}
-                style={{ fontSize: 11, color: "#2f81f7", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+                style={{ fontSize: 11, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
               >
                 Select all
               </button>
@@ -1577,7 +1577,7 @@ function GenerateSkillsModal({
           disabled={generating || (!!generated && selected.size === 0)}
           style={{
             width: "100%", padding: "13px 20px",
-            background: generating ? "#94a3b8" : "#2f81f7",
+            background: generating ? "#94a3b8" : "var(--accent)",
             color: "#fff", border: "none", borderRadius: 10,
             fontSize: 14, fontWeight: 700, cursor: generating || (!!generated && selected.size === 0) ? "not-allowed" : "pointer",
             fontFamily: "inherit", letterSpacing: -0.2,

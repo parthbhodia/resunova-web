@@ -48,6 +48,21 @@ const UploadIcon = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M17 8l-5-5-5 5" /><path d="M12 3v12" /></svg>
 );
 
+/** Single shared loading spinner — one consistent loader treatment across the
+ *  wizard (the live count and the résumé analysis) so they never compete. */
+function Spinner({ size = 16, color = "var(--accent)" }: { size?: number; color?: string }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-block", width: size, height: size, flexShrink: 0,
+        borderRadius: "50%", border: "2px solid var(--surface3, var(--surface2))",
+        borderTopColor: color, animation: "spin 0.7s linear infinite",
+      }}
+    />
+  );
+}
+
 const H2: React.CSSProperties = { fontSize: 18, fontWeight: 700, color: "var(--text)", margin: 0 };
 const SUB: React.CSSProperties = { fontSize: 13, color: "var(--muted)", margin: "8px 0 18px", lineHeight: 1.55 };
 const SKIP: React.CSSProperties = { background: "none", border: "none", color: "var(--accent)", fontSize: 13, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit", padding: 0 };
@@ -150,7 +165,6 @@ export default function JobsOnboardingWizard({
     }
   }, [onResumeReady, selection]);
 
-  const countText = countLoading ? "Counting…" : count == null ? "" : count.toLocaleString();
   const countCaption = location.trim()
     ? `live ${role.trim() || "matching"} jobs · ${location.trim()}`
     : `live ${role.trim() || "matching"} jobs`;
@@ -227,7 +241,7 @@ export default function JobsOnboardingWizard({
                   type="button"
                   onClick={() => !uploadBusy && fileRef.current?.click()}
                   style={{
-                    width: "100%", border: "1.5px dashed var(--accent)", background: "var(--accent-bg, rgba(47,129,247,0.06))",
+                    width: "100%", border: "1.5px dashed var(--accent)", background: "var(--accent-bg, color-mix(in srgb, var(--accent) 6%, transparent))",
                     borderRadius: 14, padding: "22px 18px", display: "flex", flexDirection: "column", alignItems: "center",
                     gap: 6, cursor: uploadBusy ? "wait" : "pointer", fontFamily: "inherit",
                   }}
@@ -240,7 +254,7 @@ export default function JobsOnboardingWizard({
                 </button>
                 <div style={{ display: "flex", justifyContent: "center", margin: "16px 0 4px" }}>
                   <Button onClick={() => fileRef.current?.click()} disabled={uploadBusy} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ display: "inline-flex" }}>{UploadIcon}</span>
+                    {uploadBusy ? <Spinner size={14} color="currentColor" /> : <span style={{ display: "inline-flex" }}>{UploadIcon}</span>}
                     {uploadBusy ? "Analyzing your résumé…" : "Choose résumé (PDF)"}
                   </Button>
                 </div>
@@ -257,16 +271,25 @@ export default function JobsOnboardingWizard({
             )}
           </div>
 
-          {/* ── Right: live count + blurred teaser ── */}
+          {/* ── Right: live count + blurred teaser (or a single analyzing state) ── */}
           <div style={{ flex: "1 1 200px", minWidth: 200, borderLeft: "1px solid var(--border)", background: "var(--surface2, rgba(0,0,0,0.02))", padding: "28px 22px", display: "flex", flexDirection: "column" }}>
-            {!role.trim() ? (
+            {uploadBusy ? (
+              // While the résumé is being scored, this panel becomes the single,
+              // dominant loader — it supersedes the live count so the two never
+              // run as competing spinners.
+              <div style={{ margin: "auto 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
+                <Spinner size={26} />
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Analyzing your résumé…</div>
+                <div style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>Scoring every opening against your experience.</div>
+              </div>
+            ) : !role.trim() ? (
               <div style={{ margin: "auto 0", textAlign: "center", color: "var(--dim)", fontSize: 12.5, lineHeight: 1.5 }}>
                 Pick a role to see live matches.
               </div>
             ) : (
               <>
-                <div style={{ fontSize: 30, fontWeight: 800, color: "var(--text)", lineHeight: 1 }}>
-                  {countText || "—"}
+                <div style={{ fontSize: 30, fontWeight: 800, color: "var(--text)", lineHeight: 1, minHeight: 30, display: "flex", alignItems: "center" }}>
+                  {count != null ? count.toLocaleString() : countLoading ? <Spinner size={22} /> : "—"}
                 </div>
                 <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>{countCaption}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 18, filter: "blur(0.6px)", opacity: 0.82 }}>

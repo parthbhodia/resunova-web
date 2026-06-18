@@ -105,9 +105,9 @@ export default function JobSearchActivationWidget({
       style={{
         margin: "0 0 16px",
         borderRadius: 14,
-        border: "1.5px solid rgba(47,129,247,0.25)",
+        border: "1.5px solid color-mix(in srgb, var(--accent) 25%, transparent)",
         background: "var(--surface)",
-        boxShadow: "0 2px 12px rgba(47,129,247,0.08)",
+        boxShadow: "0 2px 12px color-mix(in srgb, var(--accent) 8%, transparent)",
         overflow: "hidden",
       }}
     >
@@ -162,7 +162,7 @@ export default function JobSearchActivationWidget({
                     padding: "5px 11px",
                     borderRadius: 20,
                     border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                    background: active ? "rgba(47,129,247,0.1)" : "var(--surface2)",
+                    background: active ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "var(--surface2)",
                     color: active ? "var(--accent)" : "var(--text)",
                     fontSize: 12,
                     fontWeight: active ? 700 : 500,
@@ -184,7 +184,7 @@ export default function JobSearchActivationWidget({
                 style={{
                   padding: "5px 11px", borderRadius: 20,
                   border: "1.5px solid var(--accent)",
-                  background: "rgba(47,129,247,0.1)",
+                  background: "color-mix(in srgb, var(--accent) 10%, transparent)",
                   color: "var(--accent)", fontSize: 12, fontWeight: 700,
                   cursor: "pointer", fontFamily: "inherit",
                 }}
@@ -241,7 +241,7 @@ export default function JobSearchActivationWidget({
                   style={{
                     padding: "5px 11px", borderRadius: 20,
                     border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                    background: active ? "rgba(47,129,247,0.1)" : "var(--surface2)",
+                    background: active ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "var(--surface2)",
                     color: active ? "var(--accent)" : "var(--text)",
                     fontSize: 12, fontWeight: active ? 700 : 500,
                     cursor: "pointer", fontFamily: "inherit",
@@ -279,7 +279,7 @@ export default function JobSearchActivationWidget({
               color: canSave ? "#fff" : "var(--dim)",
               fontSize: 13.5, fontWeight: 700, cursor: canSave ? "pointer" : "default",
               fontFamily: "inherit", letterSpacing: -0.2,
-              boxShadow: canSave ? "0 4px 16px rgba(47,129,247,0.3)" : "none",
+              boxShadow: canSave ? "0 4px 16px color-mix(in srgb, var(--accent) 30%, transparent)" : "none",
             }}
           >
             {saving ? "Saving…" : "Show me matching jobs →"}
