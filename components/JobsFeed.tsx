@@ -623,6 +623,25 @@ export default function JobsFeed({
     void loadFeed();
   }, [loadFeed]);
 
+  // Re-fetch when the user signs in/out *while on this page* — e.g. the Google
+  // OAuth redirect lands back on /?view=jobs and Supabase establishes the
+  // session a beat after JobsFeed has already mounted (and possibly 401'd into
+  // the signed-out hero). Without this, the feed only fetches once on mount and
+  // the hero stays stuck even though the user is now signed in. supabase-js
+  // emits INITIAL_SESSION (not SIGNED_IN) on a normal load, so this won't
+  // double-fetch the common already-signed-in case.
+  const loadFeedRef = useRef(loadFeed);
+  useEffect(() => { loadFeedRef.current = loadFeed; }, [loadFeed]);
+  useEffect(() => {
+    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        feedCache = null; // never serve a cache from across the auth boundary
+        void loadFeedRef.current(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const handleNudgeSave = useCallback(async () => {
     if (!nudgeRoles.length) return;
     setNudgeSaving(true);
