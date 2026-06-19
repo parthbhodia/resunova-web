@@ -70,19 +70,34 @@ const SKIP: React.CSSProperties = { background: "none", border: "none", color: "
 export default function JobsOnboardingWizard({
   onBrowse,
   onResumeReady,
+  initialStep = 1,
+  initialRole = "",
+  initialRoleTerms = null,
+  initialLocation = "",
+  initialMetroTerms = null,
+  initialWorkModel = "",
 }: {
   /** Skip to unranked results for the chosen role + location. */
   onBrowse: (sel: JobsBrowseSelection) => void;
   /** Résumé uploaded + analyzed — parent reloads the (now ranked) feed, keeping
    *  the chosen location/work-model so ranking is scoped to it too. */
   onResumeReady: (sel: JobsBrowseSelection) => void;
+  /** Seed the wizard when re-entered from an already-chosen role (e.g. the
+   *  "Scan my résumé" CTA on the unranked feed) so it opens on the résumé step
+   *  with role/location pre-filled instead of restarting at step 1. */
+  initialStep?: 1 | 2 | 3;
+  initialRole?: string;
+  initialRoleTerms?: string[] | null;
+  initialLocation?: string;
+  initialMetroTerms?: string[] | null;
+  initialWorkModel?: string;
 }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [role, setRole] = useState("");
-  const [roleTerms, setRoleTerms] = useState<string[] | null>(null);
-  const [location, setLocation] = useState("");
-  const [metroTerms, setMetroTerms] = useState<string[] | null>(null);
-  const [workModel, setWorkModel] = useState("");
+  const [step, setStep] = useState<1 | 2 | 3>(initialStep);
+  const [role, setRole] = useState(initialRole);
+  const [roleTerms, setRoleTerms] = useState<string[] | null>(initialRoleTerms);
+  const [location, setLocation] = useState(initialLocation);
+  const [metroTerms, setMetroTerms] = useState<string[] | null>(initialMetroTerms);
+  const [workModel, setWorkModel] = useState(initialWorkModel);
   const [count, setCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);

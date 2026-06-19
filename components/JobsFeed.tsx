@@ -623,6 +623,25 @@ export default function JobsFeed({
     void loadFeed();
   }, [loadFeed]);
 
+  // Re-fetch when the user signs in/out *while on this page* — e.g. the Google
+  // OAuth redirect lands back on /?view=jobs and Supabase establishes the
+  // session a beat after JobsFeed has already mounted (and possibly 401'd into
+  // the signed-out hero). Without this, the feed only fetches once on mount and
+  // the hero stays stuck even though the user is now signed in. supabase-js
+  // emits INITIAL_SESSION (not SIGNED_IN) on a normal load, so this won't
+  // double-fetch the common already-signed-in case.
+  const loadFeedRef = useRef(loadFeed);
+  useEffect(() => { loadFeedRef.current = loadFeed; }, [loadFeed]);
+  useEffect(() => {
+    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        feedCache = null; // never serve a cache from across the auth boundary
+        void loadFeedRef.current(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const handleNudgeSave = useCallback(async () => {
     if (!nudgeRoles.length) return;
     setNudgeSaving(true);
@@ -786,6 +805,23 @@ export default function JobsFeed({
     );
   }
 
+  // In-place résumé scan (the design replaces the cross-page jump to Analyze).
+  // Seeded from any role/location already chosen while browsing so re-entry from
+  // the unranked feed's "Scan my résumé" opens straight on the résumé step.
+  const hasBrowseRole = !!browseSel?.role?.trim();
+  const onboardingWizard = (
+    <JobsOnboardingWizard
+      initialStep={hasBrowseRole ? 3 : 1}
+      initialRole={browseSel?.role ?? ""}
+      initialRoleTerms={browseSel?.titleTerms ?? null}
+      initialLocation={browseSel?.location ?? ""}
+      initialMetroTerms={browseSel?.locationTerms ?? null}
+      initialWorkModel={browseSel?.workModel ?? ""}
+      onBrowse={submitBrowse}
+      onResumeReady={submitBrowse}
+    />
+  );
+
   return (
     <div style={listMode
       ? { width: "100%", display: "flex", flexDirection: "column" }
@@ -945,33 +981,15 @@ export default function JobsFeed({
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
               <Button variant="outline" onClick={changeRole}>Change role</Button>
-              <Button onClick={() => router.push("/?view=analyze")}>Scan my résumé</Button>
+              <Button onClick={() => setState({ status: "needs-role" })}>Scan my résumé</Button>
             </div>
           </div>
         )}
 
 
-        {state.status === "no-resume" && (
-          <Card>
-            <CardContent style={{ padding: "40px 28px", textAlign: "center" }}>
-              <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: 0 }}>
-                Your résumé is your job-match profile
-              </h2>
-              <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 18px", maxWidth: 440 }}>
-                Run a résumé scan first — we&apos;ll use it to score every opening and rank the ones worth your time.
-                No forms to fill out.
-              </p>
-              <Button onClick={() => router.push("/?view=analyze")}>Scan my résumé</Button>
-            </CardContent>
-          </Card>
-        )}
+        {state.status === "no-resume" && onboardingWizard}
 
-        {state.status === "needs-role" && (
-          <JobsOnboardingWizard
-            onBrowse={submitBrowse}
-            onResumeReady={submitBrowse}
-          />
-        )}
+        {state.status === "needs-role" && onboardingWizard}
 
         {state.status === "error" && (
           <Card>
