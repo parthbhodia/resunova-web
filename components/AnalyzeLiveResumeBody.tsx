@@ -1049,6 +1049,12 @@ interface Props {
    *  Analyze Zustand store. Set by the Tailor flow so a stale Analyze-store structured
    *  doc can't leak into the Tailor preview. */
   structuredResumeAuthoritative?: boolean;
+  /** Tailor-preview escape hatch: when authoritative is set but no structured doc is
+   *  available (the boost API only returns flat `tailoredText`), parse that text rather
+   *  than rendering the "Structured preview unavailable" dead-end. Keeps store isolation
+   *  (authoritative still blocks the Analyze store) while letting the tailored résumé +
+   *  its PDF export actually render. */
+  flatTextFallback?: boolean;
   activeCategory: string | null;
   rewriteEdits: Record<number, string>;
   patchBulletRewrite: (bulletIndex: number, value: string | null) => void;
@@ -1106,6 +1112,7 @@ export default function AnalyzeLiveResumeBody({
   bulletAnalysis,
   structuredResume: structuredResumeProp = null,
   structuredResumeAuthoritative = false,
+  flatTextFallback = false,
   activeCategory,
   rewriteEdits,
   patchBulletRewrite,
@@ -1165,8 +1172,10 @@ export default function AnalyzeLiveResumeBody({
       return buildBlocksFromStructured(structuredResume!, bulletAnalysis, sectionOrderOverride);
     }
     // Tailor marks structured authoritative: never silently re-parse flat text (that
-    // bypasses section order, per-company tech, and WYSIWYG parity with synthesize.py).
-    if (structuredResumeAuthoritative) {
+    // bypasses section order, per-company tech, and WYSIWYG parity with synthesize.py)
+    // — unless the caller has only flat text to show (boost preview) and explicitly
+    // opts into the flat-parse fallback below.
+    if (structuredResumeAuthoritative && !flatTextFallback) {
       return [];
     }
     // Analyze only: legacy saved runs / payloads without structuredResume in storage.
@@ -1182,6 +1191,7 @@ export default function AnalyzeLiveResumeBody({
     structuredPreviewActive,
     structuredResume,
     structuredResumeAuthoritative,
+    flatTextFallback,
     extractedText,
     bulletAnalysis,
     resumeHeader,
@@ -1327,8 +1337,11 @@ export default function AnalyzeLiveResumeBody({
       fontSize: "var(--az-resume-base-font-size, 10.5px)",
       lineHeight: "var(--az-resume-line-height, 1.45)",
       minHeight: 120,
-      overflowWrap: "anywhere",
-      wordBreak: "break-word",
+      // break-word (not anywhere) breaks only genuinely-long unbreakable tokens (URLs,
+      // emails) without collapsing the box's intrinsic min-width — `anywhere`/`break-word`
+      // would let a tight mobile column wrap one character per line. See boost preview.
+      overflowWrap: "break-word",
+      wordBreak: "normal",
     }}>
       <style>{`
         @keyframes az-mirror-pulse {
@@ -1343,7 +1356,7 @@ export default function AnalyzeLiveResumeBody({
 
       {blocks.length === 0 && (
         <div style={{ color: "var(--resume-paper-muted)", fontStyle: "italic", textAlign: "center", padding: "32px 0", lineHeight: 1.5, fontSize: 11 }}>
-          {structuredResumeAuthoritative && !structuredPreviewActive
+          {structuredResumeAuthoritative && !structuredPreviewActive && !flatTextFallback
             ? "Structured preview unavailable. Upload your PDF here, or run Match score — we'll extract a structured résumé model from your text (not plain-text guessing)."
             : "No extractable résumé text."}
         </div>

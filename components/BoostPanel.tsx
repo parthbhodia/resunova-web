@@ -531,7 +531,10 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
             overflowY: "auto",
           }}
         >
-          <div ref={previewRef} style={{ ...resumePageRootStyle(previewCtx, { showShadow: false }), ...resumeLayoutCssVars(previewCtx) }}>
+          {/* AnalyzeLiveResumeBody is itself a full padded paper, so this PDF-capture
+              wrapper drops its own padding to avoid a doubled margin that squeezes the
+              text column on narrow (mobile) panels. */}
+          <div ref={previewRef} style={{ ...resumePageRootStyle(previewCtx, { showShadow: false }), ...resumeLayoutCssVars(previewCtx), padding: 0 }}>
             <style dangerouslySetInnerHTML={{ __html: RESUME_BULLET_STYLESHEET }} />
             <AnalyzeLiveResumeBody
               extractedText={result.tailoredText}
@@ -543,6 +546,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
               patchPreviewLine={() => {}}
               structuredResume={null}
               structuredResumeAuthoritative
+              flatTextFallback
               presentationOnly
               highlightsEnabled={false}
             />
