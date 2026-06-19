@@ -26,8 +26,9 @@ import { resumeLayoutFromPreviewStyle, resumeLayoutCssVars, resumePageRootStyle,
 // Contract mirrors resunova-api's /api/jobs/boost (docs/boost-frontend-spec.md).
 // `BoostSuggestion` is a superset of the shared Tailor card's `GapFixSuggestion`
 // so it renders through GapFixSuggestionCard verbatim, plus boost-only fields
-// (`keyword`, `gainedRequirements`). NOTE: per backend GAP #1, `id` is NOT unique
-// across the list — accept/reject state is keyed by list index, never by id.
+// (`keyword`, `gainedRequirements`). `id` is response-unique (backend stamps
+// boost1, boost2, …), so it's a safe React key; the positional accept/reject
+// arrays below are still indexed by list position.
 
 type BoostSuggestion = GapFixSuggestion & {
   keyword?: string;
@@ -468,7 +469,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
   );
   const total = suggestions.length;
 
-  // Keyed by list index — backend GAP #1: `id` is not unique across the list.
+  // Positional state: accepted[i] / drafts[i] track the suggestion at list index i.
   const [accepted, setAccepted] = useState<boolean[]>([]);
   const [drafts, setDrafts] = useState<string[]>([]);
   const [liveScore, setLiveScore] = useState<number | null>(null);
@@ -630,7 +631,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {suggestions.map((s, i) => (
-              <div key={i} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              <div key={s.id} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                 <GapFixSuggestionCard
                   suggestion={s}
                   index={i}
