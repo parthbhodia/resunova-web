@@ -12,35 +12,46 @@
  * No navigation to the builder; everything happens in the slide-over.
  */
 
-import { useRef, useState, type Dispatch, type SetStateAction, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { authHeaders, scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { canBoost } from "@/lib/boostPrefill";
 import { apiUrl } from "@/lib/utils";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import AnalyzeLiveResumeBody from "@/components/AnalyzeLiveResumeBody";
+import { GapFixSuggestionCard, type GapFixSuggestion } from "@/components/ratings/GapFixSuggestionCard";
 import { resumeLayoutFromPreviewStyle, resumeLayoutCssVars, resumePageRootStyle, RESUME_BULLET_STYLESHEET } from "@/lib/resumeLayout";
 
 // ─── Boost API response ────────────────────────────────────────────────────
+// Contract mirrors resunova-api's /api/jobs/boost (docs/boost-frontend-spec.md).
+// `BoostSuggestion` is a superset of the shared Tailor card's `GapFixSuggestion`
+// so it renders through GapFixSuggestionCard verbatim, plus boost-only fields
+// (`keyword`, `gainedRequirements`). NOTE: per backend GAP #1, `id` is NOT unique
+// across the list — accept/reject state is keyed by list index, never by id.
 
-type BoostChange = {
-  original: string;
-  suggested: string;
-  section: string;
-  keyword: string;
+type BoostSuggestion = GapFixSuggestion & {
+  keyword?: string;
+  gainedRequirements?: string[];
 };
 
 type BoostResult = {
   company: string;
   title: string;
   url: string;
-  beforeScore: number;
-  afterScore: number;
-  tailoredText: string;
-  changes: BoostChange[];
+  beforeScore: number;        // score with NO suggestions applied
+  afterScore: number;         // score with ALL suggestions applied
+  improved: boolean;          // gates the "match jumped" banner
+  tailoredText: string;       // résumé text with all suggestions applied
+  suggestions: BoostSuggestion[];
+  changes?: BoostSuggestion[]; // legacy alias for `suggestions`
   appliedKeywords: string[];
   skippedKeywords: string[];
 };
+
+// Server-side deterministic re-score for a partial accepted subset. The match
+// scorer is bucket-weighted + renormalized, so a suggestion's marginal value is
+// non-linear and can't be summed honestly client-side — we round-trip instead.
+type BoostScoreResult = { score?: number; gainedRequirements?: string[] };
 
 const SECTION_LABELS: Record<string, string> = {
   summary: "Summary",
@@ -221,6 +232,7 @@ export default function BoostPanel({ job, onClose, open = true }: { job: JobDeta
               onDownload={handleDownloadPdf}
               onRetry={() => setStep(2)}
               jobUrl={job.url}
+              postingId={job.id}
             />
           )}
         </div>
@@ -437,7 +449,7 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
 
 // ─── Step 3 ───────────────────────────────────────────────────────────────
 
-function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, onDownload, onRetry, jobUrl }: {
+function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, onDownload, onRetry, jobUrl, postingId }: {
   generating: boolean;
   result: BoostResult | null;
   error: string | null;
@@ -447,7 +459,88 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
   onDownload: () => void;
   onRetry: () => void;
   jobUrl: string;
+  postingId: string;
 }) {
+  // ── Accept/reject + live-score state (all hooks run before any early return) ──
+  const suggestions = useMemo<BoostSuggestion[]>(
+    () => (result ? (result.suggestions ?? result.changes ?? []) : []),
+    [result],
+  );
+  const total = suggestions.length;
+
+  // Keyed by list index — backend GAP #1: `id` is not unique across the list.
+  const [accepted, setAccepted] = useState<boolean[]>([]);
+  const [drafts, setDrafts] = useState<string[]>([]);
+  const [liveScore, setLiveScore] = useState<number | null>(null);
+  const [scoring, setScoring] = useState(false);
+  const [scoreUnavailable, setScoreUnavailable] = useState(false);
+
+  // Reset selections whenever a fresh boost result arrives. Default: all applied,
+  // matching afterScore + the all-applied `tailoredText` the backend returns.
+  useEffect(() => {
+    setAccepted(suggestions.map(() => true));
+    setDrafts(suggestions.map((s) => s.suggested));
+    setLiveScore(null);
+    setScoreUnavailable(false);
+  }, [suggestions]);
+
+  const acceptedCount = accepted.filter(Boolean).length;
+  const beforeScore = result?.beforeScore ?? 0;
+  const afterScore = result?.afterScore ?? beforeScore;
+
+  // Debounced server re-score for in-between selections (anchors are known).
+  useEffect(() => {
+    if (!result || total === 0) return;
+    if (acceptedCount === total || acceptedCount === 0) { setScoring(false); return; }
+    let cancelled = false;
+    setScoring(true);
+    const timer = setTimeout(async () => {
+      try {
+        const subset = suggestions
+          .map((s, i) => ({ original: s.original, suggested: drafts[i] ?? s.suggested, keep: accepted[i] }))
+          .filter((x) => x.keep)
+          .map(({ original, suggested }) => ({ original, suggested }));
+        const headers = await authHeaders();
+        const resp = await fetch(apiUrl("/api/jobs/boost/score"), {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ posting_id: postingId, suggestions: subset }),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = (await resp.json()) as BoostScoreResult;
+        if (!cancelled && typeof data.score === "number") {
+          setLiveScore(data.score);
+          setScoreUnavailable(false);
+        }
+      } catch {
+        if (!cancelled) setScoreUnavailable(true); // endpoint not deployed yet → degrade honestly
+      } finally {
+        if (!cancelled) setScoring(false);
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [accepted, drafts, acceptedCount, total, suggestions, postingId, result]);
+
+  // Text fed to the preview + PDF, reflecting accept/reject + edits. Best-effort:
+  // the backend's `tailoredText` already has every suggestion applied, so we
+  // revert rejected ones (append → remove, rewrite → restore original) and swap
+  // in any edited draft. Only touches text we can match verbatim.
+  const appliedText = useMemo(() => {
+    if (!result) return "";
+    let text = result.tailoredText;
+    suggestions.forEach((s, i) => {
+      if (!s.suggested || !text.includes(s.suggested)) return;
+      const replacement = accepted[i]
+        ? (drafts[i] ?? s.suggested)
+        : (s.action_type === "append" ? "" : s.original);
+      text = text.replace(s.suggested, replacement);
+    });
+    return text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n");
+  }, [result, suggestions, accepted, drafts]);
+
+  const toggle = (i: number) => setAccepted((a) => a.map((v, j) => (j === i ? !v : v)));
+  const setDraft = (i: number, t: string) => setDrafts((d) => d.map((v, j) => (j === i ? t : v)));
+
   if (generating) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, flex: 1, minHeight: 260, color: "var(--muted)" }}>
@@ -475,36 +568,88 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
 
   if (!result) return null;
 
-  const afterColor = result.afterScore >= 70 ? "var(--green-ink)" : result.afterScore >= 50 ? "#e0a35c" : "var(--muted)";
+  const improved = result.improved ?? (total > 0 && afterScore > beforeScore);
+  const partial = total > 0 && acceptedCount !== total && acceptedCount !== 0;
+
+  // Headline score: anchors are exact; in-between comes from the server re-score
+  // (falls back to the all-applied projection until that endpoint is live).
+  const headlineScore = acceptedCount === total ? afterScore
+    : acceptedCount === 0 ? beforeScore
+    : (liveScore ?? afterScore);
+  const scoreColor = headlineScore >= 70 ? "var(--green-ink)" : headlineScore >= 50 ? "#e0a35c" : "var(--muted)";
   const previewCtx = resumeLayoutFromPreviewStyle("classic");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      {/* score jump */}
-      <div style={{ background: "var(--surface)", borderRadius: 14, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>BEFORE</span>
-          <span style={{ fontSize: 28, fontWeight: 700, color: "var(--muted)", lineHeight: 1 }}>{result.beforeScore}%</span>
+      {/* ── Match banner — gated on `improved` ── */}
+      {improved ? (
+        <div style={{ background: "var(--surface)", borderRadius: 14, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>BEFORE</span>
+            <span style={{ fontSize: 28, fontWeight: 700, color: "var(--muted)", lineHeight: 1 }}>{beforeScore}%</span>
+          </div>
+          <span style={{ fontSize: 22, color: "var(--muted)" }}>→</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>
+              {acceptedCount === total ? "AFTER" : "NOW"}
+            </span>
+            <span style={{ fontSize: 36, fontWeight: 700, color: scoreColor, lineHeight: 1, opacity: scoring ? 0.55 : 1, transition: "opacity 0.15s" }}>
+              {headlineScore}%
+            </span>
+          </div>
+          <span style={{ fontSize: 13, color: "var(--muted)", flex: 1, minWidth: 120 }}>
+            {scoring
+              ? "Re-scoring…"
+              : partial && scoreUnavailable
+                ? <>Showing the projected score with all {total} suggestions — live per-selection scoring is rolling out.</>
+                : <>Your match {headlineScore > beforeScore ? "is up" : "is"} from <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong> to <strong style={{ color: scoreColor }}>{headlineScore}%</strong> with {acceptedCount} of {total} suggestions applied.</>}
+          </span>
         </div>
-        <span style={{ fontSize: 22, color: "var(--muted)" }}>→</span>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>AFTER</span>
-          <span style={{ fontSize: 36, fontWeight: 700, color: afterColor, lineHeight: 1 }}>{result.afterScore}%</span>
+      ) : (
+        <div style={{ background: "var(--surface)", borderRadius: 14, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>No honest improvements to apply</span>
+          <span style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 }}>
+            {result.skippedKeywords.length > 0
+              ? <>Skipped — couldn&apos;t honestly support: {result.skippedKeywords.join(", ")}. Your match stays at <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong>.</>
+              : <>Your résumé already covers what this posting asks for, or the remaining gaps can&apos;t be closed truthfully. Match: <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong>.</>}
+          </span>
         </div>
-        <span style={{ fontSize: 13, color: "var(--muted)", flex: 1, minWidth: 120 }}>
-          Your match jumped from <strong style={{ color: "var(--text)" }}>{result.beforeScore}%</strong> to <strong style={{ color: afterColor }}>{result.afterScore}%</strong>
-        </span>
-      </div>
+      )}
 
-      {/* what changed */}
-      {result.changes.length > 0 && (
+      {/* ── Suggestions — shared Tailor card + accept/reject + gained-requirement chips ── */}
+      {improved && total > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>WHAT CHANGED</span>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {result.changes.map((c, i) => (
-              <div key={i} style={{ background: "var(--surface)", borderRadius: 10, padding: "10px 14px", borderLeft: "3px solid var(--accent)" }}>
-                <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--accent)", marginBottom: 4 }}>✦ {c.keyword}</div>
-                <p style={{ fontSize: 12.5, color: "var(--text)", margin: 0, lineHeight: 1.55 }}>{c.suggested}</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>
+              SUGGESTIONS · {acceptedCount}/{total} APPLIED
+            </span>
+            <div style={{ flex: 1 }} />
+            <button onClick={() => setAccepted(suggestions.map(() => true))} style={linkBtnStyle}>Accept all</button>
+            <span style={{ color: "var(--surface2)" }}>·</span>
+            <button onClick={() => setAccepted(suggestions.map(() => false))} style={linkBtnStyle}>Clear</button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {suggestions.map((s, i) => (
+              <div key={i} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                <GapFixSuggestionCard
+                  suggestion={s}
+                  index={i}
+                  checked={accepted[i] ?? true}
+                  onToggleCheck={() => toggle(i)}
+                  draftText={drafts[i] ?? s.suggested}
+                  onDraftChange={(t) => setDraft(i, t)}
+                />
+                {(s.gainedRequirements?.length ?? 0) > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "8px 4px 2px" }}>
+                    {s.gainedRequirements!.map((req) => (
+                      <span key={req} style={{
+                        fontSize: 10.5, fontWeight: 600, color: "var(--green-ink)",
+                        background: "rgba(34,197,94,0.10)", border: "1px solid rgba(34,197,94,0.25)",
+                        borderRadius: 20, padding: "2px 9px",
+                      }}>+ {req}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -537,7 +682,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
           <div ref={previewRef} style={{ ...resumePageRootStyle(previewCtx, { showShadow: false }), ...resumeLayoutCssVars(previewCtx), padding: 0 }}>
             <style dangerouslySetInnerHTML={{ __html: RESUME_BULLET_STYLESHEET }} />
             <AnalyzeLiveResumeBody
-              extractedText={result.tailoredText}
+              extractedText={appliedText}
               bulletAnalysis={[]}
               activeCategory={null}
               rewriteEdits={{}}
@@ -579,6 +724,11 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
     </div>
   );
 }
+
+const linkBtnStyle: CSSProperties = {
+  background: "none", border: "none", padding: 0, cursor: "pointer",
+  fontSize: 11.5, fontWeight: 600, color: "var(--accent)",
+};
 
 function SectionHeading({ n, title, badge }: { n: number; title: string; badge?: string }) {
   return (
