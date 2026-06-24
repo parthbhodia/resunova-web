@@ -25,6 +25,7 @@ import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { useSignInDialog } from "@/components/SignInDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   fetchJobFilters,
@@ -510,6 +511,10 @@ export default function JobsFeed({
     try { const raw = localStorage.getItem(JOBS_BROWSE_KEY); return raw ? (JSON.parse(raw) as JobsBrowseSelection) : null; } catch { return null; }
   });
   const [search, setSearch] = useState("");
+  // "Update résumé" popup on the ranked feed — re-scan a newer résumé and re-rank
+  // in place. A non-trapping replacement for the reverted "change role": upload or
+  // cancel, nothing else changes.
+  const [updateResumeOpen, setUpdateResumeOpen] = useState(false);
   // Country scope. Defaults to "us" so the feed isn't flooded with international
   // postings (the corpus carries them and there is no country column to query on);
   // "all" shows every country. Session state — not persisted to saved filters.
@@ -981,20 +986,72 @@ export default function JobsFeed({
               : "Live openings ranked against your latest analyzed résumé. Apply on the company's site — we hand you the match, you make the call."}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
-          Refresh
-        </Button>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          {state.status === "ready" && state.ranked && (
+            <Button variant="outline" size="sm" onClick={() => setUpdateResumeOpen(true)} disabled={scanning}>
+              Update résumé
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
+            Refresh
+          </Button>
+        </div>
       </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)" }}>
             {state.status === "ready" ? `${visibleJobs.length} job${visibleJobs.length === 1 ? "" : "s"}` : "Jobs"}
           </span>
-          <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
-            Refresh
-          </Button>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            {state.status === "ready" && state.ranked && (
+              <Button variant="outline" size="sm" onClick={() => setUpdateResumeOpen(true)} disabled={scanning}>
+                Update résumé
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
+              Refresh
+            </Button>
+          </div>
         </div>
       )}
+
+      <Dialog open={updateResumeOpen} onOpenChange={setUpdateResumeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update your résumé</DialogTitle>
+            <DialogDescription>
+              Upload a newer résumé to re-rank these jobs against it. Your role and filters stay the same.
+            </DialogDescription>
+          </DialogHeader>
+          <label
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+              padding: "22px 16px", border: "1.5px dashed var(--accent)",
+              background: "var(--accent-bg, color-mix(in srgb, var(--accent) 6%, transparent))",
+              borderRadius: 12, cursor: "pointer", textAlign: "center",
+            }}
+          >
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.currentTarget.value = "";
+                if (!f) return;
+                setUpdateResumeOpen(false);
+                const sel: JobsBrowseSelection = browseSel ?? { role: "", titleTerms: [], location: "", locationTerms: [], workModel: "" };
+                startResumeRanking(sel, f);
+              }}
+            />
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Choose résumé (PDF)</span>
+            <span style={{ fontSize: 12.5, color: "var(--muted)" }}>We&apos;ll re-score every job against the new résumé.</span>
+          </label>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUpdateResumeOpen(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {state.status === "ready" && (
         <div style={{ margin: listMode ? "10px 0 12px" : "18px 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
