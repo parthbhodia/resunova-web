@@ -15,7 +15,7 @@
  * progress as the user answers. "Skip to results" is available from step 2 on.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import SearchableSelect, { type SelectItem } from "@/components/SearchableSelect";
@@ -69,7 +69,8 @@ const SKIP: React.CSSProperties = { background: "none", border: "none", color: "
 
 export default function JobsOnboardingWizard({
   onBrowse,
-  onResumeReady,
+  onResumeUploadStart,
+  onPrefetch,
   initialStep = 1,
   initialRole = "",
   initialRoleTerms = null,
@@ -79,9 +80,13 @@ export default function JobsOnboardingWizard({
 }: {
   /** Skip to unranked results for the chosen role + location. */
   onBrowse: (sel: JobsBrowseSelection) => void;
-  /** Résumé uploaded + analyzed — parent reloads the (now ranked) feed, keeping
-   *  the chosen location/work-model so ranking is scoped to it too. */
-  onResumeReady: (sel: JobsBrowseSelection) => void;
+  /** User picked a résumé file. The parent takes over: it shows the (prefetched)
+   *  feed immediately and runs analyze-upload in the background, then upgrades to
+   *  the ranked feed in place. The wizard unmounts as soon as the feed shows. */
+  onResumeUploadStart: (sel: JobsBrowseSelection, file: File) => void;
+  /** Warm the feed for the in-progress selection while the user is still picking
+   *  role/location, so it's instant on upload. Best-effort. */
+  onPrefetch?: (sel: JobsBrowseSelection) => void;
   /** Seed the wizard when re-entered from an already-chosen role (e.g. the
    *  "Scan my résumé" CTA on the unranked feed) so it opens on the résumé step
    *  with role/location pre-filled instead of restarting at step 1. */
@@ -100,8 +105,6 @@ export default function JobsOnboardingWizard({
   const [workModel, setWorkModel] = useState(initialWorkModel);
   const [count, setCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
-  const [uploadBusy, setUploadBusy] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const selection = useMemo<JobsBrowseSelection>(() => ({
@@ -150,36 +153,6 @@ export default function JobsOnboardingWizard({
     setWorkModel(found?.remote ? "remote" : "");
   };
 
-  const uploadResume = useCallback(async (file: File) => {
-    setUploadError(null);
-    setUploadBusy(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const { data: { session } } = await getSupabaseClient().auth.getSession();
-      const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
-      if (session?.user?.id) {
-        fd.set("user_id", session.user.id);
-        if (session.user.email) fd.set("user_email", session.user.email);
-      }
-      const resp = await fetch(apiUrl("/api/analyze-upload"), { method: "POST", body: fd, headers });
-      const json = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        if (resp.status === 429) {
-          setUploadError("Daily scan limit reached — try tomorrow, or browse without ranking below.");
-          return;
-        }
-        setUploadError(json?.error || json?.message || "Couldn't read that file — use a text-based PDF résumé.");
-        return;
-      }
-      onResumeReady(selection);
-    } catch (e) {
-      setUploadError(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setUploadBusy(false);
-    }
-  }, [onResumeReady, selection]);
-
   const countCaption = location.trim()
     ? `live ${role.trim() || "matching"} jobs · ${location.trim()}`
     : `live ${role.trim() || "matching"} jobs`;
@@ -215,7 +188,7 @@ export default function JobsOnboardingWizard({
                   emptyHint="No preset match — we'll still search for that role."
                 />
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
-                  <Button disabled={!role.trim()} onClick={() => setStep(2)}>Continue →</Button>
+                  <Button disabled={!role.trim()} onClick={() => { onPrefetch?.(selection); setStep(2); }}>Continue →</Button>
                 </div>
               </>
             )}
@@ -238,7 +211,7 @@ export default function JobsOnboardingWizard({
                   <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
                   <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                     <button type="button" onClick={() => onBrowse(selection)} style={SKIP}>Skip to results</button>
-                    <Button onClick={() => setStep(3)}>Continue →</Button>
+                    <Button onClick={() => { onPrefetch?.(selection); setStep(3); }}>Continue →</Button>
                   </div>
                 </div>
               </>
@@ -250,15 +223,15 @@ export default function JobsOnboardingWizard({
                 <p style={SUB}>We&apos;ll score every opening against your résumé and sort the best fits first.</p>
                 <input
                   ref={fileRef} type="file" accept="application/pdf,.pdf" style={{ display: "none" }}
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadResume(f); }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) onResumeUploadStart(selection, f); }}
                 />
                 <button
                   type="button"
-                  onClick={() => !uploadBusy && fileRef.current?.click()}
+                  onClick={() => fileRef.current?.click()}
                   style={{
                     width: "100%", border: "1.5px dashed var(--accent)", background: "var(--accent-bg, color-mix(in srgb, var(--accent) 6%, transparent))",
                     borderRadius: 14, padding: "22px 18px", display: "flex", flexDirection: "column", alignItems: "center",
-                    gap: 6, cursor: uploadBusy ? "wait" : "pointer", fontFamily: "inherit",
+                    gap: 6, cursor: "pointer", fontFamily: "inherit",
                   }}
                 >
                   <span style={{ color: "var(--accent)", display: "inline-flex" }}>
@@ -268,17 +241,14 @@ export default function JobsOnboardingWizard({
                   <span style={{ fontSize: 11, color: "var(--dim)" }}>PDF · max 5 MB</span>
                 </button>
                 <div style={{ display: "flex", justifyContent: "center", margin: "16px 0 4px" }}>
-                  <Button onClick={() => fileRef.current?.click()} disabled={uploadBusy} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    {uploadBusy ? <Spinner size={14} color="currentColor" /> : <span style={{ display: "inline-flex" }}>{UploadIcon}</span>}
-                    {uploadBusy ? "Analyzing your résumé…" : "Choose résumé (PDF)"}
+                  <Button onClick={() => fileRef.current?.click()} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ display: "inline-flex" }}>{UploadIcon}</span>
+                    Choose résumé (PDF)
                   </Button>
                 </div>
-                {uploadError && (
-                  <p style={{ fontSize: 12.5, color: "var(--red, #f87171)", textAlign: "center", margin: "6px 0 0", lineHeight: 1.5 }}>{uploadError}</p>
-                )}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 18 }}>
-                  <Button variant="outline" onClick={() => setStep(2)} disabled={uploadBusy}>Back</Button>
-                  <button type="button" onClick={() => onBrowse(selection)} disabled={uploadBusy} style={{ ...SKIP, opacity: uploadBusy ? 0.5 : 1 }}>
+                  <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
+                  <button type="button" onClick={() => onBrowse(selection)} style={SKIP}>
                     Skip — browse without ranking
                   </button>
                 </div>
@@ -286,18 +256,9 @@ export default function JobsOnboardingWizard({
             )}
           </div>
 
-          {/* ── Right: live count + blurred teaser (or a single analyzing state) ── */}
+          {/* ── Right: live count + blurred teaser ── */}
           <div style={{ flex: "1 1 200px", minWidth: 200, borderLeft: "1px solid var(--border)", background: "var(--surface2, rgba(0,0,0,0.02))", padding: "28px 22px", display: "flex", flexDirection: "column" }}>
-            {uploadBusy ? (
-              // While the résumé is being scored, this panel becomes the single,
-              // dominant loader — it supersedes the live count so the two never
-              // run as competing spinners.
-              <div style={{ margin: "auto 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
-                <Spinner size={26} />
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Analyzing your résumé…</div>
-                <div style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>Scoring every opening against your experience.</div>
-              </div>
-            ) : !role.trim() ? (
+            {!role.trim() ? (
               <div style={{ margin: "auto 0", textAlign: "center", color: "var(--dim)", fontSize: 12.5, lineHeight: 1.5 }}>
                 Pick a role to see live matches.
               </div>

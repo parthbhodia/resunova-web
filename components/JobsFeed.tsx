@@ -378,6 +378,74 @@ export async function prefetchJobsFeed(): Promise<void> {
   }
 }
 
+/** Warm the feed cache for a SPECIFIC browse selection (role + title/location
+ *  terms), used by the onboarding wizard to prefetch matches while the user is
+ *  still picking role/location — so the feed is instant the moment they upload a
+ *  résumé. Same cache + key as loadFeed, so the warmed entry is reused. Writes an
+ *  unranked (or prior-résumé-ranked) entry; the post-upload ranked refetch
+ *  overwrites it in place. Best-effort: any miss just falls back to a fetch. */
+async function warmFeed(sel: JobsBrowseSelection, days: number): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const roleQuery = sel.role.trim();
+    const cacheKey = browseFeedCacheKey(days, roleQuery, sel);
+    if (feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) return;
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
+    if (!session?.access_token) return;
+    const params = new URLSearchParams();
+    if (days) params.set("max_age_days", String(days));
+    if (roleQuery) params.set("role", roleQuery);
+    appendBrowseParams(params, sel);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers: { Authorization: `Bearer ${session.access_token}` } });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data?.needsRole) return;
+    feedCache = {
+      key: cacheKey,
+      at: Date.now(),
+      data: {
+        status: "ready",
+        jobs: Array.isArray(data?.jobs) ? data.jobs : [],
+        generatedAt: data?.generatedAt || "",
+        profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
+        profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
+        ranked: data?.ranked !== false,
+        role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+      },
+    };
+  } catch { /* best-effort */ }
+}
+
+/** Upload a résumé for analysis. Persists the analysis server-side (keyed by the
+ *  signed-in user), which is what unlocks ranked feeds. Resolves on success;
+ *  throws an Error with a user-facing message on 429 / parse failure. Moved out
+ *  of the wizard so the parent feed can run it in the background while showing
+ *  jobs. */
+async function analyzeResumeUpload(file: File): Promise<void> {
+  const fd = new FormData();
+  fd.append("file", file);
+  // Two-phase opt-in (resunova-api): the backend persists the rankable profile
+  // (extractedText + structuredResume) and returns in ~1–2s with
+  // `analysisPending: true`, then finishes the comprehensive analysis in the
+  // background. That's all the ranked feed refetch below needs — so the
+  // ranked upgrade lands in ~1–2s instead of ~15s. The Analyze view does NOT
+  // set this (it renders the full result synchronously).
+  fd.append("defer_analysis", "1");
+  const { data: { session } } = await getSupabaseClient().auth.getSession();
+  const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+  if (session?.user?.id) {
+    fd.set("user_id", session.user.id);
+    if (session.user.email) fd.set("user_email", session.user.email);
+  }
+  const resp = await fetch(apiUrl("/api/analyze-upload"), { method: "POST", body: fd, headers });
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    if (resp.status === 429) throw new Error("Daily scan limit reached — try tomorrow, or browse without ranking below.");
+    throw new Error(json?.error || json?.message || "Couldn't read that file — use a text-based PDF résumé.");
+  }
+}
+
 /** Read the most-recently cached feed jobs (the exact list the rail is showing),
  *  so side panels like "More matches" can reuse it without a second fetch.
  *  Returns null until the feed has loaded once. */
@@ -489,6 +557,17 @@ export default function JobsFeed({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
+  // ── Background résumé scan (progressive ranking) ──
+  // `scanning` drives the slim "ranking…" strip over an already-visible feed;
+  // `scanError` drives a non-blocking banner + retry. Both are orthogonal to the
+  // FeedState union so the existing feed states are untouched.
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const uploadInFlightRef = useRef<Promise<void> | null>(null);
+  const lastUploadFileRef = useRef<File | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
   // Boost slide-over: feed cards only carry summary fields, so fetch the full
   // job detail on demand before mounting the shared BoostPanel in place.
   const [boostJob, setBoostJob] = useState<JobDetailData | null>(null);
@@ -560,7 +639,10 @@ export default function JobsFeed({
     setRoleQuery("");
   }, []);
 
-  const loadFeed = useCallback(async (force = false) => {
+  // `quiet`: skip the skeleton and merge the result in place (keeps status
+  // "ready" so scroll/lazy-window aren't reset) — used for the post-upload ranked
+  // upgrade. In quiet mode any failure rethrows instead of wiping the feed.
+  const loadFeed = useCallback(async (force = false, quiet = false) => {
     const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
     const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel);
     // Serve a fresh-enough cached feed on tab remount instead of refetching.
@@ -568,7 +650,7 @@ export default function JobsFeed({
       setState(feedCache.data);
       return;
     }
-    setState({ status: "loading" });
+    if (!quiet) setState({ status: "loading" });
     try {
       const supabase = getSupabaseClient();
       const {
@@ -585,25 +667,30 @@ export default function JobsFeed({
       const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
-        // Only the backend's explicit "no saved analysis" codes mean the user
-        // needs a scan — a bare 404 can be an API deploy that predates the route.
-        if (resp.status === 404 && (body?.error === "no_resume_analysis" || body?.error === "no_resume_text")) {
-          feedCache = null;
-          setState({ status: "no-resume" });
-          return;
-        }
-        // Jobs require sign-in (backend 401s anonymous feed requests). Show an
-        // in-view sign-in prompt rather than bouncing to the marketing landing.
-        if (resp.status === 401) {
-          feedCache = null;
-          setState({ status: "signin" });
-          return;
+        // In quiet mode never swap the visible feed for an empty/state screen —
+        // surface the failure to the caller instead so it can show a banner.
+        if (!quiet) {
+          // Only the backend's explicit "no saved analysis" codes mean the user
+          // needs a scan — a bare 404 can be an API deploy that predates the route.
+          if (resp.status === 404 && (body?.error === "no_resume_analysis" || body?.error === "no_resume_text")) {
+            feedCache = null;
+            setState({ status: "no-resume" });
+            return;
+          }
+          // Jobs require sign-in (backend 401s anonymous feed requests). Show an
+          // in-view sign-in prompt rather than bouncing to the marketing landing.
+          if (resp.status === 401) {
+            feedCache = null;
+            setState({ status: "signin" });
+            return;
+          }
         }
         throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
       }
       const data = await resp.json();
       // Signed-in, no résumé, no role chosen yet → ask which role to search first.
       if (data?.needsRole) {
+        if (quiet) throw new Error("needs_role");
         feedCache = null;
         setState({ status: "needs-role" });
         return;
@@ -620,13 +707,22 @@ export default function JobsFeed({
         role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
       };
       feedCache = { key: cacheKey, at: Date.now(), data: ready };
-      setState(ready);
+      // Quiet upgrade: apply over the visible feed (status stays "ready" so the
+      // lazy-load window + scroll survive) or over a skeleton if no warm feed
+      // landed first; but if the user navigated elsewhere, leave that alone.
+      setState((prev) =>
+        !quiet || prev.status === "ready" || prev.status === "loading" ? ready : prev,
+      );
     } catch (err) {
+      if (quiet) throw err; // caller (résumé scan) keeps the feed + shows a banner
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
     }
   }, [ageFilter, roleQuery, browseSel]);
 
   useEffect(() => {
+    // A background résumé scan drives the feed explicitly (unranked → ranked);
+    // don't let the roleQuery/browseSel change re-enter the skeleton path.
+    if (uploadInFlightRef.current) return;
     void loadFeed();
   }, [loadFeed]);
 
@@ -639,6 +735,65 @@ export default function JobsFeed({
   // double-fetch the common already-signed-in case.
   const loadFeedRef = useRef(loadFeed);
   useEffect(() => { loadFeedRef.current = loadFeed; }, [loadFeed]);
+
+  // Latest roleQuery, so a background scan can detect the user changing role
+  // mid-flight and abandon its stale result.
+  const roleQueryRef = useRef(roleQuery);
+  useEffect(() => { roleQueryRef.current = roleQuery; }, [roleQuery]);
+
+  // Wizard prefetch: warm the feed for the in-progress selection while the user
+  // is still on the role/location steps, so the feed is instant on upload.
+  const prefetchBrowse = useCallback((sel: JobsBrowseSelection) => {
+    if (!sel.role.trim()) return;
+    const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+    void warmFeed(sel, days);
+  }, [ageFilter]);
+
+  // Progressive ranking: on résumé upload, show the (prefetched) role/location
+  // feed IMMEDIATELY with a "ranking…" strip, run analyze-upload in the
+  // background, then upgrade to the ranked feed in place — no skeleton, no scroll
+  // reset. Failures keep the unranked feed + show a retry banner.
+  const startResumeRanking = useCallback((sel: JobsBrowseSelection, file: File) => {
+    try {
+      localStorage.setItem(JOBS_BROWSE_KEY, JSON.stringify(sel));
+      if (sel.role.trim()) localStorage.setItem(JOBS_ROLE_KEY, sel.role.trim());
+    } catch { /* quota */ }
+    lastUploadFileRef.current = file;
+    setScanError(null);
+    setScanning(true);
+    setBrowseSel(sel);
+    setRoleQuery(sel.role.trim());
+
+    // 1) Show matches now: warm cache if present, else a quick unranked fetch.
+    const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+    const key = browseFeedCacheKey(days, sel.role.trim(), sel);
+    if (feedCache && feedCache.key === key) {
+      setState(feedCache.data);
+    } else {
+      setState({ status: "loading" });
+      void warmFeed(sel, days).then(() => {
+        if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
+        if (feedCache && feedCache.key === key) setState((prev) => (prev.status === "loading" ? feedCache!.data : prev));
+      });
+    }
+
+    // 2) Background: persist the analysis, then ranked upgrade in place.
+    const p = (async () => {
+      try {
+        await analyzeResumeUpload(file);
+        if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
+        feedCache = null; // cache key has no ranked dimension — force the ranked refetch
+        await loadFeedRef.current(true, true); // force + quiet (merge in place)
+      } catch (err) {
+        if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
+        setScanError(err instanceof Error ? err.message : "Couldn't rank against your résumé.");
+      } finally {
+        if (mountedRef.current && roleQueryRef.current === sel.role.trim()) setScanning(false);
+        uploadInFlightRef.current = null;
+      }
+    })();
+    uploadInFlightRef.current = p;
+  }, [ageFilter]);
   useEffect(() => {
     const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
@@ -825,7 +980,8 @@ export default function JobsFeed({
       initialMetroTerms={browseSel?.locationTerms ?? null}
       initialWorkModel={browseSel?.workModel ?? ""}
       onBrowse={submitBrowse}
-      onResumeReady={submitBrowse}
+      onResumeUploadStart={startResumeRanking}
+      onPrefetch={prefetchBrowse}
     />
   );
 
@@ -976,7 +1132,33 @@ export default function JobsFeed({
           </div>
         )}
 
-        {state.status === "ready" && state.ranked === false && (
+        {/* Progressive ranking: slim strip while the résumé scan runs in the
+            background over the already-visible feed. */}
+        {state.status === "ready" && scanning && (
+          <div style={{ marginBottom: 16, borderRadius: 12, border: "1px solid color-mix(in srgb, var(--accent) 22%, transparent)", background: "color-mix(in srgb, var(--accent) 5%, var(--surface))", padding: "11px 16px", display: "flex", alignItems: "center", gap: 11 }}>
+            <span aria-hidden style={{ display: "inline-block", width: 15, height: 15, flexShrink: 0, borderRadius: "50%", border: "2px solid color-mix(in srgb, var(--accent) 25%, transparent)", borderTopColor: "var(--accent)", animation: "rn-spin 0.7s linear infinite" }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>
+              {state.ranked ? "Re-ranking against your new résumé…" : "Ranking these against your résumé…"}
+            </span>
+            <span style={{ fontSize: 11.5, color: "var(--muted)" }}>scores appear in a moment</span>
+            <style>{"@keyframes rn-spin{to{transform:rotate(360deg)}}"}</style>
+          </div>
+        )}
+
+        {/* Scan failed: keep the (unranked) feed; offer a retry. */}
+        {state.status === "ready" && scanError && !scanning && (
+          <div style={{ marginBottom: 16, borderRadius: 12, border: "1px solid color-mix(in srgb, var(--red, #f87171) 35%, transparent)", background: "color-mix(in srgb, var(--red, #f87171) 6%, var(--surface))", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12.5, color: "var(--text)", minWidth: 0 }}>{scanError}</span>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <Button variant="outline" size="sm" onClick={() => setScanError(null)}>Dismiss</Button>
+              {lastUploadFileRef.current && browseSel && (
+                <Button size="sm" onClick={() => { const f = lastUploadFileRef.current; if (f && browseSel) startResumeRanking(browseSel, f); }}>Retry</Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {state.status === "ready" && state.ranked === false && !scanning && (
           <div style={{ marginBottom: 16, borderRadius: 14, border: "1.5px solid color-mix(in srgb, var(--accent) 22%, transparent)", background: "var(--surface)", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
