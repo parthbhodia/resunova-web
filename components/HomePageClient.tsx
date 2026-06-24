@@ -29,6 +29,7 @@ import AccountSettingsPage from "@/components/AccountSettingsPage";
 import AdvisorDashboard from "@/components/AdvisorDashboard";
 import JobsFeed from "@/components/JobsFeed";
 import JobDetail from "@/components/JobDetail";
+import MoreMatchesPanel from "@/components/MoreMatchesPanel";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import ApplicationTracker from "@/components/ApplicationTracker";
 import CoverLetterBuilder from "@/components/CoverLetterBuilder";
@@ -245,9 +246,13 @@ function JobsView({ selectedJobId }: { selectedJobId: string }) {
           alignSelf: "flex-start",
           maxHeight: "calc(100dvh - 88px)",
           overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
         }}
       >
         <JobDetail jobId={selectedJobId} embedded />
+        <MoreMatchesPanel currentJobId={selectedJobId} />
       </div>
     </div>
   );

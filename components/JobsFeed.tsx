@@ -38,7 +38,7 @@ import BoostPanel from "@/components/BoostPanel";
 import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
 
-type FeedJob = {
+export type FeedJob = {
   id: string;
   title: string;
   company: string;
@@ -376,6 +376,13 @@ export async function prefetchJobsFeed(): Promise<void> {
   } catch {
     /* best-effort — JobsFeed fetches on mount if the warm-up didn't land */
   }
+}
+
+/** Read the most-recently cached feed jobs (the exact list the rail is showing),
+ *  so side panels like "More matches" can reuse it without a second fetch.
+ *  Returns null until the feed has loaded once. */
+export function getCachedFeedJobs(): FeedJob[] | null {
+  return feedCache?.data.jobs ?? null;
 }
 
 function scoreColors(score: number): { fg: string; bg: string } {
