@@ -21,6 +21,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useInterviewPrepStore } from "@/store/interviewPrepStore";
 import WorkflowStepper from "./WorkflowStepper";
+import PrepHistoryPicker from "./PrepHistoryPicker";
 import ResumeUploadCard from "./ResumeUploadCard";
 import JobDescriptionCard from "./JobDescriptionCard";
 import TargetRoleCard from "./TargetRoleCard";
@@ -47,6 +48,9 @@ export default function InterviewPrepView() {
       </div>
 
       <div className="flex flex-col gap-6">
+        {/* Reopen a saved kit — self-hides when signed out / no history */}
+        <PrepHistoryPicker />
+
         {/* Two-column: Resume Upload | Job Description */}
         <div className="grid items-start gap-6 lg:grid-cols-2">
           <ResumeUploadCard />
