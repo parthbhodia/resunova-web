@@ -37,6 +37,7 @@ import CompanyLogo from "@/components/CompanyLogo";
 import BoostPanel from "@/components/BoostPanel";
 import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
+import { US_STATES, locationMatchesState, isClearlyInternational } from "@/lib/jobsLocation";
 
 export type FeedJob = {
   id: string;
@@ -150,38 +151,8 @@ function matchTierLabel(score: number): string {
   return "Low";
 }
 
-/** US states + DC for the Location filter (jobs carry free-text location only). */
-const US_STATES: { code: string; name: string }[] = [
-  { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" }, { code: "AZ", name: "Arizona" },
-  { code: "AR", name: "Arkansas" }, { code: "CA", name: "California" }, { code: "CO", name: "Colorado" },
-  { code: "CT", name: "Connecticut" }, { code: "DE", name: "Delaware" }, { code: "DC", name: "District of Columbia" },
-  { code: "FL", name: "Florida" }, { code: "GA", name: "Georgia" }, { code: "HI", name: "Hawaii" },
-  { code: "ID", name: "Idaho" }, { code: "IL", name: "Illinois" }, { code: "IN", name: "Indiana" },
-  { code: "IA", name: "Iowa" }, { code: "KS", name: "Kansas" }, { code: "KY", name: "Kentucky" },
-  { code: "LA", name: "Louisiana" }, { code: "ME", name: "Maine" }, { code: "MD", name: "Maryland" },
-  { code: "MA", name: "Massachusetts" }, { code: "MI", name: "Michigan" }, { code: "MN", name: "Minnesota" },
-  { code: "MS", name: "Mississippi" }, { code: "MO", name: "Missouri" }, { code: "MT", name: "Montana" },
-  { code: "NE", name: "Nebraska" }, { code: "NV", name: "Nevada" }, { code: "NH", name: "New Hampshire" },
-  { code: "NJ", name: "New Jersey" }, { code: "NM", name: "New Mexico" }, { code: "NY", name: "New York" },
-  { code: "NC", name: "North Carolina" }, { code: "ND", name: "North Dakota" }, { code: "OH", name: "Ohio" },
-  { code: "OK", name: "Oklahoma" }, { code: "OR", name: "Oregon" }, { code: "PA", name: "Pennsylvania" },
-  { code: "RI", name: "Rhode Island" }, { code: "SC", name: "South Carolina" }, { code: "SD", name: "South Dakota" },
-  { code: "TN", name: "Tennessee" }, { code: "TX", name: "Texas" }, { code: "UT", name: "Utah" },
-  { code: "VT", name: "Vermont" }, { code: "VA", name: "Virginia" }, { code: "WA", name: "Washington" },
-  { code: "WV", name: "West Virginia" }, { code: "WI", name: "Wisconsin" }, { code: "WY", name: "Wyoming" },
-];
-const US_STATE_BY_CODE: Record<string, string> = Object.fromEntries(US_STATES.map((s) => [s.code, s.name]));
-
-/** A job's free-text location matches a state by full name or boundary-delimited abbr (", CA"). */
-function locationMatchesState(location: string, code: string): boolean {
-  const raw = location || "";
-  const name = US_STATE_BY_CODE[code];
-  if (!name) return false;
-  if (raw.toLowerCase().includes(name.toLowerCase())) return true;
-  // Abbreviations are uppercase by convention ("Austin, TX") — match case-sensitively
-  // so prose like "Remote in US" doesn't false-match IN / OR / etc.
-  return new RegExp(`(^|[\\s,(/])${code}([\\s,)/.]|$)`).test(raw);
-}
+// US_STATES + locationMatchesState live in @/lib/jobsLocation (testable; shared
+// with the country filter's isClearlyInternational).
 
 /** Compact dropdown-trigger button style for the filter bar. */
 function filterButtonStyle(active: boolean): CSSProperties {
@@ -539,6 +510,10 @@ export default function JobsFeed({
     try { const raw = localStorage.getItem(JOBS_BROWSE_KEY); return raw ? (JSON.parse(raw) as JobsBrowseSelection) : null; } catch { return null; }
   });
   const [search, setSearch] = useState("");
+  // Country scope. Defaults to "us" so the feed isn't flooded with international
+  // postings (the corpus carries them and there is no country column to query on);
+  // "all" shows every country. Session state — not persisted to saved filters.
+  const [country, setCountry] = useState<"us" | "all">("us");
   const [locationStates, setLocationStates] = useState<Set<string>>(new Set());
   const [workModels, setWorkModels] = useState<Set<string>>(new Set());
   const [seniorities, setSeniorities] = useState<Set<string>>(new Set());
@@ -846,6 +821,10 @@ export default function JobsFeed({
     const minScore = SCORE_FILTERS.find((f) => f.key === scoreFilter)?.min ?? 0;
     const filtered = state.jobs.filter((job) => {
       if (job.matchScore != null && job.matchScore < minScore) return false;
+      // Country scope: under "us", drop postings that clearly name a foreign
+      // country/city (Manila, Seoul, Bengaluru…). A positive US signal always
+      // wins and ambiguous strings ("Remote") stay — see lib/jobsLocation.
+      if (country === "us" && isClearlyInternational(job.location)) return false;
       if (locationStates.size > 0) {
         if (![...locationStates].some((code) => locationMatchesState(job.location, code))) return false;
       }
@@ -880,7 +859,7 @@ export default function JobsFeed({
       return [...filtered].sort((a, b) => sal(b) - sal(a));
     }
     return filtered; // "match" — the backend already ranks by match score
-  }, [state, search, locationStates, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
+  }, [state, search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
 
   // Distinct industries present in the current feed, for the Industry dropdown.
   const industryOptions = useMemo(() => {
@@ -917,11 +896,11 @@ export default function JobsFeed({
   }, []);
 
   const anyFilterActive =
-    !!search || locationStates.size > 0 || workModels.size > 0 || seniorities.size > 0 ||
+    !!search || country !== "us" || locationStates.size > 0 || workModels.size > 0 || seniorities.size > 0 ||
     !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || rolesOnly || ageFilter !== "30";
 
   const clearAllFilters = useCallback(() => {
-    setSearch(""); setLocationStates(new Set()); setWorkModels(new Set()); setSeniorities(new Set());
+    setSearch(""); setCountry("us"); setLocationStates(new Set()); setWorkModels(new Set()); setSeniorities(new Set());
     setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setRolesOnly(false); setAgeFilter("30");
   }, []);
 
@@ -929,7 +908,7 @@ export default function JobsFeed({
   // new filter/search starts from the top instead of keeping a stale offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, locationStates, workModels, seniorities, empType, industry, yearsBucket, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
+  }, [search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
 
   const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
   const hasMore = visibleCount < visibleJobs.length;
@@ -1027,6 +1006,16 @@ export default function JobsFeed({
               placeholder="Search title or company…"
               style={{ flex: "1 1 240px", maxWidth: listMode ? undefined : 340 }}
             />
+            <button
+              type="button"
+              onClick={() => setCountry((c) => (c === "us" ? "all" : "us"))}
+              title={country === "us"
+                ? "Showing US postings only — click to include every country"
+                : "Showing all countries — click to limit to the US"}
+              style={filterButtonStyle(country === "us")}
+            >
+              {country === "us" ? "🇺🇸 US only" : "🌍 All countries"}
+            </button>
             <FilterMenu label="📍 Location" count={locationStates.size} width={250}>
               <StatesPicker
                 selected={locationStates}
