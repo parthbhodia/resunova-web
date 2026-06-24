@@ -26,7 +26,6 @@ import { BugReportDialog } from "./app-shell/BugReportDialog";
 import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
 import { UmbcWelcomeBanner } from "./UmbcWelcomeBanner";
-import { AppTopBar } from "./app-shell/AppTopBar";
 import { SignInDialogProvider, useSignInDialog } from "./SignInDialog";
 import FirstRunWizard from "./FirstRunWizard";
 import {
@@ -308,14 +307,6 @@ function AppShellBody({ children }: { children: ReactNode }) {
               key={active}
               className="app-shell-main app-shell-view-pane min-h-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0"
             >
-              <AppTopBar
-                anonMode={anonMode}
-                isUmbc={isUmbc}
-                userInitial={initial}
-                userEmail={user?.email ?? null}
-                onSwitchView={switchView}
-                onSignOut={onSignOut}
-              />
               <FreeScanWelcomeBanner userId={user?.id ?? null} isUmbc={isUmbc} />
               <UmbcWelcomeBanner userId={user?.id ?? null} />
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
