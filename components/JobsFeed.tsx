@@ -76,7 +76,7 @@ type FeedState =
   | { status: "needs-role" }
   | { status: "signin" }
   | { status: "error"; message: string }
-  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[]; ranked: boolean; role?: string };
+  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[]; ranked: boolean; role?: string; hasMore?: boolean; nextOffset?: number; feedFamily?: string };
 
 const ROLE_CHIPS = [
   "Software Engineer", "Backend Engineer", "Frontend Engineer", "Full-Stack Engineer",
@@ -343,6 +343,9 @@ export async function prefetchJobsFeed(): Promise<void> {
         profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
         ranked: data?.ranked !== false,
         role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+        hasMore: data?.hasMore === true,
+        nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+        feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
       },
     };
   } catch {
@@ -384,6 +387,9 @@ async function warmFeed(sel: JobsBrowseSelection, days: number): Promise<void> {
         profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
         ranked: data?.ranked !== false,
         role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+        hasMore: data?.hasMore === true,
+        nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+        feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
       },
     };
   } catch { /* best-effort */ }
@@ -535,6 +541,7 @@ export default function JobsFeed({
   const [nudgeRoles, setNudgeRoles] = useState<string[]>([]);
   const [nudgeSaving, setNudgeSaving] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // ── Background résumé scan (progressive ranking) ──
@@ -685,6 +692,9 @@ export default function JobsFeed({
         // (no match scores). Default true so the ranked path is unaffected.
         ranked: data?.ranked !== false,
         role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+        hasMore: data?.hasMore === true,
+        nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+        feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
       };
       feedCache = { key: cacheKey, at: Date.now(), data: ready };
       // Quiet upgrade: apply over the visible feed (status stays "ready" so the
@@ -916,24 +926,68 @@ export default function JobsFeed({
   }, [search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
 
   const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
-  const hasMore = visibleCount < visibleJobs.length;
+  // Two layers of "more": clientHasMore = more already-loaded jobs to reveal;
+  // serverHasMore = the backend has further pages past what we've fetched (the
+  // 600-cap is now per-page, not total — see api_jobs_feed offset pagination).
+  const clientHasMore = visibleCount < visibleJobs.length;
+  const serverHasMore = state.status === "ready" && !!state.hasMore && typeof state.nextOffset === "number";
 
-  // Infinite scroll: reveal the next page when the sentinel enters the viewport.
+  // Fetch the next backend page and append (dedup by id). Mirrors loadFeed's
+  // params + offset + the echoed feed_family so the page scopes the same set.
+  const loadMoreFromServer = useCallback(async () => {
+    if (state.status !== "ready" || !state.hasMore || typeof state.nextOffset !== "number" || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const { data: { session } } = await getSupabaseClient().auth.getSession();
+      const headers: Record<string, string> = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+      const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+      const params = new URLSearchParams();
+      if (days) params.set("max_age_days", String(days));
+      if (roleQuery) params.set("role", roleQuery);
+      appendBrowseParams(params, browseSel);
+      params.set("offset", String(state.nextOffset));
+      params.set("feed_family", state.feedFamily ?? "");
+      const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), { headers });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const more: FeedJob[] = Array.isArray(data?.jobs) ? data.jobs : [];
+      setState((prev) => {
+        if (prev.status !== "ready") return prev;
+        const seen = new Set(prev.jobs.map((j) => j.id));
+        const fresh = more.filter((j) => j && !seen.has(j.id));
+        return {
+          ...prev,
+          jobs: [...prev.jobs, ...fresh],
+          hasMore: data?.hasMore === true,
+          nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+          feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : prev.feedFamily,
+        };
+      });
+      setVisibleCount((c) => c + PAGE_SIZE);
+    } catch {
+      /* keep the current feed on failure */
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [state, loadingMore, ageFilter, roleQuery, browseSel]);
+
+  // Infinite scroll: reveal already-loaded jobs first, then page the server.
   useEffect(() => {
-    if (!hasMore) return;
+    if (!clientHasMore && !serverHasMore) return;
     const node = sentinelRef.current;
     if (!node) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
-          setVisibleCount((c) => c + PAGE_SIZE);
+          if (visibleCount < visibleJobs.length) setVisibleCount((c) => c + PAGE_SIZE);
+          else void loadMoreFromServer();
         }
       },
       { rootMargin: "400px 0px" },
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [hasMore, pagedJobs.length]);
+  }, [clientHasMore, serverHasMore, visibleCount, visibleJobs.length, loadMoreFromServer]);
 
   // Signed-out visitors get one focused sign-in moment — no dashboard header,
   // tabs, Refresh, or résumé-ranking copy (which assumes a résumé they lack).
@@ -1534,15 +1588,27 @@ export default function JobsFeed({
               </p>
             )}
 
-            {hasMore && (
+            {(clientHasMore || serverHasMore) && (
               <div ref={sentinelRef} style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
-                <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
-                  Load more ({visibleJobs.length - pagedJobs.length} more)
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loadingMore}
+                  onClick={() => {
+                    if (visibleCount < visibleJobs.length) setVisibleCount((c) => c + PAGE_SIZE);
+                    else void loadMoreFromServer();
+                  }}
+                >
+                  {loadingMore
+                    ? "Loading…"
+                    : clientHasMore
+                    ? `Load more (${visibleJobs.length - pagedJobs.length} more)`
+                    : "Load more jobs"}
                 </Button>
               </div>
             )}
 
-            {!hasMore && visibleJobs.length > PAGE_SIZE && (
+            {!clientHasMore && !serverHasMore && visibleJobs.length > PAGE_SIZE && (
               <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "16px 0 4px" }}>
                 You&apos;ve reached the end · {visibleJobs.length} openings
               </p>
