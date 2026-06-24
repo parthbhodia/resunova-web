@@ -909,6 +909,126 @@ export async function fetchLatestPrepSession(): Promise<PrepSessionRecord | null
   }
 }
 
+/** Lightweight prep-session row for the Prep History list (no questions blob). */
+export interface PrepSessionSummary {
+  id: string;
+  company: string | null;
+  role: string;
+  category: string;
+  difficulty: string;
+  interviewType: string;
+  questionCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function mapPrepQuestions(
+  q: Record<string, PrepQuestion[]>,
+): PrepSessionRecord["questions"] {
+  const map = (list?: PrepQuestion[]) =>
+    (list ?? []).map((item) => ({
+      question: item.question,
+      reason: item.reason,
+      source: item.source,
+      star_framework: item.star_framework ?? null,
+      best_story: item.best_story ?? null,
+    }));
+  return {
+    resume_questions:     map(q.resume_questions),
+    jd_questions:         map(q.jd_questions),
+    behavioral_questions: map(q.behavioral_questions),
+    company_questions:    map(q.company_questions),
+  };
+}
+
+function mapPrepSession(body: {
+  session: Record<string, unknown>;
+  questions: Record<string, PrepQuestion[]>;
+}): PrepSessionRecord {
+  const s = body.session;
+  return {
+    id:             String(s.id ?? ""),
+    company:        (s.company as string | null) ?? null,
+    role:           String(s.role ?? ""),
+    category:       String(s.category ?? "General"),
+    difficulty:     String(s.difficulty ?? "medium"),
+    interviewType:  String(s.interview_type ?? "mixed"),
+    jobDescription: (s.job_description as string | null) ?? null,
+    sources:        (s.sources as string[]) ?? [],
+    focusAreas:     (s.focus_areas as string[]) ?? [],
+    questionCount:  Number(s.question_count ?? 20),
+    createdAt:      String(s.created_at ?? ""),
+    updatedAt:      String(s.updated_at ?? ""),
+    questions:      mapPrepQuestions(body.questions),
+  };
+}
+
+/** List the user's saved prep kits (metadata only), newest first. */
+export async function fetchPrepSessions(): Promise<PrepSessionSummary[]> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token) return [];
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/sessions`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+    if (!res.ok) return [];
+    const body = (await res.json()) as { sessions?: Array<Record<string, unknown>> };
+    return (body.sessions ?? []).map((s) => ({
+      id:             String(s.id ?? ""),
+      company:        (s.company as string | null) ?? null,
+      role:           String(s.role ?? ""),
+      category:       String(s.category ?? "General"),
+      difficulty:     String(s.difficulty ?? "medium"),
+      interviewType:  String(s.interview_type ?? "mixed"),
+      questionCount:  Number(s.question_count ?? 0),
+      createdAt:      String(s.created_at ?? ""),
+      updatedAt:      String(s.updated_at ?? ""),
+    }));
+  } catch (e) {
+    console.warn("[interview-prep] fetchPrepSessions:", e);
+    return [];
+  }
+}
+
+/** Load one saved prep kit (session + questions) by id for review. */
+export async function fetchPrepSessionById(id: string): Promise<PrepSessionRecord | null> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token || !id) return null;
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/session/${encodeURIComponent(id)}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as {
+      session?: Record<string, unknown>;
+      questions?: Record<string, PrepQuestion[]>;
+    };
+    if (!body.session) return null;
+    return mapPrepSession({ session: body.session, questions: body.questions ?? {} });
+  } catch (e) {
+    console.warn("[interview-prep] fetchPrepSessionById:", e);
+    return null;
+  }
+}
+
 /**
  * Delete a prep session via DELETE /api/interview-prep/session/{id}.
  * Returns true on success, false on failure.
