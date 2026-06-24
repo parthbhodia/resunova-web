@@ -425,6 +425,13 @@ async function warmFeed(sel: JobsBrowseSelection, days: number): Promise<void> {
 async function analyzeResumeUpload(file: File): Promise<void> {
   const fd = new FormData();
   fd.append("file", file);
+  // Two-phase opt-in (resunova-api): the backend persists the rankable profile
+  // (extractedText + structuredResume) and returns in ~1–2s with
+  // `analysisPending: true`, then finishes the comprehensive analysis in the
+  // background. That's all the ranked feed refetch below needs — so the
+  // ranked upgrade lands in ~1–2s instead of ~15s. The Analyze view does NOT
+  // set this (it renders the full result synchronously).
+  fd.append("defer_analysis", "1");
   const { data: { session } } = await getSupabaseClient().auth.getSession();
   const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
   if (session?.user?.id) {
