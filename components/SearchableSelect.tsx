@@ -9,9 +9,18 @@
  * nav (↑/↓/Enter). Selecting an item calls onSelect; the user can also keep
  * typing free text (no forced choice). Inline-styled with CSS vars so it themes
  * with the rest of the Jobs UI (no shadcn Command/Popover in this repo).
+ *
+ * The suggestion menu renders into a portal (document.body) and is positioned
+ * `fixed` against the input's bounding box, so it escapes any clipping ancestor
+ * — e.g. the wizard <Card>'s `overflow-hidden` rounded-corner clip, which would
+ * otherwise cut the dropdown off at the card's bottom edge.
  */
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+
+// useLayoutEffect warns during SSR; fall back to useEffect on the server.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export type SelectItem = {
   key: string;
@@ -43,12 +52,37 @@ export default function SearchableSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  const [rect, setRect] = useState<{ left: number; top: number; width: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
+  // Track the input's viewport box while open so the portaled menu can be
+  // positioned `fixed` directly beneath it (re-measured on scroll/resize).
+  useIsoLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setRect({ left: r.left, top: r.bottom, width: r.width });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true); // capture: catch scroll in any ancestor
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [open]);
+
+  // Close on outside click — the menu lives in a portal, so check it too.
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -73,6 +107,62 @@ export default function SearchableSelect({
   };
 
   const showList = open && items.length > 0;
+  const showHint = open && items.length === 0 && !!value.trim() && !!emptyHint;
+
+  // Base position for the portaled menu (viewport coords → `fixed`). Clamp the
+  // list height to the space below the input so it never runs off-screen.
+  const viewportH = typeof window !== "undefined" ? window.innerHeight : 800;
+  const menuPos: CSSProperties = rect
+    ? { position: "fixed", top: rect.top + 6, left: rect.left, width: rect.width, zIndex: 1000 }
+    : { position: "fixed", left: 0, top: 0, visibility: "hidden", zIndex: 1000 };
+  const listMaxH = rect ? Math.max(140, Math.min(268, viewportH - rect.top - 24)) : 268;
+
+  const menu = showList ? (
+    <div
+      ref={menuRef}
+      role="listbox"
+      style={{
+        ...menuPos,
+        background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
+        boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: 4, maxHeight: listMaxH, overflowY: "auto",
+      }}
+    >
+      {items.map((item, i) => (
+        <button
+          key={item.key}
+          type="button"
+          onMouseEnter={() => setHighlight(i)}
+          onClick={() => pick(item)}
+          style={{
+            display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+            padding: "9px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "inherit",
+            background: i === highlight ? "var(--accent-bg, color-mix(in srgb, var(--accent) 10%, transparent))" : "transparent",
+          }}
+        >
+          {item.icon && <span style={{ display: "inline-flex", flexShrink: 0, color: i === highlight ? "var(--accent)" : "var(--dim)" }}>{item.icon}</span>}
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: "block", fontSize: 13.5, fontWeight: i === highlight ? 600 : 500, color: i === highlight ? "var(--accent)" : "var(--text)" }}>
+              {item.label}
+            </span>
+            {item.sub && (
+              <span style={{ display: "block", fontSize: 11, color: "var(--muted)", marginTop: 1 }}>{item.sub}</span>
+            )}
+          </span>
+        </button>
+      ))}
+    </div>
+  ) : showHint ? (
+    <div
+      ref={menuRef}
+      style={{
+        ...menuPos,
+        background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
+        boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: "12px 14px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5,
+      }}
+    >
+      {emptyHint}
+    </div>
+  ) : null;
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
@@ -101,45 +191,7 @@ export default function SearchableSelect({
         />
       </div>
 
-      {showList && (
-        <div
-          style={{
-            position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 60,
-            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-            boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: 4, maxHeight: 268, overflowY: "auto",
-          } as CSSProperties}
-        >
-          {items.map((item, i) => (
-            <button
-              key={item.key}
-              type="button"
-              onMouseEnter={() => setHighlight(i)}
-              onClick={() => pick(item)}
-              style={{
-                display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
-                padding: "9px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "inherit",
-                background: i === highlight ? "var(--accent-bg, color-mix(in srgb, var(--accent) 10%, transparent))" : "transparent",
-              }}
-            >
-              {item.icon && <span style={{ display: "inline-flex", flexShrink: 0, color: i === highlight ? "var(--accent)" : "var(--dim)" }}>{item.icon}</span>}
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: "block", fontSize: 13.5, fontWeight: i === highlight ? 600 : 500, color: i === highlight ? "var(--accent)" : "var(--text)" }}>
-                  {item.label}
-                </span>
-                {item.sub && (
-                  <span style={{ display: "block", fontSize: 11, color: "var(--muted)", marginTop: 1 }}>{item.sub}</span>
-                )}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {open && items.length === 0 && value.trim() && emptyHint && (
-        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 60, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: "12px 14px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
-          {emptyHint}
-        </div>
-      )}
+      {menu && typeof document !== "undefined" ? createPortal(menu, document.body) : null}
     </div>
   );
 }
