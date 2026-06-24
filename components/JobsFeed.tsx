@@ -514,10 +514,6 @@ export default function JobsFeed({
   // postings (the corpus carries them and there is no country column to query on);
   // "all" shows every country. Session state — not persisted to saved filters.
   const [country, setCountry] = useState<"us" | "all">("us");
-  // When the user re-opens the wizard from the RANKED feed ("Edit search"), force
-  // it to start on the role step (step 1) instead of the résumé step. Reset once
-  // they resubmit (browse / scan / change-role).
-  const [editSearch, setEditSearch] = useState(false);
   const [locationStates, setLocationStates] = useState<Set<string>>(new Set());
   const [workModels, setWorkModels] = useState<Set<string>>(new Set());
   const [seniorities, setSeniorities] = useState<Set<string>>(new Set());
@@ -606,7 +602,6 @@ export default function JobsFeed({
     } catch { /* quota */ }
     feedCache = null;
     setBrowseSel(sel);
-    setEditSearch(false);
     setState({ status: "loading" });
     setRoleQuery(sel.role.trim());
   }, []);
@@ -615,7 +610,6 @@ export default function JobsFeed({
     try { localStorage.removeItem(JOBS_ROLE_KEY); localStorage.removeItem(JOBS_BROWSE_KEY); } catch { /* ignore */ }
     feedCache = null;
     setBrowseSel(null);
-    setEditSearch(false);
     setState({ status: "loading" });
     setRoleQuery("");
   }, []);
@@ -743,7 +737,6 @@ export default function JobsFeed({
     setScanError(null);
     setScanning(true);
     setBrowseSel(sel);
-    setEditSearch(false);
     setRoleQuery(sel.role.trim());
 
     // 1) Show matches now: warm cache if present, else a quick unranked fetch.
@@ -959,7 +952,7 @@ export default function JobsFeed({
   const hasBrowseRole = !!browseSel?.role?.trim();
   const onboardingWizard = (
     <JobsOnboardingWizard
-      initialStep={editSearch ? 1 : (hasBrowseRole ? 3 : 1)}
+      initialStep={hasBrowseRole ? 3 : 1}
       initialRole={browseSel?.role ?? ""}
       initialRoleTerms={browseSel?.titleTerms ?? null}
       initialLocation={browseSel?.location ?? ""}
@@ -1090,17 +1083,6 @@ export default function JobsFeed({
                 style={filterButtonStyle(rolesOnly)}
               >
                 🎯 Your roles
-              </button>
-            )}
-
-            {state.ranked && (
-              <button
-                type="button"
-                onClick={() => { setEditSearch(true); setState({ status: "needs-role" }); }}
-                title="Change your target role or location"
-                style={filterButtonStyle(false)}
-              >
-                ✎ Edit search
               </button>
             )}
 
