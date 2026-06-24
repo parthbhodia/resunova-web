@@ -67,6 +67,10 @@ export interface InterviewPrepStore {
   loadedFromDb: boolean;
   setSessionId: (id: string | null) => void;
   setLoadedFromDb: (v: boolean) => void;
+  // One-shot: set when opening a saved kit from Prep History so the dashboard
+  // loads that specific session on mount (consumed + cleared after load).
+  historySessionId: string | null;
+  setHistorySessionId: (id: string | null) => void;
   reset: () => void;
 }
 
@@ -93,6 +97,7 @@ export const useInterviewPrepStore = create<InterviewPrepStore>((set) => ({
   selectedFocusAreas: [],
   sessionId: null,
   loadedFromDb: false,
+  historySessionId: null,
 
   setParsing: (parsing) => set({ parsing, ...(parsing ? { parseError: null } : {}) }),
   setParseError: (parseError) => set({ parseError, parsing: false }),
@@ -130,6 +135,7 @@ export const useInterviewPrepStore = create<InterviewPrepStore>((set) => ({
     })),
   setSessionId: (sessionId) => set({ sessionId }),
   setLoadedFromDb: (loadedFromDb) => set({ loadedFromDb }),
+  setHistorySessionId: (historySessionId) => set({ historySessionId }),
   reset: () =>
     set({
       ...initialResume,
@@ -144,5 +150,6 @@ export const useInterviewPrepStore = create<InterviewPrepStore>((set) => ({
       selectedFocusAreas: [],
       sessionId: null,
       loadedFromDb: false,
+      historySessionId: null,
     }),
 }));

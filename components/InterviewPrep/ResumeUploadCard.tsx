@@ -1,20 +1,19 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { CheckCircle2, FileText, Loader2, UploadCloud, X } from "lucide-react";
+import { CheckCircle2, Loader2, UploadCloud, X } from "lucide-react";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { useUploadResume } from "@/hooks/useUploadResume";
 import { useInterviewPrepStore } from "@/store/interviewPrepStore";
 import { classifyResumeCategory } from "@/lib/resumeCategoryClassify";
 import { cn } from "@/lib/utils";
+import ResumeHistoryPicker from "./ResumeHistoryPicker";
 
 /**
  * Resume Upload — reuses the shared `/api/upload-resume` pipeline (same parsing
@@ -29,7 +28,6 @@ export default function ResumeUploadCard() {
   const fileName = useInterviewPrepStore((s) => s.fileName);
   const parsing = useInterviewPrepStore((s) => s.parsing);
   const parseError = useInterviewPrepStore((s) => s.parseError);
-  const structuredResume = useInterviewPrepStore((s) => s.structuredResume);
   const resumeCategory = useInterviewPrepStore((s) => s.resumeCategory);
   const setParsing = useInterviewPrepStore((s) => s.setParsing);
   const setParseError = useInterviewPrepStore((s) => s.setParseError);
@@ -72,12 +70,6 @@ export default function ResumeUploadCard() {
     void handleFile(e.dataTransfer?.files?.[0]);
   };
 
-  const fullName = structuredResume?.full_name?.trim() || "";
-  const headline = structuredResume?.headline?.trim() || "";
-  const skills = (structuredResume?.skills ?? []).flatMap((s) => s.items ?? []);
-  const experienceBullets = (structuredResume?.experience ?? [])
-    .flatMap((exp) => exp.bullets ?? [])
-    .slice(0, 6);
   const hasParsed = Boolean(fileName) && !parsing;
 
   return (
@@ -139,88 +131,43 @@ export default function ResumeUploadCard() {
           </div>
         ) : null}
 
-        {/* Parsed file + category */}
+        {/* Pick from history — self-hides when signed out / no saved resumes.
+            Shown only before a resume is selected, to fill the pre-upload space. */}
+        {!hasParsed && !parsing ? <ResumeHistoryPicker /> : null}
+
+        {/* Parsed confirmation — compact success state only. We intentionally do
+            NOT surface the raw extracted resume (name/skills/experience): the user
+            doesn't need to audit our parse, and exposing it leaks extraction
+            artifacts that undermine trust. The detected category is the one clean,
+            useful signal — it personalizes Step 2. */}
         {hasParsed ? (
-          <>
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="truncate text-sm font-medium text-foreground">
-                  {fileName}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="gap-1">
-                  <CheckCircle2 className="size-3" aria-hidden />
-                  Parsed Successfully
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Remove resume"
-                  onClick={() => clearResume()}
-                >
-                  <X className="size-4" aria-hidden />
-                </Button>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Resume preview (from parsed structured data) */}
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium text-foreground">
-                Resume Preview
+          <div
+            className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5"
+            aria-live="polite"
+          >
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                <CheckCircle2 className="size-4" aria-hidden />
               </span>
-              {resumeCategory ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    Resume Type Detected:
-                  </span>
-                  <Badge variant="secondary">{resumeCategory}</Badge>
-                </div>
-              ) : null}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {fileName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Resume parsed
+                  {resumeCategory ? ` · ${resumeCategory} profile detected` : ""}
+                </p>
+              </div>
             </div>
-
-            <div className="max-h-72 overflow-y-auto rounded-lg border border-border bg-muted/30 p-4 text-sm leading-relaxed">
-              {fullName ? (
-                <div className="font-heading text-base font-semibold text-foreground">
-                  {fullName}
-                </div>
-              ) : null}
-              {headline ? (
-                <div className="text-muted-foreground">{headline}</div>
-              ) : null}
-
-              {skills.length ? (
-                <>
-                  <div className="mt-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                    Skills
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {skills.slice(0, 18).map((skill, i) => (
-                      <Badge key={`${skill}-${i}`} variant="outline">
-                        {skill}
-                      </Badge>
-                    ))}
-                  </div>
-                </>
-              ) : null}
-
-              {experienceBullets.length ? (
-                <>
-                  <div className="mt-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                    Experience
-                  </div>
-                  <ul className="mt-1.5 list-disc space-y-1 pl-5 text-foreground">
-                    {experienceBullets.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-            </div>
-          </>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Remove resume"
+              onClick={() => clearResume()}
+            >
+              <X className="size-4" aria-hidden />
+            </Button>
+          </div>
         ) : null}
       </CardContent>
     </Card>

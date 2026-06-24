@@ -11,7 +11,7 @@
  * Sticky bottom action bar shows total question count + category.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -39,6 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useInterviewPrepStore } from "@/store/interviewPrepStore";
 import { apiUrl } from "@/lib/utils";
@@ -55,9 +56,11 @@ import {
 import WorkflowStepper from "./WorkflowStepper";
 import {
   fetchLatestPrepSession,
+  fetchPrepSessionById,
   fetchStoryBank,
   deleteStory,
   type PrepQuestion,
+  type PrepSessionRecord,
   type PrepStory,
 } from "@/lib/supabase";
 
@@ -123,6 +126,8 @@ export default function PrepDashboardView() {
   const loadedFromDb          = useInterviewPrepStore((s) => s.loadedFromDb);
   const setSessionId          = useInterviewPrepStore((s) => s.setSessionId);
   const setLoadedFromDb       = useInterviewPrepStore((s) => s.setLoadedFromDb);
+  const historySessionId      = useInterviewPrepStore((s) => s.historySessionId);
+  const setHistorySessionId   = useInterviewPrepStore((s) => s.setHistorySessionId);
 
   const category: ResumeCategory =
     (resumeCategory as ResumeCategory | null) ??
@@ -165,6 +170,21 @@ export default function PrepDashboardView() {
   const [bankRefresh, setBankRefresh] = useState(0);
   // Real, sourced coding questions for this company (from the shared question bank).
   const [codingQuestions, setCodingQuestions] = useState<BankCodingQuestion[]>([]);
+  // Whole-kit regeneration (sticky-bar "Regenerate All"). Tracked separately from
+  // the page `loading` flag so the existing questions stay visible (dimmed) while
+  // the new set is fetched, instead of flashing the full skeleton again.
+  const [regenAll, setRegenAll] = useState(false);
+  // Lightweight transient confirmation toast (no global toast system in this app).
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const feedbackTimer = useRef<number | null>(null);
+  const notify = (msg: string) => {
+    setFeedback(msg);
+    if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = window.setTimeout(() => setFeedback(null), 3000);
+  };
+  useEffect(() => () => {
+    if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
+  }, []);
 
   // Map API response shape → QuestionSection[]
   const toSection = (
@@ -179,7 +199,57 @@ export default function PrepDashboardView() {
     questions: (items ?? []).filter((item) => item && item.question),
   });
 
-  const fetchQuestions = async (isRegenerate: boolean = false) => {
+  // Section id → response key + display copy. Shared by the full build and the
+  // single-section (per-card) regenerate merge so they never drift.
+  const sectionDef = (
+    id: string,
+  ): { key: string; title: string; description: string } => {
+    switch (id) {
+      case "resume":
+        return {
+          key: "resume_questions",
+          title: "Resume-Based Questions",
+          description: "Generated from your projects, achievements, and experience.",
+        };
+      case "jd":
+        return {
+          key: "jd_questions",
+          title: "Job Description — Role Requirements",
+          description: "Generated from the role's core requirements and responsibilities.",
+        };
+      case "behavioral":
+        return {
+          key: "behavioral_questions",
+          title: "Behavioral Questions",
+          description: "STAR-method and leadership-focused interview preparation.",
+        };
+      case "company":
+      default:
+        return {
+          key: "company_questions",
+          title: company ? `${company} — Company-Specific Questions` : "Company-Specific Questions",
+          description: company
+            ? `Tailored to ${company}'s known interview patterns and culture.`
+            : "Questions tailored to your target company's values.",
+        };
+    }
+  };
+
+  // Build sections from a saved kit (uses the kit's own company, not the store's).
+  const buildSavedSections = (saved: PrepSessionRecord): QuestionSection[] =>
+    [
+      toSection("resume", "Resume-Based Questions", "Generated from your projects, achievements, and experience.", saved.questions.resume_questions),
+      toSection("jd", "Job Description — Role Requirements", "Generated from the role's core requirements and responsibilities.", saved.questions.jd_questions),
+      toSection("behavioral", "Behavioral Questions", "STAR-method and leadership-focused interview preparation.", saved.questions.behavioral_questions),
+      toSection(
+        "company",
+        saved.company ? `${saved.company} — Company-Specific Questions` : "Company-Specific Questions",
+        saved.company ? `Tailored to ${saved.company}'s known interview patterns and culture.` : "Questions tailored to your target company's values.",
+        saved.questions.company_questions,
+      ),
+    ].filter((s) => s.questions.length > 0);
+
+  const fetchQuestions = async (isRegenerate: boolean = false, onlySection?: string) => {
     // If no resume data is available (e.g. direct navigation), skip the API
     // call and keep the mock-built sections — no error shown to the user.
     const hasResume = !!(extractedText.trim() || structuredResume);
@@ -218,6 +288,7 @@ export default function PrepDashboardView() {
           sources: selectedSources,
           focus_areas: selectedFocusAreas,
           regenerate: isRegenerate,
+          only_section: onlySection ?? null,
           session_id: storeSessionId,
           job_id: jobPostingId,
         }),
@@ -232,21 +303,35 @@ export default function PrepDashboardView() {
         setLoadedFromDb(false);
       }
 
-      const built: QuestionSection[] = [
-        toSection("resume", "Resume-Based Questions", "Generated from your projects, achievements, and experience.", data.resume_questions),
-        toSection("jd", "Job Description — Role Requirements", "Generated from the role's core requirements and responsibilities.", data.jd_questions),
-        toSection("behavioral", "Behavioral Questions", "STAR-method and leadership-focused interview preparation.", data.behavioral_questions),
-        toSection("company", company ? `${company} — Company-Specific Questions` : "Company-Specific Questions", company ? `Tailored to ${company}'s known interview patterns and culture.` : "Questions tailored to your target company's values.", data.company_questions),
-      ].filter((s) => s.questions.length > 0);
+      // Per-section regenerate: replace only that card, keep the others intact.
+      if (onlySection) {
+        const def = sectionDef(onlySection);
+        const rebuilt = toSection(onlySection, def.title, def.description, data[def.key]);
+        if (rebuilt.questions.length === 0) {
+          throw new Error("No questions returned for that section");
+        }
+        setSections((prev) => prev.map((s) => (s.id === onlySection ? rebuilt : s)));
+        setBankRefresh((n) => n + 1);
+        return true;
+      }
+
+      const built: QuestionSection[] = ["resume", "jd", "behavioral", "company"]
+        .map((id) => {
+          const def = sectionDef(id);
+          return toSection(id, def.title, def.description, data[def.key]);
+        })
+        .filter((s) => s.questions.length > 0);
 
       if (built.length === 0) throw new Error("No questions returned from AI");
       setSections(built);
       // New stories were just accumulated into the bank server-side — refresh it.
       setBankRefresh((n) => n + 1);
+      return true;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(msg);
       // Keep existing mock-built sections visible on error
+      return false;
     } finally {
       if (!isRegenerate) {
         setLoading(false);
@@ -254,8 +339,32 @@ export default function PrepDashboardView() {
     }
   };
 
-  // On mount: try to load from DB when there is no freshly uploaded resume in store
+  // On mount: pick the right source — a specific kit opened from Prep History,
+  // a fresh workflow run, or (direct navigation) the last saved kit.
   useEffect(() => {
+    // 1. Opened from Prep History — load that specific saved kit (one-shot).
+    if (historySessionId) {
+      const id = historySessionId;
+      setHistorySessionId(null);
+      void (async () => {
+        setLoading(true);
+        try {
+          const saved = await fetchPrepSessionById(id);
+          if (saved) {
+            const built = buildSavedSections(saved);
+            if (built.length > 0) {
+              setSections(built);
+              setSessionId(saved.id);
+              setLoadedFromDb(true);
+            }
+          }
+        } finally {
+          setLoading(false);
+        }
+      })();
+      return;
+    }
+
     const hasResume = !!(extractedText.trim() || structuredResume);
     if (hasResume) {
       // User came through the full workflow — generate fresh
@@ -267,13 +376,7 @@ export default function PrepDashboardView() {
         try {
           const saved = await fetchLatestPrepSession();
           if (saved) {
-            const built: QuestionSection[] = [
-              toSection("resume", "Resume-Based Questions", "Generated from your projects, achievements, and experience.", saved.questions.resume_questions),
-              toSection("jd", "Job Description — Role Requirements", "Generated from the role's core requirements and responsibilities.", saved.questions.jd_questions),
-              toSection("behavioral", "Behavioral Questions", "STAR-method and leadership-focused interview preparation.", saved.questions.behavioral_questions),
-              toSection("company", saved.company ? `${saved.company} — Company-Specific Questions` : "Company-Specific Questions", saved.company ? `Tailored to ${saved.company}'s known interview patterns and culture.` : "Questions tailored to your target company's values.", saved.questions.company_questions),
-            ].filter((s) => s.questions.length > 0);
-
+            const built = buildSavedSections(saved);
             if (built.length > 0) {
               setSections(built);
               setSessionId(saved.id);
@@ -295,9 +398,20 @@ export default function PrepDashboardView() {
   const triggerRegenerate = async (id: string) => {
     setRegenerating((prev) => ({ ...prev, [id]: true }));
     try {
-      await fetchQuestions(true);
+      const ok = await fetchQuestions(true, id);
+      notify(ok ? "Section regenerated" : "Couldn't regenerate — try again");
     } finally {
       setRegenerating((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleRegenerateAll = async () => {
+    setRegenAll(true);
+    try {
+      const ok = await fetchQuestions(true);
+      notify(ok ? "Fresh questions generated" : "Couldn't regenerate — try again");
+    } finally {
+      setRegenAll(false);
     }
   };
 
@@ -325,7 +439,7 @@ export default function PrepDashboardView() {
             <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
               <Database className="size-4 shrink-0" aria-hidden />
               <span>
-                Showing your last saved prep kit. Upload a new resume to generate fresh questions.
+                You&apos;re reviewing a saved prep kit. Upload a new resume to generate fresh questions.
               </span>
             </div>
             <button
@@ -356,19 +470,28 @@ export default function PrepDashboardView() {
 
         {/* Question section cards */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <RefreshCw className="size-8 animate-spin text-accent" />
-            <p className="text-sm text-muted-foreground">Generating your personalized questions with AI...</p>
-          </div>
+          <GeneratingState />
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3 border border-dashed border-destructive/50 rounded-2xl bg-destructive/5">
-            <p className="text-sm font-semibold text-destructive">Error: {error}</p>
+          <div
+            role="alert"
+            className="flex flex-col items-center justify-center py-20 gap-3 border border-dashed border-destructive/50 rounded-2xl bg-destructive/5"
+          >
+            <p className="text-sm font-semibold text-destructive">
+              Couldn&apos;t generate your questions: {error}
+            </p>
             <Button variant="outline" size="sm" onClick={() => void fetchQuestions()}>
+              <RefreshCw className="size-3.5" aria-hidden />
               Try Again
             </Button>
           </div>
         ) : (
-          <div className="grid gap-5">
+          <div
+            className={cn(
+              "grid gap-5 transition-opacity duration-200",
+              regenAll && "pointer-events-none opacity-50",
+            )}
+            aria-busy={regenAll}
+          >
             {sections.map((section) => (
               <QuestionCard
                 key={section.id}
@@ -381,14 +504,28 @@ export default function PrepDashboardView() {
         )}
       </div>
 
+      {/* Transient confirmation toast — accessible, auto-dismissing, above the bar. */}
+      {feedback ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-1/2 top-4 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 text-sm font-medium text-foreground shadow-lg backdrop-blur-sm animate-in fade-in slide-in-from-top-2 duration-200"
+        >
+          <Check className="size-4 text-accent" aria-hidden />
+          {feedback}
+        </div>
+      ) : null}
+
       {/* Sticky bottom action bar */}
       <StickyActionBar
         totalQuestions={totalQuestions}
         category={category}
         sections={sections}
         sessionId={storeSessionId}
+        regeneratingAll={regenAll}
+        onNotify={notify}
         onBack={() => router.push("/interview-prep/setup")}
-        onRegenerateAll={() => fetchQuestions(true)}
+        onRegenerateAll={handleRegenerateAll}
       />
     </div>
   );
@@ -477,6 +614,77 @@ function CodingBankSection({ questions, company }: { questions: BankCodingQuesti
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ── Generating (skeleton) state ───────────────────────────────────────────────
+
+const GENERATING_MESSAGES = [
+  "Reading your resume…",
+  "Matching the role requirements…",
+  "Drafting tailored questions…",
+  "Building STAR answer frameworks…",
+];
+
+function GeneratingState() {
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return; // keep a single stable message
+    const id = window.setInterval(
+      () => setIdx((i) => (i + 1) % GENERATING_MESSAGES.length),
+      2200,
+    );
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <div role="status" aria-live="polite" className="grid gap-5">
+      {/* Status strip */}
+      <div className="flex items-center gap-2.5 rounded-xl border border-accent/20 bg-[var(--accent-bg)] px-4 py-3">
+        <RefreshCw className="size-4 shrink-0 animate-spin text-accent" aria-hidden />
+        <span className="text-sm font-medium text-foreground">
+          Generating your prep kit…
+        </span>
+        <span className="hidden text-sm text-muted-foreground sm:inline">
+          {GENERATING_MESSAGES[idx]}
+        </span>
+        <span className="sr-only">{GENERATING_MESSAGES[idx]}</span>
+      </div>
+
+      {/* Skeleton cards mirror the real question-card shape to avoid layout shift. */}
+      {[0, 1, 2].map((n) => (
+        <Card key={n} className="rounded-2xl">
+          <CardHeader className="pb-0">
+            <div className="flex items-start gap-3">
+              <Skeleton className="size-9 shrink-0 rounded-xl" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-44" />
+                <Skeleton className="h-3 w-64 max-w-full" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 pt-4">
+            <Separator />
+            {[0, 1, 2].map((q) => (
+              <div
+                key={q}
+                className="flex gap-3 rounded-xl border border-border/40 bg-muted/20 p-4"
+              >
+                <Skeleton className="size-6 shrink-0 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }
 
@@ -883,6 +1091,8 @@ function StickyActionBar({
   category,
   sections,
   sessionId,
+  regeneratingAll,
+  onNotify,
   onBack,
   onRegenerateAll,
 }: {
@@ -890,6 +1100,8 @@ function StickyActionBar({
   category: ResumeCategory;
   sections: QuestionSection[];
   sessionId: string | null;
+  regeneratingAll: boolean;
+  onNotify: (msg: string) => void;
   onBack: () => void;
   onRegenerateAll: () => void;
 }) {
@@ -923,6 +1135,7 @@ function StickyActionBar({
     a.download = "interview-prep-kit.txt";
     a.click();
     URL.revokeObjectURL(url);
+    onNotify("Prep kit downloaded");
   };
 
   const handleSave = async () => {
@@ -1013,9 +1226,13 @@ function StickyActionBar({
             size="sm"
             className="gap-1.5"
             onClick={onRegenerateAll}
+            disabled={regeneratingAll}
           >
-            <RefreshCw className="size-3.5" aria-hidden />
-            Regenerate All
+            <RefreshCw
+              className={cn("size-3.5", regeneratingAll && "animate-spin")}
+              aria-hidden
+            />
+            {regeneratingAll ? "Regenerating…" : "Regenerate All"}
           </Button>
         </div>
       </div>
