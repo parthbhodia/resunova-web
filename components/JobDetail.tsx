@@ -187,6 +187,10 @@ function JobBody({
 }) {
   const salary = formatSalary(job);
   const posted = formatPostedAt(job.postedAt);
+  // JD is collapsed by default (Google-style "Show full description") so a long
+  // posting never dominates the panel. Only long JDs get the toggle.
+  const [showFullJd, setShowFullJd] = useState(false);
+  const jdLong = (job.jdText?.length ?? 0) > 800;
 
   return (
     // Two equal columns that FILL the available width (no wasted right-hand
@@ -250,21 +254,59 @@ function JobBody({
                 </strong>
               </div>
             )}
+            {/* Primary action — apply on the source board (Google puts this up top). */}
+            {job.url && (
+              <a
+                href={job.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+                  alignSelf: "flex-start", padding: "11px 22px", borderRadius: 10,
+                  background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600,
+                  textDecoration: "none", marginTop: 2,
+                }}
+              >
+                Apply ↗
+              </a>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardContent style={{ padding: "24px 28px" }}>
             <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: "0 0 12px" }}>About this role</h2>
-            {/* JD is often very long — cap it to a scroll pane in the embedded
-                (desktop master-detail) view so it doesn't dominate the page and
-                the right column stays aligned. Mobile (non-embedded) flows naturally. */}
-            <div style={{
-              fontSize: 13.5, lineHeight: 1.62, color: "var(--muted)", whiteSpace: "pre-wrap",
-              ...(embedded ? { maxHeight: "calc(100dvh - 320px)", overflowY: "auto", paddingRight: 10 } : {}),
-            }}>
-              {job.jdText || "No description available for this posting."}
+            {/* Collapsed by default (Google "Show full description") — a long JD no
+                longer makes a wall; the panel itself scrolls, so we avoid a
+                nested scroll region inside it. */}
+            <div style={{ position: "relative" }}>
+              <div style={{
+                fontSize: 13.5, lineHeight: 1.62, color: "var(--muted)", whiteSpace: "pre-wrap",
+                ...(jdLong && !showFullJd ? { maxHeight: 300, overflow: "hidden" } : {}),
+              }}>
+                {job.jdText || "No description available for this posting."}
+              </div>
+              {jdLong && !showFullJd && (
+                // Fade so the clamp reads as "more below", not a hard cut.
+                <div aria-hidden style={{
+                  position: "absolute", left: 0, right: 0, bottom: 0, height: 64, pointerEvents: "none",
+                  background: "linear-gradient(to bottom, transparent, var(--surface))",
+                }} />
+              )}
             </div>
+            {jdLong && (
+              <button
+                type="button"
+                onClick={() => setShowFullJd((v) => !v)}
+                style={{
+                  marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6,
+                  background: "none", border: "1px solid var(--border)", borderRadius: 8,
+                  padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--accent)",
+                }}
+              >
+                {showFullJd ? "Show less ⌃" : "Show full description ⌄"}
+              </button>
+            )}
           </CardContent>
         </Card>
       </div>

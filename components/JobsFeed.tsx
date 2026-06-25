@@ -496,7 +496,10 @@ export default function JobsFeed({
   const { openSignIn } = useSignInDialog();
   const isMobile = useIsMobile();
   const listMode = variant === "list";
-  const [state, setState] = useState<FeedState>({ status: "loading" });
+  // Seed from the module-level cache so returning to Jobs (app-tab switch /
+  // remount) shows the last feed INSTANTLY instead of a skeleton; loadFeed
+  // revalidates below. (Cross-key edge self-corrects on the first loadFeed.)
+  const [state, setState] = useState<FeedState>(() => feedCache?.data ?? { status: "loading" });
   // Coarse public count for the signed-out hero's proof chip (no auth). Best
   // effort — stays null on failure so the chip simply doesn't render.
   const [publicCount, setPublicCount] = useState<number | null>(null);
@@ -634,12 +637,16 @@ export default function JobsFeed({
   const loadFeed = useCallback(async (force = false, quiet = false) => {
     const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
     const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel);
-    // Serve a fresh-enough cached feed on tab remount instead of refetching.
-    if (!force && feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) {
-      setState(feedCache.data);
-      return;
+    // Stale-while-revalidate: show the cached feed INSTANTLY on remount/return
+    // (no skeleton), and only refetch in the background when it has gone stale.
+    // The skeleton path is reserved for a genuine cold load with nothing to show.
+    const cached = feedCache && feedCache.key === cacheKey ? feedCache : null;
+    if (!force && cached) {
+      setState(cached.data);
+      if (Date.now() - cached.at < FEED_TTL_MS) return; // fresh enough — done
+      // stale → keep it on screen and revalidate quietly below
     }
-    if (!quiet) setState({ status: "loading" });
+    if (!quiet && !cached) setState({ status: "loading" });
     try {
       const supabase = getSupabaseClient();
       const {
@@ -668,7 +675,10 @@ export default function JobsFeed({
           }
           // Jobs require sign-in (backend 401s anonymous feed requests). Show an
           // in-view sign-in prompt rather than bouncing to the marketing landing.
-          if (resp.status === 401) {
+          // Don't bounce to sign-in on a transient 401 during a background
+          // revalidation when we already have a feed shown (Supabase token-refresh
+          // races) — keep the stale feed; the auth effect re-loads on real changes.
+          if (resp.status === 401 && !cached) {
             feedCache = null;
             setState({ status: "signin" });
             return;
@@ -708,6 +718,7 @@ export default function JobsFeed({
       );
     } catch (err) {
       if (quiet) throw err; // caller (résumé scan) keeps the feed + shows a banner
+      if (cached) return;   // background revalidation failed → keep the stale feed
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
     }
   }, [ageFilter, roleQuery, browseSel]);
