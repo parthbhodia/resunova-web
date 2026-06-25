@@ -76,7 +76,7 @@ type FeedState =
   | { status: "needs-role" }
   | { status: "signin" }
   | { status: "error"; message: string }
-  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[]; ranked: boolean; role?: string; hasMore?: boolean; nextOffset?: number; feedFamily?: string };
+  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[]; ranked: boolean; role?: string; hasMore?: boolean; nextOffset?: number; feedFamily?: string; totalMatching?: number };
 
 const ROLE_CHIPS = [
   "Software Engineer", "Backend Engineer", "Frontend Engineer", "Full-Stack Engineer",
@@ -346,6 +346,7 @@ export async function prefetchJobsFeed(): Promise<void> {
         hasMore: data?.hasMore === true,
         nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
         feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
+        totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : undefined,
       },
     };
   } catch {
@@ -390,6 +391,7 @@ async function warmFeed(sel: JobsBrowseSelection, days: number): Promise<void> {
         hasMore: data?.hasMore === true,
         nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
         feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
+        totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : undefined,
       },
     };
   } catch { /* best-effort */ }
@@ -695,6 +697,7 @@ export default function JobsFeed({
         hasMore: data?.hasMore === true,
         nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
         feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
+        totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : undefined,
       };
       feedCache = { key: cacheKey, at: Date.now(), data: ready };
       // Quiet upgrade: apply over the visible feed (status stays "ready" so the
@@ -932,6 +935,20 @@ export default function JobsFeed({
   const clientHasMore = visibleCount < visibleJobs.length;
   const serverHasMore = state.status === "ready" && !!state.hasMore && typeof state.nextOffset === "number";
 
+  // Count label: "342 of 9,338 jobs" when the backend reports the feed-scope
+  // total (server count over the same family/location/recency) and the visible
+  // set is a subset — i.e. the page cap and/or an active client filter (country,
+  // search, …) is hiding some. Falls back to "342+ jobs" / "342 jobs" when the
+  // backend sent no total (older API, or the count query failed). visibleJobs is
+  // a subset of the loaded page, which is a subset of the total, so total is
+  // always ≥ visible.
+  const totalMatching = state.status === "ready" ? state.totalMatching : undefined;
+  const jobWord = `job${visibleJobs.length === 1 ? "" : "s"}`;
+  const feedCountLabel =
+    typeof totalMatching === "number" && totalMatching > visibleJobs.length
+      ? `${visibleJobs.length.toLocaleString()} of ${totalMatching.toLocaleString()} ${jobWord}`
+      : `${visibleJobs.length.toLocaleString()}${serverHasMore ? "+" : ""} ${jobWord}`;
+
   // Fetch the next backend page and append (dedup by id). Mirrors loadFeed's
   // params + offset + the echoed feed_family so the page scopes the same set.
   const loadMoreFromServer = useCallback(async () => {
@@ -961,6 +978,8 @@ export default function JobsFeed({
           hasMore: data?.hasMore === true,
           nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
           feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : prev.feedFamily,
+          // Total is the same across pages — keep page-0's if a later page omits it.
+          totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : prev.totalMatching,
         };
       });
       setVisibleCount((c) => c + PAGE_SIZE);
@@ -1054,7 +1073,7 @@ export default function JobsFeed({
       ) : (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)" }}>
-            {state.status === "ready" ? `${visibleJobs.length}${serverHasMore ? "+" : ""} job${visibleJobs.length === 1 ? "" : "s"}` : "Jobs"}
+            {state.status === "ready" ? feedCountLabel : "Jobs"}
           </span>
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
             {state.status === "ready" && state.ranked && (
@@ -1215,7 +1234,7 @@ export default function JobsFeed({
               </FilterMenu>
               {!listMode && (
                 <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  {visibleJobs.length}{serverHasMore ? "+" : ""} job{visibleJobs.length === 1 ? "" : "s"}
+                  {feedCountLabel}
                 </span>
               )}
             </div>
