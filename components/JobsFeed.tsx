@@ -20,7 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
-import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, type JobPrepStatus } from "@/lib/supabase";
+import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, fetchAnalyses, type JobPrepStatus, type AnalyzeRecord } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
@@ -272,13 +272,37 @@ const JOBS_ROLE_KEY = "rn_jobs_role_v1";
  *  title/location alias terms + work model) collected by the onboarding wizard. */
 const JOBS_BROWSE_KEY = "rn_jobs_browse_v1";
 
+/** localStorage key for the chosen past scan to rank the feed against
+ *  ("Update résumé" → recent-scans picker). Empty/absent → rank against latest. */
+const JOBS_RANK_ANALYSIS_KEY = "rn_jobs_rank_analysis_v1";
+
+/** Compact relative time for the recent-scans picker rows. */
+function scanTimeAgo(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!t) return "";
+  const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (s < 3600) return `${Math.max(1, Math.floor(s / 60))} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} hr ago`;
+  if (s < 7 * 86400) return `${Math.floor(s / 86400)} d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** Score badge tint for a scan row (green strong / amber mid / neutral low). */
+function scanScoreStyle(score: number | null | undefined): { bg: string; color: string } {
+  if (score != null && score >= 70) return { bg: "color-mix(in srgb, var(--green-ink, #16a34a) 14%, transparent)", color: "var(--green-ink, #16a34a)" };
+  if (score != null && score >= 50) return { bg: "color-mix(in srgb, #c4793a 14%, transparent)", color: "#9a5a23" };
+  return { bg: "var(--surface2)", color: "var(--muted)" };
+}
+
 /** Feed cache key — identical in loadFeed and prefetchJobsFeed so a warmed
- *  prefetch entry is actually reused by the on-mount fetch. */
-function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null): string {
+ *  prefetch entry is actually reused by the on-mount fetch. `rankAnalysisId`
+ *  keeps a feed ranked against a specific past scan cached separately from the
+ *  latest-scan feed (and correct on remount). */
+function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null, rankAnalysisId = ""): string {
   const f = sel
     ? `${(sel.titleTerms || []).join(",")}~${(sel.locationTerms || []).join(",")}~${sel.location || ""}~${sel.workModel || ""}`
     : "";
-  return `${days}|${roleQuery}|${f}`;
+  return `${days}|${roleQuery}|${f}|a:${rankAnalysisId}`;
 }
 
 /** Append the wizard's title/location/work-model filters to a feed request. */
@@ -526,6 +550,22 @@ export default function JobsFeed({
   // in place. A non-trapping replacement for the reverted "change role": upload or
   // cancel, nothing else changes.
   const [updateResumeOpen, setUpdateResumeOpen] = useState(false);
+  // Chosen past scan to rank against (empty = latest). Persisted so it sticks
+  // across remounts until the user picks another or scans a new résumé.
+  const [rankAnalysisId, setRankAnalysisId] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    try { return localStorage.getItem(JOBS_RANK_ANALYSIS_KEY) || ""; } catch { return ""; }
+  });
+  // Recent scans for the "Update résumé" picker — fetched lazily when it opens.
+  const [recentScans, setRecentScans] = useState<AnalyzeRecord[] | null>(null);
+  useEffect(() => {
+    if (!updateResumeOpen) return;
+    let cancelled = false;
+    fetchAnalyses(5)
+      .then((r) => { if (!cancelled) setRecentScans(r); })
+      .catch(() => { if (!cancelled) setRecentScans([]); });
+    return () => { cancelled = true; };
+  }, [updateResumeOpen]);
   // Country scope. Defaults to "us" so the feed isn't flooded with international
   // postings (the corpus carries them and there is no country column to query on);
   // "all" shows every country. Session state — not persisted to saved filters.
@@ -636,7 +676,7 @@ export default function JobsFeed({
   // upgrade. In quiet mode any failure rethrows instead of wiping the feed.
   const loadFeed = useCallback(async (force = false, quiet = false) => {
     const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
-    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel);
+    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel, rankAnalysisId);
     // Stale-while-revalidate: show the cached feed INSTANTLY on remount/return
     // (no skeleton), and only refetch in the background when it has gone stale.
     // The skeleton path is reserved for a genuine cold load with nothing to show.
@@ -658,6 +698,7 @@ export default function JobsFeed({
       const params = new URLSearchParams();
       if (days) params.set("max_age_days", String(days));
       if (roleQuery) params.set("role", roleQuery);
+      if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // rank against a chosen past scan
       appendBrowseParams(params, browseSel);
       const qs = params.toString() ? `?${params.toString()}` : "";
       const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
@@ -721,7 +762,7 @@ export default function JobsFeed({
       if (cached) return;   // background revalidation failed → keep the stale feed
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
     }
-  }, [ageFilter, roleQuery, browseSel]);
+  }, [ageFilter, roleQuery, browseSel, rankAnalysisId]);
 
   useEffect(() => {
     // A background résumé scan drives the feed explicitly (unranked → ranked);
@@ -761,7 +802,9 @@ export default function JobsFeed({
     try {
       localStorage.setItem(JOBS_BROWSE_KEY, JSON.stringify(sel));
       if (sel.role.trim()) localStorage.setItem(JOBS_ROLE_KEY, sel.role.trim());
+      localStorage.removeItem(JOBS_RANK_ANALYSIS_KEY); // fresh scan = new latest; clear any chosen-scan override
     } catch { /* quota */ }
+    setRankAnalysisId("");
     lastUploadFileRef.current = file;
     setScanError(null);
     setScanning(true);
@@ -972,6 +1015,7 @@ export default function JobsFeed({
       const params = new URLSearchParams();
       if (days) params.set("max_age_days", String(days));
       if (roleQuery) params.set("role", roleQuery);
+      if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // keep paging ranked against the same scan
       appendBrowseParams(params, browseSel);
       params.set("offset", String(state.nextOffset));
       params.set("feed_family", state.feedFamily ?? "");
@@ -999,7 +1043,7 @@ export default function JobsFeed({
     } finally {
       setLoadingMore(false);
     }
-  }, [state, loadingMore, ageFilter, roleQuery, browseSel]);
+  }, [state, loadingMore, ageFilter, roleQuery, browseSel, rankAnalysisId]);
 
   // Infinite scroll: reveal already-loaded jobs first, then page the server.
   useEffect(() => {
@@ -1104,9 +1148,56 @@ export default function JobsFeed({
           <DialogHeader>
             <DialogTitle>Update your résumé</DialogTitle>
             <DialogDescription>
-              Upload a newer résumé to re-rank these jobs against it. Your role and filters stay the same.
+              Rank these jobs against a different scan, or upload a new one. Your role and filters stay the same.
             </DialogDescription>
           </DialogHeader>
+          {recentScans && recentScans.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>Recent scans</span>
+              <div style={{ maxHeight: 236, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
+                {recentScans.map((scan) => {
+                  const isActive = scan.id === (rankAnalysisId || recentScans[0]?.id);
+                  const sc = scanScoreStyle(scan.score);
+                  const label = (scan.label || scan.sourceFilename || "Résumé scan").trim();
+                  return (
+                    <button
+                      key={scan.id}
+                      type="button"
+                      onClick={() => {
+                        if (!isActive) {
+                          try { localStorage.setItem(JOBS_RANK_ANALYSIS_KEY, scan.id); } catch { /* quota */ }
+                          setRankAnalysisId(scan.id);
+                        }
+                        setUpdateResumeOpen(false);
+                      }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
+                        padding: "10px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "inherit",
+                        border: isActive ? "2px solid var(--accent)" : "1px solid var(--surface2)",
+                        background: isActive ? "var(--accent-bg, color-mix(in srgb, var(--accent) 7%, transparent))" : "var(--surface)",
+                      }}
+                    >
+                      <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, background: sc.bg, color: sc.color }}>
+                        {scan.score != null ? scan.score : "—"}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
+                        <span style={{ display: "block", fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{scanTimeAgo(scan.createdAt)}</span>
+                      </span>
+                      {isActive
+                        ? <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, color: "var(--accent)" }}>✓ Now ranking</span>
+                        : <span style={{ flexShrink: 0, fontSize: 12, color: "var(--muted)" }}>Use →</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
+                <div style={{ flex: 1, height: 1, background: "var(--surface2)" }} />
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>or upload a new one</span>
+                <div style={{ flex: 1, height: 1, background: "var(--surface2)" }} />
+              </div>
+            </div>
+          )}
           <label
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
