@@ -476,10 +476,15 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
   const [scoring, setScoring] = useState(false);
   const [scoreUnavailable, setScoreUnavailable] = useState(false);
 
-  // Reset selections whenever a fresh boost result arrives. Default: all applied,
-  // matching afterScore + the all-applied `tailoredText` the backend returns.
+  // Reset selections whenever a fresh boost result arrives. Default: NOTHING
+  // applied — suggestions render review-first (suggest-then-accept), mirroring
+  // Analyze. The preview shows the original résumé and the score sits at
+  // beforeScore until the user accepts a suggestion (or "Accept all"). Drafts are
+  // pre-seeded so an accepted card already carries its suggested text. Every
+  // downstream value (acceptedCount, headlineScore, the appliedText revert loop)
+  // already keys off accepted[], so flipping the default cascades correctly.
   useEffect(() => {
-    setAccepted(suggestions.map(() => true));
+    setAccepted(suggestions.map(() => false));
     setDrafts(suggestions.map((s) => s.suggested));
     setLiveScore(null);
     setScoreUnavailable(false);
@@ -635,7 +640,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
                 <GapFixSuggestionCard
                   suggestion={s}
                   index={i}
-                  checked={accepted[i] ?? true}
+                  checked={accepted[i] ?? false}
                   onToggleCheck={() => toggle(i)}
                   draftText={drafts[i] ?? s.suggested}
                   onDraftChange={(t) => setDraft(i, t)}
