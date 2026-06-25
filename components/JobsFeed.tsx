@@ -1054,7 +1054,7 @@ export default function JobsFeed({
       ) : (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)" }}>
-            {state.status === "ready" ? `${visibleJobs.length} job${visibleJobs.length === 1 ? "" : "s"}` : "Jobs"}
+            {state.status === "ready" ? `${visibleJobs.length}${serverHasMore ? "+" : ""} job${visibleJobs.length === 1 ? "" : "s"}` : "Jobs"}
           </span>
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
             {state.status === "ready" && state.ranked && (
@@ -1215,7 +1215,7 @@ export default function JobsFeed({
               </FilterMenu>
               {!listMode && (
                 <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  {visibleJobs.length} of {state.jobs.length}
+                  {visibleJobs.length}{serverHasMore ? "+" : ""} job{visibleJobs.length === 1 ? "" : "s"}
                 </span>
               )}
             </div>
