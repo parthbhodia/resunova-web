@@ -544,6 +544,17 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
     return text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n");
   }, [result, suggestions, accepted, drafts]);
 
+  // Text of every ACCEPTED suggestion as it now appears in the preview, so the
+  // changed bullets get the same green "applied" highlight Analyze/Tailor use.
+  // (Stripped from the PDF via highlightsEnabled:false on export.)
+  const appliedHighlights = useMemo(
+    () =>
+      suggestions
+        .map((s, i) => (accepted[i] ? (drafts[i]?.trim() || s.suggested) : null))
+        .filter((x): x is string => !!x && x.trim().length > 0),
+    [suggestions, accepted, drafts],
+  );
+
   const toggle = (i: number) => setAccepted((a) => a.map((v, j) => (j === i ? !v : v)));
   const setDraft = (i: number, t: string) => setDrafts((d) => d.map((v, j) => (j === i ? t : v)));
 
@@ -699,7 +710,8 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
               structuredResumeAuthoritative
               flatTextFallback
               presentationOnly
-              highlightsEnabled={false}
+              tailorAppliedHighlights={appliedHighlights}
+              highlightsEnabled={appliedHighlights.length > 0}
             />
           </div>
         </div>
