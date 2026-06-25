@@ -28,7 +28,8 @@ type Props = {
   advisorAllowed?: boolean;
   /** Signed-out free-scan visitor: locked tabs route to sign-in. */
   anonMode?: boolean;
-  onSignIn?: () => void;
+  /** Pass a feature label to show a contextual prompt; omit for direct sign-in. */
+  onSignIn?: (feature?: string) => void;
 };
 
 export function AppBottomNav({
@@ -51,7 +52,7 @@ export function AppBottomNav({
 
   const handleTab = (v: AppView) => {
     if (anonMode && v !== "analyze") {
-      onSignIn?.();
+      onSignIn?.(VIEW_LABELS[v]);
       return;
     }
     if (v === "builder") onBuilder();

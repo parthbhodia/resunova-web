@@ -60,7 +60,8 @@ export type AppSidebarProps = {
   onSignOut: () => void;
   /** Signed-out free-scan visitor: locked views route to sign-in. */
   anonMode?: boolean;
-  onSignIn?: () => void;
+  /** Pass a feature label to show a contextual prompt; omit for direct sign-in. */
+  onSignIn?: (feature?: string) => void;
 };
 
 function NavItem({
@@ -140,7 +141,7 @@ export function AppSidebar({
   const [bugReportOpen, setBugReportOpen] = React.useState(false);
   /** Locked views send anonymous visitors to sign-in instead of the view. */
   const gated = (view: AppView) => () => {
-    if (anonMode) onSignIn?.();
+    if (anonMode) onSignIn?.(VIEW_LABELS[view]);
     else onSwitchView(view);
   };
   const handleBuilderClick = () => {
@@ -239,7 +240,7 @@ export function AppSidebar({
                                   return;
                                 }
                                 if (anonMode) {
-                                  onSignIn?.();
+                                  onSignIn?.("Resume Builder");
                                   return;
                                 }
                                 onGoBuilderFlow(key);

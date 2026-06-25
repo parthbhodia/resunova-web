@@ -251,9 +251,11 @@ function AppShellBody({ children }: { children: ReactNode }) {
   };
 
   // Anonymous free-scan visitor (AuthGate let them in via /?view=analyze):
-  // locked nav items open the one shared sign-in modal instead of their views.
+  // locked nav items open the one shared sign-in modal, carrying a contextual
+  // title (e.g. "Sign in to use Jobs"); the explicit "Sign in" button passes none.
   const anonMode = authChecked && !user;
-  const onSignIn = () => openSignIn();
+  const onSignIn = (feature?: string) =>
+    openSignIn(feature ? { title: `Sign in to use ${feature}` } : undefined);
 
   const initial = (user?.email || "?").charAt(0).toUpperCase();
   const builderActive = active === "builder" || onTemplateBuilderPage;

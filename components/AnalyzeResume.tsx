@@ -1037,8 +1037,8 @@ export default function AnalyzeResume() {
     // First scan free; a second scan for a signed-out visitor asks them to sign in.
     if (isAnon && hasUsedAnonScan()) {
       openSignIn({
-        title: "That was your free scan",
-        reason: "Sign in free to run more scans, save your reports, and unlock every feature — your first report stays right here.",
+        title: "You’ve used your free scan",
+        reason: "Sign in free for 3 scans a day, save your reports, and unlock every feature — your first report stays right here.",
       });
       return;
     }

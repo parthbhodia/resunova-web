@@ -74,6 +74,8 @@ const SHOW_HOW_SECTION = false;
 const SHOW_LANDING_CARDS = false;
 /** Line-by-line analysis preview (VariantE) — hidden for now. */
 const SHOW_SCAN_PREVIEW = false;
+/** Company-logos "Reviews" band — hidden for now (per request). */
+const SHOW_REVIEWS = false;
 
 const FEATURES = [
   {
@@ -359,11 +361,35 @@ export default function LandingPage() {
   const scrollTo = useCallback((id: string) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const header = document.querySelector(".lp-header");
-    const offset =
-      header instanceof HTMLElement ? header.getBoundingClientRect().height + 10 : 72;
-    const top = el.getBoundingClientRect().top + window.scrollY - offset;
-    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    // Why a hand-rolled tween instead of native smooth scroll: on this page the
+    // browser's smooth scroll (both `scrollIntoView` and `window.scrollTo`)
+    // intermittently no-ops — it lands at scrollY 0 — while the old one-shot
+    // getBoundingClientRect + window.scrollTo math under-shot over long distances
+    // (the infinite hero-float / ticker / pulse animations + scroll-anchoring),
+    // so deep links (Approach) settled mid-section. Instant scroll is 100%
+    // reliable, so we drive an instant scroll per rAF frame ourselves and
+    // recompute the target each frame — staying correct even if content above
+    // shifts. 76 = the sections' `scrollMarginTop`, clearing the 60px header.
+    const HEADER_OFFSET = 76;
+    const targetY = () =>
+      Math.max(0, el.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET);
+    const prefersReduced = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    if (prefersReduced) {
+      window.scrollTo(0, targetY());
+      return;
+    }
+    const startY = window.scrollY;
+    const startedAt = performance.now();
+    const durationMs = 480;
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+    const step = (now: number) => {
+      const t = Math.min(1, (now - startedAt) / durationMs);
+      window.scrollTo(0, startY + (targetY() - startY) * easeOutCubic(t));
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }, []);
 
   const primaryBtn: React.CSSProperties = {
@@ -472,7 +498,6 @@ export default function LandingPage() {
             ...(SHOW_LANDING_CARDS ? [["Platform", "platform"]] as const : []),
             ["Approach", "approach"],
             ...(SHOW_HOW_SECTION ? [["How it works", "how"]] as const : []),
-            ["Reviews", "reviews"],
             ["Privacy", "privacy-nav"],
           ].map(([lbl, id]) => (
             id === "privacy-nav" ? (
@@ -580,7 +605,6 @@ export default function LandingPage() {
               { lbl: "Jobs", run: () => { setMenuOpen(false); scrollTo("jobs"); } },
               { lbl: "Templates", run: () => { setMenuOpen(false); scrollTo("templates"); } },
               { lbl: "Approach", run: () => { setMenuOpen(false); scrollTo("approach"); } },
-              { lbl: "Reviews", run: () => { setMenuOpen(false); scrollTo("reviews"); } },
             ]).map(({ lbl, run }) => (
               <button
                 key={lbl}
@@ -650,8 +674,8 @@ export default function LandingPage() {
             <span className="lp-hero-sub-short">
               An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
             </span>
-            <strong style={{ color: C.ink, fontWeight: 700 }}>No account needed.</strong>{" "}
-            <strong style={{ color: "#16a34a", fontWeight: 700 }}>Completely free.</strong>
+            <strong style={{ color: C.ink, fontWeight: 700 }}>First scan free — no account.</strong>{" "}
+            <strong style={{ color: "#16a34a", fontWeight: 700 }}>Sign in free for 3 a day.</strong>
           </p>
 
           {/* CTA row */}
@@ -690,7 +714,7 @@ export default function LandingPage() {
 
             {/* Trust micro-copy */}
             <p style={{ fontSize: 13, color: C.muted, margin: 0, letterSpacing: -0.1 }}>
-              No account needed to score &nbsp;·&nbsp; Sign in to save your analysis &nbsp;·&nbsp; Always free
+              1 free scan, no account &nbsp;·&nbsp; Sign in free for 3 a day + to save &nbsp;·&nbsp; Always free
             </p>
           </div>
 
@@ -940,7 +964,8 @@ export default function LandingPage() {
       </section>
       )}
 
-      {/* ───────────── Company logos ────────────────────────── */}
+      {/* Company-logos "Reviews" band intentionally removed for now (per request). */}
+      {SHOW_REVIEWS && (
       <section id="reviews" style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, padding: "72px 40px", scrollMarginTop: 76 }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
           <p style={{ textAlign: "center", fontSize: "var(--font-size-sm)", fontWeight: 600, color: C.muted, letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 48px" }}>
@@ -980,11 +1005,12 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* ───────────── Post-logos CTA nudge ─────────────────── */}
+      {/* ───────────── CTA nudge ────────────────────────────── */}
       <div style={{ background: C.bg2, borderBottom: `1px solid ${C.border}`, padding: "36px 40px", textAlign: "center" }}>
         <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, margin: "0 0 18px", fontWeight: 500 }}>
-          Is your résumé ready for these companies?
+          Is your résumé ready for your next role?
         </p>
         <button
           onClick={() => { goToFreeScan(); }}
