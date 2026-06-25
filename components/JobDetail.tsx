@@ -200,7 +200,7 @@ function JobBody({
     // the JD scrolls inside its own pane.
     <div style={{
       display: "grid",
-      gridTemplateColumns: embedded ? "repeat(auto-fit, minmax(400px, 1fr))" : "1fr",
+      gridTemplateColumns: embedded ? "repeat(auto-fit, minmax(340px, 1fr))" : "1fr",
       gap: 24,
       alignItems: "start",
     }}>

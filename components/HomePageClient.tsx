@@ -235,7 +235,9 @@ function JobsView({ selectedJobId }: { selectedJobId: string }) {
         alignItems: "flex-start",
       }}
     >
-      <div style={{ flex: "0 0 420px", minWidth: 0 }}>
+      {/* Google-style wider list rail (~40%, clamped) so more of the feed is in
+          view; the detail still fills the remaining ~60% (2-col, auto-collapses). */}
+      <div style={{ flex: "0 0 clamp(360px, 40%, 560px)", minWidth: 0 }}>
         <JobsFeed selectedJobId={selectedJobId} variant="list" />
       </div>
       <div
