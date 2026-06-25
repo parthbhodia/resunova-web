@@ -15,7 +15,7 @@
  */
 
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -32,7 +32,29 @@ export default function InterviewPrepView() {
 
   return (
     <div className="w-full px-6 py-6 md:px-8 md:py-8">
-      <header className="mb-5">
+      {/* Mobile compact header */}
+      <header className="mb-5 flex items-center gap-3 md:hidden">
+        <button
+          onClick={() => router.back()}
+          className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-foreground hover:bg-muted active:bg-muted"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="size-4" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-accent">Step 1 of 4</div>
+          <h1 className="text-lg font-bold text-foreground">Interview Prep</h1>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="h-1 w-4 rounded-full bg-accent" />
+          <div className="h-1 w-4 rounded-full bg-muted" />
+          <div className="h-1 w-4 rounded-full bg-muted" />
+          <div className="h-1 w-4 rounded-full bg-muted" />
+        </div>
+      </header>
+
+      {/* Desktop header */}
+      <header className="mb-5 hidden md:block">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
           Interview Prep
         </h1>
@@ -42,7 +64,7 @@ export default function InterviewPrepView() {
         </p>
       </header>
 
-      <div className="mb-6">
+      <div className="mb-6 hidden md:block">
         <WorkflowStepper activeStep={1} />
       </div>
 
@@ -58,8 +80,8 @@ export default function InterviewPrepView() {
 
         {/* CTA (full width) */}
         <Card className="rounded-2xl border-accent/20 bg-[var(--accent-bg)]">
-          <CardContent className="flex flex-col gap-5 py-2">
-            <div className="flex items-start gap-4">
+          <CardContent className="flex flex-col gap-4 py-3 lg:gap-5 lg:py-2">
+            <div className="hidden lg:flex items-start gap-4">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-accent text-[var(--accent-fg,#fff)]">
                 <ArrowRight className="size-5" aria-hidden />
               </span>
@@ -74,17 +96,17 @@ export default function InterviewPrepView() {
               </div>
             </div>
 
-            <Separator className="bg-accent/15" />
+            <Separator className="hidden lg:block bg-accent/15" />
 
             <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
               {!canContinue ? (
-                <span className="text-sm text-muted-foreground sm:mr-auto">
+                <span className="hidden sm:inline-block text-sm text-muted-foreground sm:mr-auto">
                   Upload your resume to continue
                 </span>
               ) : null}
               <Button
                 size="lg"
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto"
                 disabled={!canContinue}
                 onClick={() => router.push("/interview-prep/interview-type")}
               >

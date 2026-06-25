@@ -165,10 +165,10 @@ export default function ResumeUploadCard() {
               </div>
             </div>
 
-            <Separator />
+            <Separator className="hidden lg:block" />
 
             {/* Resume preview (from parsed structured data) */}
-            <div className="flex items-center justify-between gap-3">
+            <div className="hidden lg:flex items-center justify-between gap-3">
               <span className="text-sm font-medium text-foreground">
                 Resume Preview
               </span>
@@ -182,7 +182,7 @@ export default function ResumeUploadCard() {
               ) : null}
             </div>
 
-            <div className="max-h-72 overflow-y-auto rounded-lg border border-border bg-muted/30 p-4 text-sm leading-relaxed">
+            <div className="hidden lg:block max-h-72 overflow-y-auto rounded-lg border border-border bg-muted/30 p-4 text-sm leading-relaxed">
               {fullName ? (
                 <div className="font-heading text-base font-semibold text-foreground">
                   {fullName}
