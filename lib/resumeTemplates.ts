@@ -20,18 +20,36 @@ export const RESUME_STYLE_TEMPLATES: ResumeStyleTemplate[] = [
       "MIT-style ATS layout: \\resumeSubheading, \\resumeProjectHeading, fontawesome5 icons, sans-serif (tgheros). Requires pdflatex + texlive-fontawesome5 + Fira Mono.",
     referenceFolder: "Harshibar_Template1",
   },
-  // {
-  //   id: "ats-professional",
-  //   label: "Classic professional",
-  //   description: "Original library reference (often Adobe_FullStack on deployed servers).",
-  //   referenceFolder: "Adobe_FullStack",
-  // },
-  // {
-  //   id: "malta-modern",
-  //   label: "Malta Modern",
-  //   description: "Accent-color section headers, multi-column skills.",
-  //   referenceFolder: "MaltaCV_Modern",
-  // },
+  {
+    id: "freshman-ats",
+    label: "Freshman ATS",
+    description: "Clean ATS-friendly resume template with clear section headings.",
+    referenceFolder: "Freshman_ATS",
+  },
+  {
+    id: "graphic",
+    label: "Graphic",
+    description: "Modern CV template with a bold black-and-white header.",
+    referenceFolder: "Graphic_CV",
+  },
+  {
+    id: "corporate",
+    label: "Corporate",
+    description: "Corporate ATS-friendly template with right-aligned headers and clean sections.",
+    referenceFolder: "Corporate_CV",
+  },
+  {
+    id: "social",
+    label: "Social",
+    description: "Modern ATS-friendly CV template with a bold dark sidebar layout.",
+    referenceFolder: "Social_CV",
+  },
+  {
+    id: "executive",
+    label: "Executive",
+    description: "Premium executive resume template with bold colour blocks and a modern column layout.",
+    referenceFolder: "Executive_CV",
+  },
 ];
 
 export const DEFAULT_REFERENCE_FOLDER = "Harshibar_Template1";

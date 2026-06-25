@@ -197,18 +197,151 @@ function MaltaModernPreviewSvg() {
   );
 }
 
+function FreshmanAtsPreviewSvg() {
+  return (
+    <svg viewBox="0 0 200 260" width="100%" xmlns="http://www.w3.org/2000/svg" style={{ display: "block" }}>
+      <rect width="200" height="260" fill="#ffffff" />
+      <rect x="12" y="16" width="55" height="228" fill="#f8fafc" />
+      <text x="75" y="25" fontSize="12" fontWeight="700" fill="#0f172a" fontFamily="Arial, sans-serif">JOHN DOE</text>
+      <text x="75" y="34" fontSize="6.5" fill="#0f172a" fontFamily="Arial, sans-serif">Project Manager</text>
+      <text x="75" y="44" fontSize="5" fill="#64748b" fontFamily="Arial, sans-serif">jdoe@example.com · (123) 456-7890 · Anytown, USA</text>
+      <line x1="75" y1="48" x2="188" y2="48" stroke="#e2e8f0" strokeWidth="0.8" />
+      <text x="75" y="58" fontSize="6" fontWeight="700" fill="#0f172a" fontFamily="Arial, sans-serif" letterSpacing="0.5">SUMMARY</text>
+      <rect x="75" y="62" width="110" height="2.5" rx="1" fill="#e2e8f0" />
+      <rect x="75" y="66" width="95" height="2.5" rx="1" fill="#e2e8f0" />
+      <rect x="75" y="70" width="105" height="2.5" rx="1" fill="#e2e8f0" />
+      <text x="75" y="85" fontSize="6" fontWeight="700" fill="#0f172a" fontFamily="Arial, sans-serif" letterSpacing="0.5">EMPLOYMENT HISTORY</text>
+      <text x="75" y="94" fontSize="6.5" fontWeight="700" fill="#0f172a" fontFamily="Arial, sans-serif">Project Manager</text>
+      <text x="188" y="94" fontSize="5" fill="#64748b" fontFamily="Arial, sans-serif" textAnchor="end">Jan 2018 – Present</text>
+      <text x="75" y="101" fontSize="5" fill="#475569" fontFamily="Arial, sans-serif">ABC Corporation, Anytown, USA</text>
+      <rect x="79" y="106" width="100" height="2" rx="1" fill="#cbd5e1" />
+      <rect x="79" y="110" width="85" height="2" rx="1" fill="#cbd5e1" />
+      <text x="18" y="25" fontSize="6" fontWeight="700" fill="#0f172a" fontFamily="Arial, sans-serif">SKILLS</text>
+      <rect x="18" y="30" width="40" height="2" rx="1" fill="#cbd5e1" />
+      <rect x="18" y="35" width="30" height="2" rx="1" fill="#cbd5e1" />
+      <rect x="18" y="40" width="35" height="2" rx="1" fill="#cbd5e1" />
+    </svg>
+  );
+}
+
+function GraphicPreviewSvg() {
+  return (
+    <svg viewBox="0 0 200 260" width="100%" xmlns="http://www.w3.org/2000/svg" style={{ display: "block" }}>
+      <rect width="200" height="260" fill="#ffffff" />
+      <rect x="0" y="0" width="200" height="40" fill="#1a1a1a" />
+      <rect x="12" y="10" width="20" height="20" fill="#4a4a4a" />
+      <text x="40" y="20" fontSize="11" fontWeight="700" fill="#ffffff" fontFamily="Arial, sans-serif">JAMES KAYODE</text>
+      <text x="40" y="28" fontSize="6.5" fill="#a3a3a3" fontFamily="Arial, sans-serif">Graphic Designer</text>
+      <text x="40" y="35" fontSize="4.5" fill="#a3a3a3" fontFamily="Arial, sans-serif">jkayode@example.com · +123456789</text>
+      <text x="12" y="55" fontSize="6" fontWeight="700" fill="#1a1a1a" fontFamily="Arial, sans-serif" letterSpacing="0.5">PERSONAL PROFILE</text>
+      <line x1="12" y1="58" x2="188" y2="58" stroke="#1a1a1a" strokeWidth="1.5" />
+      <rect x="12" y="63" width="176" height="2.5" rx="1" fill="#e2e8f0" />
+      <rect x="12" y="68" width="150" height="2.5" rx="1" fill="#e2e8f0" />
+      <text x="12" y="83" fontSize="6" fontWeight="700" fill="#1a1a1a" fontFamily="Arial, sans-serif" letterSpacing="0.5">PROFESSIONAL EXPERIENCE</text>
+      <line x1="12" y1="86" x2="188" y2="86" stroke="#1a1a1a" strokeWidth="1.5" />
+      <text x="12" y="95" fontSize="6.5" fontWeight="700" fill="#1a1a1a" fontFamily="Arial, sans-serif">Senior Designer</text>
+      <text x="188" y="95" fontSize="5" fill="#64748b" fontFamily="Arial, sans-serif" textAnchor="end">2020 – 2023</text>
+      <rect x="16" y="102" width="160" height="2" rx="1" fill="#cbd5e1" />
+      <rect x="16" y="107" width="145" height="2" rx="1" fill="#cbd5e1" />
+    </svg>
+  );
+}
+
+function CorporatePreviewSvg() {
+  return (
+    <svg viewBox="0 0 200 260" width="100%" xmlns="http://www.w3.org/2000/svg" style={{ display: "block" }}>
+      <rect width="200" height="260" fill="#ffffff" />
+      <line x1="12" y1="12" x2="188" y2="12" stroke="#003366" strokeWidth="2" />
+      <text x="100" y="25" fontSize="13" fontWeight="700" fill="#0f172a" fontFamily="Times New Roman, serif" textAnchor="middle">JAMES MARK</text>
+      <text x="100" y="34" fontSize="7" fill="#003366" fontFamily="Times New Roman, serif" textAnchor="middle">Accountant</text>
+      <line x1="12" y1="40" x2="188" y2="40" stroke="#003366" strokeWidth="2" />
+      <text x="12" y="52" fontSize="6" fontWeight="700" fill="#0f172a" fontFamily="Times New Roman, serif" letterSpacing="0.5">SUMMARY</text>
+      <rect x="12" y="56" width="110" height="2" rx="0" fill="#e2e8f0" />
+      <rect x="12" y="60" width="95" height="2" rx="0" fill="#e2e8f0" />
+      <text x="130" y="52" fontSize="5" fontWeight="700" fill="#0f172a" fontFamily="Times New Roman, serif">CONTACT</text>
+      <text x="130" y="58" fontSize="4.5" fill="#475569" fontFamily="Times New Roman, serif">james@example.com</text>
+      <text x="130" y="63" fontSize="4.5" fill="#475569" fontFamily="Times New Roman, serif">Wuse 2, Abuja</text>
+      <line x1="12" y1="72" x2="188" y2="72" stroke="#cbd5e1" strokeWidth="1" />
+      <text x="12" y="82" fontSize="6" fontWeight="700" fill="#0f172a" fontFamily="Times New Roman, serif" letterSpacing="0.5">EMPLOYMENT HISTORY</text>
+      <text x="12" y="91" fontSize="6.5" fontWeight="700" fill="#0f172a" fontFamily="Times New Roman, serif">Financial Analyst</text>
+      <text x="188" y="91" fontSize="5" fill="#64748b" fontFamily="Times New Roman, serif" textAnchor="end">Jan 2020 – Dec 2022</text>
+    </svg>
+  );
+}
+
+function SocialPreviewSvg() {
+  return (
+    <svg viewBox="0 0 200 260" width="100%" xmlns="http://www.w3.org/2000/svg" style={{ display: "block" }}>
+      <rect width="200" height="260" fill="#ffffff" />
+      <rect x="0" y="0" width="60" height="260" fill="#1e293b" />
+      <rect x="15" y="15" width="30" height="30" rx="15" fill="#334155" />
+      <text x="30" y="60" fontSize="5" fontWeight="700" fill="#f8fafc" fontFamily="Arial, sans-serif" textAnchor="middle" letterSpacing="0.5">CONTACT</text>
+      <rect x="10" y="65" width="40" height="1" fill="#475569" />
+      <text x="10" y="72" fontSize="4" fill="#cbd5e1" fontFamily="Arial, sans-serif">123-456-7890</text>
+      <text x="10" y="78" fontSize="4" fill="#cbd5e1" fontFamily="Arial, sans-serif">mark@email.com</text>
+      <text x="30" y="95" fontSize="5" fontWeight="700" fill="#f8fafc" fontFamily="Arial, sans-serif" textAnchor="middle" letterSpacing="0.5">SKILLS</text>
+      <rect x="10" y="100" width="40" height="1" fill="#475569" />
+      <rect x="10" y="105" width="35" height="1.5" fill="#38bdf8" />
+      <rect x="10" y="110" width="25" height="1.5" fill="#38bdf8" />
+      <text x="70" y="25" fontSize="14" fontWeight="700" fill="#0f172a" fontFamily="Arial, sans-serif">MARK BROWN</text>
+      <text x="70" y="35" fontSize="7" fill="#3b82f6" fontFamily="Arial, sans-serif">Accountant</text>
+      <text x="70" y="55" fontSize="6" fontWeight="700" fill="#1e293b" fontFamily="Arial, sans-serif" letterSpacing="0.5">PROFILE</text>
+      <rect x="70" y="60" width="115" height="2" rx="0.5" fill="#e2e8f0" />
+      <rect x="70" y="65" width="105" height="2" rx="0.5" fill="#e2e8f0" />
+      <text x="70" y="80" fontSize="6" fontWeight="700" fill="#1e293b" fontFamily="Arial, sans-serif" letterSpacing="0.5">WORK EXPERIENCE</text>
+      <text x="70" y="89" fontSize="6" fontWeight="700" fill="#0f172a" fontFamily="Arial, sans-serif">Senior Accountant</text>
+      <text x="185" y="89" fontSize="4.5" fill="#64748b" fontFamily="Arial, sans-serif" textAnchor="end">2020 – 2023</text>
+      <rect x="74" y="95" width="105" height="1.5" rx="0.5" fill="#cbd5e1" />
+    </svg>
+  );
+}
+
+function ExecutivePreviewSvg() {
+  return (
+    <svg viewBox="0 0 200 260" width="100%" xmlns="http://www.w3.org/2000/svg" style={{ display: "block" }}>
+      <rect width="200" height="260" fill="#ffffff" />
+      <rect x="0" y="0" width="200" height="35" fill="#2563eb" />
+      <text x="100" y="20" fontSize="12" fontWeight="700" fill="#ffffff" fontFamily="Arial, sans-serif" textAnchor="middle" letterSpacing="1">SHELAH MARIE</text>
+      <text x="100" y="28" fontSize="6" fill="#bfdbfe" fontFamily="Arial, sans-serif" textAnchor="middle">Web Developer</text>
+      <text x="12" y="50" fontSize="5.5" fontWeight="700" fill="#2563eb" fontFamily="Arial, sans-serif" letterSpacing="0.5">EXPERIENCE</text>
+      <line x1="12" y1="53" x2="188" y2="53" stroke="#2563eb" strokeWidth="0.8" />
+      <text x="12" y="62" fontSize="6" fontWeight="700" fill="#0f172a" fontFamily="Arial, sans-serif">Frontend Engineer</text>
+      <text x="188" y="62" fontSize="5" fill="#64748b" fontFamily="Arial, sans-serif" textAnchor="end">Jan 2021 – Present</text>
+      <text x="12" y="68" fontSize="5" fill="#475569" fontFamily="Arial, sans-serif">Tech Solutions Inc, Abuja</text>
+      <rect x="16" y="73" width="160" height="2" rx="0.5" fill="#cbd5e1" />
+      <rect x="16" y="77" width="140" height="2" rx="0.5" fill="#cbd5e1" />
+      <text x="12" y="90" fontSize="5.5" fontWeight="700" fill="#2563eb" fontFamily="Arial, sans-serif" letterSpacing="0.5">EDUCATION</text>
+      <line x1="12" y1="93" x2="188" y2="93" stroke="#2563eb" strokeWidth="0.8" />
+      <text x="12" y="102" fontSize="6" fontWeight="700" fill="#0f172a" fontFamily="Arial, sans-serif">B.Sc. Computer Science</text>
+      <text x="188" y="102" fontSize="5" fill="#64748b" fontFamily="Arial, sans-serif" textAnchor="end">2016 – 2020</text>
+      <rect x="12" y="115" width="80" height="18" fill="#f8fafc" />
+      <rect x="100" y="115" width="88" height="18" fill="#f8fafc" />
+    </svg>
+  );
+}
+
 function TemplatePreviewSvg({ templateId }: { templateId: string }) {
   if (templateId === "harshibar-ats") return <HarshibarPreviewSvg />;
   if (templateId === "malta-modern") return <MaltaModernPreviewSvg />;
+  if (templateId === "freshman-ats") return <FreshmanAtsPreviewSvg />;
+  if (templateId === "graphic") return <GraphicPreviewSvg />;
+  if (templateId === "corporate") return <CorporatePreviewSvg />;
+  if (templateId === "social") return <SocialPreviewSvg />;
+  if (templateId === "executive") return <ExecutivePreviewSvg />;
   return <ClassicProPreviewSvg />;
 }
 
 /* ── Template card ───────────────────────────────────────────────── */
 
 const TEMPLATE_META: Record<string, { isAts: boolean; isNew?: boolean; tag?: string; blurb?: string }> = {
-  "harshibar-ats":   { isAts: true,  isNew: true, tag: "Modern",  blurb: "Sans-serif, modern layout. Great for tech and design roles." },
+  "harshibar-ats":   { isAts: true,  isNew: false, tag: "Modern",  blurb: "Sans-serif, modern layout. Great for tech and design roles." },
   "ats-professional": { isAts: true,  tag: "Classic", blurb: "Serif, traditional layout. Ideal for business and academic roles." },
-  "malta-modern":    { isAts: true,  isNew: true, tag: "Colorful", blurb: "Accent-color headers, bio block, multi-column skills. Stands out while staying ATS-safe." },
+  "malta-modern":    { isAts: true,  isNew: false, tag: "Colorful", blurb: "Accent-color headers, bio block, multi-column skills. Stands out while staying ATS-safe." },
+  "freshman-ats":    { isAts: true,  isNew: true, tag: "Clean", blurb: "Clean ATS-friendly resume template with clear section headings." },
+  "graphic":         { isAts: true,  isNew: true, tag: "Bold", blurb: "Modern CV template with a bold black-and-white header." },
+  "corporate":       { isAts: true,  isNew: true, tag: "Professional", blurb: "Corporate template with right-aligned headers and clean sections." },
+  "social":          { isAts: true,  isNew: true, tag: "Creative", blurb: "Modern CV template with a bold dark sidebar layout." },
+  "executive":       { isAts: true,  isNew: true, tag: "Premium", blurb: "Executive template with bold colour blocks and modern columns." },
 };
 
 function TemplateCard({
@@ -257,7 +390,7 @@ function TemplateCard({
     >
       {/* Thumbnail — left column */}
       <div style={{
-        flex: "0 0 110px",
+        flex: "0 0 100px",
         background: "#f8fafc",
         borderRight: "1px solid var(--border)",
         padding: "8px 8px 0",
@@ -646,6 +779,7 @@ export default function ResumeTemplateStudio({ initialBaseFolder }: { initialBas
           borderBottom: "1px solid var(--border)",
           background: "var(--surface)",
           flexWrap: "wrap",
+          overflowX: "auto",
         }}
       >
         {!fromResume && phase === "content" ? (
@@ -855,17 +989,18 @@ export default function ResumeTemplateStudio({ initialBaseFolder }: { initialBas
       ) : (
       <>
       {/* Body: template grid + live preview */}
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "row", overflow: "hidden" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "row", overflow: "hidden", flexWrap: "wrap" }}>
 
         {/* Template gallery */}
         <div
           style={{
-            flex: "0 0 min(520px, 52vw)",
+            flex: "1 1 min(520px, 52vw)",
             minWidth: 300,
             display: "flex",
             flexDirection: "column",
             borderRight: "1px solid var(--border)",
             overflow: "hidden",
+            maxHeight: "100%",
           }}
         >
           {/* Gallery header */}
@@ -883,13 +1018,13 @@ export default function ResumeTemplateStudio({ initialBaseFolder }: { initialBas
             </p>
           </div>
 
-          {/* Template list — single column, stacked */}
+          {/* Template list — 2-column responsive grid */}
           <div
             style={{
               flex: 1, minHeight: 0, overflowY: "auto",
               padding: "0 24px 32px",
-              display: "flex",
-              flexDirection: "column",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
               gap: 14,
             }}
           >
@@ -907,12 +1042,12 @@ export default function ResumeTemplateStudio({ initialBaseFolder }: { initialBas
         {/* Live resume preview */}
         <section
           style={{
-            flex: 1,
-            minWidth: 0,
+            flex: "1 1 400px",
+            minWidth: 300,
             display: "flex",
             flexDirection: "column",
             background: "var(--surface2)",
-            minHeight: 0,
+            minHeight: "400px",
           }}
         >
           {/* Preview header */}
