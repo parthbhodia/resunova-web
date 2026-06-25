@@ -153,6 +153,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
       {state.status === "ready" && (
         <JobBody
           job={state.job}
+          embedded={embedded}
           onBoost={() => setBoostOpen(true)}
           onPrep={onPrep}
           prepStatus={prepStatus}
@@ -171,12 +172,14 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
 
 function JobBody({
   job,
+  embedded = false,
   onBoost,
   onPrep,
   prepStatus,
   prepLaunching,
 }: {
   job: JobDetailData;
+  embedded?: boolean;
   onBoost: () => void;
   onPrep: () => void;
   prepStatus: JobPrepStatus | null;
@@ -186,9 +189,19 @@ function JobBody({
   const posted = formatPostedAt(job.postedAt);
 
   return (
-    <div style={{ display: "flex", gap: 28, alignItems: "flex-start", flexWrap: "wrap" }}>
-      {/* LEFT */}
-      <div style={{ flex: "1 1 480px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+    // Two equal columns that FILL the available width (no wasted right-hand
+    // space). auto-fit collapses to a single column on narrow viewports / mobile
+    // (non-embedded). Left = role header + scrollable JD; right = match + prep +
+    // insider. alignItems:start keeps the right column pinned to the top while
+    // the JD scrolls inside its own pane.
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: embedded ? "repeat(auto-fit, minmax(400px, 1fr))" : "1fr",
+      gap: 24,
+      alignItems: "start",
+    }}>
+      {/* LEFT — header + JD */}
+      <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
         <Card>
           <CardContent style={{ padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
@@ -243,15 +256,23 @@ function JobBody({
         <Card>
           <CardContent style={{ padding: "24px 28px" }}>
             <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: "0 0 12px" }}>About this role</h2>
-            <div style={{ fontSize: 13.5, lineHeight: 1.62, color: "var(--muted)", whiteSpace: "pre-wrap" }}>
+            {/* JD is often very long — cap it to a scroll pane in the embedded
+                (desktop master-detail) view so it doesn't dominate the page and
+                the right column stays aligned. Mobile (non-embedded) flows naturally. */}
+            <div style={{
+              fontSize: 13.5, lineHeight: 1.62, color: "var(--muted)", whiteSpace: "pre-wrap",
+              ...(embedded ? { maxHeight: "calc(100dvh - 320px)", overflowY: "auto", paddingRight: 10 } : {}),
+            }}>
               {job.jdText || "No description available for this posting."}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* RIGHT — match panel + insider outreach */}
-      <div style={{ width: 340, flexShrink: 0, position: "sticky", top: 16, display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* RIGHT — match panel + interview prep + insider outreach. A real grid
+          column now (was a fixed 340px panel that wrapped below + left the right
+          half of the page empty). */}
+      <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
         <MatchPanel job={job} onBoost={onBoost} />
         <PrepCard job={job} onPrep={onPrep} prepStatus={prepStatus} prepLaunching={prepLaunching} />
         <InsiderPanel postingId={job.id} company={job.company} />

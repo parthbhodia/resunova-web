@@ -225,8 +225,9 @@ function JobsView({ selectedJobId }: { selectedJobId: string }) {
   return (
     <div
       style={{
-        maxWidth: 1500,
-        margin: "0 auto",
+        // Fill the whole content area — no maxWidth cap (it left a large empty
+        // band on the right on wide monitors). Feed stays a fixed 420px rail;
+        // the detail column flexes to take all remaining width.
         width: "100%",
         padding: "20px 20px 56px",
         display: "flex",
