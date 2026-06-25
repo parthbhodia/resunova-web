@@ -1158,7 +1158,11 @@ export default function JobsFeed({
                 {recentScans.map((scan) => {
                   const isActive = scan.id === (rankAnalysisId || recentScans[0]?.id);
                   const sc = scanScoreStyle(scan.score);
-                  const label = (scan.label || scan.sourceFilename || "Résumé scan").trim();
+                  // Labels are usually the résumé's full contact header
+                  // ("NAME | phone | email | linkedin…") — show just the name
+                  // (first segment) so the row isn't a wall of contact text.
+                  const rawLabel = (scan.label || scan.sourceFilename || "Résumé scan").trim();
+                  const label = rawLabel.split("|")[0].trim() || rawLabel;
                   return (
                     <button
                       key={scan.id}
