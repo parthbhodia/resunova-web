@@ -23,7 +23,7 @@ import {
 import {
   CATEGORY_DESCRIPTIONS,
   CATEGORY_FALLBACK_SKILLS,
-  CATEGORY_ICON_CHAR,
+  CATEGORY_ICON,
   CATEGORY_RECOMMENDED,
   INTERVIEW_TYPES_BY_CATEGORY,
   type InterviewTypeConfig,
@@ -152,8 +152,8 @@ function CategoryBanner({
   return (
     <div className="rounded-2xl border border-border bg-card px-5 py-4">
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 text-2xl leading-none" aria-hidden>
-          {CATEGORY_ICON_CHAR[category]}
+        <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-bg)] text-accent" aria-hidden>
+          {CATEGORY_ICON[category]}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">

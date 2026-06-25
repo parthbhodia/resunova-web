@@ -306,15 +306,15 @@ export const CATEGORY_RECOMMENDED: Record<ResumeCategory, string> = {
   General:    "behavioral",
 };
 
-/** Emoji / icon character for each category, used in the banner heading. */
-export const CATEGORY_ICON_CHAR: Record<ResumeCategory, string> = {
-  Technology: "🚀",
-  Legal:      "⚖️",
-  Healthcare: "🏥",
-  Sales:      "📈",
-  Marketing:  "🎯",
-  Product:    "💡",
-  General:    "👤",
+/** Lucide icon per category, used in the type-selection banner heading. */
+export const CATEGORY_ICON: Record<ResumeCategory, React.ReactNode> = {
+  Technology: <Code2 className="size-6" aria-hidden />,
+  Legal:      <Scale className="size-6" aria-hidden />,
+  Healthcare: <Stethoscope className="size-6" aria-hidden />,
+  Sales:      <TrendingUp className="size-6" aria-hidden />,
+  Marketing:  <Target className="size-6" aria-hidden />,
+  Product:    <Lightbulb className="size-6" aria-hidden />,
+  General:    <Users className="size-6" aria-hidden />,
 };
 
 /** Fallback representative skills per category if the resume has none. */

@@ -1039,8 +1039,8 @@ export default function LandingPage() {
         </button>
       </div>
 
-      {/* ───────────── Interview coaching announcement strip ── */}
-      <div role="region" aria-label="Interview coaching — coming soon" style={{
+      {/* ───────────── Interview prep announcement strip ────── */}
+      <div role="region" aria-label="Interview prep — now live" style={{
         background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
         padding: "14px 24px",
         display: "flex", alignItems: "center", justifyContent: "center", gap: 11, flexWrap: "wrap", textAlign: "center",
@@ -1049,8 +1049,17 @@ export default function LandingPage() {
           <rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="19" x2="12" y2="22" /><line x1="8.5" y1="22" x2="15.5" y2="22" />
         </svg>
         <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.45 }}>
-          <strong style={{ fontWeight: 700 }}>Coming soon:</strong> AI mock interviews tailored to the exact role — part of our growing university partnerships, including <strong style={{ fontWeight: 700 }}>UMBC</strong>.
+          <strong style={{ fontWeight: 700 }}>New:</strong> AI mock interviews tailored to the exact role — now live, built with our university partners, including <strong style={{ fontWeight: 700 }}>UMBC</strong>.
         </span>
+        <Link
+          href="/interview-prep"
+          prefetch={false}
+          style={{
+            background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.35)",
+            color: "#fff", borderRadius: 6, padding: "3px 12px",
+            fontSize: 13, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap",
+          }}
+        >Practice now →</Link>
       </div>
 
       {/* ───────────── Interview coaching ───────────────────── */}
@@ -1063,8 +1072,8 @@ export default function LandingPage() {
               background: "rgba(37,99,235,0.10)", border: `1px solid ${T.blue}28`,
               borderRadius: 100, fontSize: 12, fontWeight: 600, color: T.blue, letterSpacing: 0.2,
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.amber, display: "inline-block" }} />
-              Interview coaching · Coming soon
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, display: "inline-block" }} />
+              Interview prep · Now live
             </div>
             <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: C.ink, margin: "0 0 16px" }}>
               Land the callback, then close it.
@@ -1088,6 +1097,22 @@ export default function LandingPage() {
                 <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>{desc}</p>
               </div>
             ))}
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: 44 }}>
+            <Link
+              href="/interview-prep"
+              prefetch={false}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 9,
+                padding: "15px 32px", background: T.blue, color: "#fff",
+                border: "none", borderRadius: 12, fontSize: 16, fontWeight: 700,
+                letterSpacing: -0.2, textDecoration: "none",
+                boxShadow: `0 4px 20px ${T.blueGlow}`,
+              }}
+            >
+              Practice interviews — free <span style={{ fontSize: 18 }}>→</span>
+            </Link>
           </div>
         </div>
       </section>
