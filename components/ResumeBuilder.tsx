@@ -37,6 +37,7 @@ import {
 import {
   gapFixTargetBulletIndices,
   matchOriginalToBulletIndex,
+  applyFieldOverridesToStructured,
   patchStructuredWithOverrides,
   resolveBulletIndexForGapFix,
   synthesizeProfileWithBulletOverrides,
@@ -485,6 +486,40 @@ export default function ResumeBuilder({
   const [tailorBulletAnalysis, setTailorBulletAnalysis] = useState<LiveBulletItem[]>([]);
   const [tailorLineOverrides, setTailorLineOverrides] = useState<Record<number, string>>({});
   const [tailorAppliedBulletIndices, setTailorAppliedBulletIndices] = useState<ReadonlySet<number>>(() => new Set());
+  // Inline preview edits (Analyze parity). PATH-keyed (`exp.0.bullets.2`) for
+  // neutral bullets + generic fields; ORTHOGONAL to the index-keyed
+  // tailorLineOverrides used by gap-fix, so the two never collide. Path-based
+  // bullet edits are baked into the structured doc at every rescore send site
+  // (via applyFieldOverridesToStructured) so they actually move the score.
+  const [tailorFieldOverrides, setTailorFieldOverrides] = useState<Record<string, string>>({});
+  const setTailorFieldOverride = useCallback((path: string, text: string) => {
+    setTailorFieldOverrides((prev) => {
+      if (!text || text.trim() === "") {
+        if (prev[path] === undefined) return prev;
+        const { [path]: _omit, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [path]: text };
+    });
+    setScoreStale(true);
+  }, []);
+  // Popup rewrite drafts for ANALYZED bullets (index >= 0). Applying writes into
+  // tailorLineOverrides so the change flows through the existing
+  // synthesize/patch → rescore index pipeline (no new desync surface).
+  const [tailorRewriteEdits, setTailorRewriteEdits] = useState<Record<number, string>>({});
+  const patchTailorBulletRewrite = useCallback((index: number, value: string | null) => {
+    setTailorRewriteEdits((prev) => {
+      if (value === null) { const { [index]: _o, ...rest } = prev; return rest; }
+      return { ...prev, [index]: value };
+    });
+  }, []);
+  const patchTailorPreviewLine = useCallback((index: number, value: string | null) => {
+    setTailorLineOverrides((prev) => {
+      if (value === null) { const { [index]: _o, ...rest } = prev; return rest; }
+      return { ...prev, [index]: value };
+    });
+    setScoreStale(true);
+  }, []);
 
   useEffect(() => {
     if (!feedbackToast) return;
@@ -1136,7 +1171,7 @@ export default function ResumeBuilder({
     // On the initial analyze, no overrides exist yet — send the structured doc
     // directly when the profile text still matches the upload (no manual edits).
     const initialStructured = tailorStructuredResume && profile === (structuredUpload?.profile ?? "").trim()
-      ? tailorStructuredResume : null;
+      ? applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides) : null;
     setAnalyzing(true);
     appShellSidebar?.collapseSidebar();
     setAnalyzeError(null);
@@ -1243,7 +1278,10 @@ export default function ResumeBuilder({
     // gap fixes change bullets. This skips a backend re-extraction round-trip
     // and ensures the scorer sees exactly the content the user edited.
     const patchedStructured = tailorStructuredResume
-      ? patchStructuredWithOverrides(tailorStructuredResume, effectiveBullets, effectiveOverrides)
+      ? applyFieldOverridesToStructured(
+          patchStructuredWithOverrides(tailorStructuredResume, effectiveBullets, effectiveOverrides),
+          tailorFieldOverrides,
+        )
       : null;
     setTailorRescoring(true);
     try {
@@ -1766,7 +1804,7 @@ export default function ResumeBuilder({
           user_email: user?.email ?? null,
           // Pass the pre-parsed structured resume from the upload step so the backend
           // can skip redundant LLM re-extraction when the profile text is the same.
-          ...(tailorStructuredResume ? { structured_resume: tailorStructuredResume } : {}),
+          ...(tailorStructuredResume ? { structured_resume: applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides) } : {}),
         }),
       });
 
@@ -2015,7 +2053,7 @@ export default function ResumeBuilder({
           gap_name: gap.name,
           gap_notes: gap.notes,
           job_description: jd.trim(),
-          ...(tailorStructuredResume ? { structured_resume: tailorStructuredResume } : {}),
+          ...(tailorStructuredResume ? { structured_resume: applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides) } : {}),
           ...(prof ? { candidate_profile: prof } : {}),
         }),
       });
@@ -3626,6 +3664,11 @@ export default function ResumeBuilder({
                     gapFixTargetBulletIndices={gapFixTargetIndices}
                     tailorGapFixHighlights={tailorGapFixHighlights}
                     tailorAppliedBulletIndices={tailorAppliedBulletIndices}
+                    fieldOverrides={tailorFieldOverrides}
+                    onFieldEdit={setTailorFieldOverride}
+                    rewriteEdits={tailorRewriteEdits}
+                    patchBulletRewrite={patchTailorBulletRewrite}
+                    patchPreviewLine={patchTailorPreviewLine}
                   />
                 </div>
               </section>
