@@ -36,7 +36,7 @@ export default function JobDescriptionCard() {
           value={jobDescription}
           onChange={(e) => setJobDescription(e.target.value)}
           placeholder="Paste the job description here…"
-          className="min-h-72 flex-1 resize-y leading-relaxed"
+          className="min-h-40 lg:min-h-72 flex-1 resize-y leading-relaxed"
         />
 
         <Badge variant="secondary" className="w-fit gap-1.5">

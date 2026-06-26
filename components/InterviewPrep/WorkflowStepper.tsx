@@ -15,9 +15,22 @@ interface WorkflowStepperProps {
  * Highlights the current step; completed steps show a check mark.
  */
 export default function WorkflowStepper({ activeStep = 1 }: WorkflowStepperProps) {
+  const activeStepInfo = WORKFLOW_STEPS.find((s) => s.id === activeStep);
+
   return (
     <nav aria-label="Interview prep steps" className="overflow-x-auto">
-      <ol className="flex min-w-max items-center gap-1.5">
+      {/* Mobile view (< md): Compact text indicator */}
+      <div className="flex items-center gap-2 md:hidden">
+        <span className="flex h-6 items-center rounded-full bg-accent px-2.5 text-xs font-semibold text-[var(--accent-fg,#fff)]">
+          Step {activeStep} of {WORKFLOW_STEPS.length}
+        </span>
+        <span className="text-sm font-medium text-foreground">
+          {activeStepInfo?.label}
+        </span>
+      </div>
+
+      {/* Desktop view (>= md): Full horizontal stepper */}
+      <ol className="hidden min-w-max items-center gap-1.5 md:flex">
         {WORKFLOW_STEPS.map((step, idx) => {
           const isActive = step.id === activeStep;
           const isComplete = step.id < activeStep;
