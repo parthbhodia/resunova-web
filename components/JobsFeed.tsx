@@ -306,13 +306,26 @@ function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSele
   return `${days}|${roleQuery}|${f}|a:${rankAnalysisId}|q:${searchTerm}|f:${filterSig}`;
 }
 
-/** Append the wizard's title/location/work-model filters to a feed request. */
-function appendBrowseParams(params: URLSearchParams, sel: JobsBrowseSelection | null): void {
+/** Append the wizard's title/location/work-model filters to a feed request.
+ *
+ * `hardScope` (default true) is for the NO-résumé browse path, where the
+ * wizard's title aliases + work-model are how the feed is scoped. On the
+ * RÉSUMÉ-RANKED feed it must be false: the role drives role_family scoping and
+ * the résumé ranks the whole family — applying the narrow title-alias list
+ * (e.g. "software engineer|software developer|swe") + a hidden work-model as
+ * HARD filters silently collapses the feed (e.g. 12k software jobs → ~280),
+ * dropping "Backend Engineer"/"Full Stack Engineer"/hybrid+onsite roles the
+ * user would want. Visible UI filters still apply via serverFilterEntries. */
+function appendBrowseParams(
+  params: URLSearchParams,
+  sel: JobsBrowseSelection | null,
+  hardScope = true,
+): void {
   if (!sel) return;
-  if (sel.titleTerms?.length) params.set("title_any", sel.titleTerms.join("|"));
+  if (hardScope && sel.titleTerms?.length) params.set("title_any", sel.titleTerms.join("|"));
   if (sel.locationTerms?.length) params.set("location_any", sel.locationTerms.join("|"));
   else if (sel.location?.trim() && !sel.workModel) params.set("location", sel.location.trim());
-  if (sel.workModel) params.set("work_model", sel.workModel);
+  if (hardScope && sel.workModel) params.set("work_model", sel.workModel);
 }
 
 /** Module-level feed cache so switching away from and back to the Jobs tab
@@ -733,7 +746,7 @@ export default function JobsFeed({
       if (days) params.set("max_age_days", String(days));
       if (roleQuery) params.set("role", roleQuery);
       if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // rank against a chosen past scan
-      appendBrowseParams(params, browseSel);
+      appendBrowseParams(params, browseSel, false); // ranked feed: role_family scoping + résumé ranking, NOT the wizard's narrow title aliases / hidden work-model
       if (debouncedSearch) params.set("title_any", debouncedSearch); // search the DB by title across all roles
       serverFilterEntries.forEach(([k, v]) => params.set(k, v)); // facet filters → server (DB-wide)
       const qs = params.toString() ? `?${params.toString()}` : "";
@@ -819,7 +832,7 @@ export default function JobsFeed({
       // No max_age_days → widest posting window; keep search + role + ranking.
       if (roleQuery) params.set("role", roleQuery);
       if (rankAnalysisId) params.set("analysis_id", rankAnalysisId);
-      appendBrowseParams(params, browseSel);
+      appendBrowseParams(params, browseSel, false); // relaxed fallback: no hard title/work-model scope
       if (debouncedSearch) params.set("title_any", debouncedSearch);
       const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), {
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -1250,7 +1263,7 @@ export default function JobsFeed({
       if (days) params.set("max_age_days", String(days));
       if (roleQuery) params.set("role", roleQuery);
       if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // keep paging ranked against the same scan
-      appendBrowseParams(params, browseSel);
+      appendBrowseParams(params, browseSel, false); // ranked paging: match loadFeed's scope (no wizard hard filters)
       if (debouncedSearch) params.set("title_any", debouncedSearch); // page the same DB search
       serverFilterEntries.forEach(([k, v]) => params.set(k, v)); // page the same facet filters
       params.set("offset", String(state.nextOffset));
