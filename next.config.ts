@@ -14,7 +14,9 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   basePath,
   assetPrefix,
-  transpilePackages: ["react-pdf", "pdfjs-dist", "@react-pdf/renderer"],
+  // Allow mobile/LAN access during dev (e.g. phone or tablet on same Wi-Fi)
+  allowedDevOrigins: ["192.168.0.104", "192.168.*"],
+  transpilePackages: ["react-pdf", "pdfjs-dist", "@react-pdf/renderer", "docx"],
   turbopack: {
     root: path.resolve(process.cwd()),
   },
