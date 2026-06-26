@@ -29,6 +29,7 @@ import AccountSettingsPage from "@/components/AccountSettingsPage";
 import AdvisorDashboard from "@/components/AdvisorDashboard";
 import JobsFeed from "@/components/JobsFeed";
 import JobDetail from "@/components/JobDetail";
+import MoreMatchesPanel from "@/components/MoreMatchesPanel";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import ApplicationTracker from "@/components/ApplicationTracker";
 import CoverLetterBuilder from "@/components/CoverLetterBuilder";
@@ -224,8 +225,9 @@ function JobsView({ selectedJobId }: { selectedJobId: string }) {
   return (
     <div
       style={{
-        maxWidth: 1500,
-        margin: "0 auto",
+        // Fill the whole content area — no maxWidth cap (it left a large empty
+        // band on the right on wide monitors). Feed stays a fixed 420px rail;
+        // the detail column flexes to take all remaining width.
         width: "100%",
         padding: "20px 20px 56px",
         display: "flex",
@@ -233,7 +235,9 @@ function JobsView({ selectedJobId }: { selectedJobId: string }) {
         alignItems: "flex-start",
       }}
     >
-      <div style={{ flex: "0 0 420px", minWidth: 0 }}>
+      {/* Google-style wider list rail (~40%, clamped) so more of the feed is in
+          view; the detail still fills the remaining ~60% (2-col, auto-collapses). */}
+      <div style={{ flex: "0 0 clamp(360px, 40%, 560px)", minWidth: 0 }}>
         <JobsFeed selectedJobId={selectedJobId} variant="list" />
       </div>
       <div
@@ -245,9 +249,13 @@ function JobsView({ selectedJobId }: { selectedJobId: string }) {
           alignSelf: "flex-start",
           maxHeight: "calc(100dvh - 88px)",
           overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
         }}
       >
         <JobDetail jobId={selectedJobId} embedded />
+        <MoreMatchesPanel currentJobId={selectedJobId} />
       </div>
     </div>
   );

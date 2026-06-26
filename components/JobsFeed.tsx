@@ -20,11 +20,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
-import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, type JobPrepStatus } from "@/lib/supabase";
+import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, fetchAnalyses, type JobPrepStatus, type AnalyzeRecord } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { useSignInDialog } from "@/components/SignInDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   fetchJobFilters,
@@ -37,8 +38,9 @@ import CompanyLogo from "@/components/CompanyLogo";
 import BoostPanel from "@/components/BoostPanel";
 import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
+import { US_STATES, locationMatchesState, isClearlyInternational } from "@/lib/jobsLocation";
 
-type FeedJob = {
+export type FeedJob = {
   id: string;
   title: string;
   company: string;
@@ -74,7 +76,7 @@ type FeedState =
   | { status: "needs-role" }
   | { status: "signin" }
   | { status: "error"; message: string }
-  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[]; ranked: boolean; role?: string };
+  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[]; ranked: boolean; role?: string; hasMore?: boolean; nextOffset?: number; feedFamily?: string; totalMatching?: number };
 
 const ROLE_CHIPS = [
   "Software Engineer", "Backend Engineer", "Frontend Engineer", "Full-Stack Engineer",
@@ -150,38 +152,8 @@ function matchTierLabel(score: number): string {
   return "Low";
 }
 
-/** US states + DC for the Location filter (jobs carry free-text location only). */
-const US_STATES: { code: string; name: string }[] = [
-  { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" }, { code: "AZ", name: "Arizona" },
-  { code: "AR", name: "Arkansas" }, { code: "CA", name: "California" }, { code: "CO", name: "Colorado" },
-  { code: "CT", name: "Connecticut" }, { code: "DE", name: "Delaware" }, { code: "DC", name: "District of Columbia" },
-  { code: "FL", name: "Florida" }, { code: "GA", name: "Georgia" }, { code: "HI", name: "Hawaii" },
-  { code: "ID", name: "Idaho" }, { code: "IL", name: "Illinois" }, { code: "IN", name: "Indiana" },
-  { code: "IA", name: "Iowa" }, { code: "KS", name: "Kansas" }, { code: "KY", name: "Kentucky" },
-  { code: "LA", name: "Louisiana" }, { code: "ME", name: "Maine" }, { code: "MD", name: "Maryland" },
-  { code: "MA", name: "Massachusetts" }, { code: "MI", name: "Michigan" }, { code: "MN", name: "Minnesota" },
-  { code: "MS", name: "Mississippi" }, { code: "MO", name: "Missouri" }, { code: "MT", name: "Montana" },
-  { code: "NE", name: "Nebraska" }, { code: "NV", name: "Nevada" }, { code: "NH", name: "New Hampshire" },
-  { code: "NJ", name: "New Jersey" }, { code: "NM", name: "New Mexico" }, { code: "NY", name: "New York" },
-  { code: "NC", name: "North Carolina" }, { code: "ND", name: "North Dakota" }, { code: "OH", name: "Ohio" },
-  { code: "OK", name: "Oklahoma" }, { code: "OR", name: "Oregon" }, { code: "PA", name: "Pennsylvania" },
-  { code: "RI", name: "Rhode Island" }, { code: "SC", name: "South Carolina" }, { code: "SD", name: "South Dakota" },
-  { code: "TN", name: "Tennessee" }, { code: "TX", name: "Texas" }, { code: "UT", name: "Utah" },
-  { code: "VT", name: "Vermont" }, { code: "VA", name: "Virginia" }, { code: "WA", name: "Washington" },
-  { code: "WV", name: "West Virginia" }, { code: "WI", name: "Wisconsin" }, { code: "WY", name: "Wyoming" },
-];
-const US_STATE_BY_CODE: Record<string, string> = Object.fromEntries(US_STATES.map((s) => [s.code, s.name]));
-
-/** A job's free-text location matches a state by full name or boundary-delimited abbr (", CA"). */
-function locationMatchesState(location: string, code: string): boolean {
-  const raw = location || "";
-  const name = US_STATE_BY_CODE[code];
-  if (!name) return false;
-  if (raw.toLowerCase().includes(name.toLowerCase())) return true;
-  // Abbreviations are uppercase by convention ("Austin, TX") — match case-sensitively
-  // so prose like "Remote in US" doesn't false-match IN / OR / etc.
-  return new RegExp(`(^|[\\s,(/])${code}([\\s,)/.]|$)`).test(raw);
-}
+// US_STATES + locationMatchesState live in @/lib/jobsLocation (testable; shared
+// with the country filter's isClearlyInternational).
 
 /** Compact dropdown-trigger button style for the filter bar. */
 function filterButtonStyle(active: boolean): CSSProperties {
@@ -300,13 +272,37 @@ const JOBS_ROLE_KEY = "rn_jobs_role_v1";
  *  title/location alias terms + work model) collected by the onboarding wizard. */
 const JOBS_BROWSE_KEY = "rn_jobs_browse_v1";
 
+/** localStorage key for the chosen past scan to rank the feed against
+ *  ("Update résumé" → recent-scans picker). Empty/absent → rank against latest. */
+const JOBS_RANK_ANALYSIS_KEY = "rn_jobs_rank_analysis_v1";
+
+/** Compact relative time for the recent-scans picker rows. */
+function scanTimeAgo(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!t) return "";
+  const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (s < 3600) return `${Math.max(1, Math.floor(s / 60))} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} hr ago`;
+  if (s < 7 * 86400) return `${Math.floor(s / 86400)} d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** Score badge tint for a scan row (green strong / amber mid / neutral low). */
+function scanScoreStyle(score: number | null | undefined): { bg: string; color: string } {
+  if (score != null && score >= 70) return { bg: "color-mix(in srgb, var(--green-ink, #16a34a) 14%, transparent)", color: "var(--green-ink, #16a34a)" };
+  if (score != null && score >= 50) return { bg: "color-mix(in srgb, #c4793a 14%, transparent)", color: "#9a5a23" };
+  return { bg: "var(--surface2)", color: "var(--muted)" };
+}
+
 /** Feed cache key — identical in loadFeed and prefetchJobsFeed so a warmed
- *  prefetch entry is actually reused by the on-mount fetch. */
-function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null): string {
+ *  prefetch entry is actually reused by the on-mount fetch. `rankAnalysisId`
+ *  keeps a feed ranked against a specific past scan cached separately from the
+ *  latest-scan feed (and correct on remount). */
+function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null, rankAnalysisId = ""): string {
   const f = sel
     ? `${(sel.titleTerms || []).join(",")}~${(sel.locationTerms || []).join(",")}~${sel.location || ""}~${sel.workModel || ""}`
     : "";
-  return `${days}|${roleQuery}|${f}`;
+  return `${days}|${roleQuery}|${f}|a:${rankAnalysisId}`;
 }
 
 /** Append the wizard's title/location/work-model filters to a feed request. */
@@ -371,11 +367,94 @@ export async function prefetchJobsFeed(): Promise<void> {
         profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
         ranked: data?.ranked !== false,
         role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+        hasMore: data?.hasMore === true,
+        nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+        feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
+        totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : undefined,
       },
     };
   } catch {
     /* best-effort — JobsFeed fetches on mount if the warm-up didn't land */
   }
+}
+
+/** Warm the feed cache for a SPECIFIC browse selection (role + title/location
+ *  terms), used by the onboarding wizard to prefetch matches while the user is
+ *  still picking role/location — so the feed is instant the moment they upload a
+ *  résumé. Same cache + key as loadFeed, so the warmed entry is reused. Writes an
+ *  unranked (or prior-résumé-ranked) entry; the post-upload ranked refetch
+ *  overwrites it in place. Best-effort: any miss just falls back to a fetch. */
+async function warmFeed(sel: JobsBrowseSelection, days: number): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const roleQuery = sel.role.trim();
+    const cacheKey = browseFeedCacheKey(days, roleQuery, sel);
+    if (feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) return;
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
+    if (!session?.access_token) return;
+    const params = new URLSearchParams();
+    if (days) params.set("max_age_days", String(days));
+    if (roleQuery) params.set("role", roleQuery);
+    appendBrowseParams(params, sel);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers: { Authorization: `Bearer ${session.access_token}` } });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data?.needsRole) return;
+    feedCache = {
+      key: cacheKey,
+      at: Date.now(),
+      data: {
+        status: "ready",
+        jobs: Array.isArray(data?.jobs) ? data.jobs : [],
+        generatedAt: data?.generatedAt || "",
+        profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
+        profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
+        ranked: data?.ranked !== false,
+        role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+        hasMore: data?.hasMore === true,
+        nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+        feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
+        totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : undefined,
+      },
+    };
+  } catch { /* best-effort */ }
+}
+
+/** Upload a résumé for analysis. Persists the analysis server-side (keyed by the
+ *  signed-in user), which is what unlocks ranked feeds. Resolves on success;
+ *  throws an Error with a user-facing message on 429 / parse failure. Moved out
+ *  of the wizard so the parent feed can run it in the background while showing
+ *  jobs. */
+async function analyzeResumeUpload(file: File): Promise<void> {
+  const fd = new FormData();
+  fd.append("file", file);
+  // Two-phase opt-in (resunova-api): the backend persists the rankable profile
+  // (extractedText + structuredResume) and returns in ~1–2s with
+  // `analysisPending: true`, then finishes the comprehensive analysis in the
+  // background. That's all the ranked feed refetch below needs — so the
+  // ranked upgrade lands in ~1–2s instead of ~15s. The Analyze view does NOT
+  // set this (it renders the full result synchronously).
+  fd.append("defer_analysis", "1");
+  const { data: { session } } = await getSupabaseClient().auth.getSession();
+  const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+  if (session?.user?.id) {
+    fd.set("user_id", session.user.id);
+    if (session.user.email) fd.set("user_email", session.user.email);
+  }
+  const resp = await fetch(apiUrl("/api/analyze-upload"), { method: "POST", body: fd, headers });
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    if (resp.status === 429) throw new Error("Daily scan limit reached — try tomorrow, or browse without ranking below.");
+    throw new Error(json?.error || json?.message || "Couldn't read that file — use a text-based PDF résumé.");
+  }
+}
+
+/** Read the most-recently cached feed jobs (the exact list the rail is showing),
+ *  so side panels like "More matches" can reuse it without a second fetch.
+ *  Returns null until the feed has loaded once. */
+export function getCachedFeedJobs(): FeedJob[] | null {
+  return feedCache?.data.jobs ?? null;
 }
 
 function scoreColors(score: number): { fg: string; bg: string } {
@@ -441,7 +520,10 @@ export default function JobsFeed({
   const { openSignIn } = useSignInDialog();
   const isMobile = useIsMobile();
   const listMode = variant === "list";
-  const [state, setState] = useState<FeedState>({ status: "loading" });
+  // Seed from the module-level cache so returning to Jobs (app-tab switch /
+  // remount) shows the last feed INSTANTLY instead of a skeleton; loadFeed
+  // revalidates below. (Cross-key edge self-corrects on the first loadFeed.)
+  const [state, setState] = useState<FeedState>(() => feedCache?.data ?? { status: "loading" });
   // Coarse public count for the signed-out hero's proof chip (no auth). Best
   // effort — stays null on failure so the chip simply doesn't render.
   const [publicCount, setPublicCount] = useState<number | null>(null);
@@ -464,6 +546,30 @@ export default function JobsFeed({
     try { const raw = localStorage.getItem(JOBS_BROWSE_KEY); return raw ? (JSON.parse(raw) as JobsBrowseSelection) : null; } catch { return null; }
   });
   const [search, setSearch] = useState("");
+  // "Update résumé" popup on the ranked feed — re-scan a newer résumé and re-rank
+  // in place. A non-trapping replacement for the reverted "change role": upload or
+  // cancel, nothing else changes.
+  const [updateResumeOpen, setUpdateResumeOpen] = useState(false);
+  // Chosen past scan to rank against (empty = latest). Persisted so it sticks
+  // across remounts until the user picks another or scans a new résumé.
+  const [rankAnalysisId, setRankAnalysisId] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    try { return localStorage.getItem(JOBS_RANK_ANALYSIS_KEY) || ""; } catch { return ""; }
+  });
+  // Recent scans for the "Update résumé" picker — fetched lazily when it opens.
+  const [recentScans, setRecentScans] = useState<AnalyzeRecord[] | null>(null);
+  useEffect(() => {
+    if (!updateResumeOpen) return;
+    let cancelled = false;
+    fetchAnalyses(5)
+      .then((r) => { if (!cancelled) setRecentScans(r); })
+      .catch(() => { if (!cancelled) setRecentScans([]); });
+    return () => { cancelled = true; };
+  }, [updateResumeOpen]);
+  // Country scope. Defaults to "us" so the feed isn't flooded with international
+  // postings (the corpus carries them and there is no country column to query on);
+  // "all" shows every country. Session state — not persisted to saved filters.
+  const [country, setCountry] = useState<"us" | "all">("us");
   const [locationStates, setLocationStates] = useState<Set<string>>(new Set());
   const [workModels, setWorkModels] = useState<Set<string>>(new Set());
   const [seniorities, setSeniorities] = useState<Set<string>>(new Set());
@@ -480,7 +586,19 @@ export default function JobsFeed({
   const [nudgeRoles, setNudgeRoles] = useState<string[]>([]);
   const [nudgeSaving, setNudgeSaving] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Background résumé scan (progressive ranking) ──
+  // `scanning` drives the slim "ranking…" strip over an already-visible feed;
+  // `scanError` drives a non-blocking banner + retry. Both are orthogonal to the
+  // FeedState union so the existing feed states are untouched.
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const uploadInFlightRef = useRef<Promise<void> | null>(null);
+  const lastUploadFileRef = useRef<File | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   // Boost slide-over: feed cards only carry summary fields, so fetch the full
   // job detail on demand before mounting the shared BoostPanel in place.
@@ -553,15 +671,22 @@ export default function JobsFeed({
     setRoleQuery("");
   }, []);
 
-  const loadFeed = useCallback(async (force = false) => {
+  // `quiet`: skip the skeleton and merge the result in place (keeps status
+  // "ready" so scroll/lazy-window aren't reset) — used for the post-upload ranked
+  // upgrade. In quiet mode any failure rethrows instead of wiping the feed.
+  const loadFeed = useCallback(async (force = false, quiet = false) => {
     const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
-    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel);
-    // Serve a fresh-enough cached feed on tab remount instead of refetching.
-    if (!force && feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) {
-      setState(feedCache.data);
-      return;
+    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel, rankAnalysisId);
+    // Stale-while-revalidate: show the cached feed INSTANTLY on remount/return
+    // (no skeleton), and only refetch in the background when it has gone stale.
+    // The skeleton path is reserved for a genuine cold load with nothing to show.
+    const cached = feedCache && feedCache.key === cacheKey ? feedCache : null;
+    if (!force && cached) {
+      setState(cached.data);
+      if (Date.now() - cached.at < FEED_TTL_MS) return; // fresh enough — done
+      // stale → keep it on screen and revalidate quietly below
     }
-    setState({ status: "loading" });
+    if (!quiet && !cached) setState({ status: "loading" });
     try {
       const supabase = getSupabaseClient();
       const {
@@ -573,30 +698,39 @@ export default function JobsFeed({
       const params = new URLSearchParams();
       if (days) params.set("max_age_days", String(days));
       if (roleQuery) params.set("role", roleQuery);
+      if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // rank against a chosen past scan
       appendBrowseParams(params, browseSel);
       const qs = params.toString() ? `?${params.toString()}` : "";
       const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
-        // Only the backend's explicit "no saved analysis" codes mean the user
-        // needs a scan — a bare 404 can be an API deploy that predates the route.
-        if (resp.status === 404 && (body?.error === "no_resume_analysis" || body?.error === "no_resume_text")) {
-          feedCache = null;
-          setState({ status: "no-resume" });
-          return;
-        }
-        // Jobs require sign-in (backend 401s anonymous feed requests). Show an
-        // in-view sign-in prompt rather than bouncing to the marketing landing.
-        if (resp.status === 401) {
-          feedCache = null;
-          setState({ status: "signin" });
-          return;
+        // In quiet mode never swap the visible feed for an empty/state screen —
+        // surface the failure to the caller instead so it can show a banner.
+        if (!quiet) {
+          // Only the backend's explicit "no saved analysis" codes mean the user
+          // needs a scan — a bare 404 can be an API deploy that predates the route.
+          if (resp.status === 404 && (body?.error === "no_resume_analysis" || body?.error === "no_resume_text")) {
+            feedCache = null;
+            setState({ status: "no-resume" });
+            return;
+          }
+          // Jobs require sign-in (backend 401s anonymous feed requests). Show an
+          // in-view sign-in prompt rather than bouncing to the marketing landing.
+          // Don't bounce to sign-in on a transient 401 during a background
+          // revalidation when we already have a feed shown (Supabase token-refresh
+          // races) — keep the stale feed; the auth effect re-loads on real changes.
+          if (resp.status === 401 && !cached) {
+            feedCache = null;
+            setState({ status: "signin" });
+            return;
+          }
         }
         throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
       }
       const data = await resp.json();
       // Signed-in, no résumé, no role chosen yet → ask which role to search first.
       if (data?.needsRole) {
+        if (quiet) throw new Error("needs_role");
         feedCache = null;
         setState({ status: "needs-role" });
         return;
@@ -611,15 +745,29 @@ export default function JobsFeed({
         // (no match scores). Default true so the ranked path is unaffected.
         ranked: data?.ranked !== false,
         role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+        hasMore: data?.hasMore === true,
+        nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+        feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
+        totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : undefined,
       };
       feedCache = { key: cacheKey, at: Date.now(), data: ready };
-      setState(ready);
+      // Quiet upgrade: apply over the visible feed (status stays "ready" so the
+      // lazy-load window + scroll survive) or over a skeleton if no warm feed
+      // landed first; but if the user navigated elsewhere, leave that alone.
+      setState((prev) =>
+        !quiet || prev.status === "ready" || prev.status === "loading" ? ready : prev,
+      );
     } catch (err) {
+      if (quiet) throw err; // caller (résumé scan) keeps the feed + shows a banner
+      if (cached) return;   // background revalidation failed → keep the stale feed
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
     }
-  }, [ageFilter, roleQuery, browseSel]);
+  }, [ageFilter, roleQuery, browseSel, rankAnalysisId]);
 
   useEffect(() => {
+    // A background résumé scan drives the feed explicitly (unranked → ranked);
+    // don't let the roleQuery/browseSel change re-enter the skeleton path.
+    if (uploadInFlightRef.current) return;
     void loadFeed();
   }, [loadFeed]);
 
@@ -632,6 +780,67 @@ export default function JobsFeed({
   // double-fetch the common already-signed-in case.
   const loadFeedRef = useRef(loadFeed);
   useEffect(() => { loadFeedRef.current = loadFeed; }, [loadFeed]);
+
+  // Latest roleQuery, so a background scan can detect the user changing role
+  // mid-flight and abandon its stale result.
+  const roleQueryRef = useRef(roleQuery);
+  useEffect(() => { roleQueryRef.current = roleQuery; }, [roleQuery]);
+
+  // Wizard prefetch: warm the feed for the in-progress selection while the user
+  // is still on the role/location steps, so the feed is instant on upload.
+  const prefetchBrowse = useCallback((sel: JobsBrowseSelection) => {
+    if (!sel.role.trim()) return;
+    const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+    void warmFeed(sel, days);
+  }, [ageFilter]);
+
+  // Progressive ranking: on résumé upload, show the (prefetched) role/location
+  // feed IMMEDIATELY with a "ranking…" strip, run analyze-upload in the
+  // background, then upgrade to the ranked feed in place — no skeleton, no scroll
+  // reset. Failures keep the unranked feed + show a retry banner.
+  const startResumeRanking = useCallback((sel: JobsBrowseSelection, file: File) => {
+    try {
+      localStorage.setItem(JOBS_BROWSE_KEY, JSON.stringify(sel));
+      if (sel.role.trim()) localStorage.setItem(JOBS_ROLE_KEY, sel.role.trim());
+      localStorage.removeItem(JOBS_RANK_ANALYSIS_KEY); // fresh scan = new latest; clear any chosen-scan override
+    } catch { /* quota */ }
+    setRankAnalysisId("");
+    lastUploadFileRef.current = file;
+    setScanError(null);
+    setScanning(true);
+    setBrowseSel(sel);
+    setRoleQuery(sel.role.trim());
+
+    // 1) Show matches now: warm cache if present, else a quick unranked fetch.
+    const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+    const key = browseFeedCacheKey(days, sel.role.trim(), sel);
+    if (feedCache && feedCache.key === key) {
+      setState(feedCache.data);
+    } else {
+      setState({ status: "loading" });
+      void warmFeed(sel, days).then(() => {
+        if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
+        if (feedCache && feedCache.key === key) setState((prev) => (prev.status === "loading" ? feedCache!.data : prev));
+      });
+    }
+
+    // 2) Background: persist the analysis, then ranked upgrade in place.
+    const p = (async () => {
+      try {
+        await analyzeResumeUpload(file);
+        if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
+        feedCache = null; // cache key has no ranked dimension — force the ranked refetch
+        await loadFeedRef.current(true, true); // force + quiet (merge in place)
+      } catch (err) {
+        if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
+        setScanError(err instanceof Error ? err.message : "Couldn't rank against your résumé.");
+      } finally {
+        if (mountedRef.current && roleQueryRef.current === sel.role.trim()) setScanning(false);
+        uploadInFlightRef.current = null;
+      }
+    })();
+    uploadInFlightRef.current = p;
+  }, [ageFilter]);
   useEffect(() => {
     const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
@@ -684,6 +893,10 @@ export default function JobsFeed({
     const minScore = SCORE_FILTERS.find((f) => f.key === scoreFilter)?.min ?? 0;
     const filtered = state.jobs.filter((job) => {
       if (job.matchScore != null && job.matchScore < minScore) return false;
+      // Country scope: under "us", drop postings that clearly name a foreign
+      // country/city (Manila, Seoul, Bengaluru…). A positive US signal always
+      // wins and ambiguous strings ("Remote") stay — see lib/jobsLocation.
+      if (country === "us" && isClearlyInternational(job.location)) return false;
       if (locationStates.size > 0) {
         if (![...locationStates].some((code) => locationMatchesState(job.location, code))) return false;
       }
@@ -718,7 +931,7 @@ export default function JobsFeed({
       return [...filtered].sort((a, b) => sal(b) - sal(a));
     }
     return filtered; // "match" — the backend already ranks by match score
-  }, [state, search, locationStates, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
+  }, [state, search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
 
   // Distinct industries present in the current feed, for the Industry dropdown.
   const industryOptions = useMemo(() => {
@@ -755,11 +968,11 @@ export default function JobsFeed({
   }, []);
 
   const anyFilterActive =
-    !!search || locationStates.size > 0 || workModels.size > 0 || seniorities.size > 0 ||
+    !!search || country !== "us" || locationStates.size > 0 || workModels.size > 0 || seniorities.size > 0 ||
     !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || rolesOnly || ageFilter !== "30";
 
   const clearAllFilters = useCallback(() => {
-    setSearch(""); setLocationStates(new Set()); setWorkModels(new Set()); setSeniorities(new Set());
+    setSearch(""); setCountry("us"); setLocationStates(new Set()); setWorkModels(new Set()); setSeniorities(new Set());
     setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setRolesOnly(false); setAgeFilter("30");
   }, []);
 
@@ -767,27 +980,88 @@ export default function JobsFeed({
   // new filter/search starts from the top instead of keeping a stale offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, locationStates, workModels, seniorities, empType, industry, yearsBucket, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
+  }, [search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
 
   const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
-  const hasMore = visibleCount < visibleJobs.length;
+  // Two layers of "more": clientHasMore = more already-loaded jobs to reveal;
+  // serverHasMore = the backend has further pages past what we've fetched (the
+  // 600-cap is now per-page, not total — see api_jobs_feed offset pagination).
+  const clientHasMore = visibleCount < visibleJobs.length;
+  const serverHasMore = state.status === "ready" && !!state.hasMore && typeof state.nextOffset === "number";
 
-  // Infinite scroll: reveal the next page when the sentinel enters the viewport.
+  // Count label: "342 of 9,338 jobs" when the backend reports the feed-scope
+  // total (server count over the same family/location/recency) and the visible
+  // set is a subset — i.e. the page cap and/or an active client filter (country,
+  // search, …) is hiding some. Falls back to "342+ jobs" / "342 jobs" when the
+  // backend sent no total (older API, or the count query failed). visibleJobs is
+  // a subset of the loaded page, which is a subset of the total, so total is
+  // always ≥ visible.
+  const totalMatching = state.status === "ready" ? state.totalMatching : undefined;
+  const jobWord = `job${visibleJobs.length === 1 ? "" : "s"}`;
+  const feedCountLabel =
+    typeof totalMatching === "number" && totalMatching > visibleJobs.length
+      ? `${visibleJobs.length.toLocaleString()} of ${totalMatching.toLocaleString()} ${jobWord}`
+      : `${visibleJobs.length.toLocaleString()}${serverHasMore ? "+" : ""} ${jobWord}`;
+
+  // Fetch the next backend page and append (dedup by id). Mirrors loadFeed's
+  // params + offset + the echoed feed_family so the page scopes the same set.
+  const loadMoreFromServer = useCallback(async () => {
+    if (state.status !== "ready" || !state.hasMore || typeof state.nextOffset !== "number" || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const { data: { session } } = await getSupabaseClient().auth.getSession();
+      const headers: Record<string, string> = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+      const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+      const params = new URLSearchParams();
+      if (days) params.set("max_age_days", String(days));
+      if (roleQuery) params.set("role", roleQuery);
+      if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // keep paging ranked against the same scan
+      appendBrowseParams(params, browseSel);
+      params.set("offset", String(state.nextOffset));
+      params.set("feed_family", state.feedFamily ?? "");
+      const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), { headers });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const more: FeedJob[] = Array.isArray(data?.jobs) ? data.jobs : [];
+      setState((prev) => {
+        if (prev.status !== "ready") return prev;
+        const seen = new Set(prev.jobs.map((j) => j.id));
+        const fresh = more.filter((j) => j && !seen.has(j.id));
+        return {
+          ...prev,
+          jobs: [...prev.jobs, ...fresh],
+          hasMore: data?.hasMore === true,
+          nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+          feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : prev.feedFamily,
+          // Total is the same across pages — keep page-0's if a later page omits it.
+          totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : prev.totalMatching,
+        };
+      });
+      setVisibleCount((c) => c + PAGE_SIZE);
+    } catch {
+      /* keep the current feed on failure */
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [state, loadingMore, ageFilter, roleQuery, browseSel, rankAnalysisId]);
+
+  // Infinite scroll: reveal already-loaded jobs first, then page the server.
   useEffect(() => {
-    if (!hasMore) return;
+    if (!clientHasMore && !serverHasMore) return;
     const node = sentinelRef.current;
     if (!node) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
-          setVisibleCount((c) => c + PAGE_SIZE);
+          if (visibleCount < visibleJobs.length) setVisibleCount((c) => c + PAGE_SIZE);
+          else void loadMoreFromServer();
         }
       },
       { rootMargin: "400px 0px" },
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [hasMore, pagedJobs.length]);
+  }, [clientHasMore, serverHasMore, visibleCount, visibleJobs.length, loadMoreFromServer]);
 
   // Signed-out visitors get one focused sign-in moment — no dashboard header,
   // tabs, Refresh, or résumé-ranking copy (which assumes a résumé they lack).
@@ -818,7 +1092,8 @@ export default function JobsFeed({
       initialMetroTerms={browseSel?.locationTerms ?? null}
       initialWorkModel={browseSel?.workModel ?? ""}
       onBrowse={submitBrowse}
-      onResumeReady={submitBrowse}
+      onResumeUploadStart={startResumeRanking}
+      onPrefetch={prefetchBrowse}
     />
   );
 
@@ -839,20 +1114,123 @@ export default function JobsFeed({
               : "Live openings ranked against your latest analyzed résumé. Apply on the company's site — we hand you the match, you make the call."}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
-          Refresh
-        </Button>
-      </div>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)" }}>
-            {state.status === "ready" ? `${visibleJobs.length} job${visibleJobs.length === 1 ? "" : "s"}` : "Jobs"}
-          </span>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          {state.status === "ready" && state.ranked && (
+            <Button variant="outline" size="sm" onClick={() => setUpdateResumeOpen(true)} disabled={scanning}>
+              Update résumé
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
             Refresh
           </Button>
         </div>
+      </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)" }}>
+            {state.status === "ready" ? feedCountLabel : "Jobs"}
+          </span>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            {state.status === "ready" && state.ranked && (
+              <Button variant="outline" size="sm" onClick={() => setUpdateResumeOpen(true)} disabled={scanning}>
+                Update résumé
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
+              Refresh
+            </Button>
+          </div>
+        </div>
       )}
+
+      <Dialog open={updateResumeOpen} onOpenChange={setUpdateResumeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update your résumé</DialogTitle>
+            <DialogDescription>
+              Rank these jobs against a different scan, or upload a new one. Your role and filters stay the same.
+            </DialogDescription>
+          </DialogHeader>
+          {recentScans && recentScans.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>Recent scans</span>
+              <div style={{ maxHeight: 236, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
+                {recentScans.map((scan) => {
+                  const isActive = scan.id === (rankAnalysisId || recentScans[0]?.id);
+                  const sc = scanScoreStyle(scan.score);
+                  // Labels are usually the résumé's full contact header
+                  // ("NAME | phone | email | linkedin…") — show just the name
+                  // (first segment) so the row isn't a wall of contact text.
+                  const rawLabel = (scan.label || scan.sourceFilename || "Résumé scan").trim();
+                  const label = rawLabel.split("|")[0].trim() || rawLabel;
+                  return (
+                    <button
+                      key={scan.id}
+                      type="button"
+                      onClick={() => {
+                        if (!isActive) {
+                          try { localStorage.setItem(JOBS_RANK_ANALYSIS_KEY, scan.id); } catch { /* quota */ }
+                          setRankAnalysisId(scan.id);
+                        }
+                        setUpdateResumeOpen(false);
+                      }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
+                        padding: "10px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "inherit",
+                        border: isActive ? "2px solid var(--accent)" : "1px solid var(--surface2)",
+                        background: isActive ? "var(--accent-bg, color-mix(in srgb, var(--accent) 7%, transparent))" : "var(--surface)",
+                      }}
+                    >
+                      <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, background: sc.bg, color: sc.color }}>
+                        {scan.score != null ? scan.score : "—"}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
+                        <span style={{ display: "block", fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{scanTimeAgo(scan.createdAt)}</span>
+                      </span>
+                      {isActive
+                        ? <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, color: "var(--accent)" }}>✓ Now ranking</span>
+                        : <span style={{ flexShrink: 0, fontSize: 12, color: "var(--muted)" }}>Use →</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
+                <div style={{ flex: 1, height: 1, background: "var(--surface2)" }} />
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>or upload a new one</span>
+                <div style={{ flex: 1, height: 1, background: "var(--surface2)" }} />
+              </div>
+            </div>
+          )}
+          <label
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+              padding: "22px 16px", border: "1.5px dashed var(--accent)",
+              background: "var(--accent-bg, color-mix(in srgb, var(--accent) 6%, transparent))",
+              borderRadius: 12, cursor: "pointer", textAlign: "center",
+            }}
+          >
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.currentTarget.value = "";
+                if (!f) return;
+                setUpdateResumeOpen(false);
+                const sel: JobsBrowseSelection = browseSel ?? { role: "", titleTerms: [], location: "", locationTerms: [], workModel: "" };
+                startResumeRanking(sel, f);
+              }}
+            />
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Choose résumé (PDF)</span>
+            <span style={{ fontSize: 12.5, color: "var(--muted)" }}>We&apos;ll re-score every job against the new résumé.</span>
+          </label>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUpdateResumeOpen(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {state.status === "ready" && (
         <div style={{ margin: listMode ? "10px 0 12px" : "18px 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -864,6 +1242,16 @@ export default function JobsFeed({
               placeholder="Search title or company…"
               style={{ flex: "1 1 240px", maxWidth: listMode ? undefined : 340 }}
             />
+            <button
+              type="button"
+              onClick={() => setCountry((c) => (c === "us" ? "all" : "us"))}
+              title={country === "us"
+                ? "Showing US postings only — click to include every country"
+                : "Showing all countries — click to limit to the US"}
+              style={filterButtonStyle(country === "us")}
+            >
+              {country === "us" ? "🇺🇸 US only" : "🌍 All countries"}
+            </button>
             <FilterMenu label="📍 Location" count={locationStates.size} width={250}>
               <StatesPicker
                 selected={locationStates}
@@ -952,7 +1340,7 @@ export default function JobsFeed({
               </FilterMenu>
               {!listMode && (
                 <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  {visibleJobs.length} of {state.jobs.length}
+                  {feedCountLabel}
                 </span>
               )}
             </div>
@@ -969,7 +1357,33 @@ export default function JobsFeed({
           </div>
         )}
 
-        {state.status === "ready" && state.ranked === false && (
+        {/* Progressive ranking: slim strip while the résumé scan runs in the
+            background over the already-visible feed. */}
+        {state.status === "ready" && scanning && (
+          <div style={{ marginBottom: 16, borderRadius: 12, border: "1px solid color-mix(in srgb, var(--accent) 22%, transparent)", background: "color-mix(in srgb, var(--accent) 5%, var(--surface))", padding: "11px 16px", display: "flex", alignItems: "center", gap: 11 }}>
+            <span aria-hidden style={{ display: "inline-block", width: 15, height: 15, flexShrink: 0, borderRadius: "50%", border: "2px solid color-mix(in srgb, var(--accent) 25%, transparent)", borderTopColor: "var(--accent)", animation: "rn-spin 0.7s linear infinite" }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>
+              {state.ranked ? "Re-ranking against your new résumé…" : "Ranking these against your résumé…"}
+            </span>
+            <span style={{ fontSize: 11.5, color: "var(--muted)" }}>scores appear in a moment</span>
+            <style>{"@keyframes rn-spin{to{transform:rotate(360deg)}}"}</style>
+          </div>
+        )}
+
+        {/* Scan failed: keep the (unranked) feed; offer a retry. */}
+        {state.status === "ready" && scanError && !scanning && (
+          <div style={{ marginBottom: 16, borderRadius: 12, border: "1px solid color-mix(in srgb, var(--red, #f87171) 35%, transparent)", background: "color-mix(in srgb, var(--red, #f87171) 6%, var(--surface))", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12.5, color: "var(--text)", minWidth: 0 }}>{scanError}</span>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <Button variant="outline" size="sm" onClick={() => setScanError(null)}>Dismiss</Button>
+              {lastUploadFileRef.current && browseSel && (
+                <Button size="sm" onClick={() => { const f = lastUploadFileRef.current; if (f && browseSel) startResumeRanking(browseSel, f); }}>Retry</Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {state.status === "ready" && state.ranked === false && !scanning && (
           <div style={{ marginBottom: 16, borderRadius: 14, border: "1.5px solid color-mix(in srgb, var(--accent) 22%, transparent)", background: "var(--surface)", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
@@ -1299,15 +1713,27 @@ export default function JobsFeed({
               </p>
             )}
 
-            {hasMore && (
+            {(clientHasMore || serverHasMore) && (
               <div ref={sentinelRef} style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
-                <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
-                  Load more ({visibleJobs.length - pagedJobs.length} more)
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loadingMore}
+                  onClick={() => {
+                    if (visibleCount < visibleJobs.length) setVisibleCount((c) => c + PAGE_SIZE);
+                    else void loadMoreFromServer();
+                  }}
+                >
+                  {loadingMore
+                    ? "Loading…"
+                    : clientHasMore
+                    ? `Load more (${visibleJobs.length - pagedJobs.length} more)`
+                    : "Load more jobs"}
                 </Button>
               </div>
             )}
 
-            {!hasMore && visibleJobs.length > PAGE_SIZE && (
+            {!clientHasMore && !serverHasMore && visibleJobs.length > PAGE_SIZE && (
               <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "16px 0 4px" }}>
                 You&apos;ve reached the end · {visibleJobs.length} openings
               </p>

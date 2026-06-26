@@ -284,3 +284,34 @@ export function patchStructuredWithOverrides<T extends {
 
   return cloned;
 }
+
+/** Apply PATH-based inline field edits from the Tailor preview (e.g.
+ *  `exp.0.bullets.2`, `proj.1.bullets.0`) onto the structured doc, so a
+ *  neutral-bullet inline edit reaches the scorer — the Tailor rescore sends the
+ *  structured doc as the authoritative scored input, and these path edits are
+ *  NOT covered by the index-based `patchStructuredWithOverrides`. No-op when
+ *  there are no overrides. Only bullet paths affect the score; `*.head` and
+ *  section edits are cosmetic and skipped here. Deep-clones lazily so unedited
+ *  rescores are untouched. Paths mirror `AnalyzeLiveResumeBody`'s pushBullets
+ *  prefixes (`exp.${i}.bullets`, `proj.${i}.bullets`). */
+export function applyFieldOverridesToStructured<T extends {
+  experience?: Array<{ bullets?: string[] }>;
+  projects?: Array<{ bullets?: string[] }>;
+}>(structured: T, fieldOverrides: Record<string, string> | undefined): T {
+  if (!structured || !fieldOverrides || !Object.keys(fieldOverrides).length) return structured;
+  let cloned: T | null = null;
+  for (const [path, value] of Object.entries(fieldOverrides)) {
+    const m = /^(exp|proj)\.(\d+)\.bullets\.(\d+)$/.exec(path);
+    if (!m) continue; // head/section edits don't affect the deterministic score
+    const text = (value ?? "").trim();
+    if (!text) continue;
+    if (!cloned) cloned = JSON.parse(JSON.stringify(structured)) as T;
+    const list = m[1] === "exp" ? cloned.experience : cloned.projects;
+    const entry = list?.[Number(m[2])];
+    const bi = Number(m[3]);
+    if (entry && Array.isArray(entry.bullets) && bi >= 0 && bi < entry.bullets.length) {
+      entry.bullets[bi] = text;
+    }
+  }
+  return cloned ?? structured;
+}

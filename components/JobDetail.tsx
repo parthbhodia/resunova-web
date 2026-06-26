@@ -153,6 +153,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
       {state.status === "ready" && (
         <JobBody
           job={state.job}
+          embedded={embedded}
           onBoost={() => setBoostOpen(true)}
           onPrep={onPrep}
           prepStatus={prepStatus}
@@ -171,12 +172,14 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
 
 function JobBody({
   job,
+  embedded = false,
   onBoost,
   onPrep,
   prepStatus,
   prepLaunching,
 }: {
   job: JobDetailData;
+  embedded?: boolean;
   onBoost: () => void;
   onPrep: () => void;
   prepStatus: JobPrepStatus | null;
@@ -184,11 +187,25 @@ function JobBody({
 }) {
   const salary = formatSalary(job);
   const posted = formatPostedAt(job.postedAt);
+  // JD is collapsed by default (Google-style "Show full description") so a long
+  // posting never dominates the panel. Only long JDs get the toggle.
+  const [showFullJd, setShowFullJd] = useState(false);
+  const jdLong = (job.jdText?.length ?? 0) > 800;
 
   return (
-    <div style={{ display: "flex", gap: 28, alignItems: "flex-start", flexWrap: "wrap" }}>
-      {/* LEFT */}
-      <div style={{ flex: "1 1 480px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+    // Two equal columns that FILL the available width (no wasted right-hand
+    // space). auto-fit collapses to a single column on narrow viewports / mobile
+    // (non-embedded). Left = role header + scrollable JD; right = match + prep +
+    // insider. alignItems:start keeps the right column pinned to the top while
+    // the JD scrolls inside its own pane.
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: embedded ? "repeat(auto-fit, minmax(340px, 1fr))" : "1fr",
+      gap: 24,
+      alignItems: "start",
+    }}>
+      {/* LEFT — header + JD */}
+      <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
         <Card>
           <CardContent style={{ padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
@@ -237,21 +254,67 @@ function JobBody({
                 </strong>
               </div>
             )}
+            {/* Primary action — apply on the source board (Google puts this up top). */}
+            {job.url && (
+              <a
+                href={job.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+                  alignSelf: "flex-start", padding: "11px 22px", borderRadius: 10,
+                  background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600,
+                  textDecoration: "none", marginTop: 2,
+                }}
+              >
+                Apply ↗
+              </a>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardContent style={{ padding: "24px 28px" }}>
             <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: "0 0 12px" }}>About this role</h2>
-            <div style={{ fontSize: 13.5, lineHeight: 1.62, color: "var(--muted)", whiteSpace: "pre-wrap" }}>
-              {job.jdText || "No description available for this posting."}
+            {/* Collapsed by default (Google "Show full description") — a long JD no
+                longer makes a wall; the panel itself scrolls, so we avoid a
+                nested scroll region inside it. */}
+            <div style={{ position: "relative" }}>
+              <div style={{
+                fontSize: 13.5, lineHeight: 1.62, color: "var(--muted)", whiteSpace: "pre-wrap",
+                ...(jdLong && !showFullJd ? { maxHeight: 300, overflow: "hidden" } : {}),
+              }}>
+                {job.jdText || "No description available for this posting."}
+              </div>
+              {jdLong && !showFullJd && (
+                // Fade so the clamp reads as "more below", not a hard cut.
+                <div aria-hidden style={{
+                  position: "absolute", left: 0, right: 0, bottom: 0, height: 64, pointerEvents: "none",
+                  background: "linear-gradient(to bottom, transparent, var(--surface))",
+                }} />
+              )}
             </div>
+            {jdLong && (
+              <button
+                type="button"
+                onClick={() => setShowFullJd((v) => !v)}
+                style={{
+                  marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6,
+                  background: "none", border: "1px solid var(--border)", borderRadius: 8,
+                  padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--accent)",
+                }}
+              >
+                {showFullJd ? "Show less ⌃" : "Show full description ⌄"}
+              </button>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* RIGHT — match panel + insider outreach */}
-      <div style={{ width: 340, flexShrink: 0, position: "sticky", top: 16, display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* RIGHT — match panel + interview prep + insider outreach. A real grid
+          column now (was a fixed 340px panel that wrapped below + left the right
+          half of the page empty). */}
+      <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
         <MatchPanel job={job} onBoost={onBoost} />
         <PrepCard job={job} onPrep={onPrep} prepStatus={prepStatus} prepLaunching={prepLaunching} />
         <InsiderPanel postingId={job.id} company={job.company} />
