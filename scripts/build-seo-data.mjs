@@ -50,12 +50,17 @@ function isUsableRole(r) {
 
 async function main() {
   let body;
+  // Hard timeout so a slow/hung endpoint can never stall the deploy build.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90_000);
   try {
-    const res = await fetch(ENDPOINT, { headers: { accept: "application/json" } });
+    const res = await fetch(ENDPOINT, { headers: { accept: "application/json" }, signal: controller.signal });
     if (!res.ok) warnAndKeep(`GET ${ENDPOINT} → HTTP ${res.status}.`);
     body = await res.json();
   } catch (err) {
     warnAndKeep(`Could not reach ${ENDPOINT}: ${err?.message ?? err}.`);
+  } finally {
+    clearTimeout(timer);
   }
 
   const roles = Array.isArray(body?.roles) ? body.roles.filter(isUsableRole) : [];

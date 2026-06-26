@@ -30,6 +30,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Refresh per-role SEO data from the jobs API. Safe no-op if the endpoint
+      # is unreachable (keeps the committed snapshot), so it can't break the build.
+      - name: Generate SEO data
+        env:
+          SEO_DATA_API_BASE: ${{ secrets.RAILWAY_API_URL }}
+        run: npm run build:seo-data
+
       - name: Build
         env:
           NEXT_PUBLIC_BASE_PATH: ""
