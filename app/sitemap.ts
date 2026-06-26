@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/brand";
 import { BLOG_POSTS } from "@/lib/atsBlogPosts";
 import { ROLE_RESUME_DATA, ROLE_DATA_LAST_UPDATED, roleResumeHref } from "@/lib/roleResumeData";
+import { COMPARISONS, comparisonHref } from "@/lib/competitorComparison";
 
 export const dynamic = "force-static";
 
@@ -31,5 +32,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  return [...staticPages, ...blogPages, ...roleExamplePages];
+  const comparePages: MetadataRoute.Sitemap = COMPARISONS.map((c) => ({
+    url: `${SITE_URL}${comparisonHref(c.slug)}/`,
+    lastModified: new Date(),
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
+
+  return [...staticPages, ...blogPages, ...roleExamplePages, ...comparePages];
 }
