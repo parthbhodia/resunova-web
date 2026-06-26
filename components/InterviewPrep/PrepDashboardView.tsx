@@ -63,6 +63,7 @@ import {
   type PrepSessionRecord,
   type PrepStory,
 } from "@/lib/supabase";
+import { ScanFeedbackToast, useScanToast } from "@/components/ScanFeedbackToast";
 
 export interface QuestionItem {
   question: string;
@@ -186,6 +187,8 @@ export default function PrepDashboardView() {
     if (feedbackTimer.current) window.clearTimeout(feedbackTimer.current);
   }, []);
 
+  const { scanMeta, handleScanResponse, handleScanError, clearScanMeta } = useScanToast();
+
   // Map API response shape → QuestionSection[]
   const toSection = (
     id: string,
@@ -293,8 +296,18 @@ export default function PrepDashboardView() {
           job_id: jobPostingId,
         }),
       });
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      
       const data = await res.json();
+      
+      if (res.ok) {
+        handleScanResponse(data);
+      } else if (res.status === 429) {
+        handleScanError(data);
+        throw new Error(data.error || `Server error ${res.status}`);
+      } else {
+        throw new Error(`Server error ${res.status}`);
+      }
+
       setCodingQuestions(Array.isArray(data.coding_questions) ? data.coding_questions : []);
 
       // Capture session_id returned by the backend persistence layer
@@ -504,7 +517,6 @@ export default function PrepDashboardView() {
         )}
       </div>
 
-      {/* Transient confirmation toast — accessible, auto-dismissing, above the bar. */}
       {feedback ? (
         <div
           role="status"
@@ -515,6 +527,13 @@ export default function PrepDashboardView() {
           {feedback}
         </div>
       ) : null}
+
+      {scanMeta && (
+        <ScanFeedbackToast
+          meta={scanMeta}
+          onDismiss={clearScanMeta}
+        />
+      )}
 
       {/* Sticky bottom action bar */}
       <StickyActionBar

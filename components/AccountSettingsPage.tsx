@@ -13,7 +13,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
 import { apiUrl } from "@/lib/utils";
 import { Card, ToggleSwitch } from "@/components/profileSettingsUi";
-import ScanUsageCard from "@/components/ScanUsageCard";
+import { ScanUsageWidget } from "@/components/ScanUsageWidget";
 
 type NotifyPrefs = { accountChanges: boolean; scanLimit: boolean; features: boolean };
 const NOTIFY_DEFAULTS: NotifyPrefs = { accountChanges: true, scanLimit: false, features: false };
@@ -275,7 +275,7 @@ export default function AccountSettingsPage() {
         </header>
 
         <AccountCard />
-        <ScanUsageCard />
+        <ScanUsageWidget />
         <EmailPreferencesCard />
 
         <Card title="Visibility" badge="Soon">

@@ -94,6 +94,7 @@ import {
   VariantC,
 } from "@/components/LandingFeatureShowcase";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
+import { ScanFeedbackToast, useScanToast } from "@/components/ScanFeedbackToast";
 
 const TailoredPdfPreview = dynamic(
   () => import("@/components/TailoredPdfPreview"),
@@ -441,6 +442,7 @@ export default function ResumeBuilder({
   const [statusMsg,  setStatusMsg]  = useState("");
   const [result,     setResult]     = useState<GenerationResult | null>(() => builderSession0?.result ?? null);
   const appShellSidebar = useAppShellSidebar();
+  const { scanMeta, handleScanResponse, handleScanError, clearScanMeta } = useScanToast();
   const [error,      setError]      = useState<string | null>(null);
   const [preview,    setPreview]    = useState(() => builderSession0?.result?.latexPreview ?? "");
   const [jdKeywords, setJdKeywords] = useState<string[]>([]);
@@ -1194,11 +1196,8 @@ export default function ResumeBuilder({
         try {
           const j = JSON.parse(body) as { error?: string; code?: string; limit?: number };
           if (j?.error) msg = j.error;
-          if (resp.status === 429 && j?.code === "daily_scan_limit_reached") {
-            const freeLimit = Number.isFinite(Number(j?.limit)) && Number(j.limit) > 0 ? Number(j.limit) : 5;
-            setFeedbackToast(
-              `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
-            );
+          if (resp.status === 429) {
+            handleScanError(j);
           }
         } catch {
           /* */
@@ -1206,6 +1205,7 @@ export default function ResumeBuilder({
         throw new Error(toUserFriendlyErrorMessage(msg));
       }
       const raw = await resp.json() as Record<string, unknown>;
+      handleScanResponse(raw);
       const data = mergeAnalyzeApiJson(raw) as { ratings?: RatingsData; error?: string; bulletAnalysis?: LiveBulletItem[] };
       if (data.error || !data.ratings) throw new Error(data.error ?? "Analysis returned no ratings");
       applyStructuredFromAnalyze(raw, candidateProfile ?? undefined);
@@ -1301,11 +1301,8 @@ export default function ResumeBuilder({
         const body = await resp.text().catch(() => "");
         try {
           const j = JSON.parse(body) as { code?: string; limit?: number };
-          if (resp.status === 429 && j?.code === "daily_scan_limit_reached") {
-            const freeLimit = Number.isFinite(Number(j?.limit)) && Number(j.limit) > 0 ? Number(j.limit) : 5;
-            setFeedbackToast(
-              `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
-            );
+          if (resp.status === 429) {
+            handleScanError(j);
           }
         } catch {
           /* */
@@ -1313,6 +1310,7 @@ export default function ResumeBuilder({
         return false;
       }
       const raw = await resp.json() as Record<string, unknown>;
+      handleScanResponse(raw);
       const data = mergeAnalyzeApiJson(raw) as {
         ratings?: RatingsData;
         error?: string;
@@ -2473,6 +2471,13 @@ export default function ResumeBuilder({
           {feedbackToast}
         </div>
       ) : null}
+
+      {scanMeta && (
+        <ScanFeedbackToast
+          meta={scanMeta}
+          onDismiss={clearScanMeta}
+        />
+      )}
 
       {/* ── Main — landmark + busy state for assistive tech (WCAG 4.1.3) */}
       <main
