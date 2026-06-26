@@ -1,16 +1,21 @@
 /**
  * Per-role résumé SEO data — powers /resume-examples/[role]/.
  *
- * PROVENANCE: this is a hand-seeded snapshot for the programmatic-SEO Phase 1
- * proof-of-concept. In production it is REGENERATED at build time by
- * `scripts/build-seo-data.ts`, which reads aggregates from the resunova-api
- * jobs dataset (top `requirement_concepts` by `role_family`, salary, work-model
- * split) and overwrites the SAMPLE_ROLE_RESUME_DATA array below.
+ * TWO LAYERS, merged at module load:
+ *   1. EDITORIAL SEED (`ROLE_RESUME_SEED` below) — hand-authored per role:
+ *      slug, label, roleFamily, intro prose, a scored example résumé, FAQ, AND
+ *      a baseline of data (skills/salary/work-model) so a page is complete even
+ *      before the live pipeline runs. This is the source of truth for anything
+ *      that can't be computed deterministically.
+ *   2. LIVE DATA (`roleResumeData.generated.json`) — refreshed at build time by
+ *      `scripts/build-seo-data.mjs` from resunova-api `GET /api/seo/role-stats`,
+ *      keyed by `role_family`. Overlays skills/salary/work-model/postings onto
+ *      each seed role whose `roleFamily` matches. Editorial is NEVER overwritten.
  *
  * Why a committed snapshot at all: next.config.ts is `output: "export"` (static
- * GitHub Pages build) — there is no SSR/ISR, so every page's data must exist at
- * build time. Freezing it into typed TS keeps the build reproducible and the
- * data reviewable in PRs. See docs/PROGRAMMATIC_SEO_PLAN.md §5.2.
+ * GitHub Pages build) — no SSR/ISR, so every page's data must exist at build
+ * time. Both layers are committed TS/JSON → reproducible, PR-reviewable builds.
+ * See docs/PROGRAMMATIC_SEO_PLAN.md §5.2 / §9.
  *
  * INVARIANT (anti-thin-content): every role here carries real, distinct data —
  * skill frequencies, salary, a scored example. Do not add a role we can't
@@ -18,8 +23,28 @@
  * thin content Google penalizes (plan §3, §6).
  */
 
-/** When the snapshot was last refreshed. Drives the "Updated …" stamp + the year in titles. */
-export const ROLE_DATA_LAST_UPDATED = "2026-06-26";
+import generatedRaw from "./roleResumeData.generated.json";
+
+/** Live aggregates from the jobs pipeline, keyed by role_family (may be empty). */
+const GENERATED = generatedRaw as {
+  generatedAt: string | null;
+  postingsAnalyzed?: number;
+  byFamily: Record<
+    string,
+    {
+      postingsAnalyzed?: number;
+      topSkills?: { name: string; sharePct: number }[];
+      salary?: { medianUsd: number; rangeLabel: string } | null;
+      workModel?: { remotePct: number; hybridPct: number; onsitePct: number } | null;
+    }
+  >;
+};
+
+/**
+ * Date the rendered data reflects — the live generation time when the pipeline
+ * has run, else the editorial seed date. Drives the "Updated …" stamp + titles.
+ */
+export const ROLE_DATA_LAST_UPDATED = GENERATED.generatedAt ?? "2026-06-26";
 
 export type RoleSkill = {
   /** Canonical skill/requirement name as it should appear on a résumé. */
@@ -62,10 +87,10 @@ export type RoleResumeData = {
   faq: RoleFaqItem[];
 };
 
-// <generated:role-data> — scripts/build-seo-data.mjs replaces everything between
-// these markers with fresh aggregates. Do not edit the array by hand once the
-// generator is wired into CI; edit the seed only while the endpoint is absent.
-export const SAMPLE_ROLE_RESUME_DATA: RoleResumeData[] = [
+// Hand-authored editorial + baseline data. Live aggregates from
+// roleResumeData.generated.json overlay the data fields at module load (see
+// ROLE_RESUME_DATA below); editorial fields here are never overwritten.
+const ROLE_RESUME_SEED: RoleResumeData[] = [
   {
     slug: "software-engineer",
     label: "Software Engineer",
@@ -263,10 +288,22 @@ export const SAMPLE_ROLE_RESUME_DATA: RoleResumeData[] = [
     ],
   },
 ];
-// </generated:role-data>
 
-/** Active dataset the pages render from. */
-export const ROLE_RESUME_DATA: RoleResumeData[] = SAMPLE_ROLE_RESUME_DATA;
+/** Overlay live family aggregates onto an editorial seed role (data only). */
+function mergeLiveData(seed: RoleResumeData): RoleResumeData {
+  const live = GENERATED.byFamily[seed.roleFamily];
+  if (!live) return seed;
+  return {
+    ...seed,
+    postingsAnalyzed: live.postingsAnalyzed ?? seed.postingsAnalyzed,
+    topSkills: live.topSkills && live.topSkills.length > 0 ? live.topSkills : seed.topSkills,
+    salary: live.salary ?? seed.salary,
+    workModel: live.workModel ?? seed.workModel,
+  };
+}
+
+/** Active dataset the pages render from: editorial seed + live data overlay. */
+export const ROLE_RESUME_DATA: RoleResumeData[] = ROLE_RESUME_SEED.map(mergeLiveData);
 
 /** Canonical path for a role spoke (no trailing slash — sitemap/canonical append it). */
 export function roleResumeHref(slug: string): string {

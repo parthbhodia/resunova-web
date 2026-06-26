@@ -334,16 +334,24 @@ pipeline + schema components, and gives every other system its internal-link tar
 
 A working, build-verified slice of Phase 1 is now on this branch:
 
-- **Data:** `lib/roleResumeData.ts` — typed snapshot of 4 seed roles (software-engineer,
-  data-analyst, registered-nurse, sales-representative), each with real skill
-  frequencies, salary, work-model split, a scored example, and FAQ. The data array
-  sits between `// <generated:role-data>` markers.
+- **Data (two layers, merged at module load):**
+  - `lib/roleResumeData.ts` — hand-authored **editorial seed** of 4 roles
+    (software-engineer, data-analyst, registered-nurse, sales-representative): slug,
+    label, `roleFamily`, intro prose, a scored example, FAQ, **and** a baseline of
+    skills/salary/work-model so a page is complete even before the pipeline runs.
+  - `lib/roleResumeData.generated.json` — **live data** keyed by `role_family`,
+    refreshed by the generator. `ROLE_RESUME_DATA` overlays it onto each seed role by
+    `roleFamily` (skills/salary/work-model/postings only). **Editorial is never
+    overwritten** — it can't be computed deterministically, and that's what keeps the
+    pages off the thin-content line.
 - **Generator:** `scripts/build-seo-data.mjs` (run via `npm run build:seo-data`) — fetches
-  `GET /api/seo/role-stats`, validates, and rewrites *only* the marked array + the date
-  stamp. **Safe no-op** (exits 0, leaves the snapshot untouched) when the endpoint is
-  absent, so it's safe to wire into the deploy workflow before `next build` today. It's
-  a `.mjs` so it runs with plain `node` — no ts-runner dependency. Both the no-op and
-  success paths were tested.
+  `GET /api/seo/role-stats` (now live in resunova-api) and writes the family-keyed
+  `roleResumeData.generated.json`, rewriting only when the data changed. **Safe no-op**
+  (exits 0, leaves the committed JSON untouched) when the endpoint is absent, so it's safe
+  to wire into the deploy workflow before the endpoint is deployed. Plain `.mjs` — runs
+  with bare `node`, no ts-runner dep. No-op, success, and the full overlay→render path
+  were all tested (live family data overrides the seed; families without live data keep
+  the seed).
 - **Components:** `components/seo/JsonLd.tsx` (schema injector) and
   `components/seo/SkillFrequencyTable.tsx` (the proprietary-data block).
 - **Pages:** `app/resume-examples/page.tsx` (hub) + `app/resume-examples/[role]/page.tsx`
@@ -369,8 +377,13 @@ verified by grepping the built `out/.../index.html` for real content, not a spin
 
 ### To take this to production
 
-1. Add `GET /api/seo/role-stats` to resunova-api (aggregate over `job_postings` by
-   `role_family`; zero per-request LLM cost).
-2. Add `npm run build:seo-data` before `next build` in the deploy workflow(s).
-3. Expand `ROLE_RESUME_DATA` from 4 seed roles → the full 15 families, then specific titles.
+1. ✅ **Done** — `GET /api/seo/role-stats` shipped in resunova-api (deterministic
+   per-`role_family` aggregates, zero per-request LLM cost; 17 pure tests). Needs
+   deploying.
+2. Add `npm run build:seo-data` before `next build` in the deploy workflow(s) (point
+   `SEO_DATA_API_BASE` at the API). The committed `roleResumeData.generated.json` stays
+   the empty default until then; the script populates it at build.
+3. Add editorial seed entries (intro / scored example / FAQ) for the remaining roles —
+   the endpoint already supplies the data for all 15 families; a page ships once it has
+   editorial (anti-thin-content). Then expand to specific titles within families.
 4. Build the remaining Phase 1 systems (`/ats-resume-checker/`, `/compare/*`).
