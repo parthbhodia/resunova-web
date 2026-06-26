@@ -298,11 +298,11 @@ function scanScoreStyle(score: number | null | undefined): { bg: string; color: 
  *  prefetch entry is actually reused by the on-mount fetch. `rankAnalysisId`
  *  keeps a feed ranked against a specific past scan cached separately from the
  *  latest-scan feed (and correct on remount). */
-function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null, rankAnalysisId = ""): string {
+function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null, rankAnalysisId = "", searchTerm = ""): string {
   const f = sel
     ? `${(sel.titleTerms || []).join(",")}~${(sel.locationTerms || []).join(",")}~${sel.location || ""}~${sel.workModel || ""}`
     : "";
-  return `${days}|${roleQuery}|${f}|a:${rankAnalysisId}`;
+  return `${days}|${roleQuery}|${f}|a:${rankAnalysisId}|q:${searchTerm}`;
 }
 
 /** Append the wizard's title/location/work-model filters to a feed request. */
@@ -546,6 +546,15 @@ export default function JobsFeed({
     try { const raw = localStorage.getItem(JOBS_BROWSE_KEY); return raw ? (JSON.parse(raw) as JobsBrowseSelection) : null; } catch { return null; }
   });
   const [search, setSearch] = useState("");
+  // Debounced search → server query. The search box now hits the DB (title across
+  // the WHOLE corpus, ranked), not just a client-side filter on the loaded page —
+  // so searching a role outside your saved family (e.g. "business analyst") works.
+  // Debounced so we don't refetch on every keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 400);
+    return () => clearTimeout(t);
+  }, [search]);
   // "Update résumé" popup on the ranked feed — re-scan a newer résumé and re-rank
   // in place. A non-trapping replacement for the reverted "change role": upload or
   // cancel, nothing else changes.
@@ -676,7 +685,7 @@ export default function JobsFeed({
   // upgrade. In quiet mode any failure rethrows instead of wiping the feed.
   const loadFeed = useCallback(async (force = false, quiet = false) => {
     const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
-    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel, rankAnalysisId);
+    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel, rankAnalysisId, debouncedSearch);
     // Stale-while-revalidate: show the cached feed INSTANTLY on remount/return
     // (no skeleton), and only refetch in the background when it has gone stale.
     // The skeleton path is reserved for a genuine cold load with nothing to show.
@@ -700,6 +709,7 @@ export default function JobsFeed({
       if (roleQuery) params.set("role", roleQuery);
       if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // rank against a chosen past scan
       appendBrowseParams(params, browseSel);
+      if (debouncedSearch) params.set("title_any", debouncedSearch); // search the DB by title across all roles
       const qs = params.toString() ? `?${params.toString()}` : "";
       const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
       if (!resp.ok) {
@@ -762,7 +772,7 @@ export default function JobsFeed({
       if (cached) return;   // background revalidation failed → keep the stale feed
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
     }
-  }, [ageFilter, roleQuery, browseSel, rankAnalysisId]);
+  }, [ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch]);
 
   useEffect(() => {
     // A background résumé scan drives the feed explicitly (unranked → ranked);
@@ -1017,6 +1027,7 @@ export default function JobsFeed({
       if (roleQuery) params.set("role", roleQuery);
       if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // keep paging ranked against the same scan
       appendBrowseParams(params, browseSel);
+      if (debouncedSearch) params.set("title_any", debouncedSearch); // page the same DB search
       params.set("offset", String(state.nextOffset));
       params.set("feed_family", state.feedFamily ?? "");
       const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), { headers });
@@ -1043,7 +1054,7 @@ export default function JobsFeed({
     } finally {
       setLoadingMore(false);
     }
-  }, [state, loadingMore, ageFilter, roleQuery, browseSel, rankAnalysisId]);
+  }, [state, loadingMore, ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch]);
 
   // Infinite scroll: reveal already-loaded jobs first, then page the server.
   useEffect(() => {
