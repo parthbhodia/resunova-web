@@ -26,6 +26,8 @@ export default function TailorResumeToJobDescriptionPage() {
     <BlogArticleLayout
       title="How to Tailor Your Resume to a Job Description (Step-by-Step)"
       subtitle="Generic applications rarely land interviews — not because applicants are unqualified, but because their resume doesn't mirror what the recruiter is scanning for. Here's how to fix that."
+      slug="tailor-resume-to-job-description"
+      datePublished="2026-06-10"
     >
       <Section title="Why tailoring works (and generic applications don't)">
         <p style={{ margin: "0 0 14px" }}>

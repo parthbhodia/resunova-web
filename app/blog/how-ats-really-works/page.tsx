@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   description:
     "Parsing research across major ATS platforms: visibility vs rejection, exact job titles, keyword bands, layout traps, and a quick-fix checklist.",
   robots: { index: true, follow: true },
+  alternates: { canonical: "https://www.resunova.io/blog/how-ats-really-works/" },
 };
 
 export default function HowAtsReallyWorksPage() {
@@ -16,6 +17,8 @@ export default function HowAtsReallyWorksPage() {
     <BlogArticleLayout
       title="How ATS Really Works (And Why You’re Invisible, Not Rejected)"
       subtitle="What systematic parsing tests across Workday, Greenhouse, Lever, iCIMS, Taleo, and similar systems suggest — and how Resunova checks your PDF against these patterns."
+      slug="how-ats-really-works"
+      datePublished="2026-05-15"
     >
       {ATS_RESEARCH_SECTIONS.map((sec) => (
         <Section key={sec.title} title={sec.title}>

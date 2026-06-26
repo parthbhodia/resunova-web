@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   description:
     "Formatting and keyword guidance adapted from the UIC Office of Career Services — single column, standard headers, and keywords in context.",
   robots: { index: true, follow: true },
+  alternates: { canonical: "https://www.resunova.io/blog/optimizing-resumes-for-ats/" },
 };
 
 export default function OptimizingResumesForAtsPage() {
@@ -21,6 +22,8 @@ export default function OptimizingResumesForAtsPage() {
     <BlogArticleLayout
       title="Optimizing Résumés for Applicant Tracking Systems"
       subtitle={`Guidance adapted from the ${ATS_GUIDE_ATTRIBUTION.org}. Resunova’s ATS panel applies the detectable rules to your exported PDF.`}
+      slug="optimizing-resumes-for-ats"
+      datePublished="2026-05-01"
     >
       <p style={{ margin: "0 0 24px" }}>
         Applicant tracking systems extract plain text from your file and map it into fields recruiters search.

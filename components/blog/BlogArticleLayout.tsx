@@ -1,16 +1,54 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoFull } from "@/components/BrandLogo";
+import { SITE_URL } from "@/lib/brand";
 
 export default function BlogArticleLayout({
   title,
   subtitle,
+  slug,
+  datePublished,
   children,
 }: {
   title: string;
   subtitle?: string;
+  /** Post slug — when provided, BlogPosting + BreadcrumbList JSON-LD is emitted. */
+  slug?: string;
+  /** ISO date (YYYY-MM-DD) the post was published. */
+  datePublished?: string;
   children: ReactNode;
 }) {
+  const url = slug ? `${SITE_URL}/blog/${slug}/` : undefined;
+  const jsonLd = url
+    ? {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BlogPosting",
+            "@id": `${url}#article`,
+            "headline": title,
+            ...(subtitle ? { description: subtitle } : {}),
+            "url": url,
+            "mainEntityOfPage": { "@type": "WebPage", "@id": url },
+            "inLanguage": "en-US",
+            ...(datePublished
+              ? { datePublished, dateModified: datePublished }
+              : {}),
+            "author": { "@type": "Organization", "name": "Resunova", "url": SITE_URL },
+            "publisher": { "@id": `${SITE_URL}/#org` },
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Home", "item": `${SITE_URL}/` },
+              { "@type": "ListItem", "position": 2, "name": "Blog", "item": `${SITE_URL}/blog/` },
+              { "@type": "ListItem", "position": 3, "name": title, "item": url },
+            ],
+          },
+        ],
+      }
+    : null;
+
   return (
     <div
       style={{
@@ -20,6 +58,12 @@ export default function BlogArticleLayout({
         fontFamily: "'DM Sans', -apple-system, sans-serif",
       }}
     >
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
       <header
         style={{
           position: "sticky",
