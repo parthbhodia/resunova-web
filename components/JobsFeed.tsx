@@ -717,7 +717,10 @@ export default function JobsFeed({
       if (Date.now() - cached.at < FEED_TTL_MS) return; // fresh enough — done
       // stale → keep it on screen and revalidate quietly below
     }
-    if (!quiet && !cached) setState({ status: "loading" });
+    // Don't blink to a skeleton when refining a search/filter over a feed that's
+    // already on screen — keep it visible and swap in the new results when they
+    // land (the final setState applies them). Skeleton only on a true cold load.
+    if (!quiet && !cached) setState((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
     try {
       const supabase = getSupabaseClient();
       const {
@@ -955,7 +958,6 @@ export default function JobsFeed({
 
   const visibleJobs = useMemo(() => {
     if (state.status !== "ready") return [];
-    const q = search.trim().toLowerCase();
     const minScore = SCORE_FILTERS.find((f) => f.key === scoreFilter)?.min ?? 0;
     const filtered = state.jobs.filter((job) => {
       if (job.matchScore != null && job.matchScore < minScore) return false;
@@ -985,8 +987,13 @@ export default function JobsFeed({
       // titleMatch is only computed for the résumé-ranked feed; in the unranked
       // browse feed it's always false, so a restored rolesOnly filter would empty
       // the list with no visible toggle to undo it. Only apply it when ranked.
-      if (rolesOnly && state.ranked && !job.titleMatch) return false;
-      if (q && !`${job.title} ${job.company} ${job.location}`.toLowerCase().includes(q)) return false;
+      // A free-text search is an explicit cross-role override (mirrors the
+      // backend) — don't also apply the saved-roles title filter while searching,
+      // or e.g. "physio" gets nuked by a "frontend" roles filter.
+      if (rolesOnly && state.ranked && !job.titleMatch && !debouncedSearch) return false;
+      // NO client-side literal `includes(search)` filter — the SERVER does the
+      // title search WITH synonym/semantic expansion, so a substring match here
+      // would wrongly drop "Physical Therapist" when the user typed "physio".
       return true;
     });
     if (sortBy === "newest") {
@@ -997,7 +1004,7 @@ export default function JobsFeed({
       return [...filtered].sort((a, b) => sal(b) - sal(a));
     }
     return filtered; // "match" — the backend already ranks by match score
-  }, [state, search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
+  }, [state, debouncedSearch, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
 
   // Distinct industries present in the current feed, for the Industry dropdown.
   const industryOptions = useMemo(() => {
