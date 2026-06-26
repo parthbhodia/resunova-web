@@ -21,6 +21,10 @@ const PUBLIC_ROUTES = new Set<string>([
   "/contact",
   "/blog",
   "/template-builder",
+  // Interview prep is free to try without an account — generation works for
+  // anonymous visitors; only saving the kit / story bank prompts sign-in
+  // (see PrepDashboardView). The page handles session state internally.
+  "/interview-prep",
 ]);
 // Path prefixes that bypass auth — recipient share pages live at /r/<shortid>.
 const PUBLIC_PREFIXES = ["/r/", "/blog/"];
