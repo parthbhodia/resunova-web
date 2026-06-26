@@ -298,11 +298,11 @@ function scanScoreStyle(score: number | null | undefined): { bg: string; color: 
  *  prefetch entry is actually reused by the on-mount fetch. `rankAnalysisId`
  *  keeps a feed ranked against a specific past scan cached separately from the
  *  latest-scan feed (and correct on remount). */
-function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null, rankAnalysisId = "", searchTerm = ""): string {
+function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null, rankAnalysisId = "", searchTerm = "", filterSig = ""): string {
   const f = sel
     ? `${(sel.titleTerms || []).join(",")}~${(sel.locationTerms || []).join(",")}~${sel.location || ""}~${sel.workModel || ""}`
     : "";
-  return `${days}|${roleQuery}|${f}|a:${rankAnalysisId}|q:${searchTerm}`;
+  return `${days}|${roleQuery}|${f}|a:${rankAnalysisId}|q:${searchTerm}|f:${filterSig}`;
 }
 
 /** Append the wizard's title/location/work-model filters to a feed request. */
@@ -591,6 +591,27 @@ export default function JobsFeed({
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
   const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
+  // Structured facet filters → server query params, so they search the whole
+  // (role-scoped) corpus, not just the loaded page. `filterSig` keys the cache +
+  // re-fetch; country/score/roles stay client-side (no DB column / computed).
+  const { serverFilterEntries, filterSig } = useMemo(() => {
+    const entries: [string, string][] = [];
+    if (workModels.size) entries.push(["work_model_any", [...workModels].join("|")]);
+    const senVals = [...seniorities].flatMap(
+      (k) => (SENIORITY_BUCKETS.find((b) => b.key === k)?.vals as readonly string[] | undefined) ?? [],
+    );
+    if (senVals.length) entries.push(["seniority_any", senVals.join("|")]);
+    if (empType) entries.push(["employment_type", empType]);
+    if (industry) entries.push(["industry", industry]);
+    if (yearsBucket !== "any") {
+      const yb = YEARS_OPTIONS.find((y) => y.key === yearsBucket);
+      if (yb) {
+        entries.push(["min_years", String(yb.min)]);
+        if (yb.max < 99) entries.push(["max_years", String(yb.max)]);
+      }
+    }
+    return { serverFilterEntries: entries, filterSig: entries.map(([k, v]) => `${k}=${v}`).join("&") };
+  }, [workModels, seniorities, empType, industry, yearsBucket]);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [nudgeRoles, setNudgeRoles] = useState<string[]>([]);
   const [nudgeSaving, setNudgeSaving] = useState(false);
@@ -685,7 +706,7 @@ export default function JobsFeed({
   // upgrade. In quiet mode any failure rethrows instead of wiping the feed.
   const loadFeed = useCallback(async (force = false, quiet = false) => {
     const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
-    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel, rankAnalysisId, debouncedSearch);
+    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel, rankAnalysisId, debouncedSearch, filterSig);
     // Stale-while-revalidate: show the cached feed INSTANTLY on remount/return
     // (no skeleton), and only refetch in the background when it has gone stale.
     // The skeleton path is reserved for a genuine cold load with nothing to show.
@@ -710,6 +731,7 @@ export default function JobsFeed({
       if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // rank against a chosen past scan
       appendBrowseParams(params, browseSel);
       if (debouncedSearch) params.set("title_any", debouncedSearch); // search the DB by title across all roles
+      serverFilterEntries.forEach(([k, v]) => params.set(k, v)); // facet filters → server (DB-wide)
       const qs = params.toString() ? `?${params.toString()}` : "";
       const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
       if (!resp.ok) {
@@ -772,7 +794,7 @@ export default function JobsFeed({
       if (cached) return;   // background revalidation failed → keep the stale feed
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
     }
-  }, [ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch]);
+  }, [ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, filterSig, serverFilterEntries]);
 
   useEffect(() => {
     // A background résumé scan drives the feed explicitly (unranked → ranked);
@@ -1028,6 +1050,7 @@ export default function JobsFeed({
       if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // keep paging ranked against the same scan
       appendBrowseParams(params, browseSel);
       if (debouncedSearch) params.set("title_any", debouncedSearch); // page the same DB search
+      serverFilterEntries.forEach(([k, v]) => params.set(k, v)); // page the same facet filters
       params.set("offset", String(state.nextOffset));
       params.set("feed_family", state.feedFamily ?? "");
       const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), { headers });
@@ -1054,7 +1077,7 @@ export default function JobsFeed({
     } finally {
       setLoadingMore(false);
     }
-  }, [state, loadingMore, ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch]);
+  }, [state, loadingMore, ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, serverFilterEntries]);
 
   // Infinite scroll: reveal already-loaded jobs first, then page the server.
   useEffect(() => {
