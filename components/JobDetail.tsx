@@ -199,7 +199,17 @@ function JobBody({
   // JD is collapsed by default (Google-style "Show full description") so a long
   // posting never dominates the panel. Only long JDs get the toggle.
   const [showFullJd, setShowFullJd] = useState(false);
-  const jdLong = (job.jdText?.length ?? 0) > 800;
+  // Scraped JDs (esp. Greenhouse) arrive with huge runs of blank lines — the
+  // real body often sits below 30+ empty lines. Rendered verbatim with
+  // white-space:pre-wrap inside the 300px collapse, the clamp landed entirely
+  // in that leading blank gap, so the panel looked empty (only the title
+  // showed). Strip trailing whitespace per line + collapse blank-line runs so
+  // the actual description surfaces immediately.
+  const jdDisplay = (job.jdText || "")
+    .replace(/[^\S\n]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  const jdLong = jdDisplay.length > 800;
 
   return (
     // Two equal columns that FILL the available width (no wasted right-hand
@@ -293,7 +303,7 @@ function JobBody({
                 fontSize: 13.5, lineHeight: 1.62, color: "var(--muted)", whiteSpace: "pre-wrap",
                 ...(jdLong && !showFullJd ? { maxHeight: 300, overflow: "hidden" } : {}),
               }}>
-                {job.jdText || "No description available for this posting."}
+                {jdDisplay || "No description available for this posting."}
               </div>
               {jdLong && !showFullJd && (
                 // Fade so the clamp reads as "more below", not a hard cut.
