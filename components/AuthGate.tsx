@@ -21,6 +21,7 @@ const PUBLIC_ROUTES = new Set<string>([
   "/contact",
   "/blog",
   "/resume-examples",
+  "/ats-resume-checker",
   "/template-builder",
 ]);
 // Path prefixes that bypass auth — recipient share pages live at /r/<shortid>,

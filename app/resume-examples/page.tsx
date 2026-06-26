@@ -134,7 +134,7 @@ export default function ResumeExamplesHubPage() {
 
         <p style={{ marginTop: 32, fontSize: 13, color: "var(--dim)", lineHeight: 1.6 }}>
           Don’t see your role yet? More are being added. In the meantime, run your résumé through the{" "}
-          <Link href="/" style={{ color: "var(--accent)" }}>
+          <Link href="/ats-resume-checker" style={{ color: "var(--accent)" }}>
             free ATS resume checker
           </Link>{" "}
           or read our{" "}
