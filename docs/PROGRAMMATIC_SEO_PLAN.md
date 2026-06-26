@@ -327,3 +327,50 @@ pipeline + schema components, and gives every other system its internal-link tar
 > the build script, the hub, and a sample role spoke wired to a small committed data
 > snapshot) on this branch as a working proof-of-concept, then we expand once the
 > `/api/seo/role-stats` endpoint lands.
+
+---
+
+## 9. Implementation status (shipped in this PR — Phase 1 proof-of-concept)
+
+A working, build-verified slice of Phase 1 is now on this branch:
+
+- **Data:** `lib/roleResumeData.ts` — typed snapshot of 4 seed roles (software-engineer,
+  data-analyst, registered-nurse, sales-representative), each with real skill
+  frequencies, salary, work-model split, a scored example, and FAQ. The data array
+  sits between `// <generated:role-data>` markers.
+- **Generator:** `scripts/build-seo-data.mjs` (run via `npm run build:seo-data`) — fetches
+  `GET /api/seo/role-stats`, validates, and rewrites *only* the marked array + the date
+  stamp. **Safe no-op** (exits 0, leaves the snapshot untouched) when the endpoint is
+  absent, so it's safe to wire into the deploy workflow before `next build` today. It's
+  a `.mjs` so it runs with plain `node` — no ts-runner dependency. Both the no-op and
+  success paths were tested.
+- **Components:** `components/seo/JsonLd.tsx` (schema injector) and
+  `components/seo/SkillFrequencyTable.tsx` (the proprietary-data block).
+- **Pages:** `app/resume-examples/page.tsx` (hub) + `app/resume-examples/[role]/page.tsx`
+  (spoke — `generateStaticParams`, async `generateMetadata`, the §4.1 content outline,
+  and Article + FAQPage + BreadcrumbList JSON-LD).
+- **Wiring:** `app/sitemap.ts` (hub + spokes), a nav link from `/blog`.
+
+**Verified against the static export (`out/`), not just the dev DOM:** `next build`
+green, TypeScript clean, all 166 existing tests pass; the role page's `<h1>`/`<h2>`/
+content **and** all three JSON-LD blocks are present in the raw prerendered HTML; titles
+carry a single `· Resunova` suffix; sitemap lists all five URLs.
+
+### Critical invariant discovered: new SEO routes MUST be added to `AuthGate`
+
+The root layout wraps everything in `<AuthGate>` (`components/AuthGate.tsx`), a client
+component that renders a **loading spinner** during prerender for any path **not** in its
+`PUBLIC_ROUTES` / `PUBLIC_PREFIXES` allowlist. A route missing from that list ships a
+static HTML body that is *just a spinner* — Googlebot might recover it via JS rendering,
+but non-JS AI crawlers (GPTBot, PerplexityBot, ClaudeBot) see nothing, and the page is
+effectively invisible. This PR adds `/resume-examples` + the `/resume-examples/` prefix
+to the allowlist. **Every future programmatic/SEO route must be added here too** — and
+verified by grepping the built `out/.../index.html` for real content, not a spinner.
+
+### To take this to production
+
+1. Add `GET /api/seo/role-stats` to resunova-api (aggregate over `job_postings` by
+   `role_family`; zero per-request LLM cost).
+2. Add `npm run build:seo-data` before `next build` in the deploy workflow(s).
+3. Expand `ROLE_RESUME_DATA` from 4 seed roles → the full 15 families, then specific titles.
+4. Build the remaining Phase 1 systems (`/ats-resume-checker/`, `/compare/*`).
