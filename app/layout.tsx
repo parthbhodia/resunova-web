@@ -54,14 +54,26 @@ export const metadata: Metadata = {
     description:
       "Completely free for students and the community. Tailor your resume in 60 seconds — match score, gap analysis, and ATS-friendly PDF included.",
     locale: "en_US",
-    // OG image auto-served from app/opengraph-image.tsx
+    // Static PNG in /public. The dynamic app/opengraph-image route is served as
+    // application/octet-stream on a static host (GitHub Pages serves by file
+    // extension), which Facebook/LinkedIn/X/iMessage reject — so no preview card.
+    // A real .png is served as image/png and unfurls everywhere.
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Resunova — AI Resume Scoring & Tailoring",
+        type: "image/png",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Resunova — AI Resume Tailoring for Every Job Description",
     description:
       "Completely free for students and the community. Tailor your resume in 60 seconds — match score, gap analysis, and ATS-friendly PDF.",
-    // Twitter image auto-served from app/twitter-image.tsx
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
