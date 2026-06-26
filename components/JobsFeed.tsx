@@ -262,7 +262,7 @@ function StatesPicker({ selected, onToggle, onClear }: { selected: Set<string>; 
 }
 
 /** How many job cards to render per lazy-load page. */
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 20; // jobs shown per page (grows by this on "Load more")
 const FALLBACK_LIMIT = 12; // "outside your filters" section cap
 
 /** localStorage key for a no-résumé visitor's chosen target role — drives the
@@ -1248,11 +1248,15 @@ export default function JobsFeed({
   // a subset of the loaded page, which is a subset of the total, so total is
   // always ≥ visible.
   const totalMatching = state.status === "ready" ? state.totalMatching : undefined;
-  const jobWord = `job${visibleJobs.length === 1 ? "" : "s"}`;
+  // Show the count of cards actually RENDERED (the page), not the full loaded-
+  // and-client-filtered window (which produced a confusing middle number like
+  // "427"). Reads "Showing 20 of 12,374 jobs" and grows as you Load more.
+  const shownCount = pagedJobs.length;
+  const jobWord = `job${(totalMatching ?? shownCount) === 1 ? "" : "s"}`;
   const feedCountLabel =
-    typeof totalMatching === "number" && totalMatching > visibleJobs.length
-      ? `${visibleJobs.length.toLocaleString()} of ${totalMatching.toLocaleString()} ${jobWord}`
-      : `${visibleJobs.length.toLocaleString()}${serverHasMore ? "+" : ""} ${jobWord}`;
+    typeof totalMatching === "number" && totalMatching > shownCount
+      ? `Showing ${shownCount.toLocaleString()} of ${totalMatching.toLocaleString()} ${jobWord}`
+      : `${shownCount.toLocaleString()}${serverHasMore ? "+" : ""} ${jobWord}`;
 
   // Fetch the next backend page and append (dedup by id). Mirrors loadFeed's
   // params + offset + the echoed feed_family so the page scopes the same set.
