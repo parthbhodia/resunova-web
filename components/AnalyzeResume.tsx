@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan } from "@/lib/anonScan";
 import { useSignInDialog } from "@/components/SignInDialog";
+import { toast } from "@/components/ui/toast";
 import JobSearchActivationWidget, { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -402,7 +403,6 @@ export default function AnalyzeResume() {
   const [dragging, setDragging]         = useState(false);
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
-  const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
   const [scansRemaining, setScansRemaining] = useState<number | null>(null);
   const [result, setResult]             = useState<AnalysisResult | null>(null);
   const [jd, setJd]                     = useState("");
@@ -572,11 +572,6 @@ export default function AnalyzeResume() {
     return () => clearTimeout(t);
   }, [editDraftStatus]);
 
-  useEffect(() => {
-    if (!feedbackToast) return;
-    const t = window.setTimeout(() => setFeedbackToast(null), 5200);
-    return () => clearTimeout(t);
-  }, [feedbackToast]);
 
   // Persist result to Supabase + localStorage
   const persistResult = useCallback(async (label: string, res: AnalysisResult, forcedDraftId?: string) => {
@@ -623,7 +618,7 @@ export default function AnalyzeResume() {
     const draftId = `local_${Date.now()}`;
     setActiveEditDraftId(draftId);
     setResult(resWithMeta);
-    setFeedbackToast("Report unlocked — saved to your history.");
+    toast.success("Report unlocked — saved to your history.");
     void persistResult(stash.label, resWithMeta, draftId);
     // persistResult is intentionally omitted: this must run exactly once when
     // the session lands, and the stash read is one-shot either way.
@@ -659,7 +654,7 @@ export default function AnalyzeResume() {
         if (resp.status === 429 && json?.code === "daily_scan_limit_reached") {
           const limit = Number(json?.limit);
           const freeLimit = Number.isFinite(limit) && limit > 0 ? limit : 3;
-          setFeedbackToast(
+          toast.error(
             json?.reason === "anonymous_daily_ip_limit"
               ? "Free scans used for today — sign in (it's free) for 3 scans/day and saved reports."
               : `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
@@ -684,10 +679,10 @@ export default function AnalyzeResume() {
         ? ((json as Record<string, unknown>).inputWarnings as string[])
         : [];
       if (inputWarnings.length > 0) {
-        setFeedbackToast(`Analyzed — heads-up: we couldn't find ${inputWarnings.join(", ")} on your résumé.`);
+        toast.info(`Analyzed — heads-up: we couldn't find ${inputWarnings.join(", ")} on your résumé.`);
       } else if (res.scanLimitStatus) {
         const { remaining, limit } = res.scanLimitStatus;
-        setFeedbackToast(
+        toast.info(
           remaining === 0
             ? `0 of ${limit} free scans remaining today · Resets at midnight UTC`
             : `${remaining} of ${limit} free scan${limit !== 1 ? "s" : ""} remaining today`,
@@ -1355,7 +1350,7 @@ export default function AnalyzeResume() {
             <JobSearchActivationWidget
               onActivated={(_roles, _locs) => {
                 setShowJobActivation(false);
-                setFeedbackToast("Job preferences saved — check the Jobs tab for matching openings.");
+                toast.success("Job preferences saved — check the Jobs tab for matching openings.");
               }}
               onSkip={() => setShowJobActivation(false)}
             />
@@ -1655,31 +1650,6 @@ export default function AnalyzeResume() {
         position: "relative",
       }}
     >
-
-      {feedbackToast ? (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            position: "fixed",
-            right: 16,
-            bottom: 18,
-            zIndex: 1200,
-            maxWidth: "min(440px, calc(100vw - 32px))",
-            padding: "12px 14px",
-            borderRadius: 12,
-            background: "rgba(30,41,59,0.96)",
-            border: "1px solid rgba(148,163,184,0.32)",
-            boxShadow: "0 14px 30px rgba(2,6,23,0.35)",
-            color: "#f8fafc",
-            fontSize: 12.5,
-            lineHeight: 1.45,
-            letterSpacing: -0.15,
-          }}
-        >
-          {feedbackToast}
-        </div>
-      ) : null}
 
       {/* ── Mobile backdrop (close history drawer) ─── */}
       {historyOpen && (

@@ -265,7 +265,7 @@ export function AppSidebar({
                   isActive={onInterviewPrepPage}
                   tooltip="Interview Prep"
                   className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
-                  onClick={() => router.push("/interview-prep")}
+                  render={<Link href="/interview-prep" prefetch={false} />}
                 >
                   <span className="app-nav-icon" aria-hidden>
                     {NAV_ICONS.interviewPrep}
