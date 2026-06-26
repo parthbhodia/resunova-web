@@ -464,7 +464,6 @@ export default function ResumeBuilder({
   const [storageFailures, setStorageFailures] = useState<{ artifact: "pdf" | "tex"; reason: string }[]>([]);
   /** Right-panel "Save to library" re-upsert (compile already upserts; this is explicit retry). */
   const [libraryReSaveBusy, setLibraryReSaveBusy] = useState(false);
-  const [docxExportBusy, setDocxExportBusy] = useState(false);
   const [libraryToast, setLibraryToast] = useState<string | null>(null);
   /** Toast for template customize flow (Save / Download with fresh compile). */
   const [customizeExportToast, setCustomizeExportToast] = useState<string | null>(null);
@@ -2252,59 +2251,6 @@ export default function ResumeBuilder({
   // Download filename should ALWAYS be built from the user's actual data
   // (candidate name + company + role) — not from result.folder, which is the
   // backend's template-named storage folder (e.g. "Harshibar_Template1_structured_xxx").
-  // result.folder is a server-side ID, not a display name; users were getting PDFs
-  // named after a LaTeX template instead of themselves.
-  const resumeDownloadStem = useMemo(
-    () => buildResumeFileStem(company, role, candidateProfile),
-    [company, role, candidateProfile],
-  );
-
-  const downloadResultPdf = useCallback(async () => {
-    if (!result?.pdfUrl) return;
-    try {
-      await fetchPdfAsDownload(result.pdfUrl, resumeDownloadStem);
-    } catch {
-      window.open(result.pdfUrl, "_blank", "noopener,noreferrer");
-    }
-  }, [result?.pdfUrl, resumeDownloadStem]);
-
-  const downloadResultDocx = useCallback(async () => {
-    if (!result?.folder) return;
-    const acceptedList = (suggestions ?? [])
-      .filter((s) => acceptedIds.has(s.id))
-      .map((s) => ({
-        id: s.id,
-        section: s.section,
-        original: s.original,
-        suggested: s.suggested,
-        reason: s.reason,
-      }));
-    setDocxExportBusy(true);
-    setError(null);
-    try {
-      const resp = await fetch(apiUrl("/api/builder-export-docx"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          folder: result.folder,
-          user_id: user?.id ?? null,
-          accepted_suggestions: acceptedList.length > 0 ? acceptedList : undefined,
-          download_name: resumeDownloadStem,
-        }),
-      });
-      if (!resp.ok) {
-        const json = await resp.json().catch(() => ({})) as { error?: string };
-        throw new Error(json.error ?? "DOCX export failed");
-      }
-      const safe = (resumeDownloadStem || "resume").replace(/[^\w.-]+/g, "_").slice(0, 80) || "resume";
-      await downloadBlobFromApiResponse(resp, `${safe}.docx`);
-    } catch (e: unknown) {
-      setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e)));
-    } finally {
-      setDocxExportBusy(false);
-    }
-  }, [result?.folder, suggestions, acceptedIds, user?.id, resumeDownloadStem]);
-
   /**
    * Apply accepted suggestions to the HTML preview (Chromium export path — no LaTeX).
    */
