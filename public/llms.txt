@@ -1,0 +1,26 @@
+# Resunova
+
+> Resunova (https://www.resunova.io) is a completely free AI résumé platform for students and the broader job-seeking community. Paste any job description to get an 8-dimension ATS match score, bullet-by-bullet AI rewrites, gap analysis, an ATS best-practices check, and an ATS-friendly PDF — in under a minute. The first résumé scan needs no account; no credit card, ever.
+
+Resunova helps job seekers tailor a résumé to a specific role, prepare for interviews, browse live job openings, and export recruiter-ready PDFs. It is built for students and early-career candidates, applies FERPA-informed data privacy, and partners with universities (including UMBC, whose students get unlimited scans).
+
+## Core tools
+
+- [Analyze a résumé](https://www.resunova.io/?view=analyze): Upload a PDF for an 8-dimension score (keyword coverage, achievement quality, quantification, readability, language, ATS safety, and more), flagged weak bullets with AI rewrites, and a downloadable ATS-friendly PDF. One free scan with no account; sign in free for 3 scans/day and saved reports.
+- [Tailor a résumé to a job](https://www.resunova.io/?view=builder&flow=tailor): Paste a job description, see your match score and keyword gaps, apply bullet-level rewrites, and export a tailored PDF.
+- [Interview prep](https://www.resunova.io/interview-prep): Generate role-specific mock-interview questions (behavioral/STAR, technical, coding, system design, and industry-specific) from your résumé and a job description, plus a reusable STAR story bank. Free to try; sign in to save.
+- [Template builder](https://www.resunova.io/template-builder): Build an ATS-safe résumé from recruiter-ready templates and export a PDF — no sign-up required.
+
+## Key information
+
+- Pricing: Completely free for students and the job-seeking community. No credit card, no paid tiers. UMBC students get unlimited scans; other signed-in users get 3 scans/day.
+- [Privacy Policy](https://www.resunova.io/privacy): FERPA-informed data handling; no sale of personal data.
+- [Terms of Service](https://www.resunova.io/terms)
+- [Contact](https://www.resunova.io/contact): contact@resunova.io
+
+## Guides
+
+- [How ATS really works](https://www.resunova.io/blog/how-ats-really-works)
+- [Optimizing résumés for ATS](https://www.resunova.io/blog/optimizing-resumes-for-ats)
+- [Tailoring a résumé to a job description](https://www.resunova.io/blog/tailor-resume-to-job-description)
+- [Blog](https://www.resunova.io/blog)
