@@ -1590,6 +1590,24 @@ export default function JobsFeed({
                       </span>
                     </div>
                     )}
+                    {job.matchScore == null && (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, width: 56 }}>
+                      <div
+                        title="Open this job to score it against your résumé"
+                        style={{
+                          width: 52, height: 52, borderRadius: 12,
+                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                          background: "var(--surface2)", color: "var(--muted)", border: "1px dashed var(--border)",
+                        }}
+                      >
+                        <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1 }}>?</span>
+                        <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.85 }}>MATCH</span>
+                      </div>
+                      <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.02em", color: "var(--accent)", textAlign: "center", lineHeight: 1.1 }}>
+                        See match
+                      </span>
+                    </div>
+                    )}
                     <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
                     <div style={{ flex: isMobile ? "1 1 140px" : "1 1 240px", minWidth: 0 }}>
                       <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>

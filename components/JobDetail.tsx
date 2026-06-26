@@ -132,12 +132,21 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
       )}
 
       {state.status === "loading" && (
-        <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 480px", display: "flex", flexDirection: "column", gap: 16 }}>
-            <Skeleton className="h-[150px] w-full rounded-2xl" />
-            <Skeleton className="h-[320px] w-full rounded-2xl" />
+        <div>
+          {/* Opening an un-scored job triggers a live JD extraction (~a few
+              seconds), so tell the user what the wait is for. */}
+          <div style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 12px", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--surface2)", borderTopColor: "var(--accent)", animation: "spin 0.9s linear infinite", display: "inline-block" }} />
+            Scoring this job against your résumé…
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
-          <Skeleton className="h-[420px] w-[340px] rounded-2xl" />
+          <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 480px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <Skeleton className="h-[150px] w-full rounded-2xl" />
+              <Skeleton className="h-[320px] w-full rounded-2xl" />
+            </div>
+            <Skeleton className="h-[420px] w-[340px] rounded-2xl" />
+          </div>
         </div>
       )}
 
