@@ -847,9 +847,13 @@ export default function JobsFeed({
   }, [debouncedSearch, roleQuery, rankAnalysisId, browseSel]);
 
   useEffect(() => {
-    // A background résumé scan drives the feed explicitly (unranked → ranked);
-    // don't let the roleQuery/browseSel change re-enter the skeleton path.
-    if (uploadInFlightRef.current) return;
+    // Refetch whenever loadFeed's inputs change (search, filters, role, age…).
+    // NOTE: previously guarded by `if (uploadInFlightRef.current) return` to keep
+    // a background scan from re-entering the skeleton path — but loadFeed no
+    // longer skeleton-flashes when a feed is already shown, and that guard
+    // silently swallowed EVERY search/filter refetch whenever a scan ref lingered
+    // (e.g. a hung "Update résumé"), making the search box appear dead. The scan
+    // path still drives its own unranked→ranked load explicitly via loadFeedRef.
     void loadFeed();
   }, [loadFeed]);
 
@@ -1488,7 +1492,8 @@ export default function JobsFeed({
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search title or company…"
+              onKeyDown={(e) => { if (e.key === "Enter") setDebouncedSearch(search.trim()); }}
+              placeholder="Search title or company…  (Enter to search)"
               style={{ flex: "1 1 240px", maxWidth: listMode ? undefined : 340 }}
             />
             <button
