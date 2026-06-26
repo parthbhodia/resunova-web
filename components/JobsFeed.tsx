@@ -263,6 +263,7 @@ function StatesPicker({ selected, onToggle, onClear }: { selected: Set<string>; 
 
 /** How many job cards to render per lazy-load page. */
 const PAGE_SIZE = 25;
+const FALLBACK_LIMIT = 12; // "outside your filters" section cap
 
 /** localStorage key for a no-résumé visitor's chosen target role — drives the
  *  role-scoped browse feed until they scan a résumé. */
@@ -796,6 +797,39 @@ export default function JobsFeed({
     }
   }, [ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, filterSig, serverFilterEntries]);
 
+  // "Outside your filters" fallback. When the current search + filters yield an
+  // empty list, fetch a RELAXED set — same search intent + résumé ranking, but
+  // NO facet filters and NO posting-age cap — and show it in a separate section
+  // so the user never hits a dead-end empty state. Country/state/score/etc. are
+  // deliberately NOT applied to this set (it IS the out-of-filters bucket).
+  const [fallback, setFallback] = useState<{ jobs: FeedJob[]; loading: boolean; key: string }>(
+    { jobs: [], loading: false, key: "" },
+  );
+  const loadFallback = useCallback(async () => {
+    const fkey = `${debouncedSearch}|${roleQuery}|${rankAnalysisId}`;
+    setFallback((f) => (f.key === fkey && (f.loading || f.jobs.length) ? f : { jobs: [], loading: true, key: fkey }));
+    try {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) { setFallback({ jobs: [], loading: false, key: fkey }); return; }
+      const params = new URLSearchParams();
+      // No max_age_days → widest posting window; keep search + role + ranking.
+      if (roleQuery) params.set("role", roleQuery);
+      if (rankAnalysisId) params.set("analysis_id", rankAnalysisId);
+      appendBrowseParams(params, browseSel);
+      if (debouncedSearch) params.set("title_any", debouncedSearch);
+      const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!resp.ok) { setFallback({ jobs: [], loading: false, key: fkey }); return; }
+      const data = await resp.json();
+      const jobs: FeedJob[] = Array.isArray(data?.jobs) ? data.jobs : [];
+      setFallback({ jobs, loading: false, key: fkey });
+    } catch {
+      setFallback({ jobs: [], loading: false, key: fkey });
+    }
+  }, [debouncedSearch, roleQuery, rankAnalysisId, browseSel]);
+
   useEffect(() => {
     // A background résumé scan drives the feed explicitly (unranked → ranked);
     // don't let the roleQuery/browseSel change re-enter the skeleton path.
@@ -1020,6 +1054,167 @@ export default function JobsFeed({
   // 600-cap is now per-page, not total — see api_jobs_feed offset pagination).
   const clientHasMore = visibleCount < visibleJobs.length;
   const serverHasMore = state.status === "ready" && !!state.hasMore && typeof state.nextOffset === "number";
+
+  // Drive the "outside your filters" fallback: when the visible result is empty
+  // AND a filter/search is narrowing things, fetch the relaxed set; otherwise
+  // clear it so it never lingers under a populated feed.
+  useEffect(() => {
+    // Fire whenever the visible list is empty — the default US + past-month are
+    // themselves filters that can empty the feed (the common case), so don't gate
+    // on an *explicit* filter. loadFallback returns [] when even the relaxed set
+    // is empty, so the section simply won't render then.
+    if (state.status === "ready" && pagedJobs.length === 0) {
+      void loadFallback();
+    } else {
+      setFallback((f) => (f.jobs.length || f.loading ? { jobs: [], loading: false, key: "" } : f));
+    }
+  }, [state.status, pagedJobs.length, debouncedSearch, filterSig, country, ageFilter, loadFallback]);
+
+  // Why a fallback job is outside the current filters (cheap, best-effort tag).
+  const outsideReason = useCallback((job: FeedJob): string => {
+    if (country === "us" && isClearlyInternational(job.location)) return "🌍 Outside US";
+    const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+    if (days && job.postedAt) {
+      const ageDays = (Date.now() - Date.parse(job.postedAt)) / 86_400_000;
+      if (ageDays > days) return "📅 Older posting";
+    }
+    if (workModels.size > 0 && job.workModel && !workModels.has(job.workModel)) return "🏢 Other work model";
+    if (debouncedSearch) return "Outside your filters";
+    return "Outside your filters";
+  }, [country, ageFilter, workModels, debouncedSearch]);
+
+  // Shared card renderer — used by the main list and the "outside your filters"
+  // fallback section. `reasonChip` adds a muted tag explaining why a fallback
+  // job didn't match the active filters.
+  const renderJobCard = (job: FeedJob, reasonChip?: string) => {
+    const salary = formatSalary(job);
+    const posted = formatPostedAt(job.postedAt);
+    return (
+      <Card
+        key={job.id}
+        onClick={() => router.push(`/?view=jobs&job=${encodeURIComponent(job.id)}`)}
+        style={{
+          cursor: "pointer",
+          ...(job.id === selectedJobId
+            ? { outline: "2px solid var(--accent)", outlineOffset: -1, background: "var(--accent-bg)" }
+            : null),
+        }}
+      >
+        <CardContent
+          style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}
+        >
+          <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
+          <div style={{ flex: isMobile ? "1 1 140px" : "1 1 240px", minWidth: 0 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 500 }}>{job.company}</span>
+              {job.location && <span>· {job.location}</span>}
+              {posted && <span>· {posted}</span>}
+            </div>
+            <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
+              {reasonChip && (
+                <Badge style={{ fontSize: 11, background: "var(--surface2)", color: "var(--muted)", border: "1px solid var(--surface2)" }}>
+                  {reasonChip}
+                </Badge>
+              )}
+              {salary && <Badge variant="secondary" style={{ fontSize: 11 }}>{salary}</Badge>}
+              {job.workModel && WORK_MODEL_LABEL[job.workModel] && (
+                <Badge variant="secondary" style={{ fontSize: 11 }}>{WORK_MODEL_LABEL[job.workModel]}</Badge>
+              )}
+              {job.seniority && SENIORITY_LABEL[job.seniority] && (
+                <Badge variant="secondary" style={{ fontSize: 11 }}>{SENIORITY_LABEL[job.seniority]}</Badge>
+              )}
+              {(job.h1bSponsor || job.visaSponsorship === "yes") && (
+                <Badge
+                  style={{
+                    fontSize: 11,
+                    background: "color-mix(in srgb, #16a34a 14%, transparent)",
+                    color: "#16a34a",
+                    border: "1px solid color-mix(in srgb, #16a34a 32%, transparent)",
+                  }}
+                >
+                  {job.h1bSponsor && job.h1bCertifiedCount
+                    ? `H-1B sponsor · ${job.h1bCertifiedCount.toLocaleString()}`
+                    : "H-1B sponsor"}
+                </Badge>
+              )}
+              {job.titleMatch && (
+                <Badge
+                  style={{
+                    fontSize: 11,
+                    background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                    color: "var(--accent)",
+                    border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+                  }}
+                >
+                  🎯 Target role
+                </Badge>
+              )}
+            </div>
+          </div>
+          {!listMode && (
+            <div style={{ flexShrink: 0, display: "flex", flexDirection: isMobile ? "row" : "column", gap: 7, alignItems: "stretch", flexWrap: isMobile ? "wrap" : "nowrap", width: isMobile ? "100%" : "auto" }}>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); void openBoost(job.id); }}
+                disabled={boostLoadingId === job.id}
+                style={{
+                  fontSize: 12.5, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: "none",
+                  background: "#c4793a", color: "#fff",
+                  cursor: boostLoadingId === job.id ? "wait" : "pointer", whiteSpace: "nowrap",
+                  opacity: boostLoadingId === job.id ? 0.7 : 1, fontFamily: "inherit",
+                  flex: isMobile ? "1 1 auto" : undefined,
+                }}
+              >
+                {boostLoadingId === job.id ? "Loading…" : "✦ Optimize"}
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); void openPrep(job.id); }}
+                disabled={prepLoadingId === job.id}
+                style={{
+                  fontSize: 12.5, fontWeight: 600, padding: "7px 14px", borderRadius: 8,
+                  border: prepStatuses[job.id]
+                    ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
+                    : "1px solid var(--surface2)",
+                  background: prepStatuses[job.id]
+                    ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
+                    : "transparent",
+                  color: prepStatuses[job.id] ? "var(--green-ink)" : "var(--text)",
+                  cursor: prepLoadingId === job.id ? "wait" : "pointer", whiteSpace: "nowrap",
+                  opacity: prepLoadingId === job.id ? 0.7 : 1, fontFamily: "inherit",
+                  flex: isMobile ? "1 1 auto" : undefined,
+                }}
+              >
+                {prepLoadingId === job.id ? "Loading…" : prepStatuses[job.id] ? "🎤 Prep ready" : "🎤 Prep interview"}
+              </button>
+              <a
+                href={job.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => { e.stopPropagation(); void trackApplyClick(job.id); }}
+                style={{
+                  fontSize: 12.5, fontWeight: 600, padding: "7px 14px", borderRadius: 8, textAlign: "center",
+                  flex: isMobile ? "1 1 100%" : undefined,
+                  border: appliedIds.has(job.id)
+                    ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
+                    : "1px solid var(--surface2)",
+                  color: appliedIds.has(job.id) ? "var(--green-ink)" : "var(--text)",
+                  background: appliedIds.has(job.id)
+                    ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
+                    : "transparent",
+                  textDecoration: "none", whiteSpace: "nowrap",
+                  transition: "color 0.15s, border-color 0.15s, background 0.15s",
+                }}
+              >
+                {appliedIds.has(job.id) ? "Applied ✓" : "View & apply ↗"}
+              </a>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   // Count label: "342 of 9,338 jobs" when the backend reports the feed-scope
   // total (server count over the same family/location/recency) and the visible
@@ -1541,168 +1736,7 @@ export default function JobsFeed({
 
         {state.status === "ready" && state.jobs.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {pagedJobs.map((job) => {
-              const salary = formatSalary(job);
-              const posted = formatPostedAt(job.postedAt);
-              return (
-                <Card
-                  key={job.id}
-                  onClick={() => router.push(`/?view=jobs&job=${encodeURIComponent(job.id)}`)}
-                  style={{
-                    cursor: "pointer",
-                    ...(job.id === selectedJobId
-                      ? { outline: "2px solid var(--accent)", outlineOffset: -1, background: "var(--accent-bg)" }
-                      : null),
-                  }}
-                >
-                  <CardContent
-                    style={{
-                      padding: "16px 18px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 16,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {/* Match score + requirements are no longer shown on the card
-                        (lazy model — the score is computed + shown when you open the
-                        job). The card is a clean listing; click to see your match. */}
-                    <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
-                    <div style={{ flex: isMobile ? "1 1 140px" : "1 1 240px", minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
-                      <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontWeight: 500 }}>{job.company}</span>
-                        {job.location && <span>· {job.location}</span>}
-                        {posted && <span>· {posted}</span>}
-                      </div>
-                      <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
-                        {salary && (
-                          <Badge variant="secondary" style={{ fontSize: 11 }}>
-                            {salary}
-                          </Badge>
-                        )}
-                        {job.workModel && WORK_MODEL_LABEL[job.workModel] && (
-                          <Badge variant="secondary" style={{ fontSize: 11 }}>
-                            {WORK_MODEL_LABEL[job.workModel]}
-                          </Badge>
-                        )}
-                        {job.seniority && SENIORITY_LABEL[job.seniority] && (
-                          <Badge variant="secondary" style={{ fontSize: 11 }}>
-                            {SENIORITY_LABEL[job.seniority]}
-                          </Badge>
-                        )}
-                        {(job.h1bSponsor || job.visaSponsorship === "yes") && (
-                          <Badge
-                            style={{
-                              fontSize: 11,
-                              background: "color-mix(in srgb, #16a34a 14%, transparent)",
-                              color: "#16a34a",
-                              border: "1px solid color-mix(in srgb, #16a34a 32%, transparent)",
-                            }}
-                          >
-                            {job.h1bSponsor && job.h1bCertifiedCount
-                              ? `H-1B sponsor · ${job.h1bCertifiedCount.toLocaleString()}`
-                              : "H-1B sponsor"}
-                          </Badge>
-                        )}
-                        {job.titleMatch && (
-                          <Badge
-                            style={{
-                              fontSize: 11,
-                              background: "color-mix(in srgb, var(--accent) 12%, transparent)",
-                              color: "var(--accent)",
-                              border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-                            }}
-                          >
-                            🎯 Target role
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    {!listMode && (
-                    <div style={{ flexShrink: 0, display: "flex", flexDirection: isMobile ? "row" : "column", gap: 7, alignItems: "stretch", flexWrap: isMobile ? "wrap" : "nowrap", width: isMobile ? "100%" : "auto" }}>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); void openBoost(job.id); }}
-                        disabled={boostLoadingId === job.id}
-                        style={{
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          padding: "7px 14px",
-                          borderRadius: 8,
-                          border: "none",
-                          background: "#c4793a",
-                          color: "#fff",
-                          cursor: boostLoadingId === job.id ? "wait" : "pointer",
-                          whiteSpace: "nowrap",
-                          opacity: boostLoadingId === job.id ? 0.7 : 1,
-                          fontFamily: "inherit",
-                          flex: isMobile ? "1 1 auto" : undefined,
-                        }}
-                      >
-                        {boostLoadingId === job.id ? "Loading…" : "✦ Optimize"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); void openPrep(job.id); }}
-                        disabled={prepLoadingId === job.id}
-                        style={{
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          padding: "7px 14px",
-                          borderRadius: 8,
-                          border: prepStatuses[job.id]
-                            ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
-                            : "1px solid var(--surface2)",
-                          background: prepStatuses[job.id]
-                            ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
-                            : "transparent",
-                          color: prepStatuses[job.id] ? "var(--green-ink)" : "var(--text)",
-                          cursor: prepLoadingId === job.id ? "wait" : "pointer",
-                          whiteSpace: "nowrap",
-                          opacity: prepLoadingId === job.id ? 0.7 : 1,
-                          fontFamily: "inherit",
-                          flex: isMobile ? "1 1 auto" : undefined,
-                        }}
-                      >
-                        {prepLoadingId === job.id
-                          ? "Loading…"
-                          : prepStatuses[job.id]
-                            ? "🎤 Prep ready"
-                            : "🎤 Prep interview"}
-                      </button>
-                      <a
-                        href={job.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => { e.stopPropagation(); void trackApplyClick(job.id); }}
-                        style={{
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          padding: "7px 14px",
-                          borderRadius: 8,
-                          textAlign: "center",
-                          flex: isMobile ? "1 1 100%" : undefined,
-                          border: appliedIds.has(job.id)
-                            ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
-                            : "1px solid var(--surface2)",
-                          color: appliedIds.has(job.id) ? "var(--green-ink)" : "var(--text)",
-                          background: appliedIds.has(job.id)
-                            ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
-                            : "transparent",
-                          textDecoration: "none",
-                          whiteSpace: "nowrap",
-                          transition: "color 0.15s, border-color 0.15s, background 0.15s",
-                        }}
-                      >
-                        {appliedIds.has(job.id) ? "Applied ✓" : "View & apply ↗"}
-                      </a>
-                    </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {pagedJobs.map((job) => renderJobCard(job))}
             {visibleJobs.length === 0 && (
               <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: "28px 0" }}>
                 No openings match the current filters.
@@ -1732,6 +1766,37 @@ export default function JobsFeed({
             {!clientHasMore && !serverHasMore && visibleJobs.length > PAGE_SIZE && (
               <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "16px 0 4px" }}>
                 You&apos;ve reached the end · {visibleJobs.length} openings
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Outside-your-filters fallback: never dead-end on an empty result —
+            show the relaxed set (same search, no facet/age/country limits) in a
+            clearly separate section so the user can still see what's out there. */}
+        {state.status === "ready" && pagedJobs.length === 0 &&
+          (fallback.loading || fallback.jobs.length > 0) && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "0 0 10px", flexWrap: "wrap" }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", margin: 0, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                Outside your filters
+              </h3>
+              <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                {debouncedSearch
+                  ? `Matches for “${debouncedSearch}” beyond your current date / location / filters`
+                  : "Roles beyond your current date / location / filters"}
+              </span>
+            </div>
+            {fallback.loading && fallback.jobs.length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--muted)", padding: "8px 0" }}>Looking wider…</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {fallback.jobs.slice(0, FALLBACK_LIMIT).map((job) => renderJobCard(job, outsideReason(job)))}
+              </div>
+            )}
+            {!fallback.loading && fallback.jobs.length > FALLBACK_LIMIT && (
+              <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "12px 0 0" }}>
+                Showing {FALLBACK_LIMIT} of {fallback.jobs.length} — widen a filter above to see more in your main feed.
               </p>
             )}
           </div>
