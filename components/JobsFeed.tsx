@@ -631,6 +631,11 @@ export default function JobsFeed({
   const [nudgeSaving, setNudgeSaving] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loadingMore, setLoadingMore] = useState(false);
+  // True while a feed fetch is in flight over an already-visible feed (search /
+  // filter refine / background revalidate) — drives the small spinner in the
+  // search box so a search never looks like "nothing happened" (we deliberately
+  // don't blink to a skeleton when refining; see loadFeed).
+  const [revalidating, setRevalidating] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // ── Background résumé scan (progressive ranking) ──
@@ -734,6 +739,7 @@ export default function JobsFeed({
     // already on screen — keep it visible and swap in the new results when they
     // land (the final setState applies them). Skeleton only on a true cold load.
     if (!quiet && !cached) setState((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
+    setRevalidating(true);
     try {
       const supabase = getSupabaseClient();
       const {
@@ -810,6 +816,8 @@ export default function JobsFeed({
       if (quiet) throw err; // caller (résumé scan) keeps the feed + shows a banner
       if (cached) return;   // background revalidation failed → keep the stale feed
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
+    } finally {
+      setRevalidating(false);
     }
   }, [ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, filterSig, serverFilterEntries]);
 
@@ -1493,13 +1501,22 @@ export default function JobsFeed({
         <div style={{ margin: listMode ? "10px 0 12px" : "18px 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Row 1 — keyword + location (LinkedIn/Indeed style) */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") setDebouncedSearch(search.trim()); }}
-              placeholder="Search title or company…  (Enter to search)"
-              style={{ flex: "1 1 240px", maxWidth: listMode ? undefined : 340 }}
-            />
+            <div style={{ position: "relative", flex: "1 1 240px", maxWidth: listMode ? undefined : 340, minWidth: 0 }}>
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") setDebouncedSearch(search.trim()); }}
+                placeholder="Search title or company…  (Enter to search)"
+                style={{ width: "100%", paddingRight: revalidating ? 32 : undefined }}
+              />
+              {revalidating && (
+                <span aria-hidden style={{
+                  position: "absolute", right: 10, top: "calc(50% - 8px)", width: 15, height: 15,
+                  borderRadius: "50%", border: "2px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+                  borderTopColor: "var(--accent)", animation: "spin 0.7s linear infinite", pointerEvents: "none",
+                }} />
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setCountry((c) => (c === "us" ? "all" : "us"))}
