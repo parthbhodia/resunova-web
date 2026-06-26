@@ -117,7 +117,7 @@ export default function ResumeExamplesHubPage() {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
                   <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, letterSpacing: -0.3 }}>
-                    {role.label} Resume Example
+                    {`${role.label} Resume Example`}
                   </h2>
                   <span style={{ fontSize: 12, color: "var(--dim)", whiteSpace: "nowrap" }}>
                     {role.postingsAnalyzed.toLocaleString("en-US")} postings

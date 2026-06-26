@@ -163,7 +163,7 @@ export default async function RoleResumeExamplePage({
           {new Date(ROLE_DATA_LAST_UPDATED).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
         </p>
         <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1, lineHeight: 1.14, margin: "0 0 16px" }}>
-          {data.label} Resume Example &amp; the Skills Employers Want
+          {`${data.label} Resume Example & the Skills Employers Want`}
         </h1>
 
         {/* Direct-answer intro block (40–60 words; snippet / AI-citation bait) */}
