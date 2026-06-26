@@ -146,7 +146,7 @@ export function AppBottomNav({
 
           {/* Destination tiles — icon-first grid (was a long text list) */}
           <div className="grid grid-cols-2 gap-2 px-4">
-            <Tile icon={NAV_ICONS["cover-letter"]} label="Cover letter" onClick={() => gotoGated("cover-letter")} />
+            <Tile icon={NAV_ICONS["cover-letter"]} label="Cover letter" onClick={() => process.env.NODE_ENV === "development" ? (() => { setMoreOpen(false); onSelect("cover-letter"); })() : gotoGated("cover-letter")} />
             <Tile
               icon={NAV_ICONS.interviewPrep}
               label="Interview prep"

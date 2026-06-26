@@ -283,9 +283,9 @@ export function AppSidebar({
               <NavItem
                 view="cover-letter"
                 isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "cover-letter"}
-                onClick={gated("cover-letter")}
+                onClick={process.env.NODE_ENV === "development" ? () => onSwitchView("cover-letter") : gated("cover-letter")}
                 showLabels={showLabels}
-                locked={anonMode}
+                locked={process.env.NODE_ENV === "development" ? false : anonMode}
               />
               <NavItem
                 view="jobs"
