@@ -20,10 +20,13 @@ const PUBLIC_ROUTES = new Set<string>([
   "/privacy",
   "/contact",
   "/blog",
+  "/resume-examples",
+  "/ats-resume-checker",
   "/template-builder",
 ]);
-// Path prefixes that bypass auth — recipient share pages live at /r/<shortid>.
-const PUBLIC_PREFIXES = ["/r/", "/blog/"];
+// Path prefixes that bypass auth — recipient share pages live at /r/<shortid>,
+// programmatic SEO role pages at /resume-examples/<role>, comparisons at /compare/<slug>.
+const PUBLIC_PREFIXES = ["/r/", "/blog/", "/resume-examples/", "/compare/"];
 
 const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true";
 
