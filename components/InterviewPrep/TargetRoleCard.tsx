@@ -50,7 +50,7 @@ export default function TargetRoleCard() {
           <span className="text-sm font-medium text-foreground">
             Suggested Companies
           </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-nowrap sm:flex-wrap overflow-x-auto gap-2 pb-2 -mb-2 scrollbar-none">
             {SUGGESTED_COMPANIES.map((name) => {
               const selected = company === name;
               return (
@@ -59,7 +59,7 @@ export default function TargetRoleCard() {
                   type="button"
                   onClick={() => setCompany(selected ? "" : name)}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
+                    "shrink-0 rounded-full border px-3 py-1 text-sm font-medium transition-colors",
                     selected
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border bg-transparent text-foreground hover:bg-muted",

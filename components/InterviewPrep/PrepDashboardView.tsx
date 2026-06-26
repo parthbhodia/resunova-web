@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import jsPDF from "jspdf";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -28,6 +29,7 @@ import {
   Download,
   ExternalLink,
   Library,
+  MoreHorizontal,
   RefreshCw,
   Save,
   Sparkles,
@@ -416,9 +418,30 @@ export default function PrepDashboardView() {
   };
 
   return (
-    <div className="w-full px-6 py-6 pb-32 md:px-8 md:py-8">
-      {/* Header */}
-      <header className="mb-5">
+    <div className="w-full px-4 py-4 pb-6 md:px-8 md:py-8 md:pb-32">
+      {/* Mobile Top Header (hidden on desktop) */}
+      <header className="mb-5 flex items-center gap-3 md:hidden">
+        <button
+          onClick={() => router.push("/interview-prep/setup")}
+          className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-foreground hover:bg-muted active:bg-muted"
+          aria-label="Back"
+        >
+          <ArrowLeft className="size-4" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-accent">Step 4 of 4</div>
+          <h1 className="text-lg font-bold text-foreground">Prep Dashboard</h1>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="h-1 w-4 rounded-full bg-accent" />
+          <div className="h-1 w-4 rounded-full bg-accent" />
+          <div className="h-1 w-4 rounded-full bg-accent" />
+          <div className="h-1 w-4 rounded-full bg-accent" />
+        </div>
+      </header>
+
+      {/* Header (hidden on mobile) */}
+      <header className="mb-5 hidden md:block">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
           Your Personalized Interview Prep Kit
         </h1>
@@ -428,7 +451,7 @@ export default function PrepDashboardView() {
         </p>
       </header>
 
-      <div className="mb-6">
+      <div className="mb-6 hidden md:block">
         <WorkflowStepper activeStep={4} />
       </div>
 
@@ -453,20 +476,25 @@ export default function PrepDashboardView() {
           </div>
         )}
 
-        {/* Top summary card */}
-        <SummaryCard
+        {/* Desktop summary card (Hidden on mobile) */}
+        <div className="hidden md:block">
+          <SummaryCard
+            category={category}
+            company={company}
+            role={role}
+            interviewTypeLabel={interviewTypeLabel}
+            difficultyLabel={difficultyLabel}
+          />
+        </div>
+
+        {/* Mobile summary card (Hidden on desktop) */}
+        <MobileSummaryCard
           category={category}
           company={company}
           role={role}
           interviewTypeLabel={interviewTypeLabel}
           difficultyLabel={difficultyLabel}
         />
-
-        {/* Real coding questions reported at this company (shared question bank) */}
-        <CodingBankSection questions={codingQuestions} company={company} />
-
-        {/* Master story bank — accumulates across every prep session */}
-        <StoryBankPanel refreshSignal={bankRefresh} />
 
         {/* Question section cards */}
         {loading ? (
@@ -485,22 +513,53 @@ export default function PrepDashboardView() {
             </Button>
           </div>
         ) : (
-          <div
-            className={cn(
-              "grid gap-5 transition-opacity duration-200",
-              regenAll && "pointer-events-none opacity-50",
-            )}
-            aria-busy={regenAll}
-          >
-            {sections.map((section) => (
-              <QuestionCard
-                key={section.id}
-                section={section}
-                isRegenerating={!!regenerating[section.id]}
-                onRegenerate={() => triggerRegenerate(section.id)}
-              />
-            ))}
-          </div>
+          <>
+            {/* Desktop View: scrolling list of sections. Dims (non-interactive)
+                during a whole-kit "Regenerate All" so the old set stays readable
+                while the new one loads, instead of flashing a skeleton. */}
+            <div
+              className={cn(
+                "hidden md:grid gap-5 transition-opacity duration-200",
+                regenAll && "pointer-events-none opacity-50",
+              )}
+              aria-busy={regenAll}
+            >
+              {sections.map((section, i) => (
+                <QuestionCard
+                  key={section.id}
+                  section={section}
+                  defaultExpanded={i === 0}
+                  isRegenerating={!!regenerating[section.id]}
+                  onRegenerate={() => triggerRegenerate(section.id)}
+                />
+              ))}
+            </div>
+
+            {/* Mobile View: accordion sections (same regen-dimming behavior). */}
+            <div
+              className={cn(
+                "grid gap-4 md:hidden transition-opacity duration-200",
+                regenAll && "pointer-events-none opacity-50",
+              )}
+              aria-busy={regenAll}
+            >
+              {sections.map((section, i) => (
+                <MobileQuestionSectionCard
+                  key={section.id}
+                  section={section}
+                  defaultExpanded={i === 0}
+                  isRegenerating={!!regenerating[section.id]}
+                  onRegenerate={() => triggerRegenerate(section.id)}
+                />
+              ))}
+            </div>
+
+            {/* Real coding questions reported at this company (shared question bank) */}
+            <CodingBankSection questions={codingQuestions} company={company} />
+
+            {/* Master story bank — accumulates across every prep session */}
+            <StoryBankPanel refreshSignal={bankRefresh} />
+          </>
         )}
       </div>
 
@@ -516,7 +575,7 @@ export default function PrepDashboardView() {
         </div>
       ) : null}
 
-      {/* Sticky bottom action bar */}
+      {/* Unified Sticky bottom action bar (Desktop & Mobile responsive) */}
       <StickyActionBar
         totalQuestions={totalQuestions}
         category={category}
@@ -526,6 +585,7 @@ export default function PrepDashboardView() {
         onNotify={notify}
         onBack={() => router.push("/interview-prep/setup")}
         onRegenerateAll={handleRegenerateAll}
+        isLoading={loading}
       />
     </div>
   );
@@ -882,13 +942,15 @@ function QuestionCard({
   section,
   isRegenerating,
   onRegenerate,
+  defaultExpanded = true,
 }: {
   section: QuestionSection;
   isRegenerating: boolean;
   onRegenerate: () => void;
+  defaultExpanded?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [expandedQuestions, setExpandedQuestions] = useState<Record<number, boolean>>({});
 
   const toggleQuestion = (idx: number) => {
@@ -1007,7 +1069,7 @@ function QuestionCard({
                         ) : (
                           <>
                             <ChevronDown className="size-3.5" />
-                            Suggested Answer Structure (STAR+R)
+                            ▼ Suggested Answer
                           </>
                         )}
                       </Button>
@@ -1084,6 +1146,220 @@ function QuestionCard({
   );
 }
 
+// ── Mobile Summary Card (2x2 Grid) ───────────────────────────────────────────
+
+function MobileSummaryCard({
+  category,
+  company,
+  role,
+  interviewTypeLabel,
+  difficultyLabel,
+}: {
+  category: ResumeCategory;
+  company: string;
+  role: string;
+  interviewTypeLabel: string;
+  difficultyLabel: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border/50 bg-card overflow-hidden md:hidden">
+      {/* Header row */}
+      <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
+        <div className="flex size-4 shrink-0 items-center justify-center rounded-full border-2 border-accent/60 text-accent">
+          <Check className="size-2.5 stroke-[3]" />
+        </div>
+        <span className="text-xs font-semibold text-foreground">Prep kit generated</span>
+      </div>
+      {/* 2x2 grid */}
+      <div className="grid grid-cols-2 divide-x divide-y divide-border/40">
+        <div className="px-3 py-2">
+          <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Resume type</p>
+          <p className="mt-0.5 text-xs font-bold text-foreground truncate">{category}</p>
+        </div>
+        <div className="px-3 py-2">
+          <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Company</p>
+          <p className="mt-0.5 text-xs font-bold text-foreground truncate">{company || "General"}</p>
+        </div>
+        <div className="px-3 py-2">
+          <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Interview type</p>
+          <p className="mt-0.5 text-xs font-bold text-foreground truncate">{interviewTypeLabel}</p>
+        </div>
+        <div className="px-3 py-2">
+          <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">Difficulty</p>
+          <p className="mt-0.5 text-xs font-bold text-foreground truncate">{difficultyLabel}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Mobile Question Section Card ──────────────────────────────────────────────
+
+function MobileQuestionSectionCard({
+  section,
+  isRegenerating,
+  onRegenerate,
+  defaultExpanded = false,
+}: {
+  section: QuestionSection;
+  isRegenerating: boolean;
+  onRegenerate: () => void;
+  defaultExpanded?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [copied, setCopied] = useState(false);
+  const [expandedQuestions, setExpandedQuestions] = useState<Record<number, boolean>>({});
+
+  const toggleQuestion = (idx: number) => {
+    setExpandedQuestions((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const handleCopy = async () => {
+    const text = section.questions.map((q, i) => {
+      let str = `${i + 1}. ${q.question}`;
+      if (q.reason) str += `\n   Why: ${q.reason}`;
+      if (q.best_story && q.best_story.title) {
+        str += `\n   Best Resume Story: ${q.best_story.title} (${q.best_story.reason})`;
+      }
+      if (q.star_framework) {
+        str += `\n   Suggested STAR Answer Structure:`;
+        str += `\n     Situation: ${q.star_framework.situation}`;
+        str += `\n     Task: ${q.star_framework.task}`;
+        str += `\n     Action: ${q.star_framework.action}`;
+        str += `\n     Result: ${q.star_framework.result}`;
+        str += `\n     Reflection: ${q.star_framework.reflection}`;
+      }
+      return str;
+    }).join("\n\n");
+
+    await navigator.clipboard.writeText(text).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const iconBg = SECTION_COLORS[section.id] ?? "bg-muted text-muted-foreground";
+
+  return (
+    <Card 
+      className={cn(
+        "rounded-xl border border-border/50 transition-opacity md:hidden overflow-hidden bg-card",
+        isRegenerating && "opacity-60"
+      )}
+    >
+      <div 
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/10 select-none"
+      >
+        <div className="flex items-center gap-3">
+          <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", iconBg)}>
+            {SECTION_ICONS[section.id] ?? <BookOpen className="size-4" aria-hidden />}
+          </span>
+          <div>
+            <h3 className="text-sm font-bold text-foreground leading-none">{section.title}</h3>
+            {section.description && (
+              <p className="mt-1 text-[10px] text-muted-foreground line-clamp-1">{section.description}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground tabular-nums">
+            {section.questions.length}Q
+          </span>
+          {expanded ? (
+            <ChevronUp className="size-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="size-4 text-muted-foreground" />
+          )}
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-border/40 bg-muted/10">
+          <div className="flex flex-col divide-y divide-border/30">
+            {section.questions.map((q, i) => {
+              const isStarExpanded = !!expandedQuestions[i];
+              return (
+                <div key={i} className="flex flex-col gap-3 p-4">
+
+                  {/* Row: number badge + question text */}
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[11px] font-bold text-foreground">
+                      {i + 1}
+                    </span>
+                    <p className="flex-1 min-w-0 text-sm font-bold leading-snug text-foreground break-words">
+                      {q.question}
+                    </p>
+                  </div>
+
+                  {/* Context line */}
+                  {q.reason && (
+                    <p className="pl-9 text-[11px] text-muted-foreground leading-normal break-words">
+                      Context: {q.reason}
+                    </p>
+                  )}
+
+                  {/* Best story match — blue block matching reference */}
+                  {q.best_story && q.best_story.title && (
+                    <div className="ml-9 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 px-3 py-2.5">
+                      <p className="text-[11px] font-medium text-blue-700/80 dark:text-blue-300/80 mb-0.5">Best story match</p>
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100 break-words leading-snug">{q.best_story.title}</p>
+                    </div>
+                  )}
+
+                  {/* Suggested answer — full-width pill button */}
+                  {q.star_framework && (
+                    <div className="ml-9">
+                      <button
+                        onClick={() => toggleQuestion(i)}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-border/60 bg-card h-10 text-xs font-semibold text-foreground hover:bg-muted active:bg-muted transition-colors"
+                      >
+                        Suggested answer
+                        {isStarExpanded ? (
+                          <ChevronUp className="size-3.5" />
+                        ) : (
+                          <ChevronDown className="size-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* STAR expanded content */}
+                  {q.star_framework && isStarExpanded && (
+                    <div className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-3 animate-in fade-in duration-200">
+                      {[
+                        ["Situation", q.star_framework.situation, false],
+                        ["Task", q.star_framework.task, false],
+                        ["Action", q.star_framework.action, false],
+                        ["Result", q.star_framework.result, false],
+                        ["Reflection", q.star_framework.reflection, true],
+                      ].map(([label, value, isReflection]) => (
+                        <div key={String(label)}>
+                          <span className={cn(
+                            "text-[9px] font-bold uppercase tracking-wider",
+                            isReflection ? "text-accent" : "text-muted-foreground"
+                          )}>
+                            {String(label)}
+                          </span>
+                          <p className={cn(
+                            "mt-0.5 text-xs leading-relaxed text-foreground break-words",
+                            isReflection && "font-semibold"
+                          )}>
+                            {String(value)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // ── Sticky action bar ────────────────────────────────────────────────────────
 
 function StickyActionBar({
@@ -1095,6 +1371,7 @@ function StickyActionBar({
   onNotify,
   onBack,
   onRegenerateAll,
+  isLoading,
 }: {
   totalQuestions: number;
   category: ResumeCategory;
@@ -1103,38 +1380,73 @@ function StickyActionBar({
   regeneratingAll: boolean;
   onNotify: (msg: string) => void;
   onBack: () => void;
+  isLoading: boolean;
   onRegenerateAll: () => void;
 }) {
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const handleDownload = () => {
-    const lines: string[] = ["INTERVIEW PREP KIT\n", `Resume Category: ${category}\n`];
+    const doc = new jsPDF();
+    let y = 20;
+    const margin = 20;
+    const pageWidth = doc.internal.pageSize.width;
+    const maxLineWidth = pageWidth - margin * 2;
+    const lineHeight = 6;
+
+    // Helper to add text and manage pagination
+    const addText = (text: string, font: "helvetica", style: "normal" | "bold", size: number, indent: number = 0) => {
+      doc.setFont(font, style);
+      doc.setFontSize(size);
+      const splitText = doc.splitTextToSize(text, maxLineWidth - indent);
+      
+      // Check if we need a new page
+      if (y + (splitText.length * lineHeight) > doc.internal.pageSize.height - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      
+      doc.text(splitText, margin + indent, y);
+      y += (splitText.length * lineHeight) + 2;
+    };
+
+    addText("INTERVIEW PREP KIT", "helvetica", "bold", 18);
+    y += 4;
+    addText(`Resume Category: ${category}`, "helvetica", "normal", 12);
+    y += 8;
+
     for (const section of sections) {
-      lines.push(`\n── ${section.title} ──`);
+      if (y > doc.internal.pageSize.height - 40) { doc.addPage(); y = margin; }
+      
+      addText(`── ${section.title} ──`, "helvetica", "bold", 14);
+      y += 4;
+
       section.questions.forEach((q, i) => {
-        lines.push(`\n${i + 1}. ${q.question}`);
-        if (q.reason) lines.push(`   Why: ${q.reason}`);
+        addText(`${i + 1}. ${q.question}`, "helvetica", "bold", 11);
+        
+        if (q.reason) {
+          addText(`Why: ${q.reason}`, "helvetica", "normal", 10, 5);
+        }
+
         if (q.best_story && q.best_story.title) {
-          lines.push(`   Best Resume Story: ${q.best_story.title} (${q.best_story.reason})`);
+          addText(`Best Resume Story: ${q.best_story.title} (${q.best_story.reason})`, "helvetica", "normal", 10, 5);
         }
+
         if (q.star_framework) {
-          lines.push(`   STAR Answer Structure:`);
-          lines.push(`     Situation: ${q.star_framework.situation}`);
-          lines.push(`     Task: ${q.star_framework.task}`);
-          lines.push(`     Action: ${q.star_framework.action}`);
-          lines.push(`     Result: ${q.star_framework.result}`);
-          lines.push(`     Reflection: ${q.star_framework.reflection}`);
+          y += 2;
+          addText("STAR Answer Structure:", "helvetica", "bold", 10, 5);
+          
+          addText(`Situation: ${q.star_framework.situation}`, "helvetica", "normal", 10, 10);
+          addText(`Task: ${q.star_framework.task}`, "helvetica", "normal", 10, 10);
+          addText(`Action: ${q.star_framework.action}`, "helvetica", "normal", 10, 10);
+          addText(`Result: ${q.star_framework.result}`, "helvetica", "normal", 10, 10);
+          addText(`Reflection: ${q.star_framework.reflection}`, "helvetica", "bold", 10, 10);
         }
+        y += 6; // Space between questions
       });
+      y += 6; // Space between sections
     }
-    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "interview-prep-kit.txt";
-    a.click();
-    URL.revokeObjectURL(url);
+    doc.save("interview-prep-kit.pdf");
     onNotify("Prep kit downloaded");
   };
 
@@ -1158,84 +1470,163 @@ function StickyActionBar({
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 backdrop-blur-sm md:pl-[var(--sidebar-width,0px)]">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3 md:px-8">
-        {/* Left: stats */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-accent text-[var(--accent-fg,#fff)]">
-              <Sparkles className="size-4" aria-hidden />
+    <>
+      {/* Desktop Sticky Action Bar */}
+      <div className="hidden md:block fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 backdrop-blur-sm md:pl-[var(--sidebar-width,0px)]">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3 md:px-8">
+          {/* Left: stats */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-accent text-[var(--accent-fg,#fff)]">
+                <Sparkles className="size-4" aria-hidden />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Questions Generated</p>
+                <p className="text-sm font-bold text-foreground">{totalQuestions}+</p>
+              </div>
             </div>
+            <Separator orientation="vertical" className="h-8" />
             <div>
-              <p className="text-xs text-muted-foreground">Questions Generated</p>
-              <p className="text-sm font-bold text-foreground">{totalQuestions}+</p>
+              <p className="text-xs text-muted-foreground">Resume Category</p>
+              <Badge variant="secondary" className="mt-0.5">
+                {category}
+              </Badge>
             </div>
+            {savedMsg ? (
+              <span className="flex items-center gap-1.5 text-sm font-medium text-accent">
+                <Check className="size-4" aria-hidden />
+                {savedMsg}
+              </span>
+            ) : null}
           </div>
-          <Separator orientation="vertical" className="h-8" />
-          <div>
-            <p className="text-xs text-muted-foreground">Resume Category</p>
-            <Badge variant="secondary" className="mt-0.5">
-              {category}
-            </Badge>
-          </div>
-          {savedMsg ? (
-            <span className="flex items-center gap-1.5 text-sm font-medium text-accent">
-              <Check className="size-4" aria-hidden />
-              {savedMsg}
-            </span>
-          ) : null}
-        </div>
 
-        {/* Right: actions */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={onBack}
-          >
-            <ArrowLeft className="size-3.5" aria-hidden />
-            Back
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={handleDownload}
-          >
-            <Download className="size-3.5" aria-hidden />
-            Download
-          </Button>
-          <Button
-            variant={savedMsg ? "secondary" : "outline"}
-            size="sm"
-            className="gap-1.5"
-            onClick={() => void handleSave()}
-            disabled={saving}
-          >
-            {saving ? (
-              <RefreshCw className="size-3.5 animate-spin" aria-hidden />
-            ) : savedMsg ? (
-              <Check className="size-3.5" aria-hidden />
-            ) : (
-              <Save className="size-3.5" aria-hidden />
-            )}
-            {saving ? "Saving…" : savedMsg ? "Saved!" : "Save Prep Kit"}
-          </Button>
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={onRegenerateAll}
-            disabled={regeneratingAll}
-          >
-            <RefreshCw
-              className={cn("size-3.5", regeneratingAll && "animate-spin")}
-              aria-hidden
-            />
-            {regeneratingAll ? "Regenerating…" : "Regenerate All"}
-          </Button>
+          {/* Right: actions */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={onBack}
+            >
+              <ArrowLeft className="size-3.5" aria-hidden />
+              Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleDownload}
+            >
+              <Download className="size-3.5" aria-hidden />
+              Download
+            </Button>
+            <Button
+              variant={savedMsg ? "secondary" : "outline"}
+              size="sm"
+              className="gap-1.5"
+              onClick={() => void handleSave()}
+              disabled={saving}
+            >
+              {saving ? (
+                <RefreshCw className="size-3.5 animate-spin" aria-hidden />
+              ) : savedMsg ? (
+                <Check className="size-3.5" aria-hidden />
+              ) : (
+                <Save className="size-3.5" aria-hidden />
+              )}
+              {saving ? "Saving…" : savedMsg ? "Saved!" : "Save Prep Kit"}
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={onRegenerateAll}
+              disabled={regeneratingAll}
+            >
+              <RefreshCw
+                className={cn("size-3.5", regeneratingAll && "animate-spin")}
+                aria-hidden
+              />
+              {regeneratingAll ? "Regenerating…" : "Regenerate All"}
+            </Button>
+          </div>
+
         </div>
       </div>
-    </div>
+
+      {/* Mobile Action Bar: [•••] | [Download] | [Regenerate] (Static at the end of content) */}
+      {!isLoading && (
+      <div className="md:hidden mt-8 mb-6 border-t border-border/50 pt-4">
+        <div className="flex items-center gap-2">
+
+          {/* Overflow menu — Back + Save */}
+          <div className="relative shrink-0">
+            <button
+              id="mobile-overflow-menu"
+              onClick={() => {
+                const menu = document.getElementById("mobile-overflow-dropdown");
+                if (menu) menu.classList.toggle("hidden");
+              }}
+              className="flex size-11 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:text-foreground active:bg-muted"
+              aria-label="More actions"
+            >
+              <MoreHorizontal className="size-5" />
+            </button>
+            <div
+              id="mobile-overflow-dropdown"
+              className="hidden absolute bottom-14 left-0 z-30 w-44 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+            >
+              <button
+                onClick={() => {
+                  document.getElementById("mobile-overflow-dropdown")?.classList.add("hidden");
+                  onBack();
+                }}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                <ArrowLeft className="size-4 shrink-0 text-muted-foreground" />
+                Back
+              </button>
+              <div className="border-t border-border/50" />
+              <button
+                onClick={() => {
+                  document.getElementById("mobile-overflow-dropdown")?.classList.add("hidden");
+                  void handleSave();
+                }}
+                disabled={saving}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+              >
+                {saving
+                  ? <RefreshCw className="size-4 shrink-0 text-muted-foreground animate-spin" />
+                  : <Save className="size-4 shrink-0 text-muted-foreground" />
+                }
+                {saving ? "Saving…" : savedMsg ? "Saved!" : "Save Prep Kit"}
+              </button>
+            </div>
+          </div>
+
+          {/* Joined button group for Download and Regenerate */}
+          <div className="flex flex-1 items-center h-11 rounded-xl border border-border bg-background overflow-hidden shadow-sm">
+            {/* Download — left half */}
+            <button
+              onClick={handleDownload}
+              className="flex flex-1 items-center justify-center gap-2 h-full text-sm font-semibold text-foreground hover:bg-muted active:bg-muted transition-colors"
+            >
+              <Download className="size-4 shrink-0" />
+              <span className="truncate">Download</span>
+            </button>
+
+            {/* Regenerate — right half (accent filled) */}
+            <button
+              onClick={onRegenerateAll}
+              className="flex flex-1 items-center justify-center gap-2 h-full bg-accent text-sm font-semibold text-[var(--accent-fg,#fff)] hover:opacity-90 active:opacity-80 transition-opacity"
+            >
+              <RefreshCw className="size-4 shrink-0" />
+              <span className="truncate">Regenerate</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+      )}
+    </>
   );
 }

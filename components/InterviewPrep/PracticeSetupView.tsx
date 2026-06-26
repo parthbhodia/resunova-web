@@ -8,7 +8,7 @@
  * Continue navigates to /interview-prep/dashboard (Step 4, not built yet).
  */
 
-import { useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -16,11 +16,11 @@ import {
   BookMarked,
   Building2,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   FileText,
   HelpCircle,
-  Lightbulb,
-  Sparkles,
   User,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,6 @@ import {
   FOCUS_AREAS_BY_CATEGORY,
   QUESTION_COUNT_OPTIONS,
   QUESTION_SOURCES,
-  getAIRecommendation,
   type Difficulty,
 } from "./practiceSetupConfig";
 import WorkflowStepper from "./WorkflowStepper";
@@ -57,6 +56,8 @@ const SOURCE_ICONS: Record<string, React.ReactNode> = {
 
 export default function PracticeSetupView() {
   const router = useRouter();
+
+  const [isFocusAreasExpanded, setIsFocusAreasExpanded] = useState(false);
 
   const structuredResume     = useInterviewPrepStore((s) => s.structuredResume);
   const extractedText        = useInterviewPrepStore((s) => s.extractedText);
@@ -89,18 +90,6 @@ export default function PracticeSetupView() {
   const interviewTypeLabel =
     allTypes.find((t) => t.id === selectedInterviewType)?.label ?? selectedInterviewType ?? "—";
 
-  // AI recommendation — memoised, recomputed only when inputs change
-  const aiRec = useMemo(
-    () => getAIRecommendation(category, selectedInterviewType, company, role),
-    [category, selectedInterviewType, company, role],
-  );
-
-  const applyAIRecommendation = () => {
-    setDifficultyState(aiRec.difficulty);
-    setQuestionCount(aiRec.questionCount);
-    setSelectedSources(aiRec.sources);
-    setSelectedFocusAreas(aiRec.focusAreas);
-  };
 
   const canContinue = difficulty !== null && selectedSources.length > 0;
 
@@ -108,8 +97,30 @@ export default function PracticeSetupView() {
   const estimatedTime = Math.round(questionCount * 1.5);
 
   return (
-    <div className="w-full px-6 py-6 md:px-8 md:py-8">
-      <header className="mb-5">
+    <div className="w-full px-6 py-6 md:px-8 md:py-8 pb-28">
+      {/* Mobile compact header */}
+      <header className="mb-5 flex items-center gap-3 md:hidden">
+        <button
+          onClick={() => router.push("/interview-prep/interview-type")}
+          className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-foreground hover:bg-muted active:bg-muted"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="size-4" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-accent">Step 3 of 4</div>
+          <h1 className="text-lg font-bold text-foreground">Practice Setup</h1>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="h-1 w-4 rounded-full bg-accent" />
+          <div className="h-1 w-4 rounded-full bg-accent" />
+          <div className="h-1 w-4 rounded-full bg-accent" />
+          <div className="h-1 w-4 rounded-full bg-muted" />
+        </div>
+      </header>
+
+      {/* Desktop header */}
+      <header className="mb-5 hidden md:block">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
           Practice Setup
         </h1>
@@ -119,7 +130,7 @@ export default function PracticeSetupView() {
         </p>
       </header>
 
-      <div className="mb-6">
+      <div className="mb-6 hidden md:block">
         <WorkflowStepper activeStep={3} />
       </div>
 
@@ -132,7 +143,7 @@ export default function PracticeSetupView() {
               <CardTitle className="text-base">Difficulty Level</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-3 gap-3">
                 {DIFFICULTY_OPTIONS.map((opt) => (
                   <DifficultyCard
                     key={opt.id}
@@ -141,6 +152,19 @@ export default function PracticeSetupView() {
                     onSelect={() => setDifficulty(opt.id)}
                   />
                 ))}
+              </div>
+
+              {/* Mobile-only selected description */}
+              <div className="sm:hidden mt-3 border-t border-border/60 pt-3">
+                {difficulty ? (
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {DIFFICULTY_OPTIONS.find((opt) => opt.id === difficulty)?.description}
+                  </p>
+                ) : (
+                  <p className="text-xs italic text-muted-foreground">
+                    Select a difficulty level
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -192,7 +216,7 @@ export default function PracticeSetupView() {
               <CardTitle className="text-base">Question Sources</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
                 {QUESTION_SOURCES.map((src) => {
                   const isSelected = selectedSources.includes(src.id);
                   return (
@@ -202,7 +226,7 @@ export default function PracticeSetupView() {
                       onClick={() => toggleSource(src.id)}
                       aria-pressed={isSelected}
                       className={cn(
-                        "flex items-start gap-3 rounded-xl border p-4 text-left transition-all outline-none",
+                        "flex items-start gap-3 rounded-xl border p-3 sm:p-4 text-left transition-all outline-none",
                         "focus-visible:ring-3 focus-visible:ring-ring/50",
                         isSelected
                           ? "border-accent bg-[var(--accent-bg)]"
@@ -211,7 +235,7 @@ export default function PracticeSetupView() {
                     >
                       <span
                         className={cn(
-                          "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+                          "flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
                           isSelected
                             ? "bg-accent text-[var(--accent-fg,#fff)]"
                             : "bg-muted text-muted-foreground",
@@ -219,21 +243,21 @@ export default function PracticeSetupView() {
                       >
                         {SOURCE_ICONS[src.id]}
                       </span>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
                           <span
                             className={cn(
-                              "text-sm font-medium",
+                              "text-xs sm:text-sm font-medium truncate",
                               isSelected ? "text-accent" : "text-foreground",
                             )}
                           >
                             {src.label}
                           </span>
                           {isSelected ? (
-                            <CheckCircle2 className="size-4 text-accent" aria-hidden />
+                            <CheckCircle2 className="size-3.5 shrink-0 text-accent" aria-hidden />
                           ) : null}
                         </div>
-                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                        <p className="hidden sm:block mt-0.5 text-xs leading-relaxed text-muted-foreground">
                           {src.description}
                         </p>
                       </div>
@@ -253,15 +277,14 @@ export default function PracticeSetupView() {
           <Card className="rounded-2xl">
             <CardHeader>
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="flex-1">
                   <CardTitle className="text-base">Focus Areas</CardTitle>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Select the areas you want to emphasize.{" "}
-                    <span className="text-foreground">Optional</span> — leave blank to cover
-                    all.
+                    <span className="text-foreground">Optional</span> — leave blank to cover all.
                   </p>
                 </div>
-                <Badge variant="secondary">{category}</Badge>
+                <Badge variant="secondary" className="hidden sm:inline-flex">{category}</Badge>
               </div>
             </CardHeader>
             <CardContent>
@@ -300,41 +323,8 @@ export default function PracticeSetupView() {
           </Card>
         </div>
 
-        {/* ── Right: summary + AI recommendation ── */}
-        <div className="flex flex-col gap-5">
-          {/* AI Recommendation */}
-          <Card className="rounded-2xl border-accent/20 bg-[var(--accent-bg)]">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-[var(--accent-fg,#fff)]">
-                  <Sparkles className="size-4" aria-hidden />
-                </span>
-                <CardTitle className="text-sm text-foreground">AI Recommendation</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {aiRec.rationale}
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <RecommendationChip label="Difficulty" value={aiRec.difficulty} />
-                <RecommendationChip label="Questions" value={String(aiRec.questionCount)} />
-                <RecommendationChip label="Sources" value={`${aiRec.sources.length} selected`} />
-                <RecommendationChip label="Focus Areas" value={`${aiRec.focusAreas.length} areas`} />
-              </div>
-              <Separator className="bg-accent/15" />
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-1.5 border-accent/30 text-accent hover:bg-accent/10 hover:text-accent"
-                onClick={applyAIRecommendation}
-              >
-                <Lightbulb className="size-3.5" aria-hidden />
-                Apply AI Recommendation
-              </Button>
-            </CardContent>
-          </Card>
-
+        {/* ── Right: session summary (desktop only) ── */}
+        <div className="hidden sm:flex flex-col gap-5">
           {/* Session Summary */}
           <Card className="rounded-2xl">
             <CardHeader className="pb-3">
@@ -407,11 +397,11 @@ export default function PracticeSetupView() {
       <Separator className="my-5" />
 
       {/* Navigation */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col-reverse items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <Button
           variant="outline"
           size="lg"
-          className="gap-2"
+          className="gap-2 w-full sm:w-auto"
           onClick={() => router.push("/interview-prep/interview-type")}
         >
           <ArrowLeft className="size-4" aria-hidden />
@@ -419,7 +409,20 @@ export default function PracticeSetupView() {
         </Button>
         <Button
           size="lg"
-          className="gap-2"
+          className="gap-2 w-full sm:w-auto"
+          disabled={!canContinue}
+          onClick={() => router.push("/interview-prep/dashboard")}
+        >
+          Start Practice Session
+          <ArrowRight className="size-4" aria-hidden />
+        </Button>
+      </div>
+
+      {/* Mobile sticky CTA */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-20 border-t border-border/50 bg-background/95 p-4 backdrop-blur-sm">
+        <Button
+          size="lg"
+          className="w-full gap-2"
           disabled={!canContinue}
           onClick={() => router.push("/interview-prep/dashboard")}
         >
@@ -448,7 +451,7 @@ function DifficultyCard({
       onClick={onSelect}
       aria-pressed={isSelected}
       className={cn(
-        "flex flex-col gap-2 rounded-xl border p-4 text-left transition-all outline-none",
+        "flex flex-col gap-1.5 sm:gap-2 rounded-xl border p-3 sm:p-4 text-left transition-all outline-none",
         "focus-visible:ring-3 focus-visible:ring-ring/50",
         isSelected
           ? "border-accent bg-[var(--accent-bg)] shadow-[0_0_0_2px_var(--accent)]"
@@ -467,13 +470,13 @@ function DifficultyCard({
       </div>
       <span
         className={cn(
-          "text-sm font-semibold",
+          "text-xs sm:text-sm font-semibold",
           isSelected ? "text-accent" : "text-foreground",
         )}
       >
         {option.label}
       </span>
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="hidden sm:block mt-1 text-xs leading-relaxed text-muted-foreground">
         {option.description}
       </p>
     </button>
