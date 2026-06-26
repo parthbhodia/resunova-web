@@ -1542,10 +1542,8 @@ export default function JobsFeed({
         {state.status === "ready" && state.jobs.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {pagedJobs.map((job) => {
-              const colors = job.matchScore != null ? scoreColors(job.matchScore) : null;
               const salary = formatSalary(job);
               const posted = formatPostedAt(job.postedAt);
-              const reqPct = job.totalRequirements > 0 ? Math.round((job.matchedCount / job.totalRequirements) * 100) : 0;
               return (
                 <Card
                   key={job.id}
@@ -1566,48 +1564,9 @@ export default function JobsFeed({
                       flexWrap: "wrap",
                     }}
                   >
-                    {job.matchScore != null && colors && (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, width: 56 }}>
-                      <div
-                        title={`Matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
-                        style={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: 12,
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: colors.bg,
-                          color: colors.fg,
-                        }}
-                      >
-                        <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1 }}>{job.matchScore}</span>
-                        <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.85 }}>MATCH</span>
-                      </div>
-                      <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.03em", textTransform: "uppercase", color: colors.fg, textAlign: "center", lineHeight: 1.1 }}>
-                        {matchTierLabel(job.matchScore)}
-                      </span>
-                    </div>
-                    )}
-                    {job.matchScore == null && (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, width: 56 }}>
-                      <div
-                        title="Open this job to score it against your résumé"
-                        style={{
-                          width: 52, height: 52, borderRadius: 12,
-                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                          background: "var(--surface2)", color: "var(--muted)", border: "1px dashed var(--border)",
-                        }}
-                      >
-                        <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1 }}>?</span>
-                        <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.85 }}>MATCH</span>
-                      </div>
-                      <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.02em", color: "var(--accent)", textAlign: "center", lineHeight: 1.1 }}>
-                        See match
-                      </span>
-                    </div>
-                    )}
+                    {/* Match score + requirements are no longer shown on the card
+                        (lazy model — the score is computed + shown when you open the
+                        job). The card is a clean listing; click to see your match. */}
                     <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
                     <div style={{ flex: isMobile ? "1 1 140px" : "1 1 240px", minWidth: 0 }}>
                       <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
@@ -1617,21 +1576,6 @@ export default function JobsFeed({
                         {posted && <span>· {posted}</span>}
                       </div>
                       <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
-                        {job.matchScore != null && (
-                          <span
-                            title={`Matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
-                            style={{
-                              display: "inline-flex", alignItems: "center", gap: 7,
-                              padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 500,
-                              background: "var(--surface2)", color: "var(--muted)",
-                            }}
-                          >
-                            <span style={{ position: "relative", display: "inline-block", width: 42, height: 5, borderRadius: 999, background: "color-mix(in srgb, var(--muted) 22%, transparent)", overflow: "hidden" }}>
-                              <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${reqPct}%`, background: "#c4793a", borderRadius: 999 }} />
-                            </span>
-                            {job.matchedCount}/{job.totalRequirements} matched
-                          </span>
-                        )}
                         {salary && (
                           <Badge variant="secondary" style={{ fontSize: 11 }}>
                             {salary}
