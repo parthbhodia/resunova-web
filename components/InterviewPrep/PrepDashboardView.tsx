@@ -570,8 +570,8 @@ export default function PrepDashboardView() {
             {/* Real coding questions reported at this company (shared question bank) */}
             <CodingBankSection questions={codingQuestions} company={company} />
 
-            {/* Master story bank — accumulates across every prep session */}
-            <StoryBankPanel refreshSignal={bankRefresh} />
+            {/* Story bank — scoped to THIS résumé's prep session */}
+            <StoryBankPanel refreshSignal={bankRefresh} sessionId={storeSessionId} />
           </>
         )}
       </div>
@@ -771,7 +771,7 @@ function GeneratingState() {
 
 const MASTER_STORY_CAP = 10;
 
-function StoryBankPanel({ refreshSignal }: { refreshSignal: number }) {
+function StoryBankPanel({ refreshSignal, sessionId }: { refreshSignal: number; sessionId: string | null }) {
   const [stories, setStories] = useState<PrepStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -779,7 +779,9 @@ function StoryBankPanel({ refreshSignal }: { refreshSignal: number }) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const bank = await fetchStoryBank();
+      // Scope to the current prep session so the panel only shows THIS résumé's
+      // stories. No session yet → nothing to show.
+      const bank = sessionId ? await fetchStoryBank(sessionId) : [];
       if (!cancelled) {
         setStories(bank);
         setLoading(false);
@@ -788,7 +790,7 @@ function StoryBankPanel({ refreshSignal }: { refreshSignal: number }) {
     return () => {
       cancelled = true;
     };
-  }, [refreshSignal]);
+  }, [refreshSignal, sessionId]);
 
   const handleDelete = async (id: string) => {
     if (typeof window !== "undefined" && !window.confirm("Remove this story from your bank?")) return;
@@ -814,7 +816,7 @@ function StoryBankPanel({ refreshSignal }: { refreshSignal: number }) {
             <div>
               <CardTitle className="text-base">Your Story Bank</CardTitle>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Reusable STAR+R master stories — these accumulate across every prep and answer most behavioral questions.
+                STAR+R stories built from this résumé&apos;s prep — ready to answer most behavioral questions.
               </p>
             </div>
           </div>
