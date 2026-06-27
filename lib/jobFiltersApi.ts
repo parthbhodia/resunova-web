@@ -21,6 +21,8 @@ export type FilterSnapshot = {
   search: string;
   sortBy: string;
   rolesOnly: boolean;
+  clearance?: string;     // "any" | "required" | "exclude"
+  citizenship?: string;   // "any" | "required" | "exclude"
 };
 
 export type SavedFilter = {
