@@ -1573,7 +1573,15 @@ export default function JobsFeed({
             </FilterMenu>
 
             <FilterMenu label="More" count={(yearsBucket !== "any" ? 1 : 0) + (industry ? 1 : 0) + (state.ranked && scoreFilter !== "all" ? 1 : 0) + (clearance !== "any" ? 1 : 0) + (citizenship !== "any" ? 1 : 0)} width={210}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "2px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Experience years</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "2px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>🔒 Security clearance</div>
+              <MenuOption label="Any" selected={clearance === "any"} onClick={() => setClearance("any")} />
+              <MenuOption label="Required only" selected={clearance === "required"} onClick={() => setClearance("required")} />
+              <MenuOption label="Exclude (no clearance)" selected={clearance === "exclude"} onClick={() => setClearance("exclude")} />
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "8px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>🇺🇸 US citizenship</div>
+              <MenuOption label="Any" selected={citizenship === "any"} onClick={() => setCitizenship("any")} />
+              <MenuOption label="Required only" selected={citizenship === "required"} onClick={() => setCitizenship("required")} />
+              <MenuOption label="Exclude (not required)" selected={citizenship === "exclude"} onClick={() => setCitizenship("exclude")} />
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "8px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Experience years</div>
               {YEARS_OPTIONS.map((o) => (
                 <MenuOption key={o.key} label={o.label} selected={yearsBucket === o.key} onClick={() => setYearsBucket(o.key)} />
               ))}
@@ -1594,14 +1602,6 @@ export default function JobsFeed({
                   ))}
                 </>
               )}
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "8px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>🔒 Security clearance</div>
-              <MenuOption label="Any" selected={clearance === "any"} onClick={() => setClearance("any")} />
-              <MenuOption label="Required only" selected={clearance === "required"} onClick={() => setClearance("required")} />
-              <MenuOption label="Exclude (no clearance)" selected={clearance === "exclude"} onClick={() => setClearance("exclude")} />
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "8px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>🇺🇸 US citizenship</div>
-              <MenuOption label="Any" selected={citizenship === "any"} onClick={() => setCitizenship("any")} />
-              <MenuOption label="Required only" selected={citizenship === "required"} onClick={() => setCitizenship("required")} />
-              <MenuOption label="Exclude (not required)" selected={citizenship === "exclude"} onClick={() => setCitizenship("exclude")} />
             </FilterMenu>
 
             {state.profileRoles.length > 0 && (
