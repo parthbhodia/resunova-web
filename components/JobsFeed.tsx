@@ -599,6 +599,9 @@ export default function JobsFeed({
   const [empType, setEmpType] = useState<string>("");
   const [industry, setIndustry] = useState<string>("");
   const [yearsBucket, setYearsBucket] = useState<string>("any");
+  // 3-state eligibility filters: "any" | "required" | "exclude".
+  const [clearance, setClearance] = useState<string>("any");
+  const [citizenship, setCitizenship] = useState<string>("any");
   const [sortBy, setSortBy] = useState<SortKey>("match");
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [rolesOnly, setRolesOnly] = useState(false);
@@ -624,8 +627,10 @@ export default function JobsFeed({
         if (yb.max < 99) entries.push(["max_years", String(yb.max)]);
       }
     }
+    if (clearance !== "any") entries.push(["clearance", clearance]);
+    if (citizenship !== "any") entries.push(["citizenship", citizenship]);
     return { serverFilterEntries: entries, filterSig: entries.map(([k, v]) => `${k}=${v}`).join("&") };
-  }, [workModels, seniorities, empType, industry, yearsBucket]);
+  }, [workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship]);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [nudgeRoles, setNudgeRoles] = useState<string[]>([]);
   const [nudgeSaving, setNudgeSaving] = useState(false);
@@ -1049,7 +1054,8 @@ export default function JobsFeed({
     workModels: [...workModels],
     seniorities: [...seniorities],
     empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly,
-  }), [locationStates, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly]);
+    clearance, citizenship,
+  }), [locationStates, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly, clearance, citizenship]);
 
   const applySnapshot = useCallback((f: Partial<FilterSnapshot>) => {
     setLocationStates(new Set(f.locationStates ?? []));
@@ -1063,22 +1069,26 @@ export default function JobsFeed({
     setSearch(f.search ?? "");
     setSortBy((f.sortBy as SortKey) ?? "match");
     setRolesOnly(!!f.rolesOnly);
+    setClearance(f.clearance ?? "any");
+    setCitizenship(f.citizenship ?? "any");
   }, []);
 
   const anyFilterActive =
     !!search || country !== "us" || locationStates.size > 0 || workModels.size > 0 || seniorities.size > 0 ||
-    !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || rolesOnly || ageFilter !== "30";
+    !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || rolesOnly || ageFilter !== "30" ||
+    clearance !== "any" || citizenship !== "any";
 
   const clearAllFilters = useCallback(() => {
     setSearch(""); setCountry("us"); setLocationStates(new Set()); setWorkModels(new Set()); setSeniorities(new Set());
     setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setRolesOnly(false); setAgeFilter("30");
+    setClearance("any"); setCitizenship("any");
   }, []);
 
   // Reset the lazy-load window whenever the filtered result set changes, so a
   // new filter/search starts from the top instead of keeping a stale offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
+  }, [search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
 
   const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
   // Two layers of "more": clientHasMore = more already-loaded jobs to reveal;
@@ -1562,7 +1572,7 @@ export default function JobsFeed({
               ))}
             </FilterMenu>
 
-            <FilterMenu label="More" count={(yearsBucket !== "any" ? 1 : 0) + (industry ? 1 : 0) + (state.ranked && scoreFilter !== "all" ? 1 : 0)} width={210}>
+            <FilterMenu label="More" count={(yearsBucket !== "any" ? 1 : 0) + (industry ? 1 : 0) + (state.ranked && scoreFilter !== "all" ? 1 : 0) + (clearance !== "any" ? 1 : 0) + (citizenship !== "any" ? 1 : 0)} width={210}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "2px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Experience years</div>
               {YEARS_OPTIONS.map((o) => (
                 <MenuOption key={o.key} label={o.label} selected={yearsBucket === o.key} onClick={() => setYearsBucket(o.key)} />
@@ -1584,6 +1594,14 @@ export default function JobsFeed({
                   ))}
                 </>
               )}
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "8px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>🔒 Security clearance</div>
+              <MenuOption label="Any" selected={clearance === "any"} onClick={() => setClearance("any")} />
+              <MenuOption label="Required only" selected={clearance === "required"} onClick={() => setClearance("required")} />
+              <MenuOption label="Exclude (no clearance)" selected={clearance === "exclude"} onClick={() => setClearance("exclude")} />
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "8px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>🇺🇸 US citizenship</div>
+              <MenuOption label="Any" selected={citizenship === "any"} onClick={() => setCitizenship("any")} />
+              <MenuOption label="Required only" selected={citizenship === "required"} onClick={() => setCitizenship("required")} />
+              <MenuOption label="Exclude (not required)" selected={citizenship === "exclude"} onClick={() => setCitizenship("exclude")} />
             </FilterMenu>
 
             {state.profileRoles.length > 0 && (
