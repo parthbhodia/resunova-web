@@ -312,6 +312,14 @@ export interface AdminAnalyticsJobsBlock {
     daily_applies: Array<{ date: string; applies: number }>;
     top_companies: Array<{ company: string; applies: number }>;
     top_postings: Array<{ title: string; company: string; applies: number }>;
+    by_user: Array<{
+      user_id: string;
+      user_email: string | null;
+      applies: number;
+      postings: number;
+      last_applied_at: string | null;
+      companies: string[];
+    }>;
   };
 }
 

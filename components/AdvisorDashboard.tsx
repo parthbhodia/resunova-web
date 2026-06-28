@@ -98,6 +98,23 @@ interface StudentDetail {
   latest_source_filename?: string | null;
 }
 
+interface JobMatch {
+  id: string;
+  title: string;
+  company: string;
+  url: string;
+  location: string;
+  matchScore: number | null;
+  matchedCount: number;
+  totalRequirements: number;
+}
+
+interface JobMatchesResponse {
+  jobs: JobMatch[];
+  ranked: boolean;
+  needsResume?: boolean;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const DIM_LABELS: Record<string, string> = {
@@ -295,12 +312,70 @@ function ScoreBadge({ score }: { score: number | null }) {
 
 // ── Student Detail Panel ──────────────────────────────────────────────────────
 
+function matchTier(score: number): { label: string; color: string } {
+  if (score >= 85) return { label: "Strong", color: "var(--green, #15803d)" };
+  if (score >= 70) return { label: "Good",   color: "var(--green, #15803d)" };
+  if (score >= 50) return { label: "Fair",   color: "var(--amber, #b45309)" };
+  return { label: "Weak", color: "var(--dim, #6b7280)" };
+}
+
+function StudentJobMatches({ loading, data }: { loading: boolean; data: JobMatchesResponse | null }) {
+  if (loading) {
+    return (
+      <div className="grid gap-2">
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
+      </div>
+    );
+  }
+  if (!data || data.needsResume) {
+    return <p style={{ fontSize: 13, color: "var(--dim)" }}>No analyzed résumé yet — ranking needs at least one résumé analysis.</p>;
+  }
+  if (!data.jobs.length) {
+    return <p style={{ fontSize: 13, color: "var(--dim)" }}>No matching postings found in the current job corpus.</p>;
+  }
+  return (
+    <div className="flex flex-col">
+      {data.jobs.map((j, i) => {
+        const score = j.matchScore ?? 0;
+        const tier = matchTier(score);
+        return (
+          <div key={j.id ?? i} className="flex items-center gap-3 border-b border-border py-2.5 last:border-b-0">
+            <div className="w-10 shrink-0 text-center">
+              <div className="text-sm font-semibold text-foreground">{score}</div>
+              <div className="text-[10px] font-medium" style={{ color: tier.color }}>{tier.label}</div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm text-foreground">{j.title || "—"}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {j.company || "—"}{j.location ? ` · ${j.location}` : ""}
+                {j.totalRequirements > 0 ? ` · ${j.matchedCount}/${j.totalRequirements} reqs` : ""}
+              </div>
+            </div>
+            {j.url ? (
+              <a
+                href={j.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                View
+              </a>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StudentDetailPanel({
   studentId, onBack,
 }: { studentId: string; onBack: () => void }) {
   const [detail, setDetail]   = useState<StudentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
+  const [matches, setMatches] = useState<JobMatchesResponse | null>(null);
+  const [matchesLoading, setMatchesLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -312,6 +387,21 @@ function StudentDetailPanel({
       .then(d => { if (!cancelled) setDetail(d as StudentDetail); })
       .catch(e => { if (!cancelled) setError(typeof e === "string" ? e : "Failed to load."); })
       .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [studentId]);
+
+  // Top matched jobs — separate lazy fetch so the detail panel never blocks on
+  // the (deterministic, zero-LLM) résumé→jobs scoring.
+  useEffect(() => {
+    let cancelled = false;
+    setMatchesLoading(true);
+    setMatches(null);
+    advisorAuthHeaders()
+      .then(headers => fetch(`${apiUrl("/api/student-job-matches")}?student_id=${encodeURIComponent(studentId)}&limit=10`, { headers }))
+      .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
+      .then(d => { if (!cancelled) setMatches(d as JobMatchesResponse); })
+      .catch(() => { if (!cancelled) setMatches({ jobs: [], ranked: false }); })
+      .finally(() => { if (!cancelled) setMatchesLoading(false); });
     return () => { cancelled = true; };
   }, [studentId]);
 
@@ -439,6 +529,15 @@ function StudentDetailPanel({
                 }
               </AdvisorCard>
             </div>
+
+            {/* Top matched jobs — résumé ranked against the live posting corpus */}
+            <AdvisorCard
+              title="Top matched jobs"
+              description="Active postings ranked against this student's latest résumé (deterministic, no LLM)."
+              className="mb-4"
+            >
+              <StudentJobMatches loading={matchesLoading} data={matches} />
+            </AdvisorCard>
 
             {/* Uploaded résumé — PDF when stored (Analyze uploads), else extracted text */}
             {(d.latest_source_pdf_url || d.latest_resume_text) && (
@@ -710,7 +809,7 @@ function CohortOverview({
                 onClick={() => setActiveTab("analytics")}
                 className={`px-4 py-1.5 transition-colors ${activeTab === "analytics" ? "bg-foreground text-background" : "bg-background text-muted-foreground hover:text-foreground"}`}
               >
-                Token Usage
+                Platform analytics
               </button>
             </div>
           )}

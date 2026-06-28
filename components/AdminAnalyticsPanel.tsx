@@ -349,6 +349,43 @@ function TopPostingsList({ postings }: { postings: AdminAnalyticsJobsBlock["enga
   );
 }
 
+function AppliersTable({ users }: { users: AdminAnalyticsJobsBlock["engagement"]["by_user"] }) {
+  if (!users.length) return <p style={{ color: "#9ca3af", fontSize: 13 }}>No apply clicks yet.</p>;
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <thead>
+          <tr style={{ textAlign: "left", color: "#6b7280", borderBottom: "1px solid #e5e7eb" }}>
+            <th style={{ padding: "6px 8px", fontWeight: 600 }}>User</th>
+            <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "right" }}>Applies</th>
+            <th style={{ padding: "6px 8px", fontWeight: 600, textAlign: "right" }}>Postings</th>
+            <th style={{ padding: "6px 8px", fontWeight: 600 }}>Companies</th>
+            <th style={{ padding: "6px 8px", fontWeight: 600 }}>Last applied</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((u, i) => (
+            <tr key={u.user_id} style={{ borderBottom: i < users.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+              <td style={{ padding: "6px 8px" }}>
+                {u.user_email
+                  ? u.user_email
+                  : <span style={{ color: "#9ca3af" }} title={u.user_id}>{u.user_id.slice(0, 8)}…</span>}
+              </td>
+              <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600 }}>{fmtInt(u.applies)}</td>
+              <td style={{ padding: "6px 8px", textAlign: "right", color: "#6b7280" }}>{fmtInt(u.postings)}</td>
+              <td style={{ padding: "6px 8px", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }}
+                title={u.companies.join(", ")}>
+                {u.companies.length ? u.companies.join(", ") : "—"}
+              </td>
+              <td style={{ padding: "6px 8px", color: "#6b7280" }}>{u.last_applied_at ? fmtDate(u.last_applied_at) : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function DailyJobsAddedSparkline({ daily }: { daily: AdminAnalyticsJobsBlock["scan_runs"]["daily"] }) {
   if (!daily.length) return <p style={{ color: "#9ca3af", fontSize: 13 }}>No daily scan data yet.</p>;
   const max = Math.max(...daily.map(d => d.jobs_added), 1);
@@ -444,6 +481,13 @@ function JobsPipelineSection({ jobs, tools }: { jobs: AdminAnalyticsJobsBlock; t
             <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: "#6b7280" }}>Top postings by applies</div>
             <TopPostingsList postings={jobs.engagement.top_postings} />
           </div>
+        </div>
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 3, color: "#6b7280" }}>Who applied</div>
+          <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>
+            {fmtInt(jobs.engagement.unique_appliers)} unique users · top 100 by applies (window)
+          </div>
+          <AppliersTable users={jobs.engagement.by_user} />
         </div>
       </section>
     </section>

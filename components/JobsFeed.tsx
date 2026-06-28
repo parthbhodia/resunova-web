@@ -1036,6 +1036,15 @@ export default function JobsFeed({
     return filtered; // "match" — the backend already ranks by match score
   }, [state, debouncedSearch, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
 
+  // Top résumé matches for the pinned sidebar card — the unfiltered, match-sorted
+  // head of the ranked feed, so a student's best matches stay visible no matter
+  // how they've filtered or re-sorted the main list. Only meaningful when ranked;
+  // requires a real match score (un-enriched lazy-model jobs are score-less).
+  const topMatches = useMemo(() => {
+    if (state.status !== "ready" || !state.ranked) return [];
+    return state.jobs.filter((j) => j.matchScore != null).slice(0, 5);
+  }, [state]);
+
   // Distinct industries present in the current feed, for the Industry dropdown.
   const industryOptions = useMemo(() => {
     if (state.status !== "ready") return [];
@@ -1873,10 +1882,12 @@ export default function JobsFeed({
           isMobile={isMobile}
           savedFilters={savedFilters}
           currentSnapshot={currentSnapshot}
+          topMatches={topMatches}
           onApply={applySnapshot}
           onSaved={(f) => setSavedFilters((prev) => [f, ...prev])}
           onDeleted={(id) => setSavedFilters((prev) => prev.filter((x) => x.id !== id))}
           onNavigate={(v) => router.push(`/?view=${v}`)}
+          onOpenJob={(id) => router.push(`/?view=jobs&job=${encodeURIComponent(id)}`)}
         />
       )}
 
@@ -1932,18 +1943,22 @@ function JobsSidebar({
   isMobile,
   savedFilters,
   currentSnapshot,
+  topMatches,
   onApply,
   onSaved,
   onDeleted,
   onNavigate,
+  onOpenJob,
 }: {
   isMobile: boolean;
   savedFilters: SavedFilter[];
   currentSnapshot: FilterSnapshot;
+  topMatches: FeedJob[];
   onApply: (f: Partial<FilterSnapshot>) => void;
   onSaved: (f: SavedFilter) => void;
   onDeleted: (id: string) => void;
   onNavigate: (view: string) => void;
+  onOpenJob: (id: string) => void;
 }) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
@@ -1993,6 +2008,37 @@ function JobsSidebar({
       )}
       {showCards && (
       <>
+      {topMatches.length > 0 && (
+        <div style={SIDEBAR_CARD}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>Your top matches</div>
+          <p style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5, margin: "0 0 12px" }}>
+            Best résumé matches — stays put as you filter.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {topMatches.map((job) => {
+              const colors = job.matchScore != null ? scoreColors(job.matchScore) : null;
+              return (
+                <button
+                  key={job.id}
+                  onClick={() => onOpenJob(job.id)}
+                  title={`Open ${job.title} at ${job.company}`}
+                  style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", padding: "7px 8px", borderRadius: 9, border: "1px solid var(--surface2)", background: "var(--surface2)", cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  {job.matchScore != null && colors && (
+                    <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 700, background: colors.bg, color: colors.fg }}>
+                      {job.matchScore}
+                    </span>
+                  )}
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.title}</span>
+                    <span style={{ display: "block", fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.company}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <div style={SIDEBAR_CARD}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Your saved filters</span>
