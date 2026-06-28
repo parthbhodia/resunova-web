@@ -20,7 +20,6 @@ export type FilterSnapshot = {
   ageFilter: string;
   search: string;
   sortBy: string;
-  rolesOnly: boolean;
   clearance?: string;     // "any" | "required" | "exclude"
   citizenship?: string;   // "any" | "required" | "exclude"
 };

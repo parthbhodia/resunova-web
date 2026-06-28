@@ -76,13 +76,7 @@ type FeedState =
   | { status: "needs-role" }
   | { status: "signin" }
   | { status: "error"; message: string }
-  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[]; ranked: boolean; role?: string; hasMore?: boolean; nextOffset?: number; feedFamily?: string; totalMatching?: number };
-
-const ROLE_CHIPS = [
-  "Software Engineer", "Backend Engineer", "Frontend Engineer", "Full-Stack Engineer",
-  "Data Engineer", "Data Scientist", "ML Engineer", "DevOps / SRE",
-  "Product Manager", "Platform Engineer", "iOS / Android Engineer", "QA Engineer",
-];
+  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileLocations: string[]; ranked: boolean; role?: string; hasMore?: boolean; nextOffset?: number; feedFamily?: string; totalMatching?: number };
 
 const SCORE_FILTERS = [
   { key: "all", label: "All matches", min: 0 },
@@ -377,7 +371,6 @@ export async function prefetchJobsFeed(): Promise<void> {
         status: "ready",
         jobs: Array.isArray(data?.jobs) ? data.jobs : [],
         generatedAt: data?.generatedAt || "",
-        profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
         profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
         ranked: data?.ranked !== false,
         role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
@@ -422,7 +415,6 @@ async function warmFeed(sel: JobsBrowseSelection, days: number): Promise<void> {
         status: "ready",
         jobs: Array.isArray(data?.jobs) ? data.jobs : [],
         generatedAt: data?.generatedAt || "",
-        profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
         profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
         ranked: data?.ranked !== false,
         role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
@@ -604,7 +596,6 @@ export default function JobsFeed({
   const [citizenship, setCitizenship] = useState<string>("any");
   const [sortBy, setSortBy] = useState<SortKey>("match");
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
-  const [rolesOnly, setRolesOnly] = useState(false);
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
   const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
@@ -631,9 +622,6 @@ export default function JobsFeed({
     if (citizenship !== "any") entries.push(["citizenship", citizenship]);
     return { serverFilterEntries: entries, filterSig: entries.map(([k, v]) => `${k}=${v}`).join("&") };
   }, [workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship]);
-  const [nudgeDismissed, setNudgeDismissed] = useState(false);
-  const [nudgeRoles, setNudgeRoles] = useState<string[]>([]);
-  const [nudgeSaving, setNudgeSaving] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loadingMore, setLoadingMore] = useState(false);
   // True while a feed fetch is in flight over an already-visible feed (search /
@@ -699,10 +687,6 @@ export default function JobsFeed({
     void fetchJobPrepStatuses(ids).then((m) => { if (!cancelled) setPrepStatuses(m); });
     return () => { cancelled = true; };
   }, [state]);
-
-  const toggleNudgeRole = useCallback((r: string) => {
-    setNudgeRoles((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
-  }, []);
 
   // No-résumé visitor picks/changes their target role. Persist it and let the
   // loadFeed effect (keyed on roleQuery) refetch the role-scoped browse feed.
@@ -799,7 +783,6 @@ export default function JobsFeed({
         status: "ready",
         jobs: Array.isArray(data?.jobs) ? data.jobs : [],
         generatedAt: data?.generatedAt || "",
-        profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
         profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
         // Backend omits/false `ranked` for the no-résumé role-browse feed
         // (no match scores). Default true so the ranked path is unaffected.
@@ -950,21 +933,6 @@ export default function JobsFeed({
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleNudgeSave = useCallback(async () => {
-    if (!nudgeRoles.length) return;
-    setNudgeSaving(true);
-    try {
-      const current = loadProfile();
-      const next = { ...current, roles: nudgeRoles.join(", ") };
-      saveProfile(next);
-      await upsertUserProfile(next);
-      setNudgeDismissed(true);
-      void loadFeed(true);
-    } finally {
-      setNudgeSaving(false);
-    }
-  }, [nudgeRoles, loadFeed]);
-
   const trackApplyClick = useCallback(async (postingId: string) => {
     // Optimistically mark as applied immediately
     setAppliedIds((prev) => new Set(prev).add(postingId));
@@ -1014,13 +982,6 @@ export default function JobsFeed({
         const yb = YEARS_OPTIONS.find((y) => y.key === yearsBucket);
         if (yb && (job.minYears == null || job.minYears < yb.min || job.minYears > yb.max)) return false;
       }
-      // titleMatch is only computed for the résumé-ranked feed; in the unranked
-      // browse feed it's always false, so a restored rolesOnly filter would empty
-      // the list with no visible toggle to undo it. Only apply it when ranked.
-      // A free-text search is an explicit cross-role override (mirrors the
-      // backend) — don't also apply the saved-roles title filter while searching,
-      // or e.g. "physio" gets nuked by a "frontend" roles filter.
-      if (rolesOnly && state.ranked && !job.titleMatch && !debouncedSearch) return false;
       // NO client-side literal `includes(search)` filter — the SERVER does the
       // title search WITH synonym/semantic expansion, so a substring match here
       // would wrongly drop "Physical Therapist" when the user typed "physio".
@@ -1034,7 +995,7 @@ export default function JobsFeed({
       return [...filtered].sort((a, b) => sal(b) - sal(a));
     }
     return filtered; // "match" — the backend already ranks by match score
-  }, [state, debouncedSearch, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
+  }, [state, debouncedSearch, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, sortBy]);
 
   // Distinct industries present in the current feed, for the Industry dropdown.
   const industryOptions = useMemo(() => {
@@ -1053,9 +1014,9 @@ export default function JobsFeed({
     locationStates: [...locationStates],
     workModels: [...workModels],
     seniorities: [...seniorities],
-    empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly,
+    empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy,
     clearance, citizenship,
-  }), [locationStates, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly, clearance, citizenship]);
+  }), [locationStates, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, clearance, citizenship]);
 
   const applySnapshot = useCallback((f: Partial<FilterSnapshot>) => {
     setLocationStates(new Set(f.locationStates ?? []));
@@ -1068,19 +1029,18 @@ export default function JobsFeed({
     setAgeFilter((f.ageFilter as AgeFilterKey) ?? "30");
     setSearch(f.search ?? "");
     setSortBy((f.sortBy as SortKey) ?? "match");
-    setRolesOnly(!!f.rolesOnly);
     setClearance(f.clearance ?? "any");
     setCitizenship(f.citizenship ?? "any");
   }, []);
 
   const anyFilterActive =
     !!search || country !== "us" || locationStates.size > 0 || workModels.size > 0 || seniorities.size > 0 ||
-    !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || rolesOnly || ageFilter !== "30" ||
+    !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || ageFilter !== "30" ||
     clearance !== "any" || citizenship !== "any";
 
   const clearAllFilters = useCallback(() => {
     setSearch(""); setCountry("us"); setLocationStates(new Set()); setWorkModels(new Set()); setSeniorities(new Set());
-    setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setRolesOnly(false); setAgeFilter("30");
+    setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setAgeFilter("30");
     setClearance("any"); setCitizenship("any");
   }, []);
 
@@ -1088,7 +1048,7 @@ export default function JobsFeed({
   // new filter/search starts from the top instead of keeping a stale offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
+  }, [search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, sortBy, scoreFilter, ageFilter, state.status]);
 
   const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
   // Two layers of "more": clientHasMore = more already-loaded jobs to reveal;
@@ -1604,17 +1564,6 @@ export default function JobsFeed({
               )}
             </FilterMenu>
 
-            {state.profileRoles.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setRolesOnly((v) => !v)}
-                title={`Jobs matching: ${state.profileRoles.join(", ")}`}
-                style={filterButtonStyle(rolesOnly)}
-              >
-                🎯 Your roles
-              </button>
-            )}
-
             {anyFilterActive && (
               <button
                 type="button"
@@ -1720,82 +1669,6 @@ export default function JobsFeed({
               </p>
             </CardContent>
           </Card>
-        )}
-
-        {state.status === "ready" && state.profileRoles.length === 0 && !nudgeDismissed && (
-          <div
-            style={{
-              marginBottom: 16,
-              borderRadius: 14,
-              border: "1.5px solid color-mix(in srgb, var(--accent) 22%, transparent)",
-              background: "var(--surface)",
-              padding: "18px 20px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
-                  Tell us what you&apos;re targeting
-                </div>
-                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-                  We&apos;ll sort matching jobs to the top of your feed.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setNudgeDismissed(true)}
-                aria-label="Dismiss"
-                style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 18, cursor: "pointer", lineHeight: 1, padding: "0 2px", flexShrink: 0 }}
-              >
-                ×
-              </button>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-              {ROLE_CHIPS.map((r) => {
-                const active = nudgeRoles.includes(r);
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => toggleNudgeRole(r)}
-                    style={{
-                      padding: "5px 11px",
-                      borderRadius: 20,
-                      border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                      background: active ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "var(--surface2)",
-                      color: active ? "var(--accent)" : "var(--text)",
-                      fontSize: 12,
-                      fontWeight: active ? 700 : 500,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      transition: "all 0.1s",
-                    }}
-                  >
-                    {active ? "✓ " : ""}{r}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              onClick={() => { void handleNudgeSave(); }}
-              disabled={!nudgeRoles.length || nudgeSaving}
-              style={{
-                padding: "9px 20px",
-                borderRadius: 10,
-                border: "none",
-                background: nudgeRoles.length ? "var(--accent)" : "var(--surface2)",
-                color: nudgeRoles.length ? "#fff" : "var(--dim)",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: nudgeRoles.length && !nudgeSaving ? "pointer" : "default",
-                fontFamily: "inherit",
-                boxShadow: nudgeRoles.length ? "0 2px 10px color-mix(in srgb, var(--accent) 28%, transparent)" : "none",
-              }}
-            >
-              {nudgeSaving ? "Saving…" : "Save preferences →"}
-            </button>
-          </div>
         )}
 
         {state.status === "ready" && state.jobs.length > 0 && (
