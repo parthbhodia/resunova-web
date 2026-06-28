@@ -103,6 +103,16 @@ export function matchMetros(query: string, limit = 6): MetroSuggestion[] {
   return [...remoteHit, ...starts, ...incl].slice(0, limit);
 }
 
+/** Experience-level buckets → the granular `seniority` values the corpus stores.
+ * Single source of truth shared by the onboarding wizard and JobsFeed's filter
+ * chip so the two never drift. Sent to the backend as `?seniority_any=`. */
+export const SENIORITY_BUCKET_VALS: Record<string, string[]> = {
+  entry: ["intern", "entry"],
+  mid: ["mid"],
+  senior: ["senior"],
+  lead: ["lead", "principal", "director", "executive"],
+};
+
 /** What the wizard hands back to the feed when the user browses/skips. */
 export type JobsBrowseSelection = {
   /** The role label/text (drives the backend role_family classification). */
@@ -115,6 +125,8 @@ export type JobsBrowseSelection = {
   locationTerms: string[];
   /** "remote" when the Remote metro was chosen, else "". */
   workModel: string;
+  /** Experience-level bucket key (entry|mid|senior|lead) or "" for any. */
+  seniority: string;
 };
 
 export function browseSelectionToParams(sel: JobsBrowseSelection): URLSearchParams {
@@ -126,5 +138,7 @@ export function browseSelectionToParams(sel: JobsBrowseSelection): URLSearchPara
   // work_model carries it. Only free-text city searches (no workModel) send it.
   else if (sel.location.trim() && !sel.workModel) p.set("location", sel.location.trim());
   if (sel.workModel) p.set("work_model", sel.workModel);
+  const senVals = sel.seniority ? SENIORITY_BUCKET_VALS[sel.seniority] : undefined;
+  if (senVals?.length) p.set("seniority_any", senVals.join("|"));
   return p;
 }

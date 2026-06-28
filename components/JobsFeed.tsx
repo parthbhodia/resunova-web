@@ -38,6 +38,7 @@ import CompanyLogo from "@/components/CompanyLogo";
 import BoostPanel from "@/components/BoostPanel";
 import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
+import { SENIORITY_BUCKET_VALS } from "@/lib/jobsTaxonomy";
 
 export type FeedJob = {
   id: string;
@@ -311,7 +312,7 @@ function scanScoreStyle(score: number | null | undefined): { bg: string; color: 
  *  latest-scan feed (and correct on remount). */
 function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null, rankAnalysisId = "", searchTerm = "", filterSig = ""): string {
   const f = sel
-    ? `${(sel.titleTerms || []).join(",")}~${(sel.locationTerms || []).join(",")}~${sel.location || ""}~${sel.workModel || ""}`
+    ? `${(sel.titleTerms || []).join(",")}~${(sel.locationTerms || []).join(",")}~${sel.location || ""}~${sel.workModel || ""}~${sel.seniority || ""}`
     : "";
   return `${days}|${roleQuery}|${f}|a:${rankAnalysisId}|q:${searchTerm}|f:${filterSig}`;
 }
@@ -336,6 +337,11 @@ function appendBrowseParams(
   if (sel.locationTerms?.length) params.set("location_any", sel.locationTerms.join("|"));
   else if (sel.location?.trim() && !sel.workModel) params.set("location", sel.location.trim());
   if (hardScope && sel.workModel) params.set("work_model", sel.workModel);
+  // Experience level carries on BOTH paths (it's a user choice, not a scope-
+  // collapsing alias). On the ranked feed, serverFilterEntries re-sets this same
+  // key from the live filter chip after this call, so they never conflict.
+  const senVals = sel.seniority ? SENIORITY_BUCKET_VALS[sel.seniority] : undefined;
+  if (senVals?.length) params.set("seniority_any", senVals.join("|"));
 }
 
 /** Module-level feed cache so switching away from and back to the Jobs tab
@@ -448,7 +454,7 @@ async function warmFeed(sel: JobsBrowseSelection, days: number): Promise<void> {
  *  throws an Error with a user-facing message on 429 / parse failure. Moved out
  *  of the wizard so the parent feed can run it in the background while showing
  *  jobs. */
-async function analyzeResumeUpload(file: File): Promise<void> {
+async function analyzeResumeUpload(file: File): Promise<{ seniorityGuess?: string }> {
   const fd = new FormData();
   fd.append("file", file);
   // Two-phase opt-in (resunova-api): the backend persists the rankable profile
@@ -470,6 +476,11 @@ async function analyzeResumeUpload(file: File): Promise<void> {
     if (resp.status === 429) throw new Error("Daily scan limit reached — try tomorrow, or browse without ranking below.");
     throw new Error(json?.error || json?.message || "Couldn't read that file — use a text-based PDF résumé.");
   }
+  // Optional: the backend may return an inferred experience-level bucket
+  // (entry|mid|senior|lead) from the résumé's tenure, used to auto-default the
+  // feed's seniority filter when the user didn't pick a level. Absent → no-op.
+  const guess = typeof json?.seniorityGuess === "string" ? json.seniorityGuess : undefined;
+  return { seniorityGuess: guess };
 }
 
 /** Read the most-recently cached feed jobs (the exact list the rail is showing),
@@ -605,7 +616,16 @@ export default function JobsFeed({
     return () => clearTimeout(t);
   }, [locationText]);
   const [workModels, setWorkModels] = useState<Set<string>>(new Set());
-  const [seniorities, setSeniorities] = useState<Set<string>>(new Set());
+  // Seed from the onboarding wizard's experience-level pick (persisted in the
+  // browse selection) so an "Entry" choice carries into the feed instead of
+  // defaulting to the corpus, which is ~68% mid/senior.
+  const [seniorities, setSeniorities] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(JOBS_BROWSE_KEY);
+      const sel = raw ? (JSON.parse(raw) as JobsBrowseSelection) : null;
+      return sel?.seniority ? new Set([sel.seniority]) : new Set();
+    } catch { return new Set(); }
+  });
   const [empType, setEmpType] = useState<string>("");
   const [industry, setIndustry] = useState<string>("");
   const [yearsBucket, setYearsBucket] = useState<string>("any");
@@ -715,6 +735,7 @@ export default function JobsFeed({
     } catch { /* quota */ }
     feedCache = null;
     setBrowseSel(sel);
+    setSeniorities(sel.seniority ? new Set([sel.seniority]) : new Set());
     setState({ status: "loading" });
     setRoleQuery(sel.role.trim());
   }, []);
@@ -909,6 +930,7 @@ export default function JobsFeed({
     setScanError(null);
     setScanning(true);
     setBrowseSel(sel);
+    setSeniorities(sel.seniority ? new Set([sel.seniority]) : new Set());
     setRoleQuery(sel.role.trim());
 
     // 1) Show matches now: warm cache if present, else a quick unranked fetch.
@@ -927,8 +949,18 @@ export default function JobsFeed({
     // 2) Background: persist the analysis, then ranked upgrade in place.
     const p = (async () => {
       try {
-        await analyzeResumeUpload(file);
+        const { seniorityGuess } = await analyzeResumeUpload(file);
         if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
+        // Auto-default the experience-level filter from the résumé when the user
+        // skipped the wizard's level step ("Any") — so a new-grad isn't buried
+        // under senior roles even without an explicit pick. Persist it onto the
+        // selection so it survives remounts.
+        if (!sel.seniority && seniorityGuess && SENIORITY_BUCKET_VALS[seniorityGuess]) {
+          setSeniorities(new Set([seniorityGuess]));
+          const next = { ...sel, seniority: seniorityGuess };
+          try { localStorage.setItem(JOBS_BROWSE_KEY, JSON.stringify(next)); } catch { /* quota */ }
+          setBrowseSel(next);
+        }
         feedCache = null; // cache key has no ranked dimension — force the ranked refetch
         await loadFeedRef.current(true, true); // force + quiet (merge in place)
       } catch (err) {
@@ -1337,12 +1369,13 @@ export default function JobsFeed({
   const hasBrowseRole = !!browseSel?.role?.trim();
   const onboardingWizard = (
     <JobsOnboardingWizard
-      initialStep={hasBrowseRole ? 3 : 1}
+      initialStep={hasBrowseRole ? 4 : 1}
       initialRole={browseSel?.role ?? ""}
       initialRoleTerms={browseSel?.titleTerms ?? null}
       initialLocation={browseSel?.location ?? ""}
       initialMetroTerms={browseSel?.locationTerms ?? null}
       initialWorkModel={browseSel?.workModel ?? ""}
+      initialSeniority={browseSel?.seniority ?? ""}
       onBrowse={submitBrowse}
       onResumeUploadStart={startResumeRanking}
       onPrefetch={prefetchBrowse}
@@ -1471,7 +1504,7 @@ export default function JobsFeed({
                 e.currentTarget.value = "";
                 if (!f) return;
                 setUpdateResumeOpen(false);
-                const sel: JobsBrowseSelection = browseSel ?? { role: "", titleTerms: [], location: "", locationTerms: [], workModel: "" };
+                const sel: JobsBrowseSelection = browseSel ?? { role: "", titleTerms: [], location: "", locationTerms: [], workModel: "", seniority: "" };
                 startResumeRanking(sel, f);
               }}
             />
