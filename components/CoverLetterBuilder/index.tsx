@@ -115,8 +115,8 @@ export default function CoverLetterBuilder() {
 
   const handleGenerateFromJD = useCallback(async () => {
     // AI generation is an account-only feature — show the sign-in prompt rather
-    // than firing a request the backend will reject with a 401.
-    if (signedIn === false) { setJdError(null); return; }
+    // than firing a request the backend will reject with a 401. (Except in development)
+    if (signedIn === false && process.env.NODE_ENV !== "development") { setJdError(null); return; }
     setJdError(null);
     setJdGenerating(true);
     try {
@@ -413,7 +413,7 @@ export default function CoverLetterBuilder() {
             </div>
           )}
 
-          {signedIn === false && (
+          {signedIn === false && process.env.NODE_ENV !== "development" && (
             <div style={{ marginBottom: 16 }}>
               <SignInToUseAi
                 variant="banner"
@@ -433,9 +433,9 @@ export default function CoverLetterBuilder() {
               Cancel
             </button>
             <button
-              onClick={signedIn === false ? signIn : handleGenerateFromJD}
-              disabled={(!jdText.trim() && signedIn !== false) || jdGenerating || signingIn}
-              title={signedIn === false ? "Sign in to generate with AI" : undefined}
+              onClick={signedIn === false && process.env.NODE_ENV !== "development" ? signIn : handleGenerateFromJD}
+              disabled={(!jdText.trim() && (signedIn !== false || process.env.NODE_ENV === "development")) || jdGenerating || signingIn}
+              title={signedIn === false && process.env.NODE_ENV !== "development" ? "Sign in to generate with AI" : undefined}
               style={{
                 padding: "10px 20px",
                 borderRadius: 6,
@@ -445,10 +445,10 @@ export default function CoverLetterBuilder() {
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: jdGenerating || signingIn ? "wait" : "pointer",
-                opacity: jdGenerating || signingIn || (!jdText.trim() && signedIn !== false) ? 0.7 : 1,
+                opacity: jdGenerating || signingIn || (!jdText.trim() && (signedIn !== false || process.env.NODE_ENV === "development")) ? 0.7 : 1,
               }}
             >
-              {jdGenerating ? "Generating…" : signedIn === false ? "🔒 Sign in to generate" : "Generate Cover Letter"}
+              {jdGenerating ? "Generating…" : signedIn === false && process.env.NODE_ENV !== "development" ? "🔒 Sign in to generate" : "Generate Cover Letter"}
             </button>
           </div>
         </div>
