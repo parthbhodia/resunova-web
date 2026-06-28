@@ -38,7 +38,6 @@ import CompanyLogo from "@/components/CompanyLogo";
 import BoostPanel from "@/components/BoostPanel";
 import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
-import { US_STATES, locationMatchesState, isClearlyInternational } from "@/lib/jobsLocation";
 
 export type FeedJob = {
   id: string;
@@ -146,10 +145,15 @@ function matchTierLabel(score: number): string {
   return "Low";
 }
 
-// US_STATES + locationMatchesState live in @/lib/jobsLocation (testable; shared
-// with the country filter's isClearlyInternational).
 
 /** Compact dropdown-trigger button style for the filter bar. */
+const FEED_FAMILY_LABELS: Record<string, string> = {
+  software: "Software Engineering", data: "Data & Analytics", product: "Product Management",
+  design: "Design", marketing: "Marketing", operations: "Operations", recruiting: "Recruiting",
+  finance: "Finance", legal: "Legal", healthcare: "Healthcare", sales: "Sales",
+  education: "Education", hospitality: "Hospitality", general: "General",
+};
+
 function filterButtonStyle(active: boolean): CSSProperties {
   return {
     display: "inline-flex", alignItems: "center", gap: 6,
@@ -176,11 +180,12 @@ function toggleInSet(setter: React.Dispatch<React.SetStateAction<Set<string>>>, 
 }
 
 /** Dropdown filter trigger + popover (closes on outside-click / Escape). */
-function FilterMenu({ label, count = 0, active = false, align = "left", width = 220, children }: {
-  label: string; count?: number; active?: boolean; align?: "left" | "right"; width?: number; children: React.ReactNode;
+function FilterMenu({ label, count = 0, active = false, align = "left", width = 220, onClear, children }: {
+  label: string; count?: number; active?: boolean; align?: "left" | "right"; width?: number; onClear?: () => void; children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const isActive = active || count > 0;
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -191,10 +196,17 @@ function FilterMenu({ label, count = 0, active = false, align = "left", width = 
   }, [open]);
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button type="button" onClick={() => setOpen((o) => !o)} style={filterButtonStyle(active || count > 0 || open)}>
+      <button type="button" onClick={() => setOpen((o) => !o)} style={filterButtonStyle(isActive || open)}>
         {label}
         {count > 0 && <span style={COUNT_BADGE}>{count}</span>}
         <span style={{ fontSize: 9, opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
+        {isActive && onClear && (
+          <span
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            title="Clear filter"
+            style={{ fontSize: 14, lineHeight: 1, opacity: 0.65, marginLeft: 1, cursor: "pointer", padding: "0 1px" }}
+          >×</span>
+        )}
       </button>
       {open && (
         <div style={{
@@ -229,26 +241,30 @@ function MenuOption({ label, selected, multi = false, onClick }: { label: string
   );
 }
 
-/** Searchable multi-select list of US states for the Location filter. */
-function StatesPicker({ selected, onToggle, onClear }: { selected: Set<string>; onToggle: (code: string) => void; onClear: () => void }) {
-  const [q, setQ] = useState("");
-  const ql = q.trim().toLowerCase();
-  const list = ql ? US_STATES.filter((s) => s.name.toLowerCase().includes(ql) || s.code.toLowerCase().includes(ql)) : US_STATES;
+const LOCATION_SUGGESTIONS = ["Remote", "New York", "San Francisco", "Los Angeles", "Chicago", "Austin", "Boston", "Seattle", "London", "Toronto"];
+
+/** Free-text location search — any city, country, or "Remote". */
+function LocationPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div>
+    <div style={{ padding: "2px 0" }}>
       <input
-        autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search states…"
-        style={{ width: "100%", fontSize: 13, padding: "7px 9px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--bg)", color: "var(--text)", marginBottom: 6, boxSizing: "border-box" }}
+        autoFocus value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder="City, state, country, or Remote…"
+        style={{ width: "100%", fontSize: 13, padding: "7px 9px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--bg)", color: "var(--text)", marginBottom: 8, boxSizing: "border-box" }}
       />
-      <div style={{ maxHeight: 220, overflowY: "auto" }}>
-        {list.map((s) => (
-          <MenuOption key={s.code} label={s.name} multi selected={selected.has(s.code)} onClick={() => onToggle(s.code)} />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+        {LOCATION_SUGGESTIONS.map((s) => (
+          <button key={s} type="button" onClick={() => onChange(s)} style={{
+            fontSize: 11.5, padding: "4px 9px", borderRadius: 20, cursor: "pointer", fontFamily: "inherit",
+            border: `1px solid ${value === s ? "var(--accent)" : "var(--surface2)"}`,
+            background: value === s ? "var(--accent-bg)" : "transparent",
+            color: value === s ? "var(--accent)" : "var(--muted)",
+          }}>{s}</button>
         ))}
-        {list.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 9px" }}>No match</div>}
       </div>
-      {selected.size > 0 && (
-        <button type="button" onClick={onClear} style={{ width: "100%", marginTop: 6, fontSize: 12, padding: "6px 0", borderRadius: 8, border: "1px solid var(--surface2)", background: "transparent", color: "var(--muted)", cursor: "pointer" }}>
-          Clear {selected.size} selected
+      {value && (
+        <button type="button" onClick={() => onChange("")} style={{ width: "100%", marginTop: 8, fontSize: 12, padding: "6px 0", borderRadius: 8, border: "1px solid var(--surface2)", background: "transparent", color: "var(--muted)", cursor: "pointer" }}>
+          Clear
         </button>
       )}
     </div>
@@ -582,10 +598,12 @@ export default function JobsFeed({
     return () => { cancelled = true; };
   }, [updateResumeOpen]);
   // Country scope. Defaults to "us" so the feed isn't flooded with international
-  // postings (the corpus carries them and there is no country column to query on);
-  // "all" shows every country. Session state — not persisted to saved filters.
-  const [country, setCountry] = useState<"us" | "all">("us");
-  const [locationStates, setLocationStates] = useState<Set<string>>(new Set());
+  const [locationText, setLocationText] = useState<string>("");
+  const [debouncedLocation, setDebouncedLocation] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedLocation(locationText.trim()), 400);
+    return () => clearTimeout(t);
+  }, [locationText]);
   const [workModels, setWorkModels] = useState<Set<string>>(new Set());
   const [seniorities, setSeniorities] = useState<Set<string>>(new Set());
   const [empType, setEmpType] = useState<string>("");
@@ -599,11 +617,11 @@ export default function JobsFeed({
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
   const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
-  // Structured facet filters → server query params, so they search the whole
-  // (role-scoped) corpus, not just the loaded page. `filterSig` keys the cache +
-  // re-fetch; country/score/roles stay client-side (no DB column / computed).
+  // Structured facet + location filters → server query params. `filterSig` keys
+  // the cache + re-fetch; score stays client-side (computed field, no DB column).
   const { serverFilterEntries, filterSig } = useMemo(() => {
     const entries: [string, string][] = [];
+    if (debouncedLocation) entries.push(["location", debouncedLocation]);
     if (workModels.size) entries.push(["work_model_any", [...workModels].join("|")]);
     const senVals = [...seniorities].flatMap(
       (k) => (SENIORITY_BUCKETS.find((b) => b.key === k)?.vals as readonly string[] | undefined) ?? [],
@@ -621,7 +639,7 @@ export default function JobsFeed({
     if (clearance !== "any") entries.push(["clearance", clearance]);
     if (citizenship !== "any") entries.push(["citizenship", citizenship]);
     return { serverFilterEntries: entries, filterSig: entries.map(([k, v]) => `${k}=${v}`).join("&") };
-  }, [workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship]);
+  }, [debouncedLocation, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship]);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loadingMore, setLoadingMore] = useState(false);
   // True while a feed fetch is in flight over an already-visible feed (search /
@@ -959,13 +977,6 @@ export default function JobsFeed({
     const minScore = SCORE_FILTERS.find((f) => f.key === scoreFilter)?.min ?? 0;
     const filtered = state.jobs.filter((job) => {
       if (job.matchScore != null && job.matchScore < minScore) return false;
-      // Country scope: under "us", drop postings that clearly name a foreign
-      // country/city (Manila, Seoul, Bengaluru…). A positive US signal always
-      // wins and ambiguous strings ("Remote") stay — see lib/jobsLocation.
-      if (country === "us" && isClearlyInternational(job.location)) return false;
-      if (locationStates.size > 0) {
-        if (![...locationStates].some((code) => locationMatchesState(job.location, code))) return false;
-      }
       if (workModels.size > 0) {
         // Fall back to a text heuristic when the posting has no structured work_model.
         const wm = job.workModel
@@ -995,7 +1006,7 @@ export default function JobsFeed({
       return [...filtered].sort((a, b) => sal(b) - sal(a));
     }
     return filtered; // "match" — the backend already ranks by match score
-  }, [state, debouncedSearch, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, sortBy]);
+  }, [state, debouncedSearch, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, sortBy]);
 
   // Distinct industries present in the current feed, for the Industry dropdown.
   const industryOptions = useMemo(() => {
@@ -1011,15 +1022,14 @@ export default function JobsFeed({
   }, []);
 
   const currentSnapshot = useMemo<FilterSnapshot>(() => ({
-    locationStates: [...locationStates],
-    workModels: [...workModels],
+    locationText, workModels: [...workModels],
     seniorities: [...seniorities],
     empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy,
     clearance, citizenship,
-  }), [locationStates, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, clearance, citizenship]);
+  }), [locationText, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, clearance, citizenship]);
 
   const applySnapshot = useCallback((f: Partial<FilterSnapshot>) => {
-    setLocationStates(new Set(f.locationStates ?? []));
+    setLocationText(f.locationText ?? "");
     setWorkModels(new Set(f.workModels ?? []));
     setSeniorities(new Set(f.seniorities ?? []));
     setEmpType(f.empType ?? "");
@@ -1034,12 +1044,12 @@ export default function JobsFeed({
   }, []);
 
   const anyFilterActive =
-    !!search || country !== "us" || locationStates.size > 0 || workModels.size > 0 || seniorities.size > 0 ||
+    !!search || !!locationText || workModels.size > 0 || seniorities.size > 0 ||
     !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || ageFilter !== "30" ||
     clearance !== "any" || citizenship !== "any";
 
   const clearAllFilters = useCallback(() => {
-    setSearch(""); setCountry("us"); setLocationStates(new Set()); setWorkModels(new Set()); setSeniorities(new Set());
+    setSearch(""); setLocationText(""); setWorkModels(new Set()); setSeniorities(new Set());
     setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setAgeFilter("30");
     setClearance("any"); setCitizenship("any");
   }, []);
@@ -1048,7 +1058,7 @@ export default function JobsFeed({
   // new filter/search starts from the top instead of keeping a stale offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, country, locationStates, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, sortBy, scoreFilter, ageFilter, state.status]);
+  }, [search, locationText, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, sortBy, scoreFilter, ageFilter, state.status]);
 
   const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
   // Two layers of "more": clientHasMore = more already-loaded jobs to reveal;
@@ -1070,20 +1080,18 @@ export default function JobsFeed({
     } else {
       setFallback((f) => (f.jobs.length || f.loading ? { jobs: [], loading: false, key: "" } : f));
     }
-  }, [state.status, pagedJobs.length, debouncedSearch, filterSig, country, ageFilter, loadFallback]);
+  }, [state.status, pagedJobs.length, debouncedSearch, filterSig, ageFilter, loadFallback]);
 
   // Why a fallback job is outside the current filters (cheap, best-effort tag).
   const outsideReason = useCallback((job: FeedJob): string => {
-    if (country === "us" && isClearlyInternational(job.location)) return "🌍 Outside US";
     const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
     if (days && job.postedAt) {
       const ageDays = (Date.now() - Date.parse(job.postedAt)) / 86_400_000;
       if (ageDays > days) return "📅 Older posting";
     }
     if (workModels.size > 0 && job.workModel && !workModels.has(job.workModel)) return "🏢 Other work model";
-    if (debouncedSearch) return "Outside your filters";
     return "Outside your filters";
-  }, [country, ageFilter, workModels, debouncedSearch]);
+  }, [ageFilter, workModels]);
 
   // Shared card renderer — used by the main list and the "outside your filters"
   // fallback section. `reasonChip` adds a muted tag explaining why a fallback
@@ -1487,52 +1495,47 @@ export default function JobsFeed({
                 }} />
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setCountry((c) => (c === "us" ? "all" : "us"))}
-              title={country === "us"
-                ? "Showing US postings only — click to include every country"
-                : "Showing all countries — click to limit to the US"}
-              style={filterButtonStyle(country === "us")}
+            <FilterMenu
+              label={locationText ? `📍 ${locationText}` : "📍 Location"}
+              active={!!locationText}
+              onClear={() => setLocationText("")}
+              width={260}
             >
-              {country === "us" ? "🇺🇸 US only" : "🌍 All countries"}
-            </button>
-            <FilterMenu label="📍 Location" count={locationStates.size} width={250}>
-              <StatesPicker
-                selected={locationStates}
-                onToggle={(c) => toggleInSet(setLocationStates, c)}
-                onClear={() => setLocationStates(new Set())}
-              />
+              <LocationPicker value={locationText} onChange={setLocationText} />
             </FilterMenu>
           </div>
 
           {/* Row 2 — filter dropdowns */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <FilterMenu label={`Date: ${AGE_FILTERS.find((f) => f.key === ageFilter)?.label ?? "Any"}`} active={ageFilter !== "30"} width={180}>
+            <FilterMenu label={`Date: ${AGE_FILTERS.find((f) => f.key === ageFilter)?.label ?? "Any"}`} active={ageFilter !== "30"} onClear={() => setAgeFilter("30")} width={180}>
               {AGE_FILTERS.map((f) => (
                 <MenuOption key={f.key} label={f.label} selected={ageFilter === f.key} onClick={() => setAgeFilter(f.key)} />
               ))}
             </FilterMenu>
 
-            <FilterMenu label="Work model" count={workModels.size} width={180}>
+            <FilterMenu label="Work model" count={workModels.size} onClear={() => setWorkModels(new Set())} width={180}>
               {WORK_MODELS.map((w) => (
                 <MenuOption key={w.key} label={w.label} multi selected={workModels.has(w.key)} onClick={() => toggleInSet(setWorkModels, w.key)} />
               ))}
             </FilterMenu>
 
-            <FilterMenu label="Experience" count={seniorities.size} width={180}>
+            <FilterMenu label="Experience" count={seniorities.size} onClear={() => setSeniorities(new Set())} width={180}>
               {SENIORITY_BUCKETS.map((b) => (
                 <MenuOption key={b.key} label={b.label} multi selected={seniorities.has(b.key)} onClick={() => toggleInSet(setSeniorities, b.key)} />
               ))}
             </FilterMenu>
 
-            <FilterMenu label={empType ? (EMPLOYMENT_OPTIONS.find((o) => o.key === empType)?.label ?? "Job type") : "Job type"} active={!!empType} width={190}>
+            <FilterMenu label={empType ? (EMPLOYMENT_OPTIONS.find((o) => o.key === empType)?.label ?? "Job type") : "Job type"} active={!!empType} onClear={() => setEmpType("")} width={190}>
               {EMPLOYMENT_OPTIONS.map((o) => (
                 <MenuOption key={o.key || "any"} label={o.label} selected={empType === o.key} onClick={() => setEmpType(o.key)} />
               ))}
             </FilterMenu>
 
-            <FilterMenu label="More" count={(yearsBucket !== "any" ? 1 : 0) + (industry ? 1 : 0) + (state.ranked && scoreFilter !== "all" ? 1 : 0) + (clearance !== "any" ? 1 : 0) + (citizenship !== "any" ? 1 : 0)} width={210}>
+            <FilterMenu
+              label="More"
+              count={(yearsBucket !== "any" ? 1 : 0) + (industry ? 1 : 0) + (state.ranked && scoreFilter !== "all" ? 1 : 0) + (clearance !== "any" ? 1 : 0) + (citizenship !== "any" ? 1 : 0)}
+              onClear={() => { setYearsBucket("any"); setIndustry(""); setScoreFilter("all"); setClearance("any"); setCitizenship("any"); }}
+              width={210}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "2px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>🔒 Security clearance</div>
               <MenuOption label="Any" selected={clearance === "any"} onClick={() => setClearance("any")} />
               <MenuOption label="Required only" selected={clearance === "required"} onClick={() => setClearance("required")} />
@@ -1571,6 +1574,18 @@ export default function JobsFeed({
                 style={{ fontSize: 12.5, padding: "7px 8px", borderRadius: 8, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}
               >
                 Clear all
+              </button>
+            )}
+
+            {state.status === "ready" && state.feedFamily && (
+              <button
+                type="button"
+                onClick={changeRole}
+                title="Change the role your feed is scoped to"
+                style={{ ...filterButtonStyle(true), gap: 6 }}
+              >
+                📋 {FEED_FAMILY_LABELS[state.feedFamily] ?? state.feedFamily}
+                <span style={{ fontSize: 14, lineHeight: 1, opacity: 0.65 }}>×</span>
               </button>
             )}
 
