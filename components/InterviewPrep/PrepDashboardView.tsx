@@ -1262,8 +1262,18 @@ function StickyActionBar({
       {/* Desktop Sticky Action Bar */}
       <div className="hidden md:block fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 backdrop-blur-sm md:pl-[var(--sidebar-width,0px)]">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3 md:px-8">
-          {/* Left: stats */}
+          {/* Left: Back button + stats */}
           <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={onBack}
+            >
+              <ArrowLeft className="size-3.5" aria-hidden />
+              Back
+            </Button>
+            <Separator orientation="vertical" className="h-8" />
             <div className="flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-lg bg-accent text-[var(--accent-fg,#fff)]">
                 <Sparkles className="size-4" aria-hidden />
@@ -1290,15 +1300,6 @@ function StickyActionBar({
 
           {/* Right: actions */}
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={onBack}
-            >
-              <ArrowLeft className="size-3.5" aria-hidden />
-              Back
-            </Button>
             <Button
               variant="outline"
               size="sm"

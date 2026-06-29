@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import { Check, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { WORKFLOW_STEPS } from "./constants";
 
@@ -12,9 +13,11 @@ interface WorkflowStepperProps {
 
 /**
  * Horizontal workflow stepper rendered directly below the page heading.
- * Highlights the current step; completed steps show a check mark.
+ * Highlights the current step; completed steps show a check mark and are
+ * clickable — users can navigate back to any earlier step.
  */
 export default function WorkflowStepper({ activeStep = 1 }: WorkflowStepperProps) {
+  const router = useRouter();
   const activeStepInfo = WORKFLOW_STEPS.find((s) => s.id === activeStep);
 
   return (
@@ -34,6 +37,37 @@ export default function WorkflowStepper({ activeStep = 1 }: WorkflowStepperProps
         {WORKFLOW_STEPS.map((step, idx) => {
           const isActive = step.id === activeStep;
           const isComplete = step.id < activeStep;
+          const isClickable = isComplete;
+
+          const pill = (
+            <div
+              aria-current={isActive ? "step" : undefined}
+              aria-disabled={step.id > activeStep}
+              className={cn(
+                "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
+                isActive
+                  ? "border-accent/30 bg-[var(--accent-bg)] font-medium text-accent"
+                  : isComplete
+                    ? "border-border bg-transparent font-medium text-foreground"
+                    : "border-border bg-transparent text-muted-foreground opacity-60",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                  isActive
+                    ? "bg-accent text-[var(--accent-fg,#fff)]"
+                    : isComplete
+                      ? "bg-foreground/10 text-foreground"
+                      : "bg-muted text-muted-foreground",
+                )}
+              >
+                {isComplete ? <Check className="size-3" aria-hidden /> : step.id}
+              </span>
+              {step.label}
+            </div>
+          );
+
           return (
             <Fragment key={step.id}>
               {idx > 0 ? (
@@ -42,32 +76,18 @@ export default function WorkflowStepper({ activeStep = 1 }: WorkflowStepperProps
                   aria-hidden
                 />
               ) : null}
-              <div
-                aria-current={isActive ? "step" : undefined}
-                aria-disabled={step.id > activeStep}
-                className={cn(
-                  "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
-                  isActive
-                    ? "border-accent/30 bg-[var(--accent-bg)] font-medium text-accent"
-                    : isComplete
-                      ? "border-border bg-transparent font-medium text-foreground"
-                      : "border-border bg-transparent text-muted-foreground opacity-60",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                    isActive
-                      ? "bg-accent text-[var(--accent-fg,#fff)]"
-                      : isComplete
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-muted text-muted-foreground",
-                  )}
+              {isClickable ? (
+                <button
+                  type="button"
+                  onClick={() => router.push(step.route)}
+                  aria-label={`Go to step ${step.id}: ${step.label}`}
+                  className="cursor-pointer rounded-full ring-offset-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  {isComplete ? <Check className="size-3" aria-hidden /> : step.id}
-                </span>
-                {step.label}
-              </div>
+                  {pill}
+                </button>
+              ) : (
+                pill
+              )}
             </Fragment>
           );
         })}
@@ -75,3 +95,4 @@ export default function WorkflowStepper({ activeStep = 1 }: WorkflowStepperProps
     </nav>
   );
 }
+
