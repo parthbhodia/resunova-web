@@ -632,6 +632,10 @@ export default function JobsFeed({
   // 3-state eligibility filters: "any" | "required" | "exclude".
   const [clearance, setClearance] = useState<string>("any");
   const [citizenship, setCitizenship] = useState<string>("any");
+  // Role-family override for the ranked feed's role chip. null = use the résumé's
+  // inferred family (default); "" = broaden to ALL roles; "data"/etc = scope to a
+  // chosen family. Sent as ?feed_family= on page 0 (backend honors it there).
+  const [familyOverride, setFamilyOverride] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("match");
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
@@ -744,6 +748,7 @@ export default function JobsFeed({
     try { localStorage.removeItem(JOBS_ROLE_KEY); localStorage.removeItem(JOBS_BROWSE_KEY); } catch { /* ignore */ }
     feedCache = null;
     setBrowseSel(null);
+    setFamilyOverride(null);
     setState({ status: "loading" });
     setRoleQuery("");
   }, []);
@@ -753,7 +758,7 @@ export default function JobsFeed({
   // upgrade. In quiet mode any failure rethrows instead of wiping the feed.
   const loadFeed = useCallback(async (force = false, quiet = false) => {
     const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
-    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel, rankAnalysisId, debouncedSearch, filterSig);
+    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel, rankAnalysisId, debouncedSearch, filterSig + (familyOverride !== null ? `|ff:${familyOverride}` : ""));
     // Stale-while-revalidate: show the cached feed INSTANTLY on remount/return
     // (no skeleton), and only refetch in the background when it has gone stale.
     // The skeleton path is reserved for a genuine cold load with nothing to show.
@@ -781,6 +786,7 @@ export default function JobsFeed({
       if (roleQuery) params.set("role", roleQuery);
       if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // rank against a chosen past scan
       appendBrowseParams(params, browseSel, false); // ranked feed: role_family scoping + résumé ranking, NOT the wizard's narrow title aliases / hidden work-model
+      if (familyOverride !== null) params.set("feed_family", familyOverride); // role-chip pick: "" broadens to all roles, else scope to it
       if (debouncedSearch) params.set("title_any", debouncedSearch); // search the DB by title across all roles
       serverFilterEntries.forEach(([k, v]) => params.set(k, v)); // facet filters → server (DB-wide)
       const qs = params.toString() ? `?${params.toString()}` : "";
@@ -846,7 +852,7 @@ export default function JobsFeed({
     } finally {
       setRevalidating(false);
     }
-  }, [ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, filterSig, serverFilterEntries]);
+  }, [ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, filterSig, serverFilterEntries, familyOverride]);
 
   // "Outside your filters" fallback. When the current search + filters yield an
   // empty list, fetch a RELAXED set — same search intent + résumé ranking, but
@@ -931,6 +937,7 @@ export default function JobsFeed({
     setScanning(true);
     setBrowseSel(sel);
     setSeniorities(sel.seniority ? new Set([sel.seniority]) : new Set());
+    setFamilyOverride(null); // a new résumé re-derives its own family
     setRoleQuery(sel.role.trim());
 
     // 1) Show matches now: warm cache if present, else a quick unranked fetch.
@@ -1619,16 +1626,21 @@ export default function JobsFeed({
               </button>
             )}
 
-            {state.status === "ready" && state.feedFamily && (
-              <button
-                type="button"
-                onClick={changeRole}
-                title="Change the role your feed is scoped to"
-                style={{ ...filterButtonStyle(true), gap: 6 }}
+            {state.status === "ready" && state.ranked && (
+              <FilterMenu
+                label={`📋 ${state.feedFamily ? (FEED_FAMILY_LABELS[state.feedFamily] ?? state.feedFamily) : "All roles"}`}
+                width={220}
+                active={familyOverride !== null}
+                onClear={familyOverride !== null ? () => setFamilyOverride(null) : undefined}
               >
-                📋 {FEED_FAMILY_LABELS[state.feedFamily] ?? state.feedFamily}
-                <span style={{ fontSize: 14, lineHeight: 1, opacity: 0.65 }}>×</span>
-              </button>
+                <MenuOption label="Match my résumé" selected={familyOverride === null} onClick={() => setFamilyOverride(null)} />
+                <MenuOption label="All roles" selected={familyOverride === ""} onClick={() => setFamilyOverride("")} />
+                {Object.entries(FEED_FAMILY_LABELS)
+                  .filter(([k]) => k !== "general")
+                  .map(([k, lbl]) => (
+                    <MenuOption key={k} label={lbl} selected={familyOverride === k} onClick={() => setFamilyOverride(k)} />
+                  ))}
+              </FilterMenu>
             )}
 
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
