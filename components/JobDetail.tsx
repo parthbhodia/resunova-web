@@ -18,7 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJobDetail, scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
-import { fetchJobPrepStatuses, type JobPrepStatus } from "@/lib/supabase";
+import { fetchJobPrepStatuses, getSupabaseClient, type JobPrepStatus } from "@/lib/supabase";
+import { goToFreeScan, stashAnalyzeJd } from "@/lib/anonScan";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import BoostPanel from "@/components/BoostPanel";
 import CompanyLogo from "@/components/CompanyLogo";
@@ -203,6 +204,9 @@ const IconPlus = () => (
 const IconArrowR = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}><path d="M5 12h13M12 5l7 7-7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
+const IconUpload = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}><path d="M12 16V5m0 0L8 9m4-4 4 4M5 19h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
 
 /** A small labeled value pill used in the "Job details" block. */
 function Chip({ children, tone }: { children: ReactNode; tone?: "green" }) {
@@ -234,6 +238,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
   const [boostOpen, setBoostOpen] = useState(false);
   const [prepStatus, setPrepStatus] = useState<JobPrepStatus | null>(null);
   const [prepLaunching, setPrepLaunching] = useState(false);
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     setState({ status: "loading" });
@@ -262,6 +267,16 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
     prefillPrepFromJob(state.job);
     router.push("/interview-prep/dashboard");
   }, [state, router]);
+
+  // Signed-out visitors get an "Upload your résumé" CTA (the boost flow needs a
+  // résumé) instead of the résumé-dependent "Optimize" action — see MatchPanel.
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    let active = true;
+    sb.auth.getSession().then(({ data }) => { if (active) setSignedIn(!!data.session); });
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_e, s) => setSignedIn(!!s));
+    return () => { active = false; subscription.unsubscribe(); };
+  }, []);
 
   const backToFeed = () => router.push("/?view=jobs");
 
@@ -322,6 +337,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
         <JobBody
           job={state.job}
           embedded={embedded}
+          signedIn={signedIn}
           onBoost={() => setBoostOpen(true)}
           onPrep={onPrep}
           prepStatus={prepStatus}
@@ -341,6 +357,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
 function JobBody({
   job,
   embedded = false,
+  signedIn,
   onBoost,
   onPrep,
   prepStatus,
@@ -348,6 +365,7 @@ function JobBody({
 }: {
   job: JobDetailData;
   embedded?: boolean;
+  signedIn: boolean | null;
   onBoost: () => void;
   onPrep: () => void;
   prepStatus: JobPrepStatus | null;
@@ -528,7 +546,7 @@ function JobBody({
           column now (was a fixed 340px panel that wrapped below + left the right
           half of the page empty). */}
       <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
-        <MatchPanel job={job} onBoost={onBoost} />
+        <MatchPanel job={job} onBoost={onBoost} signedIn={signedIn} />
         <PrepCard job={job} onPrep={onPrep} prepStatus={prepStatus} prepLaunching={prepLaunching} />
         <InsiderPanel postingId={job.id} company={job.company} />
       </div>
@@ -536,7 +554,7 @@ function JobBody({
   );
 }
 
-function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void }) {
+function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: () => void; signedIn: boolean | null }) {
   const score = job.matchScore;
   const arcColor =
     score == null ? "var(--muted)"
@@ -644,28 +662,53 @@ function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void 
           </>
         ) : null}
 
-        {job.missing.length > 0 && (
-          <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
-            One tap tailors your résumé to add {job.missing.length} of these — from your real experience.
-          </div>
+        {signedIn === false ? (
+          <>
+            <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
+              Upload your résumé to see how you match this role — free, no account needed.
+            </div>
+            <button
+              onClick={() => { stashAnalyzeJd(job.jdText); goToFreeScan(); }}
+              onMouseEnter={() => setBoostHover(true)}
+              onMouseLeave={() => setBoostHover(false)}
+              style={{
+                width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+                background: boostHover ? "#b06a30" : "#c4793a", color: "#fff", fontSize: 14, fontWeight: 600,
+                cursor: "pointer", marginTop: 2,
+                transition: "background .15s ease, transform .15s ease, box-shadow .15s ease",
+                transform: boostHover ? "translateY(-1px)" : "none",
+                boxShadow: boostHover ? "0 6px 16px rgba(196,121,58,0.32)" : "none",
+              }}
+            >
+              <IconUpload /> Upload your résumé
+            </button>
+          </>
+        ) : (
+          <>
+            {job.missing.length > 0 && (
+              <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
+                One tap tailors your résumé to add {job.missing.length} of these — from your real experience.
+              </div>
+            )}
+            <button
+              onClick={onBoost}
+              onMouseEnter={() => setBoostHover(true)}
+              onMouseLeave={() => setBoostHover(false)}
+              style={{
+                width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+                background: boostHover ? "#b06a30" : "#c4793a", color: "#fff", fontSize: 14, fontWeight: 600,
+                cursor: "pointer", marginTop: 2,
+                transition: "background .15s ease, transform .15s ease, box-shadow .15s ease",
+                transform: boostHover ? "translateY(-1px)" : "none",
+                boxShadow: boostHover ? "0 6px 16px rgba(196,121,58,0.32)" : "none",
+              }}
+            >
+              <IconSparkle /> Optimize my résumé
+            </button>
+          </>
         )}
-
-        <button
-          onClick={onBoost}
-          onMouseEnter={() => setBoostHover(true)}
-          onMouseLeave={() => setBoostHover(false)}
-          style={{
-            width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
-            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
-            background: boostHover ? "#b06a30" : "#c4793a", color: "#fff", fontSize: 14, fontWeight: 600,
-            cursor: "pointer", marginTop: 2,
-            transition: "background .15s ease, transform .15s ease, box-shadow .15s ease",
-            transform: boostHover ? "translateY(-1px)" : "none",
-            boxShadow: boostHover ? "0 6px 16px rgba(196,121,58,0.32)" : "none",
-          }}
-        >
-          <IconSparkle /> Optimize my résumé
-        </button>
         <a
           href={job.url}
           target="_blank"

@@ -35,7 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
-import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan } from "@/lib/anonScan";
+import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan, takeAnalyzeJd } from "@/lib/anonScan";
 import { useSignInDialog } from "@/components/SignInDialog";
 import JobSearchActivationWidget, { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
 
@@ -406,6 +406,12 @@ export default function AnalyzeResume() {
   const [scansRemaining, setScansRemaining] = useState<number | null>(null);
   const [result, setResult]             = useState<AnalysisResult | null>(null);
   const [jd, setJd]                     = useState("");
+  // A job detail's "Upload your résumé" CTA stashes that role's JD here, so the
+  // first anonymous scan matches the exact job. One-shot: consumed on mount.
+  useEffect(() => {
+    const jd0 = takeAnalyzeJd();
+    if (jd0) setJd(jd0);
+  }, []);
   const [loadingMsg, setLoadingMsg]     = useState(0);
   const [loadingTipIdx, setLoadingTipIdx] = useState(0);
   const [expandedBullets, setExpandedBullets] = useState<Record<number, boolean>>({});
