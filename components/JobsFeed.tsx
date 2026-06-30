@@ -35,6 +35,7 @@ import {
   type FilterSnapshot,
 } from "@/lib/jobFiltersApi";
 import CompanyLogo from "@/components/CompanyLogo";
+import FeaturedCompaniesRail from "@/components/FeaturedCompaniesRail";
 import BoostPanel from "@/components/BoostPanel";
 import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
@@ -641,6 +642,9 @@ export default function JobsFeed({
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
   const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
+  // Featured-rail company scope (case-insensitive company name). Empty = no scope;
+  // set → the feed shows only that company's roles (ranked if a résumé exists).
+  const [companyFilter, setCompanyFilter] = useState<string>("");
   // Structured facet + location filters → server query params. `filterSig` keys
   // the cache + re-fetch; score stays client-side (computed field, no DB column).
   const { serverFilterEntries, filterSig } = useMemo(() => {
@@ -662,8 +666,12 @@ export default function JobsFeed({
     }
     if (clearance !== "any") entries.push(["clearance", clearance]);
     if (citizenship !== "any") entries.push(["citizenship", citizenship]);
+    // Featured-rail company scope. Sent as a server param like any other facet, so
+    // it flows into the cache key (filterSig), the refetch, and pagination at once.
+    // The backend treats it specially — overrides role-family scoping.
+    if (companyFilter) entries.push(["company", companyFilter]);
     return { serverFilterEntries: entries, filterSig: entries.map(([k, v]) => `${k}=${v}`).join("&") };
-  }, [debouncedLocation, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship]);
+  }, [debouncedLocation, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, companyFilter]);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loadingMore, setLoadingMore] = useState(false);
   // True while a feed fetch is in flight over an already-visible feed (search /
@@ -751,6 +759,15 @@ export default function JobsFeed({
     setFamilyOverride(null);
     setState({ status: "loading" });
     setRoleQuery("");
+  }, []);
+
+  // Featured-rail tile click: toggle the company scope. Clicking the active tile
+  // (or the rail's Clear control) passes the selected company again → clears it.
+  // companyFilter is part of serverFilterEntries/filterSig, so the loadFeed effect
+  // refetches the company-scoped feed (ranked if a résumé exists, else browsed).
+  const handleCompanySelect = useCallback((company: string) => {
+    setCompanyFilter((prev) => (prev.trim().toLowerCase() === company.trim().toLowerCase() ? "" : company));
+    setVisibleCount(PAGE_SIZE);
   }, []);
 
   // `quiet`: skip the skeleton and merge the result in place (keeps status
@@ -875,6 +892,7 @@ export default function JobsFeed({
       if (rankAnalysisId) params.set("analysis_id", rankAnalysisId);
       appendBrowseParams(params, browseSel, false); // relaxed fallback: no hard title/work-model scope
       if (debouncedSearch) params.set("title_any", debouncedSearch);
+      if (companyFilter) params.set("company", companyFilter); // keep the fallback inside the company scope
       const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -885,7 +903,7 @@ export default function JobsFeed({
     } catch {
       setFallback({ jobs: [], loading: false, key: fkey });
     }
-  }, [debouncedSearch, roleQuery, rankAnalysisId, browseSel]);
+  }, [debouncedSearch, roleQuery, rankAnalysisId, browseSel, companyFilter]);
 
   useEffect(() => {
     // Refetch whenever loadFeed's inputs change (search, filters, role, age…).
@@ -1092,21 +1110,21 @@ export default function JobsFeed({
   }, []);
 
   const anyFilterActive =
-    !!search || !!locationText || workModels.size > 0 || seniorities.size > 0 ||
+    !!search || !!companyFilter || !!locationText || workModels.size > 0 || seniorities.size > 0 ||
     !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || ageFilter !== "30" ||
     clearance !== "any" || citizenship !== "any";
 
   const clearAllFilters = useCallback(() => {
     setSearch(""); setLocationText(""); setWorkModels(new Set()); setSeniorities(new Set());
     setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setAgeFilter("30");
-    setClearance("any"); setCitizenship("any");
+    setClearance("any"); setCitizenship("any"); setCompanyFilter("");
   }, []);
 
   // Reset the lazy-load window whenever the filtered result set changes, so a
   // new filter/search starts from the top instead of keeping a stale offset.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, locationText, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, sortBy, scoreFilter, ageFilter, state.status]);
+  }, [search, companyFilter, locationText, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, sortBy, scoreFilter, ageFilter, state.status]);
 
   const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
   // Two layers of "more": clientHasMore = more already-loaded jobs to reveal;
@@ -1433,6 +1451,13 @@ export default function JobsFeed({
             </Button>
           </div>
         </div>
+      )}
+
+      {/* "Top companies hiring" rail — recognizable companies with live roles,
+          shown on landing in every signed-in state (ranked, browse, needs-role).
+          Clicking a tile scopes the feed to that company. */}
+      {!listMode && (
+        <FeaturedCompaniesRail selected={companyFilter} onSelect={handleCompanySelect} />
       )}
 
       <Dialog open={updateResumeOpen} onOpenChange={setUpdateResumeOpen}>

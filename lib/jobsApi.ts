@@ -159,3 +159,24 @@ export function companyLogoCandidates(companyDomain: string, slug: string): stri
   if (slug) add(`${slug}.com`);
   return out;
 }
+
+export type FeaturedCompany = {
+  company: string;
+  domain: string;
+  activeCount: number;
+};
+
+/** Curated, recognizable companies that have LIVE openings right now, each with
+ *  its open-roles count — powers the Jobs "Top companies hiring" rail. Public +
+ *  cached server-side (counts are live, so a company that empties out drops off).
+ *  Returns [] on any failure so the rail simply doesn't render. */
+export async function fetchFeaturedCompanies(): Promise<FeaturedCompany[]> {
+  try {
+    const resp = await fetch(apiUrl("/api/jobs/featured-companies"));
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return Array.isArray(data?.companies) ? data.companies : [];
+  } catch {
+    return [];
+  }
+}
