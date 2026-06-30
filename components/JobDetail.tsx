@@ -12,9 +12,8 @@
  * No navigation to the builder.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,21 +28,6 @@ type LoadState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; job: JobDetailData };
-
-function formatSalary(job: JobDetailData): string | null {
-  if (job.salaryMin == null && job.salaryMax == null) return null;
-  const cur = job.salaryCurrency === "USD" || !job.salaryCurrency ? "$" : `${job.salaryCurrency} `;
-  const period = job.salaryPeriod || "year";
-  const hourly = period === "hour";
-  const fmt = (n: number) =>
-    hourly ? `${Math.round(n * 100) / 100}` : n >= 1000 ? `${Math.round(n / 1000)}k` : `${Math.round(n)}`;
-  const lo = job.salaryMin ?? job.salaryMax;
-  const hi = job.salaryMax ?? job.salaryMin;
-  if (lo == null || hi == null) return null;
-  const suffix = hourly ? "/hr" : period === "month" ? "/mo" : period === "week" ? "/wk" : period === "day" ? "/day" : "/yr";
-  const range = lo === hi ? `${cur}${fmt(lo)}` : `${cur}${fmt(lo)}–${fmt(hi)}`;
-  return `${range}${suffix}`;
-}
 
 function formatApplicants(n: number | null): string {
   // First-party count (how many of our users applied). Per spec: show the exact
@@ -67,6 +51,163 @@ function formatPostedAt(iso: string | null): string | null {
   if (days < 30) return `${days} days ago`;
   const m = Math.floor(days / 30);
   return m === 1 ? "1 month ago" : `${m} months ago`;
+}
+
+/** Full salary in Indeed's style — "$177,000 - $257,000 a year" (no abbreviation). */
+function formatSalaryFull(job: JobDetailData): string | null {
+  if (job.salaryMin == null && job.salaryMax == null) return null;
+  const cur = job.salaryCurrency && job.salaryCurrency !== "USD" ? `${job.salaryCurrency} ` : "$";
+  const period = job.salaryPeriod || "year";
+  const unit =
+    period === "hour" ? "an hour" : period === "month" ? "a month"
+    : period === "week" ? "a week" : period === "day" ? "a day" : "a year";
+  const fmt = (n: number) => (period === "hour" ? `${Math.round(n * 100) / 100}` : Math.round(n).toLocaleString());
+  const lo = job.salaryMin ?? job.salaryMax;
+  const hi = job.salaryMax ?? job.salaryMin;
+  if (lo == null || hi == null) return null;
+  const range = lo === hi ? `${cur}${fmt(lo)}` : `${cur}${fmt(lo)} - ${cur}${fmt(hi)}`;
+  return `${range} ${unit}`;
+}
+
+// ── JD structuring ──────────────────────────────────────────────────────────
+// Scraped JDs arrive as plain text with wildly different shapes: Amazon is prose,
+// Ashby/Lever use "-" bullets separated by blank lines, Greenhouse has label:value
+// pairs, Workday injects spurious mid-sentence newlines. This parser normalizes
+// them into headings / paragraphs / bullet lists so the description reads like
+// Indeed's "Full job description" instead of a raw wall of text.
+type JdBlock =
+  | { type: "heading"; text: string }
+  | { type: "para"; text: string }
+  | { type: "list"; items: string[] };
+
+const BULLET_RE = /^\s*(?:[-•*–—●▪◦·‣]|o(?=\s)|\d+[.)])\s+/;
+const HEADING_MAX = 70;
+
+function looksLikeHeading(s: string): boolean {
+  if (s.length > HEADING_MAX) return false;
+  if (/:$/.test(s)) return true;                 // "Minimum qualifications:"
+  if (/[.!?,;]$/.test(s)) return false;          // a full sentence
+  if (s.split(/\s+/).length > 9) return false;   // too long to be a heading
+  return /^[A-Z0-9]/.test(s);                     // starts with a capital / number
+}
+
+function parseJdBlocks(raw: string): JdBlock[] {
+  const text = (raw || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[^\S\n]+$/gm, "")   // strip trailing whitespace per line
+    .replace(/\n{3,}/g, "\n\n")    // collapse blank-line runs
+    .trim();
+  if (!text) return [];
+
+  // Pass 1 — split into raw paragraphs and bullet lists (no heading detection yet).
+  const raw1: JdBlock[] = [];
+  let para: string[] = [];
+  let list: string[] | null = null;
+  const flushPara = () => {
+    if (!para.length) return;
+    const joined = para.join(" ").replace(/\s{2,}/g, " ").trim();
+    para = [];
+    if (joined) raw1.push({ type: "para", text: joined });
+  };
+  const flushList = () => {
+    if (list && list.length) raw1.push({ type: "list", items: list });
+    list = null;
+  };
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (t === "") {
+      // Blank line ends a paragraph but keeps a pending list open, so
+      // blank-separated bullets (Ashby) still merge into one list.
+      flushPara();
+      continue;
+    }
+    if (BULLET_RE.test(t)) {
+      flushPara();
+      (list ??= []).push(t.replace(BULLET_RE, "").trim());
+      continue;
+    }
+    flushList();          // a non-bullet line ends any open list
+    para.push(t);          // single newlines join into one paragraph
+  }
+  flushPara();
+  flushList();
+
+  // Pass 2 — re-join sentence fragments split by spurious mid-sentence breaks
+  // (Workday's double-newlines): a paragraph with no terminal punctuation
+  // followed by one that starts lowercase is really a single sentence.
+  const merged: JdBlock[] = [];
+  for (const b of raw1) {
+    const prev = merged[merged.length - 1];
+    if (b.type === "para" && prev && prev.type === "para" && !/[.!?:;]$/.test(prev.text) && /^[a-z]/.test(b.text)) {
+      prev.text = `${prev.text} ${b.text}`.replace(/\s{2,}/g, " ");
+    } else {
+      merged.push(b.type === "list" ? { type: "list", items: b.items } : { type: "para", text: b.text });
+    }
+  }
+
+  // Pass 3 — classify short, title-ish paragraphs as headings.
+  return merged.map((b) => (b.type === "para" && looksLikeHeading(b.text) ? { type: "heading", text: b.text } : b));
+}
+
+/** Renders parsed JD blocks as real headings, paragraphs, and bullet lists. */
+function JobDescription({ text }: { text: string }) {
+  const blocks = useMemo(() => parseJdBlocks(text), [text]);
+  if (!blocks.length) return <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)" }}>No description available for this posting.</p>;
+  return (
+    <div style={{ fontSize: 13.5, lineHeight: 1.62, color: "var(--muted)" }}>
+      {blocks.map((b, i) => {
+        if (b.type === "heading") {
+          return (
+            <div key={i} style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", margin: i === 0 ? "0 0 6px" : "18px 0 6px" }}>
+              {b.text}
+            </div>
+          );
+        }
+        if (b.type === "list") {
+          return (
+            <ul key={i} style={{ margin: "0 0 12px", paddingLeft: 20, listStyle: "disc" }}>
+              {b.items.map((it, j) => (
+                <li key={j} style={{ margin: "0 0 6px", lineHeight: 1.55 }}>{it}</li>
+              ))}
+            </ul>
+          );
+        }
+        return <p key={i} style={{ margin: "0 0 10px" }}>{b.text}</p>;
+      })}
+    </div>
+  );
+}
+
+// ── Small inline icons (no emoji — consistent 1.7 stroke) ────────────────────
+const IconPin = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}><path d="M12 21s7-5.4 7-11a7 7 0 10-14 0c0 5.6 7 11 7 11Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><circle cx="12" cy="10" r="2.4" stroke="currentColor" strokeWidth="1.7" /></svg>
+);
+const IconExternal = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}><path d="M14 5h5v5M19 5l-8 8M19 13v5a1 1 0 01-1 1H6a1 1 0 01-1-1V6a1 1 0 011-1h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
+
+/** A small labeled value pill used in the "Job details" block. */
+function Chip({ children, tone }: { children: ReactNode; tone?: "green" }) {
+  const green = tone === "green";
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", padding: "5px 11px", borderRadius: 8,
+      fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+      background: green ? "color-mix(in srgb, #16a34a 13%, transparent)" : "var(--surface2)",
+      color: green ? "#16a34a" : "var(--text)",
+      border: green ? "1px solid color-mix(in srgb, #16a34a 28%, transparent)" : "1px solid var(--border)",
+    }}>{children}</span>
+  );
+}
+
+/** A labeled row ("Pay", "Job type", …) in the "Job details" block. */
+function JobDetailFact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)", marginBottom: 6 }}>{label}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>{children}</div>
+    </div>
+  );
 }
 
 export default function JobDetail({ jobId, embedded = false }: { jobId: string; embedded?: boolean }) {
@@ -194,7 +335,7 @@ function JobBody({
   prepStatus: JobPrepStatus | null;
   prepLaunching: boolean;
 }) {
-  const salary = formatSalary(job);
+  const salaryFull = formatSalaryFull(job);
   const posted = formatPostedAt(job.postedAt);
   // JD is collapsed by default (Google-style "Show full description") so a long
   // posting never dominates the panel. Only long JDs get the toggle.
@@ -223,57 +364,45 @@ function JobBody({
       gap: 24,
       alignItems: "start",
     }}>
-      {/* LEFT — header + JD */}
+      {/* LEFT — header + job details + full description */}
       <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Header — title → company → location·work-model → salary·type → apply */}
         <Card>
-          <CardContent style={{ padding: "26px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-              <CompanyLogo company={job.company} companyDomain={job.companyDomain} slug={job.companySlug} size={64} radius={14} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                  {posted && <Badge variant="secondary" style={{ fontSize: 11 }}>Posted {posted}</Badge>}
-                  {job.isActive && <Badge variant="secondary" style={{ fontSize: 11 }}>Actively hiring</Badge>}
-                </div>
+          <CardContent style={{ padding: "26px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+              <CompanyLogo company={job.company} companyDomain={job.companyDomain} slug={job.companySlug} size={56} radius={12} />
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--text)", margin: 0, lineHeight: 1.2 }}>{job.title}</h1>
-                <div style={{ fontSize: 13.5, color: "var(--muted)", marginTop: 4 }}>{job.company}</div>
+                <div style={{ marginTop: 6 }}>
+                  {job.url ? (
+                    <a
+                      href={job.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 600, color: "var(--accent)", textDecoration: "none" }}
+                    >
+                      {job.company} <IconExternal />
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{job.company}</span>
+                  )}
+                </div>
+                {(job.location || (job.workModel && WM_LABEL[job.workModel])) && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 13.5, color: "var(--muted)" }}>
+                    <IconPin />
+                    <span>
+                      {job.location}
+                      {job.location && job.workModel && WM_LABEL[job.workModel] ? "  ·  " : ""}
+                      {job.workModel && WM_LABEL[job.workModel] ? `${WM_LABEL[job.workModel]} work` : ""}
+                    </span>
+                  </div>
+                )}
+                <div style={{ marginTop: 8, fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>
+                  {salaryFull ? `${salaryFull}  ·  ` : ""}Full-time
+                </div>
               </div>
             </div>
-            <div style={{ height: 1, background: "var(--surface2)" }} />
-            <div style={{ display: "flex", gap: 22, flexWrap: "wrap", fontSize: 13, color: "var(--text)" }}>
-              {job.location && <span>📍 {job.location}</span>}
-              {job.workModel && WM_LABEL[job.workModel] && <span>🏢 {WM_LABEL[job.workModel]}</span>}
-              {job.seniority && SEN_LABEL[job.seniority] && <span>📈 {SEN_LABEL[job.seniority]}</span>}
-              {formatApplicants(job.applicantCount) && <span>👥 {formatApplicants(job.applicantCount)}</span>}
-              <span>🕑 Full-time</span>
-            </div>
-            {(salary || job.h1bSponsor || job.visaSponsorship === "yes") && (
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                {salary && (
-                  <Badge style={{ fontSize: 13, background: "var(--accent-bg)", color: "var(--accent)", border: "none" }}>{salary}</Badge>
-                )}
-                {(job.h1bSponsor || job.visaSponsorship === "yes") && (
-                  <Badge style={{ fontSize: 13, background: "color-mix(in srgb, #16a34a 14%, transparent)", color: "#16a34a", border: "none" }}>
-                    {job.h1bSponsor && job.h1bCertifiedCount
-                      ? `H-1B sponsor · ${job.h1bCertifiedCount.toLocaleString()} approvals`
-                      : "H-1B sponsor"}
-                  </Badge>
-                )}
-                {salary && (
-                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                    {job.salarySource === "jd" ? "Estimated from the job description" : "Listed by the company on its careers page"}
-                  </span>
-                )}
-              </div>
-            )}
-            {job.h1bSponsor && job.h1bMedianWage != null && (
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                DOL H-1B median offered wage at this employer:{" "}
-                <strong style={{ color: "var(--text)" }}>
-                  ${Math.round(job.h1bMedianWage / 1000)}k/yr
-                </strong>
-              </div>
-            )}
-            {/* Primary action — apply on the source board (Google puts this up top). */}
+
             {job.url && (
               <a
                 href={job.url}
@@ -281,29 +410,76 @@ function JobBody({
                 rel="noopener noreferrer"
                 style={{
                   display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
-                  alignSelf: "flex-start", padding: "11px 22px", borderRadius: 10,
-                  background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600,
+                  alignSelf: "flex-start", padding: "11px 24px", borderRadius: 10,
+                  background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 600,
                   textDecoration: "none", marginTop: 2,
                 }}
               >
-                Apply ↗
+                Apply on company site <IconExternal />
               </a>
             )}
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>
+              {formatApplicants(job.applicantCount)} on Resunova
+              {posted ? ` · Posted ${posted}` : ""}
+              {job.isActive ? " · Actively hiring" : ""}
+            </div>
           </CardContent>
         </Card>
 
+        {/* Job details — labeled facts, Indeed-style chips */}
+        <Card>
+          <CardContent style={{ padding: "22px 28px" }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", margin: "0 0 14px" }}>Job details</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {salaryFull && (
+                <JobDetailFact label="Pay">
+                  <Chip>{salaryFull}</Chip>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    {job.salarySource === "jd" ? "Estimated from the job description" : "Listed by the company"}
+                  </span>
+                </JobDetailFact>
+              )}
+              <JobDetailFact label="Job type">
+                <Chip>Full-time</Chip>
+              </JobDetailFact>
+              {job.workModel && WM_LABEL[job.workModel] && (
+                <JobDetailFact label="Work model">
+                  <Chip>{WM_LABEL[job.workModel]}</Chip>
+                </JobDetailFact>
+              )}
+              {job.seniority && SEN_LABEL[job.seniority] && (
+                <JobDetailFact label="Level">
+                  <Chip>{SEN_LABEL[job.seniority]}</Chip>
+                </JobDetailFact>
+              )}
+              {(job.h1bSponsor || job.visaSponsorship === "yes") && (
+                <JobDetailFact label="Visa">
+                  <Chip tone="green">
+                    {job.h1bSponsor && job.h1bCertifiedCount
+                      ? `H-1B sponsor · ${job.h1bCertifiedCount.toLocaleString()} approvals`
+                      : "H-1B sponsor"}
+                  </Chip>
+                  {job.h1bSponsor && job.h1bMedianWage != null && (
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                      DOL median wage ${Math.round(job.h1bMedianWage / 1000)}k/yr
+                    </span>
+                  )}
+                </JobDetailFact>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Full job description — parsed into headings, paragraphs, and bullet lists */}
         <Card>
           <CardContent style={{ padding: "24px 28px" }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: "0 0 12px" }}>About this role</h2>
-            {/* Collapsed by default (Google "Show full description") — a long JD no
-                longer makes a wall; the panel itself scrolls, so we avoid a
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", margin: "0 0 14px" }}>Full job description</h2>
+            {/* Collapsed by default (Google/Indeed "Show full description") — a long
+                JD no longer makes a wall; the panel itself scrolls, so we avoid a
                 nested scroll region inside it. */}
             <div style={{ position: "relative" }}>
-              <div style={{
-                fontSize: 13.5, lineHeight: 1.62, color: "var(--muted)", whiteSpace: "pre-wrap",
-                ...(jdLong && !showFullJd ? { maxHeight: 300, overflow: "hidden" } : {}),
-              }}>
-                {jdDisplay || "No description available for this posting."}
+              <div style={jdLong && !showFullJd ? { maxHeight: 320, overflow: "hidden" } : undefined}>
+                <JobDescription text={jdDisplay} />
               </div>
               {jdLong && !showFullJd && (
                 // Fade so the clamp reads as "more below", not a hard cut.
@@ -318,7 +494,7 @@ function JobBody({
                 type="button"
                 onClick={() => setShowFullJd((v) => !v)}
                 style={{
-                  marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6,
+                  marginTop: 14, display: "inline-flex", alignItems: "center", gap: 6,
                   background: "none", border: "1px solid var(--border)", borderRadius: 8,
                   padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--accent)",
                 }}
