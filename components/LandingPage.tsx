@@ -13,6 +13,7 @@ import {
   VariantE,
 } from "@/components/LandingFeatureShowcase";
 import LandingFAQ from "@/components/LandingFAQ";
+import LandingTopCompanies from "@/components/LandingTopCompanies";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 // Cool slate palette — professional SaaS, not warm editorial
@@ -757,6 +758,7 @@ export default function LandingPage() {
         <div style={{ display: "flex", gap: 0, width: "max-content", animation: "ticker 36s linear infinite" }}>
           {[...Array(4)].flatMap(() => [
             ["$0",      "Completely free — always"],
+            ["250k+",   "Jobs on the board"],
             ["400+",    "Job seekers so far"],
             ["60s",     "Typical tailoring time"],
             ["4.7 ★",   "Early user rating"],
@@ -1602,9 +1604,16 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
             <h2 style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 20px", color: C.ink }}>
               Find jobs that fit —<br />before you apply.
             </h2>
-            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.7, margin: "0 0 40px", maxWidth: 460 }}>
-              A scored, profile-aware feed so you spend time on the roles most likely to call you back.
+            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.7, margin: "0 0 24px", maxWidth: 460 }}>
+              Search a feed tuned to your résumé, see your match before you apply, tailor in one click, and track every application — without leaving Resunova.
             </p>
+
+            {/* Scale stat — a number that lands. Round + under the true total, refreshed daily. */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 40 }}>
+              <span style={{ fontSize: "clamp(30px, 4.5vw, 44px)", fontWeight: 800, color: T.blue, letterSpacing: "-0.03em", lineHeight: 1 }}>250,000+</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>jobs on the board</span>
+              <span style={{ fontSize: 13, color: C.muted }}>· refreshed daily</span>
+            </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 40 }}>
               {features.map(({ svg, bg, color, title, desc }) => (
@@ -1642,6 +1651,9 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
           {/* Right — self-playing apply demo (cycles roles, taps Apply, slides up) */}
           <JobApplyFeed jobs={jobs} C={C} dark={dark} />
         </div>
+
+        {/* Top companies hiring — live, server-cached counts; renders nothing if the API is unavailable. */}
+        <LandingTopCompanies C={C} accent={T.blue} />
       </div>
     </section>
   );
