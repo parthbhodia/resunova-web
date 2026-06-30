@@ -39,7 +39,7 @@ import FeaturedCompaniesRail from "@/components/FeaturedCompaniesRail";
 import BoostPanel from "@/components/BoostPanel";
 import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
-import { SENIORITY_BUCKET_VALS } from "@/lib/jobsTaxonomy";
+import { SENIORITY_BUCKET_VALS, NATIONWIDE_LOCATION } from "@/lib/jobsTaxonomy";
 
 export type FeedJob = {
   id: string;
@@ -336,7 +336,7 @@ function appendBrowseParams(
   if (!sel) return;
   if (hardScope && sel.titleTerms?.length) params.set("title_any", sel.titleTerms.join("|"));
   if (sel.locationTerms?.length) params.set("location_any", sel.locationTerms.join("|"));
-  else if (sel.location?.trim() && !sel.workModel) params.set("location", sel.location.trim());
+  else if (sel.location?.trim() && sel.location.trim() !== NATIONWIDE_LOCATION && !sel.workModel) params.set("location", sel.location.trim());
   if (hardScope && sel.workModel) params.set("work_model", sel.workModel);
   // Experience level carries on BOTH paths (it's a user choice, not a scope-
   // collapsing alias). On the ranked feed, serverFilterEntries re-sets this same

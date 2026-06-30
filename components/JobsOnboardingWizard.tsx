@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import SearchableSelect, { type SelectItem } from "@/components/SearchableSelect";
 import {
-  ROLE_SUGGESTIONS, US_METROS, matchRoleSuggestions, matchMetros,
+  ROLE_SUGGESTIONS, US_METROS, NATIONWIDE_LOCATION, matchRoleSuggestions, matchMetros,
   browseSelectionToParams, type JobsBrowseSelection,
 } from "@/lib/jobsTaxonomy";
 import { apiUrl } from "@/lib/utils";
@@ -102,7 +102,9 @@ export default function JobsOnboardingWizard({
   const [step, setStep] = useState<1 | 2 | 3 | 4>(initialStep);
   const [role, setRole] = useState(initialRole);
   const [roleTerms, setRoleTerms] = useState<string[] | null>(initialRoleTerms);
-  const [location, setLocation] = useState(initialLocation);
+  // US-only product → default the location to "United States" (a no-narrowing
+  // sentinel) so it reads as pre-selected instead of an empty field.
+  const [location, setLocation] = useState(initialLocation || NATIONWIDE_LOCATION);
   const [metroTerms, setMetroTerms] = useState<string[] | null>(initialMetroTerms);
   const [workModel, setWorkModel] = useState(initialWorkModel);
   const [seniority, setSeniority] = useState(initialSeniority);
