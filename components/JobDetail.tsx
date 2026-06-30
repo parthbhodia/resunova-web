@@ -185,6 +185,24 @@ const IconPin = () => (
 const IconExternal = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}><path d="M14 5h5v5M19 5l-8 8M19 13v5a1 1 0 01-1 1H6a1 1 0 01-1-1V6a1 1 0 011-1h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
+const IconClose = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>
+);
+const IconSparkle = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden style={{ flexShrink: 0 }}><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9L12 2.5Z" /></svg>
+);
+const IconMic = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" strokeWidth="1.7" /><path d="M5 11a7 7 0 0014 0M12 18v3M9 21h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
+const IconCheck = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
+const IconPlus = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+);
+const IconArrowR = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}><path d="M5 12h13M12 5l7 7-7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
 
 /** A small labeled value pill used in the "Job details" block. */
 function Chip({ children, tone }: { children: ReactNode; tone?: "green" }) {
@@ -260,7 +278,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
             aria-label="Close job detail"
             style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer", padding: "5px 10px", fontSize: 12.5, color: "var(--muted)" }}
           >
-            ✕ Close
+            <IconClose /> Close
           </button>
         </div>
       ) : (
@@ -559,102 +577,105 @@ function MatchPanel({ job, onBoost }: { job: JobDetailData; onBoost: () => void 
   const AMBER = "#c4793a";
 
   return (
-    <div style={{ borderRadius: 18, padding: "28px 24px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-      <div style={{ width: 128, height: 128, borderRadius: "50%", background: ring, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 104, height: 104, borderRadius: "50%", background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <span style={{ fontSize: 32, fontWeight: 700, color: "var(--text)" }}>{score == null ? "—" : `${score}%`}</span>
+    <Card>
+      <CardContent style={{ padding: "28px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        <div style={{ width: 128, height: 128, borderRadius: "50%", background: ring, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 104, height: 104, borderRadius: "50%", background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 32, fontWeight: 700, color: "var(--text)" }}>{score == null ? "—" : `${score}%`}</span>
+          </div>
         </div>
-      </div>
-      <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.04em", color: "var(--text)" }}>{scoreLabel(score)}</div>
-      <div style={{ fontSize: 12.5, color: "var(--muted)", textAlign: "center" }}>
-        {score == null
-          ? "Scan your résumé to see how you match this role."
-          : `Your résumé matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
-      </div>
+        <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.04em", color: "var(--text)" }}>{scoreLabel(score)}</div>
+        <div style={{ fontSize: 12.5, color: "var(--muted)", textAlign: "center" }}>
+          {score == null
+            ? "Scan your résumé to see how you match this role."
+            : `Your résumé matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
+        </div>
 
-      {hasReqChips ? (
-        <>
-          <div style={{ width: "100%", height: 1, background: "var(--border)" }} />
-          <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>
-            <span>REQUIREMENTS</span>
-            <span>{job.matchedCount}/{job.totalRequirements} MATCHED</span>
-          </div>
-          <div style={{ width: "100%", height: 7, borderRadius: 999, background: "var(--surface2)", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${matchPct}%`, background: AMBER, borderRadius: 999, transition: "width .6s cubic-bezier(.22,1,.36,1)" }} />
-          </div>
-          <div style={{ width: "100%", fontSize: 12, lineHeight: 1.45, color: "var(--muted)" }}>
-            {job.missing.length === 0
-              ? "Every requirement covered — you're ready to apply. ✦"
-              : `You're ${matchPct}% there — add a few below to stand out.`}
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, width: "100%" }}>
-            {visibleReqs.map((r) => (
-              <span
-                key={`${r.ok ? "y" : "n"}-${r.canonical}`}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 999,
-                  fontSize: 12, fontWeight: 500, lineHeight: 1,
-                  background: r.ok ? "color-mix(in srgb, var(--green-ink, #34d399) 13%, transparent)" : "color-mix(in srgb, #c4793a 12%, transparent)",
-                  border: r.ok
-                    ? "1px solid color-mix(in srgb, var(--green-ink, #34d399) 30%, transparent)"
-                    : "1px solid color-mix(in srgb, #c4793a 34%, transparent)",
-                  color: "var(--text)",
-                }}
+        {hasReqChips ? (
+          <>
+            <div style={{ width: "100%", height: 1, background: "var(--border)" }} />
+            <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>
+              <span>REQUIREMENTS</span>
+              <span>{job.matchedCount}/{job.totalRequirements} MATCHED</span>
+            </div>
+            <div style={{ width: "100%", height: 7, borderRadius: 999, background: "var(--surface2)", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${matchPct}%`, background: AMBER, borderRadius: 999, transition: "width .6s cubic-bezier(.22,1,.36,1)" }} />
+            </div>
+            <div style={{ width: "100%", fontSize: 12, lineHeight: 1.45, color: "var(--muted)" }}>
+              {job.missing.length === 0
+                ? "Every requirement covered — you're ready to apply."
+                : `You're ${matchPct}% there — add a few below to stand out.`}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, width: "100%" }}>
+              {visibleReqs.map((r) => (
+                <span
+                  key={`${r.ok ? "y" : "n"}-${r.canonical}`}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 999,
+                    fontSize: 12, fontWeight: 500, lineHeight: 1,
+                    background: r.ok ? "color-mix(in srgb, var(--green-ink, #34d399) 13%, transparent)" : "color-mix(in srgb, #c4793a 12%, transparent)",
+                    border: r.ok
+                      ? "1px solid color-mix(in srgb, var(--green-ink, #34d399) 30%, transparent)"
+                      : "1px solid color-mix(in srgb, #c4793a 34%, transparent)",
+                    color: "var(--text)",
+                  }}
+                >
+                  <span style={{ display: "inline-flex", color: r.ok ? "var(--green-ink, #34d399)" : AMBER }}>{r.ok ? <IconCheck /> : <IconPlus />}</span>
+                  {r.canonical}
+                </span>
+              ))}
+            </div>
+            {reqs.length > REQ_COLLAPSED && (
+              <button
+                onClick={() => setShowAllReqs((v) => !v)}
+                style={{ alignSelf: "flex-start", background: "none", border: "none", padding: "2px 0", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--accent)" }}
               >
-                <span style={{ color: r.ok ? "var(--green-ink, #34d399)" : AMBER, fontWeight: 700 }}>{r.ok ? "✓" : "+"}</span>
-                {r.canonical}
-              </span>
-            ))}
-          </div>
-          {reqs.length > REQ_COLLAPSED && (
-            <button
-              onClick={() => setShowAllReqs((v) => !v)}
-              style={{ alignSelf: "flex-start", background: "none", border: "none", padding: "2px 0", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--accent)" }}
-            >
-              {showAllReqs ? "Show fewer" : `Show all ${reqs.length} requirements ›`}
-            </button>
-          )}
-        </>
-      ) : job.totalRequirements > 0 ? (
-        <>
-          <div style={{ width: "100%", height: 1, background: "var(--border)" }} />
-          <div style={{ width: "100%", fontSize: 12, lineHeight: 1.5, color: "var(--muted)" }}>
-            {job.totalRequirements} requirement{job.totalRequirements === 1 ? "" : "s"} extracted from this posting.
-            {score == null ? " Scan your résumé to see which ones you match." : ""}
-          </div>
-        </>
-      ) : null}
+                {showAllReqs ? "Show fewer" : `Show all ${reqs.length} requirements ›`}
+              </button>
+            )}
+          </>
+        ) : job.totalRequirements > 0 ? (
+          <>
+            <div style={{ width: "100%", height: 1, background: "var(--border)" }} />
+            <div style={{ width: "100%", fontSize: 12, lineHeight: 1.5, color: "var(--muted)" }}>
+              {job.totalRequirements} requirement{job.totalRequirements === 1 ? "" : "s"} extracted from this posting.
+              {score == null ? " Scan your résumé to see which ones you match." : ""}
+            </div>
+          </>
+        ) : null}
 
-      {job.missing.length > 0 && (
-        <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
-          One tap tailors your résumé to add {job.missing.length} of these — from your real experience.
-        </div>
-      )}
+        {job.missing.length > 0 && (
+          <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
+            One tap tailors your résumé to add {job.missing.length} of these — from your real experience.
+          </div>
+        )}
 
-      <button
-        onClick={onBoost}
-        onMouseEnter={() => setBoostHover(true)}
-        onMouseLeave={() => setBoostHover(false)}
-        style={{
-          width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
-          background: boostHover ? "#b06a30" : "#c4793a", color: "#fff", fontSize: 14, fontWeight: 600,
-          cursor: "pointer", marginTop: 2,
-          transition: "background .15s ease, transform .15s ease, box-shadow .15s ease",
-          transform: boostHover ? "translateY(-1px)" : "none",
-          boxShadow: boostHover ? "0 6px 16px rgba(196,121,58,0.32)" : "none",
-        }}
-      >
-        ✦ Optimize my résumé
-      </button>
-      <a
-        href={job.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 13.5, fontWeight: 600, textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}
-      >
-        Apply on company site ↗
-      </a>
-    </div>
+        <button
+          onClick={onBoost}
+          onMouseEnter={() => setBoostHover(true)}
+          onMouseLeave={() => setBoostHover(false)}
+          style={{
+            width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+            background: boostHover ? "#b06a30" : "#c4793a", color: "#fff", fontSize: 14, fontWeight: 600,
+            cursor: "pointer", marginTop: 2,
+            transition: "background .15s ease, transform .15s ease, box-shadow .15s ease",
+            transform: boostHover ? "translateY(-1px)" : "none",
+            boxShadow: boostHover ? "0 6px 16px rgba(196,121,58,0.32)" : "none",
+          }}
+        >
+          <IconSparkle /> Optimize my résumé
+        </button>
+        <a
+          href={job.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 13.5, fontWeight: 600, textAlign: "center", textDecoration: "none", boxSizing: "border-box", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}
+        >
+          Apply on company site <IconExternal />
+        </a>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -671,35 +692,38 @@ function PrepCard({
 }) {
   const ready = !!prepStatus;
   return (
-    <div style={{ borderRadius: 18, padding: "22px 24px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 20 }}>🎤</span>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Prepare for your interview</div>
-      </div>
-      <div style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--muted)" }}>
-        {ready
-          ? `Your prep kit for ${job.company || "this role"} is ready — ${prepStatus!.questionCount} questions with STAR+R answers and best-story matches.`
-          : `Generate company-specific questions for ${job.company || "this role"} from your résumé and this job description — with STAR+R answer structures.`}
-      </div>
-      <button
-        onClick={onPrep}
-        disabled={prepLaunching}
-        style={{
-          width: "100%",
-          padding: "12px 0",
-          borderRadius: 10,
-          border: ready ? "1px solid color-mix(in srgb, var(--green-ink) 40%, transparent)" : "none",
-          background: ready ? "color-mix(in srgb, var(--green-ink) 12%, transparent)" : "var(--accent)",
-          color: ready ? "var(--green-ink)" : "var(--accent-ink, #fff)",
-          fontSize: 13.5,
-          fontWeight: 600,
-          cursor: prepLaunching ? "wait" : "pointer",
-          opacity: prepLaunching ? 0.7 : 1,
-          boxSizing: "border-box",
-        }}
-      >
-        {prepLaunching ? "Opening…" : ready ? "🎤 Open prep kit →" : "🎤 Generate prep kit"}
-      </button>
-    </div>
+    <Card>
+      <CardContent style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--accent)" }}>
+          <IconMic />
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Prepare for your interview</div>
+        </div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--muted)" }}>
+          {ready
+            ? `Your prep kit for ${job.company || "this role"} is ready — ${prepStatus!.questionCount} questions with STAR+R answers and best-story matches.`
+            : `Generate company-specific questions for ${job.company || "this role"} from your résumé and this job description — with STAR+R answer structures.`}
+        </div>
+        <button
+          onClick={onPrep}
+          disabled={prepLaunching}
+          style={{
+            width: "100%",
+            padding: "12px 0",
+            borderRadius: 10,
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+            border: ready ? "1px solid color-mix(in srgb, var(--green-ink) 40%, transparent)" : "none",
+            background: ready ? "color-mix(in srgb, var(--green-ink) 12%, transparent)" : "var(--accent)",
+            color: ready ? "var(--green-ink)" : "var(--accent-ink, #fff)",
+            fontSize: 13.5,
+            fontWeight: 600,
+            cursor: prepLaunching ? "wait" : "pointer",
+            opacity: prepLaunching ? 0.7 : 1,
+            boxSizing: "border-box",
+          }}
+        >
+          {prepLaunching ? "Opening…" : ready ? (<><IconMic /> Open prep kit <IconArrowR /></>) : (<><IconMic /> Generate prep kit</>)}
+        </button>
+      </CardContent>
+    </Card>
   );
 }
