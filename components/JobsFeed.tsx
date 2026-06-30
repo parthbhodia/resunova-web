@@ -1310,6 +1310,16 @@ export default function JobsFeed({
       ? `Showing ${shownCount.toLocaleString()} of ${totalMatching.toLocaleString()} ${jobWord}`
       : `${shownCount.toLocaleString()}${serverHasMore ? "+" : ""} ${jobWord}`;
 
+  // Flicker guard: when a search/filter empties the main feed, the "outside your
+  // filters" fallback fetches in the background. Show a loading skeleton (NOT the
+  // "No openings" card) until that fallback settles, so the feed never flashes an
+  // empty "no results" state mid-search.
+  const fallbackFkey = `${debouncedSearch}|${roleQuery}|${rankAnalysisId}`;
+  const fallbackSettled = fallback.key === fallbackFkey && !fallback.loading;
+  const mainEmpty = state.status === "ready" && state.jobs.length === 0;
+  const showEmptyCard = mainEmpty && fallbackSettled && fallback.jobs.length === 0;
+  const showFeedLoading = mainEmpty && !fallbackSettled && fallback.jobs.length === 0;
+
   // Fetch the next backend page and append (dedup by id). Mirrors loadFeed's
   // params + offset + the echoed feed_family so the page scopes the same set.
   const loadMoreFromServer = useCallback(async () => {
@@ -1754,7 +1764,30 @@ export default function JobsFeed({
           </Card>
         )}
 
-        {state.status === "ready" && state.jobs.length === 0 && (
+        {state.status === "ready" && companyFilter && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 14px", marginBottom: 12, borderRadius: 10, border: "1px solid var(--border)", background: "color-mix(in srgb, var(--accent) 9%, transparent)" }}>
+            <span style={{ fontSize: 13, color: "var(--text)" }}>
+              Showing jobs at <strong style={{ fontWeight: 700 }}>{companyFilter}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => handleCompanySelect(companyFilter)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Clear ✕
+            </button>
+          </div>
+        )}
+
+        {showFeedLoading && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }} aria-busy="true" aria-label="Loading jobs">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-[96px] w-full rounded-2xl" />
+            ))}
+          </div>
+        )}
+
+        {showEmptyCard && (
           <Card>
             <CardContent style={{ padding: "40px 28px", textAlign: "center" }}>
               <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: 0 }}>No openings in this window</h2>
@@ -1805,8 +1838,7 @@ export default function JobsFeed({
         {/* Outside-your-filters fallback: never dead-end on an empty result —
             show the relaxed set (same search, no facet/age/country limits) in a
             clearly separate section so the user can still see what's out there. */}
-        {state.status === "ready" && pagedJobs.length === 0 &&
-          (fallback.loading || fallback.jobs.length > 0) && (
+        {state.status === "ready" && pagedJobs.length === 0 && fallback.jobs.length > 0 && (
           <div style={{ marginTop: 18 }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "0 0 10px", flexWrap: "wrap" }}>
               <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", margin: 0, textTransform: "uppercase", letterSpacing: "0.03em" }}>
@@ -1818,13 +1850,9 @@ export default function JobsFeed({
                   : "Roles beyond your current date / location / filters"}
               </span>
             </div>
-            {fallback.loading && fallback.jobs.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--muted)", padding: "8px 0" }}>Looking wider…</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {fallback.jobs.slice(0, FALLBACK_LIMIT).map((job) => renderJobCard(job, outsideReason(job)))}
-              </div>
-            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {fallback.jobs.slice(0, FALLBACK_LIMIT).map((job) => renderJobCard(job, outsideReason(job)))}
+            </div>
             {!fallback.loading && fallback.jobs.length > FALLBACK_LIMIT && (
               <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "12px 0 0" }}>
                 Showing {FALLBACK_LIMIT} of {fallback.jobs.length} — widen a filter above to see more in your main feed.
