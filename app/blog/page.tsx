@@ -38,9 +38,14 @@ export default function BlogIndexPage() {
         <Link href="/" style={{ textDecoration: "none" }}>
           <LogoFull markSize={26} textColor="var(--text)" />
         </Link>
-        <Link href="/" style={{ color: "var(--dim)", textDecoration: "none", fontSize: 13 }}>
-          App
-        </Link>
+        <nav style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 13 }}>
+          <Link href="/resume-examples" style={{ color: "var(--dim)", textDecoration: "none" }}>
+            Resume Examples
+          </Link>
+          <Link href="/" style={{ color: "var(--dim)", textDecoration: "none" }}>
+            App
+          </Link>
+        </nav>
       </header>
 
       <main style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px 80px" }}>

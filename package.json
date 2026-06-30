@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:seo-data": "node scripts/build-seo-data.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",

@@ -1073,14 +1073,17 @@ export interface PrepStory {
  * STAR+R stories that accumulates across every prep session
  * (GET /api/interview-prep/stories). Empty array when signed out or on error.
  */
-export async function fetchStoryBank(): Promise<PrepStory[]> {
+export async function fetchStoryBank(sessionId?: string | null): Promise<PrepStory[]> {
   try {
     const db = getSupabaseClient();
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token) return [];
 
+    // Scope the bank to the current prep session (this résumé) so we never show
+    // a previous résumé's stories.
+    const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : "";
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/stories`,
+      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/stories${qs}`,
       {
         method: "GET",
         headers: {

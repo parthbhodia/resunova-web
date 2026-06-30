@@ -12,6 +12,7 @@ import {
   VariantD,
   VariantE,
 } from "@/components/LandingFeatureShowcase";
+import LandingFAQ from "@/components/LandingFAQ";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 // Cool slate palette — professional SaaS, not warm editorial
@@ -473,6 +474,7 @@ export default function LandingPage() {
             ["Approach", "approach"],
             ...(SHOW_HOW_SECTION ? [["How it works", "how"]] as const : []),
             ["Reviews", "reviews"],
+            ["FAQ", "faq"],
             ["Privacy", "privacy-nav"],
           ].map(([lbl, id]) => (
             id === "privacy-nav" ? (
@@ -1079,6 +1081,9 @@ export default function LandingPage() {
           />
         </Link>
       </section>
+
+      {/* ───────────── FAQ (visible + JSON-LD for the crawlable homepage) ── */}
+      <LandingFAQ C={C} accent={T.blue} />
 
       {/* ───────────── Final CTA ────────────────────────────── */}
       <section style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>

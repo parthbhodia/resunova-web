@@ -110,8 +110,13 @@ export const useInterviewPrepStore = create<InterviewPrepStore>((set) => ({
       resumeCategory: payload.category,
       parsing: false,
       parseError: null,
+      // A new résumé starts a fresh prep — drop any prior session so the
+      // dashboard generates from THIS résumé and never reuses the previous
+      // résumé's saved kit / Story Bank.
+      sessionId: null,
+      loadedFromDb: false,
     }),
-  clearResume: () => set({ ...initialResume }),
+  clearResume: () => set({ ...initialResume, sessionId: null, loadedFromDb: false }),
   setJobDescription: (jobDescription) => set({ jobDescription }),
   setCompany: (company) => set({ company }),
   setRole: (role) => set({ role }),
