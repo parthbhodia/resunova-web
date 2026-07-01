@@ -385,7 +385,7 @@ let feedCache: { key: string; at: number; data: FeedReady } | null = null;
  * Warm the module-level feed cache so opening the Jobs tab is instant. Called
  * (best-effort) from the app shell once a signed-in session resolves — "start
  * the call when the user lands". Mirrors loadFeed's DEFAULT request: the
- * 30-day window + any role the no-résumé visitor previously picked. Anything
+ * default date window + any role the no-résumé visitor previously picked. Anything
  * that doesn't map cleanly (no session, needsRole, error) is a silent no-op —
  * JobsFeed then just fetches on mount as before. The dynamic import that calls
  * this also warms the Jobs view's JS chunk, so both data and code are ready.
@@ -591,7 +591,9 @@ export default function JobsFeed({
   const [publicCount, setPublicCount] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
-    fetch(apiUrl("/api/jobs/public-count?max_age_days=30"))
+    const days = AGE_FILTERS.find((f) => f.key === DEFAULT_AGE_FILTER)?.days ?? 0;
+    const qs = days ? `?max_age_days=${days}` : "";
+    fetch(apiUrl(`/api/jobs/public-count${qs}`))
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (!cancelled && d && typeof d.count === "number") setPublicCount(d.count); })
       .catch(() => {});
