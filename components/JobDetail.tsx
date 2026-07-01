@@ -21,6 +21,7 @@ import { fetchJobDetail, scoreLabel, type JobDetail as JobDetailData } from "@/l
 import { fetchJobPrepStatuses, getSupabaseClient, type JobPrepStatus } from "@/lib/supabase";
 import { goToFreeScan, stashAnalyzeJd } from "@/lib/anonScan";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
+import { apiUrl } from "@/lib/utils";
 import BoostPanel from "@/components/BoostPanel";
 import CompanyLogo from "@/components/CompanyLogo";
 import InsiderPanel from "@/components/InsiderPanel";
@@ -268,6 +269,38 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
     router.push("/interview-prep/dashboard");
   }, [state, router]);
 
+  const updateJobMatchScore = useCallback((postingId: string, score: number) => {
+    setState((prev) =>
+      prev.status === "ready" && prev.job.id === postingId
+        ? { ...prev, job: { ...prev.job, matchScore: score } }
+        : prev,
+    );
+  }, []);
+
+  const trackApplyClick = useCallback(async (postingId: string) => {
+    try {
+      const supabase = getSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+      await fetch(apiUrl("/api/jobs/event"), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ posting_id: postingId, event: "apply_click" }),
+        keepalive: true,
+      });
+    } catch {
+      /* tracking must never block applying */
+    }
+  }, []);
+
+  const handleBoostApplied = useCallback((postingId: string, score: number | null) => {
+    if (typeof score === "number") updateJobMatchScore(postingId, score);
+    void trackApplyClick(postingId);
+  }, [trackApplyClick, updateJobMatchScore]);
+
   // Signed-out visitors get an "Upload your résumé" CTA (the boost flow needs a
   // résumé) instead of the résumé-dependent "Optimize" action — see MatchPanel.
   useEffect(() => {
@@ -348,7 +381,13 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
       {/* Stays mounted while the job is loaded so the optimize step/result
           survives closing + reopening the slide-over (no re-generation). */}
       {state.status === "ready" && (
-        <BoostPanel job={state.job} open={boostOpen} onClose={() => setBoostOpen(false)} />
+        <BoostPanel
+          job={state.job}
+          open={boostOpen}
+          onClose={() => setBoostOpen(false)}
+          onApplied={handleBoostApplied}
+          onScoreChange={updateJobMatchScore}
+        />
       )}
     </div>
   );

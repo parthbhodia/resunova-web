@@ -1064,6 +1064,18 @@ export default function JobsFeed({
     return () => subscription.unsubscribe();
   }, []);
 
+  const updateJobMatchScore = useCallback((postingId: string, score: number) => {
+    const patchFeed = (feed: FeedReady): FeedReady => ({
+      ...feed,
+      jobs: feed.jobs.map((job) => (job.id === postingId ? { ...job, matchScore: score } : job)),
+    });
+    setState((prev) => (prev.status === "ready" ? patchFeed(prev) : prev));
+    setBoostJob((prev) => (prev?.id === postingId ? { ...prev, matchScore: score } : prev));
+    if (feedCache?.data.status === "ready") {
+      feedCache = { ...feedCache, data: patchFeed(feedCache.data) };
+    }
+  }, []);
+
   const trackApplyClick = useCallback(async (postingId: string) => {
     // Optimistically mark as applied immediately
     setAppliedIds((prev) => new Set(prev).add(postingId));
@@ -1084,6 +1096,11 @@ export default function JobsFeed({
       // tracking must never break the UX; keep the applied mark
     }
   }, []);
+
+  const handleBoostApplied = useCallback((postingId: string, score: number | null) => {
+    if (typeof score === "number") updateJobMatchScore(postingId, score);
+    void trackApplyClick(postingId);
+  }, [trackApplyClick, updateJobMatchScore]);
 
   const visibleJobs = useMemo(() => {
     if (state.status !== "ready") return [];
@@ -1956,7 +1973,14 @@ export default function JobsFeed({
         />
       )}
 
-      {boostJob && <BoostPanel job={boostJob} onClose={() => setBoostJob(null)} />}
+      {boostJob && (
+        <BoostPanel
+          job={boostJob}
+          onClose={() => setBoostJob(null)}
+          onApplied={handleBoostApplied}
+          onScoreChange={updateJobMatchScore}
+        />
+      )}
 
       {boostError && (
         <div

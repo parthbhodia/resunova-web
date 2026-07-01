@@ -61,7 +61,19 @@ const SECTION_LABELS: Record<string, string> = {
   projects: "Projects",
 };
 
-export default function BoostPanel({ job, onClose, open = true }: { job: JobDetailData; onClose: () => void; open?: boolean }) {
+export default function BoostPanel({
+  job,
+  onClose,
+  open = true,
+  onApplied,
+  onScoreChange,
+}: {
+  job: JobDetailData;
+  onClose: () => void;
+  open?: boolean;
+  onApplied?: (postingId: string, score: number | null) => void;
+  onScoreChange?: (postingId: string, score: number) => void;
+}) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -234,6 +246,8 @@ export default function BoostPanel({ job, onClose, open = true }: { job: JobDeta
               onRetry={() => setStep(2)}
               jobUrl={job.url}
               postingId={job.id}
+              onApplied={onApplied}
+              onScoreChange={onScoreChange}
             />
           )}
         </div>
@@ -450,7 +464,20 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
 
 // ─── Step 3 ───────────────────────────────────────────────────────────────
 
-function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, onDownload, onRetry, jobUrl, postingId }: {
+function Step3({
+  generating,
+  result,
+  error,
+  previewRef,
+  pdfExporting,
+  pdfError,
+  onDownload,
+  onRetry,
+  jobUrl,
+  postingId,
+  onApplied,
+  onScoreChange,
+}: {
   generating: boolean;
   result: BoostResult | null;
   error: string | null;
@@ -461,6 +488,8 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
   onRetry: () => void;
   jobUrl: string;
   postingId: string;
+  onApplied?: (postingId: string, score: number | null) => void;
+  onScoreChange?: (postingId: string, score: number) => void;
 }) {
   // ── Accept/reject + live-score state (all hooks run before any early return) ──
   const suggestions = useMemo<BoostSuggestion[]>(
@@ -558,6 +587,19 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
   const toggle = (i: number) => setAccepted((a) => a.map((v, j) => (j === i ? !v : v)));
   const setDraft = (i: number, t: string) => setDrafts((d) => d.map((v, j) => (j === i ? t : v)));
 
+  const improved = result?.improved ?? (total > 0 && afterScore > beforeScore);
+  const partial = total > 0 && acceptedCount !== total && acceptedCount !== 0;
+  // Headline score: anchors are exact; in-between comes from the server re-score
+  // (falls back to the all-applied projection until that endpoint is live).
+  const headlineScore = acceptedCount === total ? afterScore
+    : acceptedCount === 0 ? beforeScore
+    : (liveScore ?? afterScore);
+
+  useEffect(() => {
+    if (!result || acceptedCount === 0 || scoring) return;
+    onScoreChange?.(postingId, headlineScore);
+  }, [acceptedCount, headlineScore, onScoreChange, postingId, result, scoring]);
+
   if (generating) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, flex: 1, minHeight: 260, color: "var(--muted)" }}>
@@ -585,14 +627,6 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
 
   if (!result) return null;
 
-  const improved = result.improved ?? (total > 0 && afterScore > beforeScore);
-  const partial = total > 0 && acceptedCount !== total && acceptedCount !== 0;
-
-  // Headline score: anchors are exact; in-between comes from the server re-score
-  // (falls back to the all-applied projection until that endpoint is live).
-  const headlineScore = acceptedCount === total ? afterScore
-    : acceptedCount === 0 ? beforeScore
-    : (liveScore ?? afterScore);
   const scoreColor = headlineScore >= 70 ? "var(--green-ink)" : headlineScore >= 50 ? "#e0a35c" : "var(--muted)";
   const previewCtx = resumeLayoutFromPreviewStyle("classic");
 
@@ -730,11 +764,16 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
           href={jobUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => onApplied?.(postingId, headlineScore)}
           style={{ flex: "1 1 180px", padding: "13px 0", borderRadius: 11, border: "1px solid var(--surface2)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, textAlign: "center", textDecoration: "none", display: "block" }}
         >
           Apply on company site ↗
         </a>
       </div>
+
+      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0, lineHeight: 1.55 }}>
+        Applying with this tailored version? Download it, then scan it as your latest résumé when you want future jobs scored against this optimized version.
+      </p>
 
       {(pdfError) && (
         <p style={{ fontSize: 12, color: "#d97757", margin: 0 }}>PDF export failed: {pdfError}</p>
