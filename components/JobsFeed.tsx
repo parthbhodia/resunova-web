@@ -110,6 +110,33 @@ const SENIORITY_BUCKETS = [
   { key: "lead", label: "Lead+", vals: ["lead", "principal", "director", "executive"] },
 ] as const;
 
+// Country scope for the feed. Sent as ?country= to the backend, which filters on
+// the accurate non_us flag ("US") or the `country` column (ISO codes) — NOT a
+// literal location match. Ordered by corpus volume; "ALL"/"INTL" are meta-scopes.
+const COUNTRIES = [
+  { key: "US", label: "🇺🇸 United States" },
+  { key: "GB", label: "🇬🇧 United Kingdom" },
+  { key: "IN", label: "🇮🇳 India" },
+  { key: "CA", label: "🇨🇦 Canada" },
+  { key: "DE", label: "🇩🇪 Germany" },
+  { key: "FR", label: "🇫🇷 France" },
+  { key: "NL", label: "🇳🇱 Netherlands" },
+  { key: "IE", label: "🇮🇪 Ireland" },
+  { key: "ES", label: "🇪🇸 Spain" },
+  { key: "PL", label: "🇵🇱 Poland" },
+  { key: "AU", label: "🇦🇺 Australia" },
+  { key: "SG", label: "🇸🇬 Singapore" },
+  { key: "BR", label: "🇧🇷 Brazil" },
+  { key: "MX", label: "🇲🇽 Mexico" },
+  { key: "JP", label: "🇯🇵 Japan" },
+  { key: "PH", label: "🇵🇭 Philippines" },
+  { key: "IL", label: "🇮🇱 Israel" },
+  { key: "INTL", label: "🌍 All international" },
+  { key: "ALL", label: "🌐 Worldwide" },
+] as const;
+const COUNTRY_LABEL = (k: string) => COUNTRIES.find((c) => c.key === k)?.label ?? "🇺🇸 United States";
+const JOBS_COUNTRY_KEY = "rn_jobs_country_v1";
+
 const SORT_OPTIONS = [
   { key: "match", label: "Best match" },
   { key: "newest", label: "Newest" },
@@ -627,6 +654,12 @@ export default function JobsFeed({
       return sel?.seniority ? new Set([sel.seniority]) : new Set();
     } catch { return new Set(); }
   });
+  // Country scope (default US). Persisted so it survives reloads. Replaces the old
+  // literal-location US match with the backend's accurate non_us/country filter.
+  const [countryScope, setCountryScope] = useState<string>(() => {
+    try { return localStorage.getItem(JOBS_COUNTRY_KEY) || "US"; } catch { return "US"; }
+  });
+  useEffect(() => { try { localStorage.setItem(JOBS_COUNTRY_KEY, countryScope); } catch { /* ignore */ } }, [countryScope]);
   const [empType, setEmpType] = useState<string>("");
   const [industry, setIndustry] = useState<string>("");
   const [yearsBucket, setYearsBucket] = useState<string>("any");
@@ -649,12 +682,26 @@ export default function JobsFeed({
   // the cache + re-fetch; score stays client-side (computed field, no DB column).
   const { serverFilterEntries, filterSig } = useMemo(() => {
     const entries: [string, string][] = [];
+    // Country scope → the backend's non_us/country filter (not a literal location).
+    entries.push(["country", countryScope]);
     if (debouncedLocation) entries.push(["location", debouncedLocation]);
     if (workModels.size) entries.push(["work_model_any", [...workModels].join("|")]);
-    const senVals = [...seniorities].flatMap(
-      (k) => (SENIORITY_BUCKETS.find((b) => b.key === k)?.vals as readonly string[] | undefined) ?? [],
-    );
-    if (senVals.length) entries.push(["seniority_any", senVals.join("|")]);
+    // A single experience bucket uses the backend's NULL-inclusive `experience`
+    // predicate so unlabeled entry jobs aren't hidden; multi-select falls back to
+    // the legacy strict seniority_any.
+    if (seniorities.size === 1) {
+      const k = [...seniorities][0];
+      entries.push(["experience", k]);
+      // Also send legacy seniority_any so a not-yet-deployed backend still filters
+      // (the new backend prefers `experience` and ignores this).
+      const vals = SENIORITY_BUCKETS.find((b) => b.key === k)?.vals as readonly string[] | undefined;
+      if (vals?.length) entries.push(["seniority_any", vals.join("|")]);
+    } else if (seniorities.size > 1) {
+      const senVals = [...seniorities].flatMap(
+        (k) => (SENIORITY_BUCKETS.find((b) => b.key === k)?.vals as readonly string[] | undefined) ?? [],
+      );
+      if (senVals.length) entries.push(["seniority_any", senVals.join("|")]);
+    }
     if (empType) entries.push(["employment_type", empType]);
     if (industry) entries.push(["industry", industry]);
     if (yearsBucket !== "any") {
@@ -671,7 +718,7 @@ export default function JobsFeed({
     // The backend treats it specially — overrides role-family scoping.
     if (companyFilter) entries.push(["company", companyFilter]);
     return { serverFilterEntries: entries, filterSig: entries.map(([k, v]) => `${k}=${v}`).join("&") };
-  }, [debouncedLocation, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, companyFilter]);
+  }, [countryScope, debouncedLocation, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, companyFilter]);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loadingMore, setLoadingMore] = useState(false);
   // True while a feed fetch is in flight over an already-visible feed (search /
@@ -1579,8 +1626,13 @@ export default function JobsFeed({
                 }} />
               )}
             </div>
+            <FilterMenu label={COUNTRY_LABEL(countryScope)} active={countryScope !== "US"} onClear={() => setCountryScope("US")} width={220}>
+              {COUNTRIES.map((c) => (
+                <MenuOption key={c.key} label={c.label} selected={countryScope === c.key} onClick={() => setCountryScope(c.key)} />
+              ))}
+            </FilterMenu>
             <FilterMenu
-              label={locationText ? `📍 ${locationText}` : "📍 Location"}
+              label={locationText ? `📍 ${locationText}` : "📍 City"}
               active={!!locationText}
               onClear={() => setLocationText("")}
               width={260}
