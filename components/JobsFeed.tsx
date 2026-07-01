@@ -1125,13 +1125,15 @@ export default function JobsFeed({
     return filtered; // "match" — the backend already ranks by match score
   }, [state, debouncedSearch, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, sortBy]);
 
-  // Top résumé matches for the pinned sidebar card — the unfiltered, match-sorted
-  // head of the ranked feed, so a student's best matches stay visible no matter
-  // how they've filtered or re-sorted the main list. Only meaningful when ranked;
-  // requires a real match score (un-enriched lazy-model jobs are score-less).
+  // Top résumé matches for the pinned sidebar card. The feed itself may be
+  // ordered by vector similarity or recency, so sort the scored subset by the
+  // résumé match percentage here before taking the top five.
   const topMatches = useMemo(() => {
     if (state.status !== "ready" || !state.ranked) return [];
-    return state.jobs.filter((j) => j.matchScore != null).slice(0, 5);
+    return state.jobs
+      .filter((j) => j.matchScore != null && j.matchScore > 0)
+      .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0))
+      .slice(0, 5);
   }, [state]);
 
   // Distinct industries present in the current feed, for the Industry dropdown.
