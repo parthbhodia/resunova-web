@@ -92,6 +92,9 @@ export default function SearchableSelect({
   useEffect(() => { setHighlight(0); }, [value]);
 
   const pick = (item: SelectItem) => {
+    // Sync the controlled input before onSelect so the parent always sees the
+    // picked label even if it only listens to onChange.
+    onChange(item.label);
     onSelect(item);
     setOpen(false);
   };
@@ -131,6 +134,9 @@ export default function SearchableSelect({
         <button
           key={item.key}
           type="button"
+          // Keep focus on the input so the portaled menu doesn't close before
+          // the click fires (classic combobox gotcha with document mousedown).
+          onMouseDown={(e) => e.preventDefault()}
           onMouseEnter={() => setHighlight(i)}
           onClick={() => pick(item)}
           style={{
