@@ -95,6 +95,7 @@ const AGE_FILTERS = [
 ] as const;
 
 type AgeFilterKey = (typeof AGE_FILTERS)[number]["key"];
+const DEFAULT_AGE_FILTER: AgeFilterKey = "7";
 
 const WORK_MODELS = [
   { key: "remote", label: "Remote" },
@@ -392,7 +393,7 @@ let feedCache: { key: string; at: number; data: FeedReady } | null = null;
 export async function prefetchJobsFeed(): Promise<void> {
   if (typeof window === "undefined") return;
   try {
-    const days = AGE_FILTERS.find((f) => f.key === "30")?.days ?? 0;
+    const days = AGE_FILTERS.find((f) => f.key === DEFAULT_AGE_FILTER)?.days ?? 0;
     let roleQuery = "";
     let browseSel: JobsBrowseSelection | null = null;
     try { roleQuery = localStorage.getItem(JOBS_ROLE_KEY) || ""; } catch { /* ignore */ }
@@ -673,7 +674,7 @@ export default function JobsFeed({
   const [sortBy, setSortBy] = useState<SortKey>("match");
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
-  const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
+  const [ageFilter, setAgeFilter] = useState<AgeFilterKey>(DEFAULT_AGE_FILTER);
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
   // Featured-rail company scope (case-insensitive company name). Empty = no scope;
   // set → the feed shows only that company's roles (ranked if a résumé exists).
@@ -1163,7 +1164,7 @@ export default function JobsFeed({
     setIndustry(f.industry ?? "");
     setYearsBucket(f.yearsBucket ?? "any");
     setScoreFilter((f.scoreFilter as ScoreFilterKey) ?? "all");
-    setAgeFilter((f.ageFilter as AgeFilterKey) ?? "30");
+    setAgeFilter((f.ageFilter as AgeFilterKey) ?? DEFAULT_AGE_FILTER);
     setSearch(f.search ?? "");
     setSortBy((f.sortBy as SortKey) ?? "match");
     setClearance(f.clearance ?? "any");
@@ -1172,12 +1173,12 @@ export default function JobsFeed({
 
   const anyFilterActive =
     !!search || !!companyFilter || !!locationText || workModels.size > 0 || seniorities.size > 0 ||
-    !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || ageFilter !== "30" ||
+    !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || ageFilter !== DEFAULT_AGE_FILTER ||
     clearance !== "any" || citizenship !== "any";
 
   const clearAllFilters = useCallback(() => {
     setSearch(""); setLocationText(""); setWorkModels(new Set()); setSeniorities(new Set());
-    setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setAgeFilter("30");
+    setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setAgeFilter(DEFAULT_AGE_FILTER);
     setClearance("any"); setCitizenship("any"); setCompanyFilter("");
   }, []);
 
@@ -1665,7 +1666,7 @@ export default function JobsFeed({
 
           {/* Row 2 — filter dropdowns */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <FilterMenu label={`Date: ${AGE_FILTERS.find((f) => f.key === ageFilter)?.label ?? "Any"}`} active={ageFilter !== "30"} onClear={() => setAgeFilter("30")} width={180}>
+            <FilterMenu label={`Date: ${AGE_FILTERS.find((f) => f.key === ageFilter)?.label ?? "Any"}`} active={ageFilter !== DEFAULT_AGE_FILTER} onClear={() => setAgeFilter(DEFAULT_AGE_FILTER)} width={180}>
               {AGE_FILTERS.map((f) => (
                 <MenuOption key={f.key} label={f.label} selected={ageFilter === f.key} onClick={() => setAgeFilter(f.key)} />
               ))}
