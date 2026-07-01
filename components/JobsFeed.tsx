@@ -795,7 +795,8 @@ export default function JobsFeed({
     feedCache = null;
     setBrowseSel(sel);
     setSeniorities(sel.seniority ? new Set([sel.seniority]) : new Set());
-    setState({ status: "loading" });
+    // Keep the wizard mounted while the feed loads — loadFeed swaps to "ready"
+    // when results land instead of flashing a skeleton here.
     setRoleQuery(sel.role.trim());
   }, []);
 
@@ -804,8 +805,8 @@ export default function JobsFeed({
     feedCache = null;
     setBrowseSel(null);
     setFamilyOverride(null);
-    setState({ status: "loading" });
     setRoleQuery("");
+    setState({ status: "needs-role" });
   }, []);
 
   // Featured-rail tile click: toggle the company scope. Clicking the active tile
@@ -835,7 +836,16 @@ export default function JobsFeed({
     // Don't blink to a skeleton when refining a search/filter over a feed that's
     // already on screen — keep it visible and swap in the new results when they
     // land (the final setState applies them). Skeleton only on a true cold load.
-    if (!quiet && !cached) setState((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
+    // Keep the onboarding wizard (needs-role / no-resume) on screen while the
+    // first browse feed loads — only skeleton on a true cold load with nothing
+    // to show yet.
+    if (!quiet && !cached) {
+      setState((prev) =>
+        prev.status === "ready" || prev.status === "needs-role" || prev.status === "no-resume"
+          ? prev
+          : { status: "loading" },
+      );
+    }
     setRevalidating(true);
     try {
       const supabase = getSupabaseClient();
@@ -1389,11 +1399,15 @@ export default function JobsFeed({
       if (!resp.ok) return;
       const data = await resp.json();
       const more: FeedJob[] = Array.isArray(data?.jobs) ? data.jobs : [];
+      const cacheKey = browseFeedCacheKey(
+        days, roleQuery, browseSel, rankAnalysisId, debouncedSearch,
+        filterSig + (familyOverride !== null ? `|ff:${familyOverride}` : ""),
+      );
       setState((prev) => {
         if (prev.status !== "ready") return prev;
         const seen = new Set(prev.jobs.map((j) => j.id));
         const fresh = more.filter((j) => j && !seen.has(j.id));
-        return {
+        const next: FeedReady = {
           ...prev,
           jobs: [...prev.jobs, ...fresh],
           hasMore: data?.hasMore === true,
@@ -1402,6 +1416,10 @@ export default function JobsFeed({
           // Total is the same across pages — keep page-0's if a later page omits it.
           totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : prev.totalMatching,
         };
+        // Persist appended pages in the module cache so a tab switch / remount
+        // doesn't rewind to page 0 only.
+        if (feedCache?.key === cacheKey) feedCache = { key: cacheKey, at: Date.now(), data: next };
+        return next;
       });
       setVisibleCount((c) => c + PAGE_SIZE);
     } catch {
@@ -1409,7 +1427,7 @@ export default function JobsFeed({
     } finally {
       setLoadingMore(false);
     }
-  }, [state, loadingMore, ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, serverFilterEntries]);
+  }, [state, loadingMore, ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, serverFilterEntries, filterSig, familyOverride]);
 
   // Infinite scroll: reveal already-loaded jobs first, then page the server.
   useEffect(() => {

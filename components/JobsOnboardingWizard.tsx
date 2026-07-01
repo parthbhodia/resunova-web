@@ -179,28 +179,25 @@ export default function JobsOnboardingWizard({
               STEP {step} OF 4
             </div>
 
-            {step === 1 && (
-              <>
-                <h2 style={H2}>Which role are you targeting?</h2>
-                <p style={SUB}>Start typing — pick from real openings. We rank by job title, not just a broad category.</p>
-                <SearchableSelect
-                  value={role}
-                  onChange={(v) => { setRole(v); setRoleTerms(null); }}
-                  onSelect={pickRole}
-                  items={roleItems}
-                  leadingIcon={SearchIcon}
-                  placeholder="e.g. Frontend Engineer, Data Scientist…"
-                  autoFocus
-                  emptyHint="No preset match — we'll still search for that role."
-                />
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
-                  <Button disabled={!role.trim()} onClick={() => { onPrefetch?.(selection); setStep(2); }}>Continue →</Button>
-                </div>
-              </>
-            )}
+            <div hidden={step !== 1}>
+              <h2 style={H2}>Which role are you targeting?</h2>
+              <p style={SUB}>Start typing — pick from real openings. We rank by job title, not just a broad category.</p>
+              <SearchableSelect
+                value={role}
+                onChange={(v) => { setRole(v); setRoleTerms(null); }}
+                onSelect={pickRole}
+                items={roleItems}
+                leadingIcon={SearchIcon}
+                placeholder="e.g. Frontend Engineer, Data Scientist…"
+                autoFocus={initialStep === 1}
+                emptyHint="No preset match — we'll still search for that role."
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+                <Button disabled={!role.trim()} onClick={() => { onPrefetch?.(selection); setStep(2); }}>Continue →</Button>
+              </div>
+            </div>
 
-            {step === 2 && (
-              <>
+            <div hidden={step !== 2}>
                 <h2 style={H2}>Where do you want to work?</h2>
                 <p style={SUB}>Pick a city, metro, or Remote. &ldquo;New York&rdquo; covers the whole NYC metro.</p>
                 <SearchableSelect
@@ -210,7 +207,6 @@ export default function JobsOnboardingWizard({
                   items={metroItems}
                   leadingIcon={PinIcon}
                   placeholder="City, metro, or Remote — optional"
-                  autoFocus
                   emptyHint="We'll match that text against posting locations."
                 />
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 24 }}>
@@ -220,11 +216,9 @@ export default function JobsOnboardingWizard({
                     <Button onClick={() => { onPrefetch?.(selection); setStep(3); }}>Continue →</Button>
                   </div>
                 </div>
-              </>
-            )}
+            </div>
 
-            {step === 3 && (
-              <>
+            <div hidden={step !== 3}>
                 <h2 style={H2}>What experience level?</h2>
                 <p style={SUB}>So we don&apos;t bury you under senior roles. Pick one — or skip and we&apos;ll infer it from your résumé.</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -261,11 +255,9 @@ export default function JobsOnboardingWizard({
                     <Button onClick={() => { onPrefetch?.(selection); setStep(4); }}>Continue →</Button>
                   </div>
                 </div>
-              </>
-            )}
+            </div>
 
-            {step === 4 && (
-              <>
+            <div hidden={step !== 4}>
                 <h2 style={H2}>Upload your résumé to rank matches</h2>
                 <p style={SUB}>We&apos;ll score every opening against your résumé and sort the best fits first.</p>
                 <input
@@ -299,8 +291,7 @@ export default function JobsOnboardingWizard({
                     Skip — browse without ranking
                   </button>
                 </div>
-              </>
-            )}
+            </div>
           </div>
 
           {/* ── Right: live count + blurred teaser ── */}
