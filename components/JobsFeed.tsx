@@ -674,6 +674,7 @@ export default function JobsFeed({
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
   const [ageFilter, setAgeFilter] = useState<AgeFilterKey>(DEFAULT_AGE_FILTER);
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
+  const [appliedRefreshKey, setAppliedRefreshKey] = useState(0);
   // Featured-rail company scope (case-insensitive company name). Empty = no scope;
   // set → the feed shows only that company's roles (ranked if a résumé exists).
   const [companyFilter, setCompanyFilter] = useState<string>("");
@@ -1076,9 +1077,23 @@ export default function JobsFeed({
     }
   }, []);
 
+  const hideAppliedJob = useCallback((postingId: string) => {
+    const patchFeed = (feed: FeedReady): FeedReady => ({
+      ...feed,
+      jobs: feed.jobs.filter((job) => job.id !== postingId),
+      totalMatching: typeof feed.totalMatching === "number" ? Math.max(0, feed.totalMatching - 1) : feed.totalMatching,
+    });
+    setState((prev) => (prev.status === "ready" ? patchFeed(prev) : prev));
+    if (feedCache?.data.status === "ready") {
+      feedCache = { ...feedCache, data: patchFeed(feedCache.data) };
+    }
+    setAppliedRefreshKey((n) => n + 1);
+  }, []);
+
   const trackApplyClick = useCallback(async (postingId: string) => {
     // Optimistically mark as applied immediately
     setAppliedIds((prev) => new Set(prev).add(postingId));
+    hideAppliedJob(postingId);
     try {
       const supabase = getSupabaseClient();
       const {
@@ -1095,12 +1110,19 @@ export default function JobsFeed({
     } catch {
       // tracking must never break the UX; keep the applied mark
     }
-  }, []);
+  }, [hideAppliedJob]);
 
   const handleBoostApplied = useCallback((postingId: string, score: number | null) => {
     if (typeof score === "number") updateJobMatchScore(postingId, score);
     void trackApplyClick(postingId);
   }, [trackApplyClick, updateJobMatchScore]);
+
+  const handleBoostResumePromoted = useCallback((_analysisId: string) => {
+    feedCache = null;
+    setRankAnalysisId("");
+    setAppliedRefreshKey((n) => n + 1);
+    window.setTimeout(() => void loadFeedRef.current(true, true), 0);
+  }, []);
 
   const visibleJobs = useMemo(() => {
     if (state.status !== "ready") return [];
@@ -1150,6 +1172,7 @@ export default function JobsFeed({
     workModels: topMatchWorkModels,
     analysisId: rankAnalysisId,
     limit: 5,
+    refreshKey: appliedRefreshKey,
   });
 
   // Distinct industries present in the current feed, for the Industry dropdown.
@@ -1979,6 +2002,7 @@ export default function JobsFeed({
           onClose={() => setBoostJob(null)}
           onApplied={handleBoostApplied}
           onScoreChange={updateJobMatchScore}
+          onResumePromoted={handleBoostResumePromoted}
         />
       )}
 
