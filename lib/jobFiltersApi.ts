@@ -10,6 +10,9 @@ import { authHeaders } from "@/lib/jobsApi";
 
 /** The serializable slice of JobsFeed's filter state that a saved filter holds. */
 export type FilterSnapshot = {
+  countryScope?: string;
+  companyFilter?: string;
+  familyOverride?: string | null;
   locationText?: string;
   workModels: string[];
   seniorities: string[];
