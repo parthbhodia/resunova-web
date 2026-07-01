@@ -1145,13 +1145,17 @@ export default function JobsFeed({
   }, []);
 
   const currentSnapshot = useMemo<FilterSnapshot>(() => ({
+    countryScope, companyFilter, familyOverride,
     locationText, workModels: [...workModels],
     seniorities: [...seniorities],
     empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy,
     clearance, citizenship,
-  }), [locationText, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, clearance, citizenship]);
+  }), [countryScope, companyFilter, familyOverride, locationText, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, clearance, citizenship]);
 
   const applySnapshot = useCallback((f: Partial<FilterSnapshot>) => {
+    setCountryScope(f.countryScope ?? "US");
+    setCompanyFilter(f.companyFilter ?? "");
+    setFamilyOverride(f.familyOverride === undefined ? null : f.familyOverride);
     setLocationText(f.locationText ?? "");
     setWorkModels(new Set(f.workModels ?? []));
     setSeniorities(new Set(f.seniorities ?? []));
@@ -2019,6 +2023,7 @@ function JobsSidebar({
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   // On mobile the sidebar is a collapsed disclosure (closed by default) so the
   // job feed stays the sole focus, LinkedIn-style. Desktop renders it expanded.
   const [expanded, setExpanded] = useState(false);
@@ -2028,13 +2033,14 @@ function JobsSidebar({
     const n = name.trim();
     if (!n || saving) return;
     setSaving(true);
+    setSaveError("");
     try {
       const created = await createJobFilter(n, currentSnapshot);
       onSaved(created);
       setName("");
       setNaming(false);
-    } catch {
-      /* ignore — sidebar is best-effort */
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Couldn't save this filter");
     } finally {
       setSaving(false);
     }
@@ -2109,23 +2115,30 @@ function JobsSidebar({
         </div>
 
         {naming && (
-          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") void save(); }}
-              placeholder="Name this filter set"
-              style={SIDEBAR_INPUT}
-            />
-            <button
-              onClick={() => void save()}
-              disabled={!name.trim() || saving}
-              style={{ fontSize: 12, fontWeight: 600, padding: "0 12px", borderRadius: 8, border: "none", background: "#c4793a", color: "#fff", cursor: name.trim() && !saving ? "pointer" : "not-allowed", opacity: name.trim() && !saving ? 1 : 0.6 }}
-            >
-              {saving ? "…" : "Save"}
-            </button>
-          </div>
+          <>
+            <div style={{ display: "flex", gap: 6, marginBottom: saveError ? 6 : 10 }}>
+              <input
+                autoFocus
+                value={name}
+                onChange={(e) => { setName(e.target.value); if (saveError) setSaveError(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") void save(); }}
+                placeholder="Name this filter set"
+                style={SIDEBAR_INPUT}
+              />
+              <button
+                onClick={() => void save()}
+                disabled={!name.trim() || saving}
+                style={{ fontSize: 12, fontWeight: 600, padding: "0 12px", borderRadius: 8, border: "none", background: "#c4793a", color: "#fff", cursor: name.trim() && !saving ? "pointer" : "not-allowed", opacity: name.trim() && !saving ? 1 : 0.6 }}
+              >
+                {saving ? "…" : "Save"}
+              </button>
+            </div>
+            {saveError && (
+              <p style={{ fontSize: 11.5, color: "var(--red, #b91c1c)", margin: "0 0 10px", lineHeight: 1.4 }}>
+                {saveError}
+              </p>
+            )}
+          </>
         )}
 
         {savedFilters.length === 0 ? (
