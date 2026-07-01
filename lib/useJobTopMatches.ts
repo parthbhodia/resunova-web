@@ -20,6 +20,7 @@ export type UseJobTopMatchesParams = {
   workModels?: string[];
   analysisId?: string;
   limit?: number;
+  refreshKey?: number;
 };
 
 export function useJobTopMatches({
@@ -32,6 +33,7 @@ export function useJobTopMatches({
   workModels = [],
   analysisId = "",
   limit = 5,
+  refreshKey = 0,
 }: UseJobTopMatchesParams) {
   const [jobs, setJobs] = useState<JobTopMatch[]>([]);
   const [loading, setLoading] = useState(false);
@@ -93,7 +95,7 @@ export function useJobTopMatches({
     })();
 
     return () => controller.abort();
-  }, [enabled, query, refreshNonce]);
+  }, [enabled, query, refreshKey, refreshNonce]);
 
   const refresh = useCallback(() => setRefreshNonce((n) => n + 1), []);
 

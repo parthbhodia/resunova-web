@@ -67,12 +67,14 @@ export default function BoostPanel({
   open = true,
   onApplied,
   onScoreChange,
+  onResumePromoted,
 }: {
   job: JobDetailData;
   onClose: () => void;
   open?: boolean;
   onApplied?: (postingId: string, score: number | null) => void;
   onScoreChange?: (postingId: string, score: number) => void;
+  onResumePromoted?: (analysisId: string) => void;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -248,6 +250,7 @@ export default function BoostPanel({
               postingId={job.id}
               onApplied={onApplied}
               onScoreChange={onScoreChange}
+              onResumePromoted={onResumePromoted}
             />
           )}
         </div>
@@ -477,6 +480,7 @@ function Step3({
   postingId,
   onApplied,
   onScoreChange,
+  onResumePromoted,
 }: {
   generating: boolean;
   result: BoostResult | null;
@@ -490,6 +494,7 @@ function Step3({
   postingId: string;
   onApplied?: (postingId: string, score: number | null) => void;
   onScoreChange?: (postingId: string, score: number) => void;
+  onResumePromoted?: (analysisId: string) => void;
 }) {
   // ── Accept/reject + live-score state (all hooks run before any early return) ──
   const suggestions = useMemo<BoostSuggestion[]>(
@@ -504,6 +509,9 @@ function Step3({
   const [liveScore, setLiveScore] = useState<number | null>(null);
   const [scoring, setScoring] = useState(false);
   const [scoreUnavailable, setScoreUnavailable] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+  const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
+  const [promoteError, setPromoteError] = useState<string | null>(null);
 
   // Reset selections whenever a fresh boost result arrives. Default: NOTHING
   // applied — suggestions render review-first (suggest-then-accept), mirroring
@@ -599,6 +607,35 @@ function Step3({
     if (!result || acceptedCount === 0 || scoring) return;
     onScoreChange?.(postingId, headlineScore);
   }, [acceptedCount, headlineScore, onScoreChange, postingId, result, scoring]);
+
+  const handleUseForFutureMatches = async () => {
+    if (!result || acceptedCount === 0 || promoting) return;
+    setPromoting(true);
+    setPromoteError(null);
+    setPromoteMessage(null);
+    try {
+      const headers = await authHeaders();
+      const resp = await fetch(apiUrl("/api/jobs/boost/use-resume"), {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          posting_id: postingId,
+          title: result.title,
+          company: result.company,
+          tailoredText: appliedText,
+          matchScore: headlineScore,
+        }),
+      });
+      const body = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
+      if (typeof body?.analysisId === "string") onResumePromoted?.(body.analysisId);
+      setPromoteMessage(body?.message || "Optimized resume is now used for future job matching.");
+    } catch (err) {
+      setPromoteError(err instanceof Error ? err.message : "Could not save this optimized resume.");
+    } finally {
+      setPromoting(false);
+    }
+  };
 
   if (generating) {
     return (
@@ -769,11 +806,46 @@ function Step3({
         >
           Apply on company site ↗
         </a>
+        <button
+          type="button"
+          onClick={() => void handleUseForFutureMatches()}
+          disabled={acceptedCount === 0 || promoting}
+          style={{
+            flex: "1 1 220px",
+            padding: "13px 0",
+            borderRadius: 11,
+            border: "1px solid color-mix(in srgb, var(--accent) 35%, var(--surface2))",
+            background: "var(--surface)",
+            color: "var(--accent)",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: acceptedCount === 0 || promoting ? "not-allowed" : "pointer",
+            opacity: acceptedCount === 0 || promoting ? 0.6 : 1,
+            fontFamily: "inherit",
+          }}
+        >
+          {promoting ? "Saving..." : "Use for future matches"}
+        </button>
       </div>
 
       <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0, lineHeight: 1.55 }}>
-        Applying with this tailored version? Download it, then scan it as your latest résumé when you want future jobs scored against this optimized version.
+        Applying with this tailored version? Use it for future matches to rerun scoring against this optimized resume.
       </p>
+
+      {(promoteMessage || promoteError) && (
+        <p
+          role={promoteError ? "alert" : "status"}
+          style={{
+            fontSize: 12.5,
+            color: promoteError ? "#b91c1c" : "var(--green-ink)",
+            margin: 0,
+            lineHeight: 1.5,
+            fontWeight: 600,
+          }}
+        >
+          {promoteError || promoteMessage}
+        </p>
+      )}
 
       {(pdfError) && (
         <p style={{ fontSize: 12, color: "#d97757", margin: 0 }}>PDF export failed: {pdfError}</p>
