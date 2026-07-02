@@ -2341,7 +2341,9 @@ function JobsSidebar({
               <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button
                   onClick={() => onApply(f.filters)}
-                  title="Apply this filter set"
+                  // The chip is truncated with an ellipsis — hovering shows the full
+                  // name (the whole "title · experience · … · date" tagline) + action.
+                  title={`${f.name}\n(click to apply)`}
                   style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 12.5, fontWeight: 500, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--surface2)", color: "var(--text)", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                 >
                   {f.name}
