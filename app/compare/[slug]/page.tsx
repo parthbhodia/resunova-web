@@ -24,7 +24,7 @@ export async function generateMetadata({
   if (!c) return { title: "Compare" };
   const canonical = `${SITE_URL}${comparisonHref(c.slug)}/`;
   const title = `Resunova vs ${c.competitor}: Free ATS Tailoring Compared (${c.asOf})`;
-  const description = `Resunova vs ${c.competitor} — price, ATS scoring, job-description tailoring, templates, and what's free vs paywalled. An honest, dated comparison.`;
+  const description = `Resunova vs ${c.competitor}: price, ATS scoring, job-description tailoring, templates, and what's free vs paywalled. An honest, dated comparison.`;
   return {
     title,
     description,
@@ -215,8 +215,8 @@ export default async function ComparePage({
           >
             <h2 style={{ ...sectionTitle, margin: "0 0 8px" }}>Try Resunova free</h2>
             <p style={{ margin: "0 0 14px", color: "var(--muted)" }}>
-              Score your resume, tailor it to a job description, and download an ATS-friendly PDF — all free, no sign-up
-              for the template builder.
+              Score your resume, tailor it to a job description, and download an ATS-friendly PDF (all free, no sign-up
+              for the template builder).
             </p>
             <Link
               href="/"

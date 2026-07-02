@@ -7,15 +7,15 @@ import { SITE_URL } from "@/lib/brand";
 const CANONICAL = `${SITE_URL}/ats-resume-checker/`;
 
 export const metadata: Metadata = {
-  title: "Free ATS Resume Checker — Score Your Resume Instantly",
+  title: "Free ATS Resume Checker: Score Your Resume Instantly",
   description:
-    "Check your resume against applicant tracking system (ATS) rules for free. Upload your PDF and get an instant score across ATS compatibility, keywords, quantified impact, and formatting — plus the exact fixes to pass.",
+    "Check your resume against applicant tracking system (ATS) rules for free. Upload your PDF and get an instant score across ATS compatibility, keywords, quantified impact, and formatting, plus the exact fixes to pass.",
   alternates: { canonical: CANONICAL },
   robots: { index: true, follow: true },
   openGraph: {
     type: "website",
     url: CANONICAL,
-    title: "Free ATS Resume Checker — Score Your Resume Instantly",
+    title: "Free ATS Resume Checker: Score Your Resume Instantly",
     description:
       "Upload your resume and get an instant ATS score with the fixes to pass. Completely free.",
   },
@@ -27,10 +27,10 @@ export const dynamic = "force-static";
 const SCORING_DIMENSIONS: { name: string; blurb: string }[] = [
   { name: "ATS compatibility", blurb: "Whether a parser can read your contact info, headings, and layout without choking on columns, tables, or graphics." },
   { name: "Keyword match", blurb: "How well your resume reflects the skills and terms recruiters and ATS filters actually search for in your field." },
-  { name: "Quantified impact", blurb: "Whether your bullets carry real numbers — %, $, counts, scale — instead of vague duties." },
+  { name: "Quantified impact", blurb: "Whether your bullets carry real numbers (%, $, counts, scale) instead of vague duties." },
   { name: "Achievement quality", blurb: "Whether bullets lead with a strong verb and end in an outcome, not a list of responsibilities." },
   { name: "Language quality", blurb: "Pronouns, filler, tense, and clichés that weaken otherwise good experience." },
-  { name: "Readability", blurb: "Bullet length and density — can a recruiter scan it in the six seconds they actually spend?" },
+  { name: "Readability", blurb: "Bullet length and density: can a recruiter scan it in the six seconds they actually spend?" },
   { name: "Section structure", blurb: "Standard, well-ordered headings an ATS recognizes (Experience, Education, Skills…)." },
 ];
 
@@ -40,34 +40,34 @@ const ATS_CHECKS: string[] = [
   "Real text, not text baked into an image or graphic",
   "Contact details in the body, not the header/footer region some parsers drop",
   "Job titles and dates in a consistent, parseable format",
-  "Keywords from the job description, in context — not stuffed",
+  "Keywords from the job description, in context, not stuffed",
 ];
 
 const FAQ: { question: string; answer: string }[] = [
   {
     question: "What is an ATS resume checker?",
     answer:
-      "An ATS resume checker scores your resume the way an applicant tracking system would read it — testing whether the software can parse your sections, contact info, and keywords, and flagging formatting that gets resumes filtered out before a human sees them.",
+      "An ATS resume checker scores your resume the way an applicant tracking system would read it. It tests whether the software can parse your sections, contact info, and keywords, and flags formatting that gets resumes filtered out before a human sees them.",
   },
   {
     question: "Is Resunova's ATS resume checker free?",
     answer:
-      "Yes. Upload your resume and get a full score and fix list for free — no credit card. Resunova is built for students and the job-seeking community.",
+      "Yes. Upload your resume and get a full score and fix list for free, no credit card. Resunova is built for students and the job-seeking community.",
   },
   {
     question: "What is a good ATS resume score?",
     answer:
-      "Aim for 80+ out of 100. Below that usually means missing metrics, weak verb-led bullets, non-standard formatting, or a keyword gap against your target role — all of which the checker pinpoints with specific fixes.",
+      "Aim for 80+ out of 100. Below that usually means missing metrics, weak verb-led bullets, non-standard formatting, or a keyword gap against your target role, all of which the checker pinpoints with specific fixes.",
   },
   {
     question: "Will an ATS-friendly resume actually pass the filter?",
     answer:
-      "ATS rarely auto-rejects — it ranks and surfaces. An ATS-friendly resume parses cleanly and matches the role's keywords, so you land higher in the recruiter's search results instead of buried. The checker scores both parseability and keyword match.",
+      "ATS rarely auto-rejects; it ranks and surfaces. An ATS-friendly resume parses cleanly and matches the role's keywords, so you land higher in the recruiter's search results, not buried. The checker scores both parseability and keyword match.",
   },
   {
     question: "How long does the check take?",
     answer:
-      "Seconds. Upload a PDF and you'll see your score, the weakest bullets, and the top fixes right away — then you can tailor and download an ATS-friendly version.",
+      "Seconds. Upload a PDF and you'll see your score, the weakest bullets, and the top fixes right away, then you can tailor and download an ATS-friendly version.",
   },
 ];
 
@@ -181,8 +181,8 @@ export default function AtsResumeCheckerPage() {
             margin: "0 0 28px",
           }}
         >
-          Upload your resume and get an instant score for how an applicant tracking system reads it — parseability,
-          keywords, quantified impact, and formatting — with the specific fixes to climb the recruiter&rsquo;s search
+          Upload your resume and get an instant score for how an applicant tracking system reads it (parseability,
+          keywords, quantified impact, and formatting) with the specific fixes to climb the recruiter&rsquo;s search
           results. Completely free, no credit card.
         </p>
 
@@ -209,7 +209,7 @@ export default function AtsResumeCheckerPage() {
             <h2 style={sectionTitle}>What an ATS actually checks</h2>
             <p style={{ margin: "0 0 16px" }}>
               An applicant tracking system parses your resume into structured fields, then lets recruiters search and
-              rank candidates. It rarely auto-rejects — but a resume it can&rsquo;t read, or one that misses the
+              rank candidates. It rarely auto-rejects, but a resume it can&rsquo;t read, or one that misses the
               role&rsquo;s keywords, sinks to the bottom of the results. The big things it cares about:
             </p>
             <ul style={{ margin: 0, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -223,7 +223,7 @@ export default function AtsResumeCheckerPage() {
             <h2 style={sectionTitle}>How Resunova scores your resume</h2>
             <p style={{ margin: "0 0 18px" }}>
               Resunova reads your PDF the way a parser does, then scores it across the dimensions recruiters and ATS
-              filters actually weigh — and shows you the weakest bullets with a rewrite for each.
+              filters actually weigh, and shows you the weakest bullets with a rewrite for each.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {SCORING_DIMENSIONS.map((d) => (
@@ -266,7 +266,7 @@ export default function AtsResumeCheckerPage() {
           >
             <h2 style={{ ...sectionTitle, margin: "0 0 8px" }}>Score your resume now</h2>
             <p style={{ margin: "0 0 14px", color: "var(--muted)" }}>
-              Upload your PDF and see your ATS score, weakest bullets, and the fixes to pass — in under a minute, free.
+              Upload your PDF and see your ATS score, weakest bullets, and the fixes to pass. All in under a minute, free.
             </p>
             <Link
               href="/"

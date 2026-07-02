@@ -34,7 +34,7 @@ export async function generateMetadata({
   const data = getRoleResumeData(role);
   if (!data) return { title: "Resume Example" };
   const canonical = `${SITE_URL}${roleResumeHref(data.slug)}/`;
-  const description = `${data.label} resume example with the skills employers ask for most in ${YEAR}, a scored sample, salary data, and ATS keywords — from ${data.postingsAnalyzed.toLocaleString("en-US")} live job postings. Free to tailor your own.`;
+  const description = `${data.label} resume example with the skills employers ask for most in ${YEAR}, a scored sample, salary data, and ATS keywords, from ${data.postingsAnalyzed.toLocaleString("en-US")} live job postings. Free to tailor your own.`;
   return {
     title: `${data.label} Resume Example & Skills Employers Want (${YEAR})`,
     description,
@@ -231,7 +231,7 @@ export default async function RoleResumeExamplePage({
               </ul>
             </div>
             <p style={{ marginTop: 14, fontSize: 13, color: "var(--dim)" }}>
-              Notice every bullet leads with a strong verb and ends in a measurable outcome — that pattern is what earns
+              Notice every bullet leads with a strong verb and ends in a measurable outcome. That pattern is what earns
               the score above.{" "}
               <Link href="/" style={{ color: "var(--accent)" }}>
                 Score your own résumé free →
@@ -296,7 +296,7 @@ export default async function RoleResumeExamplePage({
           >
             <h2 style={{ ...sectionTitle, margin: "0 0 8px" }}>Build your {data.label.toLowerCase()} résumé</h2>
             <p style={{ margin: "0 0 14px", color: "var(--muted)" }}>
-              Paste a job description and Resunova tailors your résumé to it — match score, gap analysis, and an
+              Paste a job description and Resunova tailors your résumé to it: match score, gap analysis, and an
               ATS-friendly PDF in under a minute. Completely free.
             </p>
             <Link

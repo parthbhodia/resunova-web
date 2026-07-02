@@ -97,7 +97,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "software",
     postingsAnalyzed: 18400,
     intro:
-      "A strong software engineer résumé leads with the stack in the job description, proves each skill with a shipped, measurable outcome, and fits on one page. Across live postings, JavaScript, Python, and React are the most-requested skills — so name them and back them with impact, not task lists.",
+      "A strong software engineer résumé leads with the stack in the job description, proves each skill with a shipped, measurable outcome, and fits on one page. Across live postings, JavaScript, Python, and React are the most-requested skills, so name them and back them with impact, not task lists.",
     topSkills: [
       { name: "JavaScript", sharePct: 71 },
       { name: "Python", sharePct: 64 },
@@ -146,7 +146,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "data",
     postingsAnalyzed: 9600,
     intro:
-      "A strong data analyst résumé proves you turn data into decisions, not just charts. SQL is effectively required — it appears in 87% of analyst postings — so pair it with a visualization tool and a scripting language, and quantify the business outcome every analysis drove.",
+      "A strong data analyst résumé proves you turn data into decisions, not just charts. SQL is effectively required (it appears in 87% of analyst postings), so pair it with a visualization tool and a scripting language, and quantify the business outcome every analysis drove.",
     topSkills: [
       { name: "SQL", sharePct: 87 },
       { name: "Excel", sharePct: 68 },
@@ -175,7 +175,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What skills should a data analyst resume highlight?",
         answer:
-          "SQL is non-negotiable — it appears in 87% of analyst postings. Pair it with a visualization tool (Tableau 49%, Power BI 36%) and a scripting language (Python 54%), and quantify the decisions your analysis drove.",
+          "SQL is non-negotiable: it appears in 87% of analyst postings. Pair it with a visualization tool (Tableau 49%, Power BI 36%) and a scripting language (Python 54%), and quantify the decisions your analysis drove.",
       },
       {
         question: "Should a data analyst resume include a portfolio?",
@@ -185,7 +185,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "How do I quantify data analyst impact on a resume?",
         answer:
-          "Tie each analysis to a business outcome — revenue found, hours saved, churn reduced, decisions accelerated — rather than writing 'analyzed data using SQL.'",
+          "Tie each analysis to a business outcome (revenue found, hours saved, churn reduced, decisions accelerated) rather than writing 'analyzed data using SQL.'",
       },
     ],
   },
@@ -195,7 +195,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "healthcare",
     postingsAnalyzed: 14200,
     intro:
-      "A strong registered nurse résumé leads with your license and certifications, then your unit type, patient load, and measurable outcomes. BLS certification appears in 64% of RN postings and ACLS in 44% — list them explicitly, and mirror the EHR system named in the job posting.",
+      "A strong registered nurse résumé leads with your license and certifications, then your unit type, patient load, and measurable outcomes. BLS certification appears in 64% of RN postings and ACLS in 44%, so list them explicitly, and mirror the EHR system named in the job posting.",
     topSkills: [
       { name: "Patient Care", sharePct: 78 },
       { name: "BLS Certification", sharePct: 64 },
@@ -224,7 +224,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What should a registered nurse resume include?",
         answer:
-          "Lead with your license and certifications (RN, BLS — in 64% of postings, ACLS — 44%), then unit type, patient load, and outcomes such as satisfaction scores or error rates.",
+          "Lead with your license and certifications (RN, BLS in 64% of postings, ACLS in 44%), then unit type, patient load, and outcomes such as satisfaction scores or error rates.",
       },
       {
         question: "Do nursing resumes need a summary?",
@@ -234,7 +234,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "How do I make a nursing resume ATS-friendly?",
         answer:
-          "Spell out certifications both ways (e.g. 'Basic Life Support (BLS)'), use standard section headings, and mirror the EHR system named in the posting — Epic appears in 24% of RN listings.",
+          "Spell out certifications both ways (e.g. 'Basic Life Support (BLS)'), use standard section headings, and mirror the EHR system named in the posting. Epic appears in 24% of RN listings.",
       },
     ],
   },
@@ -261,7 +261,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     workModel: { remotePct: 34, hybridPct: 39, onsitePct: 27 },
     example: {
       summary:
-        "Quota-crushing B2B sales rep with 4 years closing mid-market SaaS. Hit 128% of a $1.4M annual quota and built a pipeline that converted at 31% — well above the 22% team average.",
+        "Quota-crushing B2B sales rep with 4 years closing mid-market SaaS. Hit 128% of a $1.4M annual quota and built a pipeline that converted at 31%, well above the 22% team average.",
       bullets: [
         "Closed $1.8M in new ARR at 128% of a $1.4M quota, ranking #2 of 24 reps for two consecutive quarters.",
         "Built and managed a 90-day Salesforce pipeline that converted at 31% vs. the 22% team average, sourcing 40% of deals via outbound prospecting.",
@@ -273,7 +273,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What should a sales representative resume emphasize?",
         answer:
-          "Numbers above all — quota attainment (% of target), revenue closed, ranking, and conversion rates. Then tools (Salesforce appears in 69% of postings) and the segment you sell into.",
+          "Numbers above all: quota attainment (% of target), revenue closed, ranking, and conversion rates. Then tools (Salesforce appears in 69% of postings) and the segment you sell into.",
       },
       {
         question: "How do I show sales results without confidential numbers?",
@@ -283,7 +283,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "Should a sales resume list specific CRMs?",
         answer:
-          "Yes — name them. Salesforce (69%) and HubSpot are the most-requested; mirroring the CRM in the posting helps pass ATS keyword screens.",
+          "Yes, name them. Salesforce (69%) and HubSpot are the most-requested; mirroring the CRM in the posting helps pass ATS keyword screens.",
       },
     ],
   },

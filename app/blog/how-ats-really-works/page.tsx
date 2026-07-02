@@ -15,7 +15,7 @@ export default function HowAtsReallyWorksPage() {
   return (
     <BlogArticleLayout
       title="How ATS Really Works (And Why You’re Invisible, Not Rejected)"
-      subtitle="What systematic parsing tests across Workday, Greenhouse, Lever, iCIMS, Taleo, and similar systems suggest — and how Resunova checks your PDF against these patterns."
+      subtitle="What systematic parsing tests across Workday, Greenhouse, Lever, iCIMS, Taleo, and similar systems suggest, and how Resunova checks your PDF against these patterns."
     >
       {ATS_RESEARCH_SECTIONS.map((sec) => (
         <Section key={sec.title} title={sec.title}>
@@ -25,10 +25,10 @@ export default function HowAtsReallyWorksPage() {
         </Section>
       ))}
 
-      <Section title="TL;DR — quick-fix checklist">
+      <Section title="TL;DR: quick-fix checklist">
         <List items={RESEARCH_QUICK_CHECKLIST.map((item) => ({ text: item.text }))} />
         <p style={{ marginTop: 16, fontSize: 13, color: "var(--dim)" }}>
-          Run an ATS check in Resunova after tailoring — the <strong style={{ color: "var(--text)" }}>ATS best practices</strong> panel
+          Run an ATS check in Resunova after tailoring. The <strong style={{ color: "var(--text)" }}>ATS best practices</strong> panel
           scores many of these items automatically from your PDF text.
         </p>
       </Section>

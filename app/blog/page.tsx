@@ -5,7 +5,7 @@ import { BLOG_POSTS, blogPostHref } from "@/lib/atsBlogPosts";
 
 export const metadata: Metadata = {
   title: "Blog · Resunova",
-  description: "ATS formatting guides and parsing research to help your résumé get found — not filtered into silence.",
+  description: "ATS formatting guides and parsing research to help your résumé get found, not filtered into silence.",
   robots: { index: true, follow: true },
 };
 
@@ -51,7 +51,7 @@ export default function BlogIndexPage() {
       <main style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px 80px" }}>
         <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1, margin: "0 0 10px" }}>Blog</h1>
         <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.6, margin: "0 0 36px" }}>
-          Practical ATS guidance — what parsers can read, what recruiters search for, and how Resunova scores your PDF.
+          Practical ATS guidance: what parsers can read, what recruiters search for, and how Resunova scores your PDF.
         </p>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 16 }}>
           {BLOG_POSTS.map((post) => (

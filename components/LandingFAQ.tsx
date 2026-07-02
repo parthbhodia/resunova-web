@@ -97,7 +97,7 @@ export default function LandingFAQ({ C, accent }: { C: C; accent: string }) {
             Questions, answered.
           </h2>
           <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 540, margin: "0 auto" }}>
-            Everything you need to know before your first scan. Still curious? It&apos;s free — just try it.
+            Everything you need to know before your first scan. Still curious? It&apos;s free, just try it.
           </p>
         </div>
 

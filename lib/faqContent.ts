@@ -13,7 +13,7 @@ export type FaqItem = { q: string; a: string };
 export const FAQ_ITEMS: FaqItem[] = [
   {
     q: "Is Resunova free to use?",
-    a: "Yes, Resunova is completely free for students and the broader job-seeking community. Upload your resume, paste any job description, and get a match score, gap analysis, and ATS-friendly PDF export — no credit card required.",
+    a: "Yes, Resunova is completely free for students and the broader job-seeking community. Upload your resume, paste any job description, and get a match score, gap analysis, and ATS-friendly PDF export (no credit card required).",
   },
   {
     q: "What is an ATS resume score?",
@@ -25,7 +25,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: "Does Resunova work with any job description?",
-    a: "Yes — paste any text-based job description from any industry or role. Resunova dynamically extracts the requirements and keywords from the posting, so it adapts to engineering, design, finance, marketing, healthcare, and any other field.",
+    a: "Yes. Paste any text-based job description from any industry or role. Resunova dynamically extracts the requirements and keywords from the posting, so it adapts to engineering, design, finance, marketing, healthcare, and any other field.",
   },
   {
     q: "How long does it take to tailor a resume?",

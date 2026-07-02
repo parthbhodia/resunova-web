@@ -5,19 +5,19 @@ import BlogArticleLayout, { Section, List } from "@/components/blog/BlogArticleL
 export const metadata: Metadata = {
   title: "How to Tailor Your Resume to a Job Description · Resunova Blog",
   description:
-    "A step-by-step guide to matching your resume to any job posting — keyword extraction, bullet rewrites, ATS checks, and the mistakes that get you filtered out.",
+    "A step-by-step guide to matching your resume to any job posting: keyword extraction, bullet rewrites, ATS checks, and the mistakes that get you filtered out.",
   robots: { index: true, follow: true },
   alternates: { canonical: "https://www.resunova.io/blog/tailor-resume-to-job-description/" },
 };
 
 const CHECKLIST = [
   "Copy the exact job title into your resume headline or summary.",
-  "Underline every repeated word in the posting — those are your must-have keywords.",
+  "Underline every repeated word in the posting; those are your must-have keywords.",
   "Match 25–35 role-specific terms from the JD, used naturally in bullet points.",
   "Rewrite your top 3–5 bullets to reflect the specific outcomes the role cares about.",
   "Add a number (%, $, ×, headcount) to every achievement bullet possible.",
   "Move your most relevant section to just below the summary.",
-  "Run an ATS check — look for missing contact info, two-column layout, or table usage.",
+  "Run an ATS check. Look for missing contact info, two-column layout, or table usage.",
   "Read it aloud: does it sound like you wrote it for this role, or for any role?",
 ];
 
@@ -25,18 +25,18 @@ export default function TailorResumeToJobDescriptionPage() {
   return (
     <BlogArticleLayout
       title="How to Tailor Your Resume to a Job Description (Step-by-Step)"
-      subtitle="Generic applications rarely land interviews — not because applicants are unqualified, but because their resume doesn't mirror what the recruiter is scanning for. Here's how to fix that."
+      subtitle="Generic applications rarely land interviews, not because applicants are unqualified, but because their resume doesn't mirror what the recruiter is scanning for. Here's how to fix that."
     >
       <Section title="Why tailoring works (and generic applications don't)">
         <p style={{ margin: "0 0 14px" }}>
           When you send the same resume to 50 jobs, you're competing on luck, not relevance. Recruiters
-          search their Applicant Tracking System (ATS) like a database — by keyword, title, and experience
+          search their Applicant Tracking System (ATS) like a database: by keyword, title, and experience
           band. If your resume doesn't match what they type, you don't appear. You're not rejected;
           you're invisible.
         </p>
         <p style={{ margin: "0 0 14px" }}>
           Tailoring solves two problems at once. It passes the machine filter, and it signals to the
-          human reading your resume that you understood the role — not just applied to everything in
+          human reading your resume that you understood the role, not just applied to everything in
           the ballpark. A hiring manager can tell in 10 seconds whether a candidate actually read the
           posting or bulk-blasted a generic document.
         </p>
@@ -51,16 +51,16 @@ export default function TailorResumeToJobDescriptionPage() {
         <p style={{ margin: "0 0 14px" }}>
           Read the posting twice before you touch your resume. On the first pass, circle every technical
           skill, tool name, and certification mentioned (Python, Salesforce, Series B, GAAP, PMP).
-          On the second pass, underline every soft-skill phrase and repeated word — if "cross-functional
+          On the second pass, underline every soft-skill phrase and repeated word. If "cross-functional
           collaboration" appears three times, that phrase is load-bearing.
         </p>
         <p style={{ margin: "0 0 14px" }}>
           You're looking for two types of terms:
         </p>
         <List items={[
-          { text: "Hard keywords — specific tools, technologies, methodologies, or credentials the role requires. These need to appear verbatim." },
-          { text: "Role-framing words — how the company describes the work: strategy, operations, pipeline, stakeholder, roadmap. These tell you the register your bullets should match." },
-          { text: "Required vs. preferred — \"required\" keywords must appear in your resume. \"Preferred\" keywords improve your score but are lower priority." },
+          { text: "Hard keywords: specific tools, technologies, methodologies, or credentials the role requires. These need to appear verbatim." },
+          { text: "Role-framing words (how the company describes the work): strategy, operations, pipeline, stakeholder, roadmap. These tell you the register your bullets should match." },
+          { text: "Required vs. preferred: \"required\" keywords must appear in your resume. \"Preferred\" keywords improve your score but are lower priority." },
         ]} />
         <p style={{ margin: "14px 0 0" }}>
           One practical trick: paste the posting into a word-frequency tool or just count manually.
@@ -71,25 +71,25 @@ export default function TailorResumeToJobDescriptionPage() {
       <Section title="Step 2: Mirror the exact job title">
         <p style={{ margin: "0 0 14px" }}>
           This is the single highest-ROI edit you can make. ATS keyword matching is still largely
-          literal — "Senior Product Manager" and "Head of Product Strategy" are different strings.
+          literal: "Senior Product Manager" and "Head of Product Strategy" are different strings.
           If the posting says "Senior Product Manager," those exact three words should appear in
           your headline, summary, or a recent job title.
         </p>
         <p style={{ margin: "0 0 14px" }}>
           You don't have to change your actual title (which is a factual record). Instead, add a
-          professional headline directly below your name: <em>"Senior Product Manager — SaaS / B2B Growth"</em>.
+          professional headline directly below your name: <em>"Senior Product Manager, SaaS / B2B Growth"</em>.
           That line is indexable text and can carry your target title without misrepresenting your history.
         </p>
       </Section>
 
-      <Section title="Step 3: Weave keywords into context — don't stuff them">
+      <Section title="Step 3: Weave keywords into context, don't stuff them">
         <p style={{ margin: "0 0 14px" }}>
           Keyword stuffing (hiding white text, listing 60 skills in a row) is detectable by modern
           ATS platforms and flagged by AI-assisted screening tools. You want roughly 25–35 relevant,
           role-specific terms from the posting, used naturally inside accomplishment bullets.
         </p>
         <p style={{ margin: "0 0 14px" }}>
-          The best insertion point is an accomplishment bullet — it creates context:
+          The best insertion point is an accomplishment bullet, and it creates context:
         </p>
         <List items={[
           { text: "Weak: 'Proficient in SQL.' (keyword without context)" },
@@ -103,7 +103,7 @@ export default function TailorResumeToJobDescriptionPage() {
 
       <Section title="Step 4: Rewrite your top bullets for the role">
         <p style={{ margin: "0 0 14px" }}>
-          You don't need to rewrite everything — identify the 3–5 bullets in your most recent or
+          You don't need to rewrite everything. Identify the 3–5 bullets in your most recent or
           most relevant role that are closest to what the job requires, then sharpen them.
         </p>
         <p style={{ margin: "0 0 14px" }}>
@@ -123,7 +123,7 @@ export default function TailorResumeToJobDescriptionPage() {
       <Section title="Step 5: Quantify every achievement you can">
         <p style={{ margin: "0 0 14px" }}>
           Numbers compress credibility. "$2M ARR" or "40% churn reduction" communicates scale
-          instantly. Recruiters spending 10 seconds on a resume scan for numbers — they're the fastest
+          instantly. Recruiters spending 10 seconds on a resume scan for numbers. They're the fastest
           signal that a candidate has moved the needle, not just held a title.
         </p>
         <p style={{ margin: "0 0 14px" }}>
@@ -163,7 +163,7 @@ export default function TailorResumeToJobDescriptionPage() {
           { text: "Don't use a two-column layout. Most ATS parsers read columns left-to-right, merging them into nonsense text." },
           { text: "Don't hide keywords in white text. Modern tools detect this and it's an instant disqualifier with some platforms." },
           { text: "Don't change your actual job titles. Misrepresenting your employment record is a background-check liability. Use a headline for your target title instead." },
-          { text: "Don't pad with soft skills nobody asked for. 'Team player' and 'results-driven' add no signal — they use space where a keyword could live." },
+          { text: "Don't pad with soft skills nobody asked for. 'Team player' and 'results-driven' add no signal; they use space where a keyword could live." },
           { text: "Don't over-optimize. A resume that reads like a keyword list won't survive the human review even if it passes the ATS." },
         ]} />
       </Section>
@@ -177,8 +177,8 @@ export default function TailorResumeToJobDescriptionPage() {
         <p style={{ margin: "0 0 14px" }}>
           Automated tools help too. Running your tailored resume against the job description in an
           ATS checker shows which required keywords you're still missing and where your match score
-          sits. Resunova scores your resume against any JD — match score, gap analysis,
-          missing keywords, and bullet-level feedback — in under a minute.
+          sits. Resunova scores your resume against any JD (match score, gap analysis,
+          missing keywords, and bullet-level feedback) in under a minute.
         </p>
         <p style={{ margin: "0 0 14px" }}>
           A well-tailored resume typically shows a match score of 75–90% against the specific JD.
@@ -195,8 +195,8 @@ export default function TailorResumeToJobDescriptionPage() {
         Want to see your current match score?{" "}
         <Link href="/" style={{ color: "var(--accent)" }}>
           Upload your resume and paste a job description in Resunova
-        </Link>{" "}
-        — it's free and takes under a minute. Also see our guides on{" "}
+        </Link>.{" "}
+        It's free and takes under a minute. Also see our guides on{" "}
         <Link href="/blog/how-ats-really-works" style={{ color: "var(--accent)" }}>
           how ATS systems really work
         </Link>{" "}

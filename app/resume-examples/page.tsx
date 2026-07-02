@@ -10,7 +10,7 @@ const YEAR = roleDataYear();
 export const metadata: Metadata = {
   title: `Resume Examples by Role (${YEAR})`,
   description:
-    "Real resume examples by role, each built from the skills employers actually ask for in live job postings — with a scored sample, salary data, and ATS keywords. Free to tailor your own.",
+    "Real resume examples by role, each built from the skills employers actually ask for in live job postings, with a scored sample, salary data, and ATS keywords. Free to tailor your own.",
   alternates: { canonical: `${SITE_URL}/resume-examples/` },
   robots: { index: true, follow: true },
 };
@@ -95,7 +95,7 @@ export default function ResumeExamplesHubPage() {
           Resume examples by role
         </h1>
         <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.65, margin: "0 0 36px" }}>
-          Every example below is built from the skills employers actually ask for in live job postings for that role —
+          Every example below is built from the skills employers actually ask for in live job postings for that role:
           frequency-ranked, with a scored sample résumé, salary data, and the keywords that pass ATS. Pick your role,
           then tailor your own in seconds.
         </p>
