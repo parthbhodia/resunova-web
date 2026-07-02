@@ -382,6 +382,10 @@ function appendBrowseParams(
 type FeedReady = Extract<FeedState, { status: "ready" }>;
 const FEED_TTL_MS = 5 * 60 * 1000;
 let feedCache: { key: string; at: number; data: FeedReady } | null = null;
+// Current page index, persisted at module scope so selecting a job (which remounts
+// JobsFeed as JobsView swaps to the split layout) restores the page instead of
+// snapping back to page 1. Reset to 0 on a genuine filter/search change.
+let feedPage = 0;
 
 /**
  * Warm the module-level feed cache so opening the Jobs tab is instant. Called
@@ -719,14 +723,14 @@ export default function JobsFeed({
     if (companyFilter) entries.push(["company", companyFilter]);
     return { serverFilterEntries: entries, filterSig: entries.map(([k, v]) => `${k}=${v}`).join("&") };
   }, [countryScope, debouncedLocation, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, companyFilter]);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [currentPage, setCurrentPage] = useState(feedPage);
+  useEffect(() => { feedPage = currentPage; }, [currentPage]);
   const [loadingMore, setLoadingMore] = useState(false);
   // True while a feed fetch is in flight over an already-visible feed (search /
   // filter refine / background revalidate) — drives the small spinner in the
   // search box so a search never looks like "nothing happened" (we deliberately
   // don't blink to a skeleton when refining; see loadFeed).
   const [revalidating, setRevalidating] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // ── Background résumé scan (progressive ranking) ──
   // `scanning` drives the slim "ranking…" strip over an already-visible feed;
@@ -815,7 +819,7 @@ export default function JobsFeed({
   // refetches the company-scoped feed (ranked if a résumé exists, else browsed).
   const handleCompanySelect = useCallback((company: string) => {
     setCompanyFilter((prev) => (prev.trim().toLowerCase() === company.trim().toLowerCase() ? "" : company));
-    setVisibleCount(PAGE_SIZE);
+    setCurrentPage(0);
   }, []);
 
   // `quiet`: skip the skeleton and merge the result in place (keeps status
@@ -1225,18 +1229,30 @@ export default function JobsFeed({
     setClearance("any"); setCitizenship("any"); setCompanyFilter("");
   }, []);
 
-  // Reset the lazy-load window whenever the filtered result set changes, so a
-  // new filter/search starts from the top instead of keeping a stale offset.
+  // Reset to the first page whenever the filtered result set changes — but NOT on
+  // the initial mount, so selecting a job (which remounts this component) restores
+  // the persisted page instead of snapping back to page 1.
+  const filterMountRef = useRef(false);
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [search, companyFilter, locationText, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, sortBy, scoreFilter, ageFilter, state.status]);
+    if (!filterMountRef.current) { filterMountRef.current = true; return; }
+    setCurrentPage(0);
+  }, [search, companyFilter, locationText, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, sortBy, scoreFilter, ageFilter]);
 
-  const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
-  // Two layers of "more": clientHasMore = more already-loaded jobs to reveal;
-  // serverHasMore = the backend has further pages past what we've fetched (the
-  // 600-cap is now per-page, not total — see api_jobs_feed offset pagination).
-  const clientHasMore = visibleCount < visibleJobs.length;
+  // Numbered pagination over the loaded set (PAGE_SIZE per page). `serverHasMore`
+  // means the backend has further pages past what we've fetched (the 600-cap is
+  // per-page — see api_jobs_feed offset pagination); crossing into them fetches on
+  // demand. Clamp the page if the loaded set shrank under it (filter/revalidate).
   const serverHasMore = state.status === "ready" && !!state.hasMore && typeof state.nextOffset === "number";
+  const loadedPages = Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
+  useEffect(() => {
+    if (currentPage > loadedPages - 1) setCurrentPage(Math.max(0, loadedPages - 1));
+  }, [loadedPages, currentPage]);
+  const pagedJobs = useMemo(
+    () => visibleJobs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE),
+    [visibleJobs, currentPage],
+  );
+  const canPrev = currentPage > 0;
+  const canNext = (currentPage + 1) * PAGE_SIZE < visibleJobs.length || serverHasMore;
 
   // Drive the "outside your filters" fallback: when the visible result is empty
   // AND a filter/search is narrowing things, fetch the relaxed set; otherwise
@@ -1409,11 +1425,15 @@ export default function JobsFeed({
   // and-client-filtered window (which produced a confusing middle number like
   // "427"). Reads "Showing 20 of 12,374 jobs" and grows as you Load more.
   const shownCount = pagedJobs.length;
+  const rangeStart = shownCount === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const rangeEnd = currentPage * PAGE_SIZE + shownCount;
+  const totalLabel =
+    typeof totalMatching === "number"
+      ? totalMatching.toLocaleString()
+      : `${visibleJobs.length.toLocaleString()}${serverHasMore ? "+" : ""}`;
   const jobWord = `job${(totalMatching ?? shownCount) === 1 ? "" : "s"}`;
-  const feedCountLabel =
-    typeof totalMatching === "number" && totalMatching > shownCount
-      ? `Showing ${shownCount.toLocaleString()} of ${totalMatching.toLocaleString()} ${jobWord}`
-      : `${shownCount.toLocaleString()}${serverHasMore ? "+" : ""} ${jobWord}`;
+  // "Showing 21–40 of 12,374 jobs" — the current page's range, not a cumulative count.
+  const feedCountLabel = `Showing ${rangeStart.toLocaleString()}–${rangeEnd.toLocaleString()} of ${totalLabel} ${jobWord}`;
 
   // Flicker guard: when a search/filter empties the main feed, the "outside your
   // filters" fallback fetches in the background. Show a loading skeleton (NOT the
@@ -1469,7 +1489,6 @@ export default function JobsFeed({
         if (feedCache?.key === cacheKey) feedCache = { key: cacheKey, at: Date.now(), data: next };
         return next;
       });
-      setVisibleCount((c) => c + PAGE_SIZE);
     } catch {
       /* keep the current feed on failure */
     } finally {
@@ -1477,23 +1496,14 @@ export default function JobsFeed({
     }
   }, [state, loadingMore, ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, serverFilterEntries, filterSig, familyOverride]);
 
-  // Infinite scroll: reveal already-loaded jobs first, then page the server.
-  useEffect(() => {
-    if (!clientHasMore && !serverHasMore) return;
-    const node = sentinelRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          if (visibleCount < visibleJobs.length) setVisibleCount((c) => c + PAGE_SIZE);
-          else void loadMoreFromServer();
-        }
-      },
-      { rootMargin: "400px 0px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [clientHasMore, serverHasMore, visibleCount, visibleJobs.length, loadMoreFromServer]);
+  // Page controls: within the loaded set we just move the window; stepping past the
+  // last loaded page fetches the next server page first, then advances.
+  const goToPage = useCallback(async (p: number) => {
+    const target = Math.max(0, p);
+    if (target * PAGE_SIZE >= visibleJobs.length && serverHasMore) await loadMoreFromServer();
+    setCurrentPage(target);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [visibleJobs.length, serverHasMore, loadMoreFromServer]);
 
   // Signed-out visitors get one focused sign-in moment — no dashboard header,
   // tabs, Refresh, or résumé-ranking copy (which assumes a résumé they lack).
@@ -1925,29 +1935,31 @@ export default function JobsFeed({
               </p>
             )}
 
-            {(clientHasMore || serverHasMore) && (
-              <div ref={sentinelRef} style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={loadingMore}
-                  onClick={() => {
-                    if (visibleCount < visibleJobs.length) setVisibleCount((c) => c + PAGE_SIZE);
-                    else void loadMoreFromServer();
-                  }}
-                >
+            {(canPrev || canNext) && (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, padding: "14px 0 4px" }}>
+                <Button variant="outline" size="sm" disabled={!canPrev || loadingMore} onClick={() => void goToPage(currentPage - 1)}>
+                  ← Prev
+                </Button>
+                <span style={{ fontSize: 13, color: "var(--muted)", minWidth: 96, textAlign: "center" }}>
                   {loadingMore
                     ? "Loading…"
-                    : clientHasMore
-                    ? `Load more (${visibleJobs.length - pagedJobs.length} more)`
-                    : "Load more jobs"}
+                    : `Page ${(currentPage + 1).toLocaleString()}${
+                        typeof totalMatching === "number"
+                          ? ` of ${Math.max(1, Math.ceil(totalMatching / PAGE_SIZE)).toLocaleString()}`
+                          : serverHasMore
+                          ? ""
+                          : ` of ${loadedPages.toLocaleString()}`
+                      }`}
+                </span>
+                <Button variant="outline" size="sm" disabled={!canNext || loadingMore} onClick={() => void goToPage(currentPage + 1)}>
+                  Next →
                 </Button>
               </div>
             )}
 
-            {!clientHasMore && !serverHasMore && visibleJobs.length > PAGE_SIZE && (
-              <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "16px 0 4px" }}>
-                You&apos;ve reached the end · {visibleJobs.length} openings
+            {!canNext && visibleJobs.length > PAGE_SIZE && (
+              <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "12px 0 4px" }}>
+                End · {(typeof totalMatching === "number" ? totalMatching : visibleJobs.length).toLocaleString()} openings
               </p>
             )}
           </div>
