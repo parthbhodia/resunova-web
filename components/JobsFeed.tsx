@@ -22,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, fetchAnalyses, type JobPrepStatus, type AnalyzeRecord } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
-import { fetchJobDetail, fetchCompanyOptions, type JobDetail as JobDetailData, type CompanyOption } from "@/lib/jobsApi";
+import { fetchJobDetail, fetchCompanyOptions, fetchTitleOptions, type JobDetail as JobDetailData, type CompanyOption, type TitleOption } from "@/lib/jobsApi";
 import SearchableSelect, { type SelectItem } from "@/components/SearchableSelect";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { useSignInDialog } from "@/components/SignInDialog";
@@ -861,6 +861,7 @@ export default function JobsFeed({
   // recent searches. A ROLE pick sets the title search; a COMPANY pick sets the
   // company AND-filter (composable, not a title match). LinkedIn/Indeed style.
   const [searchCompanyOpts, setSearchCompanyOpts] = useState<CompanyOption[]>([]);
+  const [searchTitleOpts, setSearchTitleOpts] = useState<TitleOption[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
     try { return JSON.parse(localStorage.getItem(JOBS_RECENT_SEARCH_KEY) || "[]"); } catch { return []; }
@@ -873,12 +874,15 @@ export default function JobsFeed({
       return next;
     });
   }, []);
-  // Debounced company typeahead as the user types (>=2 chars).
+  // Debounced company + live-title typeahead as the user types (>=2 chars).
   useEffect(() => {
     const q = search.trim();
-    if (q.length < 2) { setSearchCompanyOpts([]); return; }
+    if (q.length < 2) { setSearchCompanyOpts([]); setSearchTitleOpts([]); return; }
     let ignore = false;
-    const t = setTimeout(() => { fetchCompanyOptions(q).then((o) => { if (!ignore) setSearchCompanyOpts(o); }); }, 300);
+    const t = setTimeout(() => {
+      fetchCompanyOptions(q).then((o) => { if (!ignore) setSearchCompanyOpts(o); });
+      fetchTitleOptions(q).then((o) => { if (!ignore) setSearchTitleOpts(o); });
+    }, 300);
     return () => { ignore = true; clearTimeout(t); };
   }, [search]);
   // Remember a committed free-text search (typed + settled via the 400ms debounce).
@@ -886,17 +890,27 @@ export default function JobsFeed({
   const searchItems = useMemo<SelectItem[]>(() => {
     const q = search.trim();
     const items: SelectItem[] = [];
+    const seen = new Set<string>();
     if (!q) {
       for (const s of recentSearches.slice(0, 4)) items.push({ key: `recent:${s}`, label: s, sub: "Recent search" });
     }
-    for (const r of matchRoleSuggestions(q, 4)) {
+    // Canonical roles first (map to good title-search terms)…
+    for (const r of matchRoleSuggestions(q, 3)) {
+      seen.add(r.label.toLowerCase());
       items.push({ key: `role:${r.label}`, label: r.label, sub: r.titleTerms.slice(0, 3).join(" · ") || "Role" });
     }
-    for (const c of searchCompanyOpts.slice(0, 4)) {
+    // …then LIVE corpus titles (deduped against the canonical roles)…
+    for (const t of searchTitleOpts.slice(0, 4)) {
+      if (seen.has(t.title.toLowerCase())) continue;
+      seen.add(t.title.toLowerCase());
+      items.push({ key: `title:${t.title}`, label: t.title, sub: `Title · ${t.activeCount.toLocaleString()} open roles` });
+    }
+    // …then companies (route to the AND company filter on select).
+    for (const c of searchCompanyOpts.slice(0, 3)) {
       items.push({ key: `company:${c.company}`, label: c.company, sub: `🏢 Company · ${c.activeCount.toLocaleString()} open roles` });
     }
-    return items.slice(0, 10);
-  }, [search, recentSearches, searchCompanyOpts]);
+    return items.slice(0, 12);
+  }, [search, recentSearches, searchTitleOpts, searchCompanyOpts]);
   const onSearchSelect = useCallback((item: SelectItem) => {
     const kind = item.key.slice(0, item.key.indexOf(":"));
     if (kind === "company") {
