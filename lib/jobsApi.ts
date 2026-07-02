@@ -112,6 +112,20 @@ export function scoreLabel(score: number | null): string {
   return "LOW MATCH";
 }
 
+/** Company typeahead for the unified search box. Prefix search over corpus
+ *  companies (US-active), each with its open-roles count. [] on any failure. */
+export type CompanyOption = { company: string; domain: string; activeCount: number };
+export async function fetchCompanyOptions(q: string): Promise<CompanyOption[]> {
+  try {
+    const resp = await fetch(apiUrl(`/api/jobs/companies?q=${encodeURIComponent(q.trim())}`));
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return Array.isArray(data?.companies) ? data.companies : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function authHeaders(): Promise<Record<string, string>> {
   try {
     const {
