@@ -9,46 +9,58 @@ export interface ResumeStyleTemplate {
   description: string;
   /** Folder name under LIBRARY_ROOT whose .tex defines macros and visual structure */
   referenceFolder: string;
+  /**
+   * Visual grouping shown in the Style & Customization panel.
+   * - "technical": clean, ATS-safe, industry best-practice layouts
+   * - "creative": visually rich templates with distinct design identity
+   */
+  category: "technical" | "creative";
 }
 
-/** Only Harshibar is exposed in the product UI for now (others kept commented for later). */
 export const RESUME_STYLE_TEMPLATES: ResumeStyleTemplate[] = [
+  // ── Technical ──────────────────────────────────────────────────────────────
   {
     id: "harshibar-ats",
     label: "Harshibar",
-    description:
-      "MIT-style ATS layout: \\resumeSubheading, \\resumeProjectHeading, fontawesome5 icons, sans-serif (tgheros). Requires pdflatex + texlive-fontawesome5 + Fira Mono.",
+    description: "MIT-style ATS layout popular in top tech companies. Clean sans-serif with fontawesome5 icons. Industry gold-standard for software engineers.",
     referenceFolder: "Harshibar_Template1",
+    category: "technical",
   },
   {
     id: "freshman-ats",
     label: "Freshman ATS",
-    description: "Clean ATS-friendly resume template with clear section headings.",
+    description: "Clear hierarchical headings optimised for applicant-tracking systems. Best for early-career engineers and CS graduates.",
     referenceFolder: "Freshman_ATS",
-  },
-  {
-    id: "graphic",
-    label: "Graphic",
-    description: "Modern CV template with a bold black-and-white header.",
-    referenceFolder: "Graphic_CV",
+    category: "technical",
   },
   {
     id: "corporate",
     label: "Corporate",
-    description: "Corporate ATS-friendly template with right-aligned headers and clean sections.",
+    description: "Right-aligned dates, conservative typography, clean section dividers. Preferred by finance, consulting, and enterprise hiring teams.",
     referenceFolder: "Corporate_CV",
-  },
-  {
-    id: "social",
-    label: "Social",
-    description: "Modern ATS-friendly CV template with a bold dark sidebar layout.",
-    referenceFolder: "Social_CV",
+    category: "technical",
   },
   {
     id: "executive",
     label: "Executive",
-    description: "Premium executive resume template with bold colour blocks and a modern column layout.",
+    description: "Premium two-column header with bold colour blocks. Signals seniority and leadership — ideal for director-level and above.",
     referenceFolder: "Executive_CV",
+    category: "technical",
+  },
+  // ── Creative ────────────────────────────────────────────────────────────────
+  {
+    id: "graphic",
+    label: "Graphic",
+    description: "Bold black-and-white header with strong typographic contrast. Great for design, media, and marketing roles.",
+    referenceFolder: "Graphic_CV",
+    category: "creative",
+  },
+  {
+    id: "social",
+    label: "Social",
+    description: "Dark sidebar accent with a modern split layout. Stands out in creative industries and digital-product teams.",
+    referenceFolder: "Social_CV",
+    category: "creative",
   },
 ];
 

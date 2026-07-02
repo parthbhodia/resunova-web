@@ -1647,37 +1647,45 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
     store.setCustomization("stylePreset", preset.id);
     store.setCustomization("font", preset.font);
     store.setCustomization("accentColor", preset.accentColor);
+    if (preset.enforcedLayout) {
+      store.setCustomization("layout", preset.enforcedLayout);
+    } else if (c.layout === "rightSidebar" || c.layout === "topBannerRightSidebar") {
+      store.setCustomization("layout", "single");
+    }
   };
+
+  const isEnforcedLayout = c.layout === "rightSidebar" || c.layout === "topBannerRightSidebar";
 
   return (
     <>
       <SectionHeading>Style & Customization</SectionHeading>
 
       {/* Layout */}
-      <div style={{ marginBottom: 20 }}>
-        <label style={labelStyle}>Layout</label>
-        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
-          Two-column places contact, education, and skills in a sidebar.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-          {([
-            {
-              id: "single" as const,
-              label: "Single column",
-              desc: "Classic top-to-bottom",
-              preview: (
-                <svg width="36" height="28" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                  <rect x="4" y="3" width="28" height="3" rx="1" fill="currentColor" opacity="0.7" />
-                  <rect x="4" y="9" width="28" height="2" rx="1" fill="currentColor" opacity="0.3" />
-                  <rect x="4" y="13" width="22" height="2" rx="1" fill="currentColor" opacity="0.3" />
-                  <rect x="4" y="17" width="28" height="2" rx="1" fill="currentColor" opacity="0.3" />
-                  <rect x="4" y="21" width="18" height="2" rx="1" fill="currentColor" opacity="0.3" />
-                </svg>
-              ),
-            },
-            {
-              id: "twoColumn" as const,
-              label: "Two column",
+      {!isEnforcedLayout && (
+        <div style={{ marginBottom: 20 }}>
+          <label style={labelStyle}>Layout</label>
+          <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
+            Two-column places contact, education, and skills in a sidebar.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+            {([
+              {
+                id: "single" as const,
+                label: "Single column",
+                desc: "Classic top-to-bottom",
+                preview: (
+                  <svg width="36" height="28" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                    <rect x="4" y="3" width="28" height="3" rx="1" fill="currentColor" opacity="0.7" />
+                    <rect x="4" y="9" width="28" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                    <rect x="4" y="13" width="22" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                    <rect x="4" y="17" width="28" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                    <rect x="4" y="21" width="18" height="2" rx="1" fill="currentColor" opacity="0.3" />
+                  </svg>
+                ),
+              },
+              {
+                id: "twoColumn" as const,
+                label: "Two column",
               desc: "Sidebar + main",
               preview: (
                 <svg width="36" height="28" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -1726,15 +1734,17 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
           })}
         </div>
       </div>
+      )}
 
       {/* Style Presets */}
+      {/* Style Presets */}
       <div style={{ marginBottom: 20 }}>
-        <label style={labelStyle}>Template style</label>
-        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 16px", lineHeight: 1.5 }}>
           Start with a curated default, then adjust font and color below if needed.
         </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {STYLE_PRESETS.map((preset) => {
+
+        {(() => {
+          const PresetButton = ({ preset }: { preset: typeof STYLE_PRESETS[number] }) => {
             const active = c.stylePreset === preset.id;
             return (
               <button
@@ -1760,13 +1770,41 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                   height: 36,
                   borderRadius: 7,
                   border: "1px solid var(--border)",
-                  background: "var(--surface2)",
-                  padding: "6px 7px",
+                  background: preset.category === "creative" ? "#1e1e2e" : "var(--surface2)",
+                  padding: "5px 6px",
                   boxSizing: "border-box",
+                  overflow: "hidden",
                 }}>
-                  <div style={{ width: "68%", height: 4, borderRadius: 2, background: preset.accentColor, marginBottom: 5 }} />
-                  <div style={{ width: "100%", height: 2, borderRadius: 2, background: "var(--border)", marginBottom: 4 }} />
-                  <div style={{ width: "78%", height: 2, borderRadius: 2, background: "var(--border)" }} />
+                  {/* Name line */}
+                  <div style={{
+                    width: preset.headerAlign === "center" ? "60%" : "72%",
+                    height: 3,
+                    borderRadius: 2,
+                    background: preset.category === "creative" ? "#ddd" : "#333",
+                    marginBottom: 4,
+                    marginLeft: preset.headerAlign === "center" ? "auto" : 0,
+                    marginRight: preset.headerAlign === "center" ? "auto" : 0,
+                  }} />
+                  {/* Section title — reflects the variant */}
+                  {(preset as { sectionTitleVariant?: string }).sectionTitleVariant === "topline" ? (
+                    <div style={{ borderTop: `2px solid ${preset.accentColor}`, paddingTop: 2, marginBottom: 3, width: "100%" }}>
+                      <div style={{ width: "55%", height: 2, borderRadius: 1, background: preset.accentColor }} />
+                    </div>
+                  ) : (preset as { sectionTitleVariant?: string }).sectionTitleVariant === "sideline" ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 3 }}>
+                      <div style={{ width: 3, height: 8, borderRadius: 1, background: preset.accentColor, flexShrink: 0 }} />
+                      <div style={{ width: "50%", height: 2, borderRadius: 1, background: preset.accentColor }} />
+                    </div>
+                  ) : (preset as { sectionTitleVariant?: string }).sectionTitleVariant === "plain" ? (
+                    <div style={{ width: "55%", height: 2, borderRadius: 1, background: "#999", marginBottom: 3 }} />
+                  ) : (
+                    <div style={{ borderBottom: `1.5px solid ${preset.accentColor}`, marginBottom: 3, width: "100%" }}>
+                      <div style={{ width: "55%", height: 2, borderRadius: 1, background: preset.accentColor, marginBottom: 2 }} />
+                    </div>
+                  )}
+                  {/* Body lines */}
+                  <div style={{ width: "100%", height: 1.5, borderRadius: 1, background: preset.category === "creative" ? "#444" : "var(--border)", marginBottom: 2 }} />
+                  <div style={{ width: "80%", height: 1.5, borderRadius: 1, background: preset.category === "creative" ? "#444" : "var(--border)" }} />
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{preset.label}</div>
@@ -1775,8 +1813,45 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                 {active && <span style={{ fontSize: 13, color: "var(--accent)" }}>✓</span>}
               </button>
             );
-          })}
-        </div>
+          };
+
+          return (
+            <>
+              {/* ── Technical ── */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 6, background: "rgba(29,78,216,0.10)", flexShrink: 0 }}>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M5 4L2 8l3 4M11 4l3 4-3 4M9 3l-2 10" stroke="#1d4ed8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", letterSpacing: -0.2 }}>Technical</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {STYLE_PRESETS.filter(p => p.category === "technical").map(preset => <PresetButton key={preset.id} preset={preset} />)}
+                </div>
+              </div>
+
+              {/* ── Creative ── */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 6, background: "rgba(139,92,246,0.12)", flexShrink: 0 }}>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="#7c3aed" strokeWidth="1.5" /><circle cx="5.5" cy="7" r="1" fill="#7c3aed" /><circle cx="8" cy="5.5" r="1" fill="#7c3aed" /><circle cx="10.5" cy="7" r="1" fill="#7c3aed" /><circle cx="9.5" cy="9.5" r="1" fill="#7c3aed" /></svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", letterSpacing: -0.2 }}>Creative</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {STYLE_PRESETS.filter(p => p.category === "creative").map(preset => <PresetButton key={preset.id} preset={preset} />)}
+                  {STYLE_PRESETS.filter(p => p.category === "creative").length === 0 && (
+                    <p style={{ fontSize: 12, color: "var(--dim)", margin: 0 }}>Creative templates coming soon.</p>
+                  )}
+                </div>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* Page Width */}

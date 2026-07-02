@@ -4,9 +4,9 @@
  * entryGap between jobs. Template Builder + AnalyzeLiveResumeBody both consume this module.
  */
 import type { CSSProperties } from "react";
-import type { TBFont, TBPageWidth, TBStylePreset, TBFontSize } from "@/components/TemplateBuilder/types";
+import type { TBFont, TBPageWidth, TBStylePreset, TBFontSize, TBLayout } from "@/components/TemplateBuilder/types";
 
-export type { TBFont, TBPageWidth, TBStylePreset, TBFontSize };
+export type { TBFont, TBPageWidth, TBStylePreset, TBFontSize, TBLayout };
 
 export interface ResumeStylePresetOption {
   id: TBStylePreset;
@@ -26,6 +26,22 @@ export interface ResumeStylePresetOption {
   entryGap: number;
   bulletGap: number;
   letterSpacing: number;
+  /**
+   * Controls how section headings are decorated.
+   * - "underline" (default) — thin rule below the title in accent colour
+   * - "topline"  — thick rule above the title (Slate style)
+   * - "sideline" — left accent bar (Sharp style)
+   * - "plain"    — no decoration, dimmed grey text (Minimal style)
+   */
+  sectionTitleVariant?: "underline" | "topline" | "sideline" | "plain";
+  /** If true the candidate name is rendered in ALL CAPS (Sapphire style). */
+  nameCaps?: boolean;
+  /** Horizontal alignment for the header block (name + contact row). */
+  headerAlign?: "left" | "center";
+  /** Visual category grouping for the Style panel. */
+  category?: "technical" | "creative";
+  /** Forces a specific layout when this preset is active. */
+  enforcedLayout?: TBLayout;
 }
 
 export interface ResumePageWidthOption {
@@ -70,6 +86,7 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
     entryGap: 8,
     bulletGap: 2,
     letterSpacing: 1,
+    category: "technical",
   },
   {
     id: "modern",
@@ -89,6 +106,7 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
     entryGap: 6,
     bulletGap: 1.5,
     letterSpacing: 0.9,
+    category: "technical",
   },
   {
     id: "classic",
@@ -108,6 +126,147 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
     entryGap: 7,
     bulletGap: 2,
     letterSpacing: 0.8,
+    category: "technical",
+  },
+  {
+    id: "slate",
+    label: "Slate",
+    description: "Dark charcoal, thick top-bar section headers — polished professional.",
+    font: "Helvetica",
+    accentColor: "#2c3e50",
+    baseFont: 11,
+    bodyFont: 10.5,
+    metaFont: 10,
+    sectionFont: 11,
+    nameFont: 20,
+    lineHeight: 1.18,
+    summaryLineHeight: 1.22,
+    skillsLineHeight: 1.18,
+    sectionGap: 12,
+    entryGap: 7,
+    bulletGap: 2,
+    letterSpacing: 1.1,
+    sectionTitleVariant: "topline",
+    nameCaps: false,
+    headerAlign: "left",
+    category: "technical",
+  },
+  {
+    id: "minimal",
+    label: "Minimal",
+    description: "Centered header, plain section titles, generous breathing room.",
+    font: "Helvetica",
+    accentColor: "#888888",
+    baseFont: 10.5,
+    bodyFont: 10,
+    metaFont: 9.5,
+    sectionFont: 10,
+    nameFont: 15,
+    lineHeight: 1.35,
+    summaryLineHeight: 1.42,
+    skillsLineHeight: 1.35,
+    sectionGap: 16,
+    entryGap: 10,
+    bulletGap: 3,
+    letterSpacing: 0.4,
+    sectionTitleVariant: "plain",
+    nameCaps: false,
+    headerAlign: "center",
+    category: "technical",
+  },
+  {
+    id: "sapphire",
+    label: "Sapphire",
+    description: "ALL CAPS name, vivid blue underlined section headers, modern.",
+    font: "Helvetica",
+    accentColor: "#1565c0",
+    baseFont: 11,
+    bodyFont: 10.5,
+    metaFont: 10,
+    sectionFont: 11,
+    nameFont: 22,
+    lineHeight: 1.18,
+    summaryLineHeight: 1.22,
+    skillsLineHeight: 1.18,
+    sectionGap: 11,
+    entryGap: 8,
+    bulletGap: 2,
+    letterSpacing: 2,
+    sectionTitleVariant: "underline",
+    nameCaps: true,
+    headerAlign: "left",
+    category: "creative",
+  },
+  {
+    id: "sharp",
+    label: "Sharp",
+    description: "Left accent bar on sections, strong name, dark navy — clean and refined.",
+    font: "Helvetica",
+    accentColor: "#2d3561",
+    baseFont: 10.5,
+    bodyFont: 10,
+    metaFont: 9.5,
+    sectionFont: 11,
+    nameFont: 19,
+    lineHeight: 1.15,
+    summaryLineHeight: 1.2,
+    skillsLineHeight: 1.15,
+    sectionGap: 12,
+    entryGap: 7,
+    bulletGap: 2,
+    letterSpacing: 1.3,
+    sectionTitleVariant: "sideline",
+    nameCaps: false,
+    headerAlign: "left",
+    category: "creative",
+  },
+  {
+    id: "creative-teal",
+    label: "Elise",
+    description: "Striking dark right sidebar with circular initials and crisp typography.",
+    font: "Helvetica",
+    accentColor: "#0f5561",
+    baseFont: 10.5,
+    bodyFont: 10,
+    metaFont: 9.5,
+    sectionFont: 12,
+    nameFont: 22,
+    lineHeight: 1.15,
+    summaryLineHeight: 1.25,
+    skillsLineHeight: 1.2,
+    sectionGap: 12,
+    entryGap: 8,
+    bulletGap: 3,
+    letterSpacing: 1.2,
+    sectionTitleVariant: "underline",
+    nameCaps: true,
+    headerAlign: "left",
+    category: "creative",
+    enforcedLayout: "rightSidebar",
+  },
+  {
+    id: "creative-banner",
+    label: "Harper",
+    description: "Bold top header block with clean two-column main content structure.",
+    font: "Helvetica",
+    accentColor: "#1e3a5f",
+    baseFont: 10.5,
+    bodyFont: 10,
+    metaFont: 10,
+    sectionFont: 11.5,
+    nameFont: 22,
+    lineHeight: 1.15,
+    summaryLineHeight: 1.25,
+    skillsLineHeight: 1.2,
+    sectionGap: 12,
+    entryGap: 8,
+    bulletGap: 3,
+    letterSpacing: 1,
+    sectionTitleVariant: "plain",
+    nameCaps: true,
+    headerAlign: "left",
+    category: "creative",
+    enforcedLayout: "topBannerRightSidebar",
   },
 ];
 
@@ -253,6 +412,8 @@ export function resumeLayoutCssVars(ctx: ResumeLayoutContext): Record<string, st
     "--az-resume-contact-margin-bottom": `${RESUME_LAYOUT_SHELL.contactMarginBottom}px`,
     "--az-resume-header-name-margin-bottom": `${RESUME_LAYOUT_SHELL.headerNameMarginBottom}px`,
     "--resume-paper-accent": ctx.accent,
+    "--resume-paper-inverse-text": "#ffffff",
+    "--resume-paper-inverse-muted": "rgba(255, 255, 255, 0.7)",
   };
 }
 
@@ -288,30 +449,71 @@ export function resumePageRootStyle(
 }
 
 export function resumeSectionTitleStyle(ctx: ResumeLayoutContext): CSSProperties {
-  return {
+  const variant = ctx.preset.sectionTitleVariant ?? "underline";
+  const base: CSSProperties = {
     fontSize: ctx.preset.sectionFont,
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: ctx.preset.letterSpacing,
+    marginBottom: RESUME_LAYOUT_SHELL.sectionTitleMarginBottom,
+    marginTop: ctx.preset.sectionGap,
+  };
+  if (variant === "topline") {
+    // Thick bar ABOVE the title text — like Slate
+    return {
+      ...base,
+      color: ctx.accent,
+      borderTop: `3px solid ${ctx.accent}`,
+      paddingTop: 5,
+      paddingBottom: 0,
+    };
+  }
+  if (variant === "plain") {
+    // No decoration at all, dimmed text — like Minimal
+    return {
+      ...base,
+      color: "#555",
+      fontWeight: 600,
+      letterSpacing: 0.3,
+      paddingBottom: 4,
+      borderBottom: "1px solid #e0e0e0",
+    };
+  }
+  if (variant === "sideline") {
+    // Vertical bar on the left — like Sharp
+    return {
+      ...base,
+      color: ctx.accent,
+      borderLeft: `4px solid ${ctx.accent}`,
+      paddingLeft: 9,
+      paddingBottom: 0,
+    };
+  }
+  // default "underline"
+  return {
+    ...base,
     color: ctx.accent,
     borderBottom: `0.5px solid ${ctx.accent}`,
     paddingBottom: RESUME_LAYOUT_SHELL.sectionTitlePaddingBottom,
-    marginBottom: RESUME_LAYOUT_SHELL.sectionTitleMarginBottom,
-    marginTop: ctx.preset.sectionGap,
   };
 }
 
 export function resumeNameStyle(ctx: ResumeLayoutContext): CSSProperties {
+  const nameCaps = ctx.preset.nameCaps ?? false;
+  const headerAlign = ctx.preset.headerAlign ?? "left";
   return {
     fontSize: ctx.preset.nameFont,
     fontWeight: 700,
-    letterSpacing: RESUME_LAYOUT_SHELL.headerNameLetterSpacing,
+    letterSpacing: nameCaps ? ctx.preset.letterSpacing : RESUME_LAYOUT_SHELL.headerNameLetterSpacing,
+    textTransform: nameCaps ? "uppercase" : undefined,
+    textAlign: headerAlign,
     marginBottom: RESUME_LAYOUT_SHELL.headerNameMarginBottom,
     color: "#111",
   };
 }
 
 export function resumeContactStyle(ctx: ResumeLayoutContext): CSSProperties {
+  const headerAlign = ctx.preset.headerAlign ?? "left";
   return {
     fontSize: ctx.preset.metaFont + 0.5,
     color: "#555",
@@ -319,6 +521,7 @@ export function resumeContactStyle(ctx: ResumeLayoutContext): CSSProperties {
     display: "flex",
     flexWrap: "wrap",
     gap: RESUME_LAYOUT_SHELL.contactRowGap,
+    justifyContent: headerAlign === "center" ? "center" : "flex-start",
   };
 }
 

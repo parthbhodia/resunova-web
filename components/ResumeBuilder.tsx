@@ -3216,6 +3216,7 @@ export default function ResumeBuilder({
                 customizePaperLH={customizePaperLH}
                 customizePaperPadY={customizePaperPadY}
                 styleReferenceFolder={styleReferenceFolder}
+                setStyleReferenceFolder={setStyleReferenceFolder}
                 candidateProfile={candidateProfile}
                 user={user}
                 signInForAts={signInForAts}
@@ -3751,6 +3752,7 @@ function TemplateCustomizePostResult({
   customizePaperLH,
   customizePaperPadY,
   styleReferenceFolder,
+  setStyleReferenceFolder,
   candidateProfile,
   user,
   signInForAts,
@@ -3786,6 +3788,7 @@ function TemplateCustomizePostResult({
   customizePaperLH: number;
   customizePaperPadY: number;
   styleReferenceFolder: string;
+  setStyleReferenceFolder: (folder: string) => void;
   candidateProfile: string | null;
   user: User | null;
   signInForAts: () => Promise<void>;
@@ -4129,205 +4132,413 @@ function TemplateCustomizePostResult({
             ))}
           </div>
 
-          {customizeTab === "style" && (
-            <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "var(--dim)",
-                  marginBottom: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.35,
-                }}
-              >
-                Accent color
-              </div>
-              <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-                {CUSTOMIZE_ACCENT_SWATCHES.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    aria-label={`Accent ${s.id}`}
-                    aria-pressed={previewAccentHex === s.hex}
-                    onClick={() => setPreviewAccentHex(s.hex)}
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: "50%",
-                      background: s.hex,
-                      border: previewAccentHex === s.hex ? "3px solid #fff" : "2px solid #e2e8f0",
-                      boxShadow: previewAccentHex === s.hex ? `0 0 0 2px ${s.hex}` : "none",
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
-                  />
-                ))}
-              </div>
+          {customizeTab === "style" && (() => {
+            const allTemplates = distinctStyleTemplates();
+            const technicalTemplates = allTemplates.filter((t) => t.category === "technical");
+            const creativeTemplates = allTemplates.filter((t) => t.category === "creative");
 
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "var(--dim)",
-                  marginBottom: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.35,
-                }}
-              >
-                Font size
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  borderRadius: 10,
-                  border: "1px solid #e2e8f0",
-                  overflow: "hidden",
-                  marginBottom: 18,
-                }}
-              >
-                {(["small", "standard", "large"] as const).map((sz, i) => (
-                  <button
-                    key={sz}
-                    type="button"
-                    onClick={() => setPreviewFontSize(sz)}
+            /** Mini thumb for a template card */
+            const TemplateThumbCard = ({ t }: { t: ReturnType<typeof distinctStyleTemplates>[number] }) => {
+              const selected = styleReferenceFolder === t.referenceFolder;
+              const thumbKind = templateThumbKindFromFolder(t.referenceFolder);
+              const isCreative = t.category === "creative";
+              return (
+                <button
+                  type="button"
+                  onClick={() => setStyleReferenceFolder(t.referenceFolder)}
+                  title={t.description}
+                  aria-pressed={selected}
+                  style={{
+                    textAlign: "left",
+                    padding: 0,
+                    borderRadius: 10,
+                    border: selected
+                      ? "2.5px solid var(--accent)"
+                      : "1.5px solid #e2e8f0",
+                    background: selected ? "rgba(29,78,216,0.03)" : "#fff",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    overflow: "hidden",
+                    boxShadow: selected
+                      ? "0 0 0 3px rgba(29,78,216,0.12)"
+                      : "0 1px 3px rgba(15,23,42,0.06)",
+                    transition: "border-color 0.15s, box-shadow 0.15s",
+                    width: "100%",
+                  }}
+                >
+                  {/* Thumbnail */}
+                  <div
                     style={{
-                      flex: 1,
-                      padding: "10px 8px",
-                      border: "none",
-                      borderLeft: i ? "1px solid #e2e8f0" : "none",
-                      background: previewFontSize === sz ? "#f1f5f9" : "#fff",
+                      background: isCreative ? "#1e1e2e" : "#f8fafc",
+                      borderBottom: "1px solid #e2e8f0",
+                      padding: "8px 8px 0",
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: "#fff",
+                        borderRadius: "2px 2px 0 0",
+                        boxShadow: "0 1px 4px rgba(15,23,42,0.10)",
+                        overflow: "hidden",
+                        aspectRatio: "8.5 / 11",
+                      }}
+                    >
+                      <TemplateStyleThumbSvg kind={thumbKind} />
+                    </div>
+                  </div>
+                  {/* Label row */}
+                  <div
+                    style={{
+                      padding: "7px 10px 8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: "var(--text)",
+                        letterSpacing: -0.15,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {t.label}
+                    </div>
+                    {selected && (
+                      <div
+                        style={{
+                          width: 14,
+                          height: 14,
+                          borderRadius: "50%",
+                          background: "var(--accent)",
+                          flexShrink: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <svg width="7" height="7" viewBox="0 0 8 8" fill="none">
+                          <path d="M1.5 4l1.8 1.8L6.5 2.5" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            };
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+                {/* ── Technical ─────────────────────────────────── */}
+                <section>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 24,
+                        height: 24,
+                        borderRadius: 6,
+                        background: "rgba(29,78,216,0.10)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {/* Code / circuit icon */}
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                        <path d="M5 4L2 8l3 4M11 4l3 4-3 4M9 3l-2 10" stroke="#1d4ed8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", letterSpacing: -0.2 }}>
+                        Technical
+                      </div>
+                      <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.3 }}>
+                        ATS-safe · industry best practice
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                    }}
+                  >
+                    {technicalTemplates.map((t) => (
+                      <TemplateThumbCard key={t.id} t={t} />
+                    ))}
+                  </div>
+                  {technicalTemplates.length === 0 && (
+                    <p style={{ fontSize: 12, color: "var(--dim)", margin: 0 }}>
+                      No technical templates available yet.
+                    </p>
+                  )}
+                </section>
+
+                {/* ── Creative ──────────────────────────────────── */}
+                <section>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 24,
+                        height: 24,
+                        borderRadius: 6,
+                        background: "rgba(139,92,246,0.12)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {/* Palette icon */}
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="5.5" stroke="#7c3aed" strokeWidth="1.5" />
+                        <circle cx="5.5" cy="7" r="1" fill="#7c3aed" />
+                        <circle cx="8" cy="5.5" r="1" fill="#7c3aed" />
+                        <circle cx="10.5" cy="7" r="1" fill="#7c3aed" />
+                        <circle cx="9.5" cy="9.5" r="1" fill="#7c3aed" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", letterSpacing: -0.2 }}>
+                        Creative
+                      </div>
+                      <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.3 }}>
+                        Distinct layouts · design-forward
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                    }}
+                  >
+                    {creativeTemplates.map((t) => (
+                      <TemplateThumbCard key={t.id} t={t} />
+                    ))}
+                  </div>
+                  {creativeTemplates.length === 0 && (
+                    <p style={{ fontSize: 12, color: "var(--dim)", margin: 0 }}>
+                      Creative templates coming soon.
+                    </p>
+                  )}
+                </section>
+
+                {/* ── Fine-tune preview ─────────────────────────── */}
+                <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 14 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "var(--dim)",
+                      marginBottom: 10,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.35,
+                    }}
+                  >
+                    Fine-tune preview
+                  </div>
+
+                  {/* Accent color */}
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--dim)", marginBottom: 6 }}>
+                    Accent color
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+                    {CUSTOMIZE_ACCENT_SWATCHES.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        aria-label={`Accent ${s.id}`}
+                        aria-pressed={previewAccentHex === s.hex}
+                        onClick={() => setPreviewAccentHex(s.hex)}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: "50%",
+                          background: s.hex,
+                          border: previewAccentHex === s.hex ? "3px solid #fff" : "2px solid #e2e8f0",
+                          boxShadow: previewAccentHex === s.hex ? `0 0 0 2px ${s.hex}` : "none",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Font size */}
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--dim)", marginBottom: 6 }}>
+                    Font size
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      borderRadius: 10,
+                      border: "1px solid #e2e8f0",
+                      overflow: "hidden",
+                      marginBottom: 12,
+                    }}
+                  >
+                    {(["small", "standard", "large"] as const).map((sz, i) => (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => setPreviewFontSize(sz)}
+                        style={{
+                          flex: 1,
+                          padding: "8px 6px",
+                          border: "none",
+                          borderLeft: i ? "1px solid #e2e8f0" : "none",
+                          background: previewFontSize === sz ? "#f1f5f9" : "#fff",
+                          fontWeight: 600,
+                          fontSize: 11,
+                          color: previewFontSize === sz ? "var(--text)" : "var(--muted)",
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {sz === "small" ? "Small" : sz === "standard" ? "Standard" : "Large"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Spacing */}
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "3px 8px",
+                        borderRadius: 999,
+                        background: fitsOne === true ? "rgba(52,211,153,0.14)" : fitsOne === false ? "rgba(251,191,36,0.14)" : "rgba(148,163,184,0.12)",
+                        color: fitsOne === true ? "var(--green)" : fitsOne === false ? "var(--orange)" : "var(--muted)",
+                      }}
+                    >
+                      {atsLoading ? "Checking…" : fitsOne === true ? "1 page" : fitsOne === false ? "Multi-page" : "Page fit"}
+                    </span>
+                    <div
+                      style={{
+                        display: "flex",
+                        flex: "1 1 120px",
+                        borderRadius: 10,
+                        border: "1px solid #e2e8f0",
+                        overflow: "hidden",
+                        minWidth: 0,
+                      }}
+                    >
+                      {(["compact", "balanced", "spacious"] as const).map((sp, i) => (
+                        <button
+                          key={sp}
+                          type="button"
+                          onClick={() => setPreviewSpacing(sp)}
+                          style={{
+                            flex: 1,
+                            padding: "7px 4px",
+                            border: "none",
+                            borderLeft: i ? "1px solid #e2e8f0" : "none",
+                            background: previewSpacing === sp ? "#f1f5f9" : "#fff",
+                            fontWeight: 600,
+                            fontSize: 10,
+                            color: previewSpacing === sp ? "var(--text)" : "var(--muted)",
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          {sp === "compact" ? "Compact" : sp === "balanced" ? "Balanced" : "Spacious"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("rb-customize-preview")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    style={{
+                      width: "100%",
+                      padding: "8px 14px",
+                      marginBottom: 14,
+                      borderRadius: 10,
+                      border: "1px dashed #cbd5e1",
+                      background: "#f8fafc",
+                      fontSize: 11,
                       fontWeight: 600,
-                      fontSize: 12,
-                      color: previewFontSize === sz ? "var(--text)" : "var(--muted)",
+                      color: "var(--text)",
                       cursor: "pointer",
                       fontFamily: "inherit",
                     }}
                   >
-                    {sz === "small" ? "Small" : sz === "standard" ? "Standard" : "Large"}
+                    Auto-fit
                   </button>
-                ))}
-              </div>
+                </div>
 
-              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    background: fitsOne === true ? "rgba(52,211,153,0.14)" : fitsOne === false ? "rgba(251,191,36,0.14)" : "rgba(148,163,184,0.12)",
-                    color: fitsOne === true ? "var(--green)" : fitsOne === false ? "var(--orange)" : "var(--muted)",
-                  }}
-                >
-                  {atsLoading ? "Checking fit…" : fitsOne === true ? "Fits 1 page" : fitsOne === false ? "Multi-page" : "Page fit"}
-                </span>
-                <div
-                  style={{
-                    display: "flex",
-                    flex: "1 1 160px",
-                    borderRadius: 10,
-                    border: "1px solid #e2e8f0",
-                    overflow: "hidden",
-                    minWidth: 0,
-                  }}
-                >
-                  {(["compact", "balanced", "spacious"] as const).map((sp, i) => (
+                {/* ── Add missing details shortcut ── */}
+                <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 12 }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>
+                    Add missing details
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
                     <button
-                      key={sp}
                       type="button"
-                      onClick={() => setPreviewSpacing(sp)}
+                      onClick={() => setCustomizeTab("add")}
                       style={{
-                        flex: 1,
-                        padding: "8px 6px",
-                        border: "none",
-                        borderLeft: i ? "1px solid #e2e8f0" : "none",
-                        background: previewSpacing === sp ? "#f1f5f9" : "#fff",
-                        fontWeight: 600,
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #e2e8f0",
+                        background: "#fff",
                         fontSize: 11,
-                        color: previewSpacing === sp ? "var(--text)" : "var(--muted)",
+                        fontWeight: 600,
                         cursor: "pointer",
                         fontFamily: "inherit",
                       }}
                     >
-                      {sp === "compact" ? "Compact" : sp === "balanced" ? "Balanced" : "Spacious"}
+                      Add skill +
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => setCustomizeTab("add")}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #e2e8f0",
+                        background: "#fff",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      Add experience +
+                    </button>
+                  </div>
+                  <span style={{ fontSize: 10.5, color: "var(--dim)" }}>Structured fields only — use the Add details tab.</span>
                 </div>
+
               </div>
-
-              <button
-                type="button"
-                onClick={() => document.getElementById("rb-customize-preview")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  marginBottom: 18,
-                  borderRadius: 10,
-                  border: "1px dashed #cbd5e1",
-                  background: "#f8fafc",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--text)",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Auto-fit
-              </button>
-
-              <div
-                style={{
-                  borderTop: "1px solid #e2e8f0",
-                  paddingTop: 14,
-                  marginTop: 4,
-                }}
-              >
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
-                  Add missing details
-                </div>
-                <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, margin: "0 0 10px" }}>
-                  Use this when the resume lacks important info.
-                </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setCustomizeTab("add")}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 8,
-                      border: "1px solid #e2e8f0",
-                      background: "#fff",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    Add skill +
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCustomizeTab("add")}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 8,
-                      border: "1px solid #e2e8f0",
-                      background: "#fff",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    Add experience +
-                  </button>
-                </div>
-                <span style={{ fontSize: 11, color: "var(--dim)" }}>Structured fields only — switch to the Add details tab.</span>
-              </div>
-
-            </div>
-          )}
+            );
+          })()}
 
           {customizeTab === "sections" && (
             <div>
@@ -4978,83 +5189,208 @@ function ResumeStyleTemplateGrid({
     );
   }
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-        {templates.map((t) => {
-          const selected = styleReferenceFolder === t.referenceFolder;
-          const isAts = true;
-          const thumbKind = templateThumbKindFromFolder(t.referenceFolder);
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setStyleReferenceFolder(t.referenceFolder)}
+  const technicalTemplates = templates.filter((t) => t.category === "technical");
+  const creativeTemplates = templates.filter((t) => t.category === "creative");
+
+  const TemplateThumbCard = ({ t }: { t: ReturnType<typeof distinctStyleTemplates>[number] }) => {
+    const selected = styleReferenceFolder === t.referenceFolder;
+    const thumbKind = templateThumbKindFromFolder(t.referenceFolder);
+    const isCreative = t.category === "creative";
+    return (
+      <button
+        type="button"
+        onClick={() => setStyleReferenceFolder(t.referenceFolder)}
+        title={t.description}
+        aria-pressed={selected}
+        style={{
+          textAlign: "left",
+          padding: 0,
+          borderRadius: 10,
+          border: selected
+            ? "2.5px solid var(--accent)"
+            : "1.5px solid #e2e8f0",
+          background: selected ? "rgba(29,78,216,0.03)" : "#fff",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          overflow: "hidden",
+          boxShadow: selected
+            ? "0 0 0 3px rgba(29,78,216,0.12)"
+            : "0 1px 3px rgba(15,23,42,0.06)",
+          transition: "border-color 0.15s, box-shadow 0.15s",
+          width: "100%",
+        }}
+      >
+        <div
+          style={{
+            background: isCreative ? "#1e1e2e" : "#f8fafc",
+            borderBottom: "1px solid #e2e8f0",
+            padding: "8px 8px 0",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "2px 2px 0 0",
+              boxShadow: "0 1px 4px rgba(15,23,42,0.10)",
+              overflow: "hidden",
+              aspectRatio: "8.5 / 11",
+            }}
+          >
+            <TemplateStyleThumbSvg kind={thumbKind} />
+          </div>
+        </div>
+        <div
+          style={{
+            padding: "7px 10px 8px",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: 11.5,
+              fontWeight: 600,
+              color: "var(--text)",
+              letterSpacing: -0.15,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {t.label}
+          </div>
+          {selected && (
+            <div
               style={{
-                flex: "1 1 160px",
-                textAlign: "left",
-                padding: 0,
-                borderRadius: 10,
-                border: selected ? "2.5px solid var(--accent)" : "1.5px solid var(--border)",
-                background: "var(--surface2)",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                overflow: "hidden",
-                boxShadow: selected ? "0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent)" : "none",
-                transition: "border-color 0.15s, box-shadow 0.15s",
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                background: "var(--accent)",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              <div style={{
-                background: "#f8fafc",
-                borderBottom: "1px solid var(--border)",
-                padding: "8px 8px 0",
-              }}
-              >
-                <div style={{
-                  background: "#fff",
-                  borderRadius: "2px 2px 0 0",
-                  boxShadow: "0 1px 4px rgba(15,23,42,0.10)",
-                  overflow: "hidden",
-                  aspectRatio: "8.5 / 11",
-                }}
-                >
-                  <TemplateStyleThumbSvg kind={thumbKind} />
-                </div>
-              </div>
-              <div style={{ padding: "9px 12px 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", letterSpacing: -0.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {t.label}
-                  </div>
-                </div>
-                {isAts && (
-                  <span style={{
-                    flexShrink: 0,
-                    padding: "2px 6px", borderRadius: 99,
-                    border: "1px solid rgba(52,211,153,0.35)",
-                    background: "rgba(52,211,153,0.08)",
-                    color: "var(--green)",
-                    fontSize: 9, fontWeight: 700, letterSpacing: 0.2,
-                  }}>ATS</span>
-                )}
-                {selected && (
-                  <div style={{
-                    width: 16, height: 16, borderRadius: "50%",
-                    background: "var(--accent)", flexShrink: 0,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}
-                  >
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                      <path d="M1.5 4l1.8 1.8L6.5 2.5" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              <svg width="7" height="7" viewBox="0 0 8 8" fill="none">
+                <path d="M1.5 4l1.8 1.8L6.5 2.5" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          )}
+        </div>
+      </button>
+    );
+  };
 
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* ── Technical ─────────────────────────────────── */}
+      <section>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 8,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              background: "rgba(29,78,216,0.10)",
+              flexShrink: 0,
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+              <path d="M5 4L2 8l3 4M11 4l3 4-3 4M9 3l-2 10" stroke="#1d4ed8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", letterSpacing: -0.2 }}>
+              Technical
+            </div>
+            <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.3 }}>
+              ATS-safe · industry best practice
+            </div>
+          </div>
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+          }}
+        >
+          {technicalTemplates.map((t) => (
+            <TemplateThumbCard key={t.id} t={t} />
+          ))}
+        </div>
+      </section>
+
+      {/* ── Creative ──────────────────────────────────── */}
+      <section>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 8,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              background: "rgba(139,92,246,0.12)",
+              flexShrink: 0,
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="5.5" stroke="#7c3aed" strokeWidth="1.5" />
+              <circle cx="5.5" cy="7" r="1" fill="#7c3aed" />
+              <circle cx="8" cy="5.5" r="1" fill="#7c3aed" />
+              <circle cx="10.5" cy="7" r="1" fill="#7c3aed" />
+              <circle cx="9.5" cy="9.5" r="1" fill="#7c3aed" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", letterSpacing: -0.2 }}>
+              Creative
+            </div>
+            <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.3 }}>
+              Distinct layouts · design-forward
+            </div>
+          </div>
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+          }}
+        >
+          {creativeTemplates.map((t) => (
+            <TemplateThumbCard key={t.id} t={t} />
+          ))}
+        </div>
+        {creativeTemplates.length === 0 && (
+          <p style={{ fontSize: 12, color: "var(--dim)", margin: 0 }}>
+            Creative templates coming soon.
+          </p>
+        )}
+      </section>
     </div>
   );
 }
