@@ -152,7 +152,7 @@ function offlineDisplay(base: string): ApiErrorDisplay {
     steps: hosted
       ? [
           ...(railway ? ["Check Railway status: https://status.railway.app (edge outages look like failed fetches)."] : []),
-          `Open ${health} — a healthy API returns {"ok":true,"service":"resume_gui"}.`,
+          `Open ${health}. A healthy API returns {"ok":true,"service":"resume_gui"}.`,
           "In your host dashboard, confirm the service is running and the public domain matches NEXT_PUBLIC_API_URL.",
           "After the API is healthy, hard-refresh this page (deployed sites need a Pages rebuild if the API URL changed).",
         ]
@@ -404,7 +404,7 @@ export function formatApiErrorMessage(d: ApiErrorDisplay): string {
   if (d.kind === "generic" && d.title === "Something went wrong" && d.steps.length === 0) {
     return d.message;
   }
-  return d.steps.length > 0 ? `${d.title} — ${d.message}` : `${d.title}. ${d.message}`;
+  return `${d.title}. ${d.message}`;
 }
 
 export function apiErrorFromUnknown(e: unknown): string {

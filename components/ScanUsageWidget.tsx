@@ -90,7 +90,7 @@ function renderUsageBar(status: ScanUsageStatus | null, label: string) {
   if (status.unlimited) {
     return (
       <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
-        Unlimited {label} — included with your UMBC account.
+        Unlimited {label}: included with your UMBC account.
       </p>
     );
   }

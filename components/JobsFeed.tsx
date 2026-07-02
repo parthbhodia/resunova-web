@@ -593,8 +593,8 @@ async function analyzeResumeUpload(file: File): Promise<{ seniorityGuess?: strin
   const resp = await fetch(apiUrl("/api/analyze-upload"), { method: "POST", body: fd, headers });
   const json = await resp.json().catch(() => ({}));
   if (!resp.ok) {
-    if (resp.status === 429) throw new Error("Daily scan limit reached — try tomorrow, or browse without ranking below.");
-    throw new Error(json?.error || json?.message || "Couldn't read that file — use a text-based PDF résumé.");
+    if (resp.status === 429) throw new Error("Daily scan limit reached. Try tomorrow, or browse without ranking below.");
+    throw new Error(json?.error || json?.message || "Couldn't read that file. Use a text-based PDF résumé.");
   }
   // Optional: the backend may return an inferred experience-level bucket
   // (entry|mid|senior|lead) from the résumé's tenure, used to auto-default the
@@ -1737,7 +1737,7 @@ export default function JobsFeed({
         onSignIn={() =>
           openSignIn({
             title: "Sign in to browse jobs",
-            reason: "See live openings from company career boards and rank them against your résumé. Free — no credit card.",
+            reason: "See live openings from company career boards and rank them against your résumé. Free (no credit card).",
           })
         }
       />
@@ -1774,10 +1774,10 @@ export default function JobsFeed({
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", margin: 0 }}>Jobs for you</h1>
           <p style={{ fontSize: 13, color: "var(--muted)", margin: "6px 0 0" }}>
             {state.status === "needs-role"
-              ? "Pick a role to see live openings — or scan your résumé to auto-match and rank by fit."
+              ? "Pick a role to see live openings, or scan your résumé to auto-match and rank by fit."
               : state.status === "ready" && state.ranked === false
               ? "Live openings from company career boards. Scan your résumé to rank them by fit and unlock match scores."
-              : "Live openings ranked against your latest analyzed résumé. Apply on the company's site — we hand you the match, you make the call."}
+              : "Live openings ranked against your latest analyzed résumé. Apply on the company's site: we hand you the match, you make the call."}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -2144,7 +2144,7 @@ export default function JobsFeed({
             <CardContent style={{ padding: "40px 28px", textAlign: "center" }}>
               <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: 0 }}>No openings in this window</h2>
               <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 0", maxWidth: 440 }}>
-                Try a wider posting-age filter above — the feed is restocked by daily scans of company career boards.
+                Try a wider posting-age filter above; the feed is restocked by daily scans of company career boards.
               </p>
             </CardContent>
           </Card>
@@ -2214,7 +2214,7 @@ export default function JobsFeed({
             </div>
             {!fallback.loading && fallback.jobs.length > FALLBACK_LIMIT && (
               <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "12px 0 0" }}>
-                Showing {FALLBACK_LIMIT} of {fallback.jobs.length} — widen a filter above to see more in your main feed.
+                Showing {FALLBACK_LIMIT} of {fallback.jobs.length}. Widen a filter above to see more in your main feed.
               </p>
             )}
           </div>

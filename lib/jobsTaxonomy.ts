@@ -60,7 +60,7 @@ export const NATIONWIDE_LOCATION = "United States";
 
 export const US_METROS: MetroSuggestion[] = [
   { label: NATIONWIDE_LOCATION, sub: "All US locations · nationwide", locationTerms: [] },
-  { label: "Remote — anywhere in the US", sub: "Work-from-anywhere roles", locationTerms: [], remote: true },
+  { label: "Remote (anywhere in the US)", sub: "Work-from-anywhere roles", locationTerms: [], remote: true },
   { label: "New York, NY", sub: "NYC · Manhattan · Brooklyn · Queens", locationTerms: ["new york", "nyc", "manhattan", "brooklyn"] },
   { label: "San Francisco Bay Area, CA", sub: "SF · Oakland · South Bay", locationTerms: ["san francisco", "bay area", "oakland", "palo alto", "mountain view", "san jose", "sunnyvale"] },
   { label: "Los Angeles, CA", sub: "LA · Santa Monica · Pasadena", locationTerms: ["los angeles", "santa monica", "pasadena", "culver city"] },

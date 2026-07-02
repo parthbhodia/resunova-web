@@ -146,7 +146,7 @@ export default function FirstRunWizard({
               <DialogTitle className="text-lg font-semibold">Welcome to Resunova 👋</DialogTitle>
               <DialogDescription className="text-[13.5px] leading-relaxed">
                 What roles are you targeting? We&apos;ll rank live job matches to the top of your
-                feed. Pick up to {MAX_ROLES} — you can change these any time.
+                feed. Pick up to {MAX_ROLES}. You can change these any time.
               </DialogDescription>
             </div>
             <div className="flex flex-wrap gap-2">
