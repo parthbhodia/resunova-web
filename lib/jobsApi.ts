@@ -126,6 +126,20 @@ export async function fetchCompanyOptions(q: string): Promise<CompanyOption[]> {
   }
 }
 
+/** Title typeahead — real corpus job titles (substring match), each with its
+ *  open-roles count. Complements the curated role suggestions. [] on any failure. */
+export type TitleOption = { title: string; activeCount: number };
+export async function fetchTitleOptions(q: string): Promise<TitleOption[]> {
+  try {
+    const resp = await fetch(apiUrl(`/api/jobs/titles?q=${encodeURIComponent(q.trim())}`));
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return Array.isArray(data?.titles) ? data.titles : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function authHeaders(): Promise<Record<string, string>> {
   try {
     const {
