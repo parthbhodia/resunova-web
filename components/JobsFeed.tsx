@@ -22,7 +22,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, fetchAnalyses, type JobPrepStatus, type AnalyzeRecord } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
-import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { fetchJobDetail, fetchCompanyOptions, type JobDetail as JobDetailData, type CompanyOption } from "@/lib/jobsApi";
+import SearchableSelect, { type SelectItem } from "@/components/SearchableSelect";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -41,7 +42,7 @@ import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
 import { JobTopMatchesCard } from "@/components/jobs/JobTopMatchesCard";
 import { useJobTopMatches, type JobTopMatch } from "@/lib/useJobTopMatches";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
-import { SENIORITY_BUCKET_VALS, NATIONWIDE_LOCATION } from "@/lib/jobsTaxonomy";
+import { SENIORITY_BUCKET_VALS, NATIONWIDE_LOCATION, matchRoleSuggestions } from "@/lib/jobsTaxonomy";
 
 export type FeedJob = {
   id: string;
@@ -157,6 +158,7 @@ const COUNTRIES = [
 ] as const;
 const COUNTRY_LABEL = (k: string) => COUNTRIES.find((c) => c.key === k)?.label ?? "🇺🇸 United States";
 const JOBS_COUNTRY_KEY = "rn_jobs_country_v1";
+const JOBS_RECENT_SEARCH_KEY = "rn_jobs_recent_searches_v1";
 
 // Strip the leading flag emoji from a COUNTRIES label → "United Kingdom".
 function cleanCountryLabel(scope?: string): string {
@@ -854,6 +856,57 @@ export default function JobsFeed({
   }, [router]);
   const [currentPage, setCurrentPage] = useState(feedPage);
   useEffect(() => { feedPage = currentPage; }, [currentPage]);
+
+  // ── Unified search suggestions: one box surfaces roles/titles + companies +
+  // recent searches. A ROLE pick sets the title search; a COMPANY pick sets the
+  // company AND-filter (composable, not a title match). LinkedIn/Indeed style.
+  const [searchCompanyOpts, setSearchCompanyOpts] = useState<CompanyOption[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem(JOBS_RECENT_SEARCH_KEY) || "[]"); } catch { return []; }
+  });
+  const pushRecent = useCallback((q: string) => {
+    const v = q.trim(); if (!v) return;
+    setRecentSearches((prev) => {
+      const next = [v, ...prev.filter((s) => s.toLowerCase() !== v.toLowerCase())].slice(0, 8);
+      try { localStorage.setItem(JOBS_RECENT_SEARCH_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+  // Debounced company typeahead as the user types (>=2 chars).
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) { setSearchCompanyOpts([]); return; }
+    let ignore = false;
+    const t = setTimeout(() => { fetchCompanyOptions(q).then((o) => { if (!ignore) setSearchCompanyOpts(o); }); }, 300);
+    return () => { ignore = true; clearTimeout(t); };
+  }, [search]);
+  // Remember a committed free-text search (typed + settled via the 400ms debounce).
+  useEffect(() => { if (debouncedSearch.trim()) pushRecent(debouncedSearch); }, [debouncedSearch, pushRecent]);
+  const searchItems = useMemo<SelectItem[]>(() => {
+    const q = search.trim();
+    const items: SelectItem[] = [];
+    if (!q) {
+      for (const s of recentSearches.slice(0, 4)) items.push({ key: `recent:${s}`, label: s, sub: "Recent search" });
+    }
+    for (const r of matchRoleSuggestions(q, 4)) {
+      items.push({ key: `role:${r.label}`, label: r.label, sub: r.titleTerms.slice(0, 3).join(" · ") || "Role" });
+    }
+    for (const c of searchCompanyOpts.slice(0, 4)) {
+      items.push({ key: `company:${c.company}`, label: c.company, sub: `🏢 Company · ${c.activeCount.toLocaleString()} open roles` });
+    }
+    return items.slice(0, 10);
+  }, [search, recentSearches, searchCompanyOpts]);
+  const onSearchSelect = useCallback((item: SelectItem) => {
+    const kind = item.key.slice(0, item.key.indexOf(":"));
+    if (kind === "company") {
+      setSearch(""); setDebouncedSearch("");        // clear free-text
+      setCompanyFilter(item.label); setCurrentPage(0); // route to the AND company filter
+    } else {                                          // role | recent → title search
+      setSearch(item.label); setDebouncedSearch(item.label); pushRecent(item.label);
+    }
+  }, [pushRecent]);
+
   const [loadingMore, setLoadingMore] = useState(false);
   // True while a feed fetch is in flight over an already-visible feed (search /
   // filter refine / background revalidate) — drives the small spinner in the
@@ -1835,12 +1888,13 @@ export default function JobsFeed({
           {/* Row 1 — keyword + location (LinkedIn/Indeed style) */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <div style={{ position: "relative", flex: "1 1 240px", maxWidth: listMode ? undefined : 340, minWidth: 0 }}>
-              <Input
+              <SearchableSelect
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") setDebouncedSearch(search.trim()); }}
-                placeholder="Search title or company…  (Enter to search)"
-                style={{ width: "100%", paddingRight: revalidating ? 32 : undefined }}
+                onChange={setSearch}
+                onSelect={onSearchSelect}
+                items={searchItems}
+                placeholder="Search role, title, or company…"
+                emptyHint="Keep typing to search this text"
               />
               {revalidating && (
                 <span aria-hidden style={{
