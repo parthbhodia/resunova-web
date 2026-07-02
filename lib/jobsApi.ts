@@ -95,12 +95,21 @@ export type JobDetail = {
   /** Owner's latest résumé text + structured doc, for the Boost → tailor handoff. */
   resumeText: string;
   structuredResume: Record<string, unknown> | null;
+  contacts?: JobContact[];
   matched: RequirementItem[];
   missing: RequirementItem[];
   injectableKeywords: string[];
   matchScore: number | null;
   matchedCount: number;
   totalRequirements: number;
+};
+
+export type JobContact = {
+  email: string;
+  type: "recruiter" | "careers" | "hr" | "generic";
+  source: "job_description" | "ats_metadata" | "company_public_page" | "domain_guess" | "verified";
+  confidence: number | null;
+  createdAt: string | null;
 };
 
 /** Short match-quality label for a 0–100 score (null = not yet scanned). */

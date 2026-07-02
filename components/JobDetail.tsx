@@ -587,9 +587,92 @@ function JobBody({
       <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
         <MatchPanel job={job} onBoost={onBoost} signedIn={signedIn} />
         <PrepCard job={job} onPrep={onPrep} prepStatus={prepStatus} prepLaunching={prepLaunching} />
+        <ContactHiringCard job={job} />
         <InsiderPanel postingId={job.id} company={job.company} />
       </div>
     </div>
+  );
+}
+
+function contactTypeLabel(type: string): string {
+  if (type === "recruiter") return "Recruiter contact";
+  if (type === "careers") return "Careers inbox";
+  if (type === "hr") return "HR inbox";
+  return "Hiring contact";
+}
+
+function contactSourceLabel(source: string): string {
+  if (source === "job_description") return "Found in the job post";
+  if (source === "ats_metadata") return "Found in ATS metadata";
+  if (source === "company_public_page") return "Found on company site";
+  if (source === "domain_guess") return "Suggested from company domain";
+  if (source === "verified") return "Verified contact";
+  return "Public contact";
+}
+
+function ContactHiringCard({ job }: { job: JobDetailData }) {
+  const contacts = Array.isArray(job.contacts) ? job.contacts : [];
+  const [copied, setCopied] = useState("");
+  if (contacts.length === 0) return null;
+
+  const primary = contacts[0];
+  const subject = `Question about ${job.title} at ${job.company}`;
+  const body = [
+    `Hi,`,
+    ``,
+    `I found the ${job.title} role at ${job.company} and wanted to briefly introduce myself.`,
+    `I am interested in the opportunity and would appreciate being pointed to the right recruiter or hiring contact for this role.`,
+    ``,
+    `Thank you,`,
+  ].join("\n");
+
+  async function copy(email: string) {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopied(email);
+      window.setTimeout(() => setCopied(""), 1800);
+    } catch {
+      setCopied("");
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--text)" }}>Contact hiring team</div>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, margin: "5px 0 0" }}>
+            Public or suggested hiring contact. Draft only; Resunova will not send emails automatically.
+          </p>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {contacts.slice(0, 3).map((contact) => (
+            <div key={contact.email} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "10px 11px", background: "var(--surface2)" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 3 }}>
+                {contactTypeLabel(contact.type)}
+              </div>
+              <div style={{ fontSize: 13.5, fontWeight: 650, color: "var(--text)", wordBreak: "break-all" }}>{contact.email}</div>
+              <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>{contactSourceLabel(contact.source)}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => void copy(primary.email)}
+            style={{ border: "1px solid var(--border)", background: "transparent", color: "var(--text)", borderRadius: 9, padding: "8px 11px", fontSize: 12.5, fontWeight: 650, cursor: "pointer" }}
+          >
+            {copied === primary.email ? "Copied" : "Copy email"}
+          </button>
+          <a
+            href={`mailto:${encodeURIComponent(primary.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
+            style={{ border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "8px 11px", fontSize: 12.5, fontWeight: 650, textDecoration: "none" }}
+          >
+            Draft email
+          </a>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
