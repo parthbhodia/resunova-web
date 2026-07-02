@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -618,6 +618,14 @@ export default function JobsFeed({
   variant?: "full" | "list";
 } = {}) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Shareable-link hydration: read a filter from the URL on mount. URL wins over
+  // localStorage / defaults so a shared link reproduces the sender's board. Empty →
+  // null so the caller falls through to its existing localStorage/default logic.
+  const urlInit = (k: string): string | null => {
+    const v = searchParams?.get(k);
+    return v && v.length ? v : null;
+  };
   const { openSignIn } = useSignInDialog();
   const isMobile = useIsMobile();
   const listMode = variant === "list";
@@ -641,6 +649,7 @@ export default function JobsFeed({
   // A no-résumé visitor's chosen target role (free text or a suggested chip).
   // Restored from localStorage so it sticks across reloads until they scan.
   const [roleQuery, setRoleQuery] = useState<string>(() => {
+    const u = urlInit("role"); if (u) return u;
     if (typeof window === "undefined") return "";
     try { return localStorage.getItem(JOBS_ROLE_KEY) || ""; } catch { return ""; }
   });
@@ -648,12 +657,12 @@ export default function JobsFeed({
     if (typeof window === "undefined") return null;
     try { const raw = localStorage.getItem(JOBS_BROWSE_KEY); return raw ? (JSON.parse(raw) as JobsBrowseSelection) : null; } catch { return null; }
   });
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => urlInit("q") ?? "");
   // Debounced search → server query. The search box now hits the DB (title across
   // the WHOLE corpus, ranked), not just a client-side filter on the loaded page —
   // so searching a role outside your saved family (e.g. "business analyst") works.
   // Debounced so we don't refetch on every keystroke.
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => urlInit("q") ?? "");
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 400);
     return () => clearTimeout(t);
@@ -679,17 +688,20 @@ export default function JobsFeed({
     return () => { cancelled = true; };
   }, [updateResumeOpen]);
   // Country scope. Defaults to "us" so the feed isn't flooded with international
-  const [locationText, setLocationText] = useState<string>("");
-  const [debouncedLocation, setDebouncedLocation] = useState("");
+  const [locationText, setLocationText] = useState<string>(() => urlInit("location") ?? "");
+  const [debouncedLocation, setDebouncedLocation] = useState(() => urlInit("location") ?? "");
   useEffect(() => {
     const t = setTimeout(() => setDebouncedLocation(locationText.trim()), 400);
     return () => clearTimeout(t);
   }, [locationText]);
-  const [workModels, setWorkModels] = useState<Set<string>>(new Set());
+  const [workModels, setWorkModels] = useState<Set<string>>(() => {
+    const u = urlInit("work_model"); return u ? new Set(u.split("|")) : new Set();
+  });
   // Seed from the onboarding wizard's experience-level pick (persisted in the
   // browse selection) so an "Entry" choice carries into the feed instead of
   // defaulting to the corpus, which is ~68% mid/senior.
   const [seniorities, setSeniorities] = useState<Set<string>>(() => {
+    const u = urlInit("experience"); if (u) return new Set(u.split("|"));
     try {
       const raw = localStorage.getItem(JOBS_BROWSE_KEY);
       const sel = raw ? (JSON.parse(raw) as JobsBrowseSelection) : null;
@@ -699,28 +711,29 @@ export default function JobsFeed({
   // Country scope (default US). Persisted so it survives reloads. Replaces the old
   // literal-location US match with the backend's accurate non_us/country filter.
   const [countryScope, setCountryScope] = useState<string>(() => {
+    const u = urlInit("country"); if (u) return u;
     try { return localStorage.getItem(JOBS_COUNTRY_KEY) || "US"; } catch { return "US"; }
   });
   useEffect(() => { try { localStorage.setItem(JOBS_COUNTRY_KEY, countryScope); } catch { /* ignore */ } }, [countryScope]);
-  const [empType, setEmpType] = useState<string>("");
-  const [industry, setIndustry] = useState<string>("");
-  const [yearsBucket, setYearsBucket] = useState<string>("any");
+  const [empType, setEmpType] = useState<string>(() => urlInit("employment_type") ?? "");
+  const [industry, setIndustry] = useState<string>(() => urlInit("industry") ?? "");
+  const [yearsBucket, setYearsBucket] = useState<string>(() => urlInit("years") ?? "any");
   // 3-state eligibility filters: "any" | "required" | "exclude".
-  const [clearance, setClearance] = useState<string>("any");
-  const [citizenship, setCitizenship] = useState<string>("any");
+  const [clearance, setClearance] = useState<string>(() => urlInit("clearance") ?? "any");
+  const [citizenship, setCitizenship] = useState<string>(() => urlInit("citizenship") ?? "any");
   // Role-family override for the ranked feed's role chip. null = use the résumé's
   // inferred family (default); "" = broaden to ALL roles; "data"/etc = scope to a
   // chosen family. Sent as ?feed_family= on page 0 (backend honors it there).
   const [familyOverride, setFamilyOverride] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<SortKey>("match");
+  const [sortBy, setSortBy] = useState<SortKey>(() => (urlInit("sort") as SortKey) ?? "match");
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
-  const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
-  const [ageFilter, setAgeFilter] = useState<AgeFilterKey>(DEFAULT_AGE_FILTER);
+  const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>(() => (urlInit("score") as ScoreFilterKey) ?? "all");
+  const [ageFilter, setAgeFilter] = useState<AgeFilterKey>(() => (urlInit("date") as AgeFilterKey) ?? DEFAULT_AGE_FILTER);
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
   const [appliedRefreshKey, setAppliedRefreshKey] = useState(0);
   // Featured-rail company scope (case-insensitive company name). Empty = no scope;
   // set → the feed shows only that company's roles (ranked if a résumé exists).
-  const [companyFilter, setCompanyFilter] = useState<string>("");
+  const [companyFilter, setCompanyFilter] = useState<string>(() => urlInit("company") ?? "");
   // Structured facet + location filters → server query params. `filterSig` keys
   // the cache + re-fetch; score stays client-side (computed field, no DB column).
   const { serverFilterEntries, filterSig } = useMemo(() => {
@@ -762,6 +775,47 @@ export default function JobsFeed({
     if (companyFilter) entries.push(["company", companyFilter]);
     return { serverFilterEntries: entries, filterSig: entries.map(([k, v]) => `${k}=${v}`).join("&") };
   }, [countryScope, debouncedLocation, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, companyFilter]);
+  // Sync active filters INTO the URL so the board is shareable — a copied link
+  // reproduces the exact filters for whoever opens it. Debounced; skips the first
+  // mount (that would rewrite the URL we just hydrated from); reads the LIVE
+  // window.location (not the reactive searchParams) so writing doesn't feed back
+  // and loop. Preserves ?view and ?job; `replace` so filter tweaks don't spam history.
+  const urlWriteRef = useRef(false);
+  useEffect(() => {
+    if (!urlWriteRef.current) { urlWriteRef.current = true; return; }
+    const t = setTimeout(() => {
+      if (typeof window === "undefined") return;
+      const p = new URLSearchParams(window.location.search);
+      const put = (k: string, v: string, keep: boolean) => { if (keep && v) p.set(k, v); else p.delete(k); };
+      p.set("country", countryScope); // primary scope — always explicit in the link
+      put("q", debouncedSearch, !!debouncedSearch);
+      put("location", debouncedLocation, !!debouncedLocation);
+      put("work_model", [...workModels].join("|"), workModels.size > 0);
+      put("experience", [...seniorities].join("|"), seniorities.size > 0);
+      put("employment_type", empType, !!empType);
+      put("industry", industry, !!industry);
+      put("years", yearsBucket, yearsBucket !== "any");
+      put("clearance", clearance, clearance !== "any");
+      put("citizenship", citizenship, citizenship !== "any");
+      put("date", ageFilter, ageFilter !== DEFAULT_AGE_FILTER);
+      put("sort", sortBy, sortBy !== "match");
+      put("score", scoreFilter, scoreFilter !== "all");
+      put("role", roleQuery, !!roleQuery);
+      put("company", companyFilter, !!companyFilter);
+      router.replace(`/?${p.toString()}`, { scroll: false });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [countryScope, debouncedSearch, debouncedLocation, workModels, seniorities, empType, industry,
+      yearsBucket, clearance, citizenship, ageFilter, sortBy, scoreFilter, roleQuery, companyFilter, router]);
+  // Open a job WITHOUT dropping the filter params — preserve the current URL query
+  // (which carries the filters) and just set view/job, so the link stays shareable
+  // and the board keeps its filters when you click a card.
+  const openJobUrl = useCallback((id: string) => {
+    const p = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    p.set("view", "jobs");
+    p.set("job", id);
+    router.push(`/?${p.toString()}`);
+  }, [router]);
   const [currentPage, setCurrentPage] = useState(feedPage);
   useEffect(() => { feedPage = currentPage; }, [currentPage]);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1347,7 +1401,7 @@ export default function JobsFeed({
     return (
       <Card
         key={job.id}
-        onClick={() => router.push(`/?view=jobs&job=${encodeURIComponent(job.id)}`)}
+        onClick={() => openJobUrl(job.id)}
         style={{
           cursor: "pointer",
           ...(job.id === selectedJobId
@@ -2067,7 +2121,7 @@ export default function JobsFeed({
           onSaved={(f) => setSavedFilters((prev) => [f, ...prev])}
           onDeleted={(id) => setSavedFilters((prev) => prev.filter((x) => x.id !== id))}
           onNavigate={(v) => router.push(`/?view=${v}`)}
-          onOpenJob={(id) => router.push(`/?view=jobs&job=${encodeURIComponent(id)}`)}
+          onOpenJob={openJobUrl}
         />
       )}
 
