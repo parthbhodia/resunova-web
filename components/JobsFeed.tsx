@@ -158,6 +158,42 @@ const COUNTRIES = [
 const COUNTRY_LABEL = (k: string) => COUNTRIES.find((c) => c.key === k)?.label ?? "🇺🇸 United States";
 const JOBS_COUNTRY_KEY = "rn_jobs_country_v1";
 
+// Strip the leading flag emoji from a COUNTRIES label → "United Kingdom".
+function cleanCountryLabel(scope?: string): string {
+  const c = COUNTRIES.find((x) => x.key === scope);
+  return c ? c.label.replace(/^[^A-Za-z]+/, "").trim() : "";
+}
+const titleCaseWords = (s: string) => s.replace(/\b\w/g, (m) => m.toUpperCase());
+
+/** Auto-generate a saved-filter name from the active filters, LEADING with the
+ *  title/search — e.g. "Business Analyst · Entry · Remote · United Kingdom · Past week".
+ *  The user can still edit it before saving. */
+function filterSnapshotToName(s: FilterSnapshot): string {
+  const parts: string[] = [];
+  const title = (s.search || "").trim();
+  if (title) parts.push(titleCaseWords(title));
+  const sen = (s.seniorities || [])
+    .map((k) => SENIORITY_BUCKETS.find((b) => b.key === k)?.label)
+    .filter(Boolean) as string[];
+  if (sen.length) parts.push(sen.join("/"));
+  const wm = (s.workModels || [])
+    .map((k) => WORK_MODELS.find((w) => w.key === k)?.label)
+    .filter(Boolean) as string[];
+  if (wm.length) parts.push(wm.join("/"));
+  const loc = (s.locationText || "").trim();
+  if (loc) parts.push(titleCaseWords(loc));
+  const cty = cleanCountryLabel(s.countryScope);
+  if (cty && s.countryScope !== "US") parts.push(cty); // US is the default scope → omit for brevity
+  if (s.ageFilter && s.ageFilter !== DEFAULT_AGE_FILTER) {
+    const age = AGE_FILTERS.find((a) => a.key === s.ageFilter)?.label;
+    if (age) parts.push(age);
+  }
+  const co = (s.companyFilter || "").trim();
+  if (co) parts.push(title ? `at ${co}` : co);
+  if (parts.length === 0) return cleanCountryLabel(s.countryScope) || "All jobs";
+  return parts.join(" · ").slice(0, 80);
+}
+
 const SORT_OPTIONS = [
   { key: "match", label: "Best match" },
   { key: "newest", label: "Newest" },
@@ -2260,7 +2296,7 @@ function JobsSidebar({
           <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Your saved filters</span>
           {!naming && (
             <button
-              onClick={() => setNaming(true)}
+              onClick={() => { setName(filterSnapshotToName(currentSnapshot)); setNaming(true); }}
               style={{ fontSize: 12, fontWeight: 600, padding: "4px 9px", borderRadius: 7, border: "1px solid var(--surface2)", background: "transparent", color: "var(--accent)", cursor: "pointer" }}
             >
               + Save
