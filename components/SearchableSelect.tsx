@@ -123,6 +123,7 @@ export default function SearchableSelect({
   const menu = showList ? (
     <div
       ref={menuRef}
+      id="ss-listbox"
       role="listbox"
       style={{
         ...menuPos,
@@ -134,6 +135,9 @@ export default function SearchableSelect({
         <button
           key={item.key}
           type="button"
+          role="option"
+          id={`ss-opt-${i}`}
+          aria-selected={i === highlight}
           // Keep focus on the input so the portaled menu doesn't close before
           // the click fires (classic combobox gotcha with document mousedown).
           onMouseDown={(e) => e.preventDefault()}
@@ -141,7 +145,7 @@ export default function SearchableSelect({
           onClick={() => pick(item)}
           style={{
             display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
-            padding: "9px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "inherit",
+            padding: "9px 10px", minHeight: 42, borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "inherit",
             background: i === highlight ? "var(--accent-bg, color-mix(in srgb, var(--accent) 10%, transparent))" : "transparent",
           }}
         >
@@ -186,12 +190,20 @@ export default function SearchableSelect({
           onKeyDown={onKeyDown}
           placeholder={placeholder}
           role="combobox"
+          aria-label={placeholder || "Search"}
           aria-expanded={showList}
+          aria-controls="ss-listbox"
+          aria-activedescendant={showList ? `ss-opt-${highlight}` : undefined}
           aria-autocomplete="list"
           style={{
             width: "100%", boxSizing: "border-box", fontSize: 14,
             padding: leadingIcon ? "11px 12px 11px 36px" : "11px 12px",
-            borderRadius: 9, border: `1.5px solid ${value.trim() ? "var(--accent)" : "var(--surface2)"}`,
+            borderRadius: 9,
+            // Accent border + a visible focus ring while focused/open (never a bare
+            // outline:none) so keyboard users always see where they are (a11y focus-states).
+            border: `1.5px solid ${value.trim() || open ? "var(--accent)" : "var(--surface2)"}`,
+            boxShadow: open ? "0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)" : "none",
+            transition: "box-shadow 0.15s ease, border-color 0.15s ease",
             background: "var(--surface)", color: "var(--text)", fontFamily: "inherit", outline: "none",
           }}
         />

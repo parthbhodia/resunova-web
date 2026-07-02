@@ -160,6 +160,14 @@ const COUNTRY_LABEL = (k: string) => COUNTRIES.find((c) => c.key === k)?.label ?
 const JOBS_COUNTRY_KEY = "rn_jobs_country_v1";
 const JOBS_RECENT_SEARCH_KEY = "rn_jobs_recent_searches_v1";
 
+// Suggestion-group icons — SVG (never emoji), one consistent 2px-stroke set, so the
+// dropdown reads role vs company vs recent at a glance (icon-style-consistent).
+const SUGGEST_ICON: Record<"role" | "company" | "recent", React.ReactNode> = {
+  role: (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>),
+  company: (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 22V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v18" /><path d="M15 9h4a1 1 0 0 1 1 1v12M8 7h.01M8 11h.01M8 15h.01M12 7h.01M12 11h.01" /></svg>),
+  recent: (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>),
+};
+
 // Strip the leading flag emoji from a COUNTRIES label → "United Kingdom".
 function cleanCountryLabel(scope?: string): string {
   const c = COUNTRIES.find((x) => x.key === scope);
@@ -892,22 +900,22 @@ export default function JobsFeed({
     const items: SelectItem[] = [];
     const seen = new Set<string>();
     if (!q) {
-      for (const s of recentSearches.slice(0, 4)) items.push({ key: `recent:${s}`, label: s, sub: "Recent search" });
+      for (const s of recentSearches.slice(0, 4)) items.push({ key: `recent:${s}`, label: s, sub: "Recent search", icon: SUGGEST_ICON.recent });
     }
     // Canonical roles first (map to good title-search terms)…
     for (const r of matchRoleSuggestions(q, 3)) {
       seen.add(r.label.toLowerCase());
-      items.push({ key: `role:${r.label}`, label: r.label, sub: r.titleTerms.slice(0, 3).join(" · ") || "Role" });
+      items.push({ key: `role:${r.label}`, label: r.label, sub: r.titleTerms.slice(0, 3).join(" · ") || "Role", icon: SUGGEST_ICON.role });
     }
     // …then LIVE corpus titles (deduped against the canonical roles)…
     for (const t of searchTitleOpts.slice(0, 4)) {
       if (seen.has(t.title.toLowerCase())) continue;
       seen.add(t.title.toLowerCase());
-      items.push({ key: `title:${t.title}`, label: t.title, sub: `Title · ${t.activeCount.toLocaleString()} open roles` });
+      items.push({ key: `title:${t.title}`, label: t.title, sub: `Title · ${t.activeCount.toLocaleString()} open roles`, icon: SUGGEST_ICON.role });
     }
     // …then companies (route to the AND company filter on select).
     for (const c of searchCompanyOpts.slice(0, 3)) {
-      items.push({ key: `company:${c.company}`, label: c.company, sub: `🏢 Company · ${c.activeCount.toLocaleString()} open roles` });
+      items.push({ key: `company:${c.company}`, label: c.company, sub: `Company · ${c.activeCount.toLocaleString()} open roles`, icon: SUGGEST_ICON.company });
     }
     return items.slice(0, 12);
   }, [search, recentSearches, searchTitleOpts, searchCompanyOpts]);
