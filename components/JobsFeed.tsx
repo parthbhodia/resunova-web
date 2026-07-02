@@ -169,6 +169,27 @@ function seniorityBucketKey(seniority: string | null): string | null {
   return null;
 }
 
+const SENIOR_TITLE_RE = /\b(senior|sr|lead|principal|staff|director|head|vp|chief|ii|iii|iv)\b/i;
+
+function jobMatchesSeniorityFilters(job: FeedJob, selected: Set<string>): boolean {
+  if (selected.size === 0) return true;
+
+  // Mirror the backend's NULL-inclusive Entry predicate. Otherwise the API can
+  // correctly return entry-eligible unlabeled / 0-2 year jobs that this client
+  // immediately hides again.
+  if (selected.size === 1 && selected.has("entry")) {
+    if (SENIOR_TITLE_RE.test(job.title || "")) return false;
+    const seniority = (job.seniority || "").toLowerCase();
+    return seniority === "intern"
+      || seniority === "entry"
+      || (typeof job.minYears === "number" && job.minYears <= 2)
+      || (!seniority && job.minYears == null);
+  }
+
+  const bucket = seniorityBucketKey(job.seniority);
+  return Boolean(bucket && selected.has(bucket));
+}
+
 /** Short match-strength tier shown under each card's score (jobright-style). */
 function matchTierLabel(score: number): string {
   if (score >= 85) return "Strong";
@@ -1140,8 +1161,7 @@ export default function JobsFeed({
         if (!wm || !workModels.has(wm)) return false;
       }
       if (seniorities.size > 0) {
-        const b = seniorityBucketKey(job.seniority);
-        if (!b || !seniorities.has(b)) return false;
+        if (!jobMatchesSeniorityFilters(job, seniorities)) return false;
       }
       if (empType && job.employmentType !== empType) return false;
       if (industry && job.industry !== industry) return false;
