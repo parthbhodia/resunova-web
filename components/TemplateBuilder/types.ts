@@ -41,10 +41,10 @@ export interface TBProject {
 }
 
 export type TBFont = "Helvetica" | "Times-Roman" | "Courier";
-export type TBStylePreset = "executive" | "modern" | "classic";
+export type TBStylePreset = "executive" | "modern" | "classic" | "slate" | "minimal" | "sapphire" | "sharp" | "creative-teal" | "creative-banner";
 export type TBPageWidth = "narrow" | "standard" | "wide";
 export type TBFontSize = "small" | "medium" | "large";
-export type TBLayout = "single" | "twoColumn";
+export type TBLayout = "single" | "twoColumn" | "rightSidebar" | "topBannerRightSidebar";
 
 export interface TBCustomization {
   font: TBFont;
