@@ -73,6 +73,24 @@ export type FeedJob = {
   locationMatch: boolean;
 };
 
+/** Project a full JobDetail down to the FeedJob card shape — used to PIN a deep-
+ *  linked / selected job onto the board when it isn't in the current feed, so it's
+ *  always highlighted without re-scoping the feed. Fields the detail lacks
+ *  (employmentType/industry/minYears, title/location match) default to null/false. */
+function detailToFeedJob(d: JobDetailData): FeedJob {
+  return {
+    id: d.id, title: d.title, company: d.company, companySlug: d.companySlug, companyDomain: d.companyDomain,
+    url: d.url, location: d.location,
+    salaryMin: d.salaryMin, salaryMax: d.salaryMax, salaryCurrency: d.salaryCurrency,
+    salaryPeriod: d.salaryPeriod, salarySource: d.salarySource,
+    workModel: d.workModel, seniority: d.seniority, visaSponsorship: d.visaSponsorship,
+    employmentType: null, industry: null, minYears: null,
+    h1bSponsor: d.h1bSponsor, h1bCertifiedCount: d.h1bCertifiedCount, h1bMedianWage: d.h1bMedianWage,
+    postedAt: d.postedAt, matchScore: d.matchScore, matchedCount: d.matchedCount,
+    totalRequirements: d.totalRequirements, titleMatch: false, locationMatch: false,
+  };
+}
+
 type FeedState =
   | { status: "loading" }
   | { status: "no-resume" }
@@ -962,7 +980,7 @@ export default function JobsFeed({
     { jobs: [], loading: false, key: "" },
   );
   const loadFallback = useCallback(async () => {
-    const fkey = `${debouncedSearch}|${roleQuery}|${rankAnalysisId}`;
+    const fkey = `${debouncedSearch}|${roleQuery}|${rankAnalysisId}|${countryScope}`;
     setFallback((f) => (f.key === fkey && (f.loading || f.jobs.length) ? f : { jobs: [], loading: true, key: fkey }));
     try {
       const supabase = getSupabaseClient();
@@ -975,6 +993,9 @@ export default function JobsFeed({
       appendBrowseParams(params, browseSel, false); // relaxed fallback: no hard title/work-model scope
       if (debouncedSearch) params.set("title_any", debouncedSearch);
       if (companyFilter) params.set("company", companyFilter); // keep the fallback inside the company scope
+      // Country scope IS applied even in the relaxed set — a US user shouldn't see
+      // foreign postings in "outside your filters" (that was the Malta-under-US leak).
+      params.set("country", countryScope);
       const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -985,7 +1006,7 @@ export default function JobsFeed({
     } catch {
       setFallback({ jobs: [], loading: false, key: fkey });
     }
-  }, [debouncedSearch, roleQuery, rankAnalysisId, browseSel, companyFilter]);
+  }, [debouncedSearch, roleQuery, rankAnalysisId, browseSel, companyFilter, countryScope]);
 
   useEffect(() => {
     // Refetch whenever loadFeed's inputs change (search, filters, role, age…).
@@ -1274,6 +1295,23 @@ export default function JobsFeed({
   const canPrev = currentPage > 0;
   const canNext = (currentPage + 1) * PAGE_SIZE < visibleJobs.length || serverHasMore;
 
+  // Ensure the selected / deep-linked job is ALWAYS shown + highlighted on the
+  // board — even when it's not in the current filtered feed (e.g. opening a shared
+  // link to a job outside your role family, the exact bug). Fetch its summary once
+  // and PIN it to the top. This is additive: it never changes the user's filters
+  // or re-scopes the feed. Cleared automatically once the job is in the feed.
+  const [pinnedJob, setPinnedJob] = useState<FeedJob | null>(null);
+  const selectedInFeed =
+    state.status === "ready" && !!selectedJobId && state.jobs.some((j) => j.id === selectedJobId);
+  useEffect(() => {
+    if (!selectedJobId || selectedInFeed) { setPinnedJob(null); return; }
+    let ignore = false;
+    fetchJobDetail(selectedJobId)
+      .then((d) => { if (!ignore && d) setPinnedJob(detailToFeedJob(d)); })
+      .catch(() => { if (!ignore) setPinnedJob(null); });
+    return () => { ignore = true; };
+  }, [selectedJobId, selectedInFeed]);
+
   // Drive the "outside your filters" fallback: when the visible result is empty
   // AND a filter/search is narrowing things, fetch the relaxed set; otherwise
   // clear it so it never lingers under a populated feed.
@@ -1459,7 +1497,7 @@ export default function JobsFeed({
   // filters" fallback fetches in the background. Show a loading skeleton (NOT the
   // "No openings" card) until that fallback settles, so the feed never flashes an
   // empty "no results" state mid-search.
-  const fallbackFkey = `${debouncedSearch}|${roleQuery}|${rankAnalysisId}`;
+  const fallbackFkey = `${debouncedSearch}|${roleQuery}|${rankAnalysisId}|${countryScope}`;
   const fallbackSettled = fallback.key === fallbackFkey && !fallback.loading;
   const mainEmpty = state.status === "ready" && state.jobs.length === 0;
   const showEmptyCard = mainEmpty && fallbackSettled && fallback.jobs.length === 0;
@@ -1948,6 +1986,11 @@ export default function JobsFeed({
 
         {state.status === "ready" && state.jobs.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* The opened/deep-linked job, pinned + highlighted when it isn't in the
+                current filtered feed — so a shared link always shows its job selected
+                without disturbing the filters. */}
+            {pinnedJob && !pagedJobs.some((j) => j.id === pinnedJob.id) &&
+              renderJobCard(pinnedJob, "Selected job")}
             {pagedJobs.map((job) => renderJobCard(job))}
             {visibleJobs.length === 0 && (
               <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: "28px 0" }}>
