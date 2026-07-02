@@ -14,7 +14,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     slug: "tailor-resume-to-job-description",
     title: "How to Tailor Your Resume to a Job Description (Step-by-Step)",
     description:
-      "Keyword extraction, bullet rewrites, ATS checks, and the mistakes that get you filtered out — a complete tailoring playbook.",
+      "Keyword extraction, bullet rewrites, ATS checks, and the mistakes that get you filtered out: a complete tailoring playbook.",
     readMinutes: 7,
     tag: "Guide",
     publishedAt: "2026-06-10",
@@ -23,7 +23,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     slug: "how-ats-really-works",
     title: "How ATS Really Works (And Why You're Invisible, Not Rejected)",
     description:
-      "Parsing tests across Workday, Greenhouse, Lever, and more — exact job titles, keyword bands, layout traps, and the quick-fix checklist.",
+      "Parsing tests across Workday, Greenhouse, Lever, and more: exact job titles, keyword bands, layout traps, and the quick-fix checklist.",
     readMinutes: 8,
     tag: "Research",
     publishedAt: "2026-05-15",

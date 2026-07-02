@@ -12,7 +12,7 @@ import {
 export const metadata: Metadata = {
   title: "Optimizing Résumés for ATS · Resunova Blog",
   description:
-    "Formatting and keyword guidance adapted from the UIC Office of Career Services — single column, standard headers, and keywords in context.",
+    "Formatting and keyword guidance adapted from the UIC Office of Career Services: single column, standard headers, and keywords in context.",
   robots: { index: true, follow: true },
 };
 
