@@ -67,7 +67,7 @@ export default function ScanUsageCard() {
     return (
       <Card title="Plan & usage" badge="UMBC">
         <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
-          Unlimited résumé scans — included with your UMBC account.
+          Unlimited résumé scans, included with your UMBC account.
         </p>
       </Card>
     );

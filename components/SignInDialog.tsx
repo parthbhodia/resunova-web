@@ -83,12 +83,12 @@ export function useSignInDialog(): SignInDialogContextValue {
 
 const DEFAULT_TITLE = "Sign in to Resunova";
 const DEFAULT_REASON =
-  "Free forever — save your reports, tailor to any job, and unlock every feature.";
+  "Free forever: save your reports, tailor to any job, and unlock every feature.";
 
 const VALUE_PROPS = [
   "Save & revisit every résumé scan",
   "Match and tailor to live job openings",
-  "No credit card — Google sign-in only",
+  "No credit card (Google sign-in only)",
 ];
 
 export function SignInDialogProvider({ children }: { children: ReactNode }) {

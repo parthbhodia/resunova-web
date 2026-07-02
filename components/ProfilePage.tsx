@@ -64,7 +64,7 @@ function validateEmail(value: string): string {
 function validateLinkedIn(value: string): string {
   const v = value.trim();
   if (!v) return "";
-  return LINKEDIN_RE.test(v) ? "" : "Looks off — try linkedin.com/in/your-handle";
+  return LINKEDIN_RE.test(v) ? "" : "Looks off. Try linkedin.com/in/your-handle";
 }
 
 function validateUrl(value: string): string {
@@ -490,7 +490,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
           ? initPhase === "onboarding"
             ? `Filled ${filled.length} empty field${filled.length === 1 ? "" : "s"} from your PDF. Use "Open Profile form" below to review.`
             : `Filled ${filled.length} empty field${filled.length === 1 ? "" : "s"} from your PDF. Review the updated fields below.`
-          : "No new fields — those values were already filled or we couldn't read them from this PDF.",
+          : "No new fields: those values were already filled or we couldn't read them from this PDF.",
       );
     } catch (e: unknown) {
       setObUploadErr(e instanceof Error ? e.message : String(e));
@@ -607,7 +607,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                   Welcome to your Profile
                 </h1>
                 <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.65, marginBottom: 0 }}>
-                  This is where you keep career defaults — contact info, target roles, education, and optional equal-employment answers for
+                  This is where you keep career defaults: contact info, target roles, education, and optional equal-employment answers for
                   future <strong style={{ color: "var(--text)" }}>Apply jobs</strong>. Tailoring can reuse these fields so you type less.
                 </p>
               </>
@@ -619,7 +619,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                   Fill your Profile (pick one path)
                 </h1>
                 <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6, marginBottom: 18 }}>
-                  You don&apos;t need every field here first — upload a PDF or use the guided form (same as{" "}
+                  You don&apos;t need every field here first. Upload a PDF or use the guided form (same as{" "}
                   <strong style={{ color: "var(--text)" }}>From scratch</strong>).
                 </p>
 
@@ -668,7 +668,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                     marginBottom: 10,
                   }}
                 >
-                  {obUploadBusy ? "Extracting…" : "Choose PDF — we fill empty fields only"}
+                  {obUploadBusy ? "Extracting…" : "Choose PDF (we fill empty fields only)"}
                 </button>
                 <ProfilePdfUploadFeedback
                   busy={obUploadBusy}
@@ -679,7 +679,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
 
                 {importDraft ? (
                   <p style={{ fontSize: 12, color: "var(--amber)", lineHeight: 1.5, margin: 0 }}>
-                    You have <strong>imported text</strong> from another flow — it will appear on the Profile form after this intro.
+                    You have <strong>imported text</strong> from another flow; it will appear on the Profile form after this intro.
                   </p>
                 ) : null}
               </>
@@ -695,7 +695,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
           <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: -0.8, marginBottom: 8 }}>Profile</h1>
           <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6, maxWidth: 560 }}>
             Defaults used when tailoring résumés and cover letters. When you&apos;re signed in we also save to your account; a
-            local copy stays on this device — we never sell your data.
+            local copy stays on this device, and we never sell your data.
           </p>
         </header>
 
@@ -718,7 +718,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
               {matchCoach.notes.trim() || "—"}
             </p>
             <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--dim)", lineHeight: 1.45 }}>
-              The section below is scrolled into view — edit those fields so your <strong style={{ color: "var(--text)" }}>next</strong> tailor run picks up the changes.
+              The section below is scrolled into view. Edit those fields so your <strong style={{ color: "var(--text)" }}>next</strong> tailor run picks up the changes.
               Experience and project bullets still come from your uploaded résumé; update the PDF on Analyze or re-upload here when you change jobs.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
@@ -784,7 +784,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
             <div style={{ flex: "1 1 220px", minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>Profile is still sparse</div>
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 }}>
-                Upload a <strong style={{ color: "var(--text)" }}>PDF</strong> below or use the <strong style={{ color: "var(--text)" }}>manual wizard</strong> — we only fill empty fields.
+                Upload a <strong style={{ color: "var(--text)" }}>PDF</strong> below or use the <strong style={{ color: "var(--text)" }}>manual wizard</strong>; we only fill empty fields.
               </p>
               <input ref={obFileRef} type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleObPdf(f); e.target.value = ""; }} />
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
@@ -1085,7 +1085,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                   }}
                 >
                   <span style={{ flex: "1 1 auto", minWidth: 0 }}>
-                    Used at the top of a tailored résumé when no custom summary is written. Aim for a short, scannable tagline — not a sentence.
+                    Used at the top of a tailored résumé when no custom summary is written. Aim for a short, scannable tagline, not a sentence.
                   </span>
                   <span
                     aria-live="polite"
@@ -1105,7 +1105,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
             <Card title="Job preferences" domId="rn-profile-roles">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12 }}>
                 <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
-                  Powers your <strong style={{ color: "var(--text)" }}>Jobs tab</strong> — matching openings float to the top.
+                  Powers your <strong style={{ color: "var(--text)" }}>Jobs tab</strong>: matching openings float to the top.
                 </p>
                 <Link href="/?view=jobs" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", flexShrink: 0 }}>
                   See Jobs →
@@ -1154,7 +1154,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                 </div>
               </div>
 
-              <Field label="Locations" hint={'Cities, regions, or "Remote" — separators are fine.'}>
+              <Field label="Locations" hint={'Cities, regions, or "Remote" (separators are fine).'}>
                 <input value={form.locations} onChange={e => patch({ locations: e.target.value })} style={inputStyle()} placeholder="Remote · NYC · …" />
               </Field>
             </Card>
@@ -1248,7 +1248,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
                 </span>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: -0.3, color: "var(--text)", marginBottom: 6 }}>
-                    Optional — save time on applications later
+                    Optional: save time on applications later
                   </div>
                   <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: 0 }}>
                     Many job boards ask the same EEO-style questions on every apply. If you store answers here, our{" "}

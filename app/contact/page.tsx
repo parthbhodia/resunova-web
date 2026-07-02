@@ -6,7 +6,7 @@ import { CONTACT_EMAIL, PRIVACY_EMAIL, SITE_URL } from "@/lib/brand";
 export const metadata: Metadata = {
   title: "Contact · Resunova",
   description:
-    "Contact Resunova — a completely free AI resume tool for students and the community. Support, privacy requests, and general inquiries.",
+    "Contact Resunova: a completely free AI resume tool for students and the community. Support, privacy requests, and general inquiries.",
   robots: { index: true, follow: true },
 };
 
@@ -46,7 +46,7 @@ export default function ContactPage() {
         </h1>
         <p style={{ fontSize: "var(--font-size-lg)", color: "var(--muted)", lineHeight: 1.75, margin: "0 0 36px" }}>
           Resunova is <strong style={{ color: "var(--text)", fontWeight: 600 }}>completely free</strong>
-          {" "}— built for the greater good of students and the wider job-seeking community. For product questions, partnerships, or anything else, use general support. For privacy and data rights, use the privacy inbox so we can route your message correctly.
+          {", "}built for the greater good of students and the wider job-seeking community. For product questions, partnerships, or anything else, use general support. For privacy and data rights, use the privacy inbox so we can route your message correctly.
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -61,7 +61,7 @@ export default function ContactPage() {
             title="Privacy & data rights"
             email={PRIVACY_EMAIL}
             hint="Access, correction, export, deletion, or other privacy-related requests under applicable law."
-            gmailSubject="Privacy & Data Rights Request — Resunova"
+            gmailSubject="Privacy & Data Rights Request (Resunova)"
             gmailBody="Hi Resunova team,%0A%0AI am writing to submit a privacy/data rights request.%0A%0ARequest type: [access / correction / export / deletion / other]%0ADetails: [describe your request]%0A%0AThanks"
           />
         </div>

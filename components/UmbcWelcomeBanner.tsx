@@ -69,7 +69,7 @@ export function UmbcWelcomeBanner({ userId }: UmbcWelcomeBannerProps) {
         </span>
         <p className="m-0 min-w-0 text-[13px]" style={{ color: UMBC_BRAND.black }}>
           <strong className="font-semibold">Retriever resume insights</strong>
-          {" — "}
+          {": "}
           Analysis follows UMBC Career Center guidelines. Unlimited scans for{" "}
           <span className="font-medium">@umbc.edu</span> accounts.
           <a

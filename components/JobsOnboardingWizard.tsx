@@ -181,7 +181,7 @@ export default function JobsOnboardingWizard({
 
             <div hidden={step !== 1}>
               <h2 style={H2}>Which role are you targeting?</h2>
-              <p style={SUB}>Start typing — pick from real openings. We rank by job title, not just a broad category.</p>
+              <p style={SUB}>Start typing: pick from real openings. We rank by job title, not just a broad category.</p>
               <SearchableSelect
                 value={role}
                 onChange={(v) => { setRole(v); setRoleTerms(null); }}
@@ -190,7 +190,7 @@ export default function JobsOnboardingWizard({
                 leadingIcon={SearchIcon}
                 placeholder="e.g. Frontend Engineer, Data Scientist…"
                 autoFocus={initialStep === 1}
-                emptyHint="No preset match — we'll still search for that role."
+                emptyHint="No preset match. We'll still search for that role."
               />
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
                 <Button disabled={!role.trim()} onClick={() => { onPrefetch?.(selection); setStep(2); }}>Continue →</Button>
@@ -206,7 +206,7 @@ export default function JobsOnboardingWizard({
                   onSelect={pickMetro}
                   items={metroItems}
                   leadingIcon={PinIcon}
-                  placeholder="City, metro, or Remote — optional"
+                  placeholder="City, metro, or Remote (optional)"
                   emptyHint="We'll match that text against posting locations."
                 />
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 24 }}>
@@ -220,7 +220,7 @@ export default function JobsOnboardingWizard({
 
             <div hidden={step !== 3}>
                 <h2 style={H2}>What experience level?</h2>
-                <p style={SUB}>So we don&apos;t bury you under senior roles. Pick one — or skip and we&apos;ll infer it from your résumé.</p>
+                <p style={SUB}>So we don&apos;t bury you under senior roles. Pick one, or skip and we&apos;ll infer it from your résumé.</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {[
                     { key: "", label: "Any level" },
@@ -288,7 +288,7 @@ export default function JobsOnboardingWizard({
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 18 }}>
                   <Button variant="outline" onClick={() => setStep(3)}>Back</Button>
                   <button type="button" onClick={() => onBrowse(selection)} style={SKIP}>
-                    Skip — browse without ranking
+                    Skip: browse without ranking
                   </button>
                 </div>
             </div>

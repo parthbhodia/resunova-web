@@ -113,19 +113,19 @@ export default function TermsPage() {
 
           <Section title="7. Privacy">
             <p>Your use of the Service is also governed by our <Link href="/privacy" style={{ color: "var(--accent)", textDecoration: "none" }}>Privacy Policy</Link>, which is incorporated into these Terms by reference. Please read it carefully to understand how we collect, use, and protect your information.</p>
-            <p>Resunova does <b>not sell</b> your personal data. We use and retain data only as described there — including to operate the Service, for user analytics to improve the product, and for internal training and quality improvement — and not for unrelated commercial resale.</p>
+            <p>Resunova does <b>not sell</b> your personal data. We use and retain data only as described there (including to operate the Service, for user analytics to improve the product, and for internal training and quality improvement), and not for unrelated commercial resale.</p>
           </Section>
 
           <Section title="8. Free Tier and Future Billing">
             <p>
-              The Service is offered <b>completely free of charge</b> to support students and the broader job-seeking community — we believe in the greater good of equitable access to career tools.
+              The Service is offered <b>completely free of charge</b> to support students and the broader job-seeking community: we believe in the greater good of equitable access to career tools.
               We reserve the right to introduce paid tiers or modify the free tier in the future. We will provide reasonable advance notice of any such changes.
             </p>
           </Section>
 
           <Section title="9. Limitation of Liability">
             <Callout>
-              To the maximum extent permitted by applicable law, Resunova and its operators shall not be liable for any indirect, incidental, special, consequential, or punitive damages — including but not limited to loss of employment opportunities, lost profits, or loss of data — arising from your use of the Service.
+              To the maximum extent permitted by applicable law, Resunova and its operators shall not be liable for any indirect, incidental, special, consequential, or punitive damages (including but not limited to loss of employment opportunities, lost profits, or loss of data) arising from your use of the Service.
             </Callout>
             <p>Our total liability for any claim arising out of or relating to the Service shall not exceed the amount you paid for the Service in the 12 months preceding the claim (or $0 if you used the free tier).</p>
           </Section>
