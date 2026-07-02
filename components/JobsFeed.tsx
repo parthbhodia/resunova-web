@@ -1026,6 +1026,24 @@ export default function JobsFeed({
     setCurrentPage(0);
   }, []);
 
+  // Picking a specific company shows its FULL open board: a company's older-but-
+  // still-open roles shouldn't read as "0" just because none landed in the default
+  // "Past week" window (SpaceX has 5 active Business Analyst roles, all >1wk old).
+  // So an explicit company pick widens the date to "Any age" (visible in the Date
+  // dropdown); clearing it restores the default. Only overrides a DEFAULT date, so a
+  // manually-chosen or shared-link ?date= is respected — and mount is skipped for the
+  // same reason. Covers every company-set path (rail, search, saved filter, URL).
+  const prevCompanyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevCompanyRef.current;
+    prevCompanyRef.current = companyFilter;
+    if (prev === null) return; // initial mount: respect a URL-restored date window
+    const had = !!prev.trim();
+    const has = !!companyFilter.trim();
+    if (has && !had) setAgeFilter((cur) => (cur === DEFAULT_AGE_FILTER ? "all" : cur));
+    else if (!has && had) setAgeFilter((cur) => (cur === "all" ? DEFAULT_AGE_FILTER : cur));
+  }, [companyFilter]);
+
   // `quiet`: skip the skeleton and merge the result in place (keeps status
   // "ready" so scroll/lazy-window aren't reset) — used for the post-upload ranked
   // upgrade. In quiet mode any failure rethrows instead of wiping the feed.
