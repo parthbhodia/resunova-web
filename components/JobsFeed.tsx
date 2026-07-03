@@ -12,7 +12,8 @@
  * submits applications on the user's behalf.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -302,15 +303,56 @@ function FilterMenu({ label, count = 0, active = false, align = "left", width = 
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Viewport-clamped fixed position for the portaled menu. The old inline
+  // `position:absolute; width:<fixed px>` overflowed narrow phones (a 260px
+  // menu from a right-wrapped chip ran off-screen → horizontal jitter).
+  const [pos, setPos] = useState<{ left: number; top: number; width: number; maxH: number } | null>(null);
   const isActive = active || count > 0;
+  useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const el = ref.current;
+      if (!el || typeof window === "undefined") return;
+      const r = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const w = Math.min(width, vw - 16);
+      let left = align === "right" ? r.right - w : r.left;
+      left = Math.max(8, Math.min(left, vw - w - 8));
+      setPos({ left, top: r.bottom + 6, width: w, maxH: Math.max(160, vh - r.bottom - 24) });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true); // capture: any scrolling ancestor
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [open, width, align]);
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
   }, [open]);
+  const menu = open && pos ? (
+    <div ref={menuRef} style={{
+      position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 1000,
+      maxHeight: pos.maxH, overflowY: "auto",
+      background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
+      boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: 6,
+    }}>
+      {children}
+    </div>
+  ) : null;
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button type="button" onClick={() => setOpen((o) => !o)} style={filterButtonStyle(isActive || open)}>
@@ -325,15 +367,7 @@ function FilterMenu({ label, count = 0, active = false, align = "left", width = 
           >×</span>
         )}
       </button>
-      {open && (
-        <div style={{
-          position: "absolute", top: "calc(100% + 6px)", [align]: 0, zIndex: 50, width,
-          background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-          boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: 6,
-        } as CSSProperties}>
-          {children}
-        </div>
-      )}
+      {menu && typeof document !== "undefined" ? createPortal(menu, document.body) : null}
     </div>
   );
 }

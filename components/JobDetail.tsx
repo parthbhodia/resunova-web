@@ -311,7 +311,17 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
-  const backToFeed = () => router.push("/?view=jobs");
+  // Preserve the feed's filter params (the feed serializes country/date/work
+  // model/etc. into the URL) — only drop the `job` selection. A bare
+  // "/?view=jobs" push was resetting every filter on Back.
+  const backToFeed = () => {
+    const p = typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams();
+    p.delete("job");
+    p.set("view", "jobs");
+    router.push(`/?${p.toString()}`);
+  };
 
   return (
     <div style={embedded
