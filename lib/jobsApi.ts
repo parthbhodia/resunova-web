@@ -107,8 +107,14 @@ export type JobDetail = {
 export type JobContact = {
   email: string;
   type: "recruiter" | "careers" | "hr" | "generic";
-  source: "job_description" | "ats_metadata" | "company_public_page" | "domain_guess" | "verified";
+  source: "job_description" | "ats_metadata" | "dol_lca" | "company_public_page" | "domain_guess" | "verified";
   confidence: number | null;
+  /** DOL H-1B filing point-of-contact job title (dol_lca only), e.g. "Director of HR". */
+  pocTitle?: string | null;
+  /** Domain publishes MX (domain_guess only) — a guess on a mail-accepting domain. */
+  mxValid?: boolean | null;
+  /** Deliverability confirmed by a verification pass (not yet wired). */
+  verified?: boolean | null;
   createdAt: string | null;
 };
 

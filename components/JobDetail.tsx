@@ -604,8 +604,9 @@ function contactTypeLabel(type: string): string {
 function contactSourceLabel(source: string): string {
   if (source === "job_description") return "Found in the job post";
   if (source === "ats_metadata") return "Found in ATS metadata";
+  if (source === "dol_lca") return "H-1B filing contact (U.S. Dept. of Labor)";
   if (source === "company_public_page") return "Found on company site";
-  if (source === "domain_guess") return "Suggested from company domain";
+  if (source === "domain_guess") return "Suggested from company domain (unverified)";
   if (source === "verified") return "Verified contact";
   return "Public contact";
 }
@@ -652,6 +653,9 @@ function ContactHiringCard({ job }: { job: JobDetailData }) {
                 {contactTypeLabel(contact.type)}
               </div>
               <div style={{ fontSize: 13.5, fontWeight: 650, color: "var(--text)", wordBreak: "break-all" }}>{contact.email}</div>
+              {contact.pocTitle ? (
+                <div style={{ fontSize: 11.5, color: "var(--text)", marginTop: 3 }}>{contact.pocTitle}</div>
+              ) : null}
               <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>{contactSourceLabel(contact.source)}</div>
             </div>
           ))}
