@@ -821,7 +821,17 @@ function CohortOverview({
 
       {/* ── Platform Analytics tab (global admins only) ── */}
       {globalAdmin && activeTab === "analytics" && (
-        <AdminAnalyticsPanel getAuthHeaders={advisorAuthHeaders} />
+        <div className="flex flex-col gap-6">
+          <AdminAnalyticsPanel getAuthHeaders={advisorAuthHeaders} />
+          {/* Bug reports are a platform-support inbox, not cohort data — they
+              belong here under Platform analytics, not the Cohort tab. */}
+          <BugReportsPanel
+            reports={bugReports}
+            loading={bugReportsLoading}
+            error={bugReportsError}
+            onRefresh={onRefreshBugReports}
+          />
+        </div>
       )}
 
       {/* ── Cohort tab ── */}
@@ -841,15 +851,6 @@ function CohortOverview({
         />
         <KpiCard value={data.tailored_resume_count ?? 0} label="Tailored Resumes Created" />
       </div>
-
-      {globalAdmin ? (
-        <BugReportsPanel
-          reports={bugReports}
-          loading={bugReportsLoading}
-          error={bugReportsError}
-          onRefresh={onRefreshBugReports}
-        />
-      ) : null}
 
       {isEmpty && (
         <Card className="mb-4 border-dashed">
