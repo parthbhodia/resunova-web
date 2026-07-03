@@ -166,6 +166,26 @@ export async function authHeaders(): Promise<Record<string, string>> {
   }
 }
 
+/** Fire-and-forget interaction tracking. Never throws — tracking must never
+ *  break the UX it measures. `keepalive` so it survives a navigation. */
+export async function trackJobEvent(
+  postingId: string,
+  event: "apply_click" | "save" | "hide" | "contact_reveal" | "contact_copy" | "contact_email",
+): Promise<void> {
+  try {
+    const headers = await authHeaders();
+    if (!headers.Authorization) return; // only signed-in users are tracked
+    await fetch(apiUrl("/api/jobs/event"), {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ posting_id: postingId, event }),
+      keepalive: true,
+    });
+  } catch {
+    /* tracking is best-effort */
+  }
+}
+
 export async function fetchJobDetail(id: string): Promise<JobDetail> {
   const headers = await authHeaders();
   const resp = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(id)}`), { headers });
