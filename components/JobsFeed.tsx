@@ -936,21 +936,38 @@ export default function JobsFeed({
     if (!q) {
       for (const s of recentSearches.slice(0, 4)) items.push({ key: `recent:${s}`, label: s, sub: "Recent search", icon: SUGGEST_ICON.recent });
     }
+    const roles = (n: number) => `${n.toLocaleString()} open ${n === 1 ? "role" : "roles"}`;
+    const companyItem = (c: CompanyOption): SelectItem => (
+      { key: `company:${c.company}`, label: c.company, sub: `Company · ${roles(c.activeCount)}`, icon: SUGGEST_ICON.company }
+    );
+    // A query that IS (most of) the company's name means the user is searching
+    // for the COMPANY — its row must beat the long tail of titles that merely
+    // contain the word. Field case: "Nvidia" showed four 1-opening contractor
+    // titles ("AI Safety Engineer supporting Nvidia") above NVIDIA's 256-role
+    // company row, which sat below the fold.
+    const ql = q.toLowerCase();
+    const isStrongCompanyMatch = (c: CompanyOption) =>
+      !!ql
+      && c.company.toLowerCase().startsWith(ql)
+      && ql.length >= Math.max(3, Math.floor(c.company.length * 0.6));
+    const companyOpts = searchCompanyOpts.slice(0, 3);
+    const promotedCompanies = companyOpts.filter(isStrongCompanyMatch);
+    const tailCompanies = companyOpts.filter((c) => !promotedCompanies.includes(c));
     // Canonical roles first (map to good title-search terms)…
     for (const r of matchRoleSuggestions(q, 3)) {
       seen.add(r.label.toLowerCase());
       items.push({ key: `role:${r.label}`, label: r.label, sub: r.titleTerms.slice(0, 3).join(" · ") || "Role", icon: SUGGEST_ICON.role });
     }
+    // …then companies the query names outright…
+    for (const c of promotedCompanies) items.push(companyItem(c));
     // …then LIVE corpus titles (deduped against the canonical roles)…
     for (const t of searchTitleOpts.slice(0, 4)) {
       if (seen.has(t.title.toLowerCase())) continue;
       seen.add(t.title.toLowerCase());
-      items.push({ key: `title:${t.title}`, label: t.title, sub: `Title · ${t.activeCount.toLocaleString()} open roles`, icon: SUGGEST_ICON.role });
+      items.push({ key: `title:${t.title}`, label: t.title, sub: `Title · ${roles(t.activeCount)}`, icon: SUGGEST_ICON.role });
     }
-    // …then companies (route to the AND company filter on select).
-    for (const c of searchCompanyOpts.slice(0, 3)) {
-      items.push({ key: `company:${c.company}`, label: c.company, sub: `Company · ${c.activeCount.toLocaleString()} open roles`, icon: SUGGEST_ICON.company });
-    }
+    // …then weaker company matches (route to the AND company filter on select).
+    for (const c of tailCompanies) items.push(companyItem(c));
     return items.slice(0, 12);
   }, [search, recentSearches, searchTitleOpts, searchCompanyOpts]);
   const onSearchSelect = useCallback((item: SelectItem) => {
