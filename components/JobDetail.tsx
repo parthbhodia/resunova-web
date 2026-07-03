@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchJobDetail, scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { fetchJobDetail, scoreLabel, trackJobEvent, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { fetchJobPrepStatuses, getSupabaseClient, type JobPrepStatus } from "@/lib/supabase";
 import { goToFreeScan, stashAnalyzeJd } from "@/lib/anonScan";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
@@ -621,31 +621,84 @@ function contactSourceLabel(source: string): string {
   return "Public contact";
 }
 
+const CONTACT_TEMPLATE_KEY = "rn_contact_email_template_v1";
+
+/** Mask the local part so the address is gated behind an explicit reveal
+ *  (n•••@nvidia.com) — we only surface the full email once the user opts in,
+ *  which is also the signal we track. The domain stays visible as a teaser. */
+function maskEmail(email: string): string {
+  const at = email.indexOf("@");
+  if (at <= 0) return "•••••";
+  const local = email.slice(0, at);
+  const shown = local.slice(0, 1);
+  return `${shown}${"•".repeat(Math.max(3, local.length - 1))}${email.slice(at)}`;
+}
+
+const DEFAULT_TEMPLATE = (jobTitle: string, company: string) =>
+  [
+    `Hi,`,
+    ``,
+    `I came across the ${jobTitle} role at ${company} and wanted to briefly introduce myself.`,
+    `I'm very interested in the opportunity and would appreciate being pointed to the right person for this role, or any guidance on the process.`,
+    ``,
+    `Thank you for your time,`,
+  ].join("\n");
+
 function ContactHiringCard({ job }: { job: JobDetailData }) {
   const contacts = Array.isArray(job.contacts) ? job.contacts : [];
+  const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState("");
+  const [editingTemplate, setEditingTemplate] = useState(false);
+  const [template, setTemplate] = useState<string | null>(null);
+
+  // Load a saved template once (client only); fall back to the per-job default.
+  useEffect(() => {
+    try {
+      setTemplate(localStorage.getItem(CONTACT_TEMPLATE_KEY));
+    } catch {
+      setTemplate(null);
+    }
+  }, []);
+
   if (contacts.length === 0) return null;
 
   const primary = contacts[0];
-  const subject = `Question about ${job.title} at ${job.company}`;
-  const body = [
-    `Hi,`,
-    ``,
-    `I found the ${job.title} role at ${job.company} and wanted to briefly introduce myself.`,
-    `I am interested in the opportunity and would appreciate being pointed to the right recruiter or hiring contact for this role.`,
-    ``,
-    `Thank you,`,
-  ].join("\n");
+  const subject = `Question about the ${job.title} role at ${job.company}`;
+  const body = (template ?? "").trim() ? template! : DEFAULT_TEMPLATE(job.title, job.company);
 
-  async function copy(email: string) {
+  const reveal = () => {
+    if (revealed) return;
+    setRevealed(true);
+    void trackJobEvent(job.id, "contact_reveal");
+  };
+
+  const copy = async (email: string) => {
     try {
       await navigator.clipboard.writeText(email);
       setCopied(email);
       window.setTimeout(() => setCopied(""), 1800);
+      void trackJobEvent(job.id, "contact_copy");
     } catch {
       setCopied("");
     }
-  }
+  };
+
+  const mailtoHref = `mailto:${encodeURIComponent(primary.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const gmailHref = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(primary.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  const saveTemplate = (v: string) => {
+    setTemplate(v);
+    try { localStorage.setItem(CONTACT_TEMPLATE_KEY, v); } catch { /* ignore */ }
+  };
+
+  const actionBtn: React.CSSProperties = {
+    border: "1px solid var(--border)", background: "transparent", color: "var(--text)",
+    borderRadius: 9, padding: "8px 11px", fontSize: 12.5, fontWeight: 650, cursor: "pointer",
+    textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6,
+  };
+  const accentBtn: React.CSSProperties = {
+    ...actionBtn, border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff",
+  };
 
   return (
     <Card>
@@ -656,13 +709,24 @@ function ContactHiringCard({ job }: { job: JobDetailData }) {
             Public or suggested hiring contact. Draft only; Resunova will not send emails automatically.
           </p>
         </div>
+
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {contacts.slice(0, 3).map((contact) => (
             <div key={contact.email} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "10px 11px", background: "var(--surface2)" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 3 }}>
                 {contactTypeLabel(contact.type)}
               </div>
-              <div style={{ fontSize: 13.5, fontWeight: 650, color: "var(--text)", wordBreak: "break-all" }}>{contact.email}</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 650, color: revealed ? "var(--text)" : "var(--muted)", wordBreak: "break-all" }}>
+                  {revealed ? contact.email : maskEmail(contact.email)}
+                </span>
+                {revealed && (
+                  <button type="button" onClick={() => void copy(contact.email)} title="Copy email"
+                    style={{ ...actionBtn, padding: "4px 8px", fontSize: 11.5, flexShrink: 0 }}>
+                    {copied === contact.email ? "Copied ✓" : "Copy"}
+                  </button>
+                )}
+              </div>
               {contact.pocTitle ? (
                 <div style={{ fontSize: 11.5, color: "var(--text)", marginTop: 3 }}>{contact.pocTitle}</div>
               ) : null}
@@ -670,21 +734,48 @@ function ContactHiringCard({ job }: { job: JobDetailData }) {
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={() => void copy(primary.email)}
-            style={{ border: "1px solid var(--border)", background: "transparent", color: "var(--text)", borderRadius: 9, padding: "8px 11px", fontSize: 12.5, fontWeight: 650, cursor: "pointer" }}
-          >
-            {copied === primary.email ? "Copied" : "Copy email"}
+
+        {!revealed ? (
+          <button type="button" onClick={reveal} style={{ ...accentBtn, justifyContent: "center", padding: "10px 14px" }}>
+            🔓 Reveal contact{contacts.length > 1 ? "s" : ""}
           </button>
-          <a
-            href={`mailto:${encodeURIComponent(primary.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
-            style={{ border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "8px 11px", fontSize: 12.5, fontWeight: 650, textDecoration: "none" }}
-          >
-            Draft email
-          </a>
-        </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a href={mailtoHref} onClick={() => void trackJobEvent(job.id, "contact_email")} style={accentBtn}>
+                ✉️ Draft email
+              </a>
+              <a href={gmailHref} target="_blank" rel="noopener noreferrer" onClick={() => void trackJobEvent(job.id, "contact_email")} style={actionBtn}>
+                Open in Gmail
+              </a>
+              <button type="button" onClick={() => setEditingTemplate((v) => !v)} style={{ ...actionBtn, background: editingTemplate ? "var(--surface2)" : "transparent" }}>
+                {editingTemplate ? "Done" : "Edit template"}
+              </button>
+            </div>
+            {editingTemplate && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <textarea
+                  value={body}
+                  onChange={(e) => saveTemplate(e.target.value)}
+                  rows={7}
+                  spellCheck
+                  style={{
+                    width: "100%", boxSizing: "border-box", fontFamily: "inherit", fontSize: 12.5,
+                    lineHeight: 1.5, color: "var(--text)", background: "var(--surface)",
+                    border: "1px solid var(--border)", borderRadius: 10, padding: "10px 11px", resize: "vertical",
+                  }}
+                />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>Saved on this device. Used for both Draft email and Gmail.</span>
+                  <button type="button" onClick={() => saveTemplate(DEFAULT_TEMPLATE(job.title, job.company))}
+                    style={{ ...actionBtn, padding: "4px 9px", fontSize: 11.5 }}>
+                    Reset
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );
