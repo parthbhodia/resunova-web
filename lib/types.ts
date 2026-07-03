@@ -251,6 +251,8 @@ export interface AdminAnalyticsSummary {
   total_tokens: number;
   total_prompt_tokens: number;
   total_completion_tokens: number;
+  /** USD estimate from env-configured rates; null/absent when rates unset. */
+  cost_usd?: number | null;
   success_runs: number;
   failed_runs: number;
   failure_rate_pct: number;
@@ -276,15 +278,44 @@ export interface AdminAnalyticsUserRow {
   tools: Record<string, number>;
 }
 
+export interface AdminContactFunnel {
+  reveals: number;
+  unique_revealers: number;
+  postings_revealed: number;
+  copies: number;
+  emails: number;
+  action_rate_pct: number;
+}
+
+export interface AdminAnalyticsBusinessBlock {
+  active_postings: number;
+  skills_extracted: number;
+  with_salary: number;
+  h1b_sponsor_postings: number;
+  companies: number;
+  dol_employers: number;
+  dol_poc_emails: number;
+  company_contacts: number;
+  job_contacts: number;
+  contact_funnel: AdminContactFunnel;
+}
+
 export interface AdminAnalyticsJobsBlock {
   postings: {
     total: number;
     active: number;
     extracted: number;
     pending_extraction: number;
-    by_source: Array<{ source: string; active: number }>;
+    old_pending_skipped?: number;
+    extract_window_days?: number;
+    posted_24h?: number;
+    posted_7d?: number;
+    us_active?: number;
+    companies?: number;
+    by_source: Array<{ source: string; active: number; last_24h?: number; extracted?: number }>;
     by_company: Array<{ company: string; active: number }>;
   };
+  business?: AdminAnalyticsBusinessBlock;
   scan_runs: {
     total_runs: number;
     jobs_added: number;
@@ -308,6 +339,7 @@ export interface AdminAnalyticsJobsBlock {
     apply_clicks: number;
     saves: number;
     hides: number;
+    contacts?: AdminContactFunnel;
     unique_appliers: number;
     daily_applies: Array<{ date: string; applies: number }>;
     top_companies: Array<{ company: string; applies: number }>;
