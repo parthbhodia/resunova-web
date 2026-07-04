@@ -1,0 +1,58 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  body { width: 1270px; height: 760px; }
+  .stage { width: 1270px; height: 760px; display: flex; align-items: center; gap: 60px; padding: 0 80px; }
+  .left { width: 470px; position: relative; z-index: 1; }
+  h1 { font-size: 56px; font-weight: 800; letter-spacing: -2px; line-height: 1.08; margin: 24px 0 22px; }
+  .sub { font-size: 21px; color: var(--muted); line-height: 1.6; letter-spacing: -0.2px; }
+  .right { flex: 1; position: relative; z-index: 1; display: flex; flex-direction: column; gap: 22px; }
+  .b-card { padding: 26px 30px; }
+  .b-label { font-size: 13px; font-weight: 800; letter-spacing: 1.8px; margin-bottom: 12px; }
+  .b-text { font-size: 20px; line-height: 1.55; letter-spacing: -0.2px; }
+  .tags { display: flex; gap: 10px; margin-top: 16px; }
+  .tags .chip { padding: 7px 14px; font-size: 13px; }
+  .arrow { align-self: center; font-size: 30px; color: var(--blue); line-height: 1; }
+  mark { background: rgba(52,211,153,0.18); color: #a7f3d0; border-radius: 5px; padding: 1px 5px; }
+  .ph { background: rgba(88,166,255,0.16); color: var(--blue); border-radius: 5px; padding: 1px 6px; font-weight: 700; }
+</style></head>
+<body>
+<div class="stage">
+  <div class="left">
+    <div class="logo-row" style="gap:12px;">
+      <svg width="40" height="40" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="7" fill="#c4793a"/>
+        <path d="M8 7v14" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M8 7h5A4.5 4.5 0 0 1 13 16H8" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M13 16l6 5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span class="wordmark" style="font-size:26px;">Resunova</span>
+    </div>
+    <h1>Rewrites that<br><span style="color:var(--blue);">keep your facts.</span></h1>
+    <p class="sub">Every flagged bullet ships with a real rewrite — stronger verb, clear scope, visible outcome. Your numbers and names are <b style="color:var(--ink);">never dropped</b>, and metrics you haven't shared appear as <span class="ph">[X%]</span> placeholders instead of made-up stats.</p>
+  </div>
+
+  <div class="right">
+    <div class="card b-card" style="border-color:rgba(248,113,113,0.25);">
+      <div class="b-label" style="color:var(--red);">BEFORE</div>
+      <div class="b-text" style="color:var(--muted);">Responsible for testing and manual data entry for the weekly reporting process across the analytics team.</div>
+      <div class="tags">
+        <span class="chip" style="color:var(--red);border-color:rgba(248,113,113,0.3);background:rgba(248,113,113,0.08);">Duty-led</span>
+        <span class="chip" style="color:var(--red);border-color:rgba(248,113,113,0.3);background:rgba(248,113,113,0.08);">No outcome</span>
+      </div>
+    </div>
+
+    <div class="arrow">▼</div>
+
+    <div class="card b-card" style="border-color:rgba(52,211,153,0.30);">
+      <div class="b-label" style="color:var(--green);">AFTER — AI REWRITE</div>
+      <div class="b-text"><mark>Automated the weekly reporting workflow</mark> for a 6-person analytics team, <mark>cutting manual data-entry time by <span class="ph">[X%]</span></mark> and eliminating recurring errors.</div>
+      <div class="tags">
+        <span class="chip" style="color:var(--green);border-color:rgba(52,211,153,0.3);background:rgba(52,211,153,0.08);">✓ Achievement-led</span>
+        <span class="chip" style="color:var(--green);border-color:rgba(52,211,153,0.3);background:rgba(52,211,153,0.08);">✓ Quantified</span>
+        <span class="chip" style="color:var(--blue);border-color:rgba(88,166,255,0.3);background:rgba(88,166,255,0.08);">You fill in the real number</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

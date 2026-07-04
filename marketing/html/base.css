@@ -1,0 +1,86 @@
+/* Resunova marketing asset base — matches BrandLogo.tsx + landing palette */
+@font-face { font-family: 'DM Sans'; src: url('../fonts/dmsans-400.ttf'); font-weight: 400; }
+@font-face { font-family: 'DM Sans'; src: url('../fonts/dmsans-500.ttf'); font-weight: 500; }
+@font-face { font-family: 'DM Sans'; src: url('../fonts/dmsans-700.ttf'); font-weight: 700; }
+@font-face { font-family: 'DM Sans'; src: url('../fonts/dmsans-800.ttf'); font-weight: 800; }
+
+:root {
+  --amber: #c4793a;
+  --amber-h: #e09050;
+  --blue: #58a6ff;
+  --blue-deep: #2563eb;
+  --blue-deeper: #1d4ed8;
+  --green: #34d399;
+  --red: #f87171;
+  --ink: #f4f7fb;
+  --muted: #9fb0c7;
+  --muted-2: #6e7f96;
+  --card: rgba(255,255,255,0.045);
+  --card-border: rgba(255,255,255,0.09);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.stage {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(1000px 600px at 85% -10%, rgba(37,99,235,0.22), transparent 60%),
+    radial-gradient(900px 700px at -10% 110%, rgba(196,121,58,0.16), transparent 55%),
+    linear-gradient(135deg, #0b1220 0%, #121d36 55%, #0b1220 100%);
+}
+.stage::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: radial-gradient(circle, rgba(196,121,58,0.10) 1px, transparent 1px);
+  background-size: 42px 42px;
+  pointer-events: none;
+}
+
+.logo-row { display: flex; align-items: center; }
+.wordmark { font-weight: 700; letter-spacing: -0.5px; line-height: 1; color: #fff; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 7px 16px; border-radius: 100px;
+  background: rgba(88,166,255,0.12);
+  border: 1px solid rgba(88,166,255,0.30);
+  color: var(--blue); font-weight: 600;
+}
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+  backdrop-filter: blur(6px);
+}
+
+.cta {
+  display: inline-flex; align-items: center; gap: 12px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff; border-radius: 14px; font-weight: 800; letter-spacing: -0.3px;
+  box-shadow: 0 8px 32px rgba(37,99,235,0.45);
+}
+
+.chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  border-radius: 100px; font-weight: 600;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--muted);
+}
+
+.bar-track { background: rgba(255,255,255,0.08); border-radius: 100px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 100px; }
+
+.hl-blue { color: var(--blue); font-weight: 700; }
+.hl-green { color: var(--green); font-weight: 700; }
+.hl-amber { color: var(--amber-h); font-weight: 700; }

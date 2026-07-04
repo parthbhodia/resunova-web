@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  body { width: 1270px; height: 760px; }
+  .stage { width: 1270px; height: 760px; display: flex; flex-direction: column; align-items: center; padding: 52px 90px 0; }
+  .head { text-align: center; position: relative; z-index: 1; }
+  h1 { font-size: 54px; font-weight: 800; letter-spacing: -2px; line-height: 1.08; }
+  .sub { font-size: 22px; color: var(--muted); margin-top: 18px; line-height: 1.55; max-width: 860px; letter-spacing: -0.2px; }
+  .row { display: flex; gap: 28px; margin-top: 40px; position: relative; z-index: 1; width: 100%; }
+  .col-card { flex: 1; padding: 28px 30px; }
+  .col-title { font-size: 14px; font-weight: 700; letter-spacing: 1.6px; color: var(--muted-2); margin-bottom: 20px; }
+  .issue { display: flex; align-items: flex-start; gap: 12px; padding: 13px 0; border-top: 1px solid rgba(255,255,255,0.06); font-size: 16.5px; line-height: 1.45; }
+  .issue:first-of-type { border-top: none; padding-top: 0; }
+  .issue .mark { font-size: 17px; font-weight: 800; margin-top: 1px; }
+  .dropped { color: var(--muted-2); }
+  .dropped .txt { text-decoration: line-through; text-decoration-color: rgba(248,113,113,0.7); }
+  .why { display: block; font-size: 14px; color: var(--green); font-weight: 600; margin-top: 5px; text-decoration: none !important; }
+  .kept .txt { color: var(--ink); }
+  .kept .fix { display: block; font-size: 14px; color: var(--blue); font-weight: 600; margin-top: 5px; }
+</style></head>
+<body>
+<div class="stage">
+  <div class="head">
+    <div class="badge" style="font-size:16px;">
+      <span class="dot"></span> The honesty pipeline
+    </div>
+    <h1 style="margin-top:24px;">An honest score.<br>Not AI flattery.</h1>
+    <p class="sub">Most AI resume tools invent problems to look smart. Resunova runs every AI claim through validators that check it against your <b style="color:var(--ink);">actual résumé text</b> — false feedback is dropped before you ever see it.</p>
+  </div>
+
+  <div class="row">
+    <div class="card col-card">
+      <div class="col-title" style="color:var(--red);">✕&nbsp; CAUGHT &amp; DROPPED</div>
+      <div class="issue dropped"><span class="mark" style="color:var(--red);">✕</span><div><span class="txt">"Add metrics to your bullet points"</span><span class="why">Dropped — your résumé already has 9 quantified bullets</span></div></div>
+      <div class="issue dropped"><span class="mark" style="color:var(--red);">✕</span><div><span class="txt">"Improved" rewrite identical to your original</span><span class="why">Dropped — no-op rewrites never surface</span></div></div>
+      <div class="issue dropped"><span class="mark" style="color:var(--red);">✕</span><div><span class="txt">"Warning: no tables detected"</span><span class="why">Dropped — that's a good thing, not a warning</span></div></div>
+    </div>
+
+    <div class="card col-card">
+      <div class="col-title" style="color:var(--green);">✓&nbsp; WHAT YOU ACTUALLY SEE</div>
+      <div class="issue kept"><span class="mark" style="color:var(--green);">✓</span><div><span class="txt">3 bullets lead with duties instead of outcomes</span><span class="fix">Each ships with a real rewrite — verb, scope, outcome</span></div></div>
+      <div class="issue kept"><span class="mark" style="color:var(--green);">✓</span><div><span class="txt">Summary section missing the JD's top 2 keywords</span><span class="fix">Exact terms shown, matched against the job post</span></div></div>
+      <div class="issue kept"><span class="mark" style="color:var(--green);">✓</span><div><span class="txt">Category scores explained — never a mystery number</span><span class="fix">Every score under 95 shows its rationale</span></div></div>
+    </div>
+  </div>
+</div>
+</body></html>
