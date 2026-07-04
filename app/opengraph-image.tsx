@@ -36,15 +36,18 @@ export default function OgImage() {
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: "0 8px 32px rgba(196,121,58,0.4)",
           }}>
-            {/* Nova-burst mark — keep paths in sync with components/BrandLogo.tsx */}
+            {/* Nova R mark — keep paths in sync with components/BrandLogo.tsx */}
             <svg width="58" height="58" viewBox="0 0 28 28">
+              <path d="M8.7 8.2v12.6" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
               <path
-                d="M13.4 5.2C14.4 10.9 16.9 13.4 22.6 14.4C16.9 15.4 14.4 17.9 13.4 23.6C12.4 17.9 9.9 15.4 4.2 14.4C9.9 13.4 12.4 10.9 13.4 5.2Z"
-                fill="white"
+                d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7"
+                stroke="white" strokeWidth="2.4" strokeLinecap="round"
+                strokeLinejoin="round" fill="none"
               />
+              <path d="M13.2 16.4l4.4 4.4" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
               <path
-                d="M21.9 3.4C22.2 5.1 23.1 6 24.8 6.3C23.1 6.6 22.2 7.5 21.9 9.2C21.6 7.5 20.7 6.6 19 6.3C20.7 6 21.6 5.1 21.9 3.4Z"
-                fill="white" opacity="0.92"
+                d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z"
+                fill="white" opacity="0.88"
               />
             </svg>
           </div>
