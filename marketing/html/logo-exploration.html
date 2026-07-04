@@ -1,0 +1,183 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  body { width: 1680px; background: #0d1117; }
+  .sheet { padding: 70px 80px 80px; }
+  h1 { font-size: 44px; font-weight: 800; letter-spacing: -1.5px; }
+  .intro { font-size: 18px; color: var(--muted); margin-top: 10px; }
+  .row { display: flex; align-items: center; gap: 36px; margin-top: 42px; padding: 30px 34px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; }
+  .meta { width: 330px; flex-shrink: 0; }
+  .meta .tag { font-size: 12px; font-weight: 800; letter-spacing: 1.6px; color: var(--muted-2); }
+  .meta h2 { font-size: 23px; font-weight: 700; letter-spacing: -0.4px; margin-top: 6px; }
+  .meta p { font-size: 14.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .sizes { display: flex; align-items: flex-end; gap: 26px; flex: 1; }
+  .sz { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .sz span { font-size: 12px; color: var(--muted-2); font-weight: 600; }
+  .onlight { background: #f7f9fc; border-radius: 16px; padding: 22px 26px; display: flex; align-items: flex-end; gap: 22px; }
+  .lockup { display: flex; align-items: center; gap: 12px; }
+  .lockups { display: flex; flex-direction: column; gap: 26px; flex: 1; }
+  .lk-label { font-size: 12px; color: var(--muted-2); font-weight: 600; margin-bottom: 8px; }
+  .wm { font-weight: 700; letter-spacing: -0.5px; font-size: 30px; color: #fff; }
+  .light-wm { color: #17233b; }
+  .rec { border-color: rgba(52,211,153,0.45); }
+  .rec-badge { display:inline-block; font-size: 11.5px; font-weight: 800; letter-spacing: 1.2px; color: var(--green); border: 1px solid rgba(52,211,153,0.4); border-radius: 100px; padding: 4px 11px; margin-top: 10px; }
+</style></head>
+<body>
+<div class="sheet">
+  <h1>Resunova — logo exploration</h1>
+  <p class="intro">Each option shown at 96 / 48 / 24 / 16 px on dark, and 48 / 24 px on light. The 16 px cell is the favicon test — if it fails there, it fails everywhere.</p>
+
+  <!-- ============ SVG defs used repeatedly ============ -->
+  <svg width="0" height="0" style="position:absolute;">
+    <defs>
+      <linearGradient id="amb" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#e09050"/><stop offset="100%" stop-color="#c4793a"/>
+      </linearGradient>
+      <linearGradient id="blu" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#1d4ed8"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <!-- ============ 0 · CURRENT ============ -->
+  <div class="row">
+    <div class="meta">
+      <div class="tag">OPTION 0 · BASELINE</div>
+      <h2>Current mark</h2>
+      <p>Amber square, thin-stroke R. Strokes are mixed weight (2.5 bar / 2.0 bowl+leg) so it goes wiry and uneven at small sizes; glyph sits slightly left-heavy.</p>
+    </div>
+    <div class="sizes">
+      <div class="sz"><svg width="96" height="96" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="#c4793a"/><path d="M8 7v14" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M8 7h5A4.5 4.5 0 0 1 13 16H8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13 16l6 5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg><span>96</span></div>
+      <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="#c4793a"/><path d="M8 7v14" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M8 7h5A4.5 4.5 0 0 1 13 16H8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13 16l6 5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg><span>48</span></div>
+      <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="#c4793a"/><path d="M8 7v14" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M8 7h5A4.5 4.5 0 0 1 13 16H8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13 16l6 5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg><span>24</span></div>
+      <div class="sz"><svg width="16" height="16" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="#c4793a"/><path d="M8 7v14" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M8 7h5A4.5 4.5 0 0 1 13 16H8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13 16l6 5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg><span>16</span></div>
+      <div class="onlight">
+        <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="#c4793a"/><path d="M8 7v14" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M8 7h5A4.5 4.5 0 0 1 13 16H8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13 16l6 5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg><span style="color:#6e7f96;">48</span></div>
+        <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="#c4793a"/><path d="M8 7v14" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M8 7h5A4.5 4.5 0 0 1 13 16H8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13 16l6 5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg><span style="color:#6e7f96;">24</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 1 · REFINED R ============ -->
+  <div class="row rec">
+    <div class="meta">
+      <div class="tag">OPTION 1 · REFINE</div>
+      <h2>Refined R</h2>
+      <p>Same idea, better craft: uniform 2.4 stroke, gradient fill, bowl and leg rebalanced so the glyph is optically centered and survives 16 px. Zero migration cost — drop-in for BrandLogo.tsx.</p>
+      <span class="rec-badge">RECOMMENDED — SHIP NOW</span>
+    </div>
+    <div class="sizes">
+      <div class="sz"><svg width="96" height="96" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>96</span></div>
+      <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>48</span></div>
+      <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>24</span></div>
+      <div class="sz"><svg width="16" height="16" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>16</span></div>
+      <div class="onlight">
+        <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span style="color:#6e7f96;">48</span></div>
+        <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span style="color:#6e7f96;">24</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2 · NOVA R ============ -->
+  <div class="row">
+    <div class="meta">
+      <div class="tag">OPTION 2 · EVOLVE</div>
+      <h2>Nova R</h2>
+      <p>The refined R plus a spark in the top-right — ties the mark to the name (resu-NOVA) and reads as "AI" at a glance. Spark risks clutter below 24 px; favicon would drop the spark.</p>
+    </div>
+    <div class="sizes">
+      <div class="sz"><svg width="96" height="96" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#ffe0bd"/></svg><span>96</span></div>
+      <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#ffe0bd"/></svg><span>48</span></div>
+      <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#ffe0bd"/></svg><span>24</span></div>
+      <div class="sz"><svg width="16" height="16" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#ffe0bd"/></svg><span>16</span></div>
+      <div class="onlight">
+        <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#ffe0bd"/></svg><span style="color:#6e7f96;">48</span></div>
+        <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#ffe0bd"/></svg><span style="color:#6e7f96;">24</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3 · DOCUMENT R ============ -->
+  <div class="row">
+    <div class="meta">
+      <div class="tag">OPTION 3 · LITERAL</div>
+      <h2>Document R</h2>
+      <p>Container becomes a résumé page with a folded corner. Instantly says "this is about documents/résumés" — but page-fold marks are common in the docs/PDF space, and the fold muddies at 16 px.</p>
+    </div>
+    <div class="sizes">
+      <div class="sz"><svg width="96" height="96" viewBox="0 0 28 28"><path d="M7 0h11.5L28 9.5V21a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7z" fill="url(#amb)"/><path d="M18.5 0L28 9.5h-6a2.5 2.5 0 0 1-2.5-2.5V0z" fill="#f2b988"/><path d="M9 9.5v11.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9 9.5h4a4 4 0 0 1 0 8H9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.4 17.5l4.3 3.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>96</span></div>
+      <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><path d="M7 0h11.5L28 9.5V21a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7z" fill="url(#amb)"/><path d="M18.5 0L28 9.5h-6a2.5 2.5 0 0 1-2.5-2.5V0z" fill="#f2b988"/><path d="M9 9.5v11.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9 9.5h4a4 4 0 0 1 0 8H9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.4 17.5l4.3 3.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>48</span></div>
+      <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><path d="M7 0h11.5L28 9.5V21a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7z" fill="url(#amb)"/><path d="M18.5 0L28 9.5h-6a2.5 2.5 0 0 1-2.5-2.5V0z" fill="#f2b988"/><path d="M9 9.5v11.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9 9.5h4a4 4 0 0 1 0 8H9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.4 17.5l4.3 3.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>24</span></div>
+      <div class="sz"><svg width="16" height="16" viewBox="0 0 28 28"><path d="M7 0h11.5L28 9.5V21a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7z" fill="url(#amb)"/><path d="M18.5 0L28 9.5h-6a2.5 2.5 0 0 1-2.5-2.5V0z" fill="#f2b988"/><path d="M9 9.5v11.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9 9.5h4a4 4 0 0 1 0 8H9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.4 17.5l4.3 3.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>16</span></div>
+      <div class="onlight">
+        <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><path d="M7 0h11.5L28 9.5V21a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7z" fill="url(#amb)"/><path d="M18.5 0L28 9.5h-6a2.5 2.5 0 0 1-2.5-2.5V0z" fill="#f2b988"/><path d="M9 9.5v11.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9 9.5h4a4 4 0 0 1 0 8H9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.4 17.5l4.3 3.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span style="color:#6e7f96;">48</span></div>
+        <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><path d="M7 0h11.5L28 9.5V21a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7z" fill="url(#amb)"/><path d="M18.5 0L28 9.5h-6a2.5 2.5 0 0 1-2.5-2.5V0z" fill="#f2b988"/><path d="M9 9.5v11.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9 9.5h4a4 4 0 0 1 0 8H9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.4 17.5l4.3 3.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span style="color:#6e7f96;">24</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 4 · NOVA BURST ============ -->
+  <div class="row">
+    <div class="meta">
+      <div class="tag">OPTION 4 · ABSTRACT</div>
+      <h2>Nova burst</h2>
+      <p>Drop the letter entirely — a four-point nova. Beautiful and crisp at every size, but sparkles have become generic "AI feature" iconography, and it loses the R = Resunova anchor.</p>
+    </div>
+    <div class="sizes">
+      <div class="sz"><svg width="96" height="96" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M14 4.6c1 5.8 3.6 8.4 9.4 9.4-5.8 1-8.4 3.6-9.4 9.4-1-5.8-3.6-8.4-9.4-9.4 5.8-1 8.4-3.6 9.4-9.4z" fill="#fff"/></svg><span>96</span></div>
+      <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M14 4.6c1 5.8 3.6 8.4 9.4 9.4-5.8 1-8.4 3.6-9.4 9.4-1-5.8-3.6-8.4-9.4-9.4 5.8-1 8.4-3.6 9.4-9.4z" fill="#fff"/></svg><span>48</span></div>
+      <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M14 4.6c1 5.8 3.6 8.4 9.4 9.4-5.8 1-8.4 3.6-9.4 9.4-1-5.8-3.6-8.4-9.4-9.4 5.8-1 8.4-3.6 9.4-9.4z" fill="#fff"/></svg><span>24</span></div>
+      <div class="sz"><svg width="16" height="16" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M14 4.6c1 5.8 3.6 8.4 9.4 9.4-5.8 1-8.4 3.6-9.4 9.4-1-5.8-3.6-8.4-9.4-9.4 5.8-1 8.4-3.6 9.4-9.4z" fill="#fff"/></svg><span>16</span></div>
+      <div class="onlight">
+        <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M14 4.6c1 5.8 3.6 8.4 9.4 9.4-5.8 1-8.4 3.6-9.4 9.4-1-5.8-3.6-8.4-9.4-9.4 5.8-1 8.4-3.6 9.4-9.4z" fill="#fff"/></svg><span style="color:#6e7f96;">48</span></div>
+        <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M14 4.6c1 5.8 3.6 8.4 9.4 9.4-5.8 1-8.4 3.6-9.4 9.4-1-5.8-3.6-8.4-9.4-9.4 5.8-1 8.4-3.6 9.4-9.4z" fill="#fff"/></svg><span style="color:#6e7f96;">24</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 5 · BLUE VARIANT ============ -->
+  <div class="row">
+    <div class="meta">
+      <div class="tag">OPTION 5 · RECOLOR</div>
+      <h2>Refined R, brand blue</h2>
+      <p>Same refined R in the product's action blue. Solves the amber-mark/blue-CTA split — but you vanish into the sea of blue career tools (Jobscan, Resume.io, Kickresume…). Shown for comparison; amber differentiates better.</p>
+    </div>
+    <div class="sizes">
+      <div class="sz"><svg width="96" height="96" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#blu)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>96</span></div>
+      <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#blu)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>48</span></div>
+      <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#blu)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>24</span></div>
+      <div class="sz"><svg width="16" height="16" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#blu)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>16</span></div>
+      <div class="onlight">
+        <div class="sz"><svg width="48" height="48" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#blu)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span style="color:#6e7f96;">48</span></div>
+        <div class="sz"><svg width="24" height="24" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#blu)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span style="color:#6e7f96;">24</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ WORDMARK LOCKUPS ============ -->
+  <div class="row">
+    <div class="meta">
+      <div class="tag">WORDMARK</div>
+      <h2>Lockup options</h2>
+      <p>Using the refined R. The two-tone "Resu<b style="color:var(--amber-h);">nova</b>" ties the amber mark to the wordmark and makes the name easier to parse on first read.</p>
+    </div>
+    <div class="lockups">
+      <div>
+        <div class="lk-label">A — current style (all white)</div>
+        <div class="lockup"><svg width="34" height="34" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span class="wm">Resunova</span></div>
+      </div>
+      <div>
+        <div class="lk-label">B — two-tone (nova in amber)</div>
+        <div class="lockup"><svg width="34" height="34" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span class="wm">Resu<span style="color:#e09050;">nova</span></span></div>
+      </div>
+      <div class="onlight" style="align-items:center;">
+        <div>
+          <div class="lk-label" style="color:#6e7f96;">On light — two-tone</div>
+          <div class="lockup"><svg width="34" height="34" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" fill="url(#amb)"/><path d="M9.5 7.5v13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M9.5 7.5h4.3a4.25 4.25 0 0 1 0 8.5H9.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M14.2 16l4.6 4.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span class="wm light-wm">Resu<span style="color:#b45309;">nova</span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body></html>
