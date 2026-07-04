@@ -4,7 +4,11 @@ import { UMBC_BRAND } from "@/lib/brand";
 /**
  * BrandLogo — shared logo primitives used by LandingPage + AppShell.
  *
- * LogoMark  — amber square with custom R glyph (SVG, scales cleanly)
+ * LogoMark  — amber square with nova-burst mark (SVG, scales cleanly).
+ *             Main four-point nova offset down-left + companion spark
+ *             top-right, so it reads as "nova" (the name) rather than a
+ *             generic AI sparkle. Keep in sync with marketing/html/* and
+ *             app/opengraph-image.tsx if the paths change.
  * LogoFull  — mark + "Resunova" wordmark side-by-side
  */
 
@@ -28,17 +32,17 @@ export function LogoMark({ size = 28, variant = "resunova" }: LogoMarkProps) {
       {/* Colored rounded square */}
       <rect width="28" height="28" rx="7" fill={markColor} />
 
-      {/* ── Custom R letterform ───────────────────────────── */}
-      {/* Vertical bar */}
-      <path d="M8 7v14" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-      {/* Bowl — right-facing arch, connects top of bar, bulges to x≈17.5 */}
+      {/* ── Nova burst ────────────────────────────────────── */}
+      {/* Main four-point nova, offset down-left */}
       <path
-        d="M8 7h5A4.5 4.5 0 0 1 13 16H8"
-        stroke="white" strokeWidth="2" strokeLinecap="round"
-        strokeLinejoin="round" fill="none"
+        d="M13.4 5.2C14.4 10.9 16.9 13.4 22.6 14.4C16.9 15.4 14.4 17.9 13.4 23.6C12.4 17.9 9.9 15.4 4.2 14.4C9.9 13.4 12.4 10.9 13.4 5.2Z"
+        fill="white"
       />
-      {/* Diagonal leg */}
-      <path d="M13 16l6 5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+      {/* Companion spark, top-right */}
+      <path
+        d="M21.9 3.4C22.2 5.1 23.1 6 24.8 6.3C23.1 6.6 22.2 7.5 21.9 9.2C21.6 7.5 20.7 6.6 19 6.3C20.7 6 21.6 5.1 21.9 3.4Z"
+        fill="white" opacity="0.92"
+      />
     </svg>
   );
 }
