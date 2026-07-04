@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -219,6 +219,44 @@ function studentPriority(student: Student): number {
   if (status === "Improving") return 2;
   if (status === "On Track") return 3;
   return 4;
+}
+
+// ── roster column sorting ────────────────────────────────────────────────────
+
+type RosterSortKey = "email" | "score" | "status" | "latest_at" | "analyses";
+type RosterSort = { key: RosterSortKey; dir: 1 | -1 };
+
+/** Per-column comparable value. Nulls sort to the bottom regardless of
+ *  direction via the fallback sentinels; status uses the review-priority order
+ *  (Needs Work first when ascending), not alphabetical. */
+function rosterSortValue(s: Student, key: RosterSortKey): number | string {
+  switch (key) {
+    case "email": return (s.user_email ?? "￿").toLowerCase();
+    case "score": return s.latest_score ?? -1;
+    case "status": return studentPriority(s);
+    case "latest_at": return s.latest_at ? Date.parse(s.latest_at) || 0 : 0;
+    case "analyses": return s.analysis_count ?? 0;
+  }
+}
+
+function SortableHead({ label, k, sort, onSort }: {
+  label: string; k: RosterSortKey; sort: RosterSort; onSort: (k: RosterSortKey) => void;
+}) {
+  const active = sort.key === k;
+  return (
+    <TableHead aria-sort={active ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        className="inline-flex cursor-pointer select-none items-center gap-1 font-medium hover:text-foreground"
+      >
+        {label}
+        <span aria-hidden className={active ? "text-foreground" : "opacity-25"}>
+          {active && sort.dir === 1 ? "▲" : "▼"}
+        </span>
+      </button>
+    </TableHead>
+  );
 }
 
 function reviewReason(student: Student): string {
@@ -776,9 +814,31 @@ function CohortOverview({
       return status === "Needs Work" || status === "No Analysis Yet" || status === "Improving" || status === "On Track";
     })
     .slice(0, 6);
-  const filtered = data.student_roster.filter(s =>
-    !search || (s.user_email ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  // Roster sort: default = most recent activity first. Clicking a header
+  // toggles direction; switching columns starts with that column's natural
+  // direction (text/status ascending, numbers/dates descending).
+  const [rosterSort, setRosterSort] = useState<RosterSort>({ key: "latest_at", dir: -1 });
+  const onRosterSort = useCallback((k: RosterSortKey) => {
+    setRosterSort(prev => prev.key === k
+      ? { key: k, dir: prev.dir === 1 ? -1 : 1 }
+      : { key: k, dir: k === "email" || k === "status" ? 1 : -1 });
+  }, []);
+  const filtered = useMemo(() => {
+    const rows = data.student_roster.filter(s =>
+      !search || (s.user_email ?? "").toLowerCase().includes(search.toLowerCase())
+    );
+    const { key, dir } = rosterSort;
+    return rows.sort((a, b) => {
+      const av = rosterSortValue(a, key);
+      const bv = rosterSortValue(b, key);
+      const cmp = typeof av === "string"
+        ? av.localeCompare(bv as string)
+        : (av as number) - (bv as number);
+      if (cmp !== 0) return cmp * dir;
+      // Stable tiebreak: email A→Z so equal rows don't jump between clicks.
+      return (a.user_email ?? "").localeCompare(b.user_email ?? "");
+    });
+  }, [data.student_roster, search, rosterSort]);
   const isEmpty = data.student_count === 0 && data.analysis_count === 0;
 
   return (
@@ -971,11 +1031,11 @@ function CohortOverview({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Latest Score</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Activity</TableHead>
-                  <TableHead>Analyses</TableHead>
+                  <SortableHead label="Student" k="email" sort={rosterSort} onSort={onRosterSort} />
+                  <SortableHead label="Latest Score" k="score" sort={rosterSort} onSort={onRosterSort} />
+                  <SortableHead label="Status" k="status" sort={rosterSort} onSort={onRosterSort} />
+                  <SortableHead label="Last Activity" k="latest_at" sort={rosterSort} onSort={onRosterSort} />
+                  <SortableHead label="Analyses" k="analyses" sort={rosterSort} onSort={onRosterSort} />
                   <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
