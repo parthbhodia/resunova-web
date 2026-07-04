@@ -203,3 +203,49 @@ for nothing except honest feedback — LinkedIn punishes engagement-bait.
 - [ ] Anonymous scan path load-checked (Railway warm, scan limits in place)
 - [ ] PH "Coming Soon" page up ≥2 weeks before, teaser copy above
 - [ ] Claims re-verified: live-postings count, boards count, user count
+
+---
+
+## 8 · Product Hunt "Connect with Investors" form
+
+Draft answers live in this section so they version with the rest of the kit.
+Fill the [placeholders] before submitting — founder-background sentences,
+real growth numbers (or "early — instrumented but not yet meaningful"),
+all-in monthly cost, launch date, and raise purpose. Say "model costs" for
+the $14/mo figure, not "total costs".
+
+### Q1 — Why are you the right founder/team?
+Solo technical founder; built the whole stack (honesty-validated analysis,
+8k+ board ingestion, vision extraction, deterministic matching) running in
+prod at ~$14/mo model cost. Target user of the product. UMBC career-services
+pilot already live (advisor dashboard). [Add personal background sentence.]
+
+### Q2 — Why this idea?
+The existing tools lied ("add metrics" on a résumé with nine; identical
+"improved" rewrites; "no tables detected" as a warning). Trust is an
+engineering problem → honesty pipeline. Timing: AI mass-applying broke the
+funnel; quality is the new leverage. The résumé-as-structured-data wedge
+powers matching, contacts, and interview prep downstream.
+
+### Q3 — Competitors & the insight they lack
+Jobscan/Rezi/Teal/Enhancv/Kickresume/Resume.io/Zety; Simplify/Huntr; LinkedIn.
+(1) Trust is the product — nobody else validates the AI's claims; incumbents
+can't, their revenue depends on feedback volume looking impressive.
+(2) Unit economics — per-posting extraction + deterministic per-user matching
+⇒ free-forever is an architectural fact, not a promo.
+(3) The résumé is a query, not a document — it powers the 160k-job ranked
+feed, DOL-sourced HR contacts (30k+ employers), and per-résumé interview prep.
+
+### Q4 — Revenue / growth
+Pre-revenue by design. 400+ early users, [growth number], UMBC pilot,
+compounding data asset (240k+ active postings · 140k+ skill-extracted ·
+61k H-1B · 30k employer contacts). Monetization order: university B2B
+(advisor dashboards) → individual premium tiers → recruiter-side matching.
+
+### Q5 — Anything else
+Velocity (90-day ship list) at ~$14/mo model cost; proprietary jobs+contacts
+dataset refreshed daily by our own pipeline; trust positioning at peak
+AI-slop backlash. PH launch [DATE]; raising to [purpose].
+
+(Full prose drafts for all five answers were delivered in the session chat
+2026-07-04 — paste from there, then update this summary if the story changes.)
