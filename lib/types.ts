@@ -251,8 +251,10 @@ export interface AdminAnalyticsSummary {
   total_tokens: number;
   total_prompt_tokens: number;
   total_completion_tokens: number;
-  /** USD estimate from env-configured rates; null/absent when rates unset. */
+  /** USD estimate summed from per-model rates; 0 when all-local/free. */
   cost_usd?: number | null;
+  /** Paid models missing a price entry (cost undercount warning). */
+  unpriced_models?: string[];
   success_runs: number;
   failed_runs: number;
   failure_rate_pct: number;
@@ -360,7 +362,7 @@ export interface AdminAnalyticsResponse {
   summary: AdminAnalyticsSummary;
   users: AdminAnalyticsUserRow[];
   tools: AdminAnalyticsToolRow[];
-  models: Array<{ model: string; runs: number; tokens: number }>;
+  models: Array<{ model: string; runs: number; tokens: number; cost_usd?: number; free?: boolean }>;
   daily: Array<{ date: string; runs: number; tokens: number; failures: number }>;
   activity: {
     total_analyses: number;
