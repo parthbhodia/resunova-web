@@ -1,0 +1,72 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  body { width: 1270px; height: 760px; }
+  .stage { width: 1270px; height: 760px; display: flex; align-items: center; gap: 56px; padding: 0 76px; }
+  .left { width: 470px; position: relative; z-index: 1; }
+  h1 { font-size: 54px; font-weight: 800; letter-spacing: -2px; line-height: 1.1; margin: 24px 0 22px; }
+  .sub { font-size: 21px; color: var(--muted); line-height: 1.6; letter-spacing: -0.2px; }
+  .types { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; max-width: 460px; }
+  .types .chip { padding: 9px 16px; font-size: 14.5px; color: var(--ink); }
+  .right { flex: 1; position: relative; z-index: 1; display: flex; flex-direction: column; gap: 18px; }
+
+  .q-card { padding: 26px 30px; }
+  .q-label { font-size: 12.5px; font-weight: 800; letter-spacing: 1.8px; margin-bottom: 12px; }
+  .q-text { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.4; }
+  .q-src { font-size: 14.5px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  .q-src b { color: var(--blue); font-weight: 600; }
+  .star { display: flex; gap: 9px; margin-top: 16px; }
+  .star .chip { padding: 6px 13px; font-size: 12.5px; }
+
+  .story { padding: 20px 26px; display: flex; align-items: center; gap: 16px; }
+  .story .ico { width: 42px; height: 42px; border-radius: 11px; background: rgba(52,211,153,0.13); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .story .t { font-size: 16.5px; font-weight: 700; letter-spacing: -0.2px; }
+  .story .d { font-size: 14px; color: var(--muted); margin-top: 4px; }
+</style></head>
+<body>
+<div class="stage">
+  <div class="left">
+    <div class="badge" style="font-size:15px;"><span class="dot"></span> Interview Prep</div>
+    <h1>Walk in ready —<br><span style="color:var(--blue);">prep built from<br>your résumé.</span></h1>
+    <p class="sub">Pick a target role and company, and get likely questions with <b style="color:var(--ink);">STAR answer frameworks mined from your own experience</b> — not generic question lists. Coding questions appear only when the role actually calls for them.</p>
+    <div class="types">
+      <span class="chip">Behavioral</span>
+      <span class="chip">Technical</span>
+      <span class="chip">Coding</span>
+      <span class="chip">System Design</span>
+      <span class="chip">Company Specific</span>
+      <span class="chip">Mixed</span>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="card q-card">
+      <div class="q-label" style="color:var(--blue);">BEHAVIORAL · TARGETING NVIDIA</div>
+      <div class="q-text">"Tell me about a time you automated a process others depended on."</div>
+      <div class="q-src">Asked because your résumé says: <b>"Automated the weekly reporting workflow for a 6-person analytics team…"</b></div>
+      <div class="star">
+        <span class="chip" style="color:var(--green);border-color:rgba(52,211,153,0.3);">S — Situation</span>
+        <span class="chip" style="color:var(--green);border-color:rgba(52,211,153,0.3);">T — Task</span>
+        <span class="chip" style="color:var(--green);border-color:rgba(52,211,153,0.3);">A — Action</span>
+        <span class="chip" style="color:var(--green);border-color:rgba(52,211,153,0.3);">R — Result</span>
+      </div>
+    </div>
+
+    <div class="card story">
+      <div class="ico">📖</div>
+      <div>
+        <div class="t">Story Bank — 8 STAR stories drafted from your bullets</div>
+        <div class="d">Reusable across behavioral questions · saved per résumé, never mixed up</div>
+      </div>
+    </div>
+
+    <div class="card story">
+      <div class="ico" style="background:rgba(88,166,255,0.13);">⌨️</div>
+      <div>
+        <div class="t">Role-aware coding bank</div>
+        <div class="d">SQL problems for analyst roles · full DSA for software roles · none for MBA/legal/sales</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

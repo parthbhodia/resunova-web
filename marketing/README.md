@@ -12,6 +12,7 @@ DM Sans embedded from `fonts/`) and rendered to PNG with headless Chromium.
 | `ph-gallery-2-honesty-1270x760.png` | 1270×760 @2x | PH slide 2 — the honesty-pipeline differentiator |
 | `ph-gallery-3-rewrites-1270x760.png` | 1270×760 @2x | PH slide 3 — before/after bullet rewrite |
 | `ph-gallery-4-jobs-1270x760.png` | 1270×760 @2x | PH slide 4 — jobs feed ranked against résumé |
+| `ph-gallery-5-interview-1270x760.png` | 1270×760 @2x | PH slide 5 — interview prep built from the résumé |
 | `ph-thumbnail-512x512.png` | 512×512 | PH logo/thumbnail (min 240×240) |
 | `og-link-share-1200x630.png` | 1200×630 @2x | OG/Twitter card, Reddit link-post preview |
 | `social-square-1080x1080.png` | 1080×1080 @2x | Instagram / square Reddit image post |
