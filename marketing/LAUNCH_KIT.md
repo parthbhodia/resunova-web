@@ -14,10 +14,15 @@ update it here first.
 
 **Tagline options** (max 60 chars — PH truncates longer):
 
-1. `The AI resume checker that audits its own feedback` *(recommended — the differentiator, 51 chars)*
-2. `Honest AI resume scoring — free, no account needed` (51)
-3. `Resume scoring that deletes the AI's lies before you see them` (62 — trim if used)
-4. `Score, fix, and tailor your resume in 60 seconds. Free.` (56)
+1. `The AI resume checker that can't lie to you` *(recommended — 44 chars; instant tension, implicitly indicts every other tool, and the maker comment explains exactly which lies the validators make impossible)*
+2. `Resume feedback that's fact-checked before you see it` (54 — same idea, softer)
+3. `The resume checker that deletes its own bad advice` (51)
+4. `AI resume feedback, fact-checked against your actual résumé` (60 — most descriptive, least punchy)
+5. `Honest resume scores. Real rewrites. 60 seconds. Free.` (55 — whole-product option)
+
+Principle: the tagline's only job is to win the click from a list of 30
+competitors — lead with the one claim nobody else can copy; the feature
+list belongs in the description.
 
 **Topics:** Career · Artificial Intelligence · Productivity · Job Boards
 
