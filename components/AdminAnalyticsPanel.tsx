@@ -663,17 +663,27 @@ export default function AdminAnalyticsPanel({ getAuthHeaders }: Props) {
                   <DailySparkline daily={data.daily} />
                 </div>
                 <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 14, background: "var(--surface)" }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Models</div>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Models &amp; cost</div>
                   {data.models.length === 0
                     ? <p style={{ color: "var(--dim)", fontSize: 13 }}>No model data yet.</p>
                     : <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                         {data.models.map(m => (
-                          <div key={m.model} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                            <span style={{ fontWeight: 500, maxWidth: "60%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.model}</span>
-                            <span style={{ color: "var(--muted)" }}>{fmtK(m.tokens)} tok · {fmtInt(m.runs)} runs</span>
+                          <div key={m.model} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
+                            <span style={{ fontWeight: 500, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+                              {m.model}
+                              {m.free && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--green-ink, #10b981)", border: "1px solid var(--green-ink, #10b981)", borderRadius: 5, padding: "0 4px" }}>LOCAL · FREE</span>}
+                            </span>
+                            <span style={{ color: "var(--muted)", flexShrink: 0, whiteSpace: "nowrap" }}>
+                              {fmtK(m.tokens)} tok{m.cost_usd != null && !m.free ? ` · $${m.cost_usd.toFixed(2)}` : ""}
+                            </span>
                           </div>
                         ))}
                       </div>}
+                  {data.summary.unpriced_models && data.summary.unpriced_models.length > 0 && (
+                    <div style={{ fontSize: 11, color: "var(--amber-ink, #b45309)", marginTop: 8 }}>
+                      No price set for: {data.summary.unpriced_models.join(", ")} — cost undercounts. Add via ADMIN_MODEL_PRICES_JSON.
+                    </div>
+                  )}
                 </div>
               </section>
 
