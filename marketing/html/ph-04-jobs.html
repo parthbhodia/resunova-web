@@ -1,0 +1,82 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  body { width: 1270px; height: 760px; }
+  .stage { width: 1270px; height: 760px; display: flex; align-items: center; gap: 56px; padding: 0 76px; }
+  .left { width: 480px; position: relative; z-index: 1; }
+  h1 { font-size: 54px; font-weight: 800; letter-spacing: -2px; line-height: 1.1; margin: 24px 0 22px; }
+  .sub { font-size: 21px; color: var(--muted); line-height: 1.6; letter-spacing: -0.2px; }
+  .stats { display: flex; gap: 30px; margin-top: 34px; }
+  .stat b { display: block; font-size: 34px; font-weight: 800; letter-spacing: -1px; color: var(--ink); }
+  .stat span { font-size: 14.5px; color: var(--muted-2); font-weight: 500; }
+  .right { flex: 1; position: relative; z-index: 1; display: flex; flex-direction: column; gap: 16px; }
+  .job { padding: 22px 26px; display: flex; align-items: center; gap: 18px; }
+  .j-logo { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; color: #fff; flex-shrink: 0; }
+  .j-main { flex: 1; min-width: 0; }
+  .j-title { font-size: 18.5px; font-weight: 700; letter-spacing: -0.3px; }
+  .j-meta { font-size: 14.5px; color: var(--muted); margin-top: 5px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .j-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 100px; }
+  .match { text-align: center; flex-shrink: 0; }
+  .match b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .match span { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--muted-2); }
+</style></head>
+<body>
+<div class="stage">
+  <div class="left">
+    <div class="badge" style="font-size:15px;"><span class="dot"></span> Built-in job feed</div>
+    <h1>Fresh jobs, ranked<br><span style="color:var(--blue);">against your résumé.</span></h1>
+    <p class="sub">160,000+ live US postings pulled daily from company career boards — scored against your résumé with <b style="color:var(--ink);">zero extra prompts</b>. Salary data, H-1B sponsor history, and real HR contacts included.</p>
+    <div class="stats">
+      <div class="stat"><b>160k+</b><span>live postings</span></div>
+      <div class="stat"><b>8,000+</b><span>company boards</span></div>
+      <div class="stat"><b>Daily</b><span>fresh scans</span></div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="card job">
+      <div class="j-logo" style="background:#2563eb;">N</div>
+      <div class="j-main">
+        <div class="j-title">Senior Data Analyst</div>
+        <div class="j-meta">NVIDIA · Santa Clara, CA · $142k–$196k
+          <span class="j-badge" style="background:rgba(52,211,153,0.14);color:var(--green);">H-1B sponsor</span>
+        </div>
+      </div>
+      <div class="match"><b style="color:var(--green);">92</b><span>MATCH</span></div>
+    </div>
+
+    <div class="card job">
+      <div class="j-logo" style="background:#7c3aed;">S</div>
+      <div class="j-main">
+        <div class="j-title">Business Intelligence Engineer</div>
+        <div class="j-meta">Salesforce · Remote (US) · $128k–$168k
+          <span class="j-badge" style="background:rgba(88,166,255,0.14);color:var(--blue);">HR contact available</span>
+        </div>
+      </div>
+      <div class="match"><b style="color:var(--green);">88</b><span>MATCH</span></div>
+    </div>
+
+    <div class="card job">
+      <div class="j-logo" style="background:#0d9488;">V</div>
+      <div class="j-main">
+        <div class="j-title">Product Analyst, Payments</div>
+        <div class="j-meta">Visa · Austin, TX · $110k–$145k
+          <span class="j-badge" style="background:rgba(52,211,153,0.14);color:var(--green);">H-1B sponsor</span>
+        </div>
+      </div>
+      <div class="match"><b style="color:#58a6ff;">81</b><span>MATCH</span></div>
+    </div>
+
+    <div class="card job" style="opacity:0.75;">
+      <div class="j-logo" style="background:#ff9900;">A</div>
+      <div class="j-main">
+        <div class="j-title">Analytics Manager, Ads</div>
+        <div class="j-meta">Amazon · Seattle, WA · $135k–$180k</div>
+      </div>
+      <div class="match"><b style="color:#58a6ff;">77</b><span>MATCH</span></div>
+    </div>
+
+    <div style="text-align:center;font-size:15px;color:var(--muted-2);font-weight:600;margin-top:4px;">One-click Boost: rewrite your résumé toward any posting ↑</div>
+  </div>
+</div>
+</body></html>

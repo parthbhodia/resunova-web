@@ -529,6 +529,31 @@ export default function LandingPage() {
             }
           </button>
 
+          {/* Product Hunt badge — header (compact, theme-aware) */}
+          <a
+            href="https://www.producthunt.com/products/resunova?embed=true&utm_source=badge-header&utm_medium=badge&utm_campaign=badge-resunova"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Resunova on Product Hunt"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              height: 40,
+              opacity: 0.8,
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.8"; }}
+          >
+            <img
+              alt="Resunova on Product Hunt"
+              width="180"
+              height="40"
+              src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1187910&theme=${dark ? "dark" : "light"}&t=1783180072635`}
+              style={{ display: "block", maxWidth: "100%", height: "auto" }}
+            />
+          </a>
+
           {/* Sign up — labeled CTA (consistent with the in-app top bar: EnhanceCV /
               Kickresume / Jobright all use a clear "Sign up / Log in", not a bare icon). */}
           <Button onClick={signIn} disabled={loading}
@@ -1206,6 +1231,38 @@ export default function LandingPage() {
                   {label}
                 </Link>
               ))}
+
+              {/* Product Hunt badge — theme-aware (light/dark) */}
+              <a
+                href="https://www.producthunt.com/products/resunova?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-resunova"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="lp-ph-badge"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  height: 54,
+                  filter: dark ? "brightness(1.1) drop-shadow(0 2px 6px rgba(0,0,0,0.3))" : "drop-shadow(0 2px 4px rgba(0,0,0,0.08))",
+                  transition: "filter 0.2s",
+                  marginLeft: "auto",
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.filter = dark ? "brightness(1.15) drop-shadow(0 4px 12px rgba(0,0,0,0.4))" : "drop-shadow(0 4px 8px rgba(0,0,0,0.12))";
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.filter = dark ? "brightness(1.1) drop-shadow(0 2px 6px rgba(0,0,0,0.3))" : "drop-shadow(0 2px 4px rgba(0,0,0,0.08))";
+                }}
+              >
+                <img
+                  alt="Resunova - The AI resume checker that can't lie to you | Product Hunt"
+                  width="250"
+                  height="54"
+                  src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1187910&theme=${dark ? "dark" : "light"}&t=1783180072635`}
+                  style={{ display: "block", maxWidth: "100%", height: "auto" }}
+                />
+              </a>
             </nav>
           </div>
 
@@ -1285,13 +1342,15 @@ export default function LandingPage() {
           .lp-interview-grid { grid-template-columns: 1fr !important; }
           .lp-interview-sec { padding: 64px 20px !important; }
           .lp-footer-top { flex-direction: column !important; gap: 24px !important; }
-          .lp-footer-nav { width: 100%; gap: 16px !important; }
+          .lp-footer-nav { width: 100%; flex-direction: column; align-items: flex-start !important; gap: 16px !important; }
+          .lp-ph-badge { margin-left: 0 !important; }
           .lp-footer-bottom { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
         }
         @media (max-width: 600px) {
           .lp-header { padding: 0 16px !important; }
           .lp-nav { gap: 10px !important; }
           .lp-nav-section { display: none !important; }
+          .lp-nav > a[href*="producthunt"] { display: none !important; }
         }
         @media (max-width: 540px) {
           .lp-feat-grid { grid-template-columns: 1fr !important; }

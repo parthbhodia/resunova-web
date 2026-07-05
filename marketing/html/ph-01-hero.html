@@ -1,0 +1,81 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  body { width: 1270px; height: 760px; }
+  .stage { width: 1270px; height: 760px; display: flex; align-items: center; padding: 0 72px; }
+  .left { flex: 1; position: relative; z-index: 1; }
+  .right { width: 460px; position: relative; z-index: 1; }
+  h1 { font-size: 74px; font-weight: 800; line-height: 1.04; letter-spacing: -2.6px; margin: 34px 0 26px; }
+  .sub { font-size: 24px; line-height: 1.6; color: var(--muted); max-width: 560px; letter-spacing: -0.2px; }
+  .cta { padding: 19px 36px; font-size: 21px; margin-top: 38px; }
+  .trust { margin-top: 22px; font-size: 16px; color: var(--muted-2); font-weight: 500; }
+
+  .score-card { padding: 34px 34px 30px; }
+  .score-top { display: flex; align-items: center; gap: 26px; margin-bottom: 26px; }
+  .ring { position: relative; width: 128px; height: 128px; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring .num b { font-size: 40px; font-weight: 800; letter-spacing: -1.5px; }
+  .ring .num span { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: 0.8px; }
+  .score-title { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+  .score-sub { font-size: 14.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .dim { display: flex; align-items: center; gap: 14px; margin-top: 15px; }
+  .dim .name { width: 150px; font-size: 15px; color: var(--muted); font-weight: 500; }
+  .dim .bar-track { flex: 1; height: 9px; }
+  .dim .val { width: 34px; text-align: right; font-size: 15px; font-weight: 700; }
+  .rewrote { margin-top: 26px; display: flex; gap: 10px; }
+  .rewrote .chip { padding: 8px 14px; font-size: 13.5px; }
+</style></head>
+<body>
+<div class="stage">
+  <div class="left">
+    <div class="logo-row" style="gap:14px;">
+      <svg width="46" height="46" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="7" fill="#c4793a"/>
+        <path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#fff" opacity="0.88"/>
+      </svg>
+      <span class="wordmark" style="font-size:30px;">Resunova</span>
+    </div>
+
+    <h1>Your résumé,<br><span style="color:var(--blue);">finally fluent</span><br>in the language<br>of opportunity.</h1>
+
+    <p class="sub">An <span class="hl-blue">8-dimension score</span>, <span class="hl-blue">bullet-by-bullet AI rewrites</span>, and a <span class="hl-blue">tailored PDF</span> — in under 60 seconds. <b style="color:var(--ink);">No account needed.</b> <span class="hl-green">Completely free.</span></p>
+
+    <div class="cta">Score my résumé free <span style="font-size:24px;">→</span></div>
+    <div class="trust">resunova.io &nbsp;·&nbsp; ATS-safe &nbsp;·&nbsp; 400+ early users</div>
+  </div>
+
+  <div class="right">
+    <div class="card score-card">
+      <div class="score-top">
+        <div class="ring">
+          <svg width="128" height="128" viewBox="0 0 128 128">
+            <circle cx="64" cy="64" r="55" stroke="rgba(255,255,255,0.09)" stroke-width="11" fill="none"/>
+            <circle cx="64" cy="64" r="55" stroke="url(#g)" stroke-width="11" fill="none"
+              stroke-linecap="round" stroke-dasharray="345.6" stroke-dashoffset="55.3"/>
+            <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#58a6ff"/><stop offset="100%" stop-color="#34d399"/>
+            </linearGradient></defs>
+          </svg>
+          <div class="num"><b>84</b><span>OVERALL</span></div>
+        </div>
+        <div>
+          <div class="score-title">Resume Analysis</div>
+          <div class="score-sub">Scored across 8 dimensions,<br>validated against your actual text.</div>
+        </div>
+      </div>
+
+      <div class="dim"><span class="name">ATS Safety</span><div class="bar-track"><div class="bar-fill" style="width:91%;background:#34d399;"></div></div><span class="val" style="color:#34d399;">91</span></div>
+      <div class="dim"><span class="name">Readability</span><div class="bar-track"><div class="bar-fill" style="width:88%;background:#34d399;"></div></div><span class="val" style="color:#34d399;">88</span></div>
+      <div class="dim"><span class="name">Achievement</span><div class="bar-track"><div class="bar-fill" style="width:82%;background:#58a6ff;"></div></div><span class="val" style="color:#58a6ff;">82</span></div>
+      <div class="dim"><span class="name">Quantification</span><div class="bar-track"><div class="bar-fill" style="width:71%;background:#fbbf24;"></div></div><span class="val" style="color:#fbbf24;">71</span></div>
+      <div class="dim"><span class="name">Job Match</span><div class="bar-track"><div class="bar-fill" style="width:78%;background:#58a6ff;"></div></div><span class="val" style="color:#58a6ff;">78</span></div>
+
+      <div class="rewrote">
+        <span class="chip" style="color:var(--green);border-color:rgba(52,211,153,0.35);background:rgba(52,211,153,0.10);">✓ 6 bullets rewritten</span>
+        <span class="chip">Tailored PDF ready</span>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>
