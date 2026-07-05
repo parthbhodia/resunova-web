@@ -529,6 +529,31 @@ export default function LandingPage() {
             }
           </button>
 
+          {/* Product Hunt badge — header (compact, theme-aware) */}
+          <a
+            href="https://www.producthunt.com/products/resunova?embed=true&utm_source=badge-header&utm_medium=badge&utm_campaign=badge-resunova"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Resunova on Product Hunt"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              height: 40,
+              opacity: 0.8,
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.8"; }}
+          >
+            <img
+              alt="Resunova on Product Hunt"
+              width="180"
+              height="40"
+              src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1187910&theme=${dark ? "dark" : "light"}&t=1783180072635`}
+              style={{ display: "block", maxWidth: "100%", height: "auto" }}
+            />
+          </a>
+
           {/* Sign up — labeled CTA (consistent with the in-app top bar: EnhanceCV /
               Kickresume / Jobright all use a clear "Sign up / Log in", not a bare icon). */}
           <Button onClick={signIn} disabled={loading}
@@ -1325,6 +1350,7 @@ export default function LandingPage() {
           .lp-header { padding: 0 16px !important; }
           .lp-nav { gap: 10px !important; }
           .lp-nav-section { display: none !important; }
+          .lp-nav > a[href*="producthunt"] { display: none !important; }
         }
         @media (max-width: 540px) {
           .lp-feat-grid { grid-template-columns: 1fr !important; }
