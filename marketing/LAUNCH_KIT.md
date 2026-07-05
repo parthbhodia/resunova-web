@@ -168,18 +168,22 @@ giving real advice and mention the tool only if someone asks what you use.
 
 ## 6 · X / LinkedIn (launch morning)
 
-**X:**
+**X:** (use the tracked PH link from "Copy Link" in PH's "Prep your social posts")
 > AI resume checkers lie. "Add metrics" — there are nine. "Improved
 > rewrite" — it's identical.
 >
 > So I built one that audits its own feedback: validators check every AI
 > claim against your actual résumé and delete the lies.
 >
-> Free, no account. Live on @ProductHunt today → [link]
+> Free, no account. Live on @ProductHunt today → https://www.producthunt.com/products/resunova
 
-**LinkedIn:** same story, one extra paragraph on who it's for (students +
+**LinkedIn:** (use the tracked PH link from "Copy Link" in PH's "Prep your social posts")
+Same story, one extra paragraph on who it's for (students +
 early-career; free for the community) and the jobs feed. Tag nothing, ask
 for nothing except honest feedback — LinkedIn punishes engagement-bait.
+
+**Email to early users:** (use the tracked PH link from "Copy Link" for email)
+We're live on Product Hunt: [TRACKED PH LINK FROM PH DASHBOARD]
 
 ---
 
