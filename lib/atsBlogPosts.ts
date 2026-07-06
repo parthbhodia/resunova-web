@@ -11,6 +11,15 @@ export type BlogPostMeta = {
 
 export const BLOG_POSTS: BlogPostMeta[] = [
   {
+    slug: "sp100-tech-hiring-2026",
+    title: "What 13,128 Live Job Postings at S&P 100 Companies Reveal About Tech Hiring",
+    description:
+      "Live data from ~50 S&P 100 career APIs: remote is 3x rarer at the giants, the big-company pay premium is gone, and two companies advertise below their own federal wage filings.",
+    readMinutes: 6,
+    tag: "Data",
+    publishedAt: "2026-07-06",
+  },
+  {
     slug: "tailor-resume-to-job-description",
     title: "How to Tailor Your Resume to a Job Description (Step-by-Step)",
     description:
