@@ -238,7 +238,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
           }}
         >
           {/* Initials Badge */}
-          <div style={{
+          <div className="az-sidebar-initials" style={{
             width: 100,
             height: 100,
             borderRadius: "50%",
@@ -256,7 +256,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
           </div>
 
           <style>{`
-            .az-dark-sidebar * {
+            .az-dark-sidebar *:not(.az-sidebar-initials) {
               color: inherit !important;
               border-color: rgba(255, 255, 255, 0.4) !important;
             }
