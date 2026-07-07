@@ -49,6 +49,9 @@ interface Props {
   restoredResumeNoPdfHint?: boolean;
   exportDocxEnabled?: boolean;
   categoryAssignmentOpts?: CategoryAssignmentOptions;
+  /** Re-run the analysis with applied fixes baked in; persists a new analysis row. */
+  onRescore?: () => void;
+  rescoring?: boolean;
 }
 
 /**
@@ -75,6 +78,8 @@ export default function AnalyzePreviewPane({
   restoredResumeNoPdfHint = false,
   exportDocxEnabled,
   categoryAssignmentOpts,
+  onRescore,
+  rescoring = false,
 }: Props) {
   const router = useRouter();
   const { exportDocx, exporting, canExport, error: exportError } = useAnalyzeExport();
@@ -97,6 +102,7 @@ export default function AnalyzePreviewPane({
   const summaryOverride = useResumeAnalyzeStore((s) => s.summaryOverride);
   const fieldOverrides = useResumeAnalyzeStore((s) => s.fieldOverrides);
   const setFieldOverride = useResumeAnalyzeStore((s) => s.setFieldOverride);
+  const setSummaryOverride = useResumeAnalyzeStore((s) => s.setSummaryOverride);
   const pulseToken = useResumeAnalyzeStore((s) => s.pulseToken);
   const pulseBulletIndex = useResumeAnalyzeStore((s) => s.pulseBulletIndex);
   const clearPulse = useResumeAnalyzeStore((s) => s.clearPulse);
@@ -134,6 +140,7 @@ export default function AnalyzePreviewPane({
       summaryOverride={summaryOverride}
       fieldOverrides={fieldOverrides}
       onFieldEdit={setFieldOverride}
+      onSummaryEdit={setSummaryOverride}
       fieldsEditable={true}
       presentationOnly={presentationOnly}
       onOpenBuilder={onOpenBuilder}
@@ -148,6 +155,8 @@ export default function AnalyzePreviewPane({
       categoryAssignmentOpts={categoryAssignmentOpts}
       onEditInTemplateBuilder={handleEditInTemplateBuilder}
       editInBuilderEnabled={editInBuilderEnabled}
+      onRescore={onRescore}
+      rescoring={rescoring}
     />
   );
 }

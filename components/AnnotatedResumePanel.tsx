@@ -109,6 +109,12 @@ interface Props {
   tailorAppliedBulletIndices?: ReadonlySet<number>;
   /** Target role for export filenames (Tailor JD title); falls back to structured experience. */
   exportRoleLabel?: string;
+  /** Inline summary edit committed from the preview (Analyze routes this to summaryOverride). */
+  onSummaryEdit?: (text: string) => void;
+  /** Re-run the analysis with applied fixes baked in; persists a new analysis row. */
+  onRescore?: () => void;
+  /** True while the rescore round-trip is in flight. */
+  rescoring?: boolean;
 }
 
 function scoreColor(score: number): string {
@@ -429,6 +435,9 @@ export default function AnnotatedResumePanel({
   gapFixTargetBulletIndices = [],
   tailorAppliedBulletIndices = new Set<number>(),
   exportRoleLabel = "",
+  onSummaryEdit,
+  onRescore,
+  rescoring = false,
 }: Props) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
@@ -645,8 +654,14 @@ export default function AnnotatedResumePanel({
     }
   }, []);
 
+  // A bullet with an applied preview override counts as resolved: the banner
+  // and "N/M need work" chip should clear as the user works through fixes.
+  const resolvedBulletIndices = useMemo(
+    () => new Set(Object.keys(previewLineOverrides).map(Number)),
+    [previewLineOverrides],
+  );
   const flaggedCount = activeCategory
-    ? countBulletsInCategory(bulletAnalysis, activeCategory, categoryAssignmentOpts)
+    ? countBulletsInCategory(bulletAnalysis, activeCategory, categoryAssignmentOpts, resolvedBulletIndices)
     : 0;
   const totalCount = bulletAnalysis.length;
   const categoryLabel = activeCategoryLabel.trim() || "this category";
@@ -1083,6 +1098,29 @@ export default function AnnotatedResumePanel({
                   {exportingResume ? "Exporting…" : "Export DOCX"}
                 </button>
               ) : null}
+              {onRescore && (resolvedBulletIndices.size > 0 || (summaryOverride ?? "").trim()) ? (
+                <button
+                  type="button"
+                  disabled={rescoring}
+                  onClick={onRescore}
+                  title="Re-run the analysis with your applied fixes baked in. Updates your score, saves a new report to your history, and future job matching uses the fixed résumé. Counts as one scan."
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(52,211,153,0.5)",
+                    background: "rgba(52,211,153,0.12)",
+                    color: "var(--green-ink, #047857)",
+                    cursor: rescoring ? "wait" : "pointer",
+                    fontFamily: "inherit",
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {rescoring ? "Rescoring…" : "Update score"}
+                </button>
+              ) : null}
             </div>
           ) : null}
           </div>
@@ -1114,7 +1152,7 @@ export default function AnnotatedResumePanel({
               background: "var(--surface2)",
             }}
           >
-            Opened from saved analysis — your original file is not stored. Use <strong style={{ color: "var(--text)" }}>Download PDF</strong> for a Harshibar LaTeX export with your edits, or re-upload to analyze a new file.
+            Opened from saved analysis — your original file is not stored. Use <strong style={{ color: "var(--text)" }}>Download PDF</strong> to export this preview with your edits, or re-upload to analyze a new file.
           </div>
         ) : null}
         {extractKind === "synthetic" && !presentationOnly ? (
@@ -1307,6 +1345,7 @@ export default function AnnotatedResumePanel({
                 summaryOverride={summaryOverride}
                 fieldOverrides={fieldOverrides}
                 onFieldEdit={onFieldEdit}
+                onSummaryEdit={onSummaryEdit}
                 fieldsEditable={fieldsEditable}
                 presentationOnly={presentationOnly}
                 pulseBulletIndex={pulseBulletIndex}

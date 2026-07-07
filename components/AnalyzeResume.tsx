@@ -17,6 +17,7 @@ import {
   isTrivialRewrite,
   type CategoryAssignmentOptions,
 } from "@/lib/analysisCategoryMatch";
+import { patchAppliedEditsIntoResume } from "@/lib/analyzeRescore";
 import { apiUrl, resumeFileClientError } from "@/lib/utils";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
@@ -451,6 +452,12 @@ export default function AnalyzeResume() {
   const rewriteEdits = useResumeAnalyzeStore((s) => s.rewriteEdits);
   const patchRewrite = useResumeAnalyzeStore((s) => s.patchRewrite);
   const previewLineOverrides = useResumeAnalyzeStore((s) => s.lineOverrides);
+  // Bullets whose fix has been applied to the preview count as resolved for
+  // the sidebar badges / need-work counts.
+  const resolvedBulletIndices = useMemo(
+    () => new Set(Object.keys(previewLineOverrides).map(Number)),
+    [previewLineOverrides],
+  );
   const persistEdits = useResumeAnalyzeStore((s) => s.persistEdits);
   const restoreEdits = useResumeAnalyzeStore((s) => s.restoreEdits);
   const clearEditsStore = useResumeAnalyzeStore((s) => s.clearEdits);
@@ -615,6 +622,74 @@ export default function AnalyzeResume() {
       }
     } catch { /* DB save failed — localStorage copy is still intact */ }
   }, [userId, azHistory]);
+
+  // ── Update score: re-run the analysis with applied fixes baked in ──────────
+  // Patches the applied bullet rewrites + summary override into the extracted
+  // text AND the structured résumé, re-runs the comprehensive analysis, and
+  // persists the result as a NEW analysis row. That row becomes the latest, so
+  // the Jobs feed / Boost immediately rank against the fixed résumé, and
+  // reopening from the Resume Hub restores the fixed version with fresh scores.
+  const [rescoring, setRescoring] = useState(false);
+  const handleRescore = useCallback(async () => {
+    if (rescoring) return;
+    const st = useResumeAnalyzeStore.getState();
+    const patch = patchAppliedEditsIntoResume({
+      extractedText: st.extractedText,
+      structuredResume: st.structuredResume,
+      analysisBullets: st.analysisBullets,
+      lineOverrides: st.lineOverrides,
+      summaryOverride: st.summaryOverride,
+    });
+    if (patch.appliedCount === 0) {
+      setFeedbackToast("Apply at least one fix to the preview first, then update the score.");
+      return;
+    }
+    setRescoring(true);
+    setError(null);
+    try {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setFeedbackToast("Sign in to update your score — the rescored report is saved to your history.");
+        return;
+      }
+      const resp = await fetch(apiUrl("/api/analyze-rescore"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          resume_text: patch.patchedText,
+          structured_resume: patch.patchedStructured ?? undefined,
+        }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) {
+        if (resp.status === 429 && json?.code === "daily_scan_limit_reached") {
+          setFeedbackToast("Daily scan limit reached — updating the score counts as a scan. Try again tomorrow.");
+          return;
+        }
+        throw new Error(json?.error || "Rescore failed");
+      }
+      const res = mergeAnalyzeApiJson(json as Record<string, unknown>) as unknown as AnalysisResult;
+      const resWithMeta: AnalysisResult = { ...res, libraryFolder: null };
+      const draftId = `local_${Date.now()}`;
+      setExpandedBullets({});
+      setSelectedBulletIndex(null);
+      setHistoryRestoreActive(false);
+      setActiveEditDraftId(draftId);
+      setResult(resWithMeta);
+      if (res.scanLimitStatus) setScansRemaining(res.scanLimitStatus.remaining);
+      setFeedbackToast("Score updated — your fixes are saved and future job matching uses the fixed résumé.");
+      const candidateName = res.resumeHeader?.[0]?.trim() || res.structuredResume?.full_name?.trim();
+      void persistResult(candidateName || "Updated résumé", resWithMeta, draftId);
+    } catch (e: unknown) {
+      setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : "Unknown error"));
+    } finally {
+      setRescoring(false);
+    }
+  }, [rescoring, persistResult]);
 
   // After sign-in lands (fresh mount post-OAuth), restore the stashed anonymous
   // scan: the user arrives on their already-finished, now-unlocked report and
@@ -1495,7 +1570,7 @@ export default function AnalyzeResume() {
                 {topFixCategories.map(({ key, label }) => {
                   const score = result.categoryScores[key];
                   const isActive = activeCategory === key;
-                  const affectedCount = countBulletsInCategory(result.bulletAnalysis, key, categoryAssignmentOpts);
+                  const affectedCount = countBulletsInCategory(result.bulletAnalysis, key, categoryAssignmentOpts, resolvedBulletIndices);
                   return (
                     <button
                       key={key}
@@ -1560,7 +1635,7 @@ export default function AnalyzeResume() {
                   // the user knows there's still work available — softer
                   // amber styling distinguishes it from the red TOP FIXES
                   // badge so the visual hierarchy stays clear.
-                  const affectedCount = countBulletsInCategory(result.bulletAnalysis, key, categoryAssignmentOpts);
+                  const affectedCount = countBulletsInCategory(result.bulletAnalysis, key, categoryAssignmentOpts, resolvedBulletIndices);
                   return (
                     <button
                       key={key}
@@ -2436,6 +2511,8 @@ export default function AnalyzeResume() {
               presentationOnly
               restoredResumeNoPdfHint={historyRestoreActive}
               categoryAssignmentOpts={categoryAssignmentOpts}
+              onRescore={handleRescore}
+              rescoring={rescoring}
             />
             </div>
           </div>
