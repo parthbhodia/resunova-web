@@ -1087,6 +1087,8 @@ interface Props {
   fieldOverrides?: Record<string, string>;
   /** Commit an inline field edit (path, new text; empty text clears the override). */
   onFieldEdit?: (path: string, text: string) => void;
+  /** Commit an inline summary edit (routes to summaryOverride; empty text clears it). */
+  onSummaryEdit?: (text: string) => void;
   /** When true, lines with a structured path render as inline-editable (Analyze only). */
   fieldsEditable?: boolean;
   /** Currently selected section block index for box-wise editing (transient
@@ -1134,6 +1136,7 @@ export default function AnalyzeLiveResumeBody({
   summaryOverride = "",
   fieldOverrides = {},
   onFieldEdit,
+  onSummaryEdit,
   fieldsEditable = false,
   selectedSectionIdx = null,
   onSectionSelected,
@@ -1387,10 +1390,39 @@ export default function AnalyzeLiveResumeBody({
             }
           }
 
+          // Inline header editing (Analyze): name + each contact item commit to
+          // fieldOverrides under stable `header.*` paths. Display substitutes the
+          // override; blur equal to the original (or emptied) clears it.
+          const headerEditable = !!(fieldsEditable && onFieldEdit);
+          const headerEditableProps = (path: string, original: string): HTMLAttributes<HTMLDivElement> =>
+            (headerEditable
+              ? {
+                  contentEditable: true,
+                  suppressContentEditableWarning: true,
+                  "data-field-path": path,
+                  ...(fieldOverrides[path] !== undefined ? { "data-field-edited": "1" } : {}),
+                  className: "az-editable-field",
+                  title: "Click to edit — applies to preview and PDF",
+                  onBlur: (e: ReactFocusEvent<HTMLDivElement>) => {
+                    const txt = (e.currentTarget.textContent ?? "").replace(/\s+/g, " ").trim();
+                    onFieldEdit!(path, txt === original.replace(/\s+/g, " ").trim() ? "" : txt);
+                  },
+                  onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => {
+                    if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+                    else if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.currentTarget.textContent = original;
+                      e.currentTarget.blur();
+                    }
+                  },
+                }
+              : {}) as HTMLAttributes<HTMLDivElement>;
+          const nameShown = fieldOverrides["header.name"] ?? nameLine;
+
           return (
             <div key={bi} style={{ textAlign: "var(--az-resume-header-align, left)" as CSSProperties["textAlign"], marginBottom: "var(--az-resume-contact-margin-bottom, 16px)" }}>
               {nameLine && (
-                <div style={{
+                <div {...headerEditableProps("header.name", nameLine)} style={{
                   fontSize: "var(--az-resume-name-size, 22px)",
                   fontWeight: 700,
                   letterSpacing: 0.3,
@@ -1398,7 +1430,7 @@ export default function AnalyzeLiveResumeBody({
                   marginBottom: "var(--az-resume-header-name-margin-bottom, 3px)",
                   fontFamily: RESUME_HEADING_FONT,
                 }}>
-                  {renderInline(nameLine)}
+                  {renderInline(nameShown)}
                 </div>
               )}
               {contactItems.length > 0 && (
@@ -1416,7 +1448,9 @@ export default function AnalyzeLiveResumeBody({
                   {contactItems.map((item, ci) => (
                     <span key={ci} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       {ci > 0 && <span style={{ color: "var(--resume-paper-dim)" }}>|</span>}
-                      {renderInline(item)}
+                      <span {...(headerEditableProps(`header.contact.${ci}`, item) as HTMLAttributes<HTMLSpanElement>)}>
+                        {renderInline(fieldOverrides[`header.contact.${ci}`] ?? item)}
+                      </span>
                     </span>
                   ))}
                 </div>
@@ -1637,21 +1671,28 @@ export default function AnalyzeLiveResumeBody({
                 if (!t || isPlaceholderIdentityLine(ln)) return null;
                 // Inline field editing: contentEditable + commit-on-blur. An
                 // edit equal to the original (or emptied) clears the override.
+                // The summary edits through summaryOverride (not fieldOverrides)
+                // so the applied-rewrite render, PDF export, and rescore all see
+                // one override — but only when the block isn't acting as a
+                // flagged/applied click-target (those clicks open the fix card).
                 const fieldPath = isSummaryBlock ? undefined : linePaths?.[li];
                 const fieldEdited = !!(fieldPath && fieldOverrides[fieldPath] !== undefined);
-                const fieldEditable = !!(fieldsEditable && fieldPath && onFieldEdit);
+                const summaryInlineEditable =
+                  isSummaryBlock && !isSummaryInteractive && !!(fieldsEditable && onSummaryEdit);
+                const fieldEditable = !!(fieldsEditable && fieldPath && onFieldEdit) || summaryInlineEditable;
                 const editableProps = (fieldEditable
                   ? {
                       contentEditable: true,
                       suppressContentEditableWarning: true,
-                      "data-field-path": fieldPath,
+                      "data-field-path": summaryInlineEditable ? "summary" : fieldPath,
                       ...(fieldEdited ? { "data-field-edited": "1" } : {}),
                       className: "az-editable-field",
                       title: "Click to edit — applies to preview and PDF",
                       onBlur: (e: ReactFocusEvent<HTMLDivElement>) => {
                         const txt = (e.currentTarget.textContent ?? "").replace(/\s+/g, " ").trim();
                         const original = (blk.lines[li] ?? "").replace(/\s+/g, " ").trim();
-                        onFieldEdit!(fieldPath!, txt === original ? "" : txt);
+                        if (summaryInlineEditable) onSummaryEdit!(txt === original ? "" : txt);
+                        else onFieldEdit!(fieldPath!, txt === original ? "" : txt);
                       },
                       onKeyDown: (e: ReactKeyboardEvent<HTMLDivElement>) => {
                         if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
