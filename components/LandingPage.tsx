@@ -428,6 +428,24 @@ export default function LandingPage() {
     localStorage.setItem("rn-banner-v2", "1");
   }, []);
 
+  // Sticky mobile CTA: with the page many screens tall, the hero's primary
+  // action disappears after screen one — surface it again once the user has
+  // scrolled past the hero. Session-dismissible; ≤640px only (via CSS).
+  const [stickyCtaVisible, setStickyCtaVisible] = useState(false);
+  const [stickyCtaDismissed, setStickyCtaDismissed] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try { return sessionStorage.getItem("rn-sticky-cta") === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    const onScroll = () => setStickyCtaVisible(window.scrollY > 700);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  const dismissStickyCta = useCallback(() => {
+    setStickyCtaDismissed(true);
+    try { sessionStorage.setItem("rn-sticky-cta", "1"); } catch { /* ignore */ }
+  }, []);
+
   const C = {
     bg:      dark ? T.dBg      : T.bg,
     bg2:     dark ? T.dBg2     : T.bg2,
@@ -904,7 +922,7 @@ export default function LandingPage() {
       </LandingPreviewSection>
 
       {SHOW_LANDING_CARDS && (
-      <section id="features" style={{ padding: "120px 40px", maxWidth: 1200, margin: "0 auto", scrollMarginTop: 76 }}>
+      <section id="features" className="lp-sec" style={{ padding: "120px 40px", maxWidth: 1200, margin: "0 auto", scrollMarginTop: 76 }}>
         <div style={{ marginBottom: 64 }}>
           <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 16px" }}>
             What we analyze
@@ -942,7 +960,7 @@ export default function LandingPage() {
 
       {SHOW_LANDING_CARDS && (
       <section id="platform" style={{ background: C.bg2, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, scrollMarginTop: 76 }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 40px" }}>
+        <div className="lp-sec" style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 40px" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }}>
             <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 16px" }}>
               Built into Resunova
@@ -979,7 +997,7 @@ export default function LandingPage() {
       </LandingPreviewSection>
 
       {/* ───────────── Templates showcase ───────────────────── */}
-      <section id="templates" style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "100px 40px", scrollMarginTop: 76 }}>
+      <section id="templates" className="lp-sec" style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "100px 40px", scrollMarginTop: 76 }}>
         <div style={{ maxWidth: 1080, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
             <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 14px" }}>Templates</p>
@@ -990,7 +1008,7 @@ export default function LandingPage() {
               Pick a technical, creative, or CV layout, tailor it to the job, and export an ATS-safe PDF — no design work required.
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>
+          <div className="lp-templates-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>
             {RESUME_TEMPLATES.map((t) => (
               <TemplateCard key={t.name} t={t} C={C} dark={dark} />
             ))}
@@ -1001,7 +1019,7 @@ export default function LandingPage() {
       {/* Jobs section moved up — now rendered as <JobsBand /> directly after the hero. */}
 
       {/* ───────────── Research & data approach ─────────────── */}
-      <section id="approach" style={{ padding: "100px 40px", maxWidth: 1200, margin: "0 auto", scrollMarginTop: 76 }}>
+      <section id="approach" className="lp-sec" style={{ padding: "100px 40px", maxWidth: 1200, margin: "0 auto", scrollMarginTop: 76 }}>
         <div style={{ display: "grid", gridTemplateColumns: SHOW_LANDING_CARDS ? "1fr 1fr" : "1fr", gap: 56, alignItems: "start", maxWidth: SHOW_LANDING_CARDS ? undefined : 640 }} className="lp-approach-grid">
           <div>
             <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 16px" }}>
@@ -1033,7 +1051,7 @@ export default function LandingPage() {
       {/* How it works — hidden via SHOW_HOW_SECTION */}
       {SHOW_HOW_SECTION && (
       <section id="how" style={{ borderBottom: `1px solid ${C.border}`, scrollMarginTop: 76 }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 40px" }}>
+        <div className="lp-sec" style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 40px" }}>
           <div style={{ textAlign: "center", marginBottom: 72 }}>
             <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 16px" }}>The process</p>
             <h2 className="lp-h2" style={{ fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: C.ink, margin: 0 }}>
@@ -1057,7 +1075,7 @@ export default function LandingPage() {
       )}
 
       {/* ───────────── Company logos ────────────────────────── */}
-      <section id="reviews" style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, padding: "72px 40px", scrollMarginTop: 76 }}>
+      <section id="reviews" className="lp-sec" style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, padding: "72px 40px", scrollMarginTop: 76 }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
           <p style={{ textAlign: "center", fontSize: "var(--font-size-sm)", fontWeight: 600, color: C.muted, letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 48px" }}>
             Where our users are interviewing
@@ -1183,8 +1201,10 @@ export default function LandingPage() {
       </section>
 
       {/* ───────────── University partnerships banner (image) ── */}
-      <section aria-label="University partnerships" style={{ background: C.bg, padding: "76px 40px", borderTop: `1px solid ${C.border}` }}>
-        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova — university career centers" style={{ display: "block", maxWidth: 1040, margin: "0 auto", borderRadius: 24, overflow: "hidden", boxShadow: C.shadow }}>
+      <section aria-label="University partnerships" className="lp-sec" style={{ background: C.bg, padding: "76px 40px", borderTop: `1px solid ${C.border}` }}>
+        {/* Desktop: static SVG banner. Its text is unreadable when the image
+            scales below ~640px, so mobile swaps in a real-HTML card instead. */}
+        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova — university career centers" className="lp-uni-desktop" style={{ display: "block", maxWidth: 1040, margin: "0 auto", borderRadius: 24, overflow: "hidden", boxShadow: C.shadow }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- static SVG banner; next/image can't optimize SVG and breaks `output: export` */}
           <img
             src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/university-partners-banner.svg`}
@@ -1194,13 +1214,30 @@ export default function LandingPage() {
             style={{ display: "block", width: "100%", height: "auto" }}
           />
         </Link>
+        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova — university career centers" className="lp-uni-mobile" style={{ display: "none", textDecoration: "none", borderRadius: 20, overflow: "hidden", boxShadow: C.shadow, background: "linear-gradient(135deg, #14284d 0%, #1e3a8a 55%, #2563eb 100%)", padding: "26px 22px" }}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#93c5fd", textTransform: "uppercase", margin: "0 0 10px" }}>University partnerships</p>
+          <h3 style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em", color: "#ffffff", margin: "0 0 10px" }}>
+            Built with university career centers
+          </h3>
+          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", lineHeight: 1.6, margin: "0 0 18px" }}>
+            Unlimited scans and Career Center–aligned feedback for students — with more campuses joining.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.22)", borderRadius: 10, padding: "8px 12px", fontSize: 13, fontWeight: 700, color: "#fde68a" }}>
+              🎓 UMBC
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#f59e0b", color: "#1e293b", borderRadius: 999, padding: "9px 16px", fontSize: 13, fontWeight: 800 }}>
+              Partner with us →
+            </span>
+          </div>
+        </Link>
       </section>
 
       {/* ───────────── FAQ (visible + JSON-LD for the crawlable homepage) ── */}
       <LandingFAQ C={C} accent={T.blue} />
 
       {/* ───────────── Final CTA ────────────────────────────── */}
-      <section style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>
+      <section className="lp-sec" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>
         <h2 style={{ fontSize: "clamp(40px, 5.5vw, 68px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", color: "#fff", margin: "0 0 20px" }}>
           Your next interview<br />starts here.
         </h2>
@@ -1377,6 +1414,36 @@ export default function LandingPage() {
       </footer>
 
       {/* ── Global keyframes ────────────────────────────────── */}
+      {stickyCtaVisible && !stickyCtaDismissed && (
+        <div className="lp-sticky-cta" role="region" aria-label="Scan your resume">
+          <button
+            onClick={() => { goToFreeScan(); }}
+            className="lp-sticky-cta-btn"
+            style={{
+              flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "15px 20px", background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
+              color: "#fff", border: "none", borderRadius: 13,
+              fontSize: 15, fontWeight: 800, letterSpacing: -0.2,
+              cursor: "pointer", fontFamily: "inherit",
+              boxShadow: "0 10px 30px rgba(30,58,138,0.45)",
+            }}
+          >
+            Score my résumé free →
+          </button>
+          <button
+            onClick={dismissStickyCta}
+            aria-label="Dismiss"
+            style={{
+              width: 40, height: 40, flexShrink: 0, borderRadius: "50%",
+              border: `1px solid ${C.border}`, background: C.surface, color: C.muted,
+              fontSize: 15, cursor: "pointer", fontFamily: "inherit",
+              boxShadow: "0 6px 20px rgba(15,23,42,0.18)",
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <style>{`
         @keyframes lpFadeUp  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
         @keyframes ticker    { from { transform: translateX(0); } to { transform: translateX(-50%); } }
@@ -1413,6 +1480,62 @@ export default function LandingPage() {
           .lp-jobs-band { padding: 64px 20px !important; }
           .lp-hero-h1   { font-size: 48px !important; }
         }
+        .lp-uni-mobile { display: none !important; }
+        .lp-sticky-cta { display: none; }
+        @keyframes lpStickyIn { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @media (max-width: 640px) {
+          .lp-sticky-cta {
+            display: flex;
+            position: fixed;
+            left: 12px;
+            right: 12px;
+            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            z-index: 60;
+            gap: 8px;
+            align-items: center;
+            animation: lpStickyIn 0.25s ease both;
+          }
+        }
+        @media (max-width: 768px) {
+          /* Templates: horizontal snap carousel — six stacked full-width cards
+             were ~6 viewport-heights of scroll on a phone. */
+          .lp-templates-grid {
+            display: flex !important;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            gap: 14px !important;
+            padding: 4px 4px 18px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+          .lp-templates-grid::-webkit-scrollbar { display: none; }
+          .lp-templates-grid > a {
+            flex: 0 0 76%;
+            max-width: 300px;
+            scroll-snap-align: center;
+          }
+        }
+        @media (max-width: 640px) {
+          /* Tighter mobile rhythm: 100/40 desktop padding wastes ~20% of a
+             390px viewport's width and adds screens of empty space. */
+          .lp-sec { padding: 64px 20px !important; }
+          .lp-uni-desktop { display: none !important; }
+          .lp-uni-mobile { display: block !important; }
+          /* Interview trio: swipe instead of a 3-screen stack. */
+          .lp-interview-grid {
+            display: flex !important;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            gap: 14px !important;
+            padding: 4px 4px 18px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+          .lp-interview-grid::-webkit-scrollbar { display: none; }
+          .lp-interview-grid > * { flex: 0 0 82%; scroll-snap-align: center; }
+          /* Tabbed tailor demo: trim the desktop-sized reserved panel height. */
+          .lp-demo-tabbody { min-height: 200px !important; }
+        }
         @media (max-width: 640px) {
           .lp-hero-sub-full { display: none !important; }
           .lp-hero-sub-short { display: inline !important; }
@@ -1426,7 +1549,6 @@ export default function LandingPage() {
           .lp-hero-cta-row { width: 100% !important; }
           .lp-hero-cta-btn { width: 100% !important; justify-content: center !important; padding: 17px 24px !important; }
           .lp-hero-social { justify-content: center !important; }
-          .lp-interview-grid { grid-template-columns: 1fr !important; }
           .lp-interview-sec { padding: 64px 20px !important; }
           .lp-footer-top { flex-direction: column !important; gap: 24px !important; }
           .lp-footer-nav { width: 100%; flex-direction: column; align-items: flex-start !important; gap: 16px !important; }

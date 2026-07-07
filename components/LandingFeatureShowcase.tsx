@@ -728,7 +728,7 @@ export function VariantD({ embedded = false }: VariantProps = {}) {
         </div>
 
         {/* Panel */}
-        <div style={{ background:SUR, border:`1px solid ${BOR}`, borderTop:"none",
+        <div className="lp-demo-tabbody" style={{ background:SUR, border:`1px solid ${BOR}`, borderTop:"none",
           borderRadius:"0 0 14px 14px", minHeight:260, overflow:"hidden" }}>
           {tab===0 && (
             <div style={{ padding:"28px 32px", display:"flex", gap:28, alignItems:"flex-start",
