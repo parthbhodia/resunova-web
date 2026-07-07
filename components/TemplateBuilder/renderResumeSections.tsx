@@ -25,6 +25,7 @@ export function renderTbContentSection(
   section: TBContentSection,
   data: TBResumeData,
   ctx: ResumeLayoutContext,
+  isSidebar?: boolean
 ): ReactNode {
   const { profile, workExperiences, educations, projects, skills } = data;
   const { preset } = ctx;
@@ -115,7 +116,7 @@ export function renderTbContentSection(
         <>
           <div style={resumeSectionTitleStyle(ctx)}>Skills</div>
           {featuredWithSkill.length > 0 && (
-            <div style={resumeSkillsGridStyle()}>
+            <div style={resumeSkillsGridStyle(isSidebar)}>
               {featuredWithSkill.map((fs, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: preset.bodyFont, color: "#222" }}>
                   <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -167,6 +168,7 @@ export function renderSectionSlot(
   slot: string,
   data: TBResumeData,
   ctx: ResumeLayoutContext,
+  isSidebar?: boolean
 ): ReactNode {
   const customId = parseCustomSectionId(slot);
   if (customId) {
@@ -174,7 +176,7 @@ export function renderSectionSlot(
     return section ? renderCustomSection(section, ctx) : null;
   }
   if (isCoreSectionSlot(slot)) {
-    return renderTbContentSection(slot, data, ctx);
+    return renderTbContentSection(slot, data, ctx, isSidebar);
   }
   return null;
 }

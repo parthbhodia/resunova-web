@@ -4,9 +4,9 @@
  * entryGap between jobs. Template Builder + AnalyzeLiveResumeBody both consume this module.
  */
 import type { CSSProperties } from "react";
-import type { TBFont, TBPageWidth, TBStylePreset, TBFontSize } from "@/components/TemplateBuilder/types";
+import type { TBFont, TBPageWidth, TBStylePreset, TBFontSize, TBLayout } from "@/components/TemplateBuilder/types";
 
-export type { TBFont, TBPageWidth, TBStylePreset, TBFontSize };
+export type { TBFont, TBPageWidth, TBStylePreset, TBFontSize, TBLayout };
 
 export interface ResumeStylePresetOption {
   id: TBStylePreset;
@@ -26,6 +26,10 @@ export interface ResumeStylePresetOption {
   entryGap: number;
   bulletGap: number;
   letterSpacing: number;
+  /** Visual category grouping for the Style panel. */
+  category?: "technical" | "creative";
+  /** Forces a specific layout when this preset is active. */
+  enforcedLayout?: TBLayout;
 }
 
 export interface ResumePageWidthOption {
@@ -70,6 +74,7 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
     entryGap: 8,
     bulletGap: 2,
     letterSpacing: 1,
+    category: "technical",
   },
   {
     id: "modern",
@@ -89,6 +94,7 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
     entryGap: 6,
     bulletGap: 1.5,
     letterSpacing: 0.9,
+    category: "technical",
   },
   {
     id: "classic",
@@ -108,6 +114,49 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
     entryGap: 7,
     bulletGap: 2,
     letterSpacing: 0.8,
+    category: "technical",
+  },
+  {
+    id: "creative-teal",
+    label: "Elise",
+    description: "Striking dark right sidebar with circular initials and crisp typography.",
+    font: "Helvetica",
+    accentColor: "#0f5561",
+    baseFont: 10.5,
+    bodyFont: 10,
+    metaFont: 9.5,
+    sectionFont: 12,
+    nameFont: 22,
+    lineHeight: 1.15,
+    summaryLineHeight: 1.25,
+    skillsLineHeight: 1.2,
+    sectionGap: 12,
+    entryGap: 8,
+    bulletGap: 3,
+    letterSpacing: 1.2,
+    category: "creative",
+    enforcedLayout: "rightSidebar",
+  },
+  {
+    id: "creative-banner",
+    label: "Harper",
+    description: "Bold top header block with clean two-column main content structure.",
+    font: "Helvetica",
+    accentColor: "#1e3a5f",
+    baseFont: 10.5,
+    bodyFont: 10,
+    metaFont: 10,
+    sectionFont: 11.5,
+    nameFont: 22,
+    lineHeight: 1.15,
+    summaryLineHeight: 1.25,
+    skillsLineHeight: 1.2,
+    sectionGap: 12,
+    entryGap: 8,
+    bulletGap: 3,
+    letterSpacing: 1,
+    category: "creative",
+    enforcedLayout: "topBannerRightSidebar",
   },
 ];
 
@@ -253,6 +302,8 @@ export function resumeLayoutCssVars(ctx: ResumeLayoutContext): Record<string, st
     "--az-resume-contact-margin-bottom": `${RESUME_LAYOUT_SHELL.contactMarginBottom}px`,
     "--az-resume-header-name-margin-bottom": `${RESUME_LAYOUT_SHELL.headerNameMarginBottom}px`,
     "--resume-paper-accent": ctx.accent,
+    "--resume-paper-inverse-text": "#ffffff",
+    "--resume-paper-inverse-muted": "rgba(255, 255, 255, 0.7)",
   };
 }
 
@@ -373,10 +424,10 @@ export function resumeSecondaryEntryBlockStyle(ctx: ResumeLayoutContext): CSSPro
   };
 }
 
-export function resumeSkillsGridStyle(): CSSProperties {
+export function resumeSkillsGridStyle(isSidebar?: boolean): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    gridTemplateColumns: isSidebar ? "1fr" : "repeat(3, 1fr)",
     gap: "4px 16px",
     marginBottom: RESUME_LAYOUT_SHELL.sectionTitleMarginBottom,
   };
