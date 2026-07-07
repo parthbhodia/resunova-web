@@ -345,7 +345,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
               flexShrink: 0,
               padding: `${ctx.page.paddingY}px ${Math.round(ctx.page.paddingX * 0.75)}px`,
               boxSizing: "border-box",
-              borderLeft: "1px solid var(--border)"
+              borderLeft: "1px solid var(--resume-paper-border)"
             }}
           >
             {sidebarSlots.map((slot) => (
