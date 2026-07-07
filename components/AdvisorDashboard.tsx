@@ -283,6 +283,19 @@ async function advisorAuthHeaders(): Promise<Record<string, string>> {
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
+// ── Module-level cache ────────────────────────────────────────────────────────
+// The root RouterView unmounts this dashboard on every page switch (?view=…),
+// so component state dies with it. Keep the loaded cohort payload + active tab
+// here so returning to the page restores instantly (with a silent background
+// refresh) instead of replaying the full skeleton + refetch cycle.
+let cohortCache: { uid: string; data: CohortStats; globalAdmin: boolean } | null = null;
+let advisorTabCache: "cohort" | "analytics" = "cohort";
+
+function clearCohortCache() {
+  cohortCache = null;
+  advisorTabCache = "cohort";
+}
+
 // ── Shared UI pieces ──────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: ReactNode }) {
@@ -792,7 +805,12 @@ function CohortOverview({
   onSelectStudent: (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"cohort" | "analytics">("cohort");
+  // Restore the last-open tab across remounts (page switches unmount us).
+  // Non-admins never render the analytics tab, so force them onto cohort.
+  const [activeTab, setActiveTab] = useState<"cohort" | "analytics">(
+    globalAdmin ? advisorTabCache : "cohort",
+  );
+  useEffect(() => { advisorTabCache = activeTab; }, [activeTab]);
   const { score_tiers: tiers } = data;
   const tierTotal = tiers.low + tiers.mid + tiers.good + tiers.strong;
   const needAttentionCount = data.student_roster.filter(s => {
@@ -1084,11 +1102,14 @@ function CohortOverview({
 export default function AdvisorDashboard() {
   const [userEmail,  setUserEmail]  = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [data,       setData]       = useState<CohortStats | null>(null);
-  const [loading,    setLoading]    = useState(true);
+  // Seed from the module cache so a remount (page switch away and back) shows
+  // the dashboard immediately instead of a skeleton; a background refresh
+  // still runs once the session resolves.
+  const [data,       setData]       = useState<CohortStats | null>(() => cohortCache?.data ?? null);
+  const [loading,    setLoading]    = useState(!cohortCache);
   const [error,      setError]      = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [globalAdmin, setGlobalAdmin] = useState(false);
+  const [globalAdmin, setGlobalAdmin] = useState(cohortCache?.globalAdmin ?? false);
   const [bugReports, setBugReports] = useState<BugReportRow[]>([]);
   const [bugReportsLoading, setBugReportsLoading] = useState(false);
   const [bugReportsError, setBugReportsError] = useState<string | null>(null);
@@ -1124,20 +1145,25 @@ export default function AdvisorDashboard() {
     setError(null);
     try {
       const resp = await fetch(apiUrl("/api/cohort-stats"), { headers: await advisorAuthHeaders() });
-      if (resp.status === 401) { setError("not_signed_in"); setData(null); return; }
-      if (resp.status === 403) { setError("not_authorized"); setData(null); return; }
+      if (resp.status === 401) { setError("not_signed_in"); setData(null); clearCohortCache(); return; }
+      if (resp.status === 403) { setError("not_authorized"); setData(null); clearCohortCache(); return; }
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const stats = await resp.json() as CohortStats;
       setData(stats);
       const isAdmin = !!stats.global_admin;
       setGlobalAdmin(isAdmin);
+      if (authUserIdRef.current) {
+        cohortCache = { uid: authUserIdRef.current, data: stats, globalAdmin: isAdmin };
+      }
       if (isAdmin) void loadBugReports();
       else {
         setBugReports([]);
         setBugReportsError(null);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load.");
+      // A failed *background* refresh must not replace already-rendered data
+      // with an error card — keep showing the stale payload.
+      if (!opts?.keepStale) setError(e instanceof Error ? e.message : "Failed to load.");
     } finally {
       setLoading(false);
     }
@@ -1154,6 +1180,7 @@ export default function AdvisorDashboard() {
       setAuthChecked(true);
       if (!uid) {
         authUserIdRef.current = null;
+        clearCohortCache();
         setData(null);
         setSelectedId(null);
         setLoading(false);
@@ -1162,7 +1189,9 @@ export default function AdvisorDashboard() {
       const userChanged = authUserIdRef.current !== null && authUserIdRef.current !== uid;
       authUserIdRef.current = uid;
       if (userChanged) {
+        clearCohortCache();
         setData(null);
+        setGlobalAdmin(false);
         setSelectedId(null);
         void load();
       }
@@ -1172,7 +1201,19 @@ export default function AdvisorDashboard() {
       .then(({ data: d }) => {
         if (cancelled) return;
         applySession(d.session);
-        if (d.session?.user?.id) void load();
+        const uid = d.session?.user?.id;
+        if (!uid) return;
+        if (cohortCache && cohortCache.uid !== uid) {
+          // Cache belongs to a different account — wipe and load fresh.
+          clearCohortCache();
+          setData(null);
+          setGlobalAdmin(false);
+          void load();
+        } else {
+          // Cache hit → refresh silently behind the rendered data;
+          // cold start → normal skeleton load.
+          void load({ keepStale: !!cohortCache });
+        }
       })
       .catch(() => {
         if (cancelled) return;
@@ -1186,10 +1227,13 @@ export default function AdvisorDashboard() {
         return;
       }
       const prevUid = authUserIdRef.current;
-      applySession(session);
-      // Token refresh / tab focus must not wipe loaded cohort data.
-      if (event === "SIGNED_IN" || (prevUid && prevUid !== session?.user?.id)) {
-        void load();
+      applySession(session); // handles the user-switch reload itself
+      // supabase-js re-emits SIGNED_IN on tab refocus / session recovery for
+      // the SAME user. Reloading there blanked the dashboard to a skeleton and
+      // reset the active tab — only load on a genuinely new sign-in.
+      const uid = session?.user?.id ?? null;
+      if (event === "SIGNED_IN" && uid && prevUid === null) {
+        void load({ keepStale: cohortCache?.uid === uid });
       }
     });
 
