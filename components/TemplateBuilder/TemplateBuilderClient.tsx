@@ -1647,14 +1647,22 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
     store.setCustomization("stylePreset", preset.id);
     store.setCustomization("font", preset.font);
     store.setCustomization("accentColor", preset.accentColor);
+    if (preset.enforcedLayout) {
+      store.setCustomization("layout", preset.enforcedLayout);
+    } else if (c.layout === "rightSidebar" || c.layout === "topBannerRightSidebar") {
+      store.setCustomization("layout", "single");
+    }
   };
+
+  const isEnforcedLayout = c.layout === "rightSidebar" || c.layout === "topBannerRightSidebar";
 
   return (
     <>
       <SectionHeading>Style & Customization</SectionHeading>
 
       {/* Layout */}
-      <div style={{ marginBottom: 20 }}>
+      {!isEnforcedLayout && (
+        <div style={{ marginBottom: 20 }}>
         <label style={labelStyle}>Layout</label>
         <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
           Two-column places contact, education, and skills in a sidebar.
@@ -1726,15 +1734,69 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
           })}
         </div>
       </div>
+      )}
 
       {/* Style Presets */}
       <div style={{ marginBottom: 20 }}>
-        <label style={labelStyle}>Template style</label>
-        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 16px", lineHeight: 1.5 }}>
           Start with a curated default, then adjust font and color below if needed.
         </p>
+
+        {/* Technical Layouts */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+          Technical
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+          {STYLE_PRESETS.filter(p => p.category === "technical").map((preset) => {
+            const active = c.stylePreset === preset.id;
+            return (
+              <button
+                key={preset.id}
+                onClick={() => applyStylePreset(preset)}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "44px 1fr auto",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "11px 12px",
+                  borderRadius: 9,
+                  border: active ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
+                  background: active ? "color-mix(in srgb, var(--accent) 8%, var(--bg))" : "var(--bg)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                  transition: "border-color 0.15s, background 0.15s",
+                }}
+              >
+                <div style={{
+                  width: 44,
+                  height: 36,
+                  borderRadius: 7,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface2)",
+                  padding: "6px 7px",
+                  boxSizing: "border-box",
+                }}>
+                  <div style={{ width: "68%", height: 4, borderRadius: 2, background: preset.accentColor, marginBottom: 5 }} />
+                  <div style={{ width: "100%", height: 2, borderRadius: 2, background: "var(--border)", marginBottom: 4 }} />
+                  <div style={{ width: "78%", height: 2, borderRadius: 2, background: "var(--border)" }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{preset.label}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.35 }}>{preset.description}</div>
+                </div>
+                {active && <span style={{ fontSize: 13, color: "var(--accent)" }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Creative Layouts */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+          Creative
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {STYLE_PRESETS.map((preset) => {
+          {STYLE_PRESETS.filter(p => p.category === "creative").map((preset) => {
             const active = c.stylePreset === preset.id;
             return (
               <button
