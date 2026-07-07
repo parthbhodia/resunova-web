@@ -15,6 +15,7 @@ import {
   type CategoryAssignmentOptions,
 } from "@/lib/analysisCategoryMatch";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
+import type { ScoreEstimate } from "@/lib/analyzeScoreEstimate";
 import { useResumeAnalyzeStore, type StructuredResume } from "@/store/resumeAnalyzeStore";
 import { buildNameRoleExportFilename } from "@/lib/resumeFileName";
 
@@ -115,6 +116,8 @@ interface Props {
   onRescore?: () => void;
   /** True while the rescore round-trip is in flight. */
   rescoring?: boolean;
+  /** Deterministic projected score from applied fixes (null = nothing to show). */
+  scoreEstimate?: ScoreEstimate | null;
 }
 
 function scoreColor(score: number): string {
@@ -438,6 +441,7 @@ export default function AnnotatedResumePanel({
   onSummaryEdit,
   onRescore,
   rescoring = false,
+  scoreEstimate = null,
 }: Props) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
@@ -1097,6 +1101,27 @@ export default function AnnotatedResumePanel({
                 >
                   {exportingResume ? "Exporting…" : "Export DOCX"}
                 </button>
+              ) : null}
+              {scoreEstimate ? (
+                <span
+                  title="Deterministic estimate from your applied fixes — real scoring needs the full analysis. Click Update score to run it and save."
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    padding: "6px 10px",
+                    borderRadius: 8,
+                    border: "1px dashed rgba(52,211,153,0.45)",
+                    background: "transparent",
+                    color: "var(--green-ink, #047857)",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                  }}
+                >
+                  Est. {scoreEstimate.current} → ~{scoreEstimate.projected}
+                </span>
               ) : null}
               {onRescore && (resolvedBulletIndices.size > 0 || (summaryOverride ?? "").trim()) ? (
                 <button

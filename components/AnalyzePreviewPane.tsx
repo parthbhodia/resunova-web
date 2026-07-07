@@ -7,6 +7,7 @@ import { isStructuredUsable } from "@/components/AnalyzeLiveResumeBody";
 import type { CategoryAssignmentOptions } from "@/lib/analysisCategoryMatch";
 import { stashTemplateBuilderStructuredPrefillFromStructuredResume } from "@/lib/templateBuilderPrefill";
 import { useResumeAnalyzeStore, type AnalyzeBulletSnapshot } from "@/store/resumeAnalyzeStore";
+import type { ScoreEstimate } from "@/lib/analyzeScoreEstimate";
 import { useAnalyzeExport } from "@/hooks/useAnalyzeExport";
 
 const PULSE_MS = 850;
@@ -52,6 +53,8 @@ interface Props {
   /** Re-run the analysis with applied fixes baked in; persists a new analysis row. */
   onRescore?: () => void;
   rescoring?: boolean;
+  /** Deterministic projected score from applied fixes (null = nothing to show). */
+  scoreEstimate?: ScoreEstimate | null;
 }
 
 /**
@@ -80,6 +83,7 @@ export default function AnalyzePreviewPane({
   categoryAssignmentOpts,
   onRescore,
   rescoring = false,
+  scoreEstimate = null,
 }: Props) {
   const router = useRouter();
   const { exportDocx, exporting, canExport, error: exportError } = useAnalyzeExport();
@@ -157,6 +161,7 @@ export default function AnalyzePreviewPane({
       editInBuilderEnabled={editInBuilderEnabled}
       onRescore={onRescore}
       rescoring={rescoring}
+      scoreEstimate={scoreEstimate}
     />
   );
 }
