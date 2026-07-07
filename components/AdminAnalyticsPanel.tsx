@@ -550,6 +550,10 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 // Module-level payload cache keyed by window: survives the panel unmount/remount
 // that happens on every Cohort <-> Platform tab flip in the host dashboard.
 const _panelCache = new Map<number, AdminAnalyticsResponse>();
+// Last-selected tab + window survive remounts too, so flipping host tabs or
+// switching pages doesn't bounce the panel back to Product & cost / 30 days.
+let _lastTab: TabKey = "product";
+let _lastDays = 30;
 
 interface Props {
   /** Pass the caller's auth-header factory so the panel reuses existing session auth. */
@@ -561,11 +565,14 @@ function CardSkeleton({ h = 90 }: { h?: number }) {
 }
 
 export default function AdminAnalyticsPanel({ getAuthHeaders }: Props) {
-  const [days, setDays] = useState(30);
-  const [tab, setTab] = useState<TabKey>("product");
-  const [loading, setLoading] = useState(!_panelCache.has(30));
+  const [days, setDays] = useState(_lastDays);
+  const [tab, setTab] = useState<TabKey>(_lastTab);
+  const [loading, setLoading] = useState(!_panelCache.has(_lastDays));
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<AdminAnalyticsResponse | null>(() => _panelCache.get(30) ?? null);
+  const [data, setData] = useState<AdminAnalyticsResponse | null>(() => _panelCache.get(_lastDays) ?? null);
+
+  // Persist the selection so the next mount restores it.
+  useEffect(() => { _lastTab = tab; _lastDays = days; }, [tab, days]);
 
   useEffect(() => {
     let alive = true;
