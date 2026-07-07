@@ -93,13 +93,21 @@ function looksLikeHeading(s: string): boolean {
   return /^[A-Z0-9]/.test(s);                     // starts with a capital / number
 }
 
-function parseJdBlocks(raw: string): JdBlock[] {
+export function parseJdBlocks(raw: string): JdBlock[] {
   const text = (raw || "")
     .replace(/\r\n?/g, "\n")
     .replace(/[^\S\n]+$/gm, "")   // strip trailing whitespace per line
     .replace(/\n{3,}/g, "\n\n")    // collapse blank-line runs
     .trim();
   if (!text) return [];
+
+  // Some sources (AppOne, some scraped boards) strip EVERY blank line at
+  // ingest, so "blank line = paragraph break" collapses the whole JD into one
+  // blob paragraph. When a multi-line JD has no blank lines at all, treat each
+  // newline as a hard break instead; the fragment-merge pass below re-joins
+  // genuinely wrapped sentences, and heading detection recovers the sections.
+  const lines = text.split("\n");
+  const hardLineMode = lines.length >= 6 && !/\n[^\S\n]*\n/.test(text);
 
   // Pass 1 — split into raw paragraphs and bullet lists (no heading detection yet).
   const raw1: JdBlock[] = [];
@@ -115,7 +123,7 @@ function parseJdBlocks(raw: string): JdBlock[] {
     if (list && list.length) raw1.push({ type: "list", items: list });
     list = null;
   };
-  for (const line of text.split("\n")) {
+  for (const line of lines) {
     const t = line.trim();
     if (t === "") {
       // Blank line ends a paragraph but keeps a pending list open, so
@@ -130,6 +138,7 @@ function parseJdBlocks(raw: string): JdBlock[] {
     }
     flushList();          // a non-bullet line ends any open list
     para.push(t);          // single newlines join into one paragraph
+    if (hardLineMode) flushPara();
   }
   flushPara();
   flushList();
