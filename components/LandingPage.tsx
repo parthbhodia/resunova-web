@@ -256,6 +256,92 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     ),
   },
   {
+    name: "Elise", type: "Résumé", accent: "#0f5561", darkAccent: "#2dd4bf", href: "/template-builder/?preset=creative-teal",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        {/* Dark teal right sidebar */}
+        <path d="M130 0h64a6 6 0 0 1 6 6v252a6 6 0 0 1-6 6h-64Z" fill="#0f5561" />
+        {/* Main column */}
+        <text x="14" y="26" fontFamily="Helvetica, Arial, sans-serif" fontSize="11.5" fontWeight="700" fill="#0f172a" letterSpacing="0.3">SOFIA MARIN</text>
+        <text x="14" y="36" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#0f5561">sofia.marin@email.com · (312) 555-0177 · Chicago, IL</text>
+        <text x="14" y="50" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.4" fontWeight="700" fill="#0f5561" letterSpacing="1">SUMMARY</text>
+        <text x="14" y="59" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">Brand designer turning research into identity</text>
+        <text x="14" y="66" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">systems for consumer and B2B products.</text>
+        <text x="14" y="81" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.4" fontWeight="700" fill="#0f5561" letterSpacing="1">EXPERIENCE</text>
+        <text x="14" y="92" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.9" fontWeight="700" fill="#0f172a">Senior Brand Designer</text>
+        <text x="14" y="100" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fontStyle="italic" fill="#475569">Ogilvy — 2021 – Present</text>
+        <text x="16" y="109" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">• Rebranded 6 product lines, lifting recall 22%</text>
+        <text x="16" y="116" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">• Led a 4-designer identity systems team</text>
+        <text x="14" y="129" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.9" fontWeight="700" fill="#0f172a">Brand Designer</text>
+        <text x="14" y="137" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fontStyle="italic" fill="#475569">Landor — 2018 – 2021</text>
+        <text x="16" y="146" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">• Shipped 30+ campaign systems across print</text>
+        <text x="16" y="153" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">• Cut asset production time 40% with templates</text>
+        <text x="14" y="166" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.9" fontWeight="700" fill="#0f172a">Junior Designer</text>
+        <text x="14" y="174" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fontStyle="italic" fill="#475569">Studio North — 2016 – 2018</text>
+        <text x="16" y="183" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">• Produced identity work for 12 retail clients</text>
+        {/* Sidebar: initials badge + inverse-text sections */}
+        <circle cx="165" cy="34" r="15" fill="#0a3d46" stroke="rgba(255,255,255,0.25)" strokeWidth="0.8" />
+        <text x="165" y="38.5" textAnchor="middle" fontFamily="Helvetica, Arial, sans-serif" fontSize="10" fontWeight="700" fill="#ffffff">SM</text>
+        <text x="138" y="66" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#ffffff" letterSpacing="1">EDUCATION</text>
+        <line x1="138" y1="70" x2="192" y2="70" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+        <text x="138" y="79" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fontWeight="700" fill="#ffffff">BFA, Graphic Design</text>
+        <text x="138" y="86" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.3" fill="rgba(255,255,255,0.72)">RISD · 2016</text>
+        <text x="138" y="104" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#ffffff" letterSpacing="1">SKILLS</text>
+        <line x1="138" y1="108" x2="192" y2="108" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+        <text x="138" y="117" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">Brand identity</text>
+        <text x="138" y="125" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">Art direction</text>
+        <text x="138" y="133" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">Figma · Illustrator</text>
+        <text x="138" y="141" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">Typography</text>
+        <text x="138" y="149" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">Motion basics</text>
+        <text x="138" y="167" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#ffffff" letterSpacing="1">AWARDS</text>
+        <line x1="138" y1="171" x2="192" y2="171" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+        <text x="138" y="180" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">ADC Young Guns</text>
+        <text x="138" y="188" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">D&amp;AD Shortlist</text>
+      </svg>
+    ),
+  },
+  {
+    name: "Harper", type: "Résumé", accent: "#1e3a5f", darkAccent: "#93b3d8", href: "/template-builder/?preset=creative-banner",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        {/* Navy top banner */}
+        <path d="M6 0h188a6 6 0 0 1 6 6v52H0V6a6 6 0 0 1 6-6Z" fill="#1e3a5f" />
+        <text x="14" y="24" fontFamily="Helvetica, Arial, sans-serif" fontSize="11.5" fontWeight="700" fill="#ffffff" letterSpacing="0.3">AVERY JOHNS</text>
+        <text x="14" y="34" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fontWeight="700" fill="rgba(255,255,255,0.88)">Data analyst translating messy data into decisions.</text>
+        <text x="14" y="44" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.3" fill="rgba(255,255,255,0.72)">avery.johns@email.com · (917) 555-0163 · New York, NY</text>
+        <circle cx="176" cy="28" r="14" fill="#16304f" stroke="rgba(255,255,255,0.25)" strokeWidth="0.8" />
+        <text x="176" y="32.5" textAnchor="middle" fontFamily="Helvetica, Arial, sans-serif" fontSize="9.5" fontWeight="700" fill="#ffffff">AJ</text>
+        {/* Two-column body: main + light right sidebar */}
+        <line x1="124" y1="66" x2="124" y2="252" stroke="#e2e8f0" strokeWidth="0.8" />
+        <text x="14" y="78" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#1e3a5f" letterSpacing="1">EXPERIENCE</text>
+        <text x="14" y="89" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#0f172a">Senior Data Analyst</text>
+        <text x="14" y="97" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fontStyle="italic" fill="#475569">Spotify — 2022 – Present</text>
+        <text x="16" y="106" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#334155">• Built retention models guiding a $4M budget</text>
+        <text x="16" y="113" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#334155">• Automated weekly KPI packs, saving 12 hrs/wk</text>
+        <text x="14" y="126" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#0f172a">Data Analyst</text>
+        <text x="14" y="134" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fontStyle="italic" fill="#475569">Peloton — 2019 – 2022</text>
+        <text x="16" y="143" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#334155">• Modeled churn drivers across 2M subscribers</text>
+        <text x="16" y="150" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#334155">• Shipped dashboards used by 40+ stakeholders</text>
+        <text x="14" y="163" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#0f172a">Analytics Intern</text>
+        <text x="14" y="171" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fontStyle="italic" fill="#475569">NBCUniversal — 2018</text>
+        <text x="16" y="180" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#334155">• A/B tested homepage modules (+8% CTR)</text>
+        <text x="132" y="78" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#1e3a5f" letterSpacing="1">EDUCATION</text>
+        <text x="132" y="88" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fontWeight="700" fill="#0f172a">B.S. Statistics</text>
+        <text x="132" y="95" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.3" fill="#475569">NYU · 2019</text>
+        <text x="132" y="111" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#1e3a5f" letterSpacing="1">SKILLS</text>
+        <text x="132" y="121" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">SQL · Python · dbt</text>
+        <text x="132" y="129" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">Tableau · Looker</text>
+        <text x="132" y="137" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">Experiment design</text>
+        <text x="132" y="145" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">Stakeholder comms</text>
+        <text x="132" y="161" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#1e3a5f" letterSpacing="1">CERTS</text>
+        <text x="132" y="171" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">Google Analytics IQ</text>
+        <text x="132" y="179" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">AWS Cloud Practitioner</text>
+      </svg>
+    ),
+  },
+  {
     name: "Academic CV", type: "CV", accent: "#7c3aed", darkAccent: "#a78bfa", href: "/template-builder/?preset=classic",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
@@ -309,7 +395,8 @@ function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string
       onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.boxShadow = "none"; el.style.borderColor = C.border; }}
     >
       <div style={{ position: "relative", padding: "20px 20px 0", background: dark ? "rgba(255,255,255,0.03)" : "#eef2f7" }}>
-        <span style={{ position: "absolute", top: 14, right: 14, zIndex: 1, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: a, background: `${a}1f`, padding: "3px 8px", borderRadius: 6 }}>{t.type}</span>
+        {/* Solid backing — the badge can overlap dark thumb areas (Elise sidebar, Harper banner). */}
+        <span style={{ position: "absolute", top: 14, right: 14, zIndex: 1, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: a, background: dark ? "rgba(15,23,42,0.92)" : "rgba(255,255,255,0.95)", border: `1px solid ${a}55`, padding: "3px 8px", borderRadius: 6 }}>{t.type}</span>
         <div style={{ filter: "drop-shadow(0 8px 18px rgba(15,23,42,0.16))" }}>
           {t.thumb}
         </div>
@@ -900,7 +987,7 @@ export default function LandingPage() {
               Start from a recruiter-ready template.
             </h2>
             <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
-              Pick a résumé or CV layout, tailor it to the job, and export an ATS-safe PDF — no design work required.
+              Pick a technical, creative, or CV layout, tailor it to the job, and export an ATS-safe PDF — no design work required.
             </p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>

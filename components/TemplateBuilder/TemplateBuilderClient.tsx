@@ -535,10 +535,20 @@ export default function TemplateBuilderClient() {
   // résumé (?builder=) so we don't clobber that résumé's saved style.
   useEffect(() => {
     if (!loaded || !presetFromUrl || builderIdFromUrl) return;
-    const VALID_PRESETS = ["executive", "modern", "classic"];
-    if (!VALID_PRESETS.includes(presetFromUrl)) return;
-    if (data.customization.stylePreset === presetFromUrl) return;
-    store.setCustomization("stylePreset", presetFromUrl);
+    const preset = STYLE_PRESETS.find((p) => p.id === presetFromUrl);
+    if (!preset) return;
+    if (data.customization.stylePreset === preset.id) return;
+    // Apply the FULL preset, not just the id — creative presets carry an
+    // enforcedLayout (e.g. rightSidebar) plus their own font/accent, and
+    // setting only stylePreset would leave the layout on "single".
+    store.setCustomization("stylePreset", preset.id);
+    store.setCustomization("font", preset.font);
+    store.setCustomization("accentColor", preset.accentColor);
+    if (preset.enforcedLayout) {
+      store.setCustomization("layout", preset.enforcedLayout);
+    } else if (data.customization.layout === "rightSidebar" || data.customization.layout === "topBannerRightSidebar") {
+      store.setCustomization("layout", "single");
+    }
   }, [loaded, presetFromUrl, builderIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSaveToLibrary = useCallback(async () => {
