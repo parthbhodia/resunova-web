@@ -1,11 +1,10 @@
 "use client";
-import { forwardRef } from "react";
+import { forwardRef, type CSSProperties } from "react";
 import type { TBResumeData } from "./types";
 import { parseCustomSectionId } from "./types";
 import { renderSectionSlot } from "./renderResumeSections";
 import {
   resolveResumeLayout,
-  resumeContactStyle,
   resumeNameStyle,
   resumePageRootStyle,
 } from "@/lib/resumeLayout";
@@ -38,11 +37,6 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
     fontSize: customization?.fontSize,
   });
   const hidden = new Set(hiddenSections ?? []);
-
-  const contactParts = [
-    profile.email, profile.phone, profile.location,
-    profile.website, profile.linkedin, profile.github,
-  ].filter(Boolean);
 
   const renderContactRowWithIcons = (color = "#555", isDark = false) => {
     const iconStyle = { marginRight: 4, flexShrink: 0, opacity: isDark ? 0.8 : 0.6, marginTop: 1 };
@@ -190,7 +184,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
     const cssVars = {
       "--az-resume-text-color": "var(--resume-paper-inverse-text)",
       "--resume-paper-dim": "var(--resume-paper-inverse-muted)",
-    } as any;
+    } as CSSProperties;
 
     return (
       <div
