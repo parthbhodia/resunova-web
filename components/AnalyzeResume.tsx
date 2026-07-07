@@ -18,6 +18,7 @@ import {
   type CategoryAssignmentOptions,
 } from "@/lib/analysisCategoryMatch";
 import { patchAppliedEditsIntoResume } from "@/lib/analyzeRescore";
+import { estimateScoreAfterFixes } from "@/lib/analyzeScoreEstimate";
 import { apiUrl, resumeFileClientError } from "@/lib/utils";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
@@ -991,6 +992,22 @@ export default function AnalyzeResume() {
       .filter((k) => k.length >= 2);
     return { jdKeywords: kw };
   }, [result]);
+
+  // Instant deterministic score estimate as fixes are applied — the real,
+  // persisted number still comes from the "Update score" LLM pass.
+  const scoreEstimate = useMemo(
+    () =>
+      result
+        ? estimateScoreAfterFixes({
+            overallScore: result.overallScore,
+            categoryScores: result.categoryScores,
+            bullets: result.bulletAnalysis ?? [],
+            lineOverrides: previewLineOverrides,
+            categoryAssignmentOpts,
+          })
+        : null,
+    [result, previewLineOverrides, categoryAssignmentOpts],
+  );
 
   const bulletPrimaryCategories = useMemo(
     () => (result?.bulletAnalysis?.length
@@ -2513,6 +2530,7 @@ export default function AnalyzeResume() {
               categoryAssignmentOpts={categoryAssignmentOpts}
               onRescore={handleRescore}
               rescoring={rescoring}
+              scoreEstimate={scoreEstimate}
             />
             </div>
           </div>
