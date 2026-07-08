@@ -213,6 +213,62 @@ function _entryHeaderLine(...pieces: Array<string | undefined>): string {
   return pieces.map((p) => (p || "").trim()).filter(Boolean).join(" | ");
 }
 
+/** A full date RANGE anywhere in a string (month optional on either side). */
+const _EDU_DATE_RANGE_RE =
+  /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?(?:19|20)\d{2}\s*[–—-]\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?(?:(?:19|20)\d{2}|present|current)/i;
+
+/**
+ * De-glue an education entry whose extractor crammed institution + location +
+ * dates into `institution` with `location`/`dates` empty. Two shapes seen in
+ * real PDFs:
+ *   1. mid-dot: "University of Maryland, Baltimore County· Baltimore, MD, US August 2021 – May 2023"
+ *   2. no separator at all: "University of MumbaiAugust 2014 – May 2018Mumbai, MH, IN"
+ * Mirrors the backend `_split_glued_education_header`; used by the structured
+ * builder so the head string becomes a clean "institution | location | dates"
+ * that EntryHeaderLine already renders (date right-aligned). No-op when the
+ * fields are already separate.
+ */
+export function splitGluedEducationFields(
+  institution?: string,
+  location?: string,
+  dates?: string,
+): { institution: string; location: string; dates: string } {
+  const inst0 = (institution || "").trim();
+  const loc0 = (location || "").trim();
+  const dt0 = (dates || "").trim();
+  // Already structured (or nothing to split) — leave it alone.
+  if (loc0 || dt0 || !inst0) return { institution: inst0, location: loc0, dates: dt0 };
+
+  // Case 1: mid-dot separated.
+  if (inst0.includes("·")) {
+    const parts = inst0.split("·").map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      let dt = "";
+      const last = parts[parts.length - 1];
+      const m = last.match(_EDU_DATE_RANGE_RE);
+      if (m && m.index !== undefined) {
+        dt = m[0].trim();
+        const head = last.slice(0, m.index).replace(/[\s,]+$/, "").trim();
+        if (head) parts[parts.length - 1] = head;
+        else parts.pop();
+      }
+      if (parts.length >= 2 && (dt || parts.length >= 3)) {
+        return { institution: parts[0], location: parts.slice(1).join(" · "), dates: dt };
+      }
+    }
+    return { institution: inst0, location: loc0, dates: dt0 };
+  }
+
+  // Case 2: no delimiter, an embedded date range between institution and location.
+  const m = inst0.match(_EDU_DATE_RANGE_RE);
+  if (m && m.index !== undefined && m.index > 0) {
+    const before = inst0.slice(0, m.index).replace(/[\s,]+$/, "").trim();
+    const after = inst0.slice(m.index + m[0].length).replace(/^[\s,]+/, "").trim();
+    if (before) return { institution: before, location: after, dates: m[0].trim() };
+  }
+  return { institution: inst0, location: loc0, dates: dt0 };
+}
+
 const _ACTION_VERB_RE =
   /^(Built|Designed|Engineered|Architected|Developed|Delivered|Implemented|Led|Created|Launched|Managed|Drove|Optimized|Integrated|Automated|Reduced|Improved|Won|Achieved|Spearheaded)\b/i;
 
@@ -389,7 +445,8 @@ export function buildBlocksFromStructured(
         if (!rows.length) return;
         blocks.push({ type: "section", text: "EDUCATION", key });
         rows.forEach((e, ei) => {
-          const head = _entryHeaderLine(e.institution, e.location, e.dates);
+          const eduFields = splitGluedEducationFields(e.institution, e.location, e.dates);
+          const head = _entryHeaderLine(eduFields.institution, eduFields.location, eduFields.dates);
           const para: string[] = [];
           const paths: (string | undefined)[] = [];
           if (head) { para.push(head); paths.push(`edu.${ei}.head`); }
