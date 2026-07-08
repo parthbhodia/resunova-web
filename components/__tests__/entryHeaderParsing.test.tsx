@@ -28,6 +28,24 @@ describe("looksLikeEntryHeader — glued mid-dot headers", () => {
       looksLikeEntryHeader("Sitting for the bar examination in May 2024 after completing coursework this term."),
     ).toBe(false);
   });
+
+  it("recognizes a single-mid-dot education header with a trailing date range", () => {
+    // The reported bug: one mid-dot (institution · location) + a glued date range.
+    // Too few mid-dots for the 2+ fast path, and the date-narrative guard used to
+    // reject it as prose → it rendered as one unstyled bold run.
+    for (const h of [
+      "University of Maryland, Baltimore County· Baltimore, MD, US August 2021 – May 2023",
+      "University of Maryland, Baltimore County· Baltimore, MD, USAugust 2021 – May 2023",
+      "University of Mumbai· Mumbai, MH, IN 2014 – 2018",
+    ]) {
+      expect(looksLikeEntryHeader(h)).toBe(true);
+    }
+    // Prose with a date range but NO mid-dot must still be caught by the
+    // narrative guard (my change only bypasses it when a mid-dot is ALSO present).
+    expect(
+      looksLikeEntryHeader("Led the team through the 2021 – 2023 migration to a microservices platform."),
+    ).toBe(false);
+  });
 });
 
 const structured: StructuredResume = {
