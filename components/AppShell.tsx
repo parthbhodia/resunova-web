@@ -27,6 +27,7 @@ import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
 import { UmbcWelcomeBanner } from "./UmbcWelcomeBanner";
 import { SignInDialogProvider, useSignInDialog } from "./SignInDialog";
+import { UpgradeDialogProvider } from "./UpgradeDialog";
 import FirstRunWizard from "./FirstRunWizard";
 import {
   readSidebarCollapsed,
@@ -74,8 +75,12 @@ function readBuilderLayoutOnlyFlag(): boolean {
 
 export function useAppView(): AppView {
   const params = useSearchParams();
-  const raw = (params?.get("view") || "analyze").toLowerCase();
+  // Signed-in users land on the Home hub by default; the anonymous free-scan
+  // funnel always arrives with an explicit ?view=analyze (see AuthGate), so
+  // defaulting the bare "/" to home never affects signed-out visitors.
+  const raw = (params?.get("view") || "home").toLowerCase();
   const valid: AppView[] = [
+    "home",
     "builder",
     "library",
     "analyze",
@@ -85,7 +90,7 @@ export function useAppView(): AppView {
     "advisor",
     "account",
   ];
-  return valid.includes(raw as AppView) ? (raw as AppView) : "analyze";
+  return valid.includes(raw as AppView) ? (raw as AppView) : "home";
 }
 
 function AppShellBody({ children }: { children: ReactNode }) {
@@ -365,7 +370,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // every view rendered as children share one sign-in modal (useSignInDialog).
   return (
     <SignInDialogProvider>
-      <AppShellBody>{children}</AppShellBody>
+      <UpgradeDialogProvider>
+        <AppShellBody>{children}</AppShellBody>
+      </UpgradeDialogProvider>
     </SignInDialogProvider>
   );
 }

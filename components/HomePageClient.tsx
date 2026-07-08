@@ -33,6 +33,7 @@ import MoreMatchesPanel from "@/components/MoreMatchesPanel";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import ApplicationTracker from "@/components/ApplicationTracker";
 import CoverLetterBuilder from "@/components/CoverLetterBuilder";
+import HomeDashboard from "@/components/HomeDashboard";
 
 export default function HomePageClient() {
   return (
@@ -80,7 +81,7 @@ function ScrollPane({ children }: { children: React.ReactNode }) {
 function RouterView() {
   const params = useSearchParams();
   const router = useRouter();
-  const rawView = (params?.get("view") || "analyze").toLowerCase();
+  const rawView = (params?.get("view") || "home").toLowerCase();
   const view = useAppView();
   const base = (params?.get("base") || "").trim();
   const flow = (params?.get("flow") || "tailor").toLowerCase();
@@ -104,6 +105,15 @@ function RouterView() {
     router.replace("/template-builder/");
   }, [view, flow, router]);
 
+  if (view === "home") {
+    return (
+      <ViewFill>
+        <ScrollPane>
+          <HomeDashboard />
+        </ScrollPane>
+      </ViewFill>
+    );
+  }
   if (view === "library") {
     return (
       <ViewFill>
