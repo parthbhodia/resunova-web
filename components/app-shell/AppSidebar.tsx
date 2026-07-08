@@ -175,8 +175,8 @@ export function AppSidebar({
               <button
                 type="button"
                 className="flex min-w-0 flex-1 cursor-pointer items-center justify-start border-0 bg-transparent p-0 font-inherit"
-                onClick={() => onSwitchView("analyze")}
-                aria-label="Resunova — go to Analyze"
+                onClick={() => onSwitchView("home")}
+                aria-label="Resunova — go to Home"
               >
                 <LogoFull markSize={26} textColor="var(--text)" variant={isUmbc ? "umbc" : "resunova"} />
               </button>
@@ -190,6 +190,13 @@ export function AppSidebar({
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
             <SidebarMenu className="group-data-[collapsible=icon]:items-center">
+              <NavItem
+                view="home"
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "home"}
+                onClick={gated("home")}
+                showLabels={showLabels}
+                locked={anonMode}
+              />
               <NavItem
                 view="analyze"
                 isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "analyze"}

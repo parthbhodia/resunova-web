@@ -39,6 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan, takeAnalyzeJd } from "@/lib/anonScan";
 import { useSignInDialog } from "@/components/SignInDialog";
+import { useUpgradeDialog } from "@/components/UpgradeDialog";
 import JobSearchActivationWidget, { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -447,6 +448,7 @@ export default function AnalyzeResume() {
   /** Signed-out visitor: first scan is free + fully unlocked; a 2nd asks to sign in. */
   const [isAnon, setIsAnon]                 = useState(false);
   const { openSignIn } = useSignInDialog();
+  const { openUpgrade } = useUpgradeDialog();
   /** Show job activation widget in sidebar after a successful scan. */
   const [showJobActivation, setShowJobActivation] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -669,6 +671,7 @@ export default function AnalyzeResume() {
       if (!resp.ok) {
         if (resp.status === 429 && json?.code === "daily_scan_limit_reached") {
           setFeedbackToast("Daily scan limit reached — updating the score counts as a scan. Try again tomorrow.");
+          openUpgrade(json);
           return;
         }
         throw new Error(json?.error || "Rescore failed");
@@ -741,11 +744,15 @@ export default function AnalyzeResume() {
         if (resp.status === 429 && json?.code === "daily_scan_limit_reached") {
           const limit = Number(json?.limit);
           const freeLimit = Number.isFinite(limit) && limit > 0 ? limit : 3;
-          setFeedbackToast(
-            json?.reason === "anonymous_daily_ip_limit"
-              ? "Free scans used for today — sign in (it's free) for 3 scans/day and saved reports."
-              : `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
-          );
+          if (json?.reason === "anonymous_daily_ip_limit") {
+            // Anonymous cap → sign in (free) first, not a Pro pitch.
+            setFeedbackToast("Free scans used for today — sign in (it's free) for 3 scans/day and saved reports.");
+            openSignIn({ reason: "Sign in free for more résumé scans and saved reports." });
+          } else {
+            setFeedbackToast(`Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`);
+            openUpgrade(json);
+          }
+          return;
         }
         // Content gate (422): not a résumé we can analyze — show a calm,
         // instructive banner instead of the generic "analysis failed" error.

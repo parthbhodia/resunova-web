@@ -8,7 +8,7 @@
  * - Card click → opens detail drawer beside the grid (matches product mockup).
  */
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import LibraryResumeDetailPanel from "./LibraryResumeDetailPanel";
 import { stashTailorPrefillFromLibrary } from "@/lib/tailorPrefill";
@@ -24,7 +24,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 type SortKey = "recent" | "score" | "name";
-type FilterKey = "all" | "analyzed" | "tailored" | "builder" | "cover_letter" | "default";
+type FilterKey = "all" | "base" | "analyzed" | "tailored" | "builder" | "cover_letter" | "default";
+
+/** Primary tab bar matching the "AI Resume Analysis" hub. `base` = analyzed + builder drafts. */
+const LIBRARY_TABS: { key: FilterKey; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "base", label: "Base Resumes" },
+  { key: "tailored", label: "Job Tailored" },
+  { key: "builder", label: "Drafts" },
+  { key: "cover_letter", label: "Cover Letters" },
+];
 
 /** Aligns with Analyze bullet bands: strong ≥70, improvable 55–69, weak &lt;55 */
 function matchScoreBand(score: number): "strong" | "mid" | "weak" {
@@ -149,6 +158,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
   const filtered = useMemo(() => {
     const f = filter.trim().toLowerCase();
     let arr = items.filter(item => {
+      if (kindFilter === "base" && item.kind !== "analyzed" && item.kind !== "builder") return false;
       if (kindFilter === "analyzed" && item.kind !== "analyzed") return false;
       if (kindFilter === "tailored" && item.kind !== "tailored") return false;
       if (kindFilter === "builder" && item.kind !== "builder") return false;
@@ -188,7 +198,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
     router.push("/?view=library");
   };
 
-  const useAsBase = (item: LibraryItem) => {
+  const applyResumeAsBase = (item: LibraryItem) => {
     if (item.kind !== "tailored") return;
     const r = item.record;
     onUseAsBase?.(r.folder);
@@ -336,6 +346,101 @@ export default function ResumeLibrary({ onUseAsBase }: {
             background: rgba(0, 0, 0, 0.55);
           }
         }
+        .library-actions-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          margin-bottom: 22px;
+        }
+        @media (max-width: 720px) {
+          .library-actions-grid { grid-template-columns: 1fr; }
+        }
+        .library-action-card {
+          text-align: left;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-xl, 14px);
+          padding: 20px 22px;
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.1s ease;
+          font-family: inherit;
+        }
+        .library-action-card:hover {
+          border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+          box-shadow: 0 6px 22px rgba(15, 23, 42, 0.08);
+        }
+        [data-theme="dark"] .library-action-card:hover {
+          box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+        }
+        .library-action-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .library-tabbar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 18px;
+        }
+        .library-tabs {
+          display: flex;
+          gap: 4px;
+          padding: 4px;
+          background: var(--surface2);
+          border-radius: var(--radius-pill, 99px);
+          flex-wrap: wrap;
+        }
+        .library-tab {
+          border: none;
+          background: transparent;
+          color: var(--muted);
+          font-family: inherit;
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          padding: 7px 14px;
+          border-radius: var(--radius-pill, 99px);
+          cursor: pointer;
+          transition: background 0.12s ease, color 0.12s ease;
+          white-space: nowrap;
+        }
+        .library-tab:hover { color: var(--text); }
+        .library-tab.is-active {
+          background: var(--surface);
+          color: var(--accent);
+          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+        }
+        .library-tabbar-controls {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex: 1 1 240px;
+          min-width: 0;
+          justify-content: flex-end;
+        }
+        .library-create-card {
+          background: var(--surface);
+          border: 1px dashed var(--border);
+          border-radius: var(--radius-xl, 14px);
+          min-height: 280px;
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          text-align: center;
+          padding: 24px;
+          font-family: inherit;
+          transition: border-color 0.14s ease, background 0.14s ease;
+        }
+        .library-create-card:hover {
+          border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+          background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+        }
+        .library-create-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .library-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
@@ -453,13 +558,13 @@ export default function ResumeLibrary({ onUseAsBase }: {
                     lineHeight: 1.15,
                   }}
                 >
-                  Resume Hub
+                  AI Resume Analysis
                 </h1>
                 <p style={{ fontSize: 13.5, color: "var(--muted)", letterSpacing: "-0.02em", lineHeight: 1.55, margin: 0, maxWidth: 520 }}>
                   {loading || signedIn === null
                     ? "Loading…"
                     : signedIn
-                      ? `${items.length} saved item${items.length === 1 ? "" : "s"} across Analyze and Builder`
+                      ? "Create and manage your professional resumes"
                       : "Sign in to sync analyzed and tailored résumés"}
                 </p>
               </div>
@@ -473,7 +578,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                 }}
                 className="shrink-0"
               >
-                + New Resume
+                + Create New
               </Button>
             </header>
 
@@ -528,37 +633,74 @@ export default function ResumeLibrary({ onUseAsBase }: {
               </div>
             ) : null}
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 18, alignItems: "center" }}>
-              <input
-                value={filter}
-                onChange={e => setFilter(e.target.value)}
-                placeholder="Search resumes, analyses, issues…"
-                aria-label="Search resume hub"
-                style={{ flex: "1 1 220px", minWidth: 0 }}
+            {/* Two entry-action cards (score a fresh draft / match to a JD) */}
+            <div className="library-actions-grid">
+              <LibraryActionCard
+                eyebrow="Score a new version"
+                title="Check your resume score across 20+ ATS parameters"
+                desc="Upload a fresh draft — we'll score it instantly so you know what to fix."
+                cta="Check resume score"
+                icon={
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
+                    <path d="M12 12l3.5-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                    <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+                  </svg>
+                }
+                onClick={() => router.push("/?view=analyze")}
               />
-              <select
-                value={kindFilter}
-                onChange={e => setKindFilter(e.target.value as FilterKey)}
-                aria-label="Filter library item type"
-                style={{ width: "auto", minWidth: 140, flexShrink: 0 }}
-              >
-                <option value="all">All</option>
-                <option value="analyzed">Analyzed</option>
-                <option value="tailored">Tailored</option>
-                <option value="builder">Builder drafts</option>
-                <option value="cover_letter">Cover Letters</option>
-                <option value="default">Default</option>
-              </select>
-              <select
-                value={sort}
-                onChange={e => setSort(e.target.value as SortKey)}
-                aria-label="Sort resumes"
-                style={{ width: "auto", minWidth: 150, flexShrink: 0 }}
-              >
-                <option value="recent">Most recent</option>
-                <option value="score">Highest score</option>
-                <option value="name">Name A-Z</option>
-              </select>
+              <LibraryActionCard
+                eyebrow="Targeting a new role?"
+                title="Check how well your resume matches the job"
+                desc="Paste a JD — we'll score your resume against it instantly."
+                cta="Check job match"
+                icon={
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path d="M12 3l2.3 4.7 5.2.8-3.8 3.6.9 5.1L12 15l-4.6 2.4.9-5.1L4.5 8.5l5.2-.8L12 3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                  </svg>
+                }
+                onClick={() => {
+                  try { sessionStorage.removeItem(RN_BUILDER_LAYOUT_ONLY_KEY); } catch { /* ignore */ }
+                  router.push("/?view=builder&flow=tailor&intent=job");
+                }}
+              />
+            </div>
+
+            {/* Tab bar + compact search/sort */}
+            <div className="library-tabbar">
+              <div className="library-tabs" role="tablist" aria-label="Filter resumes">
+                {LIBRARY_TABS.map(tab => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={kindFilter === tab.key}
+                    className={`library-tab${kindFilter === tab.key ? " is-active" : ""}`}
+                    onClick={() => setKindFilter(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <div className="library-tabbar-controls">
+                <input
+                  value={filter}
+                  onChange={e => setFilter(e.target.value)}
+                  placeholder="Search…"
+                  aria-label="Search resume hub"
+                  style={{ flex: "1 1 140px", minWidth: 0 }}
+                />
+                <select
+                  value={sort}
+                  onChange={e => setSort(e.target.value as SortKey)}
+                  aria-label="Sort resumes"
+                  style={{ width: "auto", minWidth: 130, flexShrink: 0 }}
+                >
+                  <option value="recent">Most recent</option>
+                  <option value="score">Highest score</option>
+                  <option value="name">Name A-Z</option>
+                </select>
+              </div>
             </div>
 
             {loading ? (
@@ -599,13 +741,14 @@ export default function ResumeLibrary({ onUseAsBase }: {
                     }
                     stagger={Math.min(i % 5, 4)}
                     onOpen={() => openItem(item)}
-                    onUseAsBase={() => useAsBase(item)}
+                    onUseAsBase={() => applyResumeAsBase(item)}
                     onOpenAnalysis={() => openAnalysis(item)}
                     onTailorAnalysis={() => tailorFromAnalysis(item)}
                     onEditInTemplateBuilder={() => editAnalysisInTemplateBuilder(item)}
                     onOpenInBuilder={() => openBuilderDraft(item)}
                   />
                 ))}
+                <CreateNewCard onClick={() => router.push("/?view=content-source")} />
               </div>
             )}
           </div>
@@ -618,7 +761,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
             notFound={!loading && !selectedItem}
             onClose={closeDetail}
             onTailorNewJob={() => {
-              if (selectedItem) useAsBase(selectedItem);
+              if (selectedItem) applyResumeAsBase(selectedItem);
             }}
             onOpenAnalysis={() => {
               if (selectedItem) openAnalysis(selectedItem);
@@ -652,6 +795,82 @@ export default function ResumeLibrary({ onUseAsBase }: {
         />
       )}
     </div>
+  );
+}
+
+function LibraryActionCard({
+  eyebrow,
+  title,
+  desc,
+  cta,
+  icon,
+  onClick,
+}: {
+  eyebrow: string;
+  title: string;
+  desc: string;
+  cta: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className="library-action-card" onClick={onClick}>
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 40,
+          height: 40,
+          borderRadius: 10,
+          background: "var(--accent-bg)",
+          color: "var(--accent)",
+          marginBottom: 8,
+        }}
+      >
+        {icon}
+      </span>
+      <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--accent)" }}>
+        {eyebrow}
+      </span>
+      <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--text)", lineHeight: 1.3 }}>
+        {title}
+      </span>
+      <span style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>{desc}</span>
+      <span style={{ marginTop: 8, fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>{cta} →</span>
+    </button>
+  );
+}
+
+function CreateNewCard({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="library-create-card" onClick={onClick} aria-label="Create a new resume">
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 44,
+          height: 44,
+          borderRadius: "50%",
+          background: "var(--accent-bg)",
+          color: "var(--accent)",
+          marginBottom: 4,
+        }}
+        aria-hidden
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </span>
+      <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em" }}>
+        Create New Resume
+      </span>
+      <span style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, maxWidth: 220 }}>
+        Upload, start from scratch, or tailor for a specific job.
+      </span>
+      <span style={{ marginTop: 6, fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>Get Started →</span>
+    </button>
   );
 }
 

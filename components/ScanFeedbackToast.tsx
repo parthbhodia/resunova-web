@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
-import Link from "next/link";
+import { useUpgradeDialog } from "@/components/UpgradeDialog";
 
 export type ScanMeta = {
   enforced?: boolean;
@@ -24,7 +24,11 @@ export function useScanToast() {
   }, []);
 
   const handleScanError = useCallback((data: any) => {
-    if (data?.code === "interview_prep_limit_reached" || data?.code === "scan_limit_reached") {
+    if (
+      data?.code === "interview_prep_limit_reached" ||
+      data?.code === "daily_scan_limit_reached" ||
+      data?.code === "scan_limit_reached"
+    ) {
       setScanMeta(data);
     }
   }, []);
@@ -37,6 +41,7 @@ export function useScanToast() {
 }
 
 export function ScanFeedbackToast({ meta, onDismiss }: { meta: ScanMeta; onDismiss: () => void }) {
+  const { openUpgrade } = useUpgradeDialog();
   // auto dismiss after 6 seconds for success
   useEffect(() => {
     if (meta.allowed) {
@@ -103,15 +108,32 @@ export function ScanFeedbackToast({ meta, onDismiss }: { meta: ScanMeta; onDismi
       </p>
 
       {isError && (
-        <Link href="/pricing" style={{
-          marginTop: 4,
-          fontSize: 13,
-          fontWeight: 600,
-          color: "var(--accent, #3b82f6)",
-          textDecoration: 'none'
-        }}>
+        <button
+          type="button"
+          onClick={() => {
+            openUpgrade({
+              code: meta.code,
+              feature: meta.feature,
+              limit: meta.limit,
+              used: meta.used,
+              resetAt: meta.resetAt,
+            });
+            onDismiss();
+          }}
+          style={{
+            marginTop: 4,
+            alignSelf: 'flex-start',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--accent, #3b82f6)",
+          }}
+        >
           Upgrade →
-        </Link>
+        </button>
       )}
     </div>
   );
