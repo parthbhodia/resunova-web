@@ -154,6 +154,30 @@ export async function signInWithGoogle(): Promise<string | null> {
   return error ? error.message : null;
 }
 
+/**
+ * Email one-time login code (passwordless). Supabase sends the code via the
+ * project's "Magic Link" email template — it must include `{{ .Token }}` for a
+ * 6-digit code (otherwise the email carries a click-through magic link, which
+ * `emailRedirectTo` handles as a fallback). Creates the account on first use.
+ */
+export async function sendEmailLoginCode(email: string): Promise<string | null> {
+  const sb = getSupabaseClient();
+  if (typeof window !== "undefined") stashPostLoginDest();
+  const emailRedirectTo = typeof window !== "undefined" ? buildOAuthReturnUrl() : undefined;
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true, emailRedirectTo },
+  });
+  return error ? error.message : null;
+}
+
+/** Verify the emailed login code and establish a session (onAuthStateChange fires). */
+export async function verifyEmailLoginCode(email: string, token: string): Promise<string | null> {
+  const sb = getSupabaseClient();
+  const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
+  return error ? error.message : null;
+}
+
 /** Full-page navigation into the anonymous Analyze flow (fresh AuthGate mount). */
 export function goToFreeScan(): void {
   if (typeof window === "undefined") return;
