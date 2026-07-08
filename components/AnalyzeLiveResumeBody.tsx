@@ -1774,8 +1774,12 @@ export default function AnalyzeLiveResumeBody({
                 // flagged/applied click-target (those clicks open the fix card).
                 const fieldPath = isSummaryBlock ? undefined : linePaths?.[li];
                 const fieldEdited = !!(fieldPath && fieldOverrides[fieldPath] !== undefined);
+                // A flagged/applied summary stays a click-target for the left
+                // fix card (outer onClick), but is ALSO editable inline when
+                // editing is on — so the whole résumé, summary included, can be
+                // typed into directly.
                 const summaryInlineEditable =
-                  isSummaryBlock && !isSummaryInteractive && !!(fieldsEditable && onSummaryEdit);
+                  isSummaryBlock && !!(fieldsEditable && onSummaryEdit);
                 const fieldEditable = !!(fieldsEditable && fieldPath && onFieldEdit) || summaryInlineEditable;
                 const editableProps = (fieldEditable
                   ? {
@@ -1990,6 +1994,14 @@ export default function AnalyzeLiveResumeBody({
               const previewLineApplied = previewLineOverrides[bulletIdx] !== undefined;
               const issues = Array.isArray(bullet.issues) ? bullet.issues : [];
               const hasActionable = !!(bullet.improvedBullet || issues.length);
+              // When editing is enabled, the flagged bullet text is directly
+              // editable in the preview (commits to the same preview-line
+              // override the "Apply" button uses) instead of only being editable
+              // through the floating popup.
+              const bulletInlineEditable = !!(fieldsEditable && patchPreviewLine);
+              const originalBulletText = softenRunOnExtractLine(
+                (bullet.originalBullet || "").replace(/^[\s•\-–—*·◦▪▸→>]+/, "").trimStart(),
+              );
               const isPulsing = pulseBulletIndex === bulletIdx;
               const isGapFixTarget =
                 highlightsEnabled && presentationOnly && gapFixTargetBulletIndices.includes(bulletIdx);
@@ -2037,7 +2049,13 @@ export default function AnalyzeLiveResumeBody({
                     // onBulletLinkedSelect (parent scrolls / expands it).
                     const suggested = resolveBulletSuggestion(bulletIdx);
                     const hasRewrite = suggested.trim().length > 0;
-                    if (presentationOnly && hasRewrite) {
+                    // When the preview is editable (Analyze + Tailor), a bullet
+                    // click just opens the apply/fix card on the LEFT (via
+                    // onBulletLinkedSelect) and the bullet text edits inline —
+                    // the old floating "AI Suggestion" popup duplicated that
+                    // card, so it's suppressed here. The popup survives only for
+                    // genuinely read-only previews (no inline editing available).
+                    if (presentationOnly && hasRewrite && !bulletInlineEditable) {
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       const popupTop = Math.max(8, Math.min(rect.top, window.innerHeight - 340));
                       const popupLeft = Math.max(8, rect.left - 336);
@@ -2069,7 +2087,35 @@ export default function AnalyzeLiveResumeBody({
                     )}
 
                     <span style={{ flex: 1, fontSize: "var(--az-resume-body-font-size, 10px)", lineHeight: "inherit", color: "var(--resume-paper-ink)", overflowWrap: "anywhere", wordBreak: "break-word" }}>
-                      {renderMetricLineWithLabel(showText, highlightsEnabled)}
+                      {/* Editable text — the decoration marks are kept OUTSIDE
+                          this span so they never land in the committed text. */}
+                      <span
+                        {...(bulletInlineEditable
+                          ? {
+                              contentEditable: true,
+                              suppressContentEditableWarning: true,
+                              className: "az-editable-field",
+                              title: "Click to edit — applies to preview and PDF",
+                              // Click still bubbles to the row so the left apply
+                              // card opens; the caret is placed for inline edits.
+                              onBlur: (e: ReactFocusEvent<HTMLSpanElement>) => {
+                                const txt = (e.currentTarget.textContent ?? "").replace(/\s+/g, " ").trim();
+                                const orig = originalBulletText.replace(/\s+/g, " ").trim();
+                                patchPreviewLine(bulletIdx, !txt || txt === orig ? null : txt);
+                              },
+                              onKeyDown: (e: ReactKeyboardEvent<HTMLSpanElement>) => {
+                                if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+                                else if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  e.currentTarget.textContent = showText;
+                                  e.currentTarget.blur();
+                                }
+                              },
+                            }
+                          : {})}
+                      >
+                        {renderMetricLineWithLabel(showText, highlightsEnabled)}
+                      </span>
                       {previewLineApplied && (
                         <span className="az-pdf-ignore az-preview-applied-mark"
                           title={presentationOnly ? "Suggestion applied" : "Preview updated"}

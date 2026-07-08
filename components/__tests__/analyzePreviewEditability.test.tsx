@@ -66,10 +66,12 @@ describe("Analyze preview inline editability", () => {
     expect(summary!.getAttribute("contenteditable")).toBe("true");
   });
 
-  it("keeps the flagged summary as a click-target (not inline-editable)", () => {
+  it("keeps a flagged summary as a click-target AND makes it inline-editable", () => {
     const { container } = renderBody({ summaryFlagged: true, onSummarySelect: vi.fn() });
+    // Still opens the left fix card (click-target)…
     expect(container.querySelector('[data-summary-flag="1"]')).not.toBeNull();
-    expect(container.querySelector('[data-field-path="summary"]')).toBeNull();
+    // …but is now also editable inline so the whole résumé can be edited.
+    expect(container.querySelector('[data-field-path="summary"]')).not.toBeNull();
   });
 
   it("commits a summary edit through onSummaryEdit on blur", () => {
