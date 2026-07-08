@@ -301,13 +301,6 @@ export function AppSidebar({
                 showLabels={showLabels}
                 locked={anonMode}
               />
-              <NavItem
-                view="profile"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "profile"}
-                onClick={gated("profile")}
-                showLabels={showLabels}
-                locked={anonMode}
-              />
               {advisorAllowed ? (
                 <NavItem
                   view="advisor"
