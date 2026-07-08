@@ -15,7 +15,7 @@ export type AppView =
 export const VIEW_LABELS: Record<AppView, string> = {
   home: "Home",
   builder: "Resume Builder",
-  library: "Library",
+  library: "My Resumes",
   analyze: "Analyze",
   profile: "Profile",
   jobs: "Jobs",
@@ -59,7 +59,7 @@ export const MOBILE_TAB_LABELS: Partial<Record<AppView, string>> = {
   home: "Home",
   analyze: "Analyze",
   jobs: "Jobs",
-  library: "Library",
+  library: "Resumes",
 };
 
 /** Wrapper + menu button: original muted icons, accent when active. */
