@@ -27,6 +27,10 @@ export interface ScoreEstimate {
   projected: number;
   /** Applied fixes that deterministically verified (changed text / added numerals). */
   resolvedCount: number;
+  /** Projected per-category scores (rounded), keyed by category — only the
+   *  categories present in the input. Used to persist a consistent deterministic
+   *  score on save (so overall matches the categories). */
+  projectedCategories: Record<string, number>;
 }
 
 /** Numeral tokens (incl. $1.2M / 40% / 100,000) present in `text`. */
@@ -79,6 +83,7 @@ export function estimateScoreAfterFixes(opts: {
 
   const currentScores: number[] = [];
   const projectedScores: number[] = [];
+  const projectedCategories: Record<string, number> = {};
   for (const cat of CATEGORY_SCORE_KEYS) {
     const score = categoryScores[cat];
     if (typeof score !== "number") continue;
@@ -94,10 +99,13 @@ export function estimateScoreAfterFixes(opts: {
     const resolved = flagged.filter((i) => resolvedSet.has(i)).length;
     if (!flagged.length || !resolved || score >= CATEGORY_CEILING) {
       projectedScores.push(score);
+      projectedCategories[cat] = Math.round(score);
       continue;
     }
     const ceiling = Math.min(CATEGORY_CEILING, score + MAX_CATEGORY_LIFT);
-    projectedScores.push(score + (ceiling - score) * (resolved / flagged.length) * RECOVERY);
+    const projectedCat = score + (ceiling - score) * (resolved / flagged.length) * RECOVERY;
+    projectedScores.push(projectedCat);
+    projectedCategories[cat] = Math.round(projectedCat);
   }
   if (!currentScores.length) return null;
 
@@ -106,5 +114,5 @@ export function estimateScoreAfterFixes(opts: {
   const projected = Math.round(Math.min(95, Math.max(20, overallScore + delta)));
   if (projected - overallScore < 1) return null;
 
-  return { current: overallScore, projected, resolvedCount: changedIdx.size };
+  return { current: overallScore, projected, resolvedCount: changedIdx.size, projectedCategories };
 }

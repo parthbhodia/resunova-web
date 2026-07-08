@@ -122,6 +122,9 @@ interface Props {
   rescoring?: boolean;
   /** Deterministic projected score from applied fixes (null = nothing to show). */
   scoreEstimate?: ScoreEstimate | null;
+  /** Fired after a successful WYSIWYG PDF download — Analyze uses it to persist
+   *  the applied edits (deterministic, no LLM) so the saved résumé matches. */
+  onAfterDownload?: () => void;
 }
 
 function scoreColor(score: number): string {
@@ -448,6 +451,7 @@ export default function AnnotatedResumePanel({
   onRescore,
   rescoring = false,
   scoreEstimate = null,
+  onAfterDownload,
 }: Props) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
@@ -521,8 +525,9 @@ export default function AnnotatedResumePanel({
   );
   const handleHtmlPdfDownload = useCallback(() => {
     if (!paperRef.current) return;
-    void exportHtmlPdf(paperRef.current, htmlPdfFilename, { highlightsEnabled });
-  }, [exportHtmlPdf, htmlPdfFilename, highlightsEnabled]);
+    void exportHtmlPdf(paperRef.current, htmlPdfFilename, { highlightsEnabled })
+      .then((ok) => { if (ok) onAfterDownload?.(); });
+  }, [exportHtmlPdf, htmlPdfFilename, highlightsEnabled, onAfterDownload]);
 
   const toggleHighlights = useCallback(() => {
     setHighlightsEnabled((on) => {

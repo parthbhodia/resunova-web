@@ -1018,6 +1018,79 @@ export default function AnalyzeResume() {
     [result, previewLineOverrides, categoryAssignmentOpts],
   );
 
+  // After a successful PDF download, persist the applied preview edits to the
+  // saved résumé DETERMINISTICALLY (no LLM, no scan-limit charge) so the record
+  // Jobs/Boost read matches what the user just downloaded. Fire-and-forget,
+  // deduped so repeated downloads of the same edits don't create extra rows.
+  const lastSavedEditSigRef = useRef<string>("");
+  const handleAfterDownload = useCallback(() => {
+    const st = useResumeAnalyzeStore.getState();
+    const patch = patchAppliedEditsIntoResume({
+      extractedText: st.extractedText,
+      structuredResume: st.structuredResume,
+      analysisBullets: st.analysisBullets,
+      lineOverrides: st.lineOverrides,
+      summaryOverride: st.summaryOverride,
+      hiddenBulletTexts: hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths),
+    });
+    if (patch.appliedCount === 0) {
+      setFeedbackToast("Résumé downloaded.");
+      return;
+    }
+    const sig = [
+      patch.patchedText.length,
+      patch.appliedCount,
+      Object.keys(st.lineOverrides).sort().join(","),
+      Object.keys(st.hiddenPaths).sort().join(","),
+      (st.summaryOverride || "").length,
+      Object.keys(st.fieldOverrides).sort().join(","),
+    ].join("|");
+    if (sig === lastSavedEditSigRef.current) {
+      setFeedbackToast("Downloaded with your edits.");
+      return;
+    }
+    void (async () => {
+      try {
+        const supabase = getSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          setFeedbackToast("Downloaded with your edits. Sign in to save them to your résumé.");
+          return;
+        }
+        const estimate = result
+          ? estimateScoreAfterFixes({
+              overallScore: result.overallScore,
+              categoryScores: result.categoryScores,
+              bullets: result.bulletAnalysis ?? [],
+              lineOverrides: st.lineOverrides,
+              categoryAssignmentOpts,
+            })
+          : null;
+        const resp = await fetch(apiUrl("/api/analyze-save-edits"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            resume_text: patch.patchedText,
+            structured_resume: patch.patchedStructured ?? undefined,
+            overall_score: estimate?.projected,
+            category_scores: estimate?.projectedCategories,
+          }),
+        });
+        if (resp.ok) {
+          lastSavedEditSigRef.current = sig;
+          setFeedbackToast("Downloaded · your edits are saved to your résumé and future job matches.");
+        } else {
+          setFeedbackToast("Downloaded with your edits.");
+        }
+      } catch {
+        setFeedbackToast("Downloaded with your edits.");
+      }
+    })();
+  }, [result, categoryAssignmentOpts]);
+
   const bulletPrimaryCategories = useMemo(
     () => (result?.bulletAnalysis?.length
       ? buildBulletPrimaryCategories(result.bulletAnalysis, categoryAssignmentOpts)
@@ -2540,6 +2613,7 @@ export default function AnalyzeResume() {
               onRescore={handleRescore}
               rescoring={rescoring}
               scoreEstimate={scoreEstimate}
+              onAfterDownload={handleAfterDownload}
             />
             </div>
           </div>
