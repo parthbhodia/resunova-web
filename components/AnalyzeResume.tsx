@@ -20,6 +20,8 @@ import {
 import { patchAppliedEditsIntoResume } from "@/lib/analyzeRescore";
 import { hiddenBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeBody";
 import { estimateScoreAfterFixes } from "@/lib/analyzeScoreEstimate";
+import { reconcileAnalysisForSave } from "@/lib/analyzeReconcile";
+import { normalizeForMatch } from "@/lib/resumeBulletMatch";
 import { apiUrl, resumeFileClientError } from "@/lib/utils";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
@@ -1066,6 +1068,22 @@ export default function AnalyzeResume() {
               categoryAssignmentOpts,
             })
           : null;
+        // Deterministically reconcile the qualitative fields (flags/issues/
+        // rationales) so the saved version stops showing stale flags on edited
+        // bullets — no LLM, mirrors the honesty validators.
+        const hiddenNorms = new Set(
+          hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths).map(normalizeForMatch),
+        );
+        const reconciled = result
+          ? reconcileAnalysisForSave({
+              bulletAnalysis: result.bulletAnalysis ?? [],
+              topIssues: result.topIssues ?? [],
+              categoryRationales: result.categoryRationales,
+              lineOverrides: st.lineOverrides,
+              hiddenNorms,
+              projectedCategories: estimate?.projectedCategories,
+            })
+          : null;
         const resp = await fetch(apiUrl("/api/analyze-save-edits"), {
           method: "POST",
           headers: {
@@ -1077,6 +1095,9 @@ export default function AnalyzeResume() {
             structured_resume: patch.patchedStructured ?? undefined,
             overall_score: estimate?.projected,
             category_scores: estimate?.projectedCategories,
+            bullet_analysis: reconciled?.bulletAnalysis,
+            top_issues: reconciled?.topIssues,
+            category_rationales: reconciled?.categoryRationales,
           }),
         });
         if (resp.ok) {
