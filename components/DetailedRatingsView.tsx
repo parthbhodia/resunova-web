@@ -129,6 +129,17 @@ type SharedProps = {
   onActiveTabChange?: (tab: Tab) => void;
 };
 
+/** Sidebar grouping: ATS-facing dimensions vs the human-recruiter read. */
+const ATS_TAB_IDS = new Set<Tab>(["overall", "job_title", "qualifications", "responsibilities", "keywords"]);
+
+/** Honest qualitative label for the match score — thresholds mirror
+ *  scoreColor (>=75 green, >=50 amber, else red) so word and colour agree. */
+function scoreLabel(s: number): string {
+  if (s >= 75) return "Strong";
+  if (s >= 50) return "Fair";
+  return "Needs work";
+}
+
 function useTailorRatingsState({
   ratings,
   hasSuggestions = false,
@@ -295,80 +306,108 @@ export function TailorMatchSidebar({
             {sidebarCollapsed ? "›" : "‹"}
           </button>
         </div>
-        {!sidebarCollapsed && (
-          <div style={{ marginTop: 12, textAlign: "center" }}>
-            <div style={{ fontSize: 36, fontWeight: 900, color: scoreColor(overall_score), letterSpacing: -1.5, lineHeight: 1 }}>
-              {overall_score}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Overall match</div>
-          </div>
-        )}
       </div>
 
-      {/* Nav tabs — hidden when collapsed; just the toggle button is enough */}
-      {!sidebarCollapsed && (
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 0 16px" }}>
-          {navTabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            const isLow = tab.color === "#ef4444" || tab.color === "#f59e0b";
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                title={tab.label}
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  width: "100%",
-                  flexShrink: 0,
-                  display: "flex",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 16px",
-                  gap: 0,
-                  border: "none",
-                  borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
-                  background: isActive ? "var(--accent-bg)" : "transparent",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  color: isActive ? "var(--accent)" : "var(--muted)",
-                  transition: "background 0.15s, color 0.15s",
-                  position: "relative",
-                }}
-              >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: (tab.id === "fixes" || tab.id === "gapfix") ? "#818cf8" : (isActive ? "var(--text)" : "var(--dim)"),
-                      flexShrink: 0,
-                    }}
-                  >
-                    {SECTION_ICON[tab.id]}
-                  </span>
-                  <span style={{
-                    fontSize: 13,
-                    fontWeight: isActive ? 600 : 500,
-                    color: (tab.id === "fixes" || tab.id === "gapfix") ? "#818cf8" : (isActive ? "var(--text)" : "var(--muted)"),
-                    textAlign: "left",
-                    minWidth: 0,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}>
-                    {tab.label}
-                  </span>
+      {/* Score card + grouped nav — hidden when collapsed */}
+      {!sidebarCollapsed && (() => {
+        const renderRow = (tab: (typeof navTabs)[number]) => {
+          const isActive = activeTab === tab.id;
+          const isLow = tab.color === "#ef4444" || tab.color === "#f59e0b";
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              title={tab.label}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                width: "100%",
+                flexShrink: 0,
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "9px 12px",
+                gap: 0,
+                border: "none",
+                borderRadius: 10,
+                borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
+                background: isActive ? "var(--accent-bg)" : "transparent",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                color: isActive ? "var(--accent)" : "var(--muted)",
+                transition: "background 0.15s, color 0.15s",
+                position: "relative",
+              }}
+            >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: (tab.id === "fixes" || tab.id === "gapfix") ? "#818cf8" : (isActive ? "var(--text)" : "var(--dim)"),
+                    flexShrink: 0,
+                  }}
+                >
+                  {SECTION_ICON[tab.id]}
                 </span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: isLow ? tab.color : "var(--muted)", flexShrink: 0, marginLeft: 8 }}>
-                  {tab.score}
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: isActive ? 600 : 500,
+                  color: (tab.id === "fixes" || tab.id === "gapfix") ? "#818cf8" : (isActive ? "var(--text)" : "var(--muted)"),
+                  textAlign: "left",
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}>
+                  {tab.label}
                 </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: isLow ? tab.color : "var(--muted)", flexShrink: 0, marginLeft: 8 }}>
+                {tab.score}
+              </span>
+            </button>
+          );
+        };
+        const groupLabel = (text: string) => (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 6px 7px", marginTop: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.7 }}>{text}</span>
+            <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+          </div>
+        );
+        const atsRows = navTabs.filter((t) => ATS_TAB_IDS.has(t.id));
+        const humanRows = navTabs.filter((t) => !ATS_TAB_IDS.has(t.id));
+        const col = scoreColor(overall_score);
+        const R = 26, CIRC = 2 * Math.PI * R;
+        const clamped = Math.max(0, Math.min(100, overall_score));
+        return (
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 12px 18px", display: "flex", flexDirection: "column", gap: 3 }}>
+            {/* Persistent score card */}
+            <div style={{ display: "flex", alignItems: "center", gap: 13, border: "1px solid var(--border)", borderRadius: 12, padding: 13, marginBottom: 6 }}>
+              <div style={{ position: "relative", width: 62, height: 62, flexShrink: 0 }}>
+                <svg width="62" height="62" viewBox="0 0 62 62" style={{ transform: "rotate(-90deg)" }} aria-hidden="true">
+                  <circle cx="31" cy="31" r={R} fill="none" stroke="var(--surface2)" strokeWidth="6" />
+                  <circle cx="31" cy="31" r={R} fill="none" stroke={col} strokeWidth="6" strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - clamped / 100)} />
+                </svg>
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, fontWeight: 800, color: col, letterSpacing: -0.5 }}>
+                  {overall_score}
+                </div>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6 }}>Match score</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: col, letterSpacing: -0.2, marginTop: 2 }}>{scoreLabel(overall_score)}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1, lineHeight: 1.35 }}>How well this résumé covers the job</div>
+              </div>
+            </div>
+
+            {atsRows.length > 0 && groupLabel("Beat the ATS")}
+            {atsRows.map(renderRow)}
+            {humanRows.length > 0 && groupLabel("Beat the human")}
+            {humanRows.map(renderRow)}
+          </div>
+        );
+      })()}
     </aside>
   );
 }
