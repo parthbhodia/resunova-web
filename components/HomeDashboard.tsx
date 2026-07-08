@@ -23,7 +23,6 @@ import {
 import { apiUrl } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUpgradeDialog } from "@/components/UpgradeDialog";
 
 type AppStats = {
   saved: number;
@@ -160,7 +159,6 @@ const CheckGlyph = (
 
 export default function HomeDashboard() {
   const router = useRouter();
-  const { openUpgrade } = useUpgradeDialog();
 
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState<string>("there");
@@ -297,14 +295,20 @@ export default function HomeDashboard() {
             Let&apos;s get you your dream job — pick up where you left off.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Scan-status only — no Pro upsell (no billing yet). Users who want a
+            higher limit are routed to contact us directly. */}
+        <div className="flex shrink-0 items-center gap-2.5">
           <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[12px] font-medium text-[var(--muted)]">
             {planLabel}
           </span>
-          {!scan?.unlimited ? (
-            <Button size="sm" className="gap-1.5" onClick={() => openUpgrade()}>
-              Upgrade
-            </Button>
+          {scan?.enforced && !scan?.unlimited ? (
+            <button
+              type="button"
+              onClick={() => router.push("/contact?reason=scan-limit")}
+              className="text-[12px] font-medium text-accent hover:underline"
+            >
+              Request more
+            </button>
           ) : null}
         </div>
       </div>

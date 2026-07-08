@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
-import { useUpgradeDialog } from "@/components/UpgradeDialog";
+import { useScanLimitDialog } from "@/components/ScanLimitDialog";
 
 export type ScanMeta = {
   enforced?: boolean;
@@ -41,7 +41,7 @@ export function useScanToast() {
 }
 
 export function ScanFeedbackToast({ meta, onDismiss }: { meta: ScanMeta; onDismiss: () => void }) {
-  const { openUpgrade } = useUpgradeDialog();
+  const { openScanLimit } = useScanLimitDialog();
   // auto dismiss after 6 seconds for success
   useEffect(() => {
     if (meta.allowed) {
@@ -101,7 +101,7 @@ export function ScanFeedbackToast({ meta, onDismiss }: { meta: ScanMeta; onDismi
 
       <p style={{ margin: 0, fontSize: 13, color: "var(--muted, #64748b)", lineHeight: 1.4 }}>
         {isError ? (
-          <>You have used all {meta.limit} of your daily free {meta.feature === "interview_prep" ? "interview prep parses" : "resume scans"}. Come back in {hoursUntilReset}h {minsUntilReset}m or upgrade for unlimited access.</>
+          <>You have used all {meta.limit} of your daily free {meta.feature === "interview_prep" ? "interview prep parses" : "resume scans"}. They reset in {hoursUntilReset}h {minsUntilReset}m — or contact us to raise your limit.</>
         ) : (
           <>{remaining} free {meta.feature === "interview_prep" ? "interview prep parse" : "resume scan"}{remaining !== 1 ? 's' : ''} remaining today.</>
         )}
@@ -111,7 +111,7 @@ export function ScanFeedbackToast({ meta, onDismiss }: { meta: ScanMeta; onDismi
         <button
           type="button"
           onClick={() => {
-            openUpgrade({
+            openScanLimit({
               code: meta.code,
               feature: meta.feature,
               limit: meta.limit,
@@ -132,7 +132,7 @@ export function ScanFeedbackToast({ meta, onDismiss }: { meta: ScanMeta; onDismi
             color: "var(--accent, #3b82f6)",
           }}
         >
-          Upgrade →
+          Request more →
         </button>
       )}
     </div>

@@ -27,7 +27,7 @@ import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
 import { UmbcWelcomeBanner } from "./UmbcWelcomeBanner";
 import { SignInDialogProvider, useSignInDialog } from "./SignInDialog";
-import { UpgradeDialogProvider } from "./UpgradeDialog";
+import { ScanLimitDialogProvider } from "./ScanLimitDialog";
 import FirstRunWizard from "./FirstRunWizard";
 import {
   readSidebarCollapsed,
@@ -370,9 +370,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // every view rendered as children share one sign-in modal (useSignInDialog).
   return (
     <SignInDialogProvider>
-      <UpgradeDialogProvider>
+      <ScanLimitDialogProvider>
         <AppShellBody>{children}</AppShellBody>
-      </UpgradeDialogProvider>
+      </ScanLimitDialogProvider>
     </SignInDialogProvider>
   );
 }
