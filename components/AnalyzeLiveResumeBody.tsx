@@ -475,6 +475,33 @@ export function buildBlocksFromStructured(
   return blocks;
 }
 
+/**
+ * Resolve deleted bullet PATH keys (e.g. `exp.0.bullets.2`) to their rendered
+ * bullet TEXT by replaying the exact same structured builder that emitted the
+ * paths. Text-based resolution keeps `analyzeRescore` decoupled from the
+ * post-filter path-index semantics — the rescore drops bullets by normalized
+ * text (identical to how it matches applied rewrites), so it can never delete
+ * the wrong structured-array entry. Returns the plain bullet text (no marker).
+ */
+export function deletedBulletTextsFromStructured(
+  structured: StructuredResume | null,
+  deletedPaths: Record<string, true> | undefined,
+): string[] {
+  if (!structured || !deletedPaths || !Object.keys(deletedPaths).length) return [];
+  const blocks = buildBlocksFromStructured(structured, [], undefined);
+  const out: string[] = [];
+  for (const b of blocks) {
+    if (b.type !== "bullets") continue;
+    for (const it of b.items) {
+      if (it.path && deletedPaths[it.path]) {
+        const text = it.rawLine.replace(/^\s*[•*·\-–—]+\s*/u, "").trim();
+        if (text) out.push(text);
+      }
+    }
+  }
+  return out;
+}
+
 /** Mirrors backend `_CONTACT_ANCHOR` — find identity block when PDF line order is wrong. */
 const HEADER_CONTACT_ANCHOR =
   /@|linkedin\.com\/|www\.linkedin\.com\/|github\.com\/|www\.github\.com\/|\bportfolio\b|\bsite\b|\bmobile\b|\bphone\b|[\[(]?\d{3}[\])]?[\s.-]?\d{3}[\s.-]?\d{4}/i;
@@ -1114,6 +1141,12 @@ interface Props {
   onSummaryEdit?: (text: string) => void;
   /** When true, lines with a structured path render as inline-editable (Analyze only). */
   fieldsEditable?: boolean;
+  /** Bullets removed by the user (keyed by structured path). Deleted bullets are
+   *  not rendered in the preview, so they're excluded from the WYSIWYG PDF too. */
+  deletedPaths?: Record<string, true>;
+  /** Remove / restore a bullet by structured path. When provided, each bullet
+   *  gets a ✕ delete affordance (stripped from the PDF via az-pdf-ignore). */
+  onToggleBulletDeleted?: (path: string) => void;
   /** Currently selected section block index for box-wise editing (transient
    *  selection highlight; cleared on reorder). */
   selectedSectionIdx?: number | null;
@@ -1128,6 +1161,42 @@ interface Props {
   sectionOrderOverride?: string[] | null;
   /** Commit a new section order (full key array) after an up/down move. */
   onReorderSections?: (order: string[]) => void;
+}
+
+/** ✕ affordance on a bullet — removes it from the preview + exports. Marked
+ *  az-pdf-ignore so it's stripped from the WYSIWYG PDF; appears on row hover
+ *  via the `.az-bullet-del` rule in the inline stylesheet. */
+function BulletDeleteButton({ onDelete }: { onDelete: () => void }) {
+  return (
+    <button
+      type="button"
+      className="az-pdf-ignore az-bullet-del"
+      title="Remove this bullet"
+      aria-label="Remove this bullet"
+      onClick={(e) => { e.stopPropagation(); onDelete(); }}
+      style={{
+        position: "absolute", top: 0, right: 0, width: 18, height: 18, borderRadius: 5,
+        border: "none", background: "transparent", color: "var(--dim)", cursor: "pointer",
+        display: "grid", placeItems: "center", opacity: 0, transition: "opacity .12s, color .12s, background .12s",
+      }}
+    >
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
+  );
+}
+
+/** Placeholder shown where a bullet was removed — reversible while editing.
+ *  az-pdf-ignore so neither the note nor the removed bullet reaches the PDF. */
+function DeletedBulletChip({ onRestore }: { onRestore: () => void }) {
+  return (
+    <div className="az-pdf-ignore" style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0 2px 2px" }}>
+      <span style={{ fontSize: 9.5, color: "var(--dim)", fontStyle: "italic", textDecoration: "line-through" }}>Bullet removed</span>
+      <button type="button" onClick={(e) => { e.stopPropagation(); onRestore(); }}
+        style={{ border: "none", background: "none", color: "var(--accent)", fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>
+        Restore
+      </button>
+    </div>
+  );
 }
 
 export default function AnalyzeLiveResumeBody({
@@ -1159,6 +1228,8 @@ export default function AnalyzeLiveResumeBody({
   summaryOverride = "",
   fieldOverrides = {},
   onFieldEdit,
+  deletedPaths = {},
+  onToggleBulletDeleted,
   onSummaryEdit,
   fieldsEditable = false,
   selectedSectionIdx = null,
@@ -1378,6 +1449,9 @@ export default function AnalyzeLiveResumeBody({
         .az-editable-field { border-bottom: 1px dashed transparent; transition: background 0.12s, border-color 0.12s; }
         .az-editable-field:hover { background: rgba(33,150,243,0.06); border-bottom-color: rgba(33,150,243,0.5); cursor: text; }
         .az-editable-field:focus { outline: none; background: rgba(33,150,243,0.08); border-bottom-color: rgba(33,150,243,0.85); }
+        .az-resume-bullet:hover .az-bullet-del { opacity: 1; }
+        .az-bullet-del:hover { background: var(--red-bg, rgba(248,113,113,0.14)); color: var(--red, #f87171); }
+        .az-bullet-del:focus-visible { opacity: 1; outline: 2px solid var(--red, #f87171); outline-offset: 1px; }
       `}</style>
 
       {blocks.length === 0 && (
@@ -1804,6 +1878,18 @@ export default function AnalyzeLiveResumeBody({
         return (
           <div key={bi} style={bulletsBlockStyle(bulletSectionRole)}>
             {bulletRows.map(({ rawLine, bulletIdx, path }, ii) => {
+              // Deleted bullet: don't render its content, so it's gone from the
+              // WYSIWYG PDF capture too. Leave a small (az-pdf-ignore) restore
+              // affordance when editing so the removal is reversible.
+              if (path && deletedPaths[path]) {
+                return onToggleBulletDeleted ? (
+                  <DeletedBulletChip key={`del-${bi}-${ii}`} onRestore={() => onToggleBulletDeleted(path)} />
+                ) : null;
+              }
+              const canDelete = !!(onToggleBulletDeleted && path);
+              const deleteBtn = canDelete
+                ? <BulletDeleteButton onDelete={() => onToggleBulletDeleted!(path!)} />
+                : null;
               const bullet = bulletAnalysis[bulletIdx];
 
               // Neutral render for bullets with no analysis entry (bulletIdx < 0 /
@@ -1871,6 +1957,7 @@ export default function AnalyzeLiveResumeBody({
                     style={{
                       marginLeft: 0,
                       lineHeight: "var(--az-resume-line-height, 1.45)",
+                      position: canDelete ? "relative" : undefined,
                       ...tailorHlStyle,
                       ...bulletEditedStyle,
                     }}
@@ -1878,6 +1965,7 @@ export default function AnalyzeLiveResumeBody({
                     <span {...editableSpanProps} style={{ flex: 1, fontSize: "var(--az-resume-body-font-size, 10px)", lineHeight: "inherit", color: "var(--resume-paper-ink)", overflowWrap: "anywhere", wordBreak: "break-word" }}>
                       {renderMetricLineWithLabel(neutralText, highlightsEnabled)}
                     </span>
+                    {deleteBtn}
                   </div>
                 );
               }
@@ -1968,8 +2056,10 @@ export default function AnalyzeLiveResumeBody({
                     boxShadow: isSelected ? "inset 0 0 0 1.5px var(--resume-paper-accent)" : undefined,
                     cursor: hasActionable ? "pointer" : "default",
                     animation: isPulsing ? "az-mirror-pulse 0.85s ease-out 1" : undefined,
+                    position: canDelete ? "relative" : undefined,
                   }}
                 >
+                  {deleteBtn}
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
                     {/* Score badge — visible in non-presentation mode only */}
                     {!presentationOnly && (

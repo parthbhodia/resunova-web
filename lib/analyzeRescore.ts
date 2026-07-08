@@ -53,9 +53,20 @@ export function patchAppliedEditsIntoResume(opts: {
   analysisBullets: RescoreBulletSource[];
   lineOverrides: Record<number, string>;
   summaryOverride?: string;
+  /** Rendered TEXT of bullets the user deleted in the preview (no marker).
+   *  Resolved from `deletedPaths` via `deletedBulletTextsFromStructured`. */
+  deletedBulletTexts?: string[];
 }): AppliedEditsPatch {
   const { extractedText, structuredResume, analysisBullets, lineOverrides } = opts;
   const summaryOverride = (opts.summaryOverride ?? "").trim();
+
+  const deletedNorms = new Set<string>();
+  for (const t of opts.deletedBulletTexts ?? []) {
+    const norm = normalizeForMatch(t ?? "");
+    if (norm) deletedNorms.add(norm);
+  }
+  const isDeleted = (line: string): boolean =>
+    deletedNorms.size > 0 && deletedNorms.has(normalizeForMatch(line));
 
   const pairs: ReplacementPair[] = [];
   for (const [key, replacement] of Object.entries(lineOverrides)) {
@@ -73,18 +84,21 @@ export function patchAppliedEditsIntoResume(opts: {
   const originalSummary = (structuredResume?.summary ?? "").trim();
   if (structuredResume) {
     patchedStructured = JSON.parse(JSON.stringify(structuredResume)) as StructuredResume;
-    if (pairs.length) {
+    // Drop deleted bullets first (by normalized text), then rewrite survivors.
+    const dropDeleted = (bullets: string[]): string[] =>
+      deletedNorms.size ? bullets.filter((b) => !isDeleted(b)) : bullets;
+    if (pairs.length || deletedNorms.size) {
       patchedStructured.experience = (patchedStructured.experience ?? []).map((exp) => ({
         ...exp,
-        bullets: patchBulletArray(exp.bullets ?? [], pairs),
+        bullets: patchBulletArray(dropDeleted(exp.bullets ?? []), pairs),
       }));
       patchedStructured.projects = (patchedStructured.projects ?? []).map((proj) => ({
         ...proj,
-        bullets: patchBulletArray(proj.bullets ?? [], pairs),
+        bullets: patchBulletArray(dropDeleted(proj.bullets ?? []), pairs),
       }));
       patchedStructured.education = (patchedStructured.education ?? []).map((edu) => ({
         ...edu,
-        bullets: patchBulletArray(edu.bullets ?? [], pairs),
+        bullets: patchBulletArray(dropDeleted(edu.bullets ?? []), pairs),
       }));
     }
     if (summaryOverride) patchedStructured.summary = summaryOverride;
@@ -92,14 +106,24 @@ export function patchAppliedEditsIntoResume(opts: {
 
   // ── Patch the flat extracted text line-by-line ─────────────────────────────
   let summaryApplied = false;
-  const lines = extractedText.split("\n").map((line) => {
+  let textDeletedCount = 0;
+  const lines: string[] = [];
+  for (const line of extractedText.split("\n")) {
     const { prefix, body } = stripMarker(line);
     const norm = normalizeForMatch(body);
-    if (!norm) return line;
+    if (!norm) {
+      lines.push(line);
+      continue;
+    }
+    if (isDeleted(body)) {
+      textDeletedCount += 1;
+      continue; // drop the deleted bullet line from the flat text
+    }
     const pair = pairs.find((p) => p.origNorm === norm);
     if (pair) {
       pair.hit = true;
-      return prefix + pair.text;
+      lines.push(prefix + pair.text);
+      continue;
     }
     if (
       summaryOverride &&
@@ -108,10 +132,11 @@ export function patchAppliedEditsIntoResume(opts: {
       normalizeForMatch(body) === normalizeForMatch(originalSummary)
     ) {
       summaryApplied = true;
-      return prefix + summaryOverride;
+      lines.push(prefix + summaryOverride);
+      continue;
     }
-    return line;
-  });
+    lines.push(line);
+  }
   let patchedText = lines.join("\n");
   // Multi-line summary fallback: exact substring replace on the raw text.
   if (summaryOverride && originalSummary && !summaryApplied && patchedText.includes(originalSummary)) {
@@ -119,8 +144,14 @@ export function patchAppliedEditsIntoResume(opts: {
     summaryApplied = true;
   }
 
+  // A deletion counts as an applied edit if it landed in the structured doc or
+  // the flat text — so "Update score" is enabled after deleting even with no
+  // rewrite/summary edit.
+  const deletionApplied = deletedNorms.size > 0 && (textDeletedCount > 0 || !!patchedStructured);
   const appliedCount =
-    pairs.filter((p) => p.hit).length + (summaryOverride && (summaryApplied || patchedStructured) ? 1 : 0);
+    pairs.filter((p) => p.hit).length +
+    (summaryOverride && (summaryApplied || patchedStructured) ? 1 : 0) +
+    (deletionApplied ? Math.max(textDeletedCount, deletedNorms.size) : 0);
 
   return { patchedText, patchedStructured, appliedCount };
 }

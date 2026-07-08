@@ -92,4 +92,36 @@ describe("Analyze preview inline editability", () => {
     expect(container.querySelector('[data-field-path="header.name"]')).toBeNull();
     expect(container.querySelector('[data-field-path="summary"]')).toBeNull();
   });
+
+  it("renders a ✕ delete affordance on each bullet when onToggleBulletDeleted is provided", () => {
+    const onToggleBulletDeleted = vi.fn();
+    const { container } = renderBody({ onToggleBulletDeleted });
+    const del = container.querySelector(".az-bullet-del");
+    expect(del).not.toBeNull();
+    fireEvent.click(del as HTMLElement);
+    expect(onToggleBulletDeleted).toHaveBeenCalledWith("exp.0.bullets.0");
+  });
+
+  it("does not render the ✕ affordance without an onToggleBulletDeleted handler", () => {
+    const { container } = renderBody();
+    expect(container.querySelector(".az-bullet-del")).toBeNull();
+  });
+
+  it("hides a deleted bullet's text and shows a Restore chip in its place", () => {
+    const onToggleBulletDeleted = vi.fn();
+    const { container } = renderBody({
+      onToggleBulletDeleted,
+      deletedPaths: { "exp.0.bullets.0": true },
+    });
+    // The bullet content is gone (so the WYSIWYG PDF capture excludes it)…
+    expect(container.textContent).not.toContain("Built scalable frontend UIs in Vue.js");
+    // …replaced by a reversible restore affordance.
+    expect(container.textContent).toContain("Bullet removed");
+    const restore = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent === "Restore",
+    );
+    expect(restore).toBeTruthy();
+    fireEvent.click(restore as HTMLElement);
+    expect(onToggleBulletDeleted).toHaveBeenCalledWith("exp.0.bullets.0");
+  });
 });

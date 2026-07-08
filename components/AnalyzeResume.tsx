@@ -18,6 +18,7 @@ import {
   type CategoryAssignmentOptions,
 } from "@/lib/analysisCategoryMatch";
 import { patchAppliedEditsIntoResume } from "@/lib/analyzeRescore";
+import { deletedBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeBody";
 import { estimateScoreAfterFixes } from "@/lib/analyzeScoreEstimate";
 import { apiUrl, resumeFileClientError } from "@/lib/utils";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
@@ -642,6 +643,7 @@ export default function AnalyzeResume() {
       analysisBullets: st.analysisBullets,
       lineOverrides: st.lineOverrides,
       summaryOverride: st.summaryOverride,
+      deletedBulletTexts: deletedBulletTextsFromStructured(st.structuredResume, st.deletedPaths),
     });
     if (patch.appliedCount === 0) {
       setFeedbackToast("Apply at least one fix to the preview first, then update the score.");
