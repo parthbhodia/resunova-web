@@ -843,6 +843,11 @@ function renderMetricLineWithLabel(text: string, highlightsEnabled: boolean): Re
   );
 }
 
+/** A date range glued to the end of a header segment, e.g. "Jan 2022 – Dec 2022",
+ *  "July 2018 – May 2021", "2020 – Present". Anchored to the end of the segment. */
+const ENTRY_TRAILING_DATE_RE =
+  /((?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?(?:19|20)\d{2}\s*[–—-]\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?(?:(?:19|20)\d{2}|Present|Current))\s*$/i;
+
 function EntryHeaderLine({ line }: { line: string }) {
   const t = line.trim();
 
@@ -879,7 +884,25 @@ function EntryHeaderLine({ line }: { line: string }) {
     const parts = t.split("·").map(p => p.trim()).filter(Boolean);
     const title = parts[0];
     const rest = parts.slice(1);
-    // Separate trailing year/GPA tokens from the institution/location
+    // A date range can be GLUED to the trailing segment when a PDF crams
+    // "location Month YYYY – Month YYYY" onto one line (extractor didn't split
+    // it into a separate `dates` field). Pull it off so it right-aligns like a
+    // normally-structured entry instead of trailing the location text.
+    let trailingDate: string | null = null;
+    if (rest.length) {
+      const li = rest.length - 1;
+      const m = rest[li].match(ENTRY_TRAILING_DATE_RE);
+      if (m && m.index !== undefined && m.index > 0) {
+        trailingDate = m[1].trim();
+        rest[li] = rest[li].slice(0, m.index).trim();
+        if (!rest[li]) rest.pop();
+      } else if (m && m.index === 0) {
+        // The whole trailing segment IS the date.
+        trailingDate = m[1].trim();
+        rest.pop();
+      }
+    }
+    // Separate trailing year/GPA `·` tokens from the institution/location
     const dateGpaRe = /^(\d{4}|\d\.\d{1,2})$/;
     let metaStart = rest.length;
     for (let i = rest.length - 1; i >= 1; i--) {
@@ -887,7 +910,7 @@ function EntryHeaderLine({ line }: { line: string }) {
       else break;
     }
     const institutionParts = rest.slice(0, metaStart);
-    const metaParts = rest.slice(metaStart);
+    const metaParts = [trailingDate, ...rest.slice(metaStart)].filter(Boolean) as string[];
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 1, lineHeight: 1.22 }}>
