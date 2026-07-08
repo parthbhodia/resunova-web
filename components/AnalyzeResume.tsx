@@ -39,7 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan, takeAnalyzeJd } from "@/lib/anonScan";
 import { useSignInDialog } from "@/components/SignInDialog";
-import { useUpgradeDialog } from "@/components/UpgradeDialog";
+import { useScanLimitDialog } from "@/components/ScanLimitDialog";
 import JobSearchActivationWidget, { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -448,7 +448,7 @@ export default function AnalyzeResume() {
   /** Signed-out visitor: first scan is free + fully unlocked; a 2nd asks to sign in. */
   const [isAnon, setIsAnon]                 = useState(false);
   const { openSignIn } = useSignInDialog();
-  const { openUpgrade } = useUpgradeDialog();
+  const { openScanLimit } = useScanLimitDialog();
   /** Show job activation widget in sidebar after a successful scan. */
   const [showJobActivation, setShowJobActivation] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -671,7 +671,7 @@ export default function AnalyzeResume() {
       if (!resp.ok) {
         if (resp.status === 429 && json?.code === "daily_scan_limit_reached") {
           setFeedbackToast("Daily scan limit reached — updating the score counts as a scan. Try again tomorrow.");
-          openUpgrade(json);
+          openScanLimit(json);
           return;
         }
         throw new Error(json?.error || "Rescore failed");
@@ -750,7 +750,7 @@ export default function AnalyzeResume() {
             openSignIn({ reason: "Sign in free for more résumé scans and saved reports." });
           } else {
             setFeedbackToast(`Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`);
-            openUpgrade(json);
+            openScanLimit(json);
           }
           return;
         }
