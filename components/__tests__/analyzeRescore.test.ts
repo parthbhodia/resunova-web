@@ -108,13 +108,13 @@ describe("patchAppliedEditsIntoResume", () => {
     expect(patchedText).not.toContain("Full Stack Engineer with 5+ years of experience.");
   });
 
-  it("drops a deleted bullet from structured experience and the flat text", () => {
+  it("drops a hidden bullet from structured experience and the flat text", () => {
     const { patchedText, patchedStructured, appliedCount } = patchAppliedEditsIntoResume({
       extractedText,
       structuredResume: structured,
       analysisBullets: [],
       lineOverrides: {},
-      deletedBulletTexts: ["Designed a PostgreSQL schema supporting a high-traffic CMS."],
+      hiddenBulletTexts: ["Designed a PostgreSQL schema supporting a high-traffic CMS."],
     });
     expect(appliedCount).toBeGreaterThanOrEqual(1);
     expect(patchedStructured!.experience[0].bullets).toHaveLength(1);
@@ -124,7 +124,7 @@ describe("patchAppliedEditsIntoResume", () => {
     expect(patchedText).toContain("Vue.js for federal platforms");
   });
 
-  it("deletion + rewrite compose (delete one bullet, rewrite the sibling)", () => {
+  it("hiding + rewrite compose (hide one bullet, rewrite the sibling)", () => {
     const { patchedText, patchedStructured } = patchAppliedEditsIntoResume({
       extractedText,
       structuredResume: structured,
@@ -132,7 +132,7 @@ describe("patchAppliedEditsIntoResume", () => {
         { originalBullet: "Built and maintained scalable frontend UIs in Vue.js for federal platforms." },
       ],
       lineOverrides: { 0: "Built Vue.js frontends for 12 federal platforms, cutting load times 40%." },
-      deletedBulletTexts: ["Designed a PostgreSQL schema supporting a high-traffic CMS."],
+      hiddenBulletTexts: ["Designed a PostgreSQL schema supporting a high-traffic CMS."],
     });
     expect(patchedStructured!.experience[0].bullets).toEqual([
       "Built Vue.js frontends for 12 federal platforms, cutting load times 40%.",
@@ -141,13 +141,13 @@ describe("patchAppliedEditsIntoResume", () => {
     expect(patchedText).not.toContain("PostgreSQL schema supporting");
   });
 
-  it("deletes from a null structured resume via the flat text only", () => {
+  it("hides from a null structured resume via the flat text only", () => {
     const { patchedText, patchedStructured, appliedCount } = patchAppliedEditsIntoResume({
       extractedText,
       structuredResume: null,
       analysisBullets: [],
       lineOverrides: {},
-      deletedBulletTexts: ["Open-source collaborative markdown editor."],
+      hiddenBulletTexts: ["Open-source collaborative markdown editor."],
     });
     expect(appliedCount).toBeGreaterThanOrEqual(1);
     expect(patchedStructured).toBeNull();

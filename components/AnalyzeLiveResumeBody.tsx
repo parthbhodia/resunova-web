@@ -476,24 +476,24 @@ export function buildBlocksFromStructured(
 }
 
 /**
- * Resolve deleted bullet PATH keys (e.g. `exp.0.bullets.2`) to their rendered
+ * Resolve hidden bullet PATH keys (e.g. `exp.0.bullets.2`) to their rendered
  * bullet TEXT by replaying the exact same structured builder that emitted the
  * paths. Text-based resolution keeps `analyzeRescore` decoupled from the
  * post-filter path-index semantics — the rescore drops bullets by normalized
- * text (identical to how it matches applied rewrites), so it can never delete
+ * text (identical to how it matches applied rewrites), so it can never drop
  * the wrong structured-array entry. Returns the plain bullet text (no marker).
  */
-export function deletedBulletTextsFromStructured(
+export function hiddenBulletTextsFromStructured(
   structured: StructuredResume | null,
-  deletedPaths: Record<string, true> | undefined,
+  hiddenPaths: Record<string, true> | undefined,
 ): string[] {
-  if (!structured || !deletedPaths || !Object.keys(deletedPaths).length) return [];
+  if (!structured || !hiddenPaths || !Object.keys(hiddenPaths).length) return [];
   const blocks = buildBlocksFromStructured(structured, [], undefined);
   const out: string[] = [];
   for (const b of blocks) {
     if (b.type !== "bullets") continue;
     for (const it of b.items) {
-      if (it.path && deletedPaths[it.path]) {
+      if (it.path && hiddenPaths[it.path]) {
         const text = it.rawLine.replace(/^\s*[•*·\-–—]+\s*/u, "").trim();
         if (text) out.push(text);
       }
@@ -1141,12 +1141,12 @@ interface Props {
   onSummaryEdit?: (text: string) => void;
   /** When true, lines with a structured path render as inline-editable (Analyze only). */
   fieldsEditable?: boolean;
-  /** Bullets removed by the user (keyed by structured path). Deleted bullets are
-   *  not rendered in the preview, so they're excluded from the WYSIWYG PDF too. */
-  deletedPaths?: Record<string, true>;
-  /** Remove / restore a bullet by structured path. When provided, each bullet
-   *  gets a ✕ delete affordance (stripped from the PDF via az-pdf-ignore). */
-  onToggleBulletDeleted?: (path: string) => void;
+  /** Bullets the user hid (keyed by structured path). Hidden bullets render
+   *  dimmed + struck-through in the editor and are excluded from the WYSIWYG PDF. */
+  hiddenPaths?: Record<string, true>;
+  /** Hide / show a bullet by structured path. When provided, each bullet gets an
+   *  eye toggle (stripped from the PDF via az-pdf-ignore). */
+  onToggleBulletHidden?: (path: string) => void;
   /** Currently selected section block index for box-wise editing (transient
    *  selection highlight; cleared on reorder). */
   selectedSectionIdx?: number | null;
@@ -1163,39 +1163,34 @@ interface Props {
   onReorderSections?: (order: string[]) => void;
 }
 
-/** ✕ affordance on a bullet — removes it from the preview + exports. Marked
- *  az-pdf-ignore so it's stripped from the WYSIWYG PDF; appears on row hover
- *  via the `.az-bullet-del` rule in the inline stylesheet. */
-function BulletDeleteButton({ onDelete }: { onDelete: () => void }) {
+/** Eye toggle on a bullet — hides it from the preview + exports (download without
+ *  it) or shows it again. Marked az-pdf-ignore so the control itself never reaches
+ *  the WYSIWYG PDF. When the bullet is VISIBLE the open eye appears on row hover
+ *  (via `.az-bullet-hide` in the inline stylesheet); when it's HIDDEN the slashed
+ *  eye stays visible so the row can always be un-hidden. */
+function BulletHideButton({ hidden, onToggle }: { hidden: boolean; onToggle: () => void }) {
   return (
     <button
       type="button"
-      className="az-pdf-ignore az-bullet-del"
-      title="Remove this bullet"
-      aria-label="Remove this bullet"
-      onClick={(e) => { e.stopPropagation(); onDelete(); }}
+      className={`az-pdf-ignore az-bullet-hide${hidden ? " az-bullet-hide--on" : ""}`}
+      title={hidden ? "Show this bullet (included in the download)" : "Hide this bullet (removed from the download)"}
+      aria-label={hidden ? "Show this bullet" : "Hide this bullet"}
+      aria-pressed={hidden}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
       style={{
         position: "absolute", top: 0, right: 0, width: 18, height: 18, borderRadius: 5,
-        border: "none", background: "transparent", color: "var(--dim)", cursor: "pointer",
-        display: "grid", placeItems: "center", opacity: 0, transition: "opacity .12s, color .12s, background .12s",
+        border: "none", background: "transparent", color: hidden ? "var(--accent)" : "var(--dim)", cursor: "pointer",
+        display: "grid", placeItems: "center", opacity: hidden ? 1 : 0, transition: "opacity .12s, color .12s, background .12s",
       }}
     >
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      {hidden ? (
+        // eye-off
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19M6.61 6.61A18.5 18.5 0 0 0 2 12s3 8 10 8a9.12 9.12 0 0 0 5.39-1.61" /><path d="M1 1l22 22" /></svg>
+      ) : (
+        // eye
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+      )}
     </button>
-  );
-}
-
-/** Placeholder shown where a bullet was removed — reversible while editing.
- *  az-pdf-ignore so neither the note nor the removed bullet reaches the PDF. */
-function DeletedBulletChip({ onRestore }: { onRestore: () => void }) {
-  return (
-    <div className="az-pdf-ignore" style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0 2px 2px" }}>
-      <span style={{ fontSize: 9.5, color: "var(--dim)", fontStyle: "italic", textDecoration: "line-through" }}>Bullet removed</span>
-      <button type="button" onClick={(e) => { e.stopPropagation(); onRestore(); }}
-        style={{ border: "none", background: "none", color: "var(--accent)", fontSize: 10, fontWeight: 700, cursor: "pointer", padding: 0 }}>
-        Restore
-      </button>
-    </div>
   );
 }
 
@@ -1228,8 +1223,8 @@ export default function AnalyzeLiveResumeBody({
   summaryOverride = "",
   fieldOverrides = {},
   onFieldEdit,
-  deletedPaths = {},
-  onToggleBulletDeleted,
+  hiddenPaths = {},
+  onToggleBulletHidden,
   onSummaryEdit,
   fieldsEditable = false,
   selectedSectionIdx = null,
@@ -1449,9 +1444,10 @@ export default function AnalyzeLiveResumeBody({
         .az-editable-field { border-bottom: 1px dashed transparent; transition: background 0.12s, border-color 0.12s; }
         .az-editable-field:hover { background: rgba(33,150,243,0.06); border-bottom-color: rgba(33,150,243,0.5); cursor: text; }
         .az-editable-field:focus { outline: none; background: rgba(33,150,243,0.08); border-bottom-color: rgba(33,150,243,0.85); }
-        .az-resume-bullet:hover .az-bullet-del { opacity: 1; }
-        .az-bullet-del:hover { background: var(--red-bg, rgba(248,113,113,0.14)); color: var(--red, #f87171); }
-        .az-bullet-del:focus-visible { opacity: 1; outline: 2px solid var(--red, #f87171); outline-offset: 1px; }
+        .az-resume-bullet:hover .az-bullet-hide { opacity: 1; }
+        .az-bullet-hide:hover { background: var(--accent-bg, rgba(99,102,241,0.12)); color: var(--accent, #6366f1); }
+        .az-bullet-hide--on { opacity: 1 !important; }
+        .az-bullet-hide:focus-visible { opacity: 1; outline: 2px solid var(--accent, #6366f1); outline-offset: 1px; }
       `}</style>
 
       {blocks.length === 0 && (
@@ -1882,18 +1878,18 @@ export default function AnalyzeLiveResumeBody({
         return (
           <div key={bi} style={bulletsBlockStyle(bulletSectionRole)}>
             {bulletRows.map(({ rawLine, bulletIdx, path }, ii) => {
-              // Deleted bullet: don't render its content, so it's gone from the
-              // WYSIWYG PDF capture too. Leave a small (az-pdf-ignore) restore
-              // affordance when editing so the removal is reversible.
-              if (path && deletedPaths[path]) {
-                return onToggleBulletDeleted ? (
-                  <DeletedBulletChip key={`del-${bi}-${ii}`} onRestore={() => onToggleBulletDeleted(path)} />
-                ) : null;
-              }
-              const canDelete = !!(onToggleBulletDeleted && path);
-              const deleteBtn = canDelete
-                ? <BulletDeleteButton onDelete={() => onToggleBulletDeleted!(path!)} />
+              // Hidden bullet: still renders (dimmed + struck-through) so the user
+              // can see what they hid and toggle it back, but the whole row is
+              // marked az-pdf-ignore so it's dropped from the WYSIWYG PDF capture
+              // (download without it). The eye toggle stays clickable.
+              const isHidden = !!(path && hiddenPaths[path]);
+              const canHide = !!(onToggleBulletHidden && path);
+              const hideBtn = canHide
+                ? <BulletHideButton hidden={isHidden} onToggle={() => onToggleBulletHidden!(path!)} />
                 : null;
+              const hiddenTextStyle: CSSProperties | undefined = isHidden
+                ? { opacity: 0.4, textDecoration: "line-through" }
+                : undefined;
               const bullet = bulletAnalysis[bulletIdx];
 
               // Neutral render for bullets with no analysis entry (bulletIdx < 0 /
@@ -1909,7 +1905,7 @@ export default function AnalyzeLiveResumeBody({
                 // span (see editableProps) — neutral bullets have no popup/card,
                 // so there's no click conflict.
                 const bulletEdited = !!(path && fieldOverrides[path] !== undefined);
-                const bulletEditable = !!(fieldsEditable && path && onFieldEdit);
+                const bulletEditable = !!(fieldsEditable && path && onFieldEdit) && !isHidden;
                 const neutralSource = bulletEdited ? fieldOverrides[path!] : strippedRaw;
                 const neutralText = softenRunOnExtractLine(neutralSource);
                 if (!neutralText && !bulletEditable) return null;
@@ -1957,19 +1953,19 @@ export default function AnalyzeLiveResumeBody({
                   <div
                     key={`neutral-${bi}-${ii}`}
                     data-bullet-idx={-1}
-                    className={`az-resume-bullet${presentationOnly ? " az-resume-bullet--tailor" : ""}`}
+                    className={`az-resume-bullet${presentationOnly ? " az-resume-bullet--tailor" : ""}${isHidden ? " az-pdf-ignore" : ""}`}
                     style={{
                       marginLeft: 0,
                       lineHeight: "var(--az-resume-line-height, 1.45)",
-                      position: canDelete ? "relative" : undefined,
+                      position: canHide ? "relative" : undefined,
                       ...tailorHlStyle,
                       ...bulletEditedStyle,
                     }}
                   >
-                    <span {...editableSpanProps} style={{ flex: 1, fontSize: "var(--az-resume-body-font-size, 10px)", lineHeight: "inherit", color: "var(--resume-paper-ink)", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                    <span {...editableSpanProps} style={{ flex: 1, fontSize: "var(--az-resume-body-font-size, 10px)", lineHeight: "inherit", color: "var(--resume-paper-ink)", overflowWrap: "anywhere", wordBreak: "break-word", ...hiddenTextStyle }}>
                       {renderMetricLineWithLabel(neutralText, highlightsEnabled)}
                     </span>
-                    {deleteBtn}
+                    {hideBtn}
                   </div>
                 );
               }
@@ -1998,7 +1994,7 @@ export default function AnalyzeLiveResumeBody({
               // editable in the preview (commits to the same preview-line
               // override the "Apply" button uses) instead of only being editable
               // through the floating popup.
-              const bulletInlineEditable = !!(fieldsEditable && patchPreviewLine);
+              const bulletInlineEditable = !!(fieldsEditable && patchPreviewLine) && !isHidden;
               const originalBulletText = softenRunOnExtractLine(
                 (bullet.originalBullet || "").replace(/^[\s•\-–—*·◦▪▸→>]+/, "").trimStart(),
               );
@@ -2036,7 +2032,7 @@ export default function AnalyzeLiveResumeBody({
                 <div
                   key={`${bulletIdx}-${bi}-${ii}`}
                   data-bullet-idx={bulletIdx}
-                  className={`az-resume-bullet${presentationOnly ? " az-resume-bullet--tailor" : ""}`}
+                  className={`az-resume-bullet${presentationOnly ? " az-resume-bullet--tailor" : ""}${isHidden ? " az-pdf-ignore" : ""}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     // Only open the "AI Suggestion" popup when there's an
@@ -2074,10 +2070,10 @@ export default function AnalyzeLiveResumeBody({
                     boxShadow: isSelected ? "inset 0 0 0 1.5px var(--resume-paper-accent)" : undefined,
                     cursor: hasActionable ? "pointer" : "default",
                     animation: isPulsing ? "az-mirror-pulse 0.85s ease-out 1" : undefined,
-                    position: canDelete ? "relative" : undefined,
+                    position: canHide ? "relative" : undefined,
                   }}
                 >
-                  {deleteBtn}
+                  {hideBtn}
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
                     {/* Score badge — visible in non-presentation mode only */}
                     {!presentationOnly && (
@@ -2086,7 +2082,7 @@ export default function AnalyzeLiveResumeBody({
                       </span>
                     )}
 
-                    <span style={{ flex: 1, fontSize: "var(--az-resume-body-font-size, 10px)", lineHeight: "inherit", color: "var(--resume-paper-ink)", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                    <span style={{ flex: 1, fontSize: "var(--az-resume-body-font-size, 10px)", lineHeight: "inherit", color: "var(--resume-paper-ink)", overflowWrap: "anywhere", wordBreak: "break-word", ...hiddenTextStyle }}>
                       {/* Editable text — the decoration marks are kept OUTSIDE
                           this span so they never land in the committed text. */}
                       <span

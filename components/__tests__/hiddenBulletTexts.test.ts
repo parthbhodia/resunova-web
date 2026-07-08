@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deletedBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeBody";
+import { hiddenBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeBody";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 
 const structured: StructuredResume = {
@@ -31,21 +31,21 @@ const structured: StructuredResume = {
   extra_sections: [],
 };
 
-describe("deletedBulletTextsFromStructured", () => {
+describe("hiddenBulletTextsFromStructured", () => {
   it("resolves a bullet path to its rendered text (marker stripped)", () => {
-    const texts = deletedBulletTextsFromStructured(structured, { "exp.0.bullets.1": true });
+    const texts = hiddenBulletTextsFromStructured(structured, { "exp.0.bullets.1": true });
     expect(texts).toHaveLength(1);
     expect(texts[0]).toBe("Designed a PostgreSQL schema supporting a high-traffic CMS.");
     expect(texts[0].startsWith("•")).toBe(false);
   });
 
   it("resolves a project bullet path", () => {
-    const texts = deletedBulletTextsFromStructured(structured, { "proj.0.bullets.0": true });
+    const texts = hiddenBulletTextsFromStructured(structured, { "proj.0.bullets.0": true });
     expect(texts).toEqual(["Open-source collaborative markdown editor."]);
   });
 
-  it("resolves multiple deleted paths across sections", () => {
-    const texts = deletedBulletTextsFromStructured(structured, {
+  it("resolves multiple hidden paths across sections", () => {
+    const texts = hiddenBulletTextsFromStructured(structured, {
       "exp.0.bullets.0": true,
       "proj.0.bullets.0": true,
     });
@@ -54,12 +54,12 @@ describe("deletedBulletTextsFromStructured", () => {
   });
 
   it("returns [] for no deletions, empty map, or null structured", () => {
-    expect(deletedBulletTextsFromStructured(structured, {})).toEqual([]);
-    expect(deletedBulletTextsFromStructured(structured, undefined)).toEqual([]);
-    expect(deletedBulletTextsFromStructured(null, { "exp.0.bullets.0": true })).toEqual([]);
+    expect(hiddenBulletTextsFromStructured(structured, {})).toEqual([]);
+    expect(hiddenBulletTextsFromStructured(structured, undefined)).toEqual([]);
+    expect(hiddenBulletTextsFromStructured(null, { "exp.0.bullets.0": true })).toEqual([]);
   });
 
   it("ignores paths that don't match any rendered bullet", () => {
-    expect(deletedBulletTextsFromStructured(structured, { "exp.9.bullets.9": true })).toEqual([]);
+    expect(hiddenBulletTextsFromStructured(structured, { "exp.9.bullets.9": true })).toEqual([]);
   });
 });
