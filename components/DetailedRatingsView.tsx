@@ -445,8 +445,6 @@ export function TailorMatchDetail(props: SharedProps) {
     gaps,
     verdict,
     navTabs,
-    prevTab,
-    nextTab,
     impact,
     impactStyle,
   } = state;
@@ -509,14 +507,6 @@ export function TailorMatchDetail(props: SharedProps) {
               </div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-            <button type="button" disabled={!prevTab} onClick={() => prevTab && setActiveTab(prevTab)}
-              style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", cursor: prevTab ? "pointer" : "not-allowed", opacity: prevTab ? 1 : 0.4, fontSize: 14, color: "var(--muted)" }}
-            >‹</button>
-            <button type="button" disabled={!nextTab} onClick={() => nextTab && setActiveTab(nextTab)}
-              style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", cursor: nextTab ? "pointer" : "not-allowed", opacity: nextTab ? 1 : 0.4, fontSize: 14, color: "var(--muted)" }}
-            >›</button>
-          </div>
         </div>
       )}
 
@@ -553,6 +543,44 @@ export function TailorMatchDetail(props: SharedProps) {
           <CategoryFixPanel onApplyAll={onApplyAllSuggestions ?? (() => {})} applyBusy={applyBusy ?? false} />
         )}
       </div>
+
+      {/* Guided stepper — walk the match one dimension at a time. Shown for the
+          walkthrough dimensions (not the full-bleed fix/gap-fix drill-ins). */}
+      {activeTab !== "fixes" && activeTab !== "gapfix" && (() => {
+        const idx = navTabs.findIndex((t) => t.id === activeTab);
+        const prev = idx > 0 ? navTabs[idx - 1] : null;
+        const next = idx >= 0 && idx < navTabs.length - 1 ? navTabs[idx + 1] : null;
+        const navBtn = (extra: React.CSSProperties): React.CSSProperties => ({
+          display: "inline-flex", alignItems: "center", gap: 7, borderRadius: 9,
+          fontWeight: 700, fontSize: 13, padding: "9px 15px", fontFamily: "inherit",
+          border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)",
+          cursor: "pointer", ...extra,
+        });
+        return (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+            padding: "13px 24px", borderTop: "1px solid var(--border)", background: "var(--surface)", flexShrink: 0,
+          }}>
+            <button type="button" onClick={() => prev && setActiveTab(prev.id)}
+              style={navBtn({ visibility: prev ? "visible" : "hidden" })}>
+              ‹ Back
+            </button>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6 }}>
+              Step {idx + 1} of {navTabs.length}
+            </div>
+            {next ? (
+              <button type="button" onClick={() => setActiveTab(next.id)}
+                style={navBtn({ border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff" })}>
+                Next: {next.label} ›
+              </button>
+            ) : (
+              <button type="button" onClick={() => setActiveTab(navTabs[0].id)} style={navBtn({})}>
+                Back to Overview
+              </button>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
