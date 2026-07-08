@@ -114,6 +114,8 @@ interface PersistedEdits {
   acceptedBullets: Record<string, "ai" | "custom">;
   summaryOverride?: string;
   fieldOverrides?: Record<string, string>;
+  /** Bullets the user hid, keyed by stable structured path (e.g. "exp.0.bullets.2"). */
+  hiddenPaths?: Record<string, true>;
   savedAt: string;
 }
 
@@ -136,6 +138,7 @@ function savePersistedEdits(
   acceptedBullets: Record<number, "ai" | "custom">,
   summaryOverride: string,
   fieldOverrides: Record<string, string>,
+  hiddenPaths: Record<string, true>,
 ) {
   if (typeof window === "undefined" || !id) return;
   const clean = <T>(rec: Record<number, T>): Record<string, T> => {
@@ -151,6 +154,7 @@ function savePersistedEdits(
       acceptedBullets: clean(acceptedBullets),
       summaryOverride: summaryOverride || undefined,
       fieldOverrides: Object.keys(fieldOverrides).length ? fieldOverrides : undefined,
+      hiddenPaths: Object.keys(hiddenPaths).length ? hiddenPaths : undefined,
       savedAt: new Date().toISOString(),
     } satisfies PersistedEdits));
   } catch { /* quota */ }
@@ -197,6 +201,8 @@ export interface ResumeAnalyzeStore {
    *  (e.g. "edu.0.1", "proj.1.head", "skills.2", "extra.0.3"). Applied to the
    *  preview + PDF. Bullets use lineOverrides; the summary uses summaryOverride. */
   fieldOverrides: Record<string, string>;
+  /** Bullets hidden from the preview + exports, keyed by stable structured path. */
+  hiddenPaths: Record<string, true>;
 
   // ── UI state ──
   pulseBulletIndex: number | null;
@@ -221,6 +227,8 @@ export interface ResumeAnalyzeStore {
   setFieldOverride: (path: string, text: string) => void;
   /** Revert a single field to its original text. */
   clearFieldOverride: (path: string) => void;
+  /** Hide / show a bullet (by structured path) in the preview + exports. */
+  toggleBulletHidden: (path: string) => void;
 
   // ── Persistence actions ──
   /** Persist current edit state under a draft ID (replaces saveAnalyzeEditDraft). */
@@ -251,6 +259,7 @@ const emptyEdits = () => ({
   acceptedBullets: {} as Record<number, "ai" | "custom">,
   summaryOverride: "",
   fieldOverrides: {} as Record<string, string>,
+  hiddenPaths: {} as Record<string, true>,
 });
 
 const initial = () => ({
@@ -370,9 +379,18 @@ export const useResumeAnalyzeStore = create<ResumeAnalyzeStore>((set, get) => ({
     });
   },
 
+  toggleBulletHidden: (path) => {
+    set((s) => {
+      const next = { ...s.hiddenPaths };
+      if (next[path]) delete next[path];
+      else next[path] = true;
+      return { hiddenPaths: next };
+    });
+  },
+
   persistEdits: (draftId) => {
-    const { lineOverrides, rewriteEdits, acceptedBullets, summaryOverride, fieldOverrides } = get();
-    savePersistedEdits(draftId, lineOverrides, rewriteEdits, acceptedBullets, summaryOverride, fieldOverrides);
+    const { lineOverrides, rewriteEdits, acceptedBullets, summaryOverride, fieldOverrides, hiddenPaths } = get();
+    savePersistedEdits(draftId, lineOverrides, rewriteEdits, acceptedBullets, summaryOverride, fieldOverrides, hiddenPaths);
   },
 
   restoreEdits: (draftId) => {
@@ -395,7 +413,11 @@ export const useResumeAnalyzeStore = create<ResumeAnalyzeStore>((set, get) => ({
     for (const [k, v] of Object.entries(saved.fieldOverrides ?? {})) {
       if (typeof v === "string" && v.trim()) fo[k] = v;
     }
-    set({ lineOverrides: toNum(saved.lineOverrides ?? {}), rewriteEdits: toNum(saved.rewriteEdits ?? {}), acceptedBullets: ab, summaryOverride: saved.summaryOverride ?? "", fieldOverrides: fo });
+    const dp: Record<string, true> = {};
+    for (const [k, v] of Object.entries(saved.hiddenPaths ?? {})) {
+      if (v === true) dp[k] = true;
+    }
+    set({ lineOverrides: toNum(saved.lineOverrides ?? {}), rewriteEdits: toNum(saved.rewriteEdits ?? {}), acceptedBullets: ab, summaryOverride: saved.summaryOverride ?? "", fieldOverrides: fo, hiddenPaths: dp });
     return true;
   },
 

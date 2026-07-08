@@ -53,9 +53,20 @@ export function patchAppliedEditsIntoResume(opts: {
   analysisBullets: RescoreBulletSource[];
   lineOverrides: Record<number, string>;
   summaryOverride?: string;
+  /** Rendered TEXT of bullets the user hid in the preview (no marker).
+   *  Resolved from `hiddenPaths` via `hiddenBulletTextsFromStructured`. */
+  hiddenBulletTexts?: string[];
 }): AppliedEditsPatch {
   const { extractedText, structuredResume, analysisBullets, lineOverrides } = opts;
   const summaryOverride = (opts.summaryOverride ?? "").trim();
+
+  const hiddenNorms = new Set<string>();
+  for (const t of opts.hiddenBulletTexts ?? []) {
+    const norm = normalizeForMatch(t ?? "");
+    if (norm) hiddenNorms.add(norm);
+  }
+  const isHidden = (line: string): boolean =>
+    hiddenNorms.size > 0 && hiddenNorms.has(normalizeForMatch(line));
 
   const pairs: ReplacementPair[] = [];
   for (const [key, replacement] of Object.entries(lineOverrides)) {
@@ -73,18 +84,21 @@ export function patchAppliedEditsIntoResume(opts: {
   const originalSummary = (structuredResume?.summary ?? "").trim();
   if (structuredResume) {
     patchedStructured = JSON.parse(JSON.stringify(structuredResume)) as StructuredResume;
-    if (pairs.length) {
+    // Drop hidden bullets first (by normalized text), then rewrite survivors.
+    const dropHidden = (bullets: string[]): string[] =>
+      hiddenNorms.size ? bullets.filter((b) => !isHidden(b)) : bullets;
+    if (pairs.length || hiddenNorms.size) {
       patchedStructured.experience = (patchedStructured.experience ?? []).map((exp) => ({
         ...exp,
-        bullets: patchBulletArray(exp.bullets ?? [], pairs),
+        bullets: patchBulletArray(dropHidden(exp.bullets ?? []), pairs),
       }));
       patchedStructured.projects = (patchedStructured.projects ?? []).map((proj) => ({
         ...proj,
-        bullets: patchBulletArray(proj.bullets ?? [], pairs),
+        bullets: patchBulletArray(dropHidden(proj.bullets ?? []), pairs),
       }));
       patchedStructured.education = (patchedStructured.education ?? []).map((edu) => ({
         ...edu,
-        bullets: patchBulletArray(edu.bullets ?? [], pairs),
+        bullets: patchBulletArray(dropHidden(edu.bullets ?? []), pairs),
       }));
     }
     if (summaryOverride) patchedStructured.summary = summaryOverride;
@@ -92,14 +106,24 @@ export function patchAppliedEditsIntoResume(opts: {
 
   // ── Patch the flat extracted text line-by-line ─────────────────────────────
   let summaryApplied = false;
-  const lines = extractedText.split("\n").map((line) => {
+  let textHiddenCount = 0;
+  const lines: string[] = [];
+  for (const line of extractedText.split("\n")) {
     const { prefix, body } = stripMarker(line);
     const norm = normalizeForMatch(body);
-    if (!norm) return line;
+    if (!norm) {
+      lines.push(line);
+      continue;
+    }
+    if (isHidden(body)) {
+      textHiddenCount += 1;
+      continue; // drop the hidden bullet line from the flat text
+    }
     const pair = pairs.find((p) => p.origNorm === norm);
     if (pair) {
       pair.hit = true;
-      return prefix + pair.text;
+      lines.push(prefix + pair.text);
+      continue;
     }
     if (
       summaryOverride &&
@@ -108,10 +132,11 @@ export function patchAppliedEditsIntoResume(opts: {
       normalizeForMatch(body) === normalizeForMatch(originalSummary)
     ) {
       summaryApplied = true;
-      return prefix + summaryOverride;
+      lines.push(prefix + summaryOverride);
+      continue;
     }
-    return line;
-  });
+    lines.push(line);
+  }
   let patchedText = lines.join("\n");
   // Multi-line summary fallback: exact substring replace on the raw text.
   if (summaryOverride && originalSummary && !summaryApplied && patchedText.includes(originalSummary)) {
@@ -119,8 +144,14 @@ export function patchAppliedEditsIntoResume(opts: {
     summaryApplied = true;
   }
 
+  // A hidden bullet counts as an applied edit if it landed in the structured
+  // doc or the flat text — so "Update score" is enabled after hiding even with
+  // no rewrite/summary edit.
+  const hidingApplied = hiddenNorms.size > 0 && (textHiddenCount > 0 || !!patchedStructured);
   const appliedCount =
-    pairs.filter((p) => p.hit).length + (summaryOverride && (summaryApplied || patchedStructured) ? 1 : 0);
+    pairs.filter((p) => p.hit).length +
+    (summaryOverride && (summaryApplied || patchedStructured) ? 1 : 0) +
+    (hidingApplied ? Math.max(textHiddenCount, hiddenNorms.size) : 0);
 
   return { patchedText, patchedStructured, appliedCount };
 }

@@ -107,6 +107,8 @@ export default function AnalyzePreviewPane({
   const fieldOverrides = useResumeAnalyzeStore((s) => s.fieldOverrides);
   const setFieldOverride = useResumeAnalyzeStore((s) => s.setFieldOverride);
   const setSummaryOverride = useResumeAnalyzeStore((s) => s.setSummaryOverride);
+  const hiddenPaths = useResumeAnalyzeStore((s) => s.hiddenPaths);
+  const toggleBulletHidden = useResumeAnalyzeStore((s) => s.toggleBulletHidden);
   const pulseToken = useResumeAnalyzeStore((s) => s.pulseToken);
   const pulseBulletIndex = useResumeAnalyzeStore((s) => s.pulseBulletIndex);
   const clearPulse = useResumeAnalyzeStore((s) => s.clearPulse);
@@ -145,6 +147,8 @@ export default function AnalyzePreviewPane({
       fieldOverrides={fieldOverrides}
       onFieldEdit={setFieldOverride}
       onSummaryEdit={setSummaryOverride}
+      hiddenPaths={hiddenPaths}
+      onToggleBulletHidden={toggleBulletHidden}
       fieldsEditable={true}
       presentationOnly={presentationOnly}
       onOpenBuilder={onOpenBuilder}

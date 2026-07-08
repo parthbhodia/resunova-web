@@ -66,10 +66,12 @@ describe("Analyze preview inline editability", () => {
     expect(summary!.getAttribute("contenteditable")).toBe("true");
   });
 
-  it("keeps the flagged summary as a click-target (not inline-editable)", () => {
+  it("keeps a flagged summary as a click-target AND makes it inline-editable", () => {
     const { container } = renderBody({ summaryFlagged: true, onSummarySelect: vi.fn() });
+    // Still opens the left fix card (click-target)…
     expect(container.querySelector('[data-summary-flag="1"]')).not.toBeNull();
-    expect(container.querySelector('[data-field-path="summary"]')).toBeNull();
+    // …but is now also editable inline so the whole résumé can be edited.
+    expect(container.querySelector('[data-field-path="summary"]')).not.toBeNull();
   });
 
   it("commits a summary edit through onSummaryEdit on blur", () => {
@@ -91,5 +93,35 @@ describe("Analyze preview inline editability", () => {
     const { container } = renderBody({ fieldsEditable: false });
     expect(container.querySelector('[data-field-path="header.name"]')).toBeNull();
     expect(container.querySelector('[data-field-path="summary"]')).toBeNull();
+  });
+
+  it("renders an eye (hide) affordance on each bullet when onToggleBulletHidden is provided", () => {
+    const onToggleBulletHidden = vi.fn();
+    const { container } = renderBody({ onToggleBulletHidden });
+    const eye = container.querySelector(".az-bullet-hide");
+    expect(eye).not.toBeNull();
+    fireEvent.click(eye as HTMLElement);
+    expect(onToggleBulletHidden).toHaveBeenCalledWith("exp.0.bullets.0");
+  });
+
+  it("does not render the eye affordance without an onToggleBulletHidden handler", () => {
+    const { container } = renderBody();
+    expect(container.querySelector(".az-bullet-hide")).toBeNull();
+  });
+
+  it("a hidden bullet is excluded from the PDF (az-pdf-ignore) but still toggleable", () => {
+    const onToggleBulletHidden = vi.fn();
+    const { container } = renderBody({
+      onToggleBulletHidden,
+      hiddenPaths: { "exp.0.bullets.0": true },
+    });
+    // The hidden bullet still renders (dimmed) so the user can toggle it back…
+    const row = container.querySelector('[data-bullet-idx]') as HTMLElement;
+    expect(row.className).toContain("az-pdf-ignore"); // …but is dropped from the WYSIWYG PDF capture.
+    // The eye toggle shows the "on" (hidden) state and un-hides on click.
+    const eye = container.querySelector(".az-bullet-hide.az-bullet-hide--on");
+    expect(eye).not.toBeNull();
+    fireEvent.click(eye as HTMLElement);
+    expect(onToggleBulletHidden).toHaveBeenCalledWith("exp.0.bullets.0");
   });
 });

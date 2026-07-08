@@ -67,6 +67,15 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
     el.style.textDecoration = "none";
     el.removeAttribute("contenteditable");
   });
+  // 4c-bis. Editable bullet text spans commit via the preview override, not a
+  // data-field-path, so strip their contentEditable affordance separately.
+  clone.querySelectorAll<HTMLElement>(".az-editable-field[contenteditable]").forEach((el) => {
+    el.style.background = "transparent";
+    el.style.boxShadow = "none";
+    el.style.cursor = "default";
+    el.style.textDecoration = "none";
+    el.removeAttribute("contenteditable");
+  });
 
   // 4d. Neutralize section-heading edit affordances (selected accent border/bg)
   //     so a left-selected heading never exports with the edit highlight. The

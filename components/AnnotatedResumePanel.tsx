@@ -112,6 +112,10 @@ interface Props {
   exportRoleLabel?: string;
   /** Inline summary edit committed from the preview (Analyze routes this to summaryOverride). */
   onSummaryEdit?: (text: string) => void;
+  /** Bullets the user hid (keyed by structured path) — dimmed in the preview, excluded from the PDF. */
+  hiddenPaths?: Record<string, true>;
+  /** Hide / show a bullet by structured path (adds the eye toggle). */
+  onToggleBulletHidden?: (path: string) => void;
   /** Re-run the analysis with applied fixes baked in; persists a new analysis row. */
   onRescore?: () => void;
   /** True while the rescore round-trip is in flight. */
@@ -439,6 +443,8 @@ export default function AnnotatedResumePanel({
   tailorAppliedBulletIndices = new Set<number>(),
   exportRoleLabel = "",
   onSummaryEdit,
+  hiddenPaths,
+  onToggleBulletHidden,
   onRescore,
   rescoring = false,
   scoreEstimate = null,
@@ -1371,6 +1377,8 @@ export default function AnnotatedResumePanel({
                 fieldOverrides={fieldOverrides}
                 onFieldEdit={onFieldEdit}
                 onSummaryEdit={onSummaryEdit}
+                hiddenPaths={hiddenPaths}
+                onToggleBulletHidden={onToggleBulletHidden}
                 fieldsEditable={fieldsEditable}
                 presentationOnly={presentationOnly}
                 pulseBulletIndex={pulseBulletIndex}
