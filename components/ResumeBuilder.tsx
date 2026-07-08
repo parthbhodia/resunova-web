@@ -3620,6 +3620,13 @@ export default function ResumeBuilder({
                     rewriteEdits={tailorRewriteEdits}
                     patchBulletRewrite={patchTailorBulletRewrite}
                     patchPreviewLine={patchTailorPreviewLine}
+                    onBulletLinkedSelect={() => {
+                      // Clicking a preview bullet opens the corresponding
+                      // sidebar section — the "Fixes" tab, where per-bullet
+                      // rewrites live — matching the Analyze flow's bullet→card
+                      // link. Only switches when there are fixes to show.
+                      if (suggestions.length > 0 && !generating) setResultsActiveTab("fixes");
+                    }}
                   />
                 </div>
               </section>

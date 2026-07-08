@@ -28,6 +28,9 @@ interface Props {
   rewriteEdits?: Record<number, string>;
   patchBulletRewrite?: (bulletIndex: number, value: string | null) => void;
   patchPreviewLine?: (bulletIndex: number, value: string | null) => void;
+  /** Clicking a preview bullet reports its index so the caller can open the
+   *  corresponding sidebar section (the Tailor analog of Analyze's card link). */
+  onBulletLinkedSelect?: (bulletIndex: number) => void;
   /** Optional DOCX export when a tailored folder exists. */
   onExportDocx?: () => void;
   exportDocxEnabled?: boolean;
@@ -58,6 +61,7 @@ export default function TailorPreviewPane({
   rewriteEdits = {},
   patchBulletRewrite,
   patchPreviewLine,
+  onBulletLinkedSelect,
   onExportDocx,
   exportDocxEnabled = false,
   docxExportBusy = false,
@@ -78,6 +82,7 @@ export default function TailorPreviewPane({
       patchBulletRewrite={patchBulletRewrite ?? noopPatch}
       previewLineOverrides={previewLineOverrides}
       patchPreviewLine={patchPreviewLine ?? noopPatch}
+      onBulletLinkedSelect={onBulletLinkedSelect}
       extractedText={extractedText.trim() || null}
       structuredResume={structuredResume}
       structuredResumeAuthoritative
