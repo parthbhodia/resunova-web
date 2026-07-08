@@ -81,6 +81,7 @@ import MatchBreakdownCards from "./MatchBreakdownCards";
 import { TailorMatchSidebar, TailorMatchDetail } from "./DetailedRatingsView";
 import TailorRecentJobs from "./TailorRecentJobs";
 import TailorPreviewPane from "./TailorPreviewPane";
+import TailorAnalyzingLoader from "./TailorAnalyzingLoader";
 import CategoryFixPanel from "./CategoryFixPanel";
 import { isDetailedRatings } from "@/lib/types";
 import type { DetailedRatingItem } from "@/lib/types";
@@ -2613,16 +2614,11 @@ export default function ResumeBuilder({
                         embedded
                       />
                       {analyzing && (
-                        <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                            <Spinner size={14} />
-                            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
-                              Analysing match…
-                            </span>
-                          </div>
-                          <p style={{ margin: 0, fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>
-                            Scoring fit, extracting gaps, and identifying missing keywords (~20s).
-                          </p>
+                        <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+                          <Spinner size={14} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>
+                            Analysing match…
+                          </span>
                         </div>
                       )}
                     </div>
@@ -2661,25 +2657,8 @@ export default function ResumeBuilder({
 
           {/* ── Analyze loader ── */}
           {analyzing && !studioHandoff && (
-            <div
-              className="fade-in"
-              role="status"
-              aria-live="polite"
-              style={{
-                marginBottom: 24, borderRadius: 16, border: "1px solid var(--border)",
-                background: "var(--surface)", boxShadow: "var(--shadow-card)", padding: "24px 24px 20px",
-                display: "flex", flexDirection: "column", gap: 10,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Spinner size={16} />
-                <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.4, color: "var(--text)" }}>
-                  Analysing your résumé…
-                </span>
-              </div>
-              <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
-                Scoring your match, extracting gaps, and identifying missing keywords. This takes about 20 seconds.
-              </p>
+            <div style={{ marginBottom: 24, paddingTop: 8 }}>
+              <TailorAnalyzingLoader />
             </div>
           )}
 
