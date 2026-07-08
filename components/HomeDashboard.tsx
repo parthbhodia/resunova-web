@@ -158,6 +158,9 @@ const CheckGlyph = (
 
 /* ---------- main component ---------- */
 
+/** Pro billing hasn't launched — hide the proactive Upgrade-to-Pro CTA for now. */
+const SHOW_UPGRADE_CTA = false;
+
 export default function HomeDashboard() {
   const router = useRouter();
   const { openUpgrade } = useUpgradeDialog();
@@ -297,16 +300,20 @@ export default function HomeDashboard() {
             Let&apos;s get you your dream job — pick up where you left off.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[12px] font-medium text-[var(--muted)]">
-            {planLabel}
-          </span>
-          {!scan?.unlimited ? (
-            <Button size="sm" className="gap-1.5" onClick={() => openUpgrade()}>
-              Upgrade
-            </Button>
-          ) : null}
-        </div>
+        {/* Upgrade-to-Pro section — hidden until Pro billing launches.
+            Flip SHOW_UPGRADE_CTA to true to restore the plan pill + Upgrade button. */}
+        {SHOW_UPGRADE_CTA && (
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[12px] font-medium text-[var(--muted)]">
+              {planLabel}
+            </span>
+            {!scan?.unlimited ? (
+              <Button size="sm" className="gap-1.5" onClick={() => openUpgrade()}>
+                Upgrade
+              </Button>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* KPI row */}
