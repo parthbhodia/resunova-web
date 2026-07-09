@@ -20,7 +20,7 @@ import {
   type CategoryAssignmentOptions,
   type CategoryRewriteBullet,
 } from "@/lib/analysisCategoryMatch";
-import { normalizeForMatch } from "@/lib/resumeBulletMatch";
+import { addsMetricNumeral, isMaterialEdit } from "@/lib/analyzeEditEvidence";
 
 export interface ScoreEstimate {
   current: number;
@@ -31,23 +31,6 @@ export interface ScoreEstimate {
    *  categories present in the input. Used to persist a consistent deterministic
    *  score on save (so overall matches the categories). */
   projectedCategories: Record<string, number>;
-}
-
-/** Numeral tokens (incl. $1.2M / 40% / 100,000) present in `text`. */
-function numeralTokens(text: string): Set<string> {
-  return new Set(text.match(/\d[\d,.]*%?/g) ?? []);
-}
-
-/** AI fill-in placeholders like [X%] / [$Y] count as quantification intent. */
-const PLACEHOLDER_RE = /\[[^\]]*\]/;
-
-function addsNumeral(original: string, applied: string): boolean {
-  if (PLACEHOLDER_RE.test(applied)) return true;
-  const before = numeralTokens(original);
-  for (const tok of numeralTokens(applied)) {
-    if (!before.has(tok)) return true;
-  }
-  return false;
 }
 
 /** How much of a category's gap toward its ceiling full resolution recovers. */
@@ -67,19 +50,22 @@ export function estimateScoreAfterFixes(opts: {
   const { overallScore, categoryScores, bullets, lineOverrides, categoryAssignmentOpts } = opts;
   if (typeof overallScore !== "number" || !categoryScores) return null;
 
-  // Verify each applied override deterministically.
-  const changedIdx = new Set<number>();
-  const numeralIdx = new Set<number>();
+  // Verify each applied override deterministically — mirror the honesty
+  // validators: a NON-quantification category resolves only on a materially
+  // substantive edit (not a near-no-op reword), quantification only on a real
+  // new metric numeral (not a bare year or an unfilled placeholder alone).
+  const materialIdx = new Set<number>();
+  const metricIdx = new Set<number>();
   for (const [key, applied] of Object.entries(lineOverrides)) {
     const idx = Number(key);
     const original = (bullets[idx]?.originalBullet ?? "").trim();
     const text = (applied ?? "").trim();
     if (!original || !text) continue;
-    if (normalizeForMatch(text) === normalizeForMatch(original)) continue;
-    changedIdx.add(idx);
-    if (addsNumeral(original, text)) numeralIdx.add(idx);
+    if (isMaterialEdit(original, text)) materialIdx.add(idx);
+    if (addsMetricNumeral(original, text)) metricIdx.add(idx);
   }
-  if (changedIdx.size === 0) return null;
+  const anyResolvedIdx = new Set<number>([...materialIdx, ...metricIdx]);
+  if (anyResolvedIdx.size === 0) return null;
 
   const currentScores: number[] = [];
   const projectedScores: number[] = [];
@@ -93,9 +79,9 @@ export function estimateScoreAfterFixes(opts: {
     bullets.forEach((b, i) => {
       if (bulletBelongsToCategory(b, cat, bullets, i, categoryAssignmentOpts)) flagged.push(i);
     });
-    // A quantification fix only counts when it really adds a number — the
-    // same evidence rule the backend validators enforce on rewrites.
-    const resolvedSet = cat === "quantification" ? numeralIdx : changedIdx;
+    // A quantification fix only counts when it really adds a metric number; any
+    // other category counts only on a materially-substantive rewrite.
+    const resolvedSet = cat === "quantification" ? metricIdx : materialIdx;
     const resolved = flagged.filter((i) => resolvedSet.has(i)).length;
     if (!flagged.length || !resolved || score >= CATEGORY_CEILING) {
       projectedScores.push(score);
@@ -114,5 +100,5 @@ export function estimateScoreAfterFixes(opts: {
   const projected = Math.round(Math.min(95, Math.max(20, overallScore + delta)));
   if (projected - overallScore < 1) return null;
 
-  return { current: overallScore, projected, resolvedCount: changedIdx.size, projectedCategories };
+  return { current: overallScore, projected, resolvedCount: anyResolvedIdx.size, projectedCategories };
 }

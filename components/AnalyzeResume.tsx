@@ -21,7 +21,6 @@ import { patchAppliedEditsIntoResume } from "@/lib/analyzeRescore";
 import { hiddenBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeBody";
 import { estimateScoreAfterFixes } from "@/lib/analyzeScoreEstimate";
 import { reconcileAnalysisForSave } from "@/lib/analyzeReconcile";
-import { normalizeForMatch } from "@/lib/resumeBulletMatch";
 import { apiUrl, resumeFileClientError } from "@/lib/utils";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
@@ -1040,6 +1039,9 @@ export default function AnalyzeResume() {
       return;
     }
     const sig = [
+      // Analysis identity so edits to a DIFFERENT (or re-run) résumé are never
+      // deduped against a prior save's signature.
+      result?.analysisId ?? activeEditDraftId ?? "",
       patch.patchedText.length,
       patch.appliedCount,
       Object.keys(st.lineOverrides).sort().join(","),
@@ -1071,16 +1073,15 @@ export default function AnalyzeResume() {
         // Deterministically reconcile the qualitative fields (flags/issues/
         // rationales) so the saved version stops showing stale flags on edited
         // bullets — no LLM, mirrors the honesty validators.
-        const hiddenNorms = new Set(
-          hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths).map(normalizeForMatch),
-        );
+        const hiddenTexts = hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths);
         const reconciled = result
           ? reconcileAnalysisForSave({
               bulletAnalysis: result.bulletAnalysis ?? [],
               topIssues: result.topIssues ?? [],
               categoryRationales: result.categoryRationales,
+              categoryScores: result.categoryScores,
               lineOverrides: st.lineOverrides,
-              hiddenNorms,
+              hiddenTexts,
               projectedCategories: estimate?.projectedCategories,
             })
           : null;
@@ -1110,7 +1111,7 @@ export default function AnalyzeResume() {
         setFeedbackToast("Downloaded with your edits.");
       }
     })();
-  }, [result, categoryAssignmentOpts]);
+  }, [result, categoryAssignmentOpts, activeEditDraftId]);
 
   const bulletPrimaryCategories = useMemo(
     () => (result?.bulletAnalysis?.length

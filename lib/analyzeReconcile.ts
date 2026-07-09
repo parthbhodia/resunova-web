@@ -3,24 +3,27 @@
  * edits, so a reopened edited version is self-consistent. Mirrors the honesty
  * validators' evidence rules and the analyzeScoreEstimate resolution model:
  *
- *  - A HIDDEN bullet's analysis entry is dropped (the bullet no longer exists).
- *  - An EDITED (material override) bullet resolves its non-quantification
- *    categories (the user rewrote it); quantification only resolves when the
- *    edit actually adds a numeral — the exact rule the backend validators use.
+ *  - A HIDDEN bullet's analysis entry is dropped (matched to the entry by the
+ *    SAME fuzzy linker the preview uses, not exact equality — the LLM's
+ *    originalBullet quote can be a truncation of the structured text).
+ *  - An EDITED bullet resolves its non-quantification categories only on a
+ *    materially-substantive rewrite (not a near-no-op reword); quantification
+ *    only when the edit adds a REAL metric numeral (not a bare year/ID or an
+ *    unfilled placeholder) — the exact rules the backend validators use.
  *  - A fully-resolved bullet's entry is dropped; a partially-resolved one keeps
- *    the surviving category (quantification) with its text updated.
+ *    only the surviving quantification flag, with its text updated and any stale
+ *    rewrite/tags for now-resolved categories cleared.
  *  - topIssues drop any `items[]` that quoted a now-hidden/fully-resolved bullet,
  *    and a bullet-scoped issue is dropped only when its items empty out — never a
- *    structural / ATS / formatting issue (risk-guarded per the design spec).
- *  - categoryRationales for a category that reconciled to a healthy score are
- *    cleared (a stale "why it's low" note next to a green category is worse than
- *    none). No rationale text is ever fabricated.
+ *    structural / ATS / formatting issue.
+ *  - categoryRationales are cleared ONLY for a category the edits actually lifted
+ *    to a healthy score (never for an untouched already-healthy category).
  *
  * We only ever RESOLVE/REMOVE issues we already knew about; we never invent new
- * ones for text the user typed — that is the correct behavior for a free,
- * LLM-free save.
+ * ones for text the user typed — correct behavior for a free, LLM-free save.
  */
-import { normalizeForMatch } from "@/lib/resumeBulletMatch";
+import { normalizeForMatch, findBulletIndexForLine, type LiveBulletItem } from "@/lib/resumeBulletMatch";
+import { addsMetricNumeral, isMaterialEdit } from "@/lib/analyzeEditEvidence";
 
 export interface ReconcileBullet {
   originalBullet: string;
@@ -42,25 +45,14 @@ export interface ReconcileTopIssue {
   source?: string;
 }
 
-/** Numeral tokens (incl. $1.2M / 40% / 100,000) present in `text`. */
-function numeralTokens(text: string): Set<string> {
-  return new Set(text.match(/\d[\d,.]*%?/g) ?? []);
-}
-const PLACEHOLDER_RE = /\[[^\]]*\]/;
-/** The edit adds a NEW numeral (or an [X%]/[$Y] placeholder) not in the original. */
-function addsNumeral(original: string, applied: string): boolean {
-  if (PLACEHOLDER_RE.test(applied)) return true;
-  const before = numeralTokens(original);
-  for (const tok of numeralTokens(applied)) {
-    if (!before.has(tok)) return true;
-  }
-  return false;
-}
-
 function bulletCategories(b: ReconcileBullet): string[] {
   if (b.issueCategories && b.issueCategories.length) return b.issueCategories;
   return b.primaryCategory ? [b.primaryCategory] : [];
 }
+
+/** Tags that describe a quantification/metric weakness — kept on a partially-
+ *  resolved (still-needs-a-number) bullet; other stale tags are dropped. */
+const QUANT_TAG_RE = /(quantif|metric|numer|measur|impact|%|\bnumbers?\b)/i;
 
 export interface ReconcileResult {
   bulletAnalysis: ReconcileBullet[];
@@ -74,10 +66,12 @@ export function reconcileAnalysisForSave(input: {
   bulletAnalysis: ReconcileBullet[];
   topIssues: ReconcileTopIssue[];
   categoryRationales?: Record<string, string> | undefined;
+  /** Original per-category scores (to tell a lifted category from an already-healthy one). */
+  categoryScores?: Record<string, number | null> | undefined;
   /** Applied bullet rewrites keyed by bulletAnalysis index. */
   lineOverrides: Record<number, string>;
-  /** Normalized rendered text of hidden bullets. */
-  hiddenNorms: Set<string>;
+  /** Rendered text of hidden bullets (full structured text). */
+  hiddenTexts: string[];
   /** Projected per-category scores from the deterministic estimate (may be empty). */
   projectedCategories?: Record<string, number>;
   /** A category is treated as "healthy" (rationale cleared) at/above this score. */
@@ -87,49 +81,79 @@ export function reconcileAnalysisForSave(input: {
     bulletAnalysis,
     topIssues,
     categoryRationales,
+    categoryScores = {},
     lineOverrides,
-    hiddenNorms,
+    hiddenTexts,
     projectedCategories = {},
     healthyScore = 70,
   } = input;
+
+  // Link each hidden bullet to its analysis entry the SAME way the preview does
+  // (fuzzy), plus an exact-norm set as a fast path.
+  const hiddenNorms = new Set<string>();
+  const hiddenAnalysisIdx = new Set<number>();
+  const linkBullets = bulletAnalysis as unknown as LiveBulletItem[];
+  for (const t of hiddenTexts) {
+    const n = normalizeForMatch(t);
+    if (n) hiddenNorms.add(n);
+    const i = findBulletIndexForLine(t, linkBullets);
+    if (i >= 0) hiddenAnalysisIdx.add(i);
+  }
 
   // ── bulletAnalysis: drop hidden, resolve edited ─────────────────────────────
   const resolvedOriginals = new Set<string>();
   const outBullets: ReconcileBullet[] = [];
   bulletAnalysis.forEach((e, idx) => {
     const origNorm = normalizeForMatch(e.originalBullet);
-    if (origNorm && hiddenNorms.has(origNorm)) {
-      resolvedOriginals.add(origNorm); // gone from the résumé
+    if ((origNorm && hiddenNorms.has(origNorm)) || hiddenAnalysisIdx.has(idx)) {
+      if (origNorm) resolvedOriginals.add(origNorm); // gone from the résumé
       return;
     }
     const override = (lineOverrides[idx] ?? "").trim();
-    const material = !!override && normalizeForMatch(override) !== origNorm;
-    if (!material) {
+    if (!override || normalizeForMatch(override) === origNorm) {
       outBullets.push(e); // untouched — keep verbatim
       return;
     }
-    // Material rewrite: non-quantification categories are resolved by the edit;
-    // quantification survives only if the edit added no new numeral.
     const cats = bulletCategories(e);
     const quantFlagged = cats.includes("quantification");
-    const quantSurvives = quantFlagged && !addsNumeral(e.originalBullet, override);
-    if (!quantSurvives) {
+    const material = isMaterialEdit(e.originalBullet, override);
+    const metricAdded = addsMetricNumeral(e.originalBullet, override);
+    // Which flagged categories does this edit resolve?
+    //   quantification → only when a real metric numeral was added
+    //   everything else → only on a materially-substantive rewrite
+    const surviving = cats.filter((c) =>
+      c === "quantification" ? !metricAdded : !material,
+    );
+    if (surviving.length === cats.length) {
+      // Nothing resolved (near-no-op edit, no new metric) → keep the flag, but
+      // reflect the user's edited text so the card matches the résumé.
+      outBullets.push({ ...e, originalBullet: override });
+      return;
+    }
+    if (surviving.length === 0) {
       resolvedOriginals.add(origNorm); // fully resolved → drop the flag
       return;
     }
-    // Partially resolved: only the quantification requirement remains.
+    // Partially resolved: only quantification remains. Update the text and drop
+    // stale rewrites/tags for the now-resolved categories.
     outBullets.push({
       ...e,
       originalBullet: override,
       primaryCategory: "quantification",
       issueCategories: ["quantification"],
+      improvedBullet: "",
+      categoryRewrites: undefined,
+      issues: (e.issues ?? []).filter((t) => QUANT_TAG_RE.test(t)),
     });
   });
 
   // ── topIssues: prune items that referenced resolved/hidden bullets ──────────
   const isResolvedText = (t: string): boolean => {
     const n = normalizeForMatch(t);
-    return !!n && (hiddenNorms.has(n) || resolvedOriginals.has(n));
+    if (n && (hiddenNorms.has(n) || resolvedOriginals.has(n))) return true;
+    // Fuzzy fallback: a quoted item that links to a hidden analysis entry.
+    const i = findBulletIndexForLine(t, linkBullets);
+    return i >= 0 && hiddenAnalysisIdx.has(i);
   };
   const outIssues: ReconcileTopIssue[] = [];
   for (const it of topIssues) {
@@ -139,19 +163,21 @@ export function reconcileAnalysisForSave(input: {
     }
     const keptItems = it.items.filter((item) => !isResolvedText(item));
     if (keptItems.length === 0) {
-      // Every quoted bullet is fixed/hidden AND the issue was bullet-scoped → drop.
-      continue;
+      continue; // every quoted bullet fixed/hidden AND the issue was bullet-scoped
     }
     outIssues.push(keptItems.length === it.items.length ? it : { ...it, items: keptItems });
   }
 
-  // ── categoryRationales: clear stale low-score notes for healthy categories ──
+  // ── categoryRationales: clear only for categories the edits LIFTED to healthy ─
   let outRationales: Record<string, string> | undefined = categoryRationales;
   if (categoryRationales && Object.keys(categoryRationales).length) {
     const next: Record<string, string> = {};
     for (const [cat, text] of Object.entries(categoryRationales)) {
       const projected = projectedCategories[cat];
-      if (typeof projected === "number" && projected >= healthyScore) continue; // drop stale note
+      const original = categoryScores[cat];
+      const lifted =
+        typeof projected === "number" && typeof original === "number" && projected > original;
+      if (lifted && projected >= healthyScore) continue; // stale "why it's low" note
       next[cat] = text;
     }
     outRationales = next;
