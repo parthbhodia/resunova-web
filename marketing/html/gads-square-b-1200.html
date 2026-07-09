@@ -1,0 +1,50 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  body { width: 1200px; height: 1200px; }
+  .stage { width: 1200px; height: 1200px; display: flex; flex-direction: column; align-items: center; padding: 110px 90px 0; text-align: center; }
+  .inner { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%; }
+  h1 { font-size: 78px; font-weight: 800; letter-spacing: -2.8px; line-height: 1.06; margin: 38px 0 24px; }
+  .sub { font-size: 28px; color: var(--muted); line-height: 1.55; max-width: 830px; letter-spacing: -0.2px; }
+  .jobs-card { margin-top: 60px; width: 700px; padding: 36px 40px; text-align: left; }
+  .jc-title { font-size: 17px; font-weight: 700; letter-spacing: 1.4px; color: var(--muted); margin-bottom: 8px; }
+  .job { display: flex; align-items: center; gap: 18px; padding: 17px 18px; border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); margin-top: 14px; }
+  .job .pct { width: 72px; height: 72px; border-radius: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; font-size: 26px; flex-shrink: 0; }
+  .job .pct span { font-size: 11px; font-weight: 600; letter-spacing: 0.6px; opacity: 0.8; }
+  .job .t { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  .job .c { font-size: 17px; color: var(--muted); margin-top: 4px; }
+  .url { margin-top: 54px; font-size: 25px; font-weight: 700; color: var(--amber-h); }
+</style></head>
+<body>
+<div class="stage">
+  <div class="inner">
+    <div class="logo-row" style="gap:16px;">
+      <svg width="58" height="58" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="7" fill="#c4793a"/>
+        <path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#fff" opacity="0.88"/>
+      </svg>
+      <span class="wordmark" style="font-size:38px;">Resunova</span>
+    </div>
+    <h1>247,000 live jobs,<br><span style="color:var(--green);">ranked for you</span></h1>
+    <p class="sub">Fresh postings from real company career sites — scored against <b style="color:var(--ink);">your résumé</b>, not keywords.</p>
+
+    <div class="card jobs-card">
+      <div class="jc-title">TOP MATCHES FOR YOUR RÉSUMÉ</div>
+      <div class="job">
+        <div class="pct" style="background:rgba(52,211,153,0.14);color:#34d399;">92<span>MATCH</span></div>
+        <div><div class="t">Software Engineer II</div><div class="c">NVIDIA · Santa Clara, CA</div></div>
+      </div>
+      <div class="job">
+        <div class="pct" style="background:rgba(88,166,255,0.14);color:#58a6ff;">87<span>MATCH</span></div>
+        <div><div class="t">Backend Engineer, Payments</div><div class="c">Visa · Austin, TX</div></div>
+      </div>
+      <div class="job">
+        <div class="pct" style="background:rgba(88,166,255,0.14);color:#58a6ff;">84<span>MATCH</span></div>
+        <div><div class="t">Platform Engineer</div><div class="c">Salesforce · Remote, US</div></div>
+      </div>
+    </div>
+
+    <div class="url">resunova.io</div>
+  </div>
+</div>
+</body></html>
