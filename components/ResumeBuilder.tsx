@@ -3599,12 +3599,18 @@ export default function ResumeBuilder({
                     rewriteEdits={tailorRewriteEdits}
                     patchBulletRewrite={patchTailorBulletRewrite}
                     patchPreviewLine={patchTailorPreviewLine}
-                    onBulletLinkedSelect={() => {
-                      // Clicking a preview bullet opens the corresponding
-                      // sidebar section — the "Fixes" tab, where per-bullet
-                      // rewrites live — matching the Analyze flow's bullet→card
-                      // link. Only switches when there are fixes to show.
-                      if (suggestions.length > 0 && !generating) setResultsActiveTab("fixes");
+                    onBulletLinkedSelect={(bulletIdx) => {
+                      // Clicking a HIGHLIGHTED bullet jumps to its fix. Amber
+                      // highlights are gap-fix targets (their rewrites live in the
+                      // "gapfix" tab), so open that when the clicked bullet is one
+                      // of them. Otherwise fall back to the category "fixes" tab
+                      // when there are AI suggestions to show. A plain, unhighlighted
+                      // bullet with nothing to act on does nothing (no jarring jump).
+                      if (gapFixPanel?.suggestions?.length && gapFixTargetIndices.includes(bulletIdx)) {
+                        setResultsActiveTab("gapfix");
+                      } else if (suggestions.length > 0 && !generating) {
+                        setResultsActiveTab("fixes");
+                      }
                     }}
                   />
                 </div>
