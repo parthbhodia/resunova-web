@@ -26,7 +26,7 @@ import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
 import { useResumeAnalyzeStore } from "@/store/resumeAnalyzeStore";
 import type { StructuredResume, BulletMapEntry } from "@/store/resumeAnalyzeStore";
-import { getSupabaseClient, fetchAnalyses, fetchAnalysisById, insertAnalysis, deleteAnalysis } from "@/lib/supabase";
+import { getSupabaseClient, fetchAnalyses, fetchAnalysisById, insertAnalysis, updateAnalysis, deleteAnalysis } from "@/lib/supabase";
 import type { AnalyzeRecord } from "@/lib/supabase";
 import AnalyzePreviewPane from "@/components/AnalyzePreviewPane";
 import {
@@ -1366,15 +1366,42 @@ export default function AnalyzeResume() {
     setImprovementPlanVisible(true);
   }, []);
 
-  const saveLocalPreviewDraft = useCallback(() => {
+  const saveLocalPreviewDraft = useCallback(async () => {
     if (!activeEditDraftId) {
       setEditDraftStatus("Open an analysis first (upload or history).");
       return;
     }
-    const lineOverrides = useResumeAnalyzeStore.getState().lineOverrides;
-    persistEdits(activeEditDraftId);
+    persistEdits(activeEditDraftId);  // localStorage copy (fast, offline)
+    // Also bake the applied edits into the SAVED analysis so reopening from
+    // history — even on another device — restores the fixed résumé, not the
+    // original. Only when it's a persisted DB row (not a pending local draft).
+    const isDbRow = !activeEditDraftId.startsWith("local_");
+    if (isDbRow && result && userId) {
+      try {
+        const st = useResumeAnalyzeStore.getState();
+        const patch = patchAppliedEditsIntoResume({
+          extractedText: st.extractedText,
+          structuredResume: st.structuredResume,
+          analysisBullets: st.analysisBullets,
+          lineOverrides: st.lineOverrides,
+          summaryOverride: st.summaryOverride,
+          hiddenBulletTexts: hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths),
+        });
+        if (patch.appliedCount > 0) {
+          const updated: AnalysisResult = {
+            ...result,
+            extractedText: patch.patchedText,
+            ...(patch.patchedStructured ? { structuredResume: patch.patchedStructured } : {}),
+          };
+          await updateAnalysis(activeEditDraftId, updated);
+          setAzHistory(prev => prev.map(r => (r.id === activeEditDraftId ? { ...r, result: updated } : r)));
+          setEditDraftStatus("Saved your edits to this analysis.");
+          return;
+        }
+      } catch { /* fall back to the local-only confirmation below */ }
+    }
     setEditDraftStatus("Saved preview edits in this browser only.");
-  }, [activeEditDraftId, rewriteEdits]);
+  }, [activeEditDraftId, result, userId, rewriteEdits]);
 
   const clearLocalPreviewDraft = useCallback(() => {
     if (!activeEditDraftId || !result) return;

@@ -466,6 +466,26 @@ export async function insertAnalysis(
 }
 
 /** Delete a single analysis row by id. */
+/** Update an existing analysis row's result + score in place — so applied edits
+ *  (or a rescore) become the saved version and reopening from history restores
+ *  the fixed résumé, not the original. Owner-scoped via RLS + the user_id filter. */
+export async function updateAnalysis(
+  id: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  result: any,
+): Promise<boolean> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return false;
+  const { error } = await db
+    .from("resume_analyses")
+    .update({ result, score: result.overallScore })
+    .eq("id", id)
+    .eq("user_id", session.user.id);
+  if (error) throw error;
+  return true;
+}
+
 export async function deleteAnalysis(id: string): Promise<void> {
   const db = getSupabaseClient();
   const { error } = await db
