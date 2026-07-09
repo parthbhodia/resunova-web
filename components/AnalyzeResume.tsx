@@ -1392,6 +1392,14 @@ export default function AnalyzeResume() {
             ...result,
             extractedText: patch.patchedText,
             ...(patch.patchedStructured ? { structuredResume: patch.patchedStructured } : {}),
+            // Reflect the applied fixes in the SAVED score using the same
+            // deterministic estimate the preview shows, so the history entry is
+            // self-consistent (fixed résumé + estimated score) instead of pairing
+            // the edited résumé with the stale pre-edit number. The authoritative
+            // LLM score still comes from "Update score".
+            ...(typeof scoreEstimate?.projected === "number"
+              ? { overallScore: scoreEstimate.projected }
+              : {}),
           };
           await updateAnalysis(activeEditDraftId, updated);
           setAzHistory(prev => prev.map(r => (r.id === activeEditDraftId ? { ...r, result: updated } : r)));
@@ -1401,7 +1409,7 @@ export default function AnalyzeResume() {
       } catch { /* fall back to the local-only confirmation below */ }
     }
     setEditDraftStatus("Saved preview edits in this browser only.");
-  }, [activeEditDraftId, result, userId, rewriteEdits]);
+  }, [activeEditDraftId, result, userId, rewriteEdits, scoreEstimate]);
 
   const clearLocalPreviewDraft = useCallback(() => {
     if (!activeEditDraftId || !result) return;
