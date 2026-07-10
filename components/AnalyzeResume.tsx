@@ -26,7 +26,8 @@ import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
 import { useResumeAnalyzeStore } from "@/store/resumeAnalyzeStore";
 import type { StructuredResume, BulletMapEntry } from "@/store/resumeAnalyzeStore";
-import { getSupabaseClient, fetchAnalyses, fetchAnalysisById, insertAnalysis, deleteAnalysis } from "@/lib/supabase";
+import { getSupabaseClient, fetchAnalyses, fetchAnalysisById, insertAnalysis, createAnalysisVersion, deleteAnalysis } from "@/lib/supabase";
+import { groupAnalysesByRoot } from "@/lib/analyzeVersions";
 import type { AnalyzeRecord } from "@/lib/supabase";
 import AnalyzePreviewPane from "@/components/AnalyzePreviewPane";
 import {
@@ -518,7 +519,7 @@ export default function AnalyzeResume() {
           .catch(() => { /* non-critical */ });
       });
       try {
-        const rows = await fetchAnalyses(10);
+        const rows = await fetchAnalyses(25);   // higher: version chains share the list
         setAzHistory(rows);
         lsSave(user.id, rows);          // keep local cache in sync
       } catch {
@@ -879,8 +880,11 @@ export default function AnalyzeResume() {
   }, [userId, azHistory]);
 
   const azHistoryRows = useMemo(
-    () =>
-      azHistory.map((rec) => (
+    () => {
+      const historyRow = (
+        rec: AnalyzeRecord,
+        opts?: { versionBadge?: string; isHead?: boolean },
+      ) => (
         <div
           key={rec.id}
           style={{
@@ -945,9 +949,34 @@ export default function AnalyzeResume() {
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
                 }}
               >
-                {rec.label}
+                {opts?.versionBadge ? (
+                  <>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: opts.isHead ? "var(--amber)" : "var(--muted)",
+                        background: opts.isHead ? "var(--amber-bg)" : "var(--surface2)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 5,
+                        padding: "1px 6px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {opts.versionBadge}
+                    </span>
+                    {opts.isHead && (
+                      <span style={{ fontSize: 10, color: "var(--dim)", fontWeight: 500 }}>current</span>
+                    )}
+                  </>
+                ) : (
+                  rec.label
+                )}
               </div>
               <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 1 }}>
                 {new Date(rec.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
@@ -987,7 +1016,59 @@ export default function AnalyzeResume() {
             </svg>
           </button>
         </div>
-      )),
+      );
+
+      // A résumé with a single version renders exactly as before; multiple
+      // versions collapse into a labelled lineage chain (newest = "current").
+      return groupAnalysesByRoot(azHistory).map((g) =>
+        g.recs.length <= 1 ? (
+          historyRow(g.recs[0])
+        ) : (
+          <div key={g.root} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                padding: "1px 4px 3px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: "var(--text)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  minWidth: 0,
+                }}
+              >
+                {g.recs[0].label}
+              </span>
+              <span style={{ fontSize: 10, color: "var(--dim)", fontWeight: 600, flexShrink: 0 }}>
+                {g.recs.length} versions
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                paddingLeft: 8,
+                marginLeft: 4,
+                borderLeft: "2px solid rgba(196,121,58,0.35)",
+              }}
+            >
+              {g.recs.map((rec, i) =>
+                historyRow(rec, { versionBadge: `v${rec.version ?? 1}`, isHead: i === 0 }),
+              )}
+            </div>
+          </div>
+        ),
+      );
+    },
     [azHistory, restoreRecord, deleteRecord],
   );
 
@@ -1366,15 +1447,83 @@ export default function AnalyzeResume() {
     setImprovementPlanVisible(true);
   }, []);
 
-  const saveLocalPreviewDraft = useCallback(() => {
+  const [savingVersion, setSavingVersion] = useState(false);
+  const saveLocalPreviewDraft = useCallback(async () => {
     if (!activeEditDraftId) {
       setEditDraftStatus("Open an analysis first (upload or history).");
       return;
     }
-    const lineOverrides = useResumeAnalyzeStore.getState().lineOverrides;
+    // Always keep the browser-local draft (instant, offline, and covers the
+    // not-yet-persisted case).
     persistEdits(activeEditDraftId);
-    setEditDraftStatus("Saved preview edits in this browser only.");
-  }, [activeEditDraftId, rewriteEdits]);
+
+    const parent = azHistory.find((r) => r.id === activeEditDraftId);
+    const persisted = !!parent && !activeEditDraftId.startsWith("local_");
+    if (!persisted || !parent || !result || !userId) {
+      setEditDraftStatus("Saved preview edits in this browser.");
+      return;
+    }
+
+    // Bake the applied edits into an immutable version snapshot. No LLM call —
+    // the score is the deterministic estimate the preview already shows. The
+    // parent row is never mutated (resume_analyses has no UPDATE policy), so
+    // every save is an append-only child version, git-commit style.
+    setSavingVersion(true);
+    try {
+      const st = useResumeAnalyzeStore.getState();
+      const patch = patchAppliedEditsIntoResume({
+        extractedText: st.extractedText,
+        structuredResume: st.structuredResume,
+        analysisBullets: st.analysisBullets,
+        lineOverrides: st.lineOverrides,
+        summaryOverride: st.summaryOverride,
+        hiddenBulletTexts: hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths),
+      });
+      if (patch.appliedCount === 0) {
+        setEditDraftStatus("Make an edit in the preview first, then save a version.");
+        return;
+      }
+      const versionResult: AnalysisResult = {
+        ...result,
+        extractedText: patch.patchedText,
+        ...(patch.patchedStructured ? { structuredResume: patch.patchedStructured } : {}),
+        ...(typeof scoreEstimate?.projected === "number"
+          ? { overallScore: scoreEstimate.projected }
+          : {}),
+      };
+      const created = await createAnalysisVersion(
+        { id: parent.id, version: parent.version, rootId: parent.rootId, label: parent.label },
+        versionResult,
+      );
+      if (!created) {
+        setEditDraftStatus("Saved preview edits in this browser.");
+        return;
+      }
+      // The new version is the head: the just-committed edits are baked into it,
+      // so re-hydrate the working copy from the snapshot and drop the parent's
+      // now-committed draft. Subsequent edits branch a further child from here.
+      clearEditsStore(activeEditDraftId);
+      setAzHistory((prev) => [created, ...prev].slice(0, 40));
+      lsPush(userId, created);
+      setActiveEditDraftId(created.id);
+      setExpandedBullets({});
+      setSelectedBulletIndex(null);
+      setHistoryRestoreActive(false);
+      setResult(versionResult);
+      useResumeAnalyzeStore.getState().hydrateFromAnalysis({
+        extractedText: versionResult.extractedText,
+        bulletAnalysis: versionResult.bulletAnalysis,
+        resumeHeader: versionResult.resumeHeader,
+        structuredResume: versionResult.structuredResume,
+        bulletMap: versionResult.bulletMap,
+      });
+      setEditDraftStatus(`Saved as v${created.version}. Added to this résumé's history.`);
+    } catch {
+      setEditDraftStatus("Saved locally; couldn't add a cloud version this time.");
+    } finally {
+      setSavingVersion(false);
+    }
+  }, [activeEditDraftId, result, userId, azHistory, scoreEstimate, persistEdits, clearEditsStore]);
 
   const clearLocalPreviewDraft = useCallback(() => {
     if (!activeEditDraftId || !result) return;
@@ -1475,15 +1624,16 @@ export default function AnalyzeResume() {
             borderBottom: "1px solid var(--border)",
           }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
-                Preview edits (local test)
+                Save a version
               </div>
               <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.45, marginBottom: 10 }}>
-                Saves line tweaks + AI draft text in this browser. Re-open the same run from history to verify restore.
+                Saves your applied edits as a new version in this résumé&rsquo;s history, with the updated estimated score. Restore any earlier version from history anytime.
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <button
                   type="button"
                   onClick={saveLocalPreviewDraft}
+                  disabled={savingVersion}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -1493,11 +1643,12 @@ export default function AnalyzeResume() {
                     color: "var(--text)",
                     fontSize: 12,
                     fontWeight: 600,
-                    cursor: "pointer",
+                    cursor: savingVersion ? "default" : "pointer",
+                    opacity: savingVersion ? 0.6 : 1,
                     fontFamily: "inherit",
                   }}
                 >
-                  Save preview edits
+                  {savingVersion ? "Saving version…" : "Save as version"}
                 </button>
                 <button
                   type="button"

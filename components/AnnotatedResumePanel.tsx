@@ -1053,7 +1053,7 @@ export default function AnnotatedResumePanel({
                     onClick={handleHtmlPdfDownload}
                     title={
                       enabled
-                        ? "Download PDF — WYSIWYG, what you see in the preview is what you get. Rendered via headless Chromium, no LaTeX."
+                        ? "Download your résumé as a PDF, exactly what you see in the preview."
                         : "PDF export needs a rendered preview — wait for analysis to finish."
                     }
                     aria-label="Download résumé PDF"

@@ -1,0 +1,51 @@
+import { describe, expect, it } from "vitest";
+import { groupAnalysesByRoot } from "@/lib/analyzeVersions";
+import type { AnalyzeRecord } from "@/lib/supabase";
+
+const rec = (over: Partial<AnalyzeRecord>): AnalyzeRecord => ({
+  id: "x",
+  label: "Résumé",
+  score: 70,
+  createdAt: "2026-07-01T00:00:00Z",
+  result: null,
+  ...over,
+});
+
+describe("groupAnalysesByRoot", () => {
+  it("keeps independent single-version analyses as separate groups, newest first", () => {
+    const a = rec({ id: "a", rootId: "a", version: 1, createdAt: "2026-07-01T00:00:00Z" });
+    const b = rec({ id: "b", rootId: "b", version: 1, createdAt: "2026-07-02T00:00:00Z" });
+    const groups = groupAnalysesByRoot([a, b]);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].root).toBe("b"); // most-recent activity first
+    expect(groups.every((g) => g.recs.length === 1)).toBe(true);
+  });
+
+  it("collapses a v1→v2→v3 lineage into one group, newest version as head", () => {
+    const v1 = rec({ id: "a", rootId: "a", version: 1, createdAt: "2026-07-01T00:00:00Z" });
+    const v2 = rec({ id: "a2", rootId: "a", parentId: "a", version: 2, createdAt: "2026-07-01T01:00:00Z" });
+    const v3 = rec({ id: "a3", rootId: "a", parentId: "a2", version: 3, createdAt: "2026-07-01T02:00:00Z" });
+    // Input order is arbitrary — grouping must not depend on it.
+    const groups = groupAnalysesByRoot([v2, v1, v3]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].recs.map((r) => r.version)).toEqual([3, 2, 1]);
+    expect(groups[0].recs[0].id).toBe("a3"); // head = current
+  });
+
+  it("orders groups by each lineage's most-recent version, not its root", () => {
+    const standalone = rec({ id: "s", rootId: "s", version: 1, createdAt: "2026-07-05T00:00:00Z" });
+    const v1 = rec({ id: "r", rootId: "r", version: 1, createdAt: "2026-07-01T00:00:00Z" });
+    const v2 = rec({ id: "r2", rootId: "r", version: 2, createdAt: "2026-07-06T00:00:00Z" }); // newest overall
+    const groups = groupAnalysesByRoot([standalone, v1, v2]);
+    expect(groups[0].root).toBe("r"); // r's v2 (Jul 6) beats standalone (Jul 5)
+    expect(groups[1].root).toBe("s");
+  });
+
+  it("treats legacy rows without lineage fields as their own v1 root", () => {
+    const legacy = rec({ id: "L1", createdAt: "2026-07-01T00:00:00Z" });
+    const groups = groupAnalysesByRoot([legacy]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].root).toBe("L1"); // rootId ?? id
+    expect(groups[0].recs).toHaveLength(1);
+  });
+});
