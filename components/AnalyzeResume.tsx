@@ -165,6 +165,12 @@ interface AnalysisResult {
   analysisId?: string;
   /** True when backend wrote resume_analyses; false/absent means client should insert. */
   analysisPersisted?: boolean;
+  /** Version lineage of a persisted rescore — backend chains it as a verified
+   *  ("llm") child of the analysis it was rescored from (parent_analysis_id). */
+  analysisParentId?: string | null;
+  analysisVersion?: number;
+  analysisRootId?: string | null;
+  analysisScoreSource?: string | null;
   sourcePdfUrl?: string | null;
   sourceFilename?: string | null;
   scanLimitStatus?: { limit: number; used: number; remaining: number; resetAt: string } | null;
@@ -603,6 +609,12 @@ export default function AnalyzeResume() {
       label,
       score:     res.overallScore,
       createdAt: new Date().toISOString(),
+      // Lineage carried from a persisted rescore (a verified child version);
+      // absent for a fresh analysis, which groups as its own root v1.
+      parentId:  res.analysisParentId ?? null,
+      version:   res.analysisVersion,
+      rootId:    res.analysisRootId ?? null,
+      scoreSource: res.analysisScoreSource ?? null,
       result:    res,
     };
     // Optimistic update — show instantly
@@ -638,6 +650,11 @@ export default function AnalyzeResume() {
   const handleRescore = useCallback(async () => {
     if (rescoring) return;
     const st = useResumeAnalyzeStore.getState();
+    // The analysis being rescored is the current head; chain the verified
+    // re-score as its child version (skip a not-yet-persisted local draft).
+    const parentAnalysisId = activeEditDraftId && !activeEditDraftId.startsWith("local_")
+      ? activeEditDraftId
+      : undefined;
     const patch = patchAppliedEditsIntoResume({
       extractedText: st.extractedText,
       structuredResume: st.structuredResume,
@@ -668,6 +685,7 @@ export default function AnalyzeResume() {
         body: JSON.stringify({
           resume_text: patch.patchedText,
           structured_resume: patch.patchedStructured ?? undefined,
+          parent_analysis_id: parentAnalysisId,
         }),
       });
       const json = await resp.json();
@@ -696,7 +714,7 @@ export default function AnalyzeResume() {
     } finally {
       setRescoring(false);
     }
-  }, [rescoring, persistResult]);
+  }, [rescoring, persistResult, activeEditDraftId]);
 
   // After sign-in lands (fresh mount post-OAuth), restore the stashed anonymous
   // scan: the user arrives on their already-finished, now-unlocked report and
@@ -972,6 +990,14 @@ export default function AnalyzeResume() {
                     </span>
                     {opts.isHead && (
                       <span style={{ fontSize: 10, color: "var(--dim)", fontWeight: 500 }}>current</span>
+                    )}
+                    {rec.scoreSource === "estimate" && (
+                      <span
+                        title="Estimated score from applied edits (not a fresh LLM re-score)"
+                        style={{ fontSize: 9.5, color: "var(--dim)", fontWeight: 500, fontStyle: "italic" }}
+                      >
+                        est
+                      </span>
                     )}
                   </>
                 ) : (

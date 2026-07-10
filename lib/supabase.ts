@@ -20,6 +20,9 @@ export interface AnalyzeRecord {
   parentId?: string | null;
   version?:  number;
   rootId?:   string | null;
+  /** Score provenance: 'llm' = verified re-score, 'estimate' = deterministic
+   *  save-edits estimate, null = original analysis. */
+  scoreSource?: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result:    any;
 }
@@ -394,7 +397,7 @@ export async function fetchAnalyses(limit = 10): Promise<AnalyzeRecord[]> {
 
   const { data, error } = await db
     .from("resume_analyses")
-    .select("id, label, score, created_at, source_pdf_url, source_filename, parent_id, version, root_id")
+    .select("id, label, score, created_at, source_pdf_url, source_filename, parent_id, version, root_id, score_source")
     .eq("user_id", session.user.id)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -411,6 +414,7 @@ export async function fetchAnalyses(limit = 10): Promise<AnalyzeRecord[]> {
     parentId:  (row.parent_id as string | null) ?? null,
     version:   (row.version as number | null) ?? 1,
     rootId:    (row.root_id as string | null) ?? (row.id as string),
+    scoreSource: (row.score_source as string | null) ?? null,
     result:    null,
   }));
 }
@@ -423,7 +427,7 @@ export async function fetchAnalysisById(id: string): Promise<AnalyzeRecord | nul
 
   const { data, error } = await db
     .from("resume_analyses")
-    .select("id, label, score, result, created_at, source_pdf_url, source_filename, parent_id, version, root_id")
+    .select("id, label, score, result, created_at, source_pdf_url, source_filename, parent_id, version, root_id, score_source")
     .eq("id", id)
     .eq("user_id", session.user.id)
     .single();
@@ -440,6 +444,7 @@ export async function fetchAnalysisById(id: string): Promise<AnalyzeRecord | nul
     parentId:  (data.parent_id as string | null) ?? null,
     version:   (data.version as number | null) ?? 1,
     rootId:    (data.root_id as string | null) ?? (data.id as string),
+    scoreSource: (data.score_source as string | null) ?? null,
     result:    data.result,
   };
 }
@@ -493,9 +498,25 @@ export async function createAnalysisVersion(
   const { data: { session } } = await db.auth.getSession();
   if (!session?.user?.id) return null;
 
-  const version = (parent.version ?? 1) + 1;
   const rootId  = parent.rootId ?? parent.id;
   const label   = opts?.label ?? parent.label;
+
+  // Next ordinal across the WHOLE root group (not parent.version + 1), so saving
+  // from a RESTORED older version still yields a strictly increasing head rather
+  // than a colliding version number.
+  let version = (parent.version ?? 1) + 1;
+  try {
+    const { data: top } = await db
+      .from("resume_analyses")
+      .select("version")
+      .eq("user_id", session.user.id)
+      .eq("root_id", rootId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const topVersion = (top as { version?: number } | null)?.version;
+    if (typeof topVersion === "number") version = topVersion + 1;
+  } catch { /* fall back to parent.version + 1 */ }
 
   const { data, error } = await db
     .from("resume_analyses")
@@ -508,6 +529,7 @@ export async function createAnalysisVersion(
       parent_id:  parent.id,
       version,
       root_id:    rootId,
+      score_source: "estimate",
     })
     .select("id, created_at")
     .single();
@@ -524,6 +546,7 @@ export async function createAnalysisVersion(
     parentId:  parent.id,
     version,
     rootId,
+    scoreSource: "estimate",
     result,
   };
 }
