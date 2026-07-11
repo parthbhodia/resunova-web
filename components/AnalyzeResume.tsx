@@ -897,6 +897,8 @@ export default function AnalyzeResume() {
     }
   }, [userId, azHistory]);
 
+  // Collapse very long version chains in the history rail (per-root toggle).
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const azHistoryRows = useMemo(
     () => {
       const historyRow = (
@@ -1001,7 +1003,17 @@ export default function AnalyzeResume() {
                     )}
                   </>
                 ) : (
-                  rec.label
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {rec.label}
+                  </span>
                 )}
               </div>
               <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 1 }}>
@@ -1013,6 +1025,7 @@ export default function AnalyzeResume() {
             type="button"
             onClick={() => deleteRecord(rec.id)}
             title="Remove"
+            aria-label="Remove analysis"
             style={{
               width: 22,
               height: 22,
@@ -1046,10 +1059,16 @@ export default function AnalyzeResume() {
 
       // A résumé with a single version renders exactly as before; multiple
       // versions collapse into a labelled lineage chain (newest = "current").
-      return groupAnalysesByRoot(azHistory).map((g) =>
-        g.recs.length <= 1 ? (
-          historyRow(g.recs[0])
-        ) : (
+      return groupAnalysesByRoot(azHistory).map((g) => {
+        if (g.recs.length <= 1) return historyRow(g.recs[0]);
+        // Collapse long chains so one heavily-versioned résumé can't flood the
+        // narrow history rail; the head + a few recent versions stay visible.
+        const COLLAPSE_AT = 4;
+        const isExpanded = expandedGroups.has(g.root);
+        const shown =
+          g.recs.length > COLLAPSE_AT && !isExpanded ? g.recs.slice(0, COLLAPSE_AT) : g.recs;
+        const hiddenCount = g.recs.length - shown.length;
+        return (
           <div key={g.root} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div
               style={{
@@ -1062,6 +1081,7 @@ export default function AnalyzeResume() {
             >
               <span
                 style={{
+                  flex: 1,
                   fontSize: 11.5,
                   fontWeight: 700,
                   color: "var(--text)",
@@ -1087,15 +1107,42 @@ export default function AnalyzeResume() {
                 borderLeft: "2px solid rgba(196,121,58,0.35)",
               }}
             >
-              {g.recs.map((rec, i) =>
+              {shown.map((rec, i) =>
                 historyRow(rec, { versionBadge: `v${rec.version ?? 1}`, isHead: i === 0 }),
+              )}
+              {g.recs.length > COLLAPSE_AT && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedGroups((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(g.root)) next.delete(g.root);
+                      else next.add(g.root);
+                      return next;
+                    })
+                  }
+                  style={{
+                    alignSelf: "flex-start",
+                    marginTop: 2,
+                    padding: "2px 6px",
+                    background: "none",
+                    border: "none",
+                    color: "var(--dim)",
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {isExpanded ? "Show fewer" : `+${hiddenCount} older`}
+                </button>
               )}
             </div>
           </div>
-        ),
-      );
+        );
+      });
     },
-    [azHistory, restoreRecord, deleteRecord],
+    [azHistory, restoreRecord, deleteRecord, expandedGroups],
   );
 
   const categoryAssignmentOpts = useMemo((): CategoryAssignmentOptions => {
