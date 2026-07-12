@@ -1,0 +1,62 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  body { width: 1200px; height: 1200px; }
+  .stage { width: 1200px; height: 1200px; display: flex; flex-direction: column; align-items: center; padding: 110px 90px 0; text-align: center; }
+  .inner { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%; }
+  h1 { font-size: 82px; font-weight: 800; letter-spacing: -3px; line-height: 1.05; margin: 38px 0 24px; }
+  .sub { font-size: 29px; color: var(--muted); line-height: 1.55; max-width: 840px; letter-spacing: -0.2px; }
+  .score-card { margin-top: 60px; width: 690px; padding: 40px 46px; text-align: left; }
+  .score-top { display: flex; align-items: center; gap: 34px; margin-bottom: 26px; }
+  .ring { position: relative; width: 156px; height: 156px; flex-shrink: 0; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring .num b { font-size: 52px; font-weight: 800; letter-spacing: -1.6px; }
+  .ring .num span { font-size: 14px; color: var(--muted); font-weight: 600; letter-spacing: 1px; }
+  .st { font-size: 27px; font-weight: 700; letter-spacing: -0.4px; }
+  .ss { font-size: 19px; color: var(--muted); margin-top: 9px; line-height: 1.5; }
+  .dim { display: flex; align-items: center; gap: 18px; margin-top: 18px; }
+  .dim .name { width: 190px; font-size: 19px; color: var(--muted); font-weight: 500; }
+  .dim .bar-track { flex: 1; height: 11px; }
+  .dim .val { width: 44px; text-align: right; font-size: 19px; font-weight: 700; }
+  .url { margin-top: 56px; font-size: 25px; font-weight: 700; color: var(--amber-h); }
+</style></head>
+<body>
+<div class="stage">
+  <div class="inner">
+    <div class="logo-row" style="gap:16px;">
+      <svg width="58" height="58" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="7" fill="#c4793a"/>
+        <path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#fff" opacity="0.88"/>
+      </svg>
+      <span class="wordmark" style="font-size:38px;">Resunova</span>
+    </div>
+    <h1>Is your résumé<br><span style="color:var(--blue);">actually good?</span></h1>
+    <p class="sub">Find out in 60 seconds. Free AI scoring with <b style="color:var(--ink);">honest, validated feedback</b> across 8 dimensions.</p>
+
+    <div class="card score-card">
+      <div class="score-top">
+        <div class="ring">
+          <svg width="156" height="156" viewBox="0 0 156 156">
+            <circle cx="78" cy="78" r="66" stroke="rgba(255,255,255,0.09)" stroke-width="13" fill="none"/>
+            <circle cx="78" cy="78" r="66" stroke="url(#g)" stroke-width="13" fill="none" stroke-linecap="round" stroke-dasharray="414.7" stroke-dashoffset="66.4"/>
+            <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#58a6ff"/><stop offset="100%" stop-color="#34d399"/>
+            </linearGradient></defs>
+          </svg>
+          <div class="num"><b>84</b><span>OVERALL</span></div>
+        </div>
+        <div>
+          <div class="st">Your Resume Analysis</div>
+          <div class="ss">8 dimensions · bullet-by-bullet rewrites · tailored PDF export</div>
+        </div>
+      </div>
+      <div class="dim"><span class="name">ATS Safety</span><div class="bar-track"><div class="bar-fill" style="width:91%;background:#34d399;"></div></div><span class="val" style="color:#34d399;">91</span></div>
+      <div class="dim"><span class="name">Achievement</span><div class="bar-track"><div class="bar-fill" style="width:82%;background:#58a6ff;"></div></div><span class="val" style="color:#58a6ff;">82</span></div>
+      <div class="dim"><span class="name">Quantification</span><div class="bar-track"><div class="bar-fill" style="width:71%;background:#fbbf24;"></div></div><span class="val" style="color:#fbbf24;">71</span></div>
+    </div>
+
+    <div class="url">resunova.io</div>
+  </div>
+</div>
+</body></html>

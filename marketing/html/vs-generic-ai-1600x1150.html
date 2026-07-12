@@ -1,0 +1,120 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  body { width: 1600px; height: 1150px; }
+  .stage { width: 1600px; height: 1150px; padding: 54px 60px 0; display: flex; flex-direction: column; }
+  .head { position: relative; z-index: 1; text-align: center; margin-bottom: 30px; }
+  .head h1 { font-size: 44px; font-weight: 800; letter-spacing: -1.6px; }
+  .head p { font-size: 19px; color: var(--muted); margin-top: 8px; }
+  .cols { position: relative; z-index: 1; display: flex; gap: 26px; flex: 1; }
+  .col { flex: 1; border-radius: 20px; padding: 26px 28px; display: flex; flex-direction: column; gap: 14px; }
+  .col.chat { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.09); }
+  .col.rn { background: rgba(37,99,235,0.07); border: 1px solid rgba(88,166,255,0.28); }
+  .col-title { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 800; letter-spacing: -0.3px; }
+  .col-sub { font-size: 14px; color: var(--muted-2); margin-top: -8px; }
+  .bubble { border-radius: 14px; padding: 14px 16px; font-size: 14.5px; line-height: 1.55; }
+  .bubble.user { background: rgba(255,255,255,0.08); align-self: flex-end; max-width: 70%; color: var(--ink); }
+  .bubble.ai { background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.07); color: var(--muted); }
+  .bubble.ai b { color: var(--ink); }
+  .fab { background: rgba(248,113,113,0.16); border: 1px solid rgba(248,113,113,0.45); border-radius: 6px; padding: 0 5px; color: #fca5a5; font-weight: 700; }
+  .fab-note { font-size: 13px; color: #fca5a5; font-weight: 700; margin-top: 2px; }
+  .buried { background: rgba(255,255,255,0.07); border-radius: 6px; padding: 0 5px; }
+  .rn-score-row { display: flex; align-items: center; gap: 20px; }
+  .ring { position: relative; width: 108px; height: 108px; flex-shrink: 0; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring .num b { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+  .ring .num span { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 1px; }
+  .dims { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .dim { display: flex; align-items: center; gap: 10px; }
+  .dim .name { width: 150px; font-size: 13px; color: var(--muted); font-weight: 500; }
+  .dim .bar-track { flex: 1; height: 8px; }
+  .dim .val { width: 30px; text-align: right; font-size: 13px; font-weight: 700; }
+  .issue { border-radius: 12px; padding: 12px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+  .issue .tag { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 1px; padding: 3px 8px; border-radius: 100px; margin-bottom: 6px; }
+  .tag.high { background: rgba(248,113,113,0.15); color: #fca5a5; }
+  .tag.ok { background: rgba(52,211,153,0.15); color: #6ee7b7; }
+  .issue .t { font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .issue .d { font-size: 13px; color: var(--muted); line-height: 1.5; margin-top: 4px; }
+  .ph { background: rgba(52,211,153,0.16); border: 1px solid rgba(52,211,153,0.45); border-radius: 6px; padding: 0 5px; color: #6ee7b7; font-weight: 700; }
+  .verdict { position: relative; z-index: 1; display: flex; gap: 18px; padding: 22px 0 30px; }
+  .v { flex: 1; border-radius: 14px; padding: 14px 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); }
+  .v .vt { font-size: 13px; font-weight: 800; letter-spacing: 0.8px; color: var(--amber-h); margin-bottom: 6px; }
+  .v .vx { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .v .vx b { color: var(--ink); }
+</style></head>
+<body>
+<div class="stage">
+  <div class="head">
+    <h1>The same résumé. Two very different reviews.</h1>
+    <p>A real full stack résumé reviewed by a general AI chatbot and by <b style="color:var(--amber-h);">Resunova</b>.</p>
+  </div>
+
+  <div class="cols">
+    <div class="col chat">
+      <div class="col-title">💬 Generic AI chatbot</div>
+      <div class="col-sub">Paste the text, lose the layout, get one long reply</div>
+      <div class="bubble user">Can you review my resume? [pastes 2 pages of text]</div>
+      <div class="bubble ai">
+        This is a solid resume with great experience! Here is my feedback:<br><br>
+        <b>Strengths:</b> Good range of technologies, some nice metrics, clear structure.<br><br>
+        <b>Suggestions:</b><br>
+        1. Tailor your summary to each specific role you apply for.<br>
+        2. Use strong action verbs consistently across bullets.<br>
+        3. Consider quantifying more of your achievements where possible.<br>
+        4. Make sure formatting is consistent throughout.<br>
+        5. Keep bullets concise and impactful.<br>
+        6. <span class="buried">Small typo: "Univerity" should be "University".</span><br>
+        7. Consider adding a LinkedIn URL to your header.<br><br>
+        Would you like me to rewrite any sections? 😊
+      </div>
+      <div class="bubble user">Yes, improve the testing bullet at Tata</div>
+      <div class="bubble ai">
+        "Automated testing and feature deployments using Jenkins and CI/CD pipelines, <span class="fab">improving deployment efficiency by 45%</span> and <span class="fab">reducing production errors by 60%</span>, ensuring reliable workflows across the engineering organization."
+      </div>
+      <div class="fab-note">⚠ Those numbers do not exist anywhere in the résumé. The chatbot invented them, and a candidate who pastes this in gets asked about them in the interview.</div>
+    </div>
+
+    <div class="col rn">
+      <div class="col-title"><svg width="26" height="26" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="7" fill="#c4793a"/><path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#fff" opacity="0.88"/></svg> Resunova</div>
+      <div class="col-sub">Reads the actual PDF, scores a fixed rubric, validates every claim</div>
+      <div class="rn-score-row">
+        <div class="ring">
+          <svg width="108" height="108" viewBox="0 0 108 108">
+            <circle cx="54" cy="54" r="46" stroke="rgba(255,255,255,0.09)" stroke-width="10" fill="none"/>
+            <circle cx="54" cy="54" r="46" stroke="url(#g)" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="63.6"/>
+            <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#58a6ff"/><stop offset="100%" stop-color="#34d399"/></linearGradient></defs>
+          </svg>
+          <div class="num"><b>78</b><span>OVERALL</span></div>
+        </div>
+        <div class="dims">
+          <div class="dim"><span class="name">Technical Branding</span><div class="bar-track"><div class="bar-fill" style="width:90%;background:#34d399;"></div></div><span class="val" style="color:#34d399;">90</span></div>
+          <div class="dim"><span class="name">ATS Compatibility</span><div class="bar-track"><div class="bar-fill" style="width:85%;background:#34d399;"></div></div><span class="val" style="color:#34d399;">85</span></div>
+          <div class="dim"><span class="name">Language Quality</span><div class="bar-track"><div class="bar-fill" style="width:74%;background:#fbbf24;"></div></div><span class="val" style="color:#fbbf24;">74</span></div>
+          <div class="dim"><span class="name">Achievement Quality</span><div class="bar-track"><div class="bar-fill" style="width:72%;background:#fbbf24;"></div></div><span class="val" style="color:#fbbf24;">72</span></div>
+        </div>
+      </div>
+      <div class="issue">
+        <span class="tag high">HIGH · LANGUAGE QUALITY</span>
+        <div class="t">Spelling error: "Harvard Univerity" in Certifications</div>
+        <div class="d">A typo next to a brand name like Harvard is the first thing a recruiter notices. Ranked by severity, tied to its scored category, one click from the fix.</div>
+      </div>
+      <div class="issue">
+        <span class="tag ok">VALIDATED REWRITE · NO INVENTED NUMBERS</span>
+        <div class="t">Automated regression testing and deployments with Jenkins, cutting release cycle time <span class="ph">[X%]</span></div>
+        <div class="d">Rewrites use placeholders the candidate fills with THEIR real number. Validators reject any rewrite that drops your real metrics, invents new ones, or changes nothing.</div>
+      </div>
+      <div class="issue">
+        <div class="d" style="margin-top:0;">Then the same résumé powers what a chat thread cannot: <b style="color:var(--ink);">score history across revisions, live job matching, and interview prep</b> built from these exact bullets.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <div class="v"><div class="vt">HONESTY</div><div class="vx">Chatbots <b>invent metrics</b> when rewriting. Resunova enforces <b>[X%] placeholders</b> and validates every rewrite against the original.</div></div>
+    <div class="v"><div class="vt">CONSISTENCY</div><div class="vx">Ask a chatbot twice, get two different reviews. Resunova scores a <b>fixed 8-dimension rubric</b>, so 71 to 84 across revisions means real progress.</div></div>
+    <div class="v"><div class="vt">THE DOCUMENT</div><div class="vx">Chat sees pasted text. Resunova reads the <b>actual PDF</b>, checks ATS structure, and its preview is your résumé, editable in place.</div></div>
+    <div class="v"><div class="vt">AFTER THE ADVICE</div><div class="vx">A chat thread ends. Resunova applies fixes, <b>rescores, exports the PDF</b>, ranks 247,000 live jobs against you, and preps the interview.</div></div>
+  </div>
+</div>
+</body></html>
