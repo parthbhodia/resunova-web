@@ -15,6 +15,14 @@ export interface AnalyzeRecord {
   createdAt: string;
   sourcePdfUrl?: string | null;
   sourceFilename?: string | null;
+  /** Version lineage (git-like). A fresh analysis is v1 rooted at its own id;
+   *  each saved edit is an immutable child version chained via parentId. */
+  parentId?: string | null;
+  version?:  number;
+  rootId?:   string | null;
+  /** Score provenance: 'llm' = verified re-score, 'estimate' = deterministic
+   *  save-edits estimate, null = original analysis. */
+  scoreSource?: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result:    any;
 }
@@ -389,7 +397,7 @@ export async function fetchAnalyses(limit = 10): Promise<AnalyzeRecord[]> {
 
   const { data, error } = await db
     .from("resume_analyses")
-    .select("id, label, score, created_at, source_pdf_url, source_filename")
+    .select("id, label, score, created_at, source_pdf_url, source_filename, parent_id, version, root_id, score_source")
     .eq("user_id", session.user.id)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -403,6 +411,10 @@ export async function fetchAnalyses(limit = 10): Promise<AnalyzeRecord[]> {
     createdAt: row.created_at as string,
     sourcePdfUrl: (row.source_pdf_url as string | null) ?? null,
     sourceFilename: (row.source_filename as string | null) ?? null,
+    parentId:  (row.parent_id as string | null) ?? null,
+    version:   (row.version as number | null) ?? 1,
+    rootId:    (row.root_id as string | null) ?? (row.id as string),
+    scoreSource: (row.score_source as string | null) ?? null,
     result:    null,
   }));
 }
@@ -415,7 +427,7 @@ export async function fetchAnalysisById(id: string): Promise<AnalyzeRecord | nul
 
   const { data, error } = await db
     .from("resume_analyses")
-    .select("id, label, score, result, created_at, source_pdf_url, source_filename")
+    .select("id, label, score, result, created_at, source_pdf_url, source_filename, parent_id, version, root_id, score_source")
     .eq("id", id)
     .eq("user_id", session.user.id)
     .single();
@@ -429,6 +441,10 @@ export async function fetchAnalysisById(id: string): Promise<AnalyzeRecord | nul
     createdAt: data.created_at as string,
     sourcePdfUrl: (data.source_pdf_url as string | null) ?? null,
     sourceFilename: (data.source_filename as string | null) ?? null,
+    parentId:  (data.parent_id as string | null) ?? null,
+    version:   (data.version as number | null) ?? 1,
+    rootId:    (data.root_id as string | null) ?? (data.id as string),
+    scoreSource: (data.score_source as string | null) ?? null,
     result:    data.result,
   };
 }
@@ -463,6 +479,76 @@ export async function insertAnalysis(
 
   if (error) throw error;
   return data.id as string;
+}
+
+/**
+ * Insert a new immutable VERSION of an existing analysis (append-only lineage).
+ * Chains parent_id → the row being edited, version = parent.version + 1, and
+ * inherits the root_id so every version of one résumé groups together.
+ * Returns the created record (with lineage fields) so the caller can advance the
+ * in-memory history head without a refetch. Never mutates the parent row.
+ */
+export async function createAnalysisVersion(
+  parent: { id: string; version?: number; rootId?: string | null; label: string },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  result: any,
+  opts?: { label?: string },
+): Promise<AnalyzeRecord | null> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return null;
+
+  const rootId  = parent.rootId ?? parent.id;
+  const label   = opts?.label ?? parent.label;
+
+  // Next ordinal across the WHOLE root group (not parent.version + 1), so saving
+  // from a RESTORED older version still yields a strictly increasing head rather
+  // than a colliding version number.
+  let version = (parent.version ?? 1) + 1;
+  try {
+    const { data: top } = await db
+      .from("resume_analyses")
+      .select("version")
+      .eq("user_id", session.user.id)
+      .eq("root_id", rootId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const topVersion = (top as { version?: number } | null)?.version;
+    if (typeof topVersion === "number") version = topVersion + 1;
+  } catch { /* fall back to parent.version + 1 */ }
+
+  const { data, error } = await db
+    .from("resume_analyses")
+    .insert({
+      user_id:    session.user.id,
+      user_email: session.user.email ?? null,
+      label,
+      score:      result.overallScore,
+      result,
+      parent_id:  parent.id,
+      version,
+      root_id:    rootId,
+      score_source: "estimate",
+    })
+    .select("id, created_at")
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id:        data.id as string,
+    label,
+    score:     result.overallScore as number,
+    createdAt: data.created_at as string,
+    sourcePdfUrl: null,
+    sourceFilename: null,
+    parentId:  parent.id,
+    version,
+    rootId,
+    scoreSource: "estimate",
+    result,
+  };
 }
 
 /** Delete a single analysis row by id. */

@@ -26,7 +26,8 @@ import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
 import { useResumeAnalyzeStore } from "@/store/resumeAnalyzeStore";
 import type { StructuredResume, BulletMapEntry } from "@/store/resumeAnalyzeStore";
-import { getSupabaseClient, fetchAnalyses, fetchAnalysisById, insertAnalysis, deleteAnalysis } from "@/lib/supabase";
+import { getSupabaseClient, fetchAnalyses, fetchAnalysisById, insertAnalysis, createAnalysisVersion, deleteAnalysis } from "@/lib/supabase";
+import { groupAnalysesByRoot } from "@/lib/analyzeVersions";
 import type { AnalyzeRecord } from "@/lib/supabase";
 import AnalyzePreviewPane from "@/components/AnalyzePreviewPane";
 import {
@@ -164,6 +165,12 @@ interface AnalysisResult {
   analysisId?: string;
   /** True when backend wrote resume_analyses; false/absent means client should insert. */
   analysisPersisted?: boolean;
+  /** Version lineage of a persisted rescore — backend chains it as a verified
+   *  ("llm") child of the analysis it was rescored from (parent_analysis_id). */
+  analysisParentId?: string | null;
+  analysisVersion?: number;
+  analysisRootId?: string | null;
+  analysisScoreSource?: string | null;
   sourcePdfUrl?: string | null;
   sourceFilename?: string | null;
   scanLimitStatus?: { limit: number; used: number; remaining: number; resetAt: string } | null;
@@ -518,7 +525,7 @@ export default function AnalyzeResume() {
           .catch(() => { /* non-critical */ });
       });
       try {
-        const rows = await fetchAnalyses(10);
+        const rows = await fetchAnalyses(25);   // higher: version chains share the list
         setAzHistory(rows);
         lsSave(user.id, rows);          // keep local cache in sync
       } catch {
@@ -602,6 +609,12 @@ export default function AnalyzeResume() {
       label,
       score:     res.overallScore,
       createdAt: new Date().toISOString(),
+      // Lineage carried from a persisted rescore (a verified child version);
+      // absent for a fresh analysis, which groups as its own root v1.
+      parentId:  res.analysisParentId ?? null,
+      version:   res.analysisVersion,
+      rootId:    res.analysisRootId ?? null,
+      scoreSource: res.analysisScoreSource ?? null,
       result:    res,
     };
     // Optimistic update — show instantly
@@ -637,6 +650,11 @@ export default function AnalyzeResume() {
   const handleRescore = useCallback(async () => {
     if (rescoring) return;
     const st = useResumeAnalyzeStore.getState();
+    // The analysis being rescored is the current head; chain the verified
+    // re-score as its child version (skip a not-yet-persisted local draft).
+    const parentAnalysisId = activeEditDraftId && !activeEditDraftId.startsWith("local_")
+      ? activeEditDraftId
+      : undefined;
     const patch = patchAppliedEditsIntoResume({
       extractedText: st.extractedText,
       structuredResume: st.structuredResume,
@@ -667,6 +685,7 @@ export default function AnalyzeResume() {
         body: JSON.stringify({
           resume_text: patch.patchedText,
           structured_resume: patch.patchedStructured ?? undefined,
+          parent_analysis_id: parentAnalysisId,
         }),
       });
       const json = await resp.json();
@@ -695,7 +714,7 @@ export default function AnalyzeResume() {
     } finally {
       setRescoring(false);
     }
-  }, [rescoring, persistResult]);
+  }, [rescoring, persistResult, activeEditDraftId]);
 
   // After sign-in lands (fresh mount post-OAuth), restore the stashed anonymous
   // scan: the user arrives on their already-finished, now-unlocked report and
@@ -878,9 +897,14 @@ export default function AnalyzeResume() {
     }
   }, [userId, azHistory]);
 
+  // Collapse very long version chains in the history rail (per-root toggle).
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const azHistoryRows = useMemo(
-    () =>
-      azHistory.map((rec) => (
+    () => {
+      const historyRow = (
+        rec: AnalyzeRecord,
+        opts?: { versionBadge?: string; isHead?: boolean },
+      ) => (
         <div
           key={rec.id}
           style={{
@@ -945,9 +969,52 @@ export default function AnalyzeResume() {
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
                 }}
               >
-                {rec.label}
+                {opts?.versionBadge ? (
+                  <>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: opts.isHead ? "var(--amber)" : "var(--muted)",
+                        background: opts.isHead ? "var(--amber-bg)" : "var(--surface2)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 5,
+                        padding: "1px 6px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {opts.versionBadge}
+                    </span>
+                    {opts.isHead && (
+                      <span style={{ fontSize: 10, color: "var(--dim)", fontWeight: 500 }}>current</span>
+                    )}
+                    {rec.scoreSource === "estimate" && (
+                      <span
+                        title="Estimated score from applied edits (not a fresh LLM re-score)"
+                        style={{ fontSize: 9.5, color: "var(--dim)", fontWeight: 500, fontStyle: "italic" }}
+                      >
+                        est
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {rec.label}
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 1 }}>
                 {new Date(rec.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
@@ -958,6 +1025,7 @@ export default function AnalyzeResume() {
             type="button"
             onClick={() => deleteRecord(rec.id)}
             title="Remove"
+            aria-label="Remove analysis"
             style={{
               width: 22,
               height: 22,
@@ -987,8 +1055,94 @@ export default function AnalyzeResume() {
             </svg>
           </button>
         </div>
-      )),
-    [azHistory, restoreRecord, deleteRecord],
+      );
+
+      // A résumé with a single version renders exactly as before; multiple
+      // versions collapse into a labelled lineage chain (newest = "current").
+      return groupAnalysesByRoot(azHistory).map((g) => {
+        if (g.recs.length <= 1) return historyRow(g.recs[0]);
+        // Collapse long chains so one heavily-versioned résumé can't flood the
+        // narrow history rail; the head + a few recent versions stay visible.
+        const COLLAPSE_AT = 4;
+        const isExpanded = expandedGroups.has(g.root);
+        const shown =
+          g.recs.length > COLLAPSE_AT && !isExpanded ? g.recs.slice(0, COLLAPSE_AT) : g.recs;
+        const hiddenCount = g.recs.length - shown.length;
+        return (
+          <div key={g.root} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                padding: "1px 4px 3px",
+              }}
+            >
+              <span
+                style={{
+                  flex: 1,
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: "var(--text)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  minWidth: 0,
+                }}
+              >
+                {g.recs[0].label}
+              </span>
+              <span style={{ fontSize: 10, color: "var(--dim)", fontWeight: 600, flexShrink: 0 }}>
+                {g.recs.length} versions
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                paddingLeft: 8,
+                marginLeft: 4,
+                borderLeft: "2px solid rgba(196,121,58,0.35)",
+              }}
+            >
+              {shown.map((rec, i) =>
+                historyRow(rec, { versionBadge: `v${rec.version ?? 1}`, isHead: i === 0 }),
+              )}
+              {g.recs.length > COLLAPSE_AT && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedGroups((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(g.root)) next.delete(g.root);
+                      else next.add(g.root);
+                      return next;
+                    })
+                  }
+                  style={{
+                    alignSelf: "flex-start",
+                    marginTop: 2,
+                    padding: "2px 6px",
+                    background: "none",
+                    border: "none",
+                    color: "var(--dim)",
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {isExpanded ? "Show fewer" : `+${hiddenCount} older`}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      });
+    },
+    [azHistory, restoreRecord, deleteRecord, expandedGroups],
   );
 
   const categoryAssignmentOpts = useMemo((): CategoryAssignmentOptions => {
@@ -1366,15 +1520,83 @@ export default function AnalyzeResume() {
     setImprovementPlanVisible(true);
   }, []);
 
-  const saveLocalPreviewDraft = useCallback(() => {
+  const [savingVersion, setSavingVersion] = useState(false);
+  const saveLocalPreviewDraft = useCallback(async () => {
     if (!activeEditDraftId) {
       setEditDraftStatus("Open an analysis first (upload or history).");
       return;
     }
-    const lineOverrides = useResumeAnalyzeStore.getState().lineOverrides;
+    // Always keep the browser-local draft (instant, offline, and covers the
+    // not-yet-persisted case).
     persistEdits(activeEditDraftId);
-    setEditDraftStatus("Saved preview edits in this browser only.");
-  }, [activeEditDraftId, rewriteEdits]);
+
+    const parent = azHistory.find((r) => r.id === activeEditDraftId);
+    const persisted = !!parent && !activeEditDraftId.startsWith("local_");
+    if (!persisted || !parent || !result || !userId) {
+      setEditDraftStatus("Saved preview edits in this browser.");
+      return;
+    }
+
+    // Bake the applied edits into an immutable version snapshot. No LLM call —
+    // the score is the deterministic estimate the preview already shows. The
+    // parent row is never mutated (resume_analyses has no UPDATE policy), so
+    // every save is an append-only child version, git-commit style.
+    setSavingVersion(true);
+    try {
+      const st = useResumeAnalyzeStore.getState();
+      const patch = patchAppliedEditsIntoResume({
+        extractedText: st.extractedText,
+        structuredResume: st.structuredResume,
+        analysisBullets: st.analysisBullets,
+        lineOverrides: st.lineOverrides,
+        summaryOverride: st.summaryOverride,
+        hiddenBulletTexts: hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths),
+      });
+      if (patch.appliedCount === 0) {
+        setEditDraftStatus("Make an edit in the preview first, then save a version.");
+        return;
+      }
+      const versionResult: AnalysisResult = {
+        ...result,
+        extractedText: patch.patchedText,
+        ...(patch.patchedStructured ? { structuredResume: patch.patchedStructured } : {}),
+        ...(typeof scoreEstimate?.projected === "number"
+          ? { overallScore: scoreEstimate.projected }
+          : {}),
+      };
+      const created = await createAnalysisVersion(
+        { id: parent.id, version: parent.version, rootId: parent.rootId, label: parent.label },
+        versionResult,
+      );
+      if (!created) {
+        setEditDraftStatus("Saved preview edits in this browser.");
+        return;
+      }
+      // The new version is the head: the just-committed edits are baked into it,
+      // so re-hydrate the working copy from the snapshot and drop the parent's
+      // now-committed draft. Subsequent edits branch a further child from here.
+      clearEditsStore(activeEditDraftId);
+      setAzHistory((prev) => [created, ...prev].slice(0, 40));
+      lsPush(userId, created);
+      setActiveEditDraftId(created.id);
+      setExpandedBullets({});
+      setSelectedBulletIndex(null);
+      setHistoryRestoreActive(false);
+      setResult(versionResult);
+      useResumeAnalyzeStore.getState().hydrateFromAnalysis({
+        extractedText: versionResult.extractedText,
+        bulletAnalysis: versionResult.bulletAnalysis,
+        resumeHeader: versionResult.resumeHeader,
+        structuredResume: versionResult.structuredResume,
+        bulletMap: versionResult.bulletMap,
+      });
+      setEditDraftStatus(`Saved as v${created.version}. Added to this résumé's history.`);
+    } catch {
+      setEditDraftStatus("Saved locally; couldn't add a cloud version this time.");
+    } finally {
+      setSavingVersion(false);
+    }
+  }, [activeEditDraftId, result, userId, azHistory, scoreEstimate, persistEdits, clearEditsStore]);
 
   const clearLocalPreviewDraft = useCallback(() => {
     if (!activeEditDraftId || !result) return;
@@ -1475,15 +1697,16 @@ export default function AnalyzeResume() {
             borderBottom: "1px solid var(--border)",
           }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
-                Preview edits (local test)
+                Save a version
               </div>
               <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.45, marginBottom: 10 }}>
-                Saves line tweaks + AI draft text in this browser. Re-open the same run from history to verify restore.
+                Saves your applied edits as a new version in this résumé&rsquo;s history, with the updated estimated score. Restore any earlier version from history anytime.
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <button
                   type="button"
                   onClick={saveLocalPreviewDraft}
+                  disabled={savingVersion}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -1493,11 +1716,12 @@ export default function AnalyzeResume() {
                     color: "var(--text)",
                     fontSize: 12,
                     fontWeight: 600,
-                    cursor: "pointer",
+                    cursor: savingVersion ? "default" : "pointer",
+                    opacity: savingVersion ? 0.6 : 1,
                     fontFamily: "inherit",
                   }}
                 >
-                  Save preview edits
+                  {savingVersion ? "Saving version…" : "Save as version"}
                 </button>
                 <button
                   type="button"

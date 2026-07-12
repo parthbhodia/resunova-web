@@ -3404,25 +3404,7 @@ export default function ResumeBuilder({
                           <circle cx="9" cy="9" r="7" stroke="rgba(52,211,153,0.3)" strokeWidth="2.5"/>
                           <path d="M9 2a7 7 0 017 7" stroke="var(--green,#34d399)" strokeWidth="2.5" strokeLinecap="round"/>
                         </svg>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => { setApplyFeedback(null); void rescoreTailorRatings(); }}
-                          title="Re-run match analysis on your updated preview text"
-                          style={{
-                            display: "inline-flex", alignItems: "center", gap: 5,
-                            padding: "5px 12px", borderRadius: 7,
-                            border: "1px solid rgba(52,211,153,0.4)",
-                            background: "rgba(52,211,153,0.08)",
-                            color: "var(--green, #34d399)",
-                            fontSize: 11.5, fontWeight: 600, fontFamily: "inherit",
-                            cursor: "pointer",
-                            whiteSpace: "nowrap", flexShrink: 0,
-                          }}
-                        >
-                          ↺ Re-analyze
-                        </button>
-                      )}
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => setApplyFeedback(null)}
