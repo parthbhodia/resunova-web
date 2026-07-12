@@ -35,6 +35,12 @@ type BoostSuggestion = GapFixSuggestion & {
   gainedRequirements?: string[];
 };
 
+type BoostSkip = {
+  keyword: string;
+  reason: string;   // not_keyword_shaped | over_limit | no_honest_bridge | validation_failed | no_score_flip
+  detail?: string;  // the model's own words for no_honest_bridge, when it gave one
+};
+
 type BoostResult = {
   company: string;
   title: string;
@@ -47,7 +53,45 @@ type BoostResult = {
   changes?: BoostSuggestion[]; // legacy alias for `suggestions`
   appliedKeywords: string[];
   skippedKeywords: string[];
+  skipped?: BoostSkip[];      // per-keyword reasons (older backends omit this)
 };
+
+const SKIP_REASON_LABEL: Record<string, string> = {
+  not_keyword_shaped: "a full phrase, not a keyword",
+  over_limit: "over the per-run limit — boost again to cover it",
+  no_honest_bridge: "no honest match in your experience",
+  validation_failed: "the rewrite lost facts from your original bullet",
+  no_score_flip: "couldn't verifiably raise your match",
+  not_covered: "didn't make this run — boost again to cover it",
+};
+
+/** Per-keyword skip list with honest reasons; falls back to the legacy blanket
+ *  list when the backend predates `skipped`. */
+function SkippedKeywordList({ result }: { result: BoostResult }) {
+  const detailed = result.skipped?.filter((s) => s.keyword) ?? [];
+  if (detailed.length === 0) {
+    if (result.skippedKeywords.length === 0) return null;
+    return (
+      <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>
+        Skipped (couldn&apos;t honestly support): {result.skippedKeywords.join(", ")}
+      </p>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>
+        SKIPPED · {detailed.length}
+      </span>
+      {detailed.map((s) => (
+        <span key={s.keyword} style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>
+          <strong style={{ color: "var(--text)", fontWeight: 600 }}>{s.keyword}</strong>
+          {" — "}
+          {s.reason === "no_honest_bridge" && s.detail ? s.detail : (SKIP_REASON_LABEL[s.reason] ?? "couldn't honestly support")}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 // Server-side deterministic re-score for a partial accepted subset. The match
 // scorer is bucket-weighted + renormalized, so a suggestion's marginal value is
@@ -289,6 +333,9 @@ function Step1({ job, ready, onNext, onScanFirst }: {
         {score != null && (
           <p style={{ fontSize: 13, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
             You match <strong style={{ color: "var(--text)" }}>{job.matchedCount}</strong> of <strong style={{ color: "var(--text)" }}>{job.totalRequirements}</strong> requirements for this role.
+            {score < 25 && (
+              <> This role is a weak fit for your résumé, so tailoring can only honestly add a few keywords — expect a modest jump, not a transformation.</>
+            )}
           </p>
         )}
       </div>
@@ -423,7 +470,8 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <SectionHeading n={2} title="Add missing skill keywords" badge={`${keywords.size} / ${total}`} />
           <p style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", margin: 0 }}>
-            Pulled from this job&apos;s requirements your résumé doesn&apos;t mention yet. Pick the ones you can honestly back up — tailoring weaves them into your real experience.
+            Pulled from this job&apos;s requirements your résumé doesn&apos;t mention yet. Pick the ones you can honestly back up — tailoring weaves them into your real experience, a couple per bullet at most.
+            {total > 12 ? " We tailor up to 12 keywords per run." : ""}
           </p>
           {total === 0 ? (
             <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0 }}>No missing concrete keywords — your résumé already covers this role&apos;s hard requirements.</p>
@@ -698,9 +746,10 @@ function Step3({
           <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>No honest improvements to apply</span>
           <span style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 }}>
             {result.skippedKeywords.length > 0
-              ? <>Skipped — couldn&apos;t honestly support: {result.skippedKeywords.join(", ")}. Your match stays at <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong>.</>
+              ? <>The keywords below couldn&apos;t be added honestly. Your match stays at <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong>.</>
               : <>Your résumé already covers what this posting asks for, or the remaining gaps can&apos;t be closed truthfully. Match: <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong>.</>}
           </span>
+          <SkippedKeywordList result={result} />
         </div>
       )}
 
@@ -741,11 +790,7 @@ function Step3({
               </div>
             ))}
           </div>
-          {result.skippedKeywords.length > 0 && (
-            <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>
-              Skipped (couldn&apos;t honestly support): {result.skippedKeywords.join(", ")}
-            </p>
-          )}
+          <SkippedKeywordList result={result} />
         </div>
       )}
 
