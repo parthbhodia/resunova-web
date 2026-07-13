@@ -423,7 +423,11 @@ const TABS: { key: SectionKey; label: string; icon: string }[] = [
   { key: "projects",   label: "Projects",   icon: "🚀" },
   { key: "skills",     label: "Skills",     icon: "⚡" },
   { key: "customize",  label: "Style",      icon: "🎨" },
-  { key: "review",     label: "Review",     icon: "✦" },
+  // Not "✦" — that glyph is the app's established AI/magic marker (AI Enhance,
+  // AI Generate, etc. throughout this file); Review is a plain checklist tab,
+  // and reusing ✦ here collided with the toolbar's "Check ATS" button, which
+  // also renders a bare ✦ (visible at the icon-only mobile tab rail width).
+  { key: "review",     label: "Review",     icon: "🔍" },
 ];
 
 export default function TemplateBuilderClient() {
@@ -1763,6 +1767,7 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
               <button
                 key={preset.id}
                 onClick={() => applyStylePreset(preset)}
+                aria-pressed={active}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "44px 1fr auto",
@@ -1786,7 +1791,7 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                   background: "var(--surface2)",
                   padding: "6px 7px",
                   boxSizing: "border-box",
-                }}>
+                }} aria-hidden>
                   <div style={{ width: "68%", height: 4, borderRadius: 2, background: preset.accentColor, marginBottom: 5 }} />
                   <div style={{ width: "100%", height: 2, borderRadius: 2, background: "var(--border)", marginBottom: 4 }} />
                   <div style={{ width: "78%", height: 2, borderRadius: 2, background: "var(--border)" }} />
@@ -1795,7 +1800,7 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{preset.label}</div>
                   <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.35 }}>{preset.description}</div>
                 </div>
-                {active && <span style={{ fontSize: 13, color: "var(--accent)" }}>✓</span>}
+                {active && <span aria-hidden style={{ fontSize: 13, color: "var(--accent)" }}>✓</span>}
               </button>
             );
           })}
@@ -1812,6 +1817,7 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
               <button
                 key={preset.id}
                 onClick={() => applyStylePreset(preset)}
+                aria-pressed={active}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "44px 1fr auto",
@@ -1835,7 +1841,7 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                   background: "var(--surface2)",
                   padding: "6px 7px",
                   boxSizing: "border-box",
-                }}>
+                }} aria-hidden>
                   <div style={{ width: "68%", height: 4, borderRadius: 2, background: preset.accentColor, marginBottom: 5 }} />
                   <div style={{ width: "100%", height: 2, borderRadius: 2, background: "var(--border)", marginBottom: 4 }} />
                   <div style={{ width: "78%", height: 2, borderRadius: 2, background: "var(--border)" }} />
@@ -1844,7 +1850,7 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{preset.label}</div>
                   <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.35 }}>{preset.description}</div>
                 </div>
-                {active && <span style={{ fontSize: 13, color: "var(--accent)" }}>✓</span>}
+                {active && <span aria-hidden style={{ fontSize: 13, color: "var(--accent)" }}>✓</span>}
               </button>
             );
           })}
