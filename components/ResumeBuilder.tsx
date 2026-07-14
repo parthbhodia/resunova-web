@@ -97,6 +97,8 @@ import {
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { ScanFeedbackToast, useScanToast } from "@/components/ScanFeedbackToast";
 import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/components/TailorSaveStatus";
+import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
+import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 import {
   DropdownMenu,
@@ -454,6 +456,22 @@ export default function ResumeBuilder({
   const appShellSidebar = useAppShellSidebar();
   const { scanMeta, handleScanResponse, handleScanError, clearScanMeta } = useScanToast();
   const saveStatus = useTailorSaveStatus();
+  // Tailoring intensity (honest | aggressive). null = user never chose — the
+  // one-time explainer modal fires on the first analyze, then persists to
+  // user_profiles.tailoring_mode (migration 036) + localStorage cache.
+  const [tailoringMode, setTailoringMode] = useState<TailoringMode | null>(() => getCachedTailoringMode());
+  const [showTailoringModal, setShowTailoringModal] = useState(false);
+  const pendingAnalyzeAfterModeRef = useRef(false);
+  const handleAnalyzeRef = useRef<(() => void) | null>(null);
+  const commitTailoringMode = useCallback((mode: TailoringMode) => {
+    setTailoringMode(mode);
+    void saveTailoringMode(mode);
+    setShowTailoringModal(false);
+    if (pendingAnalyzeAfterModeRef.current) {
+      pendingAnalyzeAfterModeRef.current = false;
+      setTimeout(() => handleAnalyzeRef.current?.(), 0);
+    }
+  }, []);
   const lastSaveArgsRef = useRef<Parameters<typeof saveTailorMatchToLibrary>[0] | null>(null);
   const persistTailorMatch = useCallback(async (args: Parameters<typeof saveTailorMatchToLibrary>[0]) => {
     lastSaveArgsRef.current = args;
@@ -1045,6 +1063,12 @@ export default function ResumeBuilder({
   }, [jobUrl]);
 
   const [user, setUser] = useState<User | null>(null);
+  // Refresh the stored tailoring mode whenever the signed-in user changes.
+  useEffect(() => {
+    let alive = true;
+    void fetchTailoringMode().then((m) => { if (alive && m) setTailoringMode(m); });
+    return () => { alive = false; };
+  }, [user?.id]);
   /** After first getSession completes — avoids auto-ATS racing before user is known. */
   const [authReady, setAuthReady] = useState(false);
   const [styleReferenceFolder, setStyleReferenceFolderState] = useState(DEFAULT_REFERENCE_FOLDER);
@@ -1225,6 +1249,13 @@ export default function ResumeBuilder({
     const profile = (candidateProfile ?? "").trim();
     if (!effJd) { setAnalyzeError("Please paste a job description first."); return; }
     if (!profile) { setAnalyzeError("Please upload your résumé first."); return; }
+    // First-use: ask how the AI should tailor before the first analyze; the
+    // modal re-invokes this via handleAnalyzeRef after the choice is saved.
+    if (user?.id && tailoringMode === null) {
+      pendingAnalyzeAfterModeRef.current = true;
+      setShowTailoringModal(true);
+      return;
+    }
     // On the initial analyze, no overrides exist yet — send the structured doc
     // directly when the profile text still matches the upload (no manual edits).
     const initialStructured = tailorStructuredResume && profile === (structuredUpload?.profile ?? "").trim()
@@ -1303,7 +1334,8 @@ export default function ResumeBuilder({
     } finally {
       setAnalyzing(false);
     }
-  }, [jd, candidateProfile, company, role, model, user?.id, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar, saveStatus, persistTailorMatch]);
+  }, [jd, candidateProfile, company, role, model, user?.id, tailoringMode, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar, saveStatus, persistTailorMatch]);
+  useEffect(() => { handleAnalyzeRef.current = () => { void handleAnalyze(); }; }, [handleAnalyze]);
 
   /** Re-run JD match ratings on updated plain text (no LaTeX / no ATS folder).
    * Pass bulletsAtApply/overridesAtApply/appliedAtApply when calling from applyGapFixes
@@ -2097,6 +2129,7 @@ export default function ResumeBuilder({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          tailoring_mode: tailoringMode ?? "honest",
           gap_name: gap.name,
           gap_notes: gap.notes,
           job_description: jd.trim(),
@@ -2130,7 +2163,7 @@ export default function ResumeBuilder({
     } finally {
       setGapFixLoading(null);
     }
-  }, [jd, addressedGaps, addressedGapActions, tailorStructuredResume, effectiveCandidateProfile]);
+  }, [jd, addressedGaps, addressedGapActions, tailorStructuredResume, effectiveCandidateProfile, tailoringMode]);
 
   /**
    * Apply one or more gap-fix suggestions to the HTML preview (Chromium export path — no LaTeX).
@@ -2481,6 +2514,22 @@ export default function ResumeBuilder({
         role={role}
         onDismiss={saveStatus.dismissToast}
         onRetry={retryTailorSave}
+      />
+
+      <TailoringModeModal
+        open={showTailoringModal}
+        initialMode={tailoringMode ?? "honest"}
+        onSave={commitTailoringMode}
+        onCancel={() => {
+          // "Not now" = keep the honest default for this run and stop asking
+          // this session; the setting stays changeable from the header/settings.
+          setShowTailoringModal(false);
+          if (pendingAnalyzeAfterModeRef.current) {
+            pendingAnalyzeAfterModeRef.current = false;
+            setTailoringMode("honest");
+            setTimeout(() => handleAnalyzeRef.current?.(), 0);
+          }
+        }}
       />
 
       {/* ── Main — landmark + busy state for assistive tech (WCAG 4.1.3) */}
@@ -3314,6 +3363,15 @@ export default function ResumeBuilder({
                 </div>
                 {/* Header action buttons */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+                  {user?.id && (
+                    <span title="How AI rewrites tailor to the JD — applies to gap fixes and Boost" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>AI style</span>
+                      <TailoringModeSelector
+                        value={tailoringMode ?? "honest"}
+                        onChange={commitTailoringMode}
+                      />
+                    </span>
+                  )}
                   <div style={{ display: "inline-flex", border: "1px solid var(--border-strong, var(--border))", borderRadius: 7, overflow: "hidden" }}>
                     <Button
                       variant="outline"
