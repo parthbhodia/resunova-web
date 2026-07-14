@@ -23,6 +23,7 @@ const PUBLIC_ROUTES = new Set<string>([
   "/resume-examples",
   "/ats-resume-checker",
   "/template-builder",
+  "/profile",
 ]);
 // Path prefixes that bypass auth — recipient share pages live at /r/<shortid>,
 // programmatic SEO role pages at /resume-examples/<role>, comparisons at /compare/<slug>.

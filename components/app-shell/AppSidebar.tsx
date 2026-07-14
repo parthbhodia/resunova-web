@@ -44,6 +44,7 @@ export type AppSidebarProps = {
   active: AppView;
   onTemplateBuilderPage: boolean;
   onInterviewPrepPage: boolean;
+  onCareerProfilePage?: boolean;
   builderActive: boolean;
   builderOpen: boolean;
   onBuilderOpenChange: (open: boolean) => void;
@@ -117,6 +118,7 @@ export function AppSidebar({
   active,
   onTemplateBuilderPage,
   onInterviewPrepPage,
+  onCareerProfilePage = false,
   builderActive,
   builderOpen,
   onBuilderOpenChange,
@@ -192,14 +194,14 @@ export function AppSidebar({
             <SidebarMenu className="group-data-[collapsible=icon]:items-center">
               <NavItem
                 view="home"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "home"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "home"}
                 onClick={gated("home")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <NavItem
                 view="analyze"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "analyze"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "analyze"}
                 onClick={() => onSwitchView("analyze")}
                 showLabels={showLabels}
               />
@@ -280,30 +282,44 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={onCareerProfilePage}
+                  tooltip="Career Profile"
+                  className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
+                  onClick={() => router.push("/profile")}
+                >
+                  <span className="app-nav-icon" aria-hidden>
+                    {NAV_ICONS.careerProfile}
+                  </span>
+                  {showLabels ? <span className="app-nav-label">Career Profile</span> : null}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               <NavItem
                 view="library"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "library"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "library"}
                 onClick={gated("library")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <NavItem
                 view="cover-letter"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "cover-letter"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "cover-letter"}
                 onClick={gated("cover-letter")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <NavItem
                 view="jobs"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "jobs"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "jobs"}
                 onClick={gated("jobs")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <NavItem
                 view="profile"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "profile"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "profile"}
                 onClick={gated("profile")}
                 showLabels={showLabels}
                 locked={anonMode}
@@ -311,7 +327,7 @@ export function AppSidebar({
               {advisorAllowed ? (
                 <NavItem
                   view="advisor"
-                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "advisor"}
+                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "advisor"}
                   onClick={() => onSwitchView("advisor")}
                   showLabels={showLabels}
                 />

@@ -1,7 +1,16 @@
 /**
  * Saved Profile (structured defaults + EEO) — localStorage plus optional Supabase
  * `user_profiles` when signed in (see `fetchUserProfile` / `upsertUserProfile` in `supabase.ts`).
+ *
+ * This also carries the separate "extracted profile" (career dashboard: name,
+ * skills, experience, education, projects — populated by résumé upload/AI
+ * extraction on `/profile`). It persists to its own `user_extracted_profiles`
+ * Supabase table (see `fetchExtractedProfile` / `upsertExtractedProfile` in
+ * `supabase.ts`) — a separate table from `user_profiles` on purpose, so saving
+ * one never clobbers the other.
  */
+
+import { type ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "./resumeExtractorService";
 
 export type ProfileFormState = {
   displayName: string;
@@ -68,6 +77,28 @@ export function loadProfile(): ProfileFormState {
 export function saveProfile(s: ProfileFormState) {
   try {
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(s));
+  } catch {
+    /* quota */
+  }
+}
+
+export const EXTRACTED_PROFILE_STORAGE_KEY = "rn_extracted_profile_v1";
+
+export function loadExtractedProfile(): ExtractedProfileState {
+  if (typeof window === "undefined") return { ...INITIAL_EXTRACTED_PROFILE };
+  try {
+    const raw = localStorage.getItem(EXTRACTED_PROFILE_STORAGE_KEY);
+    if (!raw) return { ...INITIAL_EXTRACTED_PROFILE };
+    const p = JSON.parse(raw) as Partial<ExtractedProfileState>;
+    return { ...INITIAL_EXTRACTED_PROFILE, ...p };
+  } catch {
+    return { ...INITIAL_EXTRACTED_PROFILE };
+  }
+}
+
+export function saveExtractedProfile(s: ExtractedProfileState) {
+  try {
+    localStorage.setItem(EXTRACTED_PROFILE_STORAGE_KEY, JSON.stringify(s));
   } catch {
     /* quota */
   }

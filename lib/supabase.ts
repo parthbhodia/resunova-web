@@ -2,6 +2,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { TBResumeData } from "@/components/TemplateBuilder/types";
 import type { ResumeRecord, Criterion, RatingsData } from "./types";
 import { type ProfileFormState, EMPTY_PROFILE } from "./profileStorage";
+import { type ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "./resumeExtractorService";
 import { dispatchResumeLibraryChanged } from "./resumeLibraryEvents";
 import { coerceTemplateBuilderData } from "./coerceTemplateBuilderData";
 
@@ -868,6 +869,61 @@ export async function upsertUserProfile(profile: ProfileFormState): Promise<void
     if (error) console.warn("[user_profiles] upsert:", error.message);
   } catch (e) {
     console.warn("[user_profiles] upsert:", e);
+  }
+}
+
+/* ── Career profile (résumé-extracted dashboard) persistence ────────────────
+ * Deliberately a SEPARATE table (`user_extracted_profiles`, migration 036)
+ * from `user_profiles` above — both are keyed on `user_id`, and an upsert
+ * replaces the whole `profile` jsonb column, so sharing a table would mean
+ * saving Tailor defaults and saving the career-profile dashboard clobber
+ * each other. Null on any failure; callers fall back to the localStorage copy
+ * (`loadExtractedProfile` in `profileStorage.ts`). */
+
+/** Load the signed-in user's career-profile dashboard data. Null when signed out or on error. */
+export async function fetchExtractedProfile(): Promise<ExtractedProfileState | null> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.user?.id) return null;
+
+    const { data, error } = await db
+      .from("user_extracted_profiles")
+      .select("profile")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("[user_extracted_profiles] fetch:", error.message);
+      return null;
+    }
+    if (!data?.profile) return null;
+    return { ...INITIAL_EXTRACTED_PROFILE, ...(data.profile as Partial<ExtractedProfileState>) };
+  } catch (e) {
+    console.warn("[user_extracted_profiles] fetch:", e);
+    return null;
+  }
+}
+
+/** Upsert the career-profile dashboard data for the signed-in user. No-op when logged out. */
+export async function upsertExtractedProfile(profile: ExtractedProfileState): Promise<void> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.user?.id) return;
+
+    const { error } = await db.from("user_extracted_profiles").upsert(
+      {
+        user_id: session.user.id,
+        profile: profile as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+
+    if (error) console.warn("[user_extracted_profiles] upsert:", error.message);
+  } catch (e) {
+    console.warn("[user_extracted_profiles] upsert:", e);
   }
 }
 

@@ -73,6 +73,18 @@ export const NAV_ICONS = {
       />
     </svg>
   ),
+  careerProfile: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="8" cy="6.4" r="1.7" stroke="currentColor" strokeWidth="1.3" />
+      <path
+        d="M4.8 11.5c0-1.5 1.4-2.5 3.2-2.5s3.2 1 3.2 2.5"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
   jobs: (
     <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
       <rect x="2" y="4.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4" />

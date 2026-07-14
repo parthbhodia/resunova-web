@@ -103,6 +103,8 @@ function AppShellBody({ children }: { children: ReactNode }) {
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
   const onInterviewPrepPage =
     (pathname ?? "").replace(/\/$/, "") === "/interview-prep";
+  const onCareerProfilePage =
+    (pathname ?? "").replace(/\/$/, "") === "/profile";
   const isMobile = useIsMobile();
   const flowRaw = (searchParams?.get("flow") || "tailor").toLowerCase();
   const builderFlow: "tailor" | "template" =
@@ -289,6 +291,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
                 active={active}
                 onTemplateBuilderPage={onTemplateBuilderPage}
                 onInterviewPrepPage={onInterviewPrepPage}
+                onCareerProfilePage={onCareerProfilePage}
                 builderActive={builderActive}
                 builderOpen={builderOpen}
                 onBuilderOpenChange={setBuilderOpen}
