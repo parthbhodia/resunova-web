@@ -88,36 +88,54 @@ Lessons:
 
 ---
 
-## Post 3 — The ghost-jobs exposé (r/recruitinghell, r/jobs, r/cscareerquestions)
+## Post 3 — The ghost-jobs exposé (r/recruitinghell, r/jobs, r/webscraping)
+
+**REVISED 2026-07-14 (the original ~40%/"800 times" framing below was a
+one-time snapshot from a single provider-activation surge on 2026-07-02, not an
+ongoing daily rate. The honest current picture, live-verified today: the boards
+never stop re-listing duplicates, so the dedupe pass collapses ~23,000 of them
+on EVERY scan, and the active-feed duplicate share oscillates between ~3% right
+after a pass and ~12% mid-crawl. Full numbers, methodology, and the near-miss
+bug in the fix itself are in the companion blog post; this post leads with the
+discovery, then links out instead of claiming any point-in-time rate as
+permanent.)**
 
 **Title options:**
-- "I scrape 8,900 career sites daily. ~40% of 'new' job postings each day are the exact same job description, copy-pasted. One company posted one JD 800 times."
-- "Data from 247k live postings: how much of the job board is duplicate spam"
+- "I turned on 6 new job-board integrations overnight and found 13,000 duplicate postings hiding in the surge. One company had reposted the same JD to ~800 locations."
+- "How much of a 'live jobs' feed is duplicate spam? 38% on the worst day I measured. My dedupe pass now collapses ~23,000 reposted JDs per scan, every scan, and they always come back."
 
 **Body:**
 
 I run a pipeline that ingests job postings directly from company ATS APIs
-(not aggregators). One thing the raw data makes brutally visible: **location
-spam**.
+(not aggregators). In early July I turned on six previously-dormant provider
+integrations at once, and daily US ingest jumped ~7x (~530 → ~3,700/day). Before
+I could celebrate, I looked closer at what had actually come in.
 
-On a recent daily crawl, ~34,000 raw postings came in — and hash-deduping the
-job-description text collapsed ~13,000 of them as byte-identical duplicates. ✅
-The record holder: one security company posted **the same JD across ~800
-locations**. ✅ Same title, same text, 800 "jobs."
+Of the ~34,000 raw postings ingested that run, ~13,000 (38%) were byte-for-byte
+identical to another posting in the same batch. ✅ Same title, same body text,
+different location field. The record holder: a security-staffing company had
+reposted **one job description across ~800 different locations**. ✅ One real
+requisition, counted 800 times by anything that doesn't dedupe.
 
 Why it matters if you're applying:
-- Aggregators (Indeed etc.) count each clone as a separate posting — "12,000
-  open roles!" can be a few hundred real reqs.
-- "New today" feeds are heavily inflated. Of my ~34k daily raw ingest, roughly
-  **3,700 are genuinely new unique US jobs**. ✅
-- Companies doing this are usually pipeline-building (collecting résumés), not
-  filling a seat in your city.
+- Aggregators that count postings raw inflate "X,000 open roles" this way:
+  the real number of distinct reqs is a fraction of the headline count.
+- Companies doing this are usually pipeline-building (collecting résumés
+  broadly), not filling a specific seat in your city.
+- A stricter fix (byte-identical only, not "looks similar") turned out to
+  matter: a looser normalized-text match I tried first over-collapsed ~17,000
+  postings that only *shared boilerplate*, not the same job.
 
-Cleanest signal I've found: postings fetched from the company's own board,
-deduped by JD hash, with a real posted-date from the ATS itself. That cut is
-what my dataset keeps — 247k active US postings after dedup. ✅
-
-Share of S&P 100 tech postings that are location-clones: `[SQL-2]`
+Here's the kicker: the fix is a treadmill, not a cleanup. The boards never
+stop re-listing the duplicates, so every fresh crawl re-activates them, and
+the pass at the end of the crawl collapses them again. My scan logs show
+**~23,000 duplicates deactivated on every single scan**, several times a day.
+The active-feed duplicate share breathes with the cycle: ~3% a few hours after
+a pass, ~12% mid-crawl (both measured live on the same day). And it's never
+the same offenders: today's crawl surfaced a personal-training company with
+one JD active in 383 copies, a boutique-fitness chain at 163, and a delivery
+service at 158. Full breakdown + the query behind every number:
+https://resunova.io/blog/ghost-jobs-duplicate-postings/
 
 ---
 

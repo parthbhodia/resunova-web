@@ -11,6 +11,15 @@ export type BlogPostMeta = {
 
 export const BLOG_POSTS: BlogPostMeta[] = [
   {
+    slug: "ghost-jobs-duplicate-postings",
+    title: "We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates.",
+    description:
+      "Turning on six new ATS integrations 7x'd our daily ingest, and about 38% of that day's new postings turned out to be the same job reposted over and over. What we found, why it happens, and the dedupe pass that now runs continuously.",
+    readMinutes: 5,
+    tag: "Data",
+    publishedAt: "2026-07-14",
+  },
+  {
     slug: "salary-transparency-by-seniority",
     title: "The Higher the Job, the More They Hide the Pay",
     description:
