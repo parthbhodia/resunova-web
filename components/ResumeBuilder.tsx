@@ -96,6 +96,14 @@ import {
 } from "@/components/LandingFeatureShowcase";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { ScanFeedbackToast, useScanToast } from "@/components/ScanFeedbackToast";
+import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/components/TailorSaveStatus";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const TailoredPdfPreview = dynamic(
   () => import("@/components/TailoredPdfPreview"),
@@ -444,6 +452,22 @@ export default function ResumeBuilder({
   const [result,     setResult]     = useState<GenerationResult | null>(() => builderSession0?.result ?? null);
   const appShellSidebar = useAppShellSidebar();
   const { scanMeta, handleScanResponse, handleScanError, clearScanMeta } = useScanToast();
+  const saveStatus = useTailorSaveStatus();
+  const lastSaveArgsRef = useRef<Parameters<typeof saveTailorMatchToLibrary>[0] | null>(null);
+  const persistTailorMatch = useCallback(async (args: Parameters<typeof saveTailorMatchToLibrary>[0]) => {
+    lastSaveArgsRef.current = args;
+    saveStatus.beginSave();
+    try {
+      await saveTailorMatchToLibrary(args);
+      saveStatus.saveSucceeded();
+    } catch (e) {
+      console.warn("saveTailorMatchToLibrary failed", e);
+      saveStatus.saveFailed();
+    }
+  }, [saveStatus]);
+  const retryTailorSave = useCallback(() => {
+    if (lastSaveArgsRef.current) void persistTailorMatch(lastSaveArgsRef.current);
+  }, [persistTailorMatch]);
   const [error,      setError]      = useState<string | null>(null);
   const [preview,    setPreview]    = useState(() => builderSession0?.result?.latexPreview ?? "");
   const [jdKeywords, setJdKeywords] = useState<string[]>([]);
@@ -586,8 +610,26 @@ export default function ResumeBuilder({
     setAtsError(null);
     setTailorSidebarVisible(true);
     setMatchSidebarCollapsed(false);
+    saveStatus.resetForNewRun();
     clearDraft();
-  }, [clearSuggestionsState, resetActiveTailorWork]);
+  }, [clearSuggestionsState, resetActiveTailorWork, saveStatus]);
+
+  /** "Start over" — same as tryAnotherJob, plus clears the loaded résumé so
+   *  the user lands back on the upload step instead of keeping it prefilled. */
+  const startOverTailor = useCallback(() => {
+    tryAnotherJob();
+    if (sourcePdfBlobUrlRef.current) {
+      URL.revokeObjectURL(sourcePdfBlobUrlRef.current);
+      sourcePdfBlobUrlRef.current = null;
+    }
+    setSourcePdfBlobUrl(null);
+    setUploadedPdfDataUrl(null);
+    setCandidateProfile(null);
+    setUploadedFileName(null);
+    setStructuredUpload(null);
+    lastResumeExtractRef.current = "";
+    setProfileSyncUpsell(null);
+  }, [tryAnotherJob]);
 
   useEffect(() => {
     return () => {
@@ -1178,6 +1220,7 @@ export default function ResumeBuilder({
     appShellSidebar?.collapseSidebar();
     setAnalyzeError(null);
     setError(null);
+    saveStatus.resetForNewRun();
     try {
       const resp = await fetch(apiUrl("/api/analyze"), {
         method: "POST",
@@ -1226,22 +1269,18 @@ export default function ResumeBuilder({
       };
 
       if (user?.id) {
-        try {
-          await saveTailorMatchToLibrary({
-            folder: matchFolder,
-            company: effCompany,
-            role: effRole,
-            model,
-            ratings: data.ratings,
-            jobDescription: effJd,
-            candidateProfile,
-            structuredResume: normalizeStructuredResume(
-              (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,
-            ),
-          });
-        } catch (e) {
-          console.warn("saveTailorMatchToLibrary failed", e);
-        }
+        await persistTailorMatch({
+          folder: matchFolder,
+          company: effCompany,
+          role: effRole,
+          model,
+          ratings: data.ratings,
+          jobDescription: effJd,
+          candidateProfile,
+          structuredResume: normalizeStructuredResume(
+            (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,
+          ),
+        });
       }
 
       setResult(nextResult);
@@ -1251,7 +1290,7 @@ export default function ResumeBuilder({
     } finally {
       setAnalyzing(false);
     }
-  }, [jd, candidateProfile, company, role, model, user?.id, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar]);
+  }, [jd, candidateProfile, company, role, model, user?.id, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar, saveStatus, persistTailorMatch]);
 
   /** Re-run JD match ratings on updated plain text (no LaTeX / no ATS folder).
    * Pass bulletsAtApply/overridesAtApply/appliedAtApply when calling from applyGapFixes
@@ -1329,23 +1368,19 @@ export default function ResumeBuilder({
       const matchFolder =
         result?.folder ?? tailorMatchFolder(company.trim() || "—", role.trim() || "—");
       if (user?.id && matchFolder) {
-        try {
-          const sr = normalizeStructuredResume(
-            (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,
-          );
-          await saveTailorMatchToLibrary({
-            folder: matchFolder,
-            company: company.trim() || "—",
-            role: role.trim() || "—",
-            model,
-            ratings: mergedRatings,
-            jobDescription: jd.trim(),
-            candidateProfile: prof,
-            structuredResume: sr,
-          });
-        } catch (e) {
-          console.warn("saveTailorMatchToLibrary (rescore) failed", e);
-        }
+        const sr = normalizeStructuredResume(
+          (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,
+        );
+        await persistTailorMatch({
+          folder: matchFolder,
+          company: company.trim() || "—",
+          role: role.trim() || "—",
+          model,
+          ratings: mergedRatings,
+          jobDescription: jd.trim(),
+          candidateProfile: prof,
+          structuredResume: sr,
+        });
       }
 
       setResult((prev) => (
@@ -1386,6 +1421,7 @@ export default function ResumeBuilder({
     candidateProfile, jd, company, role, model, user?.id, result?.folder,
     tailorBulletAnalysis, tailorLineOverrides, addressedGaps, addressedGapActions,
     tailorAppliedBulletIndices, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze,
+    persistTailorMatch,
   ]);
 
   /** Plain text with tailor bullet overrides applied (for gap-fix API + rescoring). */
@@ -2426,6 +2462,14 @@ export default function ResumeBuilder({
         />
       )}
 
+      <TailorSaveToast
+        toast={saveStatus.toast}
+        company={company}
+        role={role}
+        onDismiss={saveStatus.dismissToast}
+        onRetry={retryTailorSave}
+      />
+
       {/* ── Main — landmark + busy state for assistive tech (WCAG 4.1.3) */}
       <main
         ref={builderMainScrollRef}
@@ -3248,15 +3292,55 @@ export default function ResumeBuilder({
                   <h2 id="rb-results-heading" style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.5, color: "var(--text)", margin: 0, lineHeight: 1.2 }}>
                     {generating ? "Building your PDF…" : result?.folder ? "Your tailored résumé is ready" : "Analysis ready — review gaps & download PDF"}
                   </h2>
-                  <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "2px 0 0", letterSpacing: -0.1 }}>
-                    {[role, company].map((s) => s.trim()).filter(Boolean).join(" · ") || "Match results"}
+                  <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "2px 0 0", letterSpacing: -0.1, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span>{[role, company].map((s) => s.trim()).filter(Boolean).join(" · ") || "Match results"}</span>
+                    {user?.id && (
+                      <TailorSaveStatusPill state={saveStatus.state} onRetry={retryTailorSave} />
+                    )}
                   </p>
                 </div>
                 {/* Header action buttons */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
-                  <Button variant="outline" size="sm" onClick={tryAnotherJob} style={{ color: "var(--muted)" }}>
-                    Try another job
-                  </Button>
+                  <div style={{ display: "inline-flex", border: "1px solid var(--border-strong, var(--border))", borderRadius: 7, overflow: "hidden" }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={tryAnotherJob}
+                      style={{ color: "var(--muted)", border: "none", borderRadius: 0 }}
+                    >
+                      Try a different JD
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label="More résumé options"
+                            title="More options"
+                            style={{ color: "var(--muted)", border: "none", borderRadius: 0, borderLeft: "1px solid var(--border)", padding: "0 8px" }}
+                          >
+                            ▾
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end" sideOffset={6} className="w-64">
+                        <DropdownMenuItem onClick={tryAnotherJob}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "1px 0" }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 600 }}>Try a different JD</span>
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>Keeps this résumé, clears the job details</span>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={startOverTailor}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "1px 0" }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 600 }}>Start over</span>
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>Clears the résumé too — upload a new one</span>
+                          </div>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </header>
 
