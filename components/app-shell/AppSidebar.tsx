@@ -282,20 +282,6 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={onCareerProfilePage}
-                  tooltip="Career Profile"
-                  className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
-                  onClick={() => router.push("/profile")}
-                >
-                  <span className="app-nav-icon" aria-hidden>
-                    {NAV_ICONS.careerProfile}
-                  </span>
-                  {showLabels ? <span className="app-nav-label">Career Profile</span> : null}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
               <NavItem
                 view="library"
                 isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "library"}
@@ -404,6 +390,7 @@ export function AppSidebar({
               <AppSidebarUser
                 initial={userInitial}
                 onProfile={() => onSwitchView("profile")}
+                onCareerProfile={() => router.push("/profile")}
                 onAccount={() => onSwitchView("account")}
                 onSignOut={onSignOut}
               />
