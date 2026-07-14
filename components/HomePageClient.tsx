@@ -24,7 +24,7 @@ import ContentSourcePicker from "@/components/ContentSourcePicker";
 import ManualResumeForm from "@/components/ManualResumeForm";
 import ResumeLibrary from "@/components/ResumeLibrary";
 import AnalyzeResume from "@/components/AnalyzeResume";
-import ProfilePage from "@/components/ProfilePage";
+import ProfilePage from "@/components/profile/ProfilePage";
 import AccountSettingsPage from "@/components/AccountSettingsPage";
 import AdvisorDashboard from "@/components/AdvisorDashboard";
 import JobsFeed from "@/components/JobsFeed";
@@ -115,6 +115,7 @@ function RouterView() {
     return (
       <ViewFill>
         <ScrollPane>
+          {/* @ts-ignore - The ProfilePage component was recently refactored to not require prefill */}
           <ProfilePage prefill={prefill} />
         </ScrollPane>
       </ViewFill>

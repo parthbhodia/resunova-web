@@ -3,6 +3,8 @@
  * `user_profiles` when signed in (see `fetchUserProfile` / `upsertUserProfile` in `supabase.ts`).
  */
 
+import { ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "./resumeExtractorService";
+
 export type ProfileFormState = {
   displayName: string;
   tagline: string;
@@ -28,6 +30,7 @@ export type ProfileFormState = {
 };
 
 export const PROFILE_STORAGE_KEY = "rn_profile_v1";
+export const EXTRACTED_PROFILE_STORAGE_KEY = "rn_extracted_profile_v1";
 
 export const EMPTY_PROFILE: ProfileFormState = {
   displayName: "",
@@ -68,6 +71,26 @@ export function loadProfile(): ProfileFormState {
 export function saveProfile(s: ProfileFormState) {
   try {
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(s));
+  } catch {
+    /* quota */
+  }
+}
+
+export function loadExtractedProfile(): ExtractedProfileState {
+  if (typeof window === "undefined") return { ...INITIAL_EXTRACTED_PROFILE };
+  try {
+    const raw = localStorage.getItem(EXTRACTED_PROFILE_STORAGE_KEY);
+    if (!raw) return { ...INITIAL_EXTRACTED_PROFILE };
+    const p = JSON.parse(raw) as ExtractedProfileState;
+    return { ...INITIAL_EXTRACTED_PROFILE, ...p };
+  } catch {
+    return { ...INITIAL_EXTRACTED_PROFILE };
+  }
+}
+
+export function saveExtractedProfile(s: ExtractedProfileState) {
+  try {
+    localStorage.setItem(EXTRACTED_PROFILE_STORAGE_KEY, JSON.stringify(s));
   } catch {
     /* quota */
   }

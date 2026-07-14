@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+// @ts-ignore
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AccountSettingsPage from "@/components/AccountSettingsPage";

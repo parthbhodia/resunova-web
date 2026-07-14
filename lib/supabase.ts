@@ -2,6 +2,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { TBResumeData } from "@/components/TemplateBuilder/types";
 import type { ResumeRecord, Criterion, RatingsData } from "./types";
 import { type ProfileFormState, EMPTY_PROFILE } from "./profileStorage";
+import { type ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "./resumeExtractorService";
 import { dispatchResumeLibraryChanged } from "./resumeLibraryEvents";
 import { coerceTemplateBuilderData } from "./coerceTemplateBuilderData";
 
@@ -782,6 +783,53 @@ export async function upsertUserProfile(profile: ProfileFormState): Promise<void
     if (error) console.warn("[user_profiles] upsert:", error.message);
   } catch (e) {
     console.warn("[user_profiles] upsert:", e);
+  }
+}
+
+/** Load signed-in user's extracted profile. */
+export async function fetchExtractedProfile(): Promise<ExtractedProfileState | null> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.user?.id) return null;
+
+    const { data, error } = await db
+      .from("user_profiles")
+      .select("profile")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("[user_profiles_ext] fetch:", error.message);
+      return null;
+    }
+    if (!data?.profile) return null;
+    return { ...INITIAL_EXTRACTED_PROFILE, ...(data.profile as Partial<ExtractedProfileState>) };
+  } catch (e) {
+    console.warn("[user_profiles_ext] fetch:", e);
+    return null;
+  }
+}
+
+/** Upsert extracted profile for the signed-in user. */
+export async function upsertExtractedProfile(profile: ExtractedProfileState): Promise<void> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.user?.id) return;
+
+    const { error } = await db.from("user_profiles").upsert(
+      {
+        user_id: session.user.id,
+        profile: profile as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+
+    if (error) console.warn("[user_profiles_ext] upsert:", error.message);
+  } catch (e) {
+    console.warn("[user_profiles_ext] upsert:", e);
   }
 }
 

@@ -29,6 +29,9 @@ import {
   type ProfileFocusContext,
 } from "@/lib/profileFocusFromMatch";
 import { Card, Field, inputStyle } from "@/components/profileSettingsUi";
+import ProfileSetup from "./profile/ProfileSetup";
+import ResumeUpload from "./profile/ResumeUpload";
+import ProfileWizard from "./profile/ProfileWizard";
 
 export type { ProfileFormState };
 
@@ -242,7 +245,7 @@ function EeoRadioGroup({
   );
 }
 
-type InitPhase = "loading" | "onboarding" | "form";
+type InitPhase = "loading" | "new" | "upload" | "wizard" | "form";
 
 export default function ProfilePage({ prefill }: { prefill: boolean }) {
   const [form, setForm] = useState<ProfileFormState>(EMPTY_PROFILE);
@@ -313,7 +316,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
       saveProfile(merged);
       setForm(merged);
       setBaseline(JSON.stringify(merged));
-      setInitPhase(!obDone && !skipIntro ? "onboarding" : "form");
+      setInitPhase(!obDone && !skipIntro ? "new" : "form");
     })();
     return () => {
       cancelled = true;
@@ -487,7 +490,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
       setBaseline(JSON.stringify(next));
       setObUploadOk(
         filled.length
-          ? initPhase === "onboarding"
+          ? initPhase === "new"
             ? `Filled ${filled.length} empty field${filled.length === 1 ? "" : "s"} from your PDF. Use "Open Profile form" below to review.`
             : `Filled ${filled.length} empty field${filled.length === 1 ? "" : "s"} from your PDF. Review the updated fields below.`
           : "No new fields — those values were already filled or we couldn't read them from this PDF.",
@@ -540,153 +543,19 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
         color: "var(--text)",
       }}
     >
-      {initPhase === "onboarding" && (
-        <div style={{ flex: 1, padding: "32px 20px 100px", maxWidth: 560, margin: "0 auto", width: "100%" }}>
-          <div style={{ marginBottom: 20, display: "flex", gap: 8, justifyContent: "center" }}>
-            {[0, 1].map(i => (
-              <span
-                key={i}
-                style={{
-                  width: i === onboardingStep ? 22 : 8,
-                  height: 8,
-                  borderRadius: 99,
-                  background: i === onboardingStep ? "var(--accent)" : "var(--surface3)",
-                  transition: "width 0.2s, background 0.2s",
-                }}
-              />
-            ))}
-          </div>
-
-          <div
-            style={{
-              position: "relative",
-              borderRadius: "var(--radius-xl)",
-              border: "1px solid var(--border)",
-              background: "var(--surface)",
-              boxShadow: "var(--shadow-card)",
-              padding: "28px 26px 26px",
-            }}
-          >
-            {initPhase === "onboarding" && obUploadBusy ? (
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  zIndex: 4,
-                  borderRadius: "inherit",
-                  background: "var(--glass-bg)",
-                  backdropFilter: "blur(10px)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 14,
-                  padding: 24,
-                }}
-              >
-                <div
-                  aria-hidden
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: "50%",
-                    border: "3px solid var(--border)",
-                    borderTopColor: "var(--accent)",
-                    animation: "spin 0.7s linear infinite",
-                  }}
-                />
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", textAlign: "center" }}>Building profile from PDF…</div>
-                <div style={{ fontSize: 12, color: "var(--muted)", textAlign: "center", maxWidth: 280 }}>
-                  Extracting text and filling empty fields only.
-                </div>
-              </div>
-            ) : null}
-            {onboardingStep === 0 && (
-              <>
-                <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.7, marginBottom: 12, color: "var(--text)" }}>
-                  Welcome to your Profile
-                </h1>
-                <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.65, marginBottom: 0 }}>
-                  This is where you keep career defaults — contact info, target roles, education, and optional equal-employment answers for
-                  future <strong style={{ color: "var(--text)" }}>Apply jobs</strong>. Tailoring can reuse these fields so you type less.
-                </p>
-              </>
-            )}
-
-            {onboardingStep === 1 && (
-              <>
-                <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.6, marginBottom: 12, color: "var(--text)" }}>
-                  Fill your Profile (pick one path)
-                </h1>
-                <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6, marginBottom: 18 }}>
-                  You don&apos;t need every field here first — upload a PDF or use the guided form (same as{" "}
-                  <strong style={{ color: "var(--text)" }}>From scratch</strong>).
-                </p>
-
-                <button
-                  type="button"
-                  className="rn-profile-cta-card"
-                  onClick={finishOnboarding}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    padding: "14px 16px",
-                    minHeight: 44,
-                    borderRadius: "var(--radius-lg)",
-                    border: "1px solid var(--border)",
-                    background: "var(--surface2)",
-                    color: "var(--accent)",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    textAlign: "center",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    marginBottom: 16,
-                  }}
-                >
-                  Open profile form →
-                </button>
-
-                <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>Or upload a PDF</p>
-                <input ref={obFileRef} type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleObPdf(f); e.target.value = ""; }} />
-                <button
-                  type="button"
-                  className="rn-profile-dropzone"
-                  disabled={obUploadBusy}
-                  onClick={() => obFileRef.current?.click()}
-                  style={{
-                    width: "100%",
-                    padding: "16px 14px",
-                    minHeight: 56,
-                    borderRadius: "var(--radius-lg)",
-                    border: "1.5px dashed var(--border-h)",
-                    background: "var(--surface2)",
-                    color: "var(--muted)",
-                    fontSize: 13,
-                    cursor: obUploadBusy ? "not-allowed" : "pointer",
-                    fontFamily: "inherit",
-                    marginBottom: 10,
-                  }}
-                >
-                  {obUploadBusy ? "Extracting…" : "Choose PDF — we fill empty fields only"}
-                </button>
-                <ProfilePdfUploadFeedback
-                  busy={obUploadBusy}
-                  fileName={obUploadFileName}
-                  ok={obUploadOk}
-                  err={obUploadErr}
-                />
-
-                {importDraft ? (
-                  <p style={{ fontSize: 12, color: "var(--amber)", lineHeight: 1.5, margin: 0 }}>
-                    You have <strong>imported text</strong> from another flow — it will appear on the Profile form after this intro.
-                  </p>
-                ) : null}
-              </>
-            )}
-
-          </div>
-        </div>
+      {initPhase === "new" && (
+        <ProfileSetup
+          onSelectUpload={() => setInitPhase("upload")}
+          onSelectWizard={() => setInitPhase("wizard")}
+          userName="User"
+        />
+      )}
+      {initPhase === "upload" && (
+        // @ts-ignore - Legacy component props
+        <ResumeUpload onComplete={finishOnboarding} />
+      )}
+      {initPhase === "wizard" && (
+        <ProfileWizard onComplete={finishOnboarding} />
       )}
 
       {initPhase === "form" && (
@@ -1310,116 +1179,7 @@ export default function ProfilePage({ prefill }: { prefill: boolean }) {
       </div>
       )}
 
-      {initPhase === "onboarding" && (
-      <div
-        style={{
-          position: "sticky",
-          bottom: 0,
-          zIndex: 6,
-          borderTop: "1px solid var(--border)",
-          background: "var(--glass-bg)",
-          backdropFilter: "blur(10px)",
-          padding: "12px 20px calc(12px + env(safe-area-inset-bottom, 0px))",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 16,
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          type="button"
-          className="rn-btn-ghost"
-          onClick={finishOnboarding}
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            padding: "10px 14px",
-            minHeight: 44,
-            borderRadius: "var(--radius)",
-            border: "none",
-            background: "transparent",
-            color: "var(--dim)",
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          Skip intro
-        </button>
-        <div style={{ display: "flex", gap: 10 }}>
-          {onboardingStep > 0 && (
-            <button
-              type="button"
-              className="rn-btn-secondary"
-              onClick={() => setOnboardingStep(s => s - 1)}
-              disabled={obUploadBusy}
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                padding: "10px 16px",
-                minHeight: 44,
-                borderRadius: "var(--radius)",
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-                color: "var(--text)",
-                cursor: obUploadBusy ? "not-allowed" : "pointer",
-                opacity: obUploadBusy ? 0.45 : 1,
-                fontFamily: "inherit",
-              }}
-            >
-              Back
-            </button>
-          )}
-          {onboardingStep < 1 ? (
-            <button
-              type="button"
-              className="rn-btn-primary"
-              onClick={() => setOnboardingStep(s => s + 1)}
-              disabled={obUploadBusy}
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                padding: "10px 20px",
-                minHeight: 44,
-                borderRadius: "var(--radius)",
-                border: "none",
-                background: "var(--accent)",
-                color: "#fff",
-                cursor: obUploadBusy ? "not-allowed" : "pointer",
-                opacity: obUploadBusy ? 0.55 : 1,
-                fontFamily: "inherit",
-                boxShadow: "0 1px 8px color-mix(in srgb, var(--accent) 35%, transparent)",
-              }}
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="rn-btn-primary"
-              onClick={finishOnboarding}
-              disabled={obUploadBusy}
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                padding: "10px 20px",
-                minHeight: 44,
-                borderRadius: "var(--radius)",
-                border: "none",
-                background: "var(--accent)",
-                color: "#fff",
-                cursor: obUploadBusy ? "not-allowed" : "pointer",
-                opacity: obUploadBusy ? 0.55 : 1,
-                fontFamily: "inherit",
-                boxShadow: "0 1px 8px color-mix(in srgb, var(--accent) 35%, transparent)",
-              }}
-            >
-              Open Profile form
-            </button>
-          )}
-        </div>
-      </div>
-      )}
+
 
       {initPhase === "form" && (
       <div
