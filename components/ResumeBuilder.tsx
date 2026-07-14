@@ -97,6 +97,7 @@ import {
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { ScanFeedbackToast, useScanToast } from "@/components/ScanFeedbackToast";
 import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/components/TailorSaveStatus";
+import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -527,6 +528,18 @@ export default function ResumeBuilder({
       }
       return { ...prev, [path]: text };
     });
+    setScoreStale(true);
+  }, []);
+  /** Bullet-level structural op (drag-reorder / add / delete) from the Tailor
+   *  preview. Mutates the uploaded structured doc (the authoritative scored
+   *  input on rescore) and remaps path-keyed field overrides to follow. */
+  const applyTailorBulletOp = useCallback((op: StructuredBulletOp) => {
+    setStructuredUpload((prev) => {
+      if (!prev) return prev;
+      const next = applyBulletOpToStructured(prev.structured, op);
+      return next ? { ...prev, structured: next } : prev;
+    });
+    setTailorFieldOverrides((prev) => remapOverlayPaths(prev, op.pathRemap));
     setScoreStale(true);
   }, []);
   // Popup rewrite drafts for ANALYZED bullets (index >= 0). Applying writes into
@@ -3662,6 +3675,7 @@ export default function ResumeBuilder({
                     tailorAppliedBulletIndices={tailorAppliedBulletIndices}
                     fieldOverrides={tailorFieldOverrides}
                     onFieldEdit={setTailorFieldOverride}
+                    onBulletOp={applyTailorBulletOp}
                     rewriteEdits={tailorRewriteEdits}
                     patchBulletRewrite={patchTailorBulletRewrite}
                     patchPreviewLine={patchTailorPreviewLine}

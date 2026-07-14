@@ -1,6 +1,8 @@
 "use client";
 
 import { create } from "zustand";
+// Value import here + `import type` back from the lib — no runtime cycle.
+import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -229,6 +231,9 @@ export interface ResumeAnalyzeStore {
   clearFieldOverride: (path: string) => void;
   /** Hide / show a bullet (by structured path) in the preview + exports. */
   toggleBulletHidden: (path: string) => void;
+  /** Apply a bullet-level structural op (reorder / add / delete) to the
+   *  structured résumé, remapping path-keyed overlays to match. */
+  applyBulletOp: (op: StructuredBulletOp) => void;
 
   // ── Persistence actions ──
   /** Persist current edit state under a draft ID (replaces saveAnalyzeEditDraft). */
@@ -385,6 +390,19 @@ export const useResumeAnalyzeStore = create<ResumeAnalyzeStore>((set, get) => ({
       if (next[path]) delete next[path];
       else next[path] = true;
       return { hiddenPaths: next };
+    });
+  },
+
+  applyBulletOp: (op) => {
+    set((s) => {
+      if (!s.structuredResume) return {};
+      const next = applyBulletOpToStructured(s.structuredResume, op);
+      if (!next) return {};
+      return {
+        structuredResume: next,
+        hiddenPaths: remapOverlayPaths(s.hiddenPaths, op.pathRemap),
+        fieldOverrides: remapOverlayPaths(s.fieldOverrides, op.pathRemap),
+      };
     });
   },
 
