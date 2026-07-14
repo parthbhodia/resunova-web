@@ -9,6 +9,7 @@
  * index spaces do not line up (see CLAUDE.md invariant on bulletMap).
  */
 import { normalizeForMatch } from "@/lib/resumeBulletMatch";
+import { stripInlineMarkdown } from "@/lib/inlineMarkdown";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 
 interface RescoreBulletSource {
@@ -72,7 +73,7 @@ export function patchAppliedEditsIntoResume(opts: {
   for (const [key, replacement] of Object.entries(lineOverrides)) {
     const idx = Number(key);
     const orig = (analysisBullets[idx]?.originalBullet ?? "").trim();
-    const text = (replacement ?? "").trim();
+    const text = stripInlineMarkdown((replacement ?? "").trim()).trim();
     if (!orig || !text) continue;
     const origNorm = normalizeForMatch(orig);
     if (!origNorm || origNorm === normalizeForMatch(text)) continue;

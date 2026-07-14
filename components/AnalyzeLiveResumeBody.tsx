@@ -6,7 +6,10 @@ import type { CSSProperties, FocusEvent as ReactFocusEvent, HTMLAttributes, Keyb
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import BulletImprovedEditor from "@/components/BulletImprovedEditor";
+import { BulletFormatToolbar } from "@/components/BulletFormatToolbar";
 import { highlightMetricSpans } from "@/lib/highlightResumeMetrics";
+import { applyInlineFormat, renderInlineMarkdown, stripInlineMarkdown, type InlineFormat } from "@/lib/inlineMarkdown";
+import { diffWords } from "@/lib/textDiff";
 import {
   bulletMatchesAnalysisCategory,
   cleanAiArtifacts,
@@ -853,10 +856,10 @@ function renderLabeledLine(text: string): ReactNode {
 function renderMetricLineWithLabel(text: string, highlightsEnabled: boolean): ReactNode {
   if (!highlightsEnabled) {
     const split = splitLeadingLabelAndValue(text);
-    if (!split) return text;
+    if (!split) return renderInlineMarkdown(text);
     return (
       <>
-        <strong>{split.label}:</strong> {split.value}
+        <strong>{split.label}:</strong> {renderInlineMarkdown(split.value)}
       </>
     );
   }
@@ -867,6 +870,47 @@ function renderMetricLineWithLabel(text: string, highlightsEnabled: boolean): Re
       <strong>{split.label}:</strong>{" "}
       {highlightMetricSpans(split.value)}
     </>
+  );
+}
+
+/** Word-level "what changed" line under an edited bullet — added words on a
+ *  soft green, removed words struck through in soft red. Diffs the plain
+ *  (markdown-stripped) content only, so a formatting-only edit shows nothing. */
+function BulletChangeDiff({ original, current }: { original: string; current: string }) {
+  const origPlain = stripInlineMarkdown(original).replace(/\s+/g, " ").trim();
+  const curPlain = stripInlineMarkdown(current).replace(/\s+/g, " ").trim();
+  if (!origPlain || origPlain === curPlain) return null;
+  const tokens = diffWords(origPlain, curPlain);
+  return (
+    <div
+      className="az-pdf-ignore"
+      style={{
+        marginTop: 2,
+        fontSize: "calc(var(--az-resume-body-font-size, 10px) - 1px)",
+        lineHeight: 1.4,
+        color: "var(--resume-paper-muted, #8c7d68)",
+        overflowWrap: "anywhere",
+      }}
+    >
+      <span style={{ fontWeight: 700, fontSize: 9, letterSpacing: 0.03, textTransform: "uppercase", marginRight: 5, opacity: 0.75 }}>
+        Changed
+      </span>
+      {tokens.map((t, i) => {
+        if (t.type === "same") return <span key={i}>{t.text}</span>;
+        if (t.type === "add") {
+          return (
+            <span key={i} style={{ background: "rgba(52,211,153,0.18)", color: "var(--green, #2f7d5a)", borderRadius: 2 }}>
+              {t.text}
+            </span>
+          );
+        }
+        return (
+          <span key={i} style={{ background: "rgba(248,113,113,0.14)", color: "var(--red, #b8452f)", textDecoration: "line-through", borderRadius: 2 }}>
+            {t.text}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1256,6 +1300,10 @@ export default function AnalyzeLiveResumeBody({
   const popupRef = useRef<HTMLDivElement>(null);
   const popupDragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
 
+  // Bullet text-selection format toolbar (Bold / Italic / Normal).
+  const [formatToolbar, setFormatToolbar] = useState<{ bulletIdx: number; top: number; left: number } | null>(null);
+  const bulletEditableRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
+
   const structuredPreviewActive = isStructuredUsable(structuredResume);
 
   const blocks = useMemo(() => {
@@ -1414,6 +1462,75 @@ export default function AnalyzeLiveResumeBody({
     return cleanAiArtifacts(raw).text;
   };
   const popupSuggestionBase = popup != null ? resolveBulletSuggestion(popup.bulletIdx) : "";
+
+  // Close the format toolbar on outside click, mirroring the popup pattern above.
+  useEffect(() => {
+    if (!formatToolbar) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const bulletEl = bulletEditableRefs.current.get(formatToolbar.bulletIdx);
+      if (bulletEl?.contains(target)) return; // clicks inside the bullet don't count as "outside"
+      setFormatToolbar(null);
+    };
+    window.addEventListener("mousedown", handler, true);
+    return () => window.removeEventListener("mousedown", handler, true);
+  }, [formatToolbar]);
+
+  /** Reads the current selection's plain-text character offsets relative to
+   *  `container`'s full textContent — works regardless of how many child
+   *  nodes the metric/label highlighter split the text into. */
+  const readSelectionOffsets = (container: HTMLElement): { start: number; end: number } | null => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+    const range = sel.getRangeAt(0);
+    if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) return null;
+    const selectedText = range.toString();
+    if (!selectedText.trim()) return null;
+    const pre = document.createRange();
+    pre.selectNodeContents(container);
+    pre.setEnd(range.startContainer, range.startOffset);
+    const start = pre.toString().length;
+    return { start, end: start + selectedText.length };
+  };
+
+  const updateFormatToolbar = (bulletIdx: number) => {
+    const el = bulletEditableRefs.current.get(bulletIdx);
+    if (!el) return;
+    const offsets = readSelectionOffsets(el);
+    if (!offsets) {
+      setFormatToolbar((prev) => (prev?.bulletIdx === bulletIdx ? null : prev));
+      return;
+    }
+    const rect = window.getSelection()?.getRangeAt(0).getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) return;
+    setFormatToolbar({
+      bulletIdx,
+      top: Math.max(8, rect.top - 40),
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - 140)),
+    });
+  };
+
+  const applyBulletFormat = (format: InlineFormat) => {
+    if (!formatToolbar) return;
+    const el = bulletEditableRefs.current.get(formatToolbar.bulletIdx);
+    if (!el) { setFormatToolbar(null); return; }
+    const offsets = readSelectionOffsets(el);
+    if (!offsets) { setFormatToolbar(null); return; }
+    const full = el.textContent ?? "";
+    el.textContent = applyInlineFormat(full, offsets.start, offsets.end, format);
+    // Collapse the caret to the end so the DOM stays in a sane editable state;
+    // the actual commit (patchPreviewLine) happens on blur, same as normal typing.
+    const sel = window.getSelection();
+    if (sel) {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      r.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    setFormatToolbar(null);
+    el.focus();
+  };
 
   return (
     <div
@@ -2088,16 +2205,21 @@ export default function AnalyzeLiveResumeBody({
                       <span
                         {...(bulletInlineEditable
                           ? {
+                              ref: (node: HTMLSpanElement | null) => {
+                                if (node) bulletEditableRefs.current.set(bulletIdx, node);
+                                else bulletEditableRefs.current.delete(bulletIdx);
+                              },
                               contentEditable: true,
                               suppressContentEditableWarning: true,
                               className: "az-editable-field",
-                              title: "Click to edit — applies to preview and PDF",
+                              title: "Click to edit — applies to preview and PDF. Select text to format.",
                               // Click still bubbles to the row so the left apply
                               // card opens; the caret is placed for inline edits.
                               onBlur: (e: ReactFocusEvent<HTMLSpanElement>) => {
                                 const txt = (e.currentTarget.textContent ?? "").replace(/\s+/g, " ").trim();
                                 const orig = originalBulletText.replace(/\s+/g, " ").trim();
                                 patchPreviewLine(bulletIdx, !txt || txt === orig ? null : txt);
+                                setFormatToolbar((prev) => (prev?.bulletIdx === bulletIdx ? null : prev));
                               },
                               onKeyDown: (e: ReactKeyboardEvent<HTMLSpanElement>) => {
                                 if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
@@ -2106,6 +2228,12 @@ export default function AnalyzeLiveResumeBody({
                                   e.currentTarget.textContent = showText;
                                   e.currentTarget.blur();
                                 }
+                              },
+                              // Selecting text (mouse drag, or shift+arrow keys)
+                              // surfaces the Bold/Italic/Normal toolbar.
+                              onMouseUp: () => updateFormatToolbar(bulletIdx),
+                              onKeyUp: (e: ReactKeyboardEvent<HTMLSpanElement>) => {
+                                if (e.shiftKey || e.key.startsWith("Arrow")) updateFormatToolbar(bulletIdx);
                               },
                             }
                           : {})}
@@ -2125,6 +2253,10 @@ export default function AnalyzeLiveResumeBody({
                       )}
                     </span>
                   </div>
+
+                  {previewLineApplied && (
+                    <BulletChangeDiff original={originalBulletText} current={showText} />
+                  )}
 
                   {/* ── Inline detail panel (non-presentation mode only) ── */}
                   {!presentationOnly && expandedIdx === bulletIdx && (() => {
@@ -2269,6 +2401,15 @@ export default function AnalyzeLiveResumeBody({
           </div>
         );
       })}
+
+      {/* ── Bullet text-selection format toolbar ── */}
+      {formatToolbar && (
+        <BulletFormatToolbar
+          top={formatToolbar.top}
+          left={formatToolbar.left}
+          onFormat={applyBulletFormat}
+        />
+      )}
 
       {/* ── AI suggestion popup (presentationOnly click on bullet) ── */}
       {popup && popupBullet && (
