@@ -11,6 +11,15 @@ export type BlogPostMeta = {
 
 export const BLOG_POSTS: BlogPostMeta[] = [
   {
+    slug: "salary-transparency-by-seniority",
+    title: "The Higher the Job, the More They Hide the Pay",
+    description:
+      "Salary disclosure across 109,159 active US postings: entry-level roles list pay 41% of the time, directors 14%. The gap survives industry controls, and it changes how you should job hunt.",
+    readMinutes: 5,
+    tag: "Data",
+    publishedAt: "2026-07-14",
+  },
+  {
     slug: "sp100-tech-hiring-2026",
     title: "What 13,128 Live Job Postings at S&P 100 Companies Reveal About Tech Hiring",
     description:
