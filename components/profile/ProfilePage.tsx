@@ -6,32 +6,49 @@ import ResumeUpload from "./ResumeUpload";
 import { ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "../../lib/resumeExtractorService";
 import { CheckCircle2, Sparkles, AlertTriangle, ArrowRight, TrendingUp, Star, FileText, MessageSquare, Briefcase } from "lucide-react";
 import { EditSection } from "./ProfileDashboard";
-import { loadExtractedProfile, saveExtractedProfile } from "../../lib/profileStorage";
-import { fetchExtractedProfile, upsertExtractedProfile } from "../../lib/supabase";
+import { loadExtractedProfile, saveExtractedProfile, loadProfile, saveProfile, type ProfileFormState, EMPTY_PROFILE } from "../../lib/profileStorage";
+import { fetchExtractedProfile, upsertExtractedProfile, fetchUserProfile, upsertUserProfile } from "../../lib/supabase";
 
 export default function ProfilePage() {
   const [uploadStatus, setUploadStatus] = useState<"idle" | "extracting" | "review" | "completed">("idle");
   const [extractedData, setExtractedData] = useState<ExtractedProfileState>(INITIAL_EXTRACTED_PROFILE);
   const [editSection, setEditSection] = useState<EditSection>(null);
 
-  // Autosave State
+  // Autosave State — extracted résumé (user_extracted_profiles)
   const [baseline, setBaseline] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const autoSaveTimerRef = useRef<number | null>(null);
 
-  const dirty = typeof window !== "undefined" && baseline !== "" && baseline !== JSON.stringify(extractedData);
+  // Autosave State — Tailor defaults + EEO (user_profiles). Separate table,
+  // separate writer, so the two never clobber each other's jsonb column.
+  const [tailorDefaults, setTailorDefaults] = useState<ProfileFormState>(EMPTY_PROFILE);
+  const [tdBaseline, setTdBaseline] = useState<string>("");
+  const [tdSaving, setTdSaving] = useState(false);
+  const tdSaveTimerRef = useRef<number | null>(null);
 
-  // Load Profile on Mount
+  const dirty = typeof window !== "undefined" && baseline !== "" && baseline !== JSON.stringify(extractedData);
+  const tdDirty = typeof window !== "undefined" && tdBaseline !== "" && tdBaseline !== JSON.stringify(tailorDefaults);
+  const anyDirty = dirty || tdDirty;
+  const anySaving = saving || tdSaving;
+
+  // Load both records on Mount
   useEffect(() => {
     let mounted = true;
     async function init() {
       const dbProfile = await fetchExtractedProfile();
       const localProfile = loadExtractedProfile();
       const initial = dbProfile || localProfile;
+
+      const dbDefaults = await fetchUserProfile();
+      const localDefaults = loadProfile();
+      const initialDefaults = dbDefaults || localDefaults;
+
       if (mounted) {
         setExtractedData(initial);
         setBaseline(JSON.stringify(initial));
-        
+        setTailorDefaults(initialDefaults);
+        setTdBaseline(JSON.stringify(initialDefaults));
+
         if (initial.name || (initial.skills && initial.skills.length > 0) || (initial.experience && initial.experience.length > 0)) {
            setUploadStatus("completed");
         }
@@ -55,7 +72,21 @@ export default function ProfilePage() {
     }
   }, [extractedData]);
 
-  // Debounced Autosave
+  const saveTailorDefaults = useCallback(async () => {
+    setTdSaving(true);
+    const snap = { ...tailorDefaults };
+    try {
+      saveProfile(snap);
+      await upsertUserProfile(snap);
+      setTdBaseline(JSON.stringify(snap));
+    } catch (e) {
+      console.warn("Tailor-defaults save failed", e);
+    } finally {
+      setTdSaving(false);
+    }
+  }, [tailorDefaults]);
+
+  // Debounced Autosave — extracted résumé
   useEffect(() => {
     if (!dirty || saving) return;
     if (typeof window === "undefined") return;
@@ -72,16 +103,33 @@ export default function ProfilePage() {
     };
   }, [extractedData, dirty, saving, save]);
 
-  // Prevent closing tab with unsaved changes
+  // Debounced Autosave — Tailor defaults
   useEffect(() => {
-    if (!dirty || typeof window === "undefined") return;
+    if (!tdDirty || tdSaving) return;
+    if (typeof window === "undefined") return;
+    if (tdSaveTimerRef.current) window.clearTimeout(tdSaveTimerRef.current);
+    tdSaveTimerRef.current = window.setTimeout(() => {
+      tdSaveTimerRef.current = null;
+      void saveTailorDefaults();
+    }, 1500);
+    return () => {
+      if (tdSaveTimerRef.current) {
+        window.clearTimeout(tdSaveTimerRef.current);
+        tdSaveTimerRef.current = null;
+      }
+    };
+  }, [tailorDefaults, tdDirty, tdSaving, saveTailorDefaults]);
+
+  // Prevent closing tab with unsaved changes (either record)
+  useEffect(() => {
+    if (!anyDirty || typeof window === "undefined") return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [dirty]);
+  }, [anyDirty]);
 
   // --- AI RECOMMENDATION LOGIC ---
   const getRecommendations = () => {
@@ -174,6 +222,10 @@ export default function ProfilePage() {
     setExtractedData(prev => ({ ...prev, ...newData }));
   };
 
+  const handleUpdateTailorDefaults = (patch: Partial<ProfileFormState>) => {
+    setTailorDefaults(prev => ({ ...prev, ...patch }));
+  };
+
   const GlobalStyles = (
     <style dangerouslySetInnerHTML={{__html: `
       .profile-grid {
@@ -229,8 +281,8 @@ export default function ProfilePage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {uploadStatus === "completed" && (
-              <div style={{ fontSize: 13, fontWeight: 600, color: saving ? "#3b82f6" : dirty ? "#94a3b8" : "#10b981", display: "flex", alignItems: "center", gap: 6, transition: "color 0.2s ease" }}>
-                {saving ? "Saving..." : dirty ? "Unsaved changes" : <><CheckCircle2 size={14} /> Saved</>}
+              <div style={{ fontSize: 13, fontWeight: 600, color: anySaving ? "#3b82f6" : anyDirty ? "#94a3b8" : "#10b981", display: "flex", alignItems: "center", gap: 6, transition: "color 0.2s ease" }}>
+                {anySaving ? "Saving..." : anyDirty ? "Unsaved changes" : <><CheckCircle2 size={14} /> Saved</>}
               </div>
             )}
             <button 
@@ -251,10 +303,12 @@ export default function ProfilePage() {
               onExtractionComplete={handleExtractionComplete}
               onAcceptAll={handleAcceptAll}
             />
-            <ProfileDashboard 
-              extractedData={extractedData} 
-              status={uploadStatus} 
+            <ProfileDashboard
+              extractedData={extractedData}
+              tailorDefaults={tailorDefaults}
+              status={uploadStatus}
               onUpdateData={handleUpdateData}
+              onUpdateTailorDefaults={handleUpdateTailorDefaults}
               editSection={editSection}
               onOpenEdit={setEditSection}
               onCloseEdit={() => setEditSection(null)}

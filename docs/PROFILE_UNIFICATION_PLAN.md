@@ -1,6 +1,6 @@
 # Profile Unification Plan
 
-Status: **proposed** (follow-up to the Career Profile dashboard, PR #128).
+Status: **Phase 1 done**; Phases 2–3 proposed (follow-up to the Career Profile dashboard, PR #128).
 
 ## The problem
 
@@ -53,7 +53,7 @@ one column tried to hold both. Keeping two tables but one dashboard means:
 
 ## Phases
 
-### Phase 1 — surface Tailor defaults inside the dashboard (additive, low-risk)
+### Phase 1 — surface Tailor defaults inside the dashboard (additive, low-risk) — ✅ DONE
 - Replace the dashboard's dead **Job Preferences** and **Tailoring Defaults**
   free-text cards with real, structured editing of the `user_profiles` fields:
   target **roles**, target **locations**, **tone**, **section order**, and the
@@ -68,6 +68,15 @@ one column tried to hold both. Keeping two tables but one dashboard means:
   `user_profiles`, so they stay consistent.
 - **Exit check:** editing roles/locations/EEO in the dashboard changes what
   Tailor / Jobs prefill, verified live; old Profile form still round-trips.
+- **Landed as:** dashboard now loads `fetchUserProfile()` / `loadProfile()` into
+  a second `tailorDefaults` state with its own debounced autosave to
+  `saveProfile()` + `upsertUserProfile()`; the "Job Preferences", "Tailoring
+  Defaults", and "Application Details (EEO)" cards edit `roles`/`locations`,
+  `tone`/`sectionOrder`, and the 6 EEO answers respectively. Verified live:
+  cards render from seeded `user_profiles`, all three modals edit, and a Save
+  round-trips to `rn_profile_v1` **without clobbering** the untouched fields.
+  Placeholder `preferences`/`tailoring` fields dropped from
+  `ExtractedProfileState`.
 
 ### Phase 2 — make the extracted profile useful (net-new value)
 - Let the dashboard's extracted contact block (name / email / phone / linkedin /

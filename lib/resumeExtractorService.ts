@@ -36,10 +36,6 @@ export type ExtractedProfileState = {
   linkedin: string;
   github: string;
   portfolio: string;
-  /** Free-text job-preferences note, set from the profile dashboard's edit modal. */
-  preferences: string;
-  /** Free-text tailoring-defaults note, set from the profile dashboard's edit modal. */
-  tailoring: string;
   skills: string[];
   experience: ExtractedExperience[];
   education: ExtractedEducation[];
@@ -57,8 +53,6 @@ export const INITIAL_EXTRACTED_PROFILE: ExtractedProfileState = {
   linkedin: "",
   github: "",
   portfolio: "",
-  preferences: "",
-  tailoring: "",
   skills: [],
   experience: [],
   education: [],
@@ -122,8 +116,6 @@ export async function extractResumeData(file: File): Promise<ExtractedProfileSta
     linkedin: sr.linkedin || "",
     github: sr.github || "",
     portfolio: "",
-    preferences: "",
-    tailoring: "",
     skills: Array.isArray(sr.skills)
       ? sr.skills.flatMap((s) =>
           typeof s === "string" ? [s] : Array.isArray(s.items) ? s.items : [],
