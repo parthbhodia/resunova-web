@@ -6,7 +6,13 @@ import type { CSSProperties, FocusEvent as ReactFocusEvent, HTMLAttributes, Keyb
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import BulletImprovedEditor from "@/components/BulletImprovedEditor";
+import { BulletFormatToolbar } from "@/components/BulletFormatToolbar";
 import { highlightMetricSpans } from "@/lib/highlightResumeMetrics";
+import { applyInlineFormat, renderInlineMarkdown, stripInlineMarkdown, type InlineFormat } from "@/lib/inlineMarkdown";
+import { diffWords } from "@/lib/textDiff";
+import { moveCleanPathRemap, deleteCleanPathRemap, type StructuredBulletOp } from "@/lib/structuredBulletOps";
+import { DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
   bulletMatchesAnalysisCategory,
   cleanAiArtifacts,
@@ -51,7 +57,7 @@ export type Block =
   /** `path` (per item) is the stable structuredResume path of the bullet
    *  (e.g. `exp.0.bullets.2`) — used to key `fieldOverrides` for inline bullet
    *  editing. Undefined = not editable (legacy text-path payloads). */
-  | { type: "bullets"; items: Array<{ rawLine: string; bulletIdx: number; path?: string }> };
+  | { type: "bullets"; items: Array<{ rawLine: string; bulletIdx: number; path?: string; rawIdx?: number }> };
 
 /** Known resume section titles (full trimmed line). Strict mode avoids mistaking ALL-CAPS names for sections. */
 const KNOWN_SECTIONS =
@@ -348,17 +354,23 @@ export function buildBlocksFromStructured(
   // Bullets block builder — fuzzy-match each bullet to its (sparse) analysis entry.
   // `pathPrefix` (e.g. `exp.0.bullets`) makes each bullet inline-editable; the
   // post-filter index keys the override and is stable for a given input.
-  const pushBullets = (rawBullets: string[], pathPrefix?: string) => {
-    const items = rawBullets
-      .map((b) => _cleanBullet(b))
-      .filter(Boolean)
-      .map((clean, i) => ({
-        rawLine: `• ${clean}`,
-        bulletIdx: findBulletIndexForLine(clean, bulletAnalysis),
-        path: pathPrefix ? `${pathPrefix}.${i}` : undefined,
-      }));
+  // Each kept item also records `rawIdx` (its index in the RAW structured
+  // array, pre clean-filter) so reorder/add/delete ops can address the source.
+  const pushBulletPairs = (pairs: Array<{ clean: string; rawIdx: number }>, pathPrefix?: string) => {
+    const items = pairs.map(({ clean, rawIdx }, i) => ({
+      rawLine: `• ${clean}`,
+      bulletIdx: findBulletIndexForLine(clean, bulletAnalysis),
+      path: pathPrefix ? `${pathPrefix}.${i}` : undefined,
+      rawIdx,
+    }));
     if (items.length) blocks.push({ type: "bullets", items });
   };
+  const cleanPairs = (rawBullets: string[]) =>
+    rawBullets
+      .map((b, rawIdx) => ({ clean: _cleanBullet(b), rawIdx }))
+      .filter((x) => x.clean);
+  const pushBullets = (rawBullets: string[], pathPrefix?: string) =>
+    pushBulletPairs(cleanPairs(rawBullets), pathPrefix);
 
   const emitSection = (key: string) => {
     switch (key) {
@@ -407,15 +419,15 @@ export function buildBlocksFromStructured(
         blocks.push({ type: "section", text: "PROJECTS", key });
         rows.forEach((p, pi) => {
           let tech = (p.tech || "").trim();
-          let bullets = (p.bullets || []).map((b) => _cleanBullet(b)).filter(Boolean);
+          let pairs = cleanPairs(p.bullets || []);
           // Promote a tech-stack first bullet onto the header when tech is empty.
-          if (!tech && bullets.length && _looksLikeTechStackLine(bullets[0])) {
-            tech = bullets[0];
-            bullets = bullets.slice(1);
+          if (!tech && pairs.length && _looksLikeTechStackLine(pairs[0].clean)) {
+            tech = pairs[0].clean;
+            pairs = pairs.slice(1);
           }
           const head = _entryHeaderLine(p.name, tech);
           if (head) blocks.push({ type: "paragraph", lines: [head], paths: [`proj.${pi}.head`] });
-          pushBullets(bullets, `proj.${pi}.bullets`);
+          pushBulletPairs(pairs, `proj.${pi}.bullets`);
         });
         return;
       }
@@ -584,10 +596,10 @@ function sanitizeHeaderLineArray(lines: string[]): string[] {
 
 /** PDF extract often wraps one logical bullet across lines; keep a single row per bullet index. */
 function collapseAdjacentSameBulletRows(
-  items: Array<{ rawLine: string; bulletIdx: number; path?: string }>,
+  items: Array<{ rawLine: string; bulletIdx: number; path?: string; rawIdx?: number }>,
   bullets: LiveBulletItem[],
-): Array<{ rawLine: string; bulletIdx: number; path?: string }> {
-  const out: Array<{ rawLine: string; bulletIdx: number; path?: string }> = [];
+): Array<{ rawLine: string; bulletIdx: number; path?: string; rawIdx?: number }> {
+  const out: Array<{ rawLine: string; bulletIdx: number; path?: string; rawIdx?: number }> = [];
 
   const isLikelyBulletContinuation = (line: string): boolean => {
     const t = normalizeForMatch(line).trim();
@@ -614,7 +626,7 @@ function collapseAdjacentSameBulletRows(
       continue;
     }
     // Keep the first item's path for the merged row (its stable override key).
-    out.push({ rawLine: it.rawLine, bulletIdx: it.bulletIdx, path: it.path });
+    out.push({ rawLine: it.rawLine, bulletIdx: it.bulletIdx, path: it.path, rawIdx: it.rawIdx });
   }
   return out;
 }
@@ -853,10 +865,10 @@ function renderLabeledLine(text: string): ReactNode {
 function renderMetricLineWithLabel(text: string, highlightsEnabled: boolean): ReactNode {
   if (!highlightsEnabled) {
     const split = splitLeadingLabelAndValue(text);
-    if (!split) return text;
+    if (!split) return renderInlineMarkdown(text);
     return (
       <>
-        <strong>{split.label}:</strong> {split.value}
+        <strong>{split.label}:</strong> {renderInlineMarkdown(split.value)}
       </>
     );
   }
@@ -867,6 +879,47 @@ function renderMetricLineWithLabel(text: string, highlightsEnabled: boolean): Re
       <strong>{split.label}:</strong>{" "}
       {highlightMetricSpans(split.value)}
     </>
+  );
+}
+
+/** Word-level "what changed" line under an edited bullet — added words on a
+ *  soft green, removed words struck through in soft red. Diffs the plain
+ *  (markdown-stripped) content only, so a formatting-only edit shows nothing. */
+function BulletChangeDiff({ original, current }: { original: string; current: string }) {
+  const origPlain = stripInlineMarkdown(original).replace(/\s+/g, " ").trim();
+  const curPlain = stripInlineMarkdown(current).replace(/\s+/g, " ").trim();
+  if (!origPlain || origPlain === curPlain) return null;
+  const tokens = diffWords(origPlain, curPlain);
+  return (
+    <div
+      className="az-pdf-ignore"
+      style={{
+        marginTop: 2,
+        fontSize: "calc(var(--az-resume-body-font-size, 10px) - 1px)",
+        lineHeight: 1.4,
+        color: "var(--resume-paper-muted, #8c7d68)",
+        overflowWrap: "anywhere",
+      }}
+    >
+      <span style={{ fontWeight: 700, fontSize: 9, letterSpacing: 0.03, textTransform: "uppercase", marginRight: 5, opacity: 0.75 }}>
+        Changed
+      </span>
+      {tokens.map((t, i) => {
+        if (t.type === "same") return <span key={i}>{t.text}</span>;
+        if (t.type === "add") {
+          return (
+            <span key={i} style={{ background: "rgba(52,211,153,0.18)", color: "var(--green, #2f7d5a)", borderRadius: 2 }}>
+              {t.text}
+            </span>
+          );
+        }
+        return (
+          <span key={i} style={{ background: "rgba(248,113,113,0.14)", color: "var(--red, #b8452f)", textDecoration: "line-through", borderRadius: 2 }}>
+            {t.text}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1161,6 +1214,94 @@ interface Props {
   sectionOrderOverride?: string[] | null;
   /** Commit a new section order (full key array) after an up/down move. */
   onReorderSections?: (order: string[]) => void;
+  /** Apply a bullet-level structural op (reorder / add / delete) to the
+   *  structured résumé the parent owns. When provided (and the structured
+   *  builder is active), bullets get a drag handle, a delete button, and each
+   *  entry gets an "+ Add bullet" affordance. The op carries raw array indices
+   *  plus a pathRemap for the parent's path-keyed overlays — apply it with
+   *  applyBulletOpToStructured + remapOverlayPaths (lib/structuredBulletOps). */
+  onBulletOp?: (op: StructuredBulletOp) => void;
+}
+
+/** Sortable wrapper around one bullet row: drag handle on hover-left, delete
+ *  on hover-right (next to the eye). All controls are az-pdf-ignore so the
+ *  WYSIWYG capture never sees them; the wrapper div itself adds no visual
+ *  styling beyond the drag transform. */
+function SortableBulletRow({
+  id,
+  onDelete,
+  children,
+}: {
+  id: string;
+  onDelete: () => void;
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className="az-bullet-dnd-row"
+      style={{
+        position: "relative",
+        transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined,
+        transition,
+        zIndex: isDragging ? 30 : undefined,
+        opacity: isDragging ? 0.85 : undefined,
+      }}
+    >
+      <span
+        className="az-pdf-ignore az-bullet-drag"
+        title="Drag to reorder"
+        aria-label="Drag to reorder bullet"
+        {...attributes}
+        {...listeners}
+        style={{
+          position: "absolute",
+          left: -16,
+          top: 2,
+          width: 14,
+          height: 16,
+          display: "grid",
+          placeItems: "center",
+          color: "var(--dim)",
+          cursor: "grab",
+          touchAction: "none",
+        }}
+      >
+        <svg width="9" height="13" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
+          <circle cx="2.5" cy="2.5" r="1.4" /><circle cx="7.5" cy="2.5" r="1.4" />
+          <circle cx="2.5" cy="8" r="1.4" /><circle cx="7.5" cy="8" r="1.4" />
+          <circle cx="2.5" cy="13.5" r="1.4" /><circle cx="7.5" cy="13.5" r="1.4" />
+        </svg>
+      </span>
+      {children}
+      <button
+        type="button"
+        className="az-pdf-ignore az-bullet-delete"
+        title="Delete this bullet"
+        aria-label="Delete this bullet"
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 20,
+          width: 18,
+          height: 18,
+          borderRadius: 5,
+          border: "none",
+          background: "transparent",
+          color: "var(--dim)",
+          cursor: "pointer",
+          display: "grid",
+          placeItems: "center",
+        }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+        </svg>
+      </button>
+    </div>
+  );
 }
 
 /** Eye toggle on a bullet — hides it from the preview + exports (download without
@@ -1233,7 +1374,12 @@ export default function AnalyzeLiveResumeBody({
   patchSectionEdit,
   sectionOrderOverride = null,
   onReorderSections,
+  onBulletOp,
 }: Props) {
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor),
+  );
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   // Tracks which bullets are in "edit textarea" mode (after accepting or choosing to write own)
   const [editingBullets, setEditingBullets] = useState<Record<number, boolean>>({});
@@ -1255,6 +1401,10 @@ export default function AnalyzeLiveResumeBody({
   const [aiRewritingIdx, setAiRewritingIdx] = useState<number | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const popupDragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
+
+  // Bullet text-selection format toolbar (Bold / Italic / Normal).
+  const [formatToolbar, setFormatToolbar] = useState<{ bulletIdx: number; top: number; left: number } | null>(null);
+  const bulletEditableRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
 
   const structuredPreviewActive = isStructuredUsable(structuredResume);
 
@@ -1415,6 +1565,75 @@ export default function AnalyzeLiveResumeBody({
   };
   const popupSuggestionBase = popup != null ? resolveBulletSuggestion(popup.bulletIdx) : "";
 
+  // Close the format toolbar on outside click, mirroring the popup pattern above.
+  useEffect(() => {
+    if (!formatToolbar) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const bulletEl = bulletEditableRefs.current.get(formatToolbar.bulletIdx);
+      if (bulletEl?.contains(target)) return; // clicks inside the bullet don't count as "outside"
+      setFormatToolbar(null);
+    };
+    window.addEventListener("mousedown", handler, true);
+    return () => window.removeEventListener("mousedown", handler, true);
+  }, [formatToolbar]);
+
+  /** Reads the current selection's plain-text character offsets relative to
+   *  `container`'s full textContent — works regardless of how many child
+   *  nodes the metric/label highlighter split the text into. */
+  const readSelectionOffsets = (container: HTMLElement): { start: number; end: number } | null => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+    const range = sel.getRangeAt(0);
+    if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) return null;
+    const selectedText = range.toString();
+    if (!selectedText.trim()) return null;
+    const pre = document.createRange();
+    pre.selectNodeContents(container);
+    pre.setEnd(range.startContainer, range.startOffset);
+    const start = pre.toString().length;
+    return { start, end: start + selectedText.length };
+  };
+
+  const updateFormatToolbar = (bulletIdx: number) => {
+    const el = bulletEditableRefs.current.get(bulletIdx);
+    if (!el) return;
+    const offsets = readSelectionOffsets(el);
+    if (!offsets) {
+      setFormatToolbar((prev) => (prev?.bulletIdx === bulletIdx ? null : prev));
+      return;
+    }
+    const rect = window.getSelection()?.getRangeAt(0).getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) return;
+    setFormatToolbar({
+      bulletIdx,
+      top: Math.max(8, rect.top - 40),
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - 140)),
+    });
+  };
+
+  const applyBulletFormat = (format: InlineFormat) => {
+    if (!formatToolbar) return;
+    const el = bulletEditableRefs.current.get(formatToolbar.bulletIdx);
+    if (!el) { setFormatToolbar(null); return; }
+    const offsets = readSelectionOffsets(el);
+    if (!offsets) { setFormatToolbar(null); return; }
+    const full = el.textContent ?? "";
+    el.textContent = applyInlineFormat(full, offsets.start, offsets.end, format);
+    // Collapse the caret to the end so the DOM stays in a sane editable state;
+    // the actual commit (patchPreviewLine) happens on blur, same as normal typing.
+    const sel = window.getSelection();
+    if (sel) {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      r.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    setFormatToolbar(null);
+    el.focus();
+  };
+
   return (
     <div
       className={highlightsEnabled ? undefined : "az-highlights-off"}
@@ -1448,6 +1667,19 @@ export default function AnalyzeLiveResumeBody({
         .az-bullet-hide:hover { background: var(--accent-bg, rgba(99,102,241,0.12)); color: var(--accent, #6366f1); }
         .az-bullet-hide--on { opacity: 1 !important; }
         .az-bullet-hide:focus-visible { opacity: 1; outline: 2px solid var(--accent, #6366f1); outline-offset: 1px; }
+        .az-bullet-drag, .az-bullet-delete { opacity: 0; transition: opacity .12s, color .12s, background .12s; }
+        .az-bullet-dnd-row:hover .az-bullet-drag, .az-bullet-dnd-row:hover .az-bullet-delete { opacity: 1; }
+        .az-bullet-drag:focus-visible, .az-bullet-delete:focus-visible { opacity: 1; outline: 2px solid var(--accent, #6366f1); outline-offset: 1px; }
+        .az-bullet-drag:active { cursor: grabbing; }
+        .az-bullet-delete:hover { background: rgba(248,113,113,0.14); color: var(--red, #ef4444); }
+        .az-add-bullet {
+          display: inline-flex; align-items: center; gap: 4px; margin: 1px 0 2px;
+          border: none; background: transparent; color: var(--accent, #6366f1);
+          font-size: 10px; font-weight: 600; cursor: pointer; padding: 1px 2px; border-radius: 4px;
+          opacity: 0.55; transition: opacity .12s, background .12s;
+        }
+        .az-add-bullet:hover { opacity: 1; background: var(--accent-bg, rgba(99,102,241,0.10)); }
+        .az-add-bullet:focus-visible { opacity: 1; outline: 2px solid var(--accent, #6366f1); outline-offset: 1px; }
       `}</style>
 
       {blocks.length === 0 && (
@@ -1875,9 +2107,32 @@ export default function AnalyzeLiveResumeBody({
         /* ── Bullet rows ── */
         const bulletRows = collapseAdjacentSameBulletRows(blk.items, bulletAnalysis);
         const bulletSectionRole = currentSectionRole(blocks, bi);
-        return (
-          <div key={bi} style={bulletsBlockStyle(bulletSectionRole)}>
-            {bulletRows.map(({ rawLine, bulletIdx, path }, ii) => {
+        // Bullet ops (drag-reorder / add / delete) need: an op callback, editing
+        // on, a single resolvable entry (`exp.N`/`proj.N`/`edu.N`), rows aligned
+        // 1:1 with items (no collapsed wrap-lines), and raw indices for every row.
+        const entryPathMatch = bulletRows[0]?.path
+          ? /^((?:exp|proj|edu)\.\d+)\.bullets\.\d+$/.exec(bulletRows[0].path)
+          : null;
+        const bulletEntryPath = entryPathMatch?.[1] ?? null;
+        const bulletOpsEnabled = !!(
+          onBulletOp && fieldsEditable && bulletEntryPath &&
+          bulletRows.length === blk.items.length &&
+          bulletRows.every((r) => r.path?.startsWith(`${bulletEntryPath}.bullets.`) && r.rawIdx !== undefined)
+        );
+        const handleBulletDragEnd = (ev: DragEndEvent) => {
+          const overId = ev.over ? String(ev.over.id) : null;
+          const activeId = String(ev.active.id);
+          if (!overId || activeId === overId || !bulletEntryPath || !onBulletOp) return;
+          const from = bulletRows.findIndex((r) => r.path === activeId);
+          const to = bulletRows.findIndex((r) => r.path === overId);
+          if (from < 0 || to < 0) return;
+          onBulletOp({
+            entryPath: bulletEntryPath,
+            action: { type: "move", fromRaw: bulletRows[from].rawIdx!, toRaw: bulletRows[to].rawIdx! },
+            pathRemap: moveCleanPathRemap(bulletEntryPath, bulletRows.length, from, to),
+          });
+        };
+        const renderBulletRow = ({ rawLine, bulletIdx, path }: { rawLine: string; bulletIdx: number; path?: string; rawIdx?: number }, ii: number) => {
               // Hidden bullet: still renders (dimmed + struck-through) so the user
               // can see what they hid and toggle it back, but the whole row is
               // marked az-pdf-ignore so it's dropped from the WYSIWYG PDF capture
@@ -2088,16 +2343,21 @@ export default function AnalyzeLiveResumeBody({
                       <span
                         {...(bulletInlineEditable
                           ? {
+                              ref: (node: HTMLSpanElement | null) => {
+                                if (node) bulletEditableRefs.current.set(bulletIdx, node);
+                                else bulletEditableRefs.current.delete(bulletIdx);
+                              },
                               contentEditable: true,
                               suppressContentEditableWarning: true,
                               className: "az-editable-field",
-                              title: "Click to edit — applies to preview and PDF",
+                              title: "Click to edit — applies to preview and PDF. Select text to format.",
                               // Click still bubbles to the row so the left apply
                               // card opens; the caret is placed for inline edits.
                               onBlur: (e: ReactFocusEvent<HTMLSpanElement>) => {
                                 const txt = (e.currentTarget.textContent ?? "").replace(/\s+/g, " ").trim();
                                 const orig = originalBulletText.replace(/\s+/g, " ").trim();
                                 patchPreviewLine(bulletIdx, !txt || txt === orig ? null : txt);
+                                setFormatToolbar((prev) => (prev?.bulletIdx === bulletIdx ? null : prev));
                               },
                               onKeyDown: (e: ReactKeyboardEvent<HTMLSpanElement>) => {
                                 if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
@@ -2106,6 +2366,12 @@ export default function AnalyzeLiveResumeBody({
                                   e.currentTarget.textContent = showText;
                                   e.currentTarget.blur();
                                 }
+                              },
+                              // Selecting text (mouse drag, or shift+arrow keys)
+                              // surfaces the Bold/Italic/Normal toolbar.
+                              onMouseUp: () => updateFormatToolbar(bulletIdx),
+                              onKeyUp: (e: ReactKeyboardEvent<HTMLSpanElement>) => {
+                                if (e.shiftKey || e.key.startsWith("Arrow")) updateFormatToolbar(bulletIdx);
                               },
                             }
                           : {})}
@@ -2125,6 +2391,10 @@ export default function AnalyzeLiveResumeBody({
                       )}
                     </span>
                   </div>
+
+                  {previewLineApplied && (
+                    <BulletChangeDiff original={originalBulletText} current={showText} />
+                  )}
 
                   {/* ── Inline detail panel (non-presentation mode only) ── */}
                   {!presentationOnly && expandedIdx === bulletIdx && (() => {
@@ -2265,10 +2535,58 @@ export default function AnalyzeLiveResumeBody({
                   })()}
                 </div>
               );
-            })}
+        };
+        return (
+          <div key={bi} style={bulletsBlockStyle(bulletSectionRole)}>
+            {bulletOpsEnabled ? (
+              <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleBulletDragEnd}>
+                <SortableContext items={bulletRows.map((r) => r.path!)} strategy={verticalListSortingStrategy}>
+                  {bulletRows.map((row, ii) => (
+                    <SortableBulletRow
+                      key={row.path}
+                      id={row.path!}
+                      onDelete={() => {
+                        onBulletOp!({
+                          entryPath: bulletEntryPath!,
+                          action: { type: "delete", raw: row.rawIdx! },
+                          pathRemap: deleteCleanPathRemap(bulletEntryPath!, bulletRows.length, ii),
+                        });
+                      }}
+                    >
+                      {renderBulletRow(row, ii)}
+                    </SortableBulletRow>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            ) : (
+              bulletRows.map((row, ii) => renderBulletRow(row, ii))
+            )}
+            {bulletOpsEnabled && (
+              <button
+                type="button"
+                className="az-pdf-ignore az-add-bullet"
+                title="Add a bullet to this entry"
+                onClick={() => onBulletOp!({
+                  entryPath: bulletEntryPath!,
+                  action: { type: "add", text: "New accomplishment — click to edit" },
+                  pathRemap: {},
+                })}
+              >
+                + Add bullet
+              </button>
+            )}
           </div>
         );
       })}
+
+      {/* ── Bullet text-selection format toolbar ── */}
+      {formatToolbar && (
+        <BulletFormatToolbar
+          top={formatToolbar.top}
+          left={formatToolbar.left}
+          onFormat={applyBulletFormat}
+        />
+      )}
 
       {/* ── AI suggestion popup (presentationOnly click on bullet) ── */}
       {popup && popupBullet && (

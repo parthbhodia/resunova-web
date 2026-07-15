@@ -10,6 +10,7 @@ import {
   looksLikeEntryHeader,
   isGapFixEligibleLine,
 } from "@/lib/resumeEntryLineHeuristics";
+import { stripInlineMarkdown } from "@/lib/inlineMarkdown";
 
 export interface LiveBulletItem {
   originalBullet: string;
@@ -106,7 +107,7 @@ export function synthesizeProfileWithBulletOverrides(
   for (let li = 0; li < lines.length; li++) {
     const idx = findBulletIndexForLine(lines[li], bullets);
     if (idx < 0 || overrides[idx] === undefined || seen.has(idx)) continue;
-    const raw = overrides[idx].trim();
+    const raw = stripInlineMarkdown(overrides[idx]).trim();
     if (!raw) continue;
     patched[li] = formatOverrideBullet(raw);
     seen.add(idx);
@@ -115,7 +116,7 @@ export function synthesizeProfileWithBulletOverrides(
   for (const [idxStr, overrideText] of Object.entries(overrides)) {
     const idx = Number(idxStr);
     if (seen.has(idx)) continue;
-    const raw = overrideText.trim();
+    const raw = stripInlineMarkdown(overrideText).trim();
     if (!raw) continue;
     const bullet = bullets[idx];
     const original = bullet?.originalBullet?.trim() ?? "";
@@ -263,10 +264,11 @@ export function patchStructuredWithOverrides<T extends {
   // Deep-clone so we don't mutate the stored structured doc.
   const cloned: T = JSON.parse(JSON.stringify(structured));
 
-  for (const [idxStr, newText] of Object.entries(overrides)) {
+  for (const [idxStr, rawNewText] of Object.entries(overrides)) {
     const idx = Number(idxStr);
     const original = bulletAnalysis[idx]?.originalBullet;
-    if (!original?.trim() || !newText?.trim()) continue;
+    const newText = stripInlineMarkdown(rawNewText ?? "");
+    if (!original?.trim() || !newText.trim()) continue;
 
     let placed = false;
     for (const exp of cloned.experience ?? []) {

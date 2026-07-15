@@ -18,6 +18,8 @@ import { authHeaders, scoreLabel, type JobDetail as JobDetailData } from "@/lib/
 import { canBoost } from "@/lib/boostPrefill";
 import { apiUrl } from "@/lib/utils";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
+import { TailoringModeModal } from "@/components/TailoringModeModal";
+import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 import AnalyzeLiveResumeBody from "@/components/AnalyzeLiveResumeBody";
 import { GapFixSuggestionCard, type GapFixSuggestion } from "@/components/ratings/GapFixSuggestionCard";
 import { resumeLayoutFromPreviewStyle, resumeLayoutCssVars, resumePageRootStyle, RESUME_BULLET_STYLESHEET } from "@/lib/resumeLayout";
@@ -136,6 +138,17 @@ export default function BoostPanel({
   const [boostResult, setBoostResult] = useState<BoostResult | null>(null);
   const [boostError, setBoostError] = useState<string | null>(null);
 
+  // Tailoring intensity — same setting Tailor uses (user_profiles.tailoring_mode);
+  // first Boost with no stored choice raises the one-time explainer modal.
+  const [tailoringMode, setTailoringMode] = useState<TailoringMode | null>(() => getCachedTailoringMode());
+  const [showTailoringModal, setShowTailoringModal] = useState(false);
+  const pendingBoostAfterModeRef = useRef(false);
+  useEffect(() => {
+    let alive = true;
+    void fetchTailoringMode().then((m) => { if (alive && m) setTailoringMode(m); });
+    return () => { alive = false; };
+  }, []);
+
   // PDF export
   const previewRef = useRef<HTMLDivElement>(null);
   const { exportPdf, exporting: pdfExporting, error: pdfError } = useHtmlPdfExport();
@@ -151,7 +164,13 @@ export default function BoostPanel({
   const panelWidth = step === 3 ? 760 : 560;
 
   // Step 2 → 3: call /api/jobs/boost
-  const handleGenerate = async () => {
+  const handleGenerate = async (modeOverride?: TailoringMode) => {
+    const effMode = modeOverride ?? tailoringMode;
+    if (effMode === null) {
+      pendingBoostAfterModeRef.current = true;
+      setShowTailoringModal(true);
+      return;
+    }
     setStep(3);
     setGenerating(true);
     setBoostResult(null);
@@ -167,6 +186,7 @@ export default function BoostPanel({
           sections: [...selected],
           notes,
           depth: expDepth,
+          tailoring_mode: effMode,
         }),
       });
       if (!resp.ok) {
@@ -200,6 +220,27 @@ export default function BoostPanel({
 
   return (
     <>
+      <TailoringModeModal
+        open={showTailoringModal}
+        initialMode={tailoringMode ?? "honest"}
+        onSave={(mode) => {
+          setTailoringMode(mode);
+          void saveTailoringMode(mode);
+          setShowTailoringModal(false);
+          if (pendingBoostAfterModeRef.current) {
+            pendingBoostAfterModeRef.current = false;
+            void handleGenerate(mode);
+          }
+        }}
+        onCancel={() => {
+          // "Not now" = boost once with the honest default; keep asking later.
+          setShowTailoringModal(false);
+          if (pendingBoostAfterModeRef.current) {
+            pendingBoostAfterModeRef.current = false;
+            void handleGenerate("honest");
+          }
+        }}
+      />
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 60 }} />
       <div
         style={{
