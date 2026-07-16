@@ -303,13 +303,6 @@ export function AppSidebar({
                 showLabels={showLabels}
                 locked={anonMode}
               />
-              <NavItem
-                view="profile"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "profile"}
-                onClick={gated("profile")}
-                showLabels={showLabels}
-                locked={anonMode}
-              />
               {advisorAllowed ? (
                 <NavItem
                   view="advisor"
@@ -389,8 +382,7 @@ export function AppSidebar({
             ) : (
               <AppSidebarUser
                 initial={userInitial}
-                onProfile={() => onSwitchView("profile")}
-                onCareerProfile={() => router.push("/profile")}
+                onProfile={() => router.push("/profile")}
                 onAccount={() => onSwitchView("account")}
                 onSignOut={onSignOut}
               />

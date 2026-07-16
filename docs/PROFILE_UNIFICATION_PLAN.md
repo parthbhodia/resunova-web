@@ -1,6 +1,6 @@
 # Profile Unification Plan
 
-Status: **Phases 1–2 done**; Phase 3 proposed (follow-up to the Career Profile dashboard, PR #128).
+Status: **Phases 1–3 done** — the plan is complete (follow-up to the Career Profile dashboard, PR #128).
 
 ## The problem
 
@@ -97,16 +97,36 @@ one column tried to hold both. Keeping two tables but one dashboard means:
   path. Deferred — it touches the Tailor prefill flow and is better bundled with
   Phase 3.
 
-### Phase 3 — retire the old Profile form
+### Phase 3 — retire the old Profile form — ✅ DONE
 - Point the Account-dropdown "Profile" item and every `?view=profile` /
   `/?view=profile` link (AccountSettingsPage cross-link, ResumeBuilder,
   AppSidebar) at `/profile`.
-- Move the EEO + tone + section-order editing fully into the dashboard, delete
-  `components/ProfilePage.tsx` (old) and its `?view=profile` route.
+- Delete `components/ProfilePage.tsx` (old) and redirect its `?view=profile`
+  route to `/profile`.
 - Keep `ProfileFormState` + `user_profiles` as the persistence layer — only the
   **editor UI** is consolidated; the data model and every reader stay put.
-- **Exit check:** one "profile" concept in the UI, all existing consumers still
-  green, `next build` + full vitest pass.
+- **Landed as:** deleted the old `components/ProfilePage.tsx`; `HomePageClient`'s
+  `view === "profile"` branch now `router.replace("/profile")` (a redirect effect
+  cloned from the existing `flow=template` → `/template-builder/` one) so old
+  bookmarks still work; the top-level "Profile" sidebar `NavItem` is removed and
+  the Account dropdown collapses to a single "Profile" → `/profile`;
+  `AccountSettingsPage` + `ResumeBuilder` links repointed to `/profile`.
+- **Field-drop decision (confirmed with product):** the old form was the only
+  manual editor for `tagline` / `school` / `degree` / `graduation` / `gpa`.
+  Consumer audit: `tagline`/`degree`/`graduation`/`gpa` have **no runtime
+  reader**; `school` is read only by `InsiderPanel` (referral alumni-school
+  default) and still auto-fills from résumé-upload hint-merges. So dropping their
+  manual editing loses nothing live. Everything live consumers actually read
+  (contact, `roles`, `locations`, `tone`, `sectionOrder`, EEO) is covered by the
+  dashboard after Phases 1–2.
+- **Verified:** `tsc --noEmit` clean, 226 vitest green, `next build` clean with
+  `/profile` + all prior routes present. In-browser redirect not live-exercised
+  this session (sandbox killed the dev server at every turn boundary); the
+  redirect is a line-for-line clone of the proven `flow=template` redirect, and
+  an earlier live pass this session already confirmed `/profile` renders.
+- **Deferred (optional, from Phase 2):** a "Use this résumé as my Tailor
+  baseline" action pushing the extracted structured doc into the Tailor /
+  Template-Builder prefill path — not built; would be a Phase 4.
 
 ## Explicitly out of scope
 - No schema migration of `user_profiles` → `user_extracted_profiles` or vice
