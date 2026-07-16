@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BlogArticleLayout, { Section } from "@/components/blog/BlogArticleLayout";
+import JsonLd from "@/components/seo/JsonLd";
 import { SITE_URL } from "@/lib/brand";
 
 export const metadata: Metadata = {
@@ -109,6 +110,8 @@ function TechOnlyChart() {
 
 // ── page ─────────────────────────────────────────────────────────────────────
 
+const CANONICAL = `${SITE_URL}/blog/salary-transparency-by-seniority/`;
+
 const ARTICLE_JSONLD = {
   "@context": "https://schema.org",
   "@type": "Article",
@@ -119,7 +122,53 @@ const ARTICLE_JSONLD = {
   dateModified: "2026-07-14",
   author: { "@type": "Organization", name: "Resunova", url: SITE_URL },
   publisher: { "@id": `${SITE_URL}/#org` },
-  mainEntityOfPage: `${SITE_URL}/blog/salary-transparency-by-seniority/`,
+  mainEntityOfPage: CANONICAL,
+};
+
+const FAQ_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Why do fewer senior job postings list a salary than entry-level ones?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Across 109,159 active US postings, entry-level roles disclose salary 41.4% of the time versus 14.2% for director and executive roles. The gap holds even after removing hourly-wage-heavy industries and restricting to tech postings only, so it is not explained by industry mix. Likely drivers: senior pay has more negotiation room a printed range would anchor, compensation leans more on bonus and equity that don't reduce to a clean base range, and a public senior salary is readable by people already in that role internally.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What percentage of job postings disclose salary by seniority level?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "In Resunova's corpus of active US postings: entry-level 41.4%, intern 36.0%, mid-level 28.7%, senior 28.3%, principal 22.9%, lead 19.2%, director 14.2%, executive 14.2%.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How can I find out the salary for a senior role that doesn't list one?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Ask early, before investing interview rounds, since silence on senior postings is structural rather than personal. Federal wage filings and state-mandated pay-range disclosure laws in California, Colorado, New York, and Washington remain the best public anchors for roles that will not name a number.",
+      },
+    },
+  ],
+};
+
+const BREADCRUMB_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
+    { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE_URL}/blog/` },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: "The higher the job, the more they hide the pay",
+      item: CANONICAL,
+    },
+  ],
 };
 
 export default function SalaryTransparencyBySeniorityPage() {
@@ -128,10 +177,7 @@ export default function SalaryTransparencyBySeniorityPage() {
       title="The Higher the Job, the More They Hide the Pay"
       subtitle="We measured how often active US job postings disclose a salary, rung by rung up the career ladder. Entry-level postings tell you the pay 41% of the time. By director level it drops to 14%. We tried to explain the gap away with industry mix and sample effects. It would not go away."
     >
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(ARTICLE_JSONLD) }}
-      />
+      <JsonLd data={[ARTICLE_JSONLD, FAQ_JSONLD, BREADCRUMB_JSONLD]} />
 
       <p style={{ margin: "0 0 14px" }}>
         &quot;Competitive salary&quot; is the most expensive phrase in job hunting. Every hour spent tailoring a
@@ -219,6 +265,17 @@ export default function SalaryTransparencyBySeniorityPage() {
           from the posting itself. Small rungs (intern, director, executive) are noted with sample sizes in the
           chart; the core gradient rests on rungs with 15,000 to 50,000 postings each.
         </p>
+      </Section>
+
+      <Section title="FAQ">
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {FAQ_JSONLD.mainEntity.map((f) => (
+            <div key={f.name}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", margin: "0 0 6px" }}>{f.name}</h3>
+              <p style={{ margin: 0 }}>{f.acceptedAnswer.text}</p>
+            </div>
+          ))}
+        </div>
       </Section>
     </BlogArticleLayout>
   );
