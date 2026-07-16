@@ -139,6 +139,7 @@ function DumbbellChart() {
 export default function Sp100TechHiringPage() {
   return (
     <BlogArticleLayout
+      slug="sp100-tech-hiring-2026"
       title="What 13,128 Live Job Postings at S&P 100 Companies Reveal About Tech Hiring"
       subtitle="We pulled the openings straight from ~50 S&P 100 career-page APIs, extracted every skill requirement, and cross-referenced salaries with federal wage filings. Five findings surprised us."
     >

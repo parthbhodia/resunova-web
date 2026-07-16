@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 export default function HowAtsReallyWorksPage() {
   return (
     <BlogArticleLayout
+      slug="how-ats-really-works"
       title="How ATS Really Works (And Why You’re Invisible, Not Rejected)"
       subtitle="What systematic parsing tests across Workday, Greenhouse, Lever, iCIMS, Taleo, and similar systems suggest, and how Resunova checks your PDF against these patterns."
     >

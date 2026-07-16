@@ -1,14 +1,18 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoFull } from "@/components/BrandLogo";
+import BlogEngagement from "@/components/blog/BlogEngagement";
 
 export default function BlogArticleLayout({
   title,
   subtitle,
+  /** The blog post's slug (its /blog/<slug>/ segment). Renders the views/likes strip when set. */
+  slug,
   children,
 }: {
   title: string;
   subtitle?: string;
+  slug?: string;
   children: ReactNode;
 }) {
   return (
@@ -64,6 +68,7 @@ export default function BlogArticleLayout({
             {subtitle}
           </p>
         ) : null}
+        {slug ? <BlogEngagement slug={slug} /> : null}
         <article style={{ fontSize: 15, lineHeight: 1.75, color: "var(--muted)" }}>{children}</article>
       </main>
     </div>

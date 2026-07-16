@@ -174,6 +174,7 @@ const BREADCRUMB_JSONLD = {
 export default function SalaryTransparencyBySeniorityPage() {
   return (
     <BlogArticleLayout
+      slug="salary-transparency-by-seniority"
       title="The Higher the Job, the More They Hide the Pay"
       subtitle="We measured how often active US job postings disclose a salary, rung by rung up the career ladder. Entry-level postings tell you the pay 41% of the time. By director level it drops to 14%. We tried to explain the gap away with industry mix and sample effects. It would not go away."
     >

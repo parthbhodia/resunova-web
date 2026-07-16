@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 export default function OptimizingResumesForAtsPage() {
   return (
     <BlogArticleLayout
+      slug="optimizing-resumes-for-ats"
       title="Optimizing Résumés for Applicant Tracking Systems"
       subtitle={`Guidance adapted from the ${ATS_GUIDE_ATTRIBUTION.org}. Resunova’s ATS panel applies the detectable rules to your exported PDF.`}
     >
