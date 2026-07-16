@@ -23,6 +23,12 @@ export interface AnalyzeRecord {
   /** Score provenance: 'llm' = verified re-score, 'estimate' = deterministic
    *  save-edits estimate, null = original analysis. */
   scoreSource?: string | null;
+  /** Variant identity (content axis, orthogonal to version lineage above).
+   *  Both null = legacy/no-variant row — treated as the implicit default
+   *  variant by lib/analyzeVersions.ts. Written once at insert, never
+   *  mutated (resume_analyses has no UPDATE RLS policy). */
+  variantGroup?: string | null;
+  variantName?:  string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result:    any;
 }
@@ -397,7 +403,7 @@ export async function fetchAnalyses(limit = 10): Promise<AnalyzeRecord[]> {
 
   const { data, error } = await db
     .from("resume_analyses")
-    .select("id, label, score, created_at, source_pdf_url, source_filename, parent_id, version, root_id, score_source")
+    .select("id, label, score, created_at, source_pdf_url, source_filename, parent_id, version, root_id, score_source, variant_group, variant_name")
     .eq("user_id", session.user.id)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -415,6 +421,8 @@ export async function fetchAnalyses(limit = 10): Promise<AnalyzeRecord[]> {
     version:   (row.version as number | null) ?? 1,
     rootId:    (row.root_id as string | null) ?? (row.id as string),
     scoreSource: (row.score_source as string | null) ?? null,
+    variantGroup: (row.variant_group as string | null) ?? null,
+    variantName:  (row.variant_name as string | null) ?? null,
     result:    null,
   }));
 }
@@ -427,7 +435,7 @@ export async function fetchAnalysisById(id: string): Promise<AnalyzeRecord | nul
 
   const { data, error } = await db
     .from("resume_analyses")
-    .select("id, label, score, result, created_at, source_pdf_url, source_filename, parent_id, version, root_id, score_source")
+    .select("id, label, score, result, created_at, source_pdf_url, source_filename, parent_id, version, root_id, score_source, variant_group, variant_name")
     .eq("id", id)
     .eq("user_id", session.user.id)
     .single();
@@ -445,6 +453,8 @@ export async function fetchAnalysisById(id: string): Promise<AnalyzeRecord | nul
     version:   (data.version as number | null) ?? 1,
     rootId:    (data.root_id as string | null) ?? (data.id as string),
     scoreSource: (data.score_source as string | null) ?? null,
+    variantGroup: (data.variant_group as string | null) ?? null,
+    variantName:  (data.variant_name as string | null) ?? null,
     result:    data.result,
   };
 }
@@ -454,7 +464,16 @@ export async function insertAnalysis(
   label: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result: any,
-  opts?: { id?: string; sourcePdfUrl?: string | null; sourceFilename?: string | null },
+  opts?: {
+    id?: string;
+    sourcePdfUrl?: string | null;
+    sourceFilename?: string | null;
+    /** Variant identity — omit for today's default behavior (implicit
+     *  variant, no grouping). Set both together when creating a named
+     *  variant (e.g. via Duplicate); never set alone. */
+    variantGroup?: string | null;
+    variantName?: string | null;
+  },
 ): Promise<string | null> {
   const db = getSupabaseClient();
   const { data: { session } } = await db.auth.getSession();
@@ -470,6 +489,8 @@ export async function insertAnalysis(
   if (opts?.id) row.id = opts.id;
   if (opts?.sourcePdfUrl) row.source_pdf_url = opts.sourcePdfUrl;
   if (opts?.sourceFilename) row.source_filename = opts.sourceFilename;
+  if (opts?.variantGroup) row.variant_group = opts.variantGroup;
+  if (opts?.variantName) row.variant_name = opts.variantName;
 
   const { data, error } = await db
     .from("resume_analyses")
@@ -489,7 +510,16 @@ export async function insertAnalysis(
  * in-memory history head without a refetch. Never mutates the parent row.
  */
 export async function createAnalysisVersion(
-  parent: { id: string; version?: number; rootId?: string | null; label: string },
+  parent: {
+    id: string;
+    version?: number;
+    rootId?: string | null;
+    label: string;
+    /** Inherited onto the child row — a rescore stays inside the résumé it
+     *  edited, never drifts into a different variant. */
+    variantGroup?: string | null;
+    variantName?: string | null;
+  },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result: any,
   opts?: { label?: string },
@@ -530,6 +560,8 @@ export async function createAnalysisVersion(
       version,
       root_id:    rootId,
       score_source: "estimate",
+      variant_group: parent.variantGroup ?? null,
+      variant_name:  parent.variantName ?? null,
     })
     .select("id, created_at")
     .single();
@@ -547,6 +579,8 @@ export async function createAnalysisVersion(
     version,
     rootId,
     scoreSource: "estimate",
+    variantGroup: parent.variantGroup ?? null,
+    variantName:  parent.variantName ?? null,
     result,
   };
 }

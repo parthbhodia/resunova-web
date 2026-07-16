@@ -1565,7 +1565,14 @@ export default function AnalyzeResume() {
           : {}),
       };
       const created = await createAnalysisVersion(
-        { id: parent.id, version: parent.version, rootId: parent.rootId, label: parent.label },
+        {
+          id: parent.id,
+          version: parent.version,
+          rootId: parent.rootId,
+          label: parent.label,
+          variantGroup: parent.variantGroup,
+          variantName: parent.variantName,
+        },
         versionResult,
       );
       if (!created) {

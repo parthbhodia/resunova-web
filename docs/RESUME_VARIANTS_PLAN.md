@@ -8,14 +8,27 @@ toward a specific employer or role. Lineage keeps working *within* each variant.
 
 ## Data model
 
-New columns on **`resume_analyses`** (migration `037`, additive, nullable — legacy rows are
-implicitly the default variant):
+**Corrected 2026-07-14 during phase-1 implementation** — the original draft put a mutable
+`is_default_variant` boolean directly on `resume_analyses`. Checked the live RLS policies on
+that table first: it has **INSERT / SELECT / DELETE only, no UPDATE** (migration 034's own
+comment says so — rows are append-only by design). A boolean meant to be flipped later cannot
+live on a table nothing can update. Fixed below.
+
+New columns on **`resume_analyses`** (migration `037`, additive, nullable, **written once at
+INSERT and never mutated** — legacy rows are implicitly the default variant):
 
 | column | type | meaning |
 |---|---|---|
-| `variant_group` | uuid | One group per user-résumé identity. First analysis for a user creates a group. |
-| `variant_name` | text | Display name ("Default", "Judi Health"). |
-| `is_default_variant` | boolean | Exactly one default per group (partial unique index `WHERE is_default_variant`). |
+| `variant_group` | uuid | One group per user-résumé identity. Nullable; NULL rows all coalesce into one implicit group at the read layer, so no backfill is needed for v1 (effectively every user has exactly one group today — the column exists for a hypothetical future multi-identity case, e.g. an advisor managing several people). |
+| `variant_name` | text | Display name ("Default", "Judi Health"), fixed at creation. |
+
+**Which variant is "current" is a separate, mutable POINTER — `user_profiles.default_variant_name`**
+(same table, same update-capable RLS pattern as `tailoring_mode`), not a flag on the immutable
+rows. "Set default" / rename become simple `user_profiles` writes; renaming a variant does NOT
+rewrite historical rows' `variant_name` — it stores a display-name override
+(`user_profiles.variant_display_names` jsonb, keyed by the original `variant_name`) that the
+read layer applies. This mirrors how `tailoring_mode` already works and avoids ever needing an
+UPDATE on `resume_analyses`.
 
 - Rows stay append-only snapshots (existing invariant). A variant's "current" content is its
   newest lineage head *within* `(variant_group, variant_name)` — `groupAnalysesByRoot` already
