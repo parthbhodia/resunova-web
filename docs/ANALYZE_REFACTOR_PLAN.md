@@ -1,6 +1,6 @@
 # AnalyzeResume.tsx refactor plan
 
-Status: **Slices 1–2 done, Slice 3 partial**; Slices 4–5 proposed.
+Status: **Slices 1–2 done, Slice 3 partial, Slice 5 done**; Slice 4 proposed (gated on live verification).
 
 `components/AnalyzeResume.tsx` is ~4,000 lines. It already delegates heavy
 rendering to children (`AnalyzePreviewPane`, `AnnotatedResumePanel`,
@@ -65,11 +65,22 @@ verification at each step.
   state machine — do it last, incrementally, **live-verified** each step, ideally
   after a couple of characterization tests exist for the edit-loop invariants.
 
-### Slice 5 — land deferred features in the slimmer file
-- The "Save this résumé to your Profile" prompt (Profile-plan Phase 4 / trigger
-  #1) drops in as a self-contained `<SaveToProfilePrompt>` once the file is
-  cleaner. It reads the analyze store itself, so it stays a one-line insert
-  regardless — but a slimmer host makes the seam obvious.
+### Slice 5 — land deferred features in the slimmer file — ✅ DONE
+- The "Save this résumé to your Profile" prompt (Profile-plan trigger #1) shipped
+  as a self-contained `components/analyze/SaveToProfilePrompt.tsx` — a
+  **fixed-position dismissible toast** (placement independent of the workspace
+  grid). It reads `structuredResume` from the analyze store itself; a one-line
+  insert next to the existing `feedbackToast`. On "Save to Profile" it maps the
+  structured résumé → `ExtractedProfileState` (`extractedProfileFromStructured`
+  in `components/analyze/saveToProfile.ts`, +6 unit tests), writes the
+  career-profile record (`user_extracted_profiles`), and seeds the Tailor-defaults
+  contact fields (`user_profiles`, prefer-empty) — reusing the Phase-1/2 save
+  functions. Self-hides when there's no structured résumé or the same résumé
+  (name+email fingerprint) was already saved/dismissed (`rn_saveprofile_seen_v1`).
+  tsc + 251 vitest + `next build` clean. ⚠️ In-browser appearance after a real
+  scan NOT exercised (sandbox killed `next dev`); the save path reuses
+  live-verified functions and the toast mirrors the known-good `feedbackToast`,
+  so risk is contained — glance at it after a scan before merge.
 
 ## Explicitly out of scope
 - No consolidation of `AnalyzeResume`'s local `guessIssueCategory` with

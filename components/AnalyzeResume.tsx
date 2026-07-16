@@ -50,6 +50,7 @@ import {
 } from "./analyze/analyzeViewHelpers";
 import { lsLoad, lsSave, lsPush } from "./analyze/analyzeHistoryStore";
 import { AnalyzeSidebarPinned, AnalyzeHistoryRail } from "./analyze/AnalyzeSidebar";
+import SaveToProfilePrompt from "./analyze/SaveToProfilePrompt";
 
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -1599,6 +1600,10 @@ export default function AnalyzeResume() {
           {feedbackToast}
         </div>
       ) : null}
+
+      {/* After an analysis: one-tap "save this résumé to your Profile" (self-hides
+          when no structured résumé / already saved or dismissed). */}
+      <SaveToProfilePrompt />
 
       {/* ── Mobile backdrop (close history drawer) ─── */}
       {historyOpen && (
