@@ -16,6 +16,7 @@ import {
 } from "@/lib/analysisCategoryMatch";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import type { ScoreEstimate } from "@/lib/analyzeScoreEstimate";
+import type { StructuredBulletOp } from "@/lib/structuredBulletOps";
 import { useResumeAnalyzeStore, type StructuredResume } from "@/store/resumeAnalyzeStore";
 import { buildNameRoleExportFilename } from "@/lib/resumeFileName";
 
@@ -116,6 +117,9 @@ interface Props {
   hiddenPaths?: Record<string, true>;
   /** Hide / show a bullet by structured path (adds the eye toggle). */
   onToggleBulletHidden?: (path: string) => void;
+  /** Bullet-level structural ops (drag-reorder / add / delete) — pass-through
+   *  to AnalyzeLiveResumeBody; parent owns the structured doc mutation. */
+  onBulletOp?: (op: StructuredBulletOp) => void;
   /** Re-run the analysis with applied fixes baked in; persists a new analysis row. */
   onRescore?: () => void;
   /** True while the rescore round-trip is in flight. */
@@ -445,6 +449,7 @@ export default function AnnotatedResumePanel({
   onSummaryEdit,
   hiddenPaths,
   onToggleBulletHidden,
+  onBulletOp,
   onRescore,
   rescoring = false,
   scoreEstimate = null,
@@ -523,6 +528,45 @@ export default function AnnotatedResumePanel({
     if (!paperRef.current) return;
     void exportHtmlPdf(paperRef.current, htmlPdfFilename, { highlightsEnabled });
   }, [exportHtmlPdf, htmlPdfFilename, highlightsEnabled]);
+
+  // ── Live page-count estimate + overflow notice ──────────────────────────────
+  // The paper renders at US-Letter proportions (8.5 × 11), so estimated pages =
+  // rendered height / (width × 11/8.5). A ResizeObserver keeps it current as
+  // bullets are added/edited; crossing to MORE pages fires a one-time toast so
+  // the user knows the added content just pushed the PDF onto another page.
+  const [pageCountEstimate, setPageCountEstimate] = useState(1);
+  const [pageOverflowNotice, setPageOverflowNotice] = useState<string | null>(null);
+  const prevPageCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    const el = paperRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const compute = () => {
+      const w = el.offsetWidth;
+      const h = el.scrollHeight;
+      if (!w || !h) return;
+      const pageH = w * (11 / 8.5);
+      // Small tolerance so a 1-2px rounding overflow doesn't claim a new page.
+      const count = Math.max(1, Math.ceil(h / pageH - 0.02));
+      setPageCountEstimate(count);
+      const prev = prevPageCountRef.current;
+      // First measurement is the baseline — never toast on initial render.
+      if (prev !== null && count > prev) {
+        setPageOverflowNotice(
+          `Your résumé now spans about ${count} pages — the newest content pushed it past page ${prev}.`,
+        );
+      }
+      prevPageCountRef.current = count;
+    };
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    compute();
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!pageOverflowNotice) return;
+    const t = setTimeout(() => setPageOverflowNotice(null), 7000);
+    return () => clearTimeout(t);
+  }, [pageOverflowNotice]);
 
   const toggleHighlights = useCallback(() => {
     setHighlightsEnabled((on) => {
@@ -764,6 +808,7 @@ export default function AnnotatedResumePanel({
     <div
       className="rw-annotated-panel"
       style={{
+        // Page-overflow toast is absolutely positioned against this root.
         width: presentationOnly ? "100%" : 460,
         minWidth: presentationOnly ? 0 : undefined,
         flexShrink: 0,
@@ -786,6 +831,43 @@ export default function AnnotatedResumePanel({
         fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       }}
     >
+      {pageOverflowNotice && (
+        <div
+          role="status"
+          style={{
+            position: "absolute",
+            left: 12,
+            right: 12,
+            bottom: 12,
+            zIndex: 40,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+            background: "var(--surface)",
+            border: "1px solid rgba(245,158,11,0.5)",
+            borderRadius: 9,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.16)",
+            padding: "9px 11px",
+            fontSize: 11.5,
+            lineHeight: 1.45,
+            color: "var(--text)",
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: 13, lineHeight: 1.2 }}>📄</span>
+          <span style={{ flex: 1 }}>
+            {pageOverflowNotice}{" "}
+            <span style={{ color: "var(--muted)" }}>Hide or tighten bullets to pull it back.</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setPageOverflowNotice(null)}
+            aria-label="Dismiss"
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2, lineHeight: 1, flexShrink: 0 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {!presentationOnly && (
       <div style={{
         padding: "10px 14px",
@@ -1042,6 +1124,23 @@ export default function AnnotatedResumePanel({
                   Edit in Builder
                 </button>
               ) : null}
+              {pageCountEstimate > 1 && (
+                <span
+                  title="Estimated PDF length at US-Letter size. Hide or tighten bullets to fit fewer pages."
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: "3px 8px",
+                    borderRadius: 999,
+                    background: "rgba(245,158,11,0.14)",
+                    color: "var(--amber-ink, var(--amber, #b45309))",
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ~{pageCountEstimate} pages
+                </span>
+              )}
               {(() => {
                 // Use the WYSIWYG HTML→Chromium pipeline. The button stays
                 const busy = htmlPdfExporting;
@@ -1053,7 +1152,7 @@ export default function AnnotatedResumePanel({
                     onClick={handleHtmlPdfDownload}
                     title={
                       enabled
-                        ? "Download PDF — WYSIWYG, what you see in the preview is what you get. Rendered via headless Chromium, no LaTeX."
+                        ? "Download your résumé as a PDF, exactly what you see in the preview."
                         : "PDF export needs a rendered preview — wait for analysis to finish."
                     }
                     aria-label="Download résumé PDF"
@@ -1379,6 +1478,7 @@ export default function AnnotatedResumePanel({
                 onSummaryEdit={onSummaryEdit}
                 hiddenPaths={hiddenPaths}
                 onToggleBulletHidden={onToggleBulletHidden}
+                onBulletOp={onBulletOp}
                 fieldsEditable={fieldsEditable}
                 presentationOnly={presentationOnly}
                 pulseBulletIndex={pulseBulletIndex}

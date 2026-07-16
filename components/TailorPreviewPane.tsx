@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import AnnotatedResumePanel from "@/components/AnnotatedResumePanel";
 import type { LiveBulletItem } from "@/lib/resumeBulletMatch";
+import type { StructuredBulletOp } from "@/lib/structuredBulletOps";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 
 interface Props {
@@ -24,6 +25,9 @@ interface Props {
    *  (which is overloaded for the full-width layout + gap-fix highlight gating). */
   fieldOverrides?: Record<string, string>;
   onFieldEdit?: (path: string, text: string) => void;
+  /** Bullet-level structural ops (drag-reorder / add / delete). The caller owns
+   *  the structured doc, so it applies the op + overlay remap itself. */
+  onBulletOp?: (op: StructuredBulletOp) => void;
   /** Per-ANALYZED-bullet (index) popup rewrite draft + applied preview-line edits. */
   rewriteEdits?: Record<number, string>;
   patchBulletRewrite?: (bulletIndex: number, value: string | null) => void;
@@ -58,6 +62,7 @@ export default function TailorPreviewPane({
   tailorAppliedBulletIndices = new Set<number>(),
   fieldOverrides = {},
   onFieldEdit,
+  onBulletOp,
   rewriteEdits = {},
   patchBulletRewrite,
   patchPreviewLine,
@@ -91,6 +96,7 @@ export default function TailorPreviewPane({
       fieldsEditable={editingEnabled}
       fieldOverrides={fieldOverrides}
       onFieldEdit={onFieldEdit}
+      onBulletOp={onBulletOp}
       gapFixTargetBulletIndices={gapFixTargetBulletIndices}
       tailorGapFixHighlights={tailorGapFixHighlights}
       tailorAppliedBulletIndices={tailorAppliedBulletIndices}
