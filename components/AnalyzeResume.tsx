@@ -49,26 +49,8 @@ import {
   CATEGORY_ICONS, CATEGORY_DESCRIPTIONS, issueCategoryOf, getBulletsForCategory,
   formatExperienceTenureChip,
 } from "./analyze/analyzeViewHelpers";
+import { lsLoad, lsSave, lsPush } from "./analyze/analyzeHistoryStore";
 
-
-// ── Analyze history helpers ───────────────────────────────────────────────────
-// Primary store: Supabase `resume_analyses` table (cross-device, permanent).
-// Offline fallback: localStorage `rn_az_history_<userId>` (same AnalyzeRecord[]).
-
-const LS_KEY  = (uid: string) => `rn_az_history_${uid}`;
-const LS_MAX  = 10;
-
-function lsLoad(uid: string): AnalyzeRecord[] {
-  try { const r = localStorage.getItem(LS_KEY(uid)); return r ? JSON.parse(r) : []; }
-  catch { return []; }
-}
-function lsSave(uid: string, recs: AnalyzeRecord[]) {
-  try { localStorage.setItem(LS_KEY(uid), JSON.stringify(recs.slice(0, LS_MAX))); }
-  catch { /* quota */ }
-}
-function lsPush(uid: string, rec: AnalyzeRecord) {
-  lsSave(uid, [rec, ...lsLoad(uid)]);
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 

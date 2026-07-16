@@ -1,6 +1,6 @@
 # AnalyzeResume.tsx refactor plan
 
-Status: **Slice 1 done**; Slices 2–5 proposed.
+Status: **Slices 1–2 done**; Slices 3–5 proposed.
 
 `components/AnalyzeResume.tsx` is ~4,000 lines. It already delegates heavy
 rendering to children (`AnalyzePreviewPane`, `AnnotatedResumePanel`,
@@ -36,10 +36,13 @@ verification at each step.
 - Zero runtime risk (module-level, side-effect-free moves). Unit tests added for
   the pure functions. ~300 lines out of `AnalyzeResume.tsx`.
 
-### Slice 2 — history persistence helper (low risk)
-- Lift `LS_KEY` / `LS_MAX` / `lsLoad` / `lsSave` / `lsPush` (localStorage
-  analyze-history) into `components/analyze/analyzeHistoryStore.ts`. Small,
-  self-contained, testable.
+### Slice 2 — history persistence helper (low risk) — ✅ DONE
+- Lifted `LS_KEY` / `LS_MAX` / `lsLoad` / `lsSave` / `lsPush` (localStorage
+  analyze-history) into `components/analyze/analyzeHistoryStore.ts` (`LS_KEY`/
+  `LS_MAX` stay module-internal; `lsLoad`/`lsSave`/`lsPush` exported and imported
+  back). +6 unit tests (round-trip, prepend, 10-item cap, per-user scoping,
+  corrupt-JSON tolerance). Behavior-preserving; tsc + 245 vitest + `next build`
+  clean. AnalyzeResume 3710 → 3690 lines.
 
 ### Slice 3 — `<AnalyzeSidebar>` presentational component (medium risk)
 - Extract the `sidebarPinned` + `sidebarScroll` rail (recent analyses, score
