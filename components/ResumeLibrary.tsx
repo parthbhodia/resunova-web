@@ -8,7 +8,7 @@
  * - Card click → opens detail drawer beside the grid (matches product mockup).
  */
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import LibraryResumeDetailPanel from "./LibraryResumeDetailPanel";
 import { stashTailorPrefillFromLibrary } from "@/lib/tailorPrefill";
@@ -20,6 +20,7 @@ import { stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/t
 import { Button } from "@/components/ui/button";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { Badge } from "@/components/ui/badge";
+import { displayNameForVariant, fetchVariantDisplayNames } from "@/lib/resumeVariants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -93,6 +94,18 @@ export default function ResumeLibrary({ onUseAsBase }: {
   } | null>(null);
   const [filter, setFilter] = useState("");
   const [kindFilter, setKindFilter] = useState<FilterKey>("all");
+  // Variant rename overrides (user_profiles.variant_display_names) so hub
+  // badges show the same label as the Analyze chip row after a rename.
+  const [variantDisplayNames, setVariantDisplayNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    void fetchVariantDisplayNames().then((m) => { if (alive) setVariantDisplayNames(m); });
+    return () => { alive = false; };
+  }, []);
+  const variantLabelFor = useCallback((item: LibraryItem): string | null => {
+    if (item.kind !== "analyzed" || !item.analysis.variantName) return null;
+    return displayNameForVariant(item.analysis.variantName, variantDisplayNames);
+  }, [variantDisplayNames]);
   const [sort, setSort] = useState<SortKey>("recent");
 
   useEffect(() => {
@@ -166,7 +179,8 @@ export default function ResumeLibrary({ onUseAsBase }: {
       if (kindFilter === "default" && !item.isDefault) return false;
       if (!f) return true;
       const issueText = item.kind === "analyzed" ? getAnalysisIssues(item).join(" ") : "";
-      return `${item.title} ${item.subtitle} ${issueText}`.toLowerCase().includes(f);
+      const variantText = variantLabelFor(item) ?? "";
+      return `${item.title} ${item.subtitle} ${variantText} ${issueText}`.toLowerCase().includes(f);
     });
     if (sort === "recent") {
       arr = [...arr].sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
@@ -176,7 +190,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
       arr = [...arr].sort((a, b) => a.title.localeCompare(b.title));
     }
     return arr;
-  }, [items, filter, kindFilter, sort]);
+  }, [items, filter, kindFilter, sort, variantLabelFor]);
 
   const openItem = (item: LibraryItem) => {
     if (item.kind === "analyzed") {
@@ -740,6 +754,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                             : selectedFolder === item.record.folder
                     }
                     stagger={Math.min(i % 5, 4)}
+                    variantLabel={variantLabelFor(item)}
                     onOpen={() => openItem(item)}
                     onUseAsBase={() => applyResumeAsBase(item)}
                     onOpenAnalysis={() => openAnalysis(item)}
@@ -924,6 +939,7 @@ function ResumeCard({
   item,
   isSelected,
   stagger,
+  variantLabel = null,
   onOpen,
   onUseAsBase,
   onOpenAnalysis,
@@ -934,6 +950,8 @@ function ResumeCard({
   item: LibraryItem;
   isSelected?: boolean;
   stagger: number;
+  /** Rename-aware variant label for analyzed items; null = untagged (implicit Default). */
+  variantLabel?: string | null;
   onOpen: () => void;
   onUseAsBase: () => void;
   onOpenAnalysis: () => void;
@@ -1134,7 +1152,18 @@ function ResumeCard({
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-              <Badge variant="secondary" style={kindBadgeAnalyzed}>Analyzed</Badge>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                <Badge variant="secondary" style={kindBadgeAnalyzed}>Analyzed</Badge>
+                {variantLabel && (
+                  <Badge
+                    variant="outline"
+                    title={`Variant: ${variantLabel}`}
+                    style={{ fontSize: 10, fontWeight: 700, color: "var(--accent)", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}
+                  >
+                    {variantLabel}
+                  </Badge>
+                )}
+              </span>
               {scoreBadge}
             </div>
             <div style={{ display: "grid", gap: 6 }}>

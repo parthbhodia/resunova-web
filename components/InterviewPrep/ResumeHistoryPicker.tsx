@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { fetchAnalyses, fetchAnalysisById, type AnalyzeRecord } from "@/lib/supabase";
+import { displayNameForVariant, fetchVariantDisplayNames } from "@/lib/resumeVariants";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 import { classifyResumeCategory } from "@/lib/resumeCategoryClassify";
 import { useInterviewPrepStore } from "@/store/interviewPrepStore";
@@ -38,6 +39,13 @@ export default function ResumeHistoryPicker() {
   const [items, setItems] = useState<AnalyzeRecord[] | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  // Rename-aware variant labels (same override map the Analyze chips use).
+  const [variantDisplayNames, setVariantDisplayNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    void fetchVariantDisplayNames().then((m) => { if (alive) setVariantDisplayNames(m); });
+    return () => { alive = false; };
+  }, []);
 
   const setParsing = useInterviewPrepStore((s) => s.setParsing);
   const setParseError = useInterviewPrepStore((s) => s.setParseError);
@@ -150,6 +158,14 @@ export default function ResumeHistoryPicker() {
                       <>
                         <span className="text-muted-foreground/40">·</span>
                         <span>Score {rec.score}</span>
+                      </>
+                    ) : null}
+                    {rec.variantName ? (
+                      <>
+                        <span className="text-muted-foreground/40">·</span>
+                        <span className="truncate text-accent">
+                          {displayNameForVariant(rec.variantName, variantDisplayNames)}
+                        </span>
                       </>
                     ) : null}
                   </p>
