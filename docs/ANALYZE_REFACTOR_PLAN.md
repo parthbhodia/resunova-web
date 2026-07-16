@@ -1,6 +1,6 @@
 # AnalyzeResume.tsx refactor plan
 
-Status: **Slices 1–2 done**; Slices 3–5 proposed.
+Status: **Slices 1–2 done, Slice 3 partial**; Slices 4–5 proposed.
 
 `components/AnalyzeResume.tsx` is ~4,000 lines. It already delegates heavy
 rendering to children (`AnalyzePreviewPane`, `AnnotatedResumePanel`,
@@ -44,10 +44,20 @@ verification at each step.
   corrupt-JSON tolerance). Behavior-preserving; tsc + 245 vitest + `next build`
   clean. AnalyzeResume 3710 → 3690 lines.
 
-### Slice 3 — `<AnalyzeSidebar>` presentational component (medium risk)
-- Extract the `sidebarPinned` + `sidebarScroll` rail (recent analyses, score
-  ring, improvement plan) into a component with an explicit prop contract.
-  Presentational-ish — **live-verify** the history list + score ring render.
+### Slice 3 — `<AnalyzeSidebar>` presentational component (medium risk) — ◑ PARTIAL
+- **Done (safe, presentational):** `components/analyze/AnalyzeSidebar.tsx`
+  exports `AnalyzeSidebarPinned` (Recent-Analyses label OR score ring + label +
+  tenure chip) and `AnalyzeHistoryRail` (pre-result skeleton / empty / rows).
+  Verbatim JSX move — former closure refs became props; no handlers/state.
+  tsc + 245 vitest + `next build` clean; AnalyzeResume 3690 → 3630. ⚠️ In-browser
+  render NOT exercised (sandbox kept killing `next dev`) — but it is a verbatim
+  presentational copy, so behavioral risk is minimal; worth a glance at the
+  Analyze sidebar (pre-scan "Recent Analyses" + "No analyses yet", and the score
+  ring after a scan) before merge.
+- **Deferred to Slice 4:** the RESULT-state "Improvement Plan" panel (the
+  interactive body of `sidebarScroll`) stays in AnalyzeResume — it drives
+  category selection, save-version, and the bullet fix cards (edit/rescore state
+  machine), so it is NOT a presentational move and must be live-verified.
 
 ### Slice 4 — `useAnalyzeWorkspace()` hook (high value, high risk)
 - Lift the store selectors + edit/rescore/category handlers out of the JSX into a

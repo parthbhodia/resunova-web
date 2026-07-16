@@ -35,7 +35,6 @@ import {
   ANALYZE_LOADER_STEPS,
   ANALYZE_COACH_TIPS,
 } from "@/components/AnalyzeExperience";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan, takeAnalyzeJd } from "@/lib/anonScan";
@@ -50,6 +49,7 @@ import {
   formatExperienceTenureChip,
 } from "./analyze/analyzeViewHelpers";
 import { lsLoad, lsSave, lsPush } from "./analyze/analyzeHistoryStore";
+import { AnalyzeSidebarPinned, AnalyzeHistoryRail } from "./analyze/AnalyzeSidebar";
 
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -1261,70 +1261,10 @@ export default function AnalyzeResume() {
   }, [activeEditDraftId, result]);
 
   /* ── Shared sidebar: pinned strip (score / recent header) + scrollable body ─── */
-  const sidebarPinned = !result ? (
-    <>
-      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}>
-        Recent Analyses
-      </div>
-      <div style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.45 }}>
-        Saves scores and extracted résumé text to your account (not the original PDF file).
-      </div>
-    </>
-  ) : (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingBottom: 2 }}>
-      <div style={{ fontSize: 10, fontWeight: 800, color: "#78909c", textTransform: "uppercase", letterSpacing: 1.15, marginBottom: 10, fontFamily: "system-ui, -apple-system, sans-serif" }}>
-        Improvement Plan
-      </div>
-      <ScoreRing score={result.overallScore} size={96} label="" />
-      <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: scoreColor(result.overallScore) }}>
-        {scoreLabel(result.overallScore)}
-      </div>
-      {formatExperienceTenureChip(result.experienceSummary) && (
-        <div
-          title="Parsed from experience section date ranges (internships included). Overlapping roles are merged."
-          style={{
-            marginTop: 8,
-            fontSize: 10.5,
-            fontWeight: 600,
-            color: "var(--muted)",
-            textAlign: "center",
-            lineHeight: 1.45,
-            padding: "4px 8px",
-            borderRadius: 8,
-            background: "var(--surface2)",
-            border: "1px solid var(--border)",
-            maxWidth: "100%",
-          }}
-        >
-          {formatExperienceTenureChip(result.experienceSummary)}
-        </div>
-      )}
-    </div>
-  );
+  const sidebarPinned = <AnalyzeSidebarPinned result={result} />;
 
   const sidebarScroll = !result ? (
-    <>
-      {loadingHistory ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {[1, 2, 3].map((i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
-              <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
-                <Skeleton className="h-[11px] rounded w-3/4" />
-                <Skeleton className="h-[10px] rounded w-[55%]" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : azHistory.length === 0 ? (
-        <div style={{ fontSize: 13, color: "var(--dim)", textAlign: "center", paddingTop: 24, lineHeight: 1.7 }}>
-          No analyses yet.<br />
-          <span style={{ fontSize: 12 }}>Upload a PDF above<br />to get started.</span>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>{azHistoryRows}</div>
-      )}
-    </>
+    <AnalyzeHistoryRail loading={loadingHistory} empty={azHistory.length === 0} rows={azHistoryRows} />
   ) : (
     <>
           {/* Job search activation — shown once after first scan if roles not set */}
