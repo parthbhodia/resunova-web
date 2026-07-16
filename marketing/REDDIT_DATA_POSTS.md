@@ -88,7 +88,7 @@ Lessons:
 
 ---
 
-## Post 3 — The ghost-jobs exposé (r/recruitinghell, r/jobs, r/webscraping)
+## Post 3: The ghost-jobs exposé (r/recruitinghell, r/jobs, r/webscraping)
 
 **REVISED 2026-07-14 (the original ~40%/"800 times" framing below was a
 one-time snapshot from a single provider-activation surge on 2026-07-02, not an
