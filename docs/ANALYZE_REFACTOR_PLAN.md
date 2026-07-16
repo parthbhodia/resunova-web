@@ -2,6 +2,15 @@
 
 Status: **Slices 1–2 done, Slice 3 partial, Slice 5 done**; **Slice 4 PAUSED** (needs a working browser — see below).
 
+> **Live verification (2026-07-15):** served the static export (`out/`) and drove
+> the flows in a real browser. Confirmed: the extracted Analyze sidebar renders
+> pre-scan ("Recent Analyses" / "No analyses yet") **and** post-scan (score ring
+> "72/100 Strong"); and the Save-to-Profile toast (Slice 5) appears after a
+> (mocked) analysis, saves on click ("✓ Saved to your Profile"), writes the
+> career-profile record, and seeds the Tailor-defaults contact fields — no page
+> errors. The earlier "not exercised in browser" caveats on Slices 3 & 5 are
+> resolved. (Slice 4 remains untouched.)
+
 `components/AnalyzeResume.tsx` is ~4,000 lines. It already delegates heavy
 rendering to children (`AnalyzePreviewPane`, `AnnotatedResumePanel`,
 `AnalyzeLiveResumeBody`, `ScoreRing`), so it is not a rendering monolith — it is

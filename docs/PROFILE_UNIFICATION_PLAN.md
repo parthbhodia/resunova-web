@@ -2,6 +2,12 @@
 
 Status: **Phases 1–3 done** — the plan is complete (follow-up to the Career Profile dashboard, PR #128).
 
+> **Live verification (2026-07-15):** served the static export and drove the
+> flows in a real browser. Confirmed: `?view=profile` redirects to `/profile`
+> (Phase 3); the dashboard edits Tailor defaults (roles/locations/tone/EEO cards
+> + Job Preferences modal all render the seeded `user_profiles` data, Phase 1);
+> and the main nav has no top-level "Profile" item. No page errors.
+
 ## The problem
 
 There are two "profile" surfaces that overlap and confuse users:
