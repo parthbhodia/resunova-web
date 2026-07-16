@@ -51,6 +51,13 @@ describe("estimateScoreAfterFixes", () => {
     expect(est!.projected).toBeGreaterThan(70);
     expect(est!.projected).toBeLessThanOrEqual(95);
     expect(est!.resolvedCount).toBe(1);
+    // projectedCategories carries an entry per input category (for the save path).
+    expect(Object.keys(est!.projectedCategories).length).toBeGreaterThan(0);
+    for (const v of Object.values(est!.projectedCategories)) {
+      expect(Number.isInteger(v)).toBe(true);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(100);
+    }
   });
 
   it("gives no quantification credit when the applied text adds no numbers", () => {

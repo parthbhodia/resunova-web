@@ -55,6 +55,8 @@ interface Props {
   rescoring?: boolean;
   /** Deterministic projected score from applied fixes (null = nothing to show). */
   scoreEstimate?: ScoreEstimate | null;
+  /** Fired after a successful PDF download — persist the applied edits. */
+  onAfterDownload?: () => void;
 }
 
 /**
@@ -84,6 +86,7 @@ export default function AnalyzePreviewPane({
   onRescore,
   rescoring = false,
   scoreEstimate = null,
+  onAfterDownload,
 }: Props) {
   const router = useRouter();
   const { exportDocx, exporting, canExport, error: exportError } = useAnalyzeExport();
@@ -168,6 +171,7 @@ export default function AnalyzePreviewPane({
       onRescore={onRescore}
       rescoring={rescoring}
       scoreEstimate={scoreEstimate}
+      onAfterDownload={onAfterDownload}
     />
   );
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import { looksLikeEntryHeader } from "@/lib/resumeEntryLineHeuristics";
-import AnalyzeLiveResumeBody from "@/components/AnalyzeLiveResumeBody";
+import AnalyzeLiveResumeBody, { splitGluedEducationFields } from "@/components/AnalyzeLiveResumeBody";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 
 // The exact experience-header lines from the reported résumé: a PDF that glued
@@ -27,6 +27,76 @@ describe("looksLikeEntryHeader — glued mid-dot headers", () => {
     expect(
       looksLikeEntryHeader("Sitting for the bar examination in May 2024 after completing coursework this term."),
     ).toBe(false);
+  });
+
+  it("recognizes a single-mid-dot education header with a trailing date range", () => {
+    // The reported bug: one mid-dot (institution · location) + a glued date range.
+    // Too few mid-dots for the 2+ fast path, and the date-narrative guard used to
+    // reject it as prose → it rendered as one unstyled bold run.
+    for (const h of [
+      "University of Maryland, Baltimore County· Baltimore, MD, US August 2021 – May 2023",
+      "University of Maryland, Baltimore County· Baltimore, MD, USAugust 2021 – May 2023",
+      "University of Mumbai· Mumbai, MH, IN 2014 – 2018",
+    ]) {
+      expect(looksLikeEntryHeader(h)).toBe(true);
+    }
+    // Prose with a date range but NO mid-dot must still be caught by the
+    // narrative guard (my change only bypasses it when a mid-dot is ALSO present).
+    expect(
+      looksLikeEntryHeader("Led the team through the 2021 – 2023 migration to a microservices platform."),
+    ).toBe(false);
+  });
+});
+
+describe("splitGluedEducationFields", () => {
+  it("splits a mid-dot glued institution · location · dates", () => {
+    expect(
+      splitGluedEducationFields(
+        "University of Maryland, Baltimore County· Baltimore, MD, US August 2021 – May 2023",
+        "",
+        "",
+      ),
+    ).toEqual({
+      institution: "University of Maryland, Baltimore County",
+      location: "Baltimore, MD, US",
+      dates: "August 2021 – May 2023",
+    });
+  });
+
+  it("splits a no-separator glued institution+dates+location (Mumbai case)", () => {
+    expect(
+      splitGluedEducationFields("University of MumbaiAugust 2014 – May 2018Mumbai, MH, IN", "", ""),
+    ).toEqual({
+      institution: "University of Mumbai",
+      location: "Mumbai, MH, IN",
+      dates: "August 2014 – May 2018",
+    });
+  });
+
+  it("splits a year-only embedded range", () => {
+    expect(splitGluedEducationFields("University of Mumbai 2014 – 2018 Mumbai, IN", "", "")).toEqual({
+      institution: "University of Mumbai",
+      location: "Mumbai, IN",
+      dates: "2014 – 2018",
+    });
+  });
+
+  it("is a no-op when fields are already separate", () => {
+    expect(
+      splitGluedEducationFields("University of Mumbai", "Mumbai, MH, IN", "August 2014 – May 2018"),
+    ).toEqual({
+      institution: "University of Mumbai",
+      location: "Mumbai, MH, IN",
+      dates: "August 2014 – May 2018",
+    });
+  });
+
+  it("leaves a plain institution with no date/location untouched", () => {
+    expect(splitGluedEducationFields("Stanford University", "", "")).toEqual({
+      institution: "Stanford University",
+      location: "",
+      dates: "",
+    });
   });
 });
 

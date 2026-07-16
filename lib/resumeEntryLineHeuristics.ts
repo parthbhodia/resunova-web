@@ -83,6 +83,13 @@ function looksLikeInlineDateNarrative(line: string): boolean {
   return false;
 }
 
+/** A full date RANGE anywhere in the line, e.g. "August 2021 – May 2023",
+ *  "2020 – Present" (month optional on either side). Used to spot a glued entry
+ *  header where the extractor left "Institution · Location Month YYYY – Month
+ *  YYYY" on one line with only a single mid-dot. */
+const ENTRY_DATE_RANGE_RE =
+  /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?(?:19|20)\d{2}\s*[–—-]\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?(?:(?:19|20)\d{2}|present|current)/i;
+
 /** Job/education entry header (title | company | date, or date ranges, etc.). */
 export function looksLikeEntryHeader(line: string): boolean {
   const t = line.trim();
@@ -95,6 +102,12 @@ export function looksLikeEntryHeader(line: string): boolean {
   // structured fields) is long enough to trip the inline-date-narrative guard
   // and would otherwise be misread as prose and rendered unstyled.
   if (t.split("·").length >= 3) return true;
+  // A single mid-dot PLUS a full date range is also a glued header
+  // ("University of Maryland, Baltimore County· Baltimore, MD, US August 2021 –
+  // May 2023"): the extractor left institution · location · dates on one line.
+  // Detect it BEFORE the inline-date-narrative guard below, which would
+  // otherwise misread the long line as prose and render it unstyled.
+  if (t.includes("·") && ENTRY_DATE_RANGE_RE.test(t)) return true;
   if (/\b(19|20)\d{2}\s*[–—\-]\s*((19|20)\d{2}|present|current)/i.test(t)) {
     return !looksLikeInlineDateNarrative(t);
   }

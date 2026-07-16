@@ -189,8 +189,10 @@ export function useHtmlPdfExport() {
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
+      return true;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "PDF export failed");
+      return false;
     } finally {
       setExporting(false);
     }

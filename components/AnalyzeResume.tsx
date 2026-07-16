@@ -20,6 +20,7 @@ import {
 import { patchAppliedEditsIntoResume } from "@/lib/analyzeRescore";
 import { hiddenBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeBody";
 import { estimateScoreAfterFixes } from "@/lib/analyzeScoreEstimate";
+import { reconcileAnalysisForSave } from "@/lib/analyzeReconcile";
 import { apiUrl, resumeFileClientError } from "@/lib/utils";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
@@ -1171,6 +1172,100 @@ export default function AnalyzeResume() {
         : null,
     [result, previewLineOverrides, categoryAssignmentOpts],
   );
+
+  // After a successful PDF download, persist the applied preview edits to the
+  // saved résumé DETERMINISTICALLY (no LLM, no scan-limit charge) so the record
+  // Jobs/Boost read matches what the user just downloaded. Fire-and-forget,
+  // deduped so repeated downloads of the same edits don't create extra rows.
+  const lastSavedEditSigRef = useRef<string>("");
+  const handleAfterDownload = useCallback(() => {
+    const st = useResumeAnalyzeStore.getState();
+    const patch = patchAppliedEditsIntoResume({
+      extractedText: st.extractedText,
+      structuredResume: st.structuredResume,
+      analysisBullets: st.analysisBullets,
+      lineOverrides: st.lineOverrides,
+      summaryOverride: st.summaryOverride,
+      hiddenBulletTexts: hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths),
+    });
+    if (patch.appliedCount === 0) {
+      setFeedbackToast("Résumé downloaded.");
+      return;
+    }
+    const sig = [
+      // Analysis identity so edits to a DIFFERENT (or re-run) résumé are never
+      // deduped against a prior save's signature.
+      result?.analysisId ?? activeEditDraftId ?? "",
+      patch.patchedText.length,
+      patch.appliedCount,
+      Object.keys(st.lineOverrides).sort().join(","),
+      Object.keys(st.hiddenPaths).sort().join(","),
+      (st.summaryOverride || "").length,
+      Object.keys(st.fieldOverrides).sort().join(","),
+    ].join("|");
+    if (sig === lastSavedEditSigRef.current) {
+      setFeedbackToast("Downloaded with your edits.");
+      return;
+    }
+    void (async () => {
+      try {
+        const supabase = getSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          setFeedbackToast("Downloaded with your edits. Sign in to save them to your résumé.");
+          return;
+        }
+        const estimate = result
+          ? estimateScoreAfterFixes({
+              overallScore: result.overallScore,
+              categoryScores: result.categoryScores,
+              bullets: result.bulletAnalysis ?? [],
+              lineOverrides: st.lineOverrides,
+              categoryAssignmentOpts,
+            })
+          : null;
+        // Deterministically reconcile the qualitative fields (flags/issues/
+        // rationales) so the saved version stops showing stale flags on edited
+        // bullets — no LLM, mirrors the honesty validators.
+        const hiddenTexts = hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths);
+        const reconciled = result
+          ? reconcileAnalysisForSave({
+              bulletAnalysis: result.bulletAnalysis ?? [],
+              topIssues: result.topIssues ?? [],
+              categoryRationales: result.categoryRationales,
+              categoryScores: result.categoryScores,
+              lineOverrides: st.lineOverrides,
+              hiddenTexts,
+              projectedCategories: estimate?.projectedCategories,
+            })
+          : null;
+        const resp = await fetch(apiUrl("/api/analyze-save-edits"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            resume_text: patch.patchedText,
+            structured_resume: patch.patchedStructured ?? undefined,
+            overall_score: estimate?.projected,
+            category_scores: estimate?.projectedCategories,
+            bullet_analysis: reconciled?.bulletAnalysis,
+            top_issues: reconciled?.topIssues,
+            category_rationales: reconciled?.categoryRationales,
+          }),
+        });
+        if (resp.ok) {
+          lastSavedEditSigRef.current = sig;
+          setFeedbackToast("Downloaded · your edits are saved to your résumé and future job matches.");
+        } else {
+          setFeedbackToast("Downloaded with your edits.");
+        }
+      } catch {
+        setFeedbackToast("Downloaded with your edits.");
+      }
+    })();
+  }, [result, categoryAssignmentOpts, activeEditDraftId]);
 
   const bulletPrimaryCategories = useMemo(
     () => (result?.bulletAnalysis?.length
@@ -2764,6 +2859,7 @@ export default function AnalyzeResume() {
               onRescore={handleRescore}
               rescoring={rescoring}
               scoreEstimate={scoreEstimate}
+              onAfterDownload={handleAfterDownload}
             />
             </div>
           </div>
