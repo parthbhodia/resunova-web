@@ -20,9 +20,12 @@ import { fetchFeaturedCompanies, type FeaturedCompany } from "@/lib/jobsApi";
 export default function LandingTopCompanies({
   C,
   accent,
+  marquee = false,
 }: {
   C: Record<string, string>;
   accent: string;
+  /** Auto-scrolling loop instead of a manual rail (pauses on hover; static under prefers-reduced-motion — animation classes live in TealScrollStyles). */
+  marquee?: boolean;
 }) {
   const [companies, setCompanies] = useState<FeaturedCompany[] | null>(null);
 
@@ -65,51 +68,85 @@ export default function LandingTopCompanies({
         </button>
       </div>
 
-      <div
-        className="lp-co-rail"
-        role="list"
-        style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x proximity" }}
-      >
-        {loading
-          ? Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} style={{ width: 172, height: 88, flexShrink: 0, borderRadius: 12, background: C.bg2, border: `1px solid ${C.border}` }} />
-            ))
-          : companies!.map((c) => (
-              <button
-                key={c.company}
-                type="button"
-                role="listitem"
-                onClick={goToJobs}
-                aria-label={`${c.company}, ${c.activeCount.toLocaleString()} open roles — browse jobs`}
-                className="lp-co-card"
-                style={{
-                  flexShrink: 0,
-                  width: 172,
-                  scrollSnapAlign: "start",
-                  textAlign: "left",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  padding: 14,
-                  borderRadius: 12,
-                  border: `1px solid ${C.border}`,
-                  background: C.surface,
-                }}
-              >
-                <CompanyLogo company={c.company} companyDomain={c.domain} slug="" size={38} radius={9} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {c.company}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: C.muted, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>
-                    {c.activeCount.toLocaleString()} open roles
-                  </div>
-                </div>
-              </button>
-            ))}
-      </div>
+      {loading ? (
+        <div className="lp-co-rail" style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} style={{ width: 172, height: 88, flexShrink: 0, borderRadius: 12, background: C.bg2, border: `1px solid ${C.border}` }} />
+          ))}
+        </div>
+      ) : marquee ? (
+        <div className="lp-comarquee" role="list">
+          <div className="lp-comarquee-row">
+            {/* List rendered twice for a seamless -50% loop; clones are aria-hidden. */}
+            {[false, true].map((clone) =>
+              companies!.map((c) => (
+                <CompanyCard key={`${c.company}${clone ? "-clone" : ""}`} c={c} C={C} onGo={goToJobs} hidden={clone} />
+              )),
+            )}
+          </div>
+        </div>
+      ) : (
+        <div
+          className="lp-co-rail"
+          role="list"
+          style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x proximity" }}
+        >
+          {companies!.map((c) => (
+            <CompanyCard key={c.company} c={c} C={C} onGo={goToJobs} snap />
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+function CompanyCard({
+  c,
+  C,
+  onGo,
+  hidden = false,
+  snap = false,
+}: {
+  c: FeaturedCompany;
+  C: Record<string, string>;
+  onGo: () => void;
+  hidden?: boolean;
+  snap?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role={hidden ? undefined : "listitem"}
+      aria-hidden={hidden || undefined}
+      tabIndex={hidden ? -1 : undefined}
+      onClick={onGo}
+      aria-label={hidden ? undefined : `${c.company}, ${c.activeCount.toLocaleString()} open roles — browse jobs`}
+      className="lp-co-card"
+      style={{
+        flexShrink: 0,
+        width: 172,
+        scrollSnapAlign: snap ? "start" : undefined,
+        textAlign: "left",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        cursor: "pointer",
+        fontFamily: "inherit",
+        padding: 14,
+        borderRadius: 12,
+        border: `1px solid ${C.border}`,
+        background: C.surface,
+      }}
+    >
+      <CompanyLogo company={c.company} companyDomain={c.domain} slug="" size={38} radius={9} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {c.company}
+        </div>
+        <div style={{ fontSize: 12.5, color: C.muted, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>
+          {c.activeCount.toLocaleString()} open roles
+        </div>
+      </div>
+    </button>
   );
 }
