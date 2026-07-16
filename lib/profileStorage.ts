@@ -104,6 +104,26 @@ export function saveExtractedProfile(s: ExtractedProfileState) {
   }
 }
 
+/**
+ * Map an extracted résumé's contact fields onto Tailor-defaults (`ProfileFormState`)
+ * hint keys. Only the unambiguous 1:1 contact fields — deliberately NOT `role`
+ * (candidate's current title ≠ target `roles`) or `location` (current ≠ target
+ * `locations`). Feed the result to `mergeProfilePreferEmpty` so existing values
+ * are never overwritten.
+ */
+export function tailorContactHintsFromExtracted(
+  e: { name?: string; email?: string; phone?: string; linkedin?: string; portfolio?: string; github?: string; headline?: string },
+): Partial<ProfileFormState> {
+  return {
+    displayName: e.name || "",
+    email: e.email || "",
+    phone: e.phone || "",
+    linkedin: e.linkedin || "",
+    portfolio: e.portfolio || e.github || "",
+    headline: e.headline || "",
+  };
+}
+
 /** For each key in `hints`, set on `base` only when base value is empty/whitespace. */
 export function mergeProfilePreferEmpty(
   base: ProfileFormState,

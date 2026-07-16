@@ -1,6 +1,6 @@
 # Profile Unification Plan
 
-Status: **Phase 1 done**; Phases 2–3 proposed (follow-up to the Career Profile dashboard, PR #128).
+Status: **Phases 1–2 done**; Phase 3 proposed (follow-up to the Career Profile dashboard, PR #128).
 
 ## The problem
 
@@ -78,13 +78,24 @@ one column tried to hold both. Keeping two tables but one dashboard means:
   Placeholder `preferences`/`tailoring` fields dropped from
   `ExtractedProfileState`.
 
-### Phase 2 — make the extracted profile useful (net-new value)
+### Phase 2 — make the extracted profile useful (net-new value) — ✅ DONE (seeding)
 - Let the dashboard's extracted contact block (name / email / phone / linkedin /
-  location) seed `user_profiles` contact fields when those are empty (prefer-empty
-  merge, same rule as `mergeProfilePreferEmpty`), so a résumé upload fills the
-  Tailor contact defaults too.
-- Optional: offer "Use this résumé as my Tailor baseline" that pushes the
-  extracted structured doc into the Tailor/Template-Builder prefill path.
+  portfolio / headline) seed `user_profiles` contact fields when those are empty
+  (prefer-empty merge, same rule as `mergeProfilePreferEmpty`), so a résumé upload
+  fills the Tailor contact defaults too.
+- **Landed as:** `handleAcceptAll` (résumé-accept path) now runs
+  `mergeProfilePreferEmpty(tailorDefaults, tailorContactHintsFromExtracted(data))`
+  and writes the result via the Phase-1 `tailorDefaults` autosave. The new pure
+  helper `tailorContactHintsFromExtracted` maps only the unambiguous contact
+  fields — deliberately **not** `role`→`roles` or `location`→`locations` (current
+  ≠ target). Verified live via a mocked `/api/upload-resume` → upload → "Accept
+  All": empty `displayName`/`phone`/`linkedin`/`headline` filled from the résumé,
+  a pre-set `email` and `roles` **preserved**, `locations` left untouched. 5 unit
+  tests in `components/__tests__/tailorContactSeed.test.ts`.
+- **Still open (optional):** a "Use this résumé as my Tailor baseline" action that
+  pushes the extracted structured doc into the Tailor/Template-Builder prefill
+  path. Deferred — it touches the Tailor prefill flow and is better bundled with
+  Phase 3.
 
 ### Phase 3 — retire the old Profile form
 - Point the Account-dropdown "Profile" item and every `?view=profile` /

@@ -6,7 +6,7 @@ import ResumeUpload from "./ResumeUpload";
 import { ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "../../lib/resumeExtractorService";
 import { CheckCircle2, Sparkles, AlertTriangle, ArrowRight, TrendingUp, Star, FileText, MessageSquare, Briefcase } from "lucide-react";
 import { EditSection } from "./ProfileDashboard";
-import { loadExtractedProfile, saveExtractedProfile, loadProfile, saveProfile, type ProfileFormState, EMPTY_PROFILE } from "../../lib/profileStorage";
+import { loadExtractedProfile, saveExtractedProfile, loadProfile, saveProfile, mergeProfilePreferEmpty, tailorContactHintsFromExtracted, type ProfileFormState, EMPTY_PROFILE } from "../../lib/profileStorage";
 import { fetchExtractedProfile, upsertExtractedProfile, fetchUserProfile, upsertUserProfile } from "../../lib/supabase";
 
 export default function ProfilePage() {
@@ -216,6 +216,11 @@ export default function ProfilePage() {
   const handleAcceptAll = (data: ExtractedProfileState) => {
     setExtractedData(data);
     setUploadStatus("completed");
+    // Phase 2: seed the Tailor-defaults contact fields (user_profiles) from the
+    // résumé — prefer-empty, so an existing value is never overwritten. This
+    // makes an upload fill Tailor/Cover-letter contact defaults too, not just
+    // the extracted card. Autosave to user_profiles fires from the tdDirty effect.
+    setTailorDefaults(prev => mergeProfilePreferEmpty(prev, tailorContactHintsFromExtracted(data)).next);
   };
 
   const handleUpdateData = (newData: Partial<ExtractedProfileState>) => {
