@@ -29,6 +29,7 @@ import type { StructuredResume, BulletMapEntry } from "@/store/resumeAnalyzeStor
 import { getSupabaseClient, fetchAnalyses, fetchAnalysisById, insertAnalysis, createAnalysisVersion, deleteAnalysis } from "@/lib/supabase";
 import { groupAnalysesByRoot } from "@/lib/analyzeVersions";
 import type { AnalyzeRecord } from "@/lib/supabase";
+import ResumeVariantChips from "@/components/ResumeVariantChips";
 import AnalyzePreviewPane from "@/components/AnalyzePreviewPane";
 import {
   AnalyzeUploadLanding,
@@ -602,8 +603,23 @@ export default function AnalyzeResume() {
     return () => clearTimeout(t);
   }, [feedbackToast]);
 
+  // Set by ResumeVariantChips right before it triggers an "Import from file"
+  // upload — the next persistResult() call (the one that upload produces)
+  // reads + clears it, so the resulting row is tagged as a new variant
+  // instead of just another version of whatever was open. A ref, not state:
+  // it must be visible to the very next persistResult call with no re-render
+  // race, and nothing else needs to read it.
+  const pendingImportVariantNameRef = useRef<string | null>(null);
+
   // Persist result to Supabase + localStorage
   const persistResult = useCallback(async (label: string, res: AnalysisResult, forcedDraftId?: string) => {
+    // Consume the pending "this upload becomes a new variant" name (set by
+    // ResumeVariantChips' Import dialog just before triggering the upload
+    // that led here) — read once, clear immediately so it can't leak onto a
+    // later, unrelated persist.
+    const variantName = pendingImportVariantNameRef.current;
+    pendingImportVariantNameRef.current = null;
+
     const optimistic: AnalyzeRecord = {
       id:        forcedDraftId ?? `local_${Date.now()}`,
       label,
@@ -615,6 +631,7 @@ export default function AnalyzeResume() {
       version:   res.analysisVersion,
       rootId:    res.analysisRootId ?? null,
       scoreSource: res.analysisScoreSource ?? null,
+      variantName: variantName ?? null,
       result:    res,
     };
     // Optimistic update — show instantly
@@ -629,6 +646,7 @@ export default function AnalyzeResume() {
       const newId = backendId ?? await insertAnalysis(label, res, {
         sourcePdfUrl,
         sourceFilename,
+        ...(variantName ? { variantName } : {}),
       });
       if (newId) {
         migrateEdits(optimistic.id, newId);
@@ -896,6 +914,55 @@ export default function AnalyzeResume() {
       try { await deleteAnalysis(id); } catch { /* ignore */ }
     }
   }, [userId, azHistory]);
+
+  /** Delete every row (every version, every lineage) belonging to one variant —
+   *  batched, not a loop of deleteRecord, so this is one re-render + one
+   *  localStorage write instead of N. */
+  const deleteVariantRows = useCallback(async (ids: string[]) => {
+    const idSet = new Set(ids);
+    const next = azHistory.filter(r => !idSet.has(r.id));
+    setAzHistory(next);
+    if (userId) lsSave(userId, next);
+    await Promise.all(
+      ids.filter(id => !id.startsWith("local_")).map(id => deleteAnalysis(id).catch(() => {})),
+    );
+  }, [userId, azHistory]);
+
+  /** Duplicate — LLM-free copy of a variant's current (head) result into a
+   *  brand-new row under a new variant name. Never calls analyze-upload, so
+   *  it never counts against the daily scan limit. Opens the new variant
+   *  immediately, same as finishing a fresh analysis. */
+  const duplicateVariant = useCallback(async (source: AnalyzeRecord, newVariantName: string) => {
+    let full = source;
+    if (!full.result && !full.id.startsWith("local_")) {
+      full = (await fetchAnalysisById(source.id)) ?? source;
+    }
+    if (!full.result) return null;
+    const newId = await insertAnalysis(full.label, full.result, { variantName: newVariantName });
+    if (!newId) return null;
+    const created: AnalyzeRecord = {
+      id: newId,
+      label: full.label,
+      score: full.score,
+      createdAt: new Date().toISOString(),
+      variantName: newVariantName,
+      result: full.result,
+    };
+    setAzHistory(prev => [created, ...prev].slice(0, 20));
+    if (userId) lsPush(userId, created);
+    await restoreRecord(created);
+    return created;
+  }, [userId, restoreRecord]);
+
+  /** "Import from file" from the variant create dialog — tags the upload
+   *  that follows as a new variant (via the ref persistResult reads), then
+   *  runs the exact same validated upload path as the main dropzone. */
+  const importFileAsVariant = useCallback((variantName: string, file: File) => {
+    const fileErr = resumeFileClientError(file);
+    if (fileErr) { setError(fileErr); return; }
+    pendingImportVariantNameRef.current = variantName;
+    run(file);
+  }, [run]);
 
   // Collapse very long version chains in the history rail (per-root toggle).
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
@@ -2742,6 +2809,16 @@ export default function AnalyzeResume() {
               background: "var(--bg)",
             }}
           >
+            {userId && (
+              <ResumeVariantChips
+                history={azHistory}
+                activeAnalysisId={activeEditDraftId}
+                onRestore={restoreRecord}
+                onDuplicate={duplicateVariant}
+                onImportFile={importFileAsVariant}
+                onDeleteVariant={deleteVariantRows}
+              />
+            )}
             <div
               style={{
                 flex: 1,

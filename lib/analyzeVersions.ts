@@ -27,7 +27,7 @@ export interface AnalyzeVariantGroup {
 }
 
 const IMPLICIT_VARIANT_GROUP = "__implicit__";
-const IMPLICIT_VARIANT_NAME = "Default";
+export const IMPLICIT_VARIANT_NAME = "Default";
 
 function effectiveVariantKey(rec: AnalyzeRecord): string {
   return rec.variantGroup ?? IMPLICIT_VARIANT_GROUP;
