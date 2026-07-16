@@ -1,12 +1,82 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BlogArticleLayout, { Section } from "@/components/blog/BlogArticleLayout";
+import JsonLd from "@/components/seo/JsonLd";
+import { SITE_URL } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates. · Resunova Blog",
+  title: "We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates.",
   description:
     "When we turned on six new ATS integrations, daily postings jumped 7x. About 38% of that day's new listings were the exact same job, reposted over and over. Here's what we found and how we built a fix that runs continuously.",
   robots: { index: true, follow: true },
+  alternates: { canonical: "/blog/ghost-jobs-duplicate-postings/" },
+  openGraph: {
+    title: "13,000 of the new postings were duplicates",
+    description:
+      "When six new ATS integrations went live, daily postings jumped 7x, but 38% of that surge day's postings were byte-identical duplicates of another posting in the same batch.",
+    type: "article",
+  },
+};
+
+const CANONICAL = `${SITE_URL}/blog/ghost-jobs-duplicate-postings/`;
+
+const ARTICLE_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: "We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates.",
+  description:
+    "When six new ATS integrations went live, daily postings jumped 7x, but 38% of that surge day's postings were byte-identical duplicates of another posting in the same batch.",
+  datePublished: "2026-07-14",
+  dateModified: "2026-07-14",
+  author: { "@type": "Organization", name: "Resunova", url: SITE_URL },
+  publisher: { "@id": `${SITE_URL}/#org` },
+  mainEntityOfPage: CANONICAL,
+};
+
+const FAQ_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "What is a ghost job or duplicate job posting?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "A ghost job, in the phantom-volume sense, is one real job requisition that appears many times on a job board because an ATS lets a company push the same posting to multiple locations or feeds. Each copy reads as a separate opening to anyone counting listings. On the surge day measured here, about 38% (roughly 13,000 of 34,000) of newly ingested postings were byte-identical duplicates of another posting in the same batch.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Why do the same job postings get listed hundreds of times?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "An applicant tracking system lets a company push one requisition to every location or franchise with a form field, and each copy is filed as its own listing. The single biggest contributor in this dataset was one company that had reposted one job description across roughly 800 different locations.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How do you detect duplicate job postings accurately?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "A byte-identical match on the job description text works better than a normalized/fuzzy match. A looser, normalized-text comparison was tried first and it collapsed about 17,000 postings that only shared boilerplate or a template across different companies, not the same job. Matching on the raw, exact text avoids merging postings that only look alike.",
+      },
+    },
+  ],
+};
+
+const BREADCRUMB_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
+    { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE_URL}/blog/` },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: "13,000 of the new postings were duplicates",
+      item: CANONICAL,
+    },
+  ],
 };
 
 // ── data (Resunova jobs pipeline: historical event from api commit log #57,
@@ -67,6 +137,8 @@ export default function GhostJobsDuplicatePostingsPage() {
       title="We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates."
       subtitle="Turning on six new ATS integrations took our daily ingest from about 530 postings to about 3,700. Before we could celebrate the jump, we noticed something: a huge share of it was the same job, posted again and again. Here's what we found, why it happens, and what the feed looks like now that we catch it automatically."
     >
+      <JsonLd data={[ARTICLE_JSONLD, FAQ_JSONLD, BREADCRUMB_JSONLD]} />
+
       <p style={{ margin: "0 0 14px" }}>
         Resunova's jobs feed pulls postings straight from company ATS and career-site APIs (Workday, Greenhouse,
         SmartRecruiters, Lever, Ashby, and a growing list more), several times a day, so the ranked list a user sees
@@ -161,6 +233,17 @@ export default function GhostJobsDuplicatePostingsPage() {
           <strong>Source.</strong> Postings pulled directly from each company&apos;s public ATS or career-site API.
           Deduping runs server-side after every scan, several times a day.
         </p>
+      </Section>
+
+      <Section title="FAQ">
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {FAQ_JSONLD.mainEntity.map((f) => (
+            <div key={f.name}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", margin: "0 0 6px" }}>{f.name}</h3>
+              <p style={{ margin: 0 }}>{f.acceptedAnswer.text}</p>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <div style={{ border: "1px solid var(--border)", borderRadius: 14, background: "var(--surface)", padding: "20px 22px", marginTop: 8 }}>
