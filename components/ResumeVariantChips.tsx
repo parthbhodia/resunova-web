@@ -42,7 +42,12 @@ export default function ResumeVariantChips({
 }: Props) {
   const [defaultName, setDefaultName] = useState<string | null>(null);
   const [displayNames, setDisplayNames] = useState<Record<string, string>>({});
-  const [menuKey, setMenuKey] = useState<string | null>(null);
+  // position: fixed with computed coordinates, not position: absolute inside
+  // the chip row — the row scrolls horizontally (overflow-x: auto), which per
+  // the CSS spec forces overflow-y: auto too, clipping an absolutely-
+  // positioned dropdown. Same pattern already used for the bullet format
+  // toolbar / AI-suggestion popup elsewhere in this codebase.
+  const [menu, setMenu] = useState<{ key: string; top: number; left: number } | null>(null);
   const [renameKey, setRenameKey] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -57,13 +62,13 @@ export default function ResumeVariantChips({
   }, []);
 
   useEffect(() => {
-    if (!menuKey) return;
+    if (!menu) return;
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuKey(null);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(null);
     };
     window.addEventListener("mousedown", handler, true);
     return () => window.removeEventListener("mousedown", handler, true);
-  }, [menuKey]);
+  }, [menu]);
 
   const groups = useMemo(() => groupAnalysesByVariant(history), [history]);
   const activeGroupKey = useMemo(() => {
@@ -82,7 +87,7 @@ export default function ResumeVariantChips({
   const isDefault = (g: AnalyzeVariantGroup) => g.name === (defaultName ?? IMPLICIT_VARIANT_NAME);
 
   const handleSetDefault = async (g: AnalyzeVariantGroup) => {
-    setMenuKey(null);
+    setMenu(null);
     setDefaultName(g.name); // optimistic
     await saveDefaultVariantName(g.name);
   };
@@ -96,7 +101,7 @@ export default function ResumeVariantChips({
   };
 
   const handleDelete = async (g: AnalyzeVariantGroup) => {
-    setMenuKey(null);
+    setMenu(null);
     if (groups.length <= 1) return; // can't delete your only résumé
     if (!window.confirm(`Delete "${label(g)}"? This removes every saved version of this variant.`)) return;
     setBusyKey(g.key);
@@ -104,6 +109,14 @@ export default function ResumeVariantChips({
     await onDeleteVariant(ids);
     setBusyKey(null);
   };
+
+  const openMenu = (key: string, e: React.MouseEvent<HTMLElement>) => {
+    if (menu?.key === key) { setMenu(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenu({ key, top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 196) });
+  };
+
+  const activeMenuGroup = menu ? groups.find((g) => g.key === menu.key) ?? null : null;
 
   return (
     <div
@@ -126,7 +139,7 @@ export default function ResumeVariantChips({
         const def = isDefault(g);
         const renaming = renameKey === g.key;
         return (
-          <div key={g.key} style={{ position: "relative", flexShrink: 0 }}>
+          <div key={g.key} style={{ flexShrink: 0 }}>
             {renaming ? (
               <input
                 autoFocus
@@ -168,8 +181,8 @@ export default function ResumeVariantChips({
                   role="button"
                   tabIndex={0}
                   aria-label={`Options for ${label(g)}`}
-                  onClick={(e) => { e.stopPropagation(); setMenuKey(menuKey === g.key ? null : g.key); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setMenuKey(g.key); } }}
+                  onClick={(e) => { e.stopPropagation(); openMenu(g.key, e); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); openMenu(g.key, e as unknown as React.MouseEvent<HTMLElement>); } }}
                   style={{
                     display: "inline-flex", alignItems: "center", justifyContent: "center",
                     width: 16, height: 16, borderRadius: "50%", marginLeft: 2,
@@ -180,36 +193,6 @@ export default function ResumeVariantChips({
                   ⋮
                 </span>
               </button>
-            )}
-
-            {menuKey === g.key && (
-              <div
-                ref={menuRef}
-                style={{
-                  position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 30,
-                  minWidth: 176, background: "var(--surface)", border: "1px solid var(--border)",
-                  borderRadius: 9, boxShadow: "0 8px 20px rgba(0,0,0,0.16)", padding: 4,
-                }}
-              >
-                <button type="button" style={menuItemStyle} onClick={() => {
-                  setMenuKey(null); setRenameDraft(label(g)); setRenameKey(g.key);
-                }}>
-                  Rename
-                </button>
-                {!def && (
-                  <button type="button" style={menuItemStyle} onClick={() => void handleSetDefault(g)}>
-                    Set as default
-                  </button>
-                )}
-                <button type="button" style={menuItemStyle} onClick={() => { setMenuKey(null); setDialog({ copyFromKey: g.key }); }}>
-                  Duplicate
-                </button>
-                {groups.length > 1 && (
-                  <button type="button" style={{ ...menuItemStyle, color: "var(--red, #ef4444)" }} onClick={() => void handleDelete(g)}>
-                    Delete
-                  </button>
-                )}
-              </div>
             )}
           </div>
         );
@@ -228,6 +211,36 @@ export default function ResumeVariantChips({
       >
         + New
       </button>
+
+      {menu && activeMenuGroup && (
+        <div
+          ref={menuRef}
+          style={{
+            position: "fixed", top: menu.top, left: menu.left, zIndex: 10001,
+            minWidth: 176, background: "var(--surface)", border: "1px solid var(--border)",
+            borderRadius: 9, boxShadow: "0 8px 20px rgba(0,0,0,0.16)", padding: 4,
+          }}
+        >
+          <button type="button" style={menuItemStyle} onClick={() => {
+            setMenu(null); setRenameDraft(label(activeMenuGroup)); setRenameKey(activeMenuGroup.key);
+          }}>
+            Rename
+          </button>
+          {!isDefault(activeMenuGroup) && (
+            <button type="button" style={menuItemStyle} onClick={() => void handleSetDefault(activeMenuGroup)}>
+              Set as default
+            </button>
+          )}
+          <button type="button" style={menuItemStyle} onClick={() => { setMenu(null); setDialog({ copyFromKey: activeMenuGroup.key }); }}>
+            Duplicate
+          </button>
+          {groups.length > 1 && (
+            <button type="button" style={{ ...menuItemStyle, color: "var(--red, #ef4444)" }} onClick={() => void handleDelete(activeMenuGroup)}>
+              Delete
+            </button>
+          )}
+        </div>
+      )}
 
       {dialog && (
         <CreateVariantDialog
