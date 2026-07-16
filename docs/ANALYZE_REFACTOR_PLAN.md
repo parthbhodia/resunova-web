@@ -1,6 +1,6 @@
 # AnalyzeResume.tsx refactor plan
 
-Status: **Slices 1–2 done, Slice 3 partial, Slice 5 done**; Slice 4 proposed (gated on live verification).
+Status: **Slices 1–2 done, Slice 3 partial, Slice 5 done**; **Slice 4 PAUSED** (needs a working browser — see below).
 
 `components/AnalyzeResume.tsx` is ~4,000 lines. It already delegates heavy
 rendering to children (`AnalyzePreviewPane`, `AnnotatedResumePanel`,
@@ -59,11 +59,26 @@ verification at each step.
   category selection, save-version, and the bullet fix cards (edit/rescore state
   machine), so it is NOT a presentational move and must be live-verified.
 
-### Slice 4 — `useAnalyzeWorkspace()` hook (high value, high risk)
+### Slice 4 — `useAnalyzeWorkspace()` hook (high value, high risk) — ⏸ PAUSED (needs a browser)
 - Lift the store selectors + edit/rescore/category handlers out of the JSX into a
   hook. This is ~half the file and the real win, but it touches the edit/rescore
   state machine — do it last, incrementally, **live-verified** each step, ideally
   after a couple of characterization tests exist for the edit-loop invariants.
+- **Confirmed surface (2026-07-15):** the component holds **26 `useState` + 21
+  `useCallback` + 14 `useEffect`**, all interdependent — the edit/rescore state
+  machine itself. The only pure `useMemo`s (`categoryAssignmentOpts`,
+  `scoreEstimate`, `bulletPrimaryCategories`) already delegate to tested libs
+  (`estimateScoreAfterFixes`, `buildBulletPrimaryCategories`), so there is **no
+  meaningful safe subset** — the value and the risk are the same code.
+- **Explicitly paused (product call):** a blind extraction (hook, or even a
+  props-threaded `<AnalyzeImprovementPlan>` component) would compile and pass the
+  logic tests but could silently break apply-fix / rescore / save-version, with
+  no component-level test net and no way to observe it — this session's sandbox
+  kept killing `next dev`. Decision: **do NOT attempt Slice 4 without a working
+  preview.** When a browser is available: extract the interactive Improvement-Plan
+  panel first (props-threaded, verbatim), click through the full edit loop
+  (select category → apply fix → est. score updates → Save as version → restore),
+  then lift the hook incrementally, re-driving the loop after each step.
 
 ### Slice 5 — land deferred features in the slimmer file — ✅ DONE
 - The "Save this résumé to your Profile" prompt (Profile-plan trigger #1) shipped
