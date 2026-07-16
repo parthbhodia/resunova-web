@@ -575,6 +575,7 @@ export default function LandingPage() {
           {[
             ["Jobs", "jobs"],
             ["Templates", "templates"],
+            ["Blog", "blog-nav"],
             ...(SHOW_LANDING_CARDS ? [["Features", "features"]] as const : []),
             ...(SHOW_LANDING_CARDS ? [["Platform", "platform"]] as const : []),
             ["Approach", "approach"],
@@ -583,10 +584,10 @@ export default function LandingPage() {
             ["FAQ", "faq"],
             ["Privacy", "privacy-nav"],
           ].map(([lbl, id]) => (
-            id === "privacy-nav" ? (
+            id === "privacy-nav" || id === "blog-nav" ? (
               <Link
                 key={id}
-                href="/privacy/"
+                href={id === "blog-nav" ? "/blog/" : "/privacy/"}
                 prefetch={false}
                 className="lp-nav-section"
                 style={{
@@ -728,6 +729,12 @@ export default function LandingPage() {
                 }}
               >{lbl}</button>
             ))}
+            <Link
+              href="/blog/"
+              prefetch={false}
+              onClick={() => setMenuOpen(false)}
+              style={{ padding: "13px 6px", fontSize: 16, fontWeight: 600, color: C.ink, textDecoration: "none", borderBottom: `1px solid ${C.border}` }}
+            >Blog</Link>
             <Link
               href="/privacy/"
               prefetch={false}
