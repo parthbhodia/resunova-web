@@ -42,7 +42,8 @@ and gets shared, and keep competitor comparison pages accurate.
    size, source skew). Run the control query. If the claim dies, pick another
    insight. Note small-n caveats in the chart footnote.
 4. Write the post at app/blog/<slug>/page.tsx following the existing pattern:
-   BlogArticleLayout + Section, inline BarRow/ChartCard components (copy from
+   BlogArticleLayout (pass `slug="<slug>"` so the views/likes strip renders)
+   + Section, inline BarRow/ChartCard components (copy from
    app/blog/salary-transparency-by-seniority/page.tsx), Metadata with
    canonical, JSON-LD Article script, methodology section (light: corpus size,
    date, definitions; no methods), internal links to 2+ related posts and one

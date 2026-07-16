@@ -134,6 +134,7 @@ function DuplicateRateChart() {
 export default function GhostJobsDuplicatePostingsPage() {
   return (
     <BlogArticleLayout
+      slug="ghost-jobs-duplicate-postings"
       title="We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates."
       subtitle="Turning on six new ATS integrations took our daily ingest from about 530 postings to about 3,700. Before we could celebrate the jump, we noticed something: a huge share of it was the same job, posted again and again. Here's what we found, why it happens, and what the feed looks like now that we catch it automatically."
     >

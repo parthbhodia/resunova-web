@@ -24,6 +24,7 @@ const CHECKLIST = [
 export default function TailorResumeToJobDescriptionPage() {
   return (
     <BlogArticleLayout
+      slug="tailor-resume-to-job-description"
       title="How to Tailor Your Resume to a Job Description (Step-by-Step)"
       subtitle="Generic applications rarely land interviews, not because applicants are unqualified, but because their resume doesn't mirror what the recruiter is scanning for. Here's how to fix that."
     >
