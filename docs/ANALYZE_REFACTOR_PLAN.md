@@ -1,6 +1,6 @@
 # AnalyzeResume.tsx refactor plan
 
-Status: **Slices 1–2 done, Slice 3 partial, Slice 5 done**; **Slice 4 PAUSED** (needs a working browser — see below).
+Status: **Slices 1–2 done, Slice 3 partial, Slice 5 done, Slice 4 component-extraction done + live-verified**; only the optional `useAnalyzeWorkspace()` hook (state relocation) remains.
 
 > **Live verification (2026-07-15):** served the static export (`out/`) and drove
 > the flows in a real browser. Confirmed: the extracted Analyze sidebar renders
@@ -68,7 +68,25 @@ verification at each step.
   category selection, save-version, and the bullet fix cards (edit/rescore state
   machine), so it is NOT a presentational move and must be live-verified.
 
-### Slice 4 — `useAnalyzeWorkspace()` hook (high value, high risk) — ⏸ PAUSED (needs a browser)
+### Slice 4 — interactive Improvement-Plan panel + hook — ◑ PANEL DONE (live-verified); hook optional
+- **Done + live-verified (2026-07-16):** extracted the result-state Improvement-Plan
+  panel (the interactive body of `sidebarScroll` — Save-a-version card, Summary
+  entry, TOP FIXES / COMPLETED category lists, Past runs) into
+  `components/analyze/AnalyzeImprovementPlan.tsx`. **Key insight that made this
+  safe:** the panel owns NO state — every `useState`/`useCallback` stays in
+  AnalyzeResume; the panel only reads `result`/derived values and calls
+  passed-in setters/handlers. So it's a verbatim JSX move + **19 same-named
+  props** (tsc flags any un-threaded free var; same-name passing can't mismatch
+  values) — the same Slice-3 pattern, NOT a state relocation. Removed 4
+  now-unused imports (`Badge`, `CATEGORY_ICONS`, `countBulletsInCategory`,
+  default `JobSearchActivationWidget`). AnalyzeResume **3630 → 3378 lines**.
+  Verified live (served the static export, mocked `/api/analyze-upload` with a
+  flagged-category analysis): the panel renders (Save-a-version, TOP FIXES,
+  COMPLETED, Past runs); clicking a category **activates it and drives the edit
+  loop** — the center fix panel shows the rewrite + Apply/Copy/Edit, and the
+  preview highlights the category's bullets in sync; "Save as version" button
+  present; no page errors. tsc + 251 vitest + `next build` clean.
+- **Remaining (optional, deferred): the `useAnalyzeWorkspace()` hook.**
 - Lift the store selectors + edit/rescore/category handlers out of the JSX into a
   hook. This is ~half the file and the real win, but it touches the edit/rescore
   state machine — do it last, incrementally, **live-verified** each step, ideally
