@@ -4,7 +4,7 @@ import { LogoFull } from "@/components/BrandLogo";
 import { CONTACT_EMAIL, PRIVACY_EMAIL, SITE_URL } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Contact · Resunova",
+  title: "Contact",
   description:
     "Contact Resunova: a completely free AI resume tool for students and the community. Support, privacy requests, and general inquiries.",
   robots: { index: true, follow: true },

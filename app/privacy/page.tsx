@@ -4,7 +4,7 @@ import { LogoFull } from "@/components/BrandLogo";
 import { CONTACT_EMAIL, PRIVACY_EMAIL, SITE_URL } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy · Resunova",
+  title: "Privacy Policy",
   description:
     "Resunova does not sell your data. Learn how we use information only to run the service, analytics, and internal improvements to serve you better.",
   robots: { index: true, follow: true },

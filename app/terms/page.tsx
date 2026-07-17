@@ -4,7 +4,7 @@ import { LogoFull } from "@/components/BrandLogo";
 import { CONTACT_EMAIL, SITE_URL } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Terms of Service · Resunova",
+  title: "Terms of Service",
   description: "Read Resunova's Terms of Service governing your use of our AI resume tailoring platform.",
   robots: { index: true, follow: true },
 };
