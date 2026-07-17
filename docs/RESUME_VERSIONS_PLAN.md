@@ -84,10 +84,13 @@ So a lot of Tsenta's model maps onto primitives we already ship. The gap is
   table. Leaning: a unified object, migrating the two into it over time — but that
   is the crux decision and needs a product call, because it touches the Library,
   Tailor, and Analyze history all at once.
-- **One surface or keep four?** Full Tsenta parity means collapsing
-  Analyze/Tailor/Template-Builder editing into one "Resume" page. That's the big
-  IA change; Phase 1 can ship the switcher *within the current Analyze surface*
-  first and converge later.
+- **One surface or keep four?** **DECIDED (product, 2026-07): Analyze and Tailor
+  stay SEPARATE surfaces — do NOT merge them.** So the "résumé version + switcher"
+  does not become a mega-page; it needs a home that both Analyze and Tailor can
+  read from without being fused. Candidate homes (open): the **Resume Library /
+  "My Resumes"** as the canonical version store, or the **Template Builder** (our
+  existing named-WYSIWYG-draft surface). Analyze and Tailor each keep their own
+  surface and consume/produce versions from that store.
 
 ## Explicitly NOT in scope here
 - No commitment to the chat layer before Phases 1–2 prove the version model.
