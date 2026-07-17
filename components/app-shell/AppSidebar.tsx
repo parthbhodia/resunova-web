@@ -383,6 +383,7 @@ export function AppSidebar({
               <AppSidebarUser
                 initial={userInitial}
                 onProfile={() => router.push("/profile")}
+                onMyResumes={() => router.push("/my-resumes")}
                 onAccount={() => onSwitchView("account")}
                 onSignOut={onSignOut}
               />
