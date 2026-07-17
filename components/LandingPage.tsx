@@ -1176,7 +1176,9 @@ export default function LandingPage() {
       </section>
 
       {/* ───────────── Post-logos CTA nudge ─────────────────── */}
-      <div style={{ background: C.bg2, borderBottom: `1px solid ${C.border}`, padding: "36px 40px", textAlign: "center" }}>
+      {/* Sits on the page ground (C.bg, no hairline) so the interview block's
+          curved corner directly below carves out of clean matching whitespace. */}
+      <div style={{ background: C.bg, padding: "36px 40px 76px", textAlign: "center" }}>
         <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, margin: "0 0 18px", fontWeight: 500 }}>
           Is your résumé ready for these companies?
         </p>
@@ -1185,29 +1187,33 @@ export default function LandingPage() {
           style={{
             display: "inline-flex", alignItems: "center", gap: 8,
             padding: "14px 32px",
-            background: T.blue, color: "#fff",
-            border: "none", borderRadius: 12,
-            fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
+            background: T.hot, color: T.hotInk,
+            border: "none", borderRadius: 999,
+            fontSize: 16, fontWeight: 800, letterSpacing: -0.2,
             cursor: "pointer", fontFamily: "inherit",
-            boxShadow: "0 4px 20px rgba(37,99,235,0.35)",
-            transition: "transform 0.15s, box-shadow 0.15s",
+            boxShadow: "0 10px 26px -8px rgba(212,119,47,0.6)",
+            transition: "transform 0.15s, background 0.15s",
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
             el.style.transform = "translateY(-2px)";
-            el.style.boxShadow = "0 8px 28px rgba(37,99,235,0.5)";
+            el.style.background = T.hotHover;
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement;
             el.style.transform = "";
-            el.style.boxShadow = "0 4px 20px rgba(37,99,235,0.35)";
+            el.style.background = T.hot;
           }}
         >
           Check my résumé score — it&apos;s free <span style={{ fontSize: 18 }}>→</span>
         </button>
       </div>
 
-      {/* ───────────── Interview coaching announcement strip ── */}
+      {/* ───────────── Interview coaching announcement strip ──
+          Parked for now (stacked bands cluttered the reviews→interview seam,
+          and the interview block below announces the feature itself).
+          Re-enable by removing `false &&`. */}
+      {false && (
       <div role="region" aria-label="Interview coaching — now live" style={{
         background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
         padding: "14px 24px",
@@ -1220,6 +1226,7 @@ export default function LandingPage() {
           <strong style={{ fontWeight: 700 }}>Now live:</strong> AI mock interviews tailored to the exact role — part of our growing university partnerships, including <strong style={{ fontWeight: 700 }}>UMBC</strong>.
         </span>
       </div>
+      )}
 
       {/* ───────────── Interview coaching ───────────────────── */}
       <section id="interview" className="lp-interview-sec" style={{ background: T.blockGreen, borderRadius: "clamp(36px, 8vw, 110px) 0 0 0", padding: "108px 40px 100px", scrollMarginTop: 120 }}>
