@@ -14,6 +14,7 @@ import {
 } from "@/components/LandingFeatureShowcase";
 import LandingFAQ from "@/components/LandingFAQ";
 import LandingTopCompanies from "@/components/LandingTopCompanies";
+import { FloatingFeatureNav, Reveal, TealScrollStyles } from "@/components/landing/TealScroll";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 // Cool slate palette — professional SaaS, not warm editorial
@@ -26,6 +27,18 @@ const T = {
   blue:        "#2563eb",
   blueHover:   "#1d4ed8",
   blueGlow:    "rgba(37,99,235,0.14)",
+
+  // Hot CTA — the logo's own orange, promoted to THE action color (Teal-style:
+  // exactly one saturated pill on an otherwise quiet ground)
+  hot:         "#e0894e",
+  hotHover:    "#d4772f",
+  hotInk:      "#231303",
+
+  // Full-bleed feature blocks (committed colors — same in both themes)
+  blockIndigo: "#1d2f8f",
+  blockGreen:  "#0a4f42",
+  blockGold:   "#f4c76b",
+  blockGoldInk:"#33240a",
 
   // Semantic
   green:       "#059669",
@@ -512,7 +525,7 @@ export default function LandingPage() {
           <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.4 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ display: "inline-block", verticalAlign: "-2px", marginRight: 8 }}><path d="M12 2l1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7z" /></svg>
             <strong style={{ fontWeight: 700 }}>New:</strong>
-            {" "}AI bullet rewrites + ATS scoring — scan your résumé free, no account needed.
+            {" "}AI bullet rewrites + 8-dimension résumé scoring. No account, no paywall.
             {" "}
             <button
               onClick={() => { goToFreeScan(); }}
@@ -761,8 +774,8 @@ export default function LandingPage() {
             fontWeight: 600, letterSpacing: 0.2, maxWidth: "100%",
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.blue, display: "inline-block", flexShrink: 0 }} />
-            <span className="lp-hero-sub-full">Completely free · For students &amp; the community · AI-powered · ATS-safe</span>
-            <span className="lp-hero-sub-short">Free forever · AI-powered · ATS-safe</span>
+            <span className="lp-hero-sub-full">Completely free · No account to scan · Built for students &amp; career switchers · ATS-safe</span>
+            <span className="lp-hero-sub-short">Completely free · No account · ATS-safe</span>
           </div>
 
           {/* Headline — DM Sans 800. Full on desktop; punchy 2-liner on phones. */}
@@ -772,26 +785,27 @@ export default function LandingPage() {
             color: C.ink, margin: "0 0 28px",
           }}>
             <span className="lp-hero-sub-full">
-              Your résumé,<br />
-              <span style={{ color: T.blue }}>finally fluent</span><br />
-              in the language<br />of opportunity.
+              Score your résumé.<br />
+              Fix the weak bullets.<br />
+              Tailor it to any job.<br />
+              <span style={{ color: T.blue }}>Free. Actually free.</span>
             </span>
             <span className="lp-hero-sub-short">
-              Your résumé,<br />
-              <span style={{ color: T.blue }}>finally fluent.</span>
+              Score, fix, and tailor<br />your résumé.{" "}
+              <span style={{ color: T.blue }}>Actually free.</span>
             </span>
           </h1>
 
           <p style={{ fontSize: "var(--font-size-xl)", color: C.muted, lineHeight: 1.72, maxWidth: 480, margin: "0 0 44px", letterSpacing: -0.15 }}>
             {/* Full copy on desktop; trimmed on phones. Key phrases highlighted. */}
             <span className="lp-hero-sub-full">
-              Upload your résumé for an <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>bullet-by-bullet AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>under 60 seconds</b>.{" "}
+              Upload your résumé, get an <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>honest bullet-by-bullet rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
             </span>
             <span className="lp-hero-sub-short">
-              An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
+              An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>honest rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
             </span>
-            <strong style={{ color: C.ink, fontWeight: 700 }}>No account needed.</strong>{" "}
-            <strong style={{ color: "#16a34a", fontWeight: 700 }}>Completely free.</strong>
+            <strong style={{ color: C.ink, fontWeight: 700 }}>No account.</strong>{" "}
+            <strong style={{ color: "#16a34a", fontWeight: 700 }}>No paywall.</strong>
           </p>
 
           {/* CTA row */}
@@ -803,24 +817,26 @@ export default function LandingPage() {
                 onClick={() => { goToFreeScan(); }}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 10,
-                  padding: "18px 36px",
-                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                  color: "#fff", border: "none", borderRadius: 14,
+                  padding: "18px 38px",
+                  background: T.hot,
+                  color: T.hotInk, border: "none", borderRadius: 999,
                   fontSize: 18, fontWeight: 800, letterSpacing: -0.3,
                   cursor: "pointer", fontFamily: "inherit",
-                  boxShadow: "0 8px 32px rgba(37,99,235,0.45), 0 2px 8px rgba(37,99,235,0.20)",
-                  transition: "transform 0.15s, box-shadow 0.15s",
+                  boxShadow: "0 10px 32px rgba(212,119,47,0.45)",
+                  transition: "transform 0.15s, box-shadow 0.15s, background 0.15s",
                   whiteSpace: "nowrap",
                 }}
                 onMouseEnter={e => {
                   const el = e.currentTarget as HTMLElement;
                   el.style.transform = "translateY(-2px)";
-                  el.style.boxShadow = "0 12px 40px rgba(37,99,235,0.55), 0 2px 8px rgba(37,99,235,0.20)";
+                  el.style.background = T.hotHover;
+                  el.style.boxShadow = "0 14px 40px rgba(212,119,47,0.55)";
                 }}
                 onMouseLeave={e => {
                   const el = e.currentTarget as HTMLElement;
                   el.style.transform = "";
-                  el.style.boxShadow = "0 8px 32px rgba(37,99,235,0.45), 0 2px 8px rgba(37,99,235,0.20)";
+                  el.style.background = T.hot;
+                  el.style.boxShadow = "0 10px 32px rgba(212,119,47,0.45)";
                 }}
               >
                 Score my résumé free
@@ -830,7 +846,7 @@ export default function LandingPage() {
 
             {/* Trust micro-copy */}
             <p style={{ fontSize: 13, color: C.muted, margin: 0, letterSpacing: -0.1 }}>
-              No account needed to score &nbsp;·&nbsp; Sign in to save your analysis &nbsp;·&nbsp; Always free
+              No account needed to scan &nbsp;·&nbsp; Sign in only to save your analysis &nbsp;·&nbsp; Completely free
             </p>
           </div>
 
@@ -886,6 +902,21 @@ export default function LandingPage() {
       </section>
 
       <LandingPreviewStyles />
+      <TealScrollStyles />
+
+      {/* ───────────── Floating feature nav (tracks the product sections) ── */}
+      <FloatingFeatureNav
+        C={C}
+        dark={dark}
+        accent={T.hotHover}
+        items={[
+          { id: "jobs", label: "Jobs", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg> },
+          { id: "product-rewrite", label: "AI Rewrites", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> },
+          { id: "product-tour", label: "Tailor", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg> },
+          { id: "templates", label: "Templates", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/></svg> },
+          { id: "interview", label: "Interview", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5h16v10H9l-4 4z"/><path d="M8 9h8M8 12h5"/></svg> },
+        ]}
+      />
 
       {/* ───────────── Jobs — promoted to first band after the hero ─────── */}
       <JobsBand C={C} dark={dark} />
@@ -916,9 +947,10 @@ export default function LandingPage() {
       <LandingPreviewSection
         id="product-rewrite"
         eyebrow="Bullet rewrites"
-        title="Vague lines become interview-ready achievements."
-        desc="Resunova flags duty-list bullets and suggests rewrites with stronger verbs and real metrics — using only facts already on your résumé."
+        title="&quot;Responsible for&quot; never got anyone hired."
+        desc="Resunova flags weak duty-list bullets and rewrites them with stronger verbs and real numbers, using only facts already on your résumé. No inventing. No keyword stuffing."
         dark
+        curve="right"
         C={C}
         wide
         animationOnly={!SHOW_LANDING_CARDS}
@@ -991,10 +1023,11 @@ export default function LandingPage() {
       <LandingPreviewSection
         id="product-tour"
         eyebrow="Tailor to the role"
-        title="Match the job, close keyword gaps, export."
-        desc="Paste a posting, score your fit, apply fixes across bullets and keywords, then download a PDF that matches the preview."
+        title="Paste the job description. Close every gap. Export."
+        desc="Score your fit against the posting, fix missing keywords across your bullets, then export an ATS-safe PDF that matches the preview exactly."
         C={C}
         bg={C.surface}
+        curve="left"
         wide
         animationOnly={!SHOW_LANDING_CARDS}
         ctaLabel="Tailor my résumé now"
@@ -1003,22 +1036,42 @@ export default function LandingPage() {
         <VariantD embedded />
       </LandingPreviewSection>
 
-      {/* ───────────── Templates showcase ───────────────────── */}
-      <section id="templates" className="lp-sec" style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "100px 40px", scrollMarginTop: 76 }}>
+      {/* ───────────── Templates showcase — gold block ───────── */}
+      <section id="templates" className="lp-sec" style={{ background: T.blockGold, borderRadius: "0 clamp(36px, 8vw, 110px) 0 0", padding: "108px 40px 100px", scrollMarginTop: 120 }}>
         <div style={{ maxWidth: 1080, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 14px" }}>Templates</p>
-            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", color: C.ink, margin: "0 0 14px" }}>
-              Start from a recruiter-ready template.
+            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: "#7a5416", textTransform: "uppercase", margin: "0 0 14px" }}>Templates</p>
+            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", color: T.blockGoldInk, margin: "0 0 14px" }}>
+              Clean enough for recruiters. Plain enough for the ATS.
             </h2>
-            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
-              Pick a technical, creative, or CV layout, tailor it to the job, and export an ATS-safe PDF — no design work required.
+            <p style={{ fontSize: "var(--font-size-lg)", color: "#6b4e1c", lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
+              Pick a technical, creative, or CV layout, tailor it to the job description, and export an ATS-safe PDF. No design skills required.
             </p>
           </div>
-          <div className="lp-templates-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>
-            {RESUME_TEMPLATES.map((t) => (
-              <TemplateCard key={t.name} t={t} C={C} dark={dark} />
-            ))}
+          <Reveal>
+            <div className="lp-templates-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>
+              {RESUME_TEMPLATES.map((t) => (
+                <TemplateCard key={t.name} t={t} C={C} dark={dark} />
+              ))}
+            </div>
+          </Reveal>
+          <div style={{ textAlign: "center", marginTop: 42 }}>
+            <button
+              onClick={() => { window.location.href = "/template-builder"; }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "14px 30px",
+                background: T.blockGoldInk, color: T.blockGold,
+                border: "none", borderRadius: 999,
+                fontSize: 15, fontWeight: 800, letterSpacing: -0.2,
+                cursor: "pointer", fontFamily: "inherit",
+                transition: "transform 0.15s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ""; }}
+            >
+              Start from a free template <span style={{ fontSize: 17 }}>→</span>
+            </button>
           </div>
         </div>
       </section>
@@ -1123,7 +1176,9 @@ export default function LandingPage() {
       </section>
 
       {/* ───────────── Post-logos CTA nudge ─────────────────── */}
-      <div style={{ background: C.bg2, borderBottom: `1px solid ${C.border}`, padding: "36px 40px", textAlign: "center" }}>
+      {/* Sits on the page ground (C.bg, no hairline) so the interview block's
+          curved corner directly below carves out of clean matching whitespace. */}
+      <div style={{ background: C.bg, padding: "36px 40px 76px", textAlign: "center" }}>
         <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, margin: "0 0 18px", fontWeight: 500 }}>
           Is your résumé ready for these companies?
         </p>
@@ -1132,29 +1187,33 @@ export default function LandingPage() {
           style={{
             display: "inline-flex", alignItems: "center", gap: 8,
             padding: "14px 32px",
-            background: T.blue, color: "#fff",
-            border: "none", borderRadius: 12,
-            fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
+            background: T.hot, color: T.hotInk,
+            border: "none", borderRadius: 999,
+            fontSize: 16, fontWeight: 800, letterSpacing: -0.2,
             cursor: "pointer", fontFamily: "inherit",
-            boxShadow: "0 4px 20px rgba(37,99,235,0.35)",
-            transition: "transform 0.15s, box-shadow 0.15s",
+            boxShadow: "0 10px 26px -8px rgba(212,119,47,0.6)",
+            transition: "transform 0.15s, background 0.15s",
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
             el.style.transform = "translateY(-2px)";
-            el.style.boxShadow = "0 8px 28px rgba(37,99,235,0.5)";
+            el.style.background = T.hotHover;
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement;
             el.style.transform = "";
-            el.style.boxShadow = "0 4px 20px rgba(37,99,235,0.35)";
+            el.style.background = T.hot;
           }}
         >
           Check my résumé score — it&apos;s free <span style={{ fontSize: 18 }}>→</span>
         </button>
       </div>
 
-      {/* ───────────── Interview coaching announcement strip ── */}
+      {/* ───────────── Interview coaching announcement strip ──
+          Parked for now (stacked bands cluttered the reviews→interview seam,
+          and the interview block below announces the feature itself).
+          Re-enable by removing `false &&`. */}
+      {false && (
       <div role="region" aria-label="Interview coaching — now live" style={{
         background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
         padding: "14px 24px",
@@ -1167,28 +1226,30 @@ export default function LandingPage() {
           <strong style={{ fontWeight: 700 }}>Now live:</strong> AI mock interviews tailored to the exact role — part of our growing university partnerships, including <strong style={{ fontWeight: 700 }}>UMBC</strong>.
         </span>
       </div>
+      )}
 
       {/* ───────────── Interview coaching ───────────────────── */}
-      <section id="interview" className="lp-interview-sec" style={{ borderTop: `1px solid ${C.border}`, background: C.bg, padding: "100px 40px", scrollMarginTop: 76 }}>
+      <section id="interview" className="lp-interview-sec" style={{ background: T.blockGreen, borderRadius: "clamp(36px, 8vw, 110px) 0 0 0", padding: "108px 40px 100px", scrollMarginTop: 120 }}>
         <div style={{ maxWidth: 1040, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 8,
               padding: "5px 13px", marginBottom: 16,
-              background: "rgba(37,99,235,0.10)", border: `1px solid ${T.blue}28`,
-              borderRadius: 100, fontSize: 12, fontWeight: 600, color: T.blue, letterSpacing: 0.2,
+              background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.24)",
+              borderRadius: 100, fontSize: 12, fontWeight: 600, color: "#dff1ea", letterSpacing: 0.2,
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, display: "inline-block" }} />
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 8px #4ade80", display: "inline-block" }} />
               Interview coaching · Now live
             </div>
-            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: C.ink, margin: "0 0 16px" }}>
-              Land the callback, then close it.
+            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: "#ffffff", margin: "0 0 16px" }}>
+              Practice the questions this job will actually ask.
             </h2>
-            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 580, margin: "0 auto" }}>
-              Practice real questions for the exact role you&apos;re targeting and get instant, specific feedback — so you walk in interview-ready, not winging it.
+            <p style={{ fontSize: "var(--font-size-lg)", color: "#bfe0d6", lineHeight: 1.65, maxWidth: 580, margin: "0 auto" }}>
+              Resunova generates questions from the actual job posting, not a generic question bank, and gives instant, specific feedback on your answers. Walk in prepared, not winging it.
             </p>
           </div>
 
+          <Reveal>
           <div className="lp-interview-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
             {([
               { icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="19" x2="12" y2="22" /><line x1="8.5" y1="22" x2="15.5" y2="22" /></svg>), accent: T.blue, title: "AI mock interviews", desc: "Role-specific questions pulled from the exact job description you’re targeting." },
@@ -1203,6 +1264,28 @@ export default function LandingPage() {
                 <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>{desc}</p>
               </div>
             ))}
+          </div>
+          </Reveal>
+
+          {/* Interview prep finally gets a real CTA */}
+          <div style={{ textAlign: "center", marginTop: 44 }}>
+            <button
+              onClick={() => { window.location.href = "/interview-prep"; }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "15px 32px",
+                background: T.hot, color: T.hotInk,
+                border: "none", borderRadius: 999,
+                fontSize: 16, fontWeight: 800, letterSpacing: -0.2,
+                cursor: "pointer", fontFamily: "inherit",
+                boxShadow: "0 12px 30px -10px rgba(0,0,0,0.55)",
+                transition: "transform 0.15s, background 0.15s",
+              }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = T.hotHover; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.background = T.hot; }}
+            >
+              Practice my interview free <span style={{ fontSize: 18 }}>→</span>
+            </button>
           </div>
         </div>
       </section>
@@ -1246,11 +1329,11 @@ export default function LandingPage() {
       {/* ───────────── Final CTA ────────────────────────────── */}
       <section className="lp-sec" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>
         <h2 style={{ fontSize: "clamp(40px, 5.5vw, 68px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", color: "#fff", margin: "0 0 20px" }}>
-          Your next interview<br />starts here.
+          In about sixty seconds,<br />you&apos;ll know exactly what to fix.
         </h2>
         <p style={{ fontSize: "var(--font-size-xl)", color: "rgba(255,255,255,0.82)", margin: "0 0 44px", lineHeight: 1.65, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
           <strong style={{ color: "#fff", fontWeight: 700 }}>Completely free</strong>
-          {" "}— for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Tailor in 60 seconds and apply with a résumé built to earn callbacks.
+          {" "}for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Upload your résumé and apply with one built to earn callbacks.
         </p>
 
         {/* Dual CTA */}
@@ -1260,23 +1343,23 @@ export default function LandingPage() {
             style={{
               display: "inline-flex", alignItems: "center", gap: 10,
               padding: "18px 40px",
-              background: "#fff", color: T.blue,
-              border: "none", borderRadius: 14,
+              background: T.hot, color: T.hotInk,
+              border: "none", borderRadius: 999,
               fontSize: 18, fontWeight: 800, letterSpacing: -0.3,
               cursor: "pointer", fontFamily: "inherit",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.20)",
-              transition: "transform 0.15s, box-shadow 0.15s",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+              transition: "transform 0.15s, background 0.15s",
               whiteSpace: "nowrap",
             }}
             onMouseEnter={e => {
               const el = e.currentTarget as HTMLElement;
               el.style.transform = "translateY(-2px)";
-              el.style.boxShadow = "0 12px 40px rgba(0,0,0,0.28)";
+              el.style.background = T.hotHover;
             }}
             onMouseLeave={e => {
               const el = e.currentTarget as HTMLElement;
               el.style.transform = "";
-              el.style.boxShadow = "0 8px 32px rgba(0,0,0,0.20)";
+              el.style.background = T.hot;
             }}
           >
             Score my résumé free <span style={{ fontSize: 20 }}>→</span>
@@ -1599,6 +1682,7 @@ function LandingPreviewSection({
   animationOnly = false,
   ctaLabel,
   ctaHref,
+  curve,
   C,
   children,
 }: {
@@ -1612,6 +1696,8 @@ function LandingPreviewSection({
   animationOnly?: boolean;
   ctaLabel?: string;
   ctaHref?: string;
+  /** Teal-style curved section opening: large top corner on this side. */
+  curve?: "left" | "right";
   C: Record<string, string>;
   children: React.ReactNode;
 }) {
@@ -1619,10 +1705,11 @@ function LandingPreviewSection({
     <section
       id={id}
       style={{
-        padding: animationOnly ? "80px 40px" : "100px 40px",
+        padding: animationOnly ? "88px 40px" : "108px 40px 100px",
         background: bg ?? (dark ? "#0f172a" : C.bg2),
-        borderTop: dark ? undefined : `1px solid ${C.border}`,
-        scrollMarginTop: 76,
+        borderTop: dark || curve ? undefined : `1px solid ${C.border}`,
+        borderRadius: curve === "left" ? "clamp(36px, 8vw, 110px) 0 0 0" : curve === "right" ? "0 clamp(36px, 8vw, 110px) 0 0" : undefined,
+        scrollMarginTop: 120,
       }}
     >
       <div style={{ maxWidth: wide ? 960 : 800, margin: "0 auto", textAlign: animationOnly ? "center" : undefined }}>
@@ -1648,32 +1735,32 @@ function LandingPreviewSection({
             maxWidth: animationOnly ? 520 : 560,
           }}>{desc}</p>
         ) : null}
-        {children}
+        <Reveal>{children}</Reveal>
         {ctaLabel && ctaHref && (
           <div style={{ marginTop: 36, textAlign: animationOnly ? "center" : undefined }}>
             <button
               onClick={() => { ctaHref === "/?view=analyze" ? goToFreeScan() : (window.location.href = ctaHref); }}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
-                padding: "13px 28px",
-                background: dark ? "rgba(255,255,255,0.10)" : T.blue,
-                color: "#fff",
-                border: dark ? "1.5px solid rgba(255,255,255,0.20)" : "none",
-                borderRadius: 12,
-                fontSize: 15, fontWeight: 700, letterSpacing: -0.2,
+                padding: "14px 30px",
+                background: T.hot,
+                color: T.hotInk,
+                border: "none",
+                borderRadius: 999,
+                fontSize: 15, fontWeight: 800, letterSpacing: -0.2,
                 cursor: "pointer", fontFamily: "inherit",
-                boxShadow: dark ? "none" : "0 4px 20px rgba(37,99,235,0.35)",
-                transition: "transform 0.15s, box-shadow 0.15s",
+                boxShadow: "0 10px 26px -8px rgba(212,119,47,0.6)",
+                transition: "transform 0.15s, background 0.15s",
               }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement;
                 el.style.transform = "translateY(-1px)";
-                el.style.boxShadow = dark ? "none" : "0 8px 28px rgba(37,99,235,0.45)";
+                el.style.background = T.hotHover;
               }}
               onMouseLeave={e => {
                 const el = e.currentTarget as HTMLElement;
                 el.style.transform = "";
-                el.style.boxShadow = dark ? "none" : "0 4px 20px rgba(37,99,235,0.35)";
+                el.style.background = T.hot;
               }}
             >
               {ctaLabel} <span style={{ fontSize: 17 }}>→</span>
@@ -1744,11 +1831,29 @@ function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, st
   const cardTransform = stage === "enter" ? "translateY(48px)" : stage === "leave" ? "translateY(-48px)" : "translateY(0)";
   const cardOpacity = stage === "enter" || stage === "leave" ? 0 : 1;
 
+  // Next roles in the queue — peek out behind the active card with real info
+  // (logo, title, match) instead of blank slabs, and rotate with the demo.
+  const next1 = jobs[(idx + 1) % jobs.length];
+  const next2 = jobs[(idx + 2) % jobs.length];
+
+  const queueRow = (q: JobCard) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 14px" }}>
+      <div style={{ width: 22, height: 22, borderRadius: 6, background: C.bg2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transform: "scale(0.82)" }}>{q.logo}</div>
+      <span style={{ fontSize: 12.5, fontWeight: 650, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{q.title}</span>
+      <span style={{ fontSize: 11.5, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{q.company}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{q.low} match</span>
+    </div>
+  );
+
   return (
-    <div style={{ position: "relative", minHeight: 250, display: "flex", alignItems: "center" }}>
-      {/* Ghost stack behind for depth (suggests a queue of roles) */}
-      <div aria-hidden style={{ position: "absolute", left: 26, right: 26, top: 32, height: 168, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.45 }} />
-      <div aria-hidden style={{ position: "absolute", left: 14, right: 14, top: 17, height: 184, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.7 }} />
+    <div style={{ position: "relative", paddingTop: 62 }}>
+      {/* Up-next queue behind the active card — top strip of each stays visible */}
+      <div aria-hidden style={{ position: "absolute", left: 26, right: 26, top: 0, height: 72, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.55, overflow: "hidden" }}>
+        {queueRow(next2)}
+      </div>
+      <div aria-hidden style={{ position: "absolute", left: 13, right: 13, top: 30, height: 72, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.8, overflow: "hidden" }}>
+        {queueRow(next1)}
+      </div>
 
       <div style={{
         position: "relative", width: "100%",
@@ -1857,48 +1962,63 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
     { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z" fill="#1877F2"/></svg>, title: "Product Manager", company: "Meta · Menlo Park · Full-time", match: 85, low: 41, target: false, featured: false, opacity: 0.62 },
   ];
 
+  // Committed dark-indigo block: same in both themes, so copy colors are fixed
+  // (not theme vars) and the companies rail gets a translucent-on-indigo C map.
+  const ink = "#ffffff";
+  const soft = "#c6cdf5";
+  const dim = "#9daaf0";
+  const onIndigoC: Record<string, string> = {
+    ...C,
+    ink,
+    muted: soft,
+    border: "rgba(255,255,255,0.20)",
+    surface: "rgba(255,255,255,0.08)",
+    bg2: "rgba(255,255,255,0.10)",
+  };
+
   return (
-    <section id="jobs" style={{ background: C.bg2, borderTop: `1px solid ${C.border}`, scrollMarginTop: 76 }}>
-      <div className="lp-jobs-band" style={{ padding: "100px 40px", maxWidth: 1200, margin: "0 auto" }}>
+    <section id="jobs" style={{ background: T.blockIndigo, borderRadius: "clamp(36px, 8vw, 110px) 0 0 0", scrollMarginTop: 120 }}>
+      <div className="lp-jobs-band" style={{ padding: "110px 40px 90px", maxWidth: 1200, margin: "0 auto" }}>
         <div className="lp-jobs-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
 
           {/* Left — copy + features */}
+          <Reveal dir="left">
           <div>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 8,
               padding: "5px 13px", marginBottom: 18,
-              background: "rgba(37,99,235,0.10)", border: `1px solid ${T.blue}28`,
-              borderRadius: 100, fontSize: 12, fontWeight: 600, color: T.blue, letterSpacing: 0.2,
+              background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.24)",
+              borderRadius: 100, fontSize: 12, fontWeight: 600, color: ink, letterSpacing: 0.2,
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a", boxShadow: "0 0 8px #16a34a", display: "inline-block" }} />
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 8px #4ade80", display: "inline-block" }} />
               New · Job matching
             </div>
-            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 14px" }}>
+            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: dim, textTransform: "uppercase", margin: "0 0 14px" }}>
               Your job search, upgraded
             </p>
-            <h2 style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 20px", color: C.ink }}>
-              Find jobs that fit —<br />before you apply.
+            <h2 style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 20px", color: ink }}>
+              A job board that<br />reads your résumé.
             </h2>
-            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.7, margin: "0 0 24px", maxWidth: 460 }}>
-              Search a feed tuned to your résumé, see your match before you apply, tailor in one click, and track every application — without leaving Resunova.
+            <p style={{ fontSize: "var(--font-size-lg)", color: soft, lineHeight: 1.7, margin: "0 0 24px", maxWidth: 460 }}>
+              Browse a feed with disclosed salaries and H-1B sponsor data where postings share them. See your match score before you apply, tailor on the spot, and track every application in one place.
             </p>
 
             {/* Scale stat — a number that lands. Round + under the true total, refreshed daily. */}
             <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 40 }}>
-              <span style={{ fontSize: "clamp(30px, 4.5vw, 44px)", fontWeight: 800, color: T.blue, letterSpacing: "-0.03em", lineHeight: 1 }}>250,000+</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>jobs on the board</span>
-              <span style={{ fontSize: 13, color: C.muted }}>· refreshed daily</span>
+              <span style={{ fontSize: "clamp(30px, 4.5vw, 44px)", fontWeight: 800, color: T.hot, letterSpacing: "-0.03em", lineHeight: 1 }}>250,000+</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: ink }}>jobs on the board</span>
+              <span style={{ fontSize: 13, color: dim }}>· refreshed daily</span>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 40 }}>
-              {features.map(({ svg, bg, color, title, desc }) => (
+              {features.map(({ svg, title, desc }) => (
                 <div key={title} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, color }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, color: "#fff" }}>
                     {svg}
                   </div>
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, marginBottom: 4 }}>{title}</div>
-                    <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>{desc}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: ink, marginBottom: 4 }}>{title}</div>
+                    <div style={{ fontSize: 14, color: soft, lineHeight: 1.6 }}>{desc}</div>
                   </div>
                 </div>
               ))}
@@ -1908,27 +2028,32 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
               onClick={() => { window.location.href = "/?view=jobs"; }}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
-                padding: "14px 28px",
-                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                color: "#fff", border: "none", borderRadius: 12,
-                fontSize: "var(--font-size-base)", fontWeight: 700,
+                padding: "14px 30px",
+                background: T.hot,
+                color: T.hotInk, border: "none", borderRadius: 999,
+                fontSize: "var(--font-size-base)", fontWeight: 800,
                 cursor: "pointer", fontFamily: "inherit",
-                boxShadow: "0 4px 20px rgba(37,99,235,0.35)",
-                transition: "transform 0.15s, box-shadow 0.15s",
+                boxShadow: "0 10px 26px -8px rgba(0,0,0,0.5)",
+                transition: "transform 0.15s, background 0.15s",
               }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.boxShadow = "0 8px 28px rgba(37,99,235,0.45)"; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.boxShadow = "0 4px 20px rgba(37,99,235,0.35)"; }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = T.hotHover; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.background = T.hot; }}
             >
-              Browse matched jobs <span style={{ fontSize: 18 }}>→</span>
+              Browse 250,000+ jobs <span style={{ fontSize: 18 }}>→</span>
             </button>
           </div>
+          </Reveal>
 
           {/* Right — self-playing apply demo (cycles roles, taps Apply, slides up) */}
-          <JobApplyFeed jobs={jobs} C={C} dark={dark} />
+          <Reveal dir="right" delay={90}>
+            <JobApplyFeed jobs={jobs} C={C} dark={dark} />
+          </Reveal>
         </div>
 
-        {/* Top companies hiring — live, server-cached counts; renders nothing if the API is unavailable. */}
-        <LandingTopCompanies C={C} accent={T.blue} />
+        {/* Top companies hiring — live counts as an auto-scrolling marquee. */}
+        <Reveal delay={120}>
+          <LandingTopCompanies C={onIndigoC} accent={T.hot} marquee />
+        </Reveal>
       </div>
     </section>
   );
