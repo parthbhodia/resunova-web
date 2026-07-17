@@ -220,7 +220,8 @@ export default function SalaryTransparencyBySeniorityPage() {
           The data shows the pattern, not the motive, but three explanations fit what we see:
         </p>
         <p style={{ margin: "0 0 12px" }}>
-          <strong>Negotiation leverage.</strong> Senior compensation has more room to move, and a printed range
+          <strong>Negotiation leverage.</strong>{" "}
+          Senior compensation has more room to move, and a printed range
           anchors the conversation. Keeping it dark preserves the employer&apos;s ability to pay what the specific
           candidate will accept, which is precisely why candidates hate it.
         </p>

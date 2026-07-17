@@ -11,6 +11,15 @@ export type BlogPostMeta = {
 
 export const BLOG_POSTS: BlogPostMeta[] = [
   {
+    slug: "linkedin-applicant-count-clicks-not-applications",
+    title: "LinkedIn's Applicant Count Is Measuring Clicks, Not Applications",
+    description:
+      "For postings that redirect to a company's own site, LinkedIn keeps no record of who applied. Add the 42% who don't meet requirements and the median posting's 13 hard requirements, and '127 applicants' is a much smaller number of real competitors.",
+    readMinutes: 6,
+    tag: "Data",
+    publishedAt: "2026-07-16",
+  },
+  {
     slug: "ghost-jobs-duplicate-postings",
     title: "We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates.",
     description:

@@ -222,7 +222,8 @@ export default function Sp100TechHiringPage() {
 
       <Section title="Methodology and honest caveats">
         <p style={{ margin: "0 0 10px" }}>
-          <strong>Source.</strong> Live postings pulled directly from each company&apos;s public ATS or career-site API,
+          <strong>Source.</strong>{" "}
+          Live postings pulled directly from each company&apos;s public ATS or career-site API,
           refreshed several times daily, deduplicated by JD content hash. This cut: ~50 S&P 100 members, 13,128 live
           openings, 2,960 software/data roles as of July 5, 2026.
         </p>
@@ -236,7 +237,8 @@ export default function Sp100TechHiringPage() {
           denominators are quoted above.
         </p>
         <p style={{ margin: "0 0 10px" }}>
-          <strong>What is missing.</strong> Apple, Google, Meta, and Microsoft post on closed portals our pipeline does not
+          <strong>What is missing.</strong>{" "}
+          Apple, Google, Meta, and Microsoft post on closed portals our pipeline does not
           cover, so they are excluded rather than estimated. This is each company&apos;s public careers pipeline, not every
           internal req.
         </p>
