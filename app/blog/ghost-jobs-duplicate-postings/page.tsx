@@ -218,7 +218,8 @@ export default function GhostJobsDuplicatePostingsPage() {
           2026-07-02. They describe that event, not a permanent daily rate.
         </p>
         <p style={{ margin: "0 0 10px" }}>
-          <strong>The current numbers.</strong> All queried live against the production database on 2026-07-14. The
+          <strong>The current numbers.</strong>{" "}
+          All queried live against the production database on 2026-07-14. The
           active count and duplicate rate oscillate with the crawl cycle, so we quote both ends: ~170,000 active US
           postings and a 2.8% duplicate rate measured a few hours after a dedupe pass; an 11.9% duplicate rate
           measured mid-crawl the same day, before that crawl&apos;s pass ran. The ~23,000-per-scan collapse figure
@@ -231,7 +232,8 @@ export default function GhostJobsDuplicatePostingsPage() {
           higher than what we report.
         </p>
         <p style={{ margin: 0 }}>
-          <strong>Source.</strong> Postings pulled directly from each company&apos;s public ATS or career-site API.
+          <strong>Source.</strong>{" "}
+          Postings pulled directly from each company&apos;s public ATS or career-site API.
           Deduping runs server-side after every scan, several times a day.
         </p>
       </Section>
