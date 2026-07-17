@@ -1831,11 +1831,29 @@ function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, st
   const cardTransform = stage === "enter" ? "translateY(48px)" : stage === "leave" ? "translateY(-48px)" : "translateY(0)";
   const cardOpacity = stage === "enter" || stage === "leave" ? 0 : 1;
 
+  // Next roles in the queue — peek out behind the active card with real info
+  // (logo, title, match) instead of blank slabs, and rotate with the demo.
+  const next1 = jobs[(idx + 1) % jobs.length];
+  const next2 = jobs[(idx + 2) % jobs.length];
+
+  const queueRow = (q: JobCard) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 14px" }}>
+      <div style={{ width: 22, height: 22, borderRadius: 6, background: C.bg2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transform: "scale(0.82)" }}>{q.logo}</div>
+      <span style={{ fontSize: 12.5, fontWeight: 650, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{q.title}</span>
+      <span style={{ fontSize: 11.5, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{q.company}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{q.low} match</span>
+    </div>
+  );
+
   return (
-    <div style={{ position: "relative", minHeight: 250, display: "flex", alignItems: "center" }}>
-      {/* Ghost stack behind for depth (suggests a queue of roles) */}
-      <div aria-hidden style={{ position: "absolute", left: 26, right: 26, top: 32, height: 168, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.45 }} />
-      <div aria-hidden style={{ position: "absolute", left: 14, right: 14, top: 17, height: 184, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.7 }} />
+    <div style={{ position: "relative", paddingTop: 62 }}>
+      {/* Up-next queue behind the active card — top strip of each stays visible */}
+      <div aria-hidden style={{ position: "absolute", left: 26, right: 26, top: 0, height: 72, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.55, overflow: "hidden" }}>
+        {queueRow(next2)}
+      </div>
+      <div aria-hidden style={{ position: "absolute", left: 13, right: 13, top: 30, height: 72, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.8, overflow: "hidden" }}>
+        {queueRow(next1)}
+      </div>
 
       <div style={{
         position: "relative", width: "100%",
