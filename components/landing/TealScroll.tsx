@@ -30,12 +30,19 @@ export function TealScrollStyles() {
         .lp-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
       }
 
-      .lp-featnav { position: sticky; top: 66px; z-index: 60; display: flex; justify-content: center; padding: 0 16px; margin: -26px 0 0; pointer-events: none; }
+      /* Fixed, not sticky: an ancestor with overflow-x:hidden (.lp-main) breaks
+         position:sticky, so the bar floats via position:fixed and slides in/out
+         based on whether a product section is on screen. */
+      .lp-featnav { position: fixed; top: 68px; left: 0; right: 0; z-index: 70; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; transition: transform .35s cubic-bezier(0.22, 1, 0.36, 1), opacity .28s ease; }
+      .lp-featnav[data-show="false"] { opacity: 0; transform: translateY(-18px); }
+      .lp-featnav[data-show="false"] .lp-featnav-inner { pointer-events: none; }
+      .lp-featnav[data-show="true"] { opacity: 1; transform: none; }
       .lp-featnav-inner { pointer-events: auto; display: inline-flex; gap: 2px; align-items: stretch; border-radius: 999px; padding: 5px; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
       .lp-featnav-inner::-webkit-scrollbar { display: none; }
       .lp-featnav-btn { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; border: none; background: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 650; letter-spacing: -0.1px; padding: 9px 15px; border-radius: 999px; transition: background .18s, color .18s; }
       .lp-featnav-btn svg { flex-shrink: 0; }
-      @media (max-width: 640px) { .lp-featnav { top: 58px; } .lp-featnav-btn { font-size: 12px; padding: 8px 11px; } .lp-featnav-btn svg { display: none; } }
+      @media (max-width: 640px) { .lp-featnav { top: 60px; } .lp-featnav-btn { font-size: 12px; padding: 8px 11px; } .lp-featnav-btn svg { display: none; } }
+      @media (prefers-reduced-motion: reduce) { .lp-featnav { transition: opacity .2s ease; } .lp-featnav[data-show="false"] { transform: none; } }
 
       .lp-comarquee { overflow: hidden; position: relative; }
       .lp-comarquee-row { display: flex; gap: 12px; width: max-content; animation: lpMarqueeX 42s linear infinite; }
@@ -105,15 +112,17 @@ export function FloatingFeatureNav({
   accent: string;
 }) {
   const [active, setActive] = useState<string>(items[0]?.id ?? "");
+  const [show, setShow] = useState(false);
 
   useEffect(() => {
     const sections = items
       .map(({ id }) => document.getElementById(id))
       .filter((el): el is HTMLElement => !!el);
     if (!sections.length) return;
-    const io = new IntersectionObserver(
+
+    // Scroll-spy: which section owns the mid-viewport band -> active pill.
+    const spy = new IntersectionObserver(
       (entries) => {
-        // Pick the most visible intersecting section (mid-viewport band).
         const hit = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
@@ -121,8 +130,26 @@ export function FloatingFeatureNav({
       },
       { rootMargin: "-30% 0px -55% 0px", threshold: [0, 0.15, 0.4] },
     );
-    sections.forEach((s) => io.observe(s));
-    return () => io.disconnect();
+
+    // Visibility: the bar floats only while any product section is on screen
+    // (slides away over the hero, reviews, FAQ, footer).
+    const onScreen = new Set<string>();
+    const vis = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) onScreen.add(e.target.id);
+          else onScreen.delete(e.target.id);
+        });
+        setShow(onScreen.size > 0);
+      },
+      // Top: clear the fixed header. Bottom: a section only counts once it has
+      // climbed into the upper 70% of the viewport, so the bar stays hidden
+      // while the hero is on screen and glides in as the first block arrives.
+      { rootMargin: "-72px 0px -30% 0px" },
+    );
+
+    sections.forEach((s) => { spy.observe(s); vis.observe(s); });
+    return () => { spy.disconnect(); vis.disconnect(); };
   }, [items]);
 
   const scrollTo = (id: string) => {
@@ -130,7 +157,7 @@ export function FloatingFeatureNav({
   };
 
   return (
-    <nav className="lp-featnav" aria-label="Product features">
+    <nav className="lp-featnav" data-show={show ? "true" : "false"} aria-hidden={!show} aria-label="Product features">
       <div
         className="lp-featnav-inner"
         style={{
