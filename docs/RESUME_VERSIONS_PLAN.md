@@ -61,6 +61,86 @@ So a lot of Tsenta's model maps onto primitives we already ship. The gap is
   pieces (`template_builder_resumes`-style named persistence + the analyze
   version lineage + the WYSIWYG editor) into one switcher-driven view.
 
+#### Phase 1 backend design (concrete)
+
+Interactive mockup of the whole Phase-1 UI (switcher + "My Résumés" + New-version
+modal) rendered in the real Resunova look, with this backend section:
+**https://claude.ai/code/artifact/bae11e9f-1b56-4e98-8682-09bbbd5832c2**
+
+**Assumed defaults** (the two dismissed crux questions — changeable, but Phase 1
+is designed against these because they're the lowest-friction picks):
+- **Version home = the Resume Library** ("My Résumés"). It already aggregates all
+  four résumé kinds via `LibraryItem`, so it's the natural canonical store; the
+  switcher is that store surfaced as a dropdown on Analyze + Tailor.
+- **Data model = a new unified `resume_versions` table** (not extending
+  `resume_analyses`), because the analysis table is an immutable append-only scan
+  log with **no UPDATE RLS by design** and every row assumes a score — a version
+  must be *editable* and exist *before* any scan.
+
+**The core table (migration `037_resume_versions.sql`)** — the editable object;
+`resume_analyses` stays exactly as-is (the immutable scan log). Mirrors the
+root-trigger from 034 and the owner-only RLS from 036 (but with UPDATE, since
+this table IS editable):
+
+```sql
+create table if not exists public.resume_versions (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  name          text not null default 'Untitled résumé',
+  -- git-like lineage (same shape as resume_analyses 034)
+  root_id       uuid,                     -- groups every version of one résumé
+  parent_id     uuid references public.resume_versions(id) on delete set null,
+  version       int  not null default 1,  -- ordinal within a root (v1, v2…)
+  -- the résumé itself (what the WYSIWYG editor reads/writes)
+  structured    jsonb not null default '{}'::jsonb,  -- structuredResume / ResumeDocModel
+  extracted_text text,                     -- synthesized flat text for scoring
+  -- provenance + per-version JD context (Phase 2 tailoring writes jd_*)
+  origin        text not null default 'upload',  -- upload|duplicate|profile|tailor|manual
+  source_pdf_url text,
+  jd_text text, jd_company text, jd_title text,
+  -- cached for the list; real scores live in resume_analyses
+  last_score int, last_score_source text,  -- llm|estimate|null
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+-- + resume_versions_set_root() trigger (verbatim from 034)
+-- + indexes (user_id,root_id,version) and (user_id,updated_at desc)
+-- + owner-only RLS: select/insert/UPDATE/delete using (auth.uid() = user_id)
+
+-- link each scan back to the version it scored:
+alter table public.resume_analyses
+  add column if not exists version_id uuid
+  references public.resume_versions(id) on delete set null;
+```
+
+**Relationship:** `resume_versions` = the editable doc; `resume_analyses` = 0..N
+immutable scans per version (linked by `version_id`), which also cache
+`last_score` back onto the version for list display. The honesty-pipeline
+snapshots stay append-only and untouched — an invariant.
+
+**Create paths** (all write one `resume_versions` row, **zero LLM**):
+
+| Path | Source | Row written |
+|---|---|---|
+| Duplicate | an existing version's `structured` | same `root_id`, `version=max+1`, `origin='duplicate'` |
+| Import file | `/api/upload-resume` → `structuredResume` | new root, `version=1`, `origin='upload'` |
+| From Profile | `user_extracted_profiles` → structured | new root, `version=1`, `origin='profile'` |
+| Save-as-version | applied edits from Analyze/Tailor | child of active version, `version=max+1` |
+
+**Read/write surface — client-direct via RLS** (same pattern the app already uses
+for `resume_analyses` + `template_builder_resumes`; almost no new Python). New
+`lib/resumeVersions.ts`: `listVersions()` (grouped by `root_id`, reusing
+`groupAnalysesByRoot`'s shape), `createVersion(input)` (the 4 paths),
+`updateVersion(id, patch)` (edit-without-rescan → a real UPDATE),
+`saveAsChildVersion(parent, structured, name)`, `setDefaultVersion(id)`,
+`deleteVersion(id)`.
+
+**The only backend (Python) change in Phase 1:** thread an optional `version_id`
+through `/api/analyze-rescore` and `/api/analyze-upload` so a scan is stamped onto
+the version it scored and returns `last_score` for the client to cache. Nothing
+else in the analyze/extract/export pipeline changes.
+
 ### Phase 2 — Per-JD tailoring on a version (no rescan)
 - "Tailor this version to a JD" applies the existing gap-fix / keyword pass to
   the *active version's* structured doc in place (we already have the Tailor
