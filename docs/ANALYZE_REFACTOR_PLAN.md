@@ -86,7 +86,27 @@ verification at each step.
   loop** — the center fix panel shows the rewrite + Apply/Copy/Edit, and the
   preview highlights the category's bullets in sync; "Save as version" button
   present; no page errors. tsc + 251 vitest + `next build` clean.
-- **Remaining (optional, deferred): the `useAnalyzeWorkspace()` hook.**
+- **Hook extraction (2026-07-16, LIVE-VERIFIED): realized as composed sub-hooks,
+  not one mega-hook.** A single `useAnalyzeWorkspace()` returning ~100 values
+  would just relocate the mess, so the state is being peeled into cohesive,
+  independently-testable hooks instead:
+  - `components/analyze/useAnalyzeSession.ts` — user identity (userId/userEmail/
+    isAnon), the analyze-history list (azHistory/loadingHistory), the scan quota
+    (scansRemaining), and the on-mount bootstrap effect (Supabase → localStorage
+    fallback). Zero-argument; returns `setAzHistory`/`setScansRemaining` because
+    scan/restore/delete/save-version flows mutate them.
+  - `components/analyze/useAnalyzeLoaderProgress.ts` — loader step/tip indices +
+    the timer effect (`(loading, jd)` in, `{loadingMsg, loadingTipIdx}` out).
+  Verbatim state+effect moves. Live-verified on the served static export: anon
+  session bootstrap (history rail states), loader step 0→1 advancing across the
+  5s boundary (screenshots), the category→fix-panel edit loop, and the
+  Save-as-version local path (reads hook-owned azHistory) — no page errors.
+  AnalyzeResume 3378 → 3313.
+- **Remaining (optional): further sub-hook peels.** The save-version /
+  edit-draft cluster was assessed and deliberately left in place — it touches
+  ~12 cross-cutting pieces of workspace state (result, scoreEstimate, draft ids,
+  selection, history), so extracting it would be parameter soup, not a cohesive
+  hook. Peel more clusters only where they come out clean like the two above.
 - Lift the store selectors + edit/rescore/category handlers out of the JSX into a
   hook. This is ~half the file and the real win, but it touches the edit/rescore
   state machine — do it last, incrementally, **live-verified** each step, ideally

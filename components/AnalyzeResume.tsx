@@ -24,15 +24,13 @@ import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromRes
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
 import { useResumeAnalyzeStore } from "@/store/resumeAnalyzeStore";
-import { getSupabaseClient, fetchAnalyses, fetchAnalysisById, insertAnalysis, createAnalysisVersion, deleteAnalysis } from "@/lib/supabase";
+import { getSupabaseClient, fetchAnalysisById, insertAnalysis, createAnalysisVersion, deleteAnalysis } from "@/lib/supabase";
 import { groupAnalysesByRoot } from "@/lib/analyzeVersions";
 import type { AnalyzeRecord } from "@/lib/supabase";
 import AnalyzePreviewPane from "@/components/AnalyzePreviewPane";
 import {
   AnalyzeUploadLanding,
   AnalyzeCoachLoader,
-  ANALYZE_LOADER_STEPS,
-  ANALYZE_COACH_TIPS,
 } from "@/components/AnalyzeExperience";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan, takeAnalyzeJd } from "@/lib/anonScan";
@@ -46,10 +44,12 @@ import {
   CATEGORY_DESCRIPTIONS, issueCategoryOf, getBulletsForCategory,
   formatExperienceTenureChip,
 } from "./analyze/analyzeViewHelpers";
-import { lsLoad, lsSave, lsPush } from "./analyze/analyzeHistoryStore";
+import { lsSave, lsPush } from "./analyze/analyzeHistoryStore";
 import { AnalyzeSidebarPinned, AnalyzeHistoryRail } from "./analyze/AnalyzeSidebar";
 import SaveToProfilePrompt from "./analyze/SaveToProfilePrompt";
 import AnalyzeImprovementPlan from "./analyze/AnalyzeImprovementPlan";
+import { useAnalyzeSession } from "./analyze/useAnalyzeSession";
+import { useAnalyzeLoaderProgress } from "./analyze/useAnalyzeLoaderProgress";
 
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -62,7 +62,6 @@ export default function AnalyzeResume() {
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
-  const [scansRemaining, setScansRemaining] = useState<number | null>(null);
   const [result, setResult]             = useState<AnalysisResult | null>(null);
   const [jd, setJd]                     = useState("");
   // A job detail's "Upload your résumé" CTA stashes that role's JD here, so the
@@ -71,8 +70,8 @@ export default function AnalyzeResume() {
     const jd0 = takeAnalyzeJd();
     if (jd0) setJd(jd0);
   }, []);
-  const [loadingMsg, setLoadingMsg]     = useState(0);
-  const [loadingTipIdx, setLoadingTipIdx] = useState(0);
+  // Loader step/tip progression while a scan runs (state + timers in the hook).
+  const { loadingMsg, loadingTipIdx } = useAnalyzeLoaderProgress(loading, jd);
   const [expandedBullets, setExpandedBullets] = useState<Record<number, boolean>>({});
   const [historyOpen, setHistoryOpen]   = useState(false);
   // Mobile/tablet: the score + category header collapses to a slim bar by
@@ -98,16 +97,17 @@ export default function AnalyzeResume() {
   const [activeEditDraftId, setActiveEditDraftId] = useState<string | null>(null);
   const [editDraftStatus, setEditDraftStatus] = useState<string | null>(null);
   const [aiRewritingIdx, setAiRewritingIdx] = useState<number | null>(null);
-  const [azHistory, setAzHistory]           = useState<AnalyzeRecord[]>([]);
-  const [userId, setUserId]                 = useState<string | null>(null);
-  const [userEmail, setUserEmail]           = useState<string | null>(null);
-  /** Signed-out visitor: first scan is free + fully unlocked; a 2nd asks to sign in. */
-  const [isAnon, setIsAnon]                 = useState(false);
+  // Session + history bootstrap (user identity, analyze history, scan quota) —
+  // state + mount effect live in the hook; scan/restore/delete/save-version
+  // flows below mutate via the returned setters.
+  const {
+    userId, userEmail, isAnon, azHistory, setAzHistory,
+    loadingHistory, scansRemaining, setScansRemaining,
+  } = useAnalyzeSession();
   const { openSignIn } = useSignInDialog();
   const { openUpgrade } = useUpgradeDialog();
   /** Show job activation widget in sidebar after a successful scan. */
   const [showJobActivation, setShowJobActivation] = useState(false);
-  const [loadingHistory, setLoadingHistory] = useState(true);
   const rewriteEdits = useResumeAnalyzeStore((s) => s.rewriteEdits);
   const patchRewrite = useResumeAnalyzeStore((s) => s.patchRewrite);
   const previewLineOverrides = useResumeAnalyzeStore((s) => s.lineOverrides);
@@ -137,53 +137,6 @@ export default function AnalyzeResume() {
     [result],
   );
 
-  // Load user + history on mount: Supabase first, localStorage fallback
-  useEffect(() => {
-    const supabase = getSupabaseClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user?.id) {
-        setIsAnon(true);
-        setLoadingHistory(false);
-        // Anonymous quota (per-IP) so the remaining count still shows.
-        fetch(apiUrl("/api/scan-limit-status"))
-          .then(r => r.json())
-          .then((data: Record<string, unknown>) => {
-            if (data.enforced && !data.unlimited && typeof data.remaining === "number") {
-              setScansRemaining(data.remaining as number);
-            }
-          })
-          .catch(() => { /* non-critical */ });
-        return;
-      }
-      setIsAnon(false);
-      setUserId(user.id);
-      setUserEmail(user.email ?? null);
-      // Seed from localStorage immediately so UI isn't empty while fetching
-      setAzHistory(lsLoad(user.id));
-      // Fetch scan quota so remaining count shows before the first scan
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        const authHeader: Record<string, string> = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-        fetch(apiUrl("/api/scan-limit-status"), { headers: authHeader })
-          .then(r => r.json())
-          .then((data: Record<string, unknown>) => {
-            if (data.enforced && !data.unlimited && typeof data.remaining === "number") {
-              setScansRemaining(data.remaining as number);
-            }
-          })
-          .catch(() => { /* non-critical */ });
-      });
-      try {
-        const rows = await fetchAnalyses(25);   // higher: version chains share the list
-        setAzHistory(rows);
-        lsSave(user.id, rows);          // keep local cache in sync
-      } catch {
-        // Network/auth error — stay on localStorage data
-      } finally {
-        setLoadingHistory(false);
-      }
-    });
-  }, []);
-
   // Anonymous flow: keep the finished scan in localStorage at all times so the
   // OAuth redirect (full page unload) can't lose it. One stash, overwritten on
   // each new anonymous result.
@@ -198,24 +151,6 @@ export default function AnalyzeResume() {
       "Resume";
     stashAnonAnalysis(label, result);
   }, [isAnon, result]);
-
-  // Cycle loader steps and coach tips while analysis runs
-  useEffect(() => {
-    if (!loading) {
-      setLoadingMsg(0);
-      setLoadingTipIdx(0);
-      return;
-    }
-    // Step delays (ms from start): reading fast, ATS medium, AI scoring slow, then hold at last step.
-    // With JD a 5th "keyword matching" step is appended.
-    const stepDelays = jd.trim() ? [5000, 13000, 25000, 38000] : [5000, 13000, 26000];
-    const stepTimers = stepDelays.map((delay, i) => setTimeout(() => setLoadingMsg(i + 1), delay));
-    const tipIv = setInterval(() => setLoadingTipIdx((t) => (t + 1) % ANALYZE_COACH_TIPS.length), 7000);
-    return () => {
-      stepTimers.forEach(clearTimeout);
-      clearInterval(tipIv);
-    };
-  }, [loading, jd]);
 
   useLayoutEffect(() => {
     if (!result) {
