@@ -4,7 +4,7 @@ import { LogoFull } from "@/components/BrandLogo";
 import { BLOG_POSTS, blogPostHref } from "@/lib/atsBlogPosts";
 
 export const metadata: Metadata = {
-  title: "Blog · Resunova",
+  title: "Blog",
   description: "ATS formatting guides and parsing research to help your résumé get found, not filtered into silence.",
   robots: { index: true, follow: true },
 };
