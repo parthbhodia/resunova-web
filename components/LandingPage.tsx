@@ -525,7 +525,7 @@ export default function LandingPage() {
           <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.4 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ display: "inline-block", verticalAlign: "-2px", marginRight: 8 }}><path d="M12 2l1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7z" /></svg>
             <strong style={{ fontWeight: 700 }}>New:</strong>
-            {" "}AI bullet rewrites + ATS scoring — scan your résumé free, no account needed.
+            {" "}AI bullet rewrites + 8-dimension résumé scoring. No account, no paywall.
             {" "}
             <button
               onClick={() => { goToFreeScan(); }}
@@ -774,8 +774,8 @@ export default function LandingPage() {
             fontWeight: 600, letterSpacing: 0.2, maxWidth: "100%",
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.blue, display: "inline-block", flexShrink: 0 }} />
-            <span className="lp-hero-sub-full">Completely free · For students &amp; the community · AI-powered · ATS-safe</span>
-            <span className="lp-hero-sub-short">Free forever · AI-powered · ATS-safe</span>
+            <span className="lp-hero-sub-full">Completely free · No account to scan · Built for students &amp; career switchers · ATS-safe</span>
+            <span className="lp-hero-sub-short">Completely free · No account · ATS-safe</span>
           </div>
 
           {/* Headline — DM Sans 800. Full on desktop; punchy 2-liner on phones. */}
@@ -785,26 +785,27 @@ export default function LandingPage() {
             color: C.ink, margin: "0 0 28px",
           }}>
             <span className="lp-hero-sub-full">
-              Your résumé,<br />
-              <span style={{ color: T.blue }}>finally fluent</span><br />
-              in the language<br />of opportunity.
+              Score your résumé.<br />
+              Fix the weak bullets.<br />
+              Tailor it to any job.<br />
+              <span style={{ color: T.blue }}>Free. Actually free.</span>
             </span>
             <span className="lp-hero-sub-short">
-              Your résumé,<br />
-              <span style={{ color: T.blue }}>finally fluent.</span>
+              Score, fix, and tailor<br />your résumé.{" "}
+              <span style={{ color: T.blue }}>Actually free.</span>
             </span>
           </h1>
 
           <p style={{ fontSize: "var(--font-size-xl)", color: C.muted, lineHeight: 1.72, maxWidth: 480, margin: "0 0 44px", letterSpacing: -0.15 }}>
             {/* Full copy on desktop; trimmed on phones. Key phrases highlighted. */}
             <span className="lp-hero-sub-full">
-              Upload your résumé for an <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>bullet-by-bullet AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>under 60 seconds</b>.{" "}
+              Upload your résumé, get an <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>honest bullet-by-bullet rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
             </span>
             <span className="lp-hero-sub-short">
-              An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
+              An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>honest rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
             </span>
-            <strong style={{ color: C.ink, fontWeight: 700 }}>No account needed.</strong>{" "}
-            <strong style={{ color: "#16a34a", fontWeight: 700 }}>Completely free.</strong>
+            <strong style={{ color: C.ink, fontWeight: 700 }}>No account.</strong>{" "}
+            <strong style={{ color: "#16a34a", fontWeight: 700 }}>No paywall.</strong>
           </p>
 
           {/* CTA row */}
@@ -845,7 +846,7 @@ export default function LandingPage() {
 
             {/* Trust micro-copy */}
             <p style={{ fontSize: 13, color: C.muted, margin: 0, letterSpacing: -0.1 }}>
-              No account needed to score &nbsp;·&nbsp; Sign in to save your analysis &nbsp;·&nbsp; Always free
+              No account needed to scan &nbsp;·&nbsp; Sign in only to save your analysis &nbsp;·&nbsp; Completely free
             </p>
           </div>
 
@@ -946,8 +947,8 @@ export default function LandingPage() {
       <LandingPreviewSection
         id="product-rewrite"
         eyebrow="Bullet rewrites"
-        title="Vague lines become interview-ready achievements."
-        desc="Resunova flags duty-list bullets and suggests rewrites with stronger verbs and real metrics — using only facts already on your résumé."
+        title="&quot;Responsible for&quot; never got anyone hired."
+        desc="Resunova flags weak duty-list bullets and rewrites them with stronger verbs and real numbers, using only facts already on your résumé. No inventing. No keyword stuffing."
         dark
         curve="right"
         C={C}
@@ -1022,8 +1023,8 @@ export default function LandingPage() {
       <LandingPreviewSection
         id="product-tour"
         eyebrow="Tailor to the role"
-        title="Match the job, close keyword gaps, export."
-        desc="Paste a posting, score your fit, apply fixes across bullets and keywords, then download a PDF that matches the preview."
+        title="Paste the job description. Close every gap. Export."
+        desc="Score your fit against the posting, fix missing keywords across your bullets, then export an ATS-safe PDF that matches the preview exactly."
         C={C}
         bg={C.surface}
         curve="left"
@@ -1041,10 +1042,10 @@ export default function LandingPage() {
           <div style={{ textAlign: "center", marginBottom: 52 }}>
             <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: "#7a5416", textTransform: "uppercase", margin: "0 0 14px" }}>Templates</p>
             <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", color: T.blockGoldInk, margin: "0 0 14px" }}>
-              Start from a recruiter-ready template.
+              Clean enough for recruiters. Plain enough for the ATS.
             </h2>
             <p style={{ fontSize: "var(--font-size-lg)", color: "#6b4e1c", lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
-              Pick a technical, creative, or CV layout, tailor it to the job, and export an ATS-safe PDF — no design work required.
+              Pick a technical, creative, or CV layout, tailor it to the job description, and export an ATS-safe PDF. No design skills required.
             </p>
           </div>
           <Reveal>
@@ -1069,7 +1070,7 @@ export default function LandingPage() {
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ""; }}
             >
-              Build from a template — free <span style={{ fontSize: 17 }}>→</span>
+              Start from a free template <span style={{ fontSize: 17 }}>→</span>
             </button>
           </div>
         </div>
@@ -1234,10 +1235,10 @@ export default function LandingPage() {
               Interview coaching · Now live
             </div>
             <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: "#ffffff", margin: "0 0 16px" }}>
-              Land the callback, then close it.
+              Practice the questions this job will actually ask.
             </h2>
             <p style={{ fontSize: "var(--font-size-lg)", color: "#bfe0d6", lineHeight: 1.65, maxWidth: 580, margin: "0 auto" }}>
-              Practice real questions for the exact role you&apos;re targeting and get instant, specific feedback — so you walk in interview-ready, not winging it.
+              Resunova generates questions from the actual job posting, not a generic question bank, and gives instant, specific feedback on your answers. Walk in prepared, not winging it.
             </p>
           </div>
 
@@ -1276,7 +1277,7 @@ export default function LandingPage() {
               onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = T.hotHover; }}
               onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.background = T.hot; }}
             >
-              Start interview prep — free <span style={{ fontSize: 18 }}>→</span>
+              Practice my interview free <span style={{ fontSize: 18 }}>→</span>
             </button>
           </div>
         </div>
@@ -1321,11 +1322,11 @@ export default function LandingPage() {
       {/* ───────────── Final CTA ────────────────────────────── */}
       <section className="lp-sec" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>
         <h2 style={{ fontSize: "clamp(40px, 5.5vw, 68px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", color: "#fff", margin: "0 0 20px" }}>
-          Your next interview<br />starts here.
+          In about sixty seconds,<br />you&apos;ll know exactly what to fix.
         </h2>
         <p style={{ fontSize: "var(--font-size-xl)", color: "rgba(255,255,255,0.82)", margin: "0 0 44px", lineHeight: 1.65, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
           <strong style={{ color: "#fff", fontWeight: 700 }}>Completely free</strong>
-          {" "}— for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Tailor in 60 seconds and apply with a résumé built to earn callbacks.
+          {" "}for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Upload your résumé and apply with one built to earn callbacks.
         </p>
 
         {/* Dual CTA */}
@@ -1971,10 +1972,10 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
               Your job search, upgraded
             </p>
             <h2 style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 20px", color: ink }}>
-              Companies have recruiters.<br />You have Resunova.
+              A job board that<br />reads your résumé.
             </h2>
             <p style={{ fontSize: "var(--font-size-lg)", color: soft, lineHeight: 1.7, margin: "0 0 24px", maxWidth: 460 }}>
-              Search a feed tuned to your résumé, see your match before you apply, tailor in one click, and track every application — without leaving Resunova.
+              Browse a feed with disclosed salaries and H-1B sponsor data where postings share them. See your match score before you apply, tailor on the spot, and track every application in one place.
             </p>
 
             {/* Scale stat — a number that lands. Round + under the true total, refreshed daily. */}
@@ -2013,7 +2014,7 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
               onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = T.hotHover; }}
               onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.background = T.hot; }}
             >
-              Browse matched jobs <span style={{ fontSize: 18 }}>→</span>
+              Browse 250,000+ jobs <span style={{ fontSize: 18 }}>→</span>
             </button>
           </div>
           </Reveal>
