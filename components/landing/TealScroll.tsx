@@ -33,7 +33,7 @@ export function TealScrollStyles() {
       /* Fixed, not sticky: an ancestor with overflow-x:hidden (.lp-main) breaks
          position:sticky, so the bar floats via position:fixed and slides in/out
          based on whether a product section is on screen. */
-      .lp-featnav { position: fixed; top: 68px; left: 0; right: 0; z-index: 70; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; transition: transform .35s cubic-bezier(0.22, 1, 0.36, 1), opacity .28s ease; }
+      .lp-featnav { position: fixed; top: 86px; left: 0; right: 0; z-index: 70; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; transition: transform .35s cubic-bezier(0.22, 1, 0.36, 1), opacity .28s ease; }
       .lp-featnav[data-show="false"] { opacity: 0; transform: translateY(-18px); }
       .lp-featnav[data-show="false"] .lp-featnav-inner { pointer-events: none; }
       .lp-featnav[data-show="true"] { opacity: 1; transform: none; }
@@ -41,7 +41,7 @@ export function TealScrollStyles() {
       .lp-featnav-inner::-webkit-scrollbar { display: none; }
       .lp-featnav-btn { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; border: none; background: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 650; letter-spacing: -0.1px; padding: 9px 15px; border-radius: 999px; transition: background .18s, color .18s; }
       .lp-featnav-btn svg { flex-shrink: 0; }
-      @media (max-width: 640px) { .lp-featnav { top: 60px; } .lp-featnav-btn { font-size: 12px; padding: 8px 11px; } .lp-featnav-btn svg { display: none; } }
+      @media (max-width: 640px) { .lp-featnav { top: 84px; } .lp-featnav-btn { font-size: 12px; padding: 8px 11px; } .lp-featnav-btn svg { display: none; } }
       @media (prefers-reduced-motion: reduce) { .lp-featnav { transition: opacity .2s ease; } .lp-featnav[data-show="false"] { transform: none; } }
 
       .lp-comarquee { overflow: hidden; position: relative; }
@@ -145,7 +145,7 @@ export function FloatingFeatureNav({
       // Top: clear the fixed header. Bottom: a section only counts once it has
       // climbed into the upper 70% of the viewport, so the bar stays hidden
       // while the hero is on screen and glides in as the first block arrives.
-      { rootMargin: "-72px 0px -30% 0px" },
+      { rootMargin: "-88px 0px -30% 0px" },
     );
 
     sections.forEach((s) => { spy.observe(s); vis.observe(s); });
