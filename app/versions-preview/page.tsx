@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { MyResumesView, NewVersionModal } from "@/components/versions/MyResumesView";
+import { VersionSwitcher } from "@/components/versions/VersionSwitcher";
 import type { ResumeVersion, ResumeVersionGroup } from "@/lib/resumeVersions";
 
 const base = (over: Partial<ResumeVersion>): ResumeVersion => ({
@@ -54,6 +55,26 @@ export default function VersionsPreview() {
   const noop = () => {};
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
+      {/* Simulated Analyze/Tailor top bar to preview where the switcher mounts */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          padding: "14px 20px",
+          borderBottom: "1px solid var(--border)",
+          maxWidth: 880,
+          margin: "0 auto",
+        }}
+      >
+        <span style={{ fontSize: 13, color: "var(--dim)", fontFamily: "var(--font-mono, monospace)" }}>Analyze ›</span>
+        <VersionSwitcher
+          groups={DEMO}
+          activeId="pm3"
+          onSelect={noop}
+          onNewVersion={() => setOpen(true)}
+        />
+      </div>
       <MyResumesView
         groups={DEMO}
         handlers={{
