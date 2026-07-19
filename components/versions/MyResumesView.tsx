@@ -117,7 +117,8 @@ const miniAccent: CSSProperties = {
 
 export interface VersionActionHandlers {
   onNewVersion: () => void;
-  onOpenAnalyze: (v: ResumeVersion) => void;
+  /** Open a version in the Editor tab (edit without re-scanning). */
+  onOpen: (v: ResumeVersion) => void;
   onTailor: (v: ResumeVersion) => void;
   onDuplicate: (v: ResumeVersion) => void;
   onSetDefault: (v: ResumeVersion) => void;
@@ -246,8 +247,8 @@ function ResumeCard({
           </div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <button style={miniAccent} onClick={() => handlers.onOpenAnalyze(head)}>
-            Open in Analyze
+          <button style={miniAccent} onClick={() => handlers.onOpen(head)}>
+            Edit
           </button>
           <button style={miniBtn} onClick={() => handlers.onTailor(head)}>
             Tailor to a job
@@ -333,10 +334,10 @@ function LineageRow({
       </span>
       <button
         style={{ ...miniBtn, padding: "4px 9px", fontSize: 11.5 }}
-        onClick={() => handlers.onOpenAnalyze(v)}
-        title="Open this version"
+        onClick={() => handlers.onOpen(v)}
+        title="Edit this version"
       >
-        Open
+        Edit
       </button>
       <span
         style={{
