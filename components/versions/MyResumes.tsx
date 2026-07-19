@@ -22,6 +22,7 @@ import {
   type ResumeVersion,
   type ResumeVersionGroup,
 } from "@/lib/resumeVersions";
+import { stashVersionForTailor, VERSION_TAILOR_URL } from "@/lib/versionTailorPrefill";
 import { MyResumesView, NewVersionModal, type NewVersionChoice } from "./MyResumesView";
 import { VersionEditor } from "./VersionEditor";
 
@@ -86,7 +87,10 @@ export default function MyResumes() {
   const listHandlers = {
     onNewVersion: () => setModalOpen(true),
     onOpen: openEditor,
-    onTailor: (v: ResumeVersion) => router.push(`/?view=builder&flow=tailor&version=${encodeURIComponent(v.id)}`),
+    onTailor: (v: ResumeVersion) => {
+      if (stashVersionForTailor(v)) router.push(VERSION_TAILOR_URL);
+      else flash("Add some résumé content before tailoring.");
+    },
     onDuplicate: async (v: ResumeVersion) => {
       setBusyId(v.id);
       try {
@@ -132,7 +136,10 @@ export default function MyResumes() {
       return r;
     },
     onViewReport: (analysisId: string) => router.push(`/?view=analyze&analysis=${encodeURIComponent(analysisId)}`),
-    onTailor: (v: ResumeVersion) => router.push(`/?view=builder&flow=tailor&version=${encodeURIComponent(v.id)}`),
+    onTailor: (v: ResumeVersion) => {
+      if (stashVersionForTailor(v)) router.push(VERSION_TAILOR_URL);
+      else flash("Add some résumé content before tailoring.");
+    },
     onDuplicate: (v: ResumeVersion) => void listHandlers.onDuplicate(v),
   };
 
