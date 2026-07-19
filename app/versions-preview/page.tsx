@@ -85,7 +85,13 @@ export default function VersionsPreview() {
           version={editing}
           groups={DEMO}
           demo
-          handlers={{ onSwitch: (v) => setEditingId(v.id), onNewVersion: () => setOpen(true), onScan: noop, onTailor: noop, onDuplicate: noop }}
+          handlers={{
+            onSwitch: (v) => setEditingId(v.id),
+            onNewVersion: () => setOpen(true),
+            onScore: async () => { await new Promise((r) => setTimeout(r, 700)); return { score: 83 }; },
+            onTailor: noop,
+            onDuplicate: noop,
+          }}
         />
       ) : (
         <MyResumesView groups={DEMO} handlers={listHandlers} />

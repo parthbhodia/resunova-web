@@ -13,6 +13,7 @@
 
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 import { getSupabaseClient } from "./supabase";
+import { apiUrl } from "./utils";
 import { dispatchResumeLibraryChanged } from "./resumeLibraryEvents";
 
 export type VersionOrigin = "upload" | "duplicate" | "profile" | "tailor" | "manual";
@@ -81,6 +82,101 @@ export function groupVersionsByRoot(versions: ResumeVersion[]): ResumeVersionGro
       new Date(a.versions[0].updatedAt).getTime(),
   );
   return groups;
+}
+
+/**
+ * Flatten a structured résumé to plain text — the `resume_text` payload for a
+ * general re-score. Deterministic + unit-tested; mirrors the section order the
+ * synthesizer uses (header → summary → experience → projects → education → skills).
+ */
+export function structuredToPlainText(s: StructuredResume | null): string {
+  if (!s) return "";
+  const lines: string[] = [];
+  if (s.full_name) lines.push(s.full_name);
+  if (s.headline) lines.push(s.headline);
+  const contact = [s.email, s.phone, s.location, s.linkedin, s.github].filter(Boolean);
+  if (contact.length) lines.push(contact.join(" · "));
+  if (s.summary) lines.push("", "SUMMARY", s.summary);
+  if (s.experience?.length) {
+    lines.push("", "EXPERIENCE");
+    for (const e of s.experience) {
+      lines.push([e.role, e.company, e.location, e.dates].filter(Boolean).join(" · "));
+      for (const b of e.bullets ?? []) if (b) lines.push(`• ${b}`);
+    }
+  }
+  if (s.projects?.length) {
+    lines.push("", "PROJECTS");
+    for (const p of s.projects) {
+      lines.push([p.name, p.tech].filter(Boolean).join(" · "));
+      for (const b of p.bullets ?? []) if (b) lines.push(`• ${b}`);
+    }
+  }
+  if (s.education?.length) {
+    lines.push("", "EDUCATION");
+    for (const ed of s.education) {
+      lines.push([ed.institution, ed.degree, ed.dates].filter(Boolean).join(" · "));
+      for (const b of ed.bullets ?? []) if (b) lines.push(`• ${b}`);
+    }
+  }
+  if (s.skills?.length) {
+    lines.push("", "SKILLS");
+    for (const sk of s.skills) lines.push(`${sk.category}: ${(sk.items ?? []).join(", ")}`);
+  }
+  return lines.join("\n").trim();
+}
+
+export interface ScoreVersionResult {
+  score: number | null;
+  limited?: boolean;
+  needsAuth?: boolean;
+  error?: string;
+}
+
+/**
+ * Score a version IN PLACE — runs the general comprehensive analysis on the
+ * version's content (no JD) via /api/analyze-rescore, then caches the resulting
+ * overallScore onto the version (last_score / last_score_source='llm'). Reuses
+ * the current edited `structured` so unsaved edits are scored. Counts against the
+ * daily scan limit (scoring IS a scan). Does NOT touch the Analyze surface.
+ */
+export async function scoreVersionInPlace(version: {
+  id: string;
+  name: string;
+  structured: StructuredResume | null;
+  extractedText: string | null;
+}): Promise<ScoreVersionResult> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.access_token) return { score: null, needsAuth: true };
+
+  const text =
+    version.extractedText && version.extractedText.trim().length >= 200
+      ? version.extractedText
+      : structuredToPlainText(version.structured);
+  if (text.trim().length < 200) {
+    return { score: null, error: "Résumé is too short to score — add more detail first." };
+  }
+
+  const resp = await fetch(apiUrl("/api/analyze-rescore"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({
+      resume_text: text,
+      structured_resume: version.structured ?? undefined,
+      source_filename: version.name || "Résumé version",
+    }),
+  });
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    if (resp.status === 429 && json?.code === "daily_scan_limit_reached") return { score: null, limited: true };
+    return { score: null, error: json?.error || `Scoring failed (HTTP ${resp.status})` };
+  }
+
+  const score = typeof json?.overallScore === "number" ? json.overallScore : null;
+  if (score != null) {
+    await updateVersion(version.id, { lastScore: score, lastScoreSource: "llm", extractedText: text });
+  }
+  return { score };
 }
 
 /* ── row mapping ────────────────────────────────────────────────── */

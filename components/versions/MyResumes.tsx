@@ -18,6 +18,7 @@ import {
   setDefaultVersion,
   deleteVersion,
   createVersion,
+  scoreVersionInPlace,
   type ResumeVersion,
   type ResumeVersionGroup,
 } from "@/lib/resumeVersions";
@@ -124,7 +125,12 @@ export default function MyResumes() {
   const editorHandlers = {
     onSwitch: (v: ResumeVersion) => setEditingId(v.id),
     onNewVersion: () => setModalOpen(true),
-    onScan: (v: ResumeVersion) => router.push(`/?view=analyze&version=${encodeURIComponent(v.id)}`),
+    onScore: async (structured: StructuredResume) => {
+      if (!editing) return { score: null as number | null };
+      const r = await scoreVersionInPlace({ id: editing.id, name: editing.name, structured, extractedText: editing.extractedText });
+      if (r.score != null) await refresh();
+      return r;
+    },
     onTailor: (v: ResumeVersion) => router.push(`/?view=builder&flow=tailor&version=${encodeURIComponent(v.id)}`),
     onDuplicate: (v: ResumeVersion) => void listHandlers.onDuplicate(v),
   };

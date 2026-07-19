@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { groupVersionsByRoot, nextOrdinal, type ResumeVersion } from "@/lib/resumeVersions";
+import { groupVersionsByRoot, nextOrdinal, structuredToPlainText, type ResumeVersion } from "@/lib/resumeVersions";
+import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 
 const v = (over: Partial<ResumeVersion>): ResumeVersion => ({
   id: "x",
@@ -67,5 +68,29 @@ describe("groupVersionsByRoot", () => {
     const groups = groupVersionsByRoot([orphan]);
     expect(groups).toHaveLength(1);
     expect(groups[0].root).toBe("O1");
+  });
+});
+
+describe("structuredToPlainText", () => {
+  const sr: StructuredResume = {
+    full_name: "Ada Lovelace", headline: "Engineer", location: "London", email: "ada@x.com",
+    phone: "", linkedin: "", github: "", summary: "Builds things.",
+    skills: [{ category: "Core", items: ["Math", "Analytical Engine"] }],
+    experience: [{ company: "Analytical Co", role: "Lead", dates: "1843", location: "London", bullets: ["Wrote the first algorithm", ""] }],
+    education: [], projects: [], extra_sections: [],
+  };
+
+  it("returns empty string for null", () => {
+    expect(structuredToPlainText(null)).toBe("");
+  });
+
+  it("flattens header, summary, experience and skills in section order, dropping empty bullets", () => {
+    const out = structuredToPlainText(sr);
+    expect(out).toContain("Ada Lovelace");
+    expect(out.indexOf("SUMMARY")).toBeLessThan(out.indexOf("EXPERIENCE"));
+    expect(out.indexOf("EXPERIENCE")).toBeLessThan(out.indexOf("SKILLS"));
+    expect(out).toContain("• Wrote the first algorithm");
+    expect(out).not.toMatch(/•\s*$/m); // no empty bullet line
+    expect(out).toContain("Core: Math, Analytical Engine");
   });
 });

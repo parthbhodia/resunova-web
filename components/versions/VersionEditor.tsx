@@ -73,7 +73,8 @@ const sectionTitle: CSSProperties = {
 export interface VersionEditorHandlers {
   onSwitch: (v: ResumeVersion) => void;
   onNewVersion: () => void;
-  onScan: (v: ResumeVersion) => void;
+  /** Score the current draft in place; returns the new overall score (or a reason). */
+  onScore: (structured: StructuredResume) => Promise<{ score: number | null; limited?: boolean; needsAuth?: boolean; error?: string }>;
   onTailor: (v: ResumeVersion) => void;
   onDuplicate: (v: ResumeVersion) => void;
 }
@@ -92,7 +93,25 @@ export function VersionEditor({
 }) {
   const [draft, setDraft] = useState<StructuredResume>(() => cloneStructured(version.structured));
   const [status, setStatus] = useState<"idle" | "dirty" | "saving" | "saved">("idle");
+  const [scoring, setScoring] = useState(false);
+  const [scoreMsg, setScoreMsg] = useState<string | null>(null);
   const saveTimer = useRef<number | null>(null);
+
+  const runScore = useCallback(async () => {
+    setScoring(true);
+    setScoreMsg(null);
+    try {
+      const r = await handlers.onScore(draft);
+      if (r.needsAuth) setScoreMsg("Sign in to score this résumé.");
+      else if (r.limited) setScoreMsg("Daily scan limit reached — try again tomorrow.");
+      else if (r.error) setScoreMsg(r.error);
+      else if (r.score != null) setScoreMsg(`Scored ${r.score}/100`);
+    } catch {
+      setScoreMsg("Couldn't score — try again.");
+    } finally {
+      setScoring(false);
+    }
+  }, [handlers, draft]);
 
   // reset the draft when the active version changes
   useEffect(() => {
@@ -165,8 +184,9 @@ export function VersionEditor({
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
         <VersionSwitcher groups={groups} activeId={version.id} onSelect={handlers.onSwitch} onNewVersion={handlers.onNewVersion} />
         <span style={{ fontSize: 12, color: "var(--dim)", minWidth: 58, fontVariantNumeric: "tabular-nums" }}>{statusLabel}</span>
+        {scoreMsg ? <span style={{ fontSize: 12.5, color: "var(--accent)", fontWeight: 560 }}>{scoreMsg}</span> : null}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <button style={btnAccent} onClick={() => handlers.onScan(version)}>Scan &amp; score</button>
+          <button style={btnAccent} onClick={runScore} disabled={scoring}>{scoring ? "Scoring…" : "Scan & score"}</button>
           <button style={btn} onClick={() => handlers.onTailor(version)}>Tailor to a job</button>
           <button style={btn} onClick={() => handlers.onDuplicate(version)}>Duplicate</button>
         </div>
