@@ -44,6 +44,7 @@ export type AppSidebarProps = {
   active: AppView;
   onTemplateBuilderPage: boolean;
   onInterviewPrepPage: boolean;
+  onCareerProfilePage?: boolean;
   builderActive: boolean;
   builderOpen: boolean;
   onBuilderOpenChange: (open: boolean) => void;
@@ -117,6 +118,7 @@ export function AppSidebar({
   active,
   onTemplateBuilderPage,
   onInterviewPrepPage,
+  onCareerProfilePage = false,
   builderActive,
   builderOpen,
   onBuilderOpenChange,
@@ -192,14 +194,14 @@ export function AppSidebar({
             <SidebarMenu className="group-data-[collapsible=icon]:items-center">
               <NavItem
                 view="home"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "home"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "home"}
                 onClick={gated("home")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <NavItem
                 view="analyze"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "analyze"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "analyze"}
                 onClick={() => onSwitchView("analyze")}
                 showLabels={showLabels}
               />
@@ -282,36 +284,29 @@ export function AppSidebar({
 
               <NavItem
                 view="library"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "library"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "library"}
                 onClick={gated("library")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <NavItem
                 view="cover-letter"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "cover-letter"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "cover-letter"}
                 onClick={gated("cover-letter")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <NavItem
                 view="jobs"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "jobs"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "jobs"}
                 onClick={gated("jobs")}
-                showLabels={showLabels}
-                locked={anonMode}
-              />
-              <NavItem
-                view="profile"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "profile"}
-                onClick={gated("profile")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               {advisorAllowed ? (
                 <NavItem
                   view="advisor"
-                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "advisor"}
+                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "advisor"}
                   onClick={() => onSwitchView("advisor")}
                   showLabels={showLabels}
                 />
@@ -387,7 +382,8 @@ export function AppSidebar({
             ) : (
               <AppSidebarUser
                 initial={userInitial}
-                onProfile={() => onSwitchView("profile")}
+                onProfile={() => router.push("/profile")}
+                onMyResumes={() => router.push("/my-resumes")}
                 onAccount={() => onSwitchView("account")}
                 onSignOut={onSignOut}
               />

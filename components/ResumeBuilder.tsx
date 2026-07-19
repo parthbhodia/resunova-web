@@ -1683,7 +1683,7 @@ export default function ResumeBuilder({
     const { next } = mergeProfilePreferEmpty(cur, hints);
     saveProfile(next);
     void upsertUserProfile(next);
-    router.push("/?view=profile");
+    router.push("/profile");
   }, [router]);
 
   const handlePdfUpload = useCallback(async (file: File) => {
@@ -4491,7 +4491,7 @@ function TemplateCustomizePostResult({
                 Add content only through structured résumé fields (profile, upload, or manual form) — not free-form canvas edits.
               </p>
               <Link
-                href="/?view=profile"
+                href="/profile"
                 style={{
                   display: "inline-block",
                   padding: "10px 16px",
