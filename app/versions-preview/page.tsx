@@ -88,7 +88,8 @@ export default function VersionsPreview() {
           handlers={{
             onSwitch: (v) => setEditingId(v.id),
             onNewVersion: () => setOpen(true),
-            onScore: async () => { await new Promise((r) => setTimeout(r, 700)); return { score: 83 }; },
+            onScore: async () => { await new Promise((r) => setTimeout(r, 700)); return { score: 83, analysisId: "demo-analysis" }; },
+            onViewReport: noop,
             onTailor: noop,
             onDuplicate: noop,
           }}

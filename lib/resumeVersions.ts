@@ -127,6 +127,8 @@ export function structuredToPlainText(s: StructuredResume | null): string {
 
 export interface ScoreVersionResult {
   score: number | null;
+  /** Persisted resume_analyses id — deep-link to Analyze's full report via ?analysis=. */
+  analysisId?: string | null;
   limited?: boolean;
   needsAuth?: boolean;
   error?: string;
@@ -164,6 +166,7 @@ export async function scoreVersionInPlace(version: {
       resume_text: text,
       structured_resume: version.structured ?? undefined,
       source_filename: version.name || "Résumé version",
+      version_id: version.id,
     }),
   });
   const json = await resp.json().catch(() => ({}));
@@ -173,10 +176,11 @@ export async function scoreVersionInPlace(version: {
   }
 
   const score = typeof json?.overallScore === "number" ? json.overallScore : null;
+  const analysisId = typeof json?.analysisId === "string" ? json.analysisId : null;
   if (score != null) {
     await updateVersion(version.id, { lastScore: score, lastScoreSource: "llm", extractedText: text });
   }
-  return { score };
+  return { score, analysisId };
 }
 
 /* ── row mapping ────────────────────────────────────────────────── */

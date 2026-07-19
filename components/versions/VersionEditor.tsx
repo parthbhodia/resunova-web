@@ -74,7 +74,9 @@ export interface VersionEditorHandlers {
   onSwitch: (v: ResumeVersion) => void;
   onNewVersion: () => void;
   /** Score the current draft in place; returns the new overall score (or a reason). */
-  onScore: (structured: StructuredResume) => Promise<{ score: number | null; limited?: boolean; needsAuth?: boolean; error?: string }>;
+  onScore: (structured: StructuredResume) => Promise<{ score: number | null; analysisId?: string | null; limited?: boolean; needsAuth?: boolean; error?: string }>;
+  /** Open the persisted analysis (full breakdown) in Analyze. */
+  onViewReport?: (analysisId: string) => void;
   onTailor: (v: ResumeVersion) => void;
   onDuplicate: (v: ResumeVersion) => void;
 }
@@ -95,17 +97,22 @@ export function VersionEditor({
   const [status, setStatus] = useState<"idle" | "dirty" | "saving" | "saved">("idle");
   const [scoring, setScoring] = useState(false);
   const [scoreMsg, setScoreMsg] = useState<string | null>(null);
+  const [reportId, setReportId] = useState<string | null>(null);
   const saveTimer = useRef<number | null>(null);
 
   const runScore = useCallback(async () => {
     setScoring(true);
     setScoreMsg(null);
+    setReportId(null);
     try {
       const r = await handlers.onScore(draft);
       if (r.needsAuth) setScoreMsg("Sign in to score this résumé.");
       else if (r.limited) setScoreMsg("Daily scan limit reached — try again tomorrow.");
       else if (r.error) setScoreMsg(r.error);
-      else if (r.score != null) setScoreMsg(`Scored ${r.score}/100`);
+      else if (r.score != null) {
+        setScoreMsg(`Scored ${r.score}/100`);
+        if (r.analysisId) setReportId(r.analysisId);
+      }
     } catch {
       setScoreMsg("Couldn't score — try again.");
     } finally {
@@ -184,7 +191,19 @@ export function VersionEditor({
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
         <VersionSwitcher groups={groups} activeId={version.id} onSelect={handlers.onSwitch} onNewVersion={handlers.onNewVersion} />
         <span style={{ fontSize: 12, color: "var(--dim)", minWidth: 58, fontVariantNumeric: "tabular-nums" }}>{statusLabel}</span>
-        {scoreMsg ? <span style={{ fontSize: 12.5, color: "var(--accent)", fontWeight: 560 }}>{scoreMsg}</span> : null}
+        {scoreMsg ? (
+          <span style={{ fontSize: 12.5, color: "var(--accent)", fontWeight: 560, display: "inline-flex", alignItems: "center", gap: 8 }}>
+            {scoreMsg}
+            {reportId && handlers.onViewReport ? (
+              <button
+                onClick={() => handlers.onViewReport?.(reportId)}
+                style={{ border: "none", background: "none", color: "var(--accent)", cursor: "pointer", fontWeight: 600, textDecoration: "underline", fontSize: 12.5 }}
+              >
+                View full report →
+              </button>
+            ) : null}
+          </span>
+        ) : null}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <button style={btnAccent} onClick={runScore} disabled={scoring}>{scoring ? "Scoring…" : "Scan & score"}</button>
           <button style={btn} onClick={() => handlers.onTailor(version)}>Tailor to a job</button>

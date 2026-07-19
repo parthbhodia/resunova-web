@@ -131,6 +131,7 @@ export default function MyResumes() {
       if (r.score != null) await refresh();
       return r;
     },
+    onViewReport: (analysisId: string) => router.push(`/?view=analyze&analysis=${encodeURIComponent(analysisId)}`),
     onTailor: (v: ResumeVersion) => router.push(`/?view=builder&flow=tailor&version=${encodeURIComponent(v.id)}`),
     onDuplicate: (v: ResumeVersion) => void listHandlers.onDuplicate(v),
   };
