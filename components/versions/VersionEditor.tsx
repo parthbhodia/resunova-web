@@ -133,6 +133,27 @@ export function VersionEditor({
     [scheduleSave],
   );
 
+  /* list mutators (experience|projects bullets + section entries) */
+  const addBullet = (kind: "experience" | "projects", ei: number) =>
+    patch((d) => { d[kind][ei].bullets.push(""); });
+  const removeBullet = (kind: "experience" | "projects", ei: number, bi: number) =>
+    patch((d) => { d[kind][ei].bullets.splice(bi, 1); });
+  const moveBullet = (kind: "experience" | "projects", ei: number, bi: number, dir: -1 | 1) =>
+    patch((d) => {
+      const arr = d[kind][ei].bullets;
+      const j = bi + dir;
+      if (j < 0 || j >= arr.length) return;
+      [arr[bi], arr[j]] = [arr[j], arr[bi]];
+    });
+  const addExperience = () =>
+    patch((d) => { d.experience.push({ company: "", role: "", dates: "", location: "", bullets: [""] }); });
+  const addProject = () =>
+    patch((d) => { d.projects.push({ name: "", tech: "", bullets: [""] }); });
+  const addEducation = () =>
+    patch((d) => { d.education.push({ institution: "", degree: "", dates: "", location: "", bullets: [] }); });
+  const addSkillGroup = () =>
+    patch((d) => { d.skills.push({ category: "New group", items: [] }); });
+
   const contact = [draft.email, draft.phone, draft.location, draft.linkedin].filter(Boolean);
 
   const statusLabel =
@@ -215,19 +236,26 @@ export function VersionEditor({
             </div>
             <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
               {exp.bullets.map((b, bi) => (
-                <li key={bi} style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 3 }}>
+                <li key={bi} className="ve-bullet" style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 3, display: "flex", alignItems: "flex-start" }}>
                   <Editable
                     as="div"
                     value={b}
                     placeholder="Bullet…"
+                    style={{ flex: 1 }}
                     onCommit={(v) => patch((d) => {
                       if (v) d.experience[ei].bullets[bi] = v;
                       else d.experience[ei].bullets.splice(bi, 1);
                     })}
                   />
+                  <BulletCtls
+                    onUp={() => moveBullet("experience", ei, bi, -1)}
+                    onDown={() => moveBullet("experience", ei, bi, 1)}
+                    onRemove={() => removeBullet("experience", ei, bi)}
+                  />
                 </li>
               ))}
             </ul>
+            <button style={addBtn} onClick={() => addBullet("experience", ei)}>＋ Add bullet</button>
           </div>
         ))}
 
@@ -245,13 +273,19 @@ export function VersionEditor({
             </div>
             <ul style={{ margin: "5px 0 0", paddingLeft: 18 }}>
               {p.bullets.map((b, bi) => (
-                <li key={bi} style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 3 }}>
-                  <Editable as="div" value={b} onCommit={(v) => patch((d) => {
+                <li key={bi} className="ve-bullet" style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 3, display: "flex", alignItems: "flex-start" }}>
+                  <Editable as="div" value={b} style={{ flex: 1 }} onCommit={(v) => patch((d) => {
                     if (v) d.projects[pi].bullets[bi] = v; else d.projects[pi].bullets.splice(bi, 1);
                   })} />
+                  <BulletCtls
+                    onUp={() => moveBullet("projects", pi, bi, -1)}
+                    onDown={() => moveBullet("projects", pi, bi, 1)}
+                    onRemove={() => removeBullet("projects", pi, bi)}
+                  />
                 </li>
               ))}
             </ul>
+            <button style={addBtn} onClick={() => addBullet("projects", pi)}>＋ Add bullet</button>
           </div>
         ))}
 
@@ -282,11 +316,22 @@ export function VersionEditor({
             />
           </div>
         ))}
+
+        {/* grow any section */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 22, paddingTop: 14, borderTop: "1px dashed var(--border)" }}>
+          <button style={addBtn} onClick={addExperience}>＋ Experience</button>
+          <button style={addBtn} onClick={addProject}>＋ Project</button>
+          <button style={addBtn} onClick={addEducation}>＋ Education</button>
+          <button style={addBtn} onClick={addSkillGroup}>＋ Skill group</button>
+        </div>
       </div>
 
       <style>{`
         .ve-editable:empty:before { content: attr(data-placeholder); color: var(--dim); opacity: 0.7; }
         .ve-editable:focus { background: var(--accent-bg); border-radius: 3px; box-shadow: 0 0 0 2px var(--accent-bg); }
+        .ve-bullet-ctls { opacity: 0; transition: opacity .12s ease; }
+        .ve-bullet:hover .ve-bullet-ctls, .ve-bullet:focus-within .ve-bullet-ctls { opacity: 1; }
+        .ve-bullet-ctls button:hover { background: var(--surface-2, rgba(128,128,128,0.14)); }
       `}</style>
     </div>
   );
@@ -309,3 +354,43 @@ const btnAccent: CSSProperties = {
   border: "none",
   fontWeight: 580,
 };
+
+const ctlBtn: CSSProperties = {
+  border: "none",
+  background: "none",
+  color: "var(--dim)",
+  cursor: "pointer",
+  fontSize: 12,
+  lineHeight: 1,
+  padding: "2px 4px",
+  borderRadius: 4,
+};
+const addBtn: CSSProperties = {
+  border: "1px dashed var(--border-h)",
+  background: "none",
+  color: "var(--accent)",
+  cursor: "pointer",
+  fontSize: 12,
+  borderRadius: 7,
+  padding: "4px 10px",
+  marginTop: 6,
+};
+
+/* per-bullet reorder/remove controls (subtle, hover-highlighted) */
+function BulletCtls({
+  onUp,
+  onDown,
+  onRemove,
+}: {
+  onUp: () => void;
+  onDown: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="ve-bullet-ctls" style={{ display: "inline-flex", gap: 2, marginLeft: 8, verticalAlign: "middle" }}>
+      <button type="button" style={ctlBtn} title="Move up" aria-label="Move bullet up" onClick={onUp}>↑</button>
+      <button type="button" style={ctlBtn} title="Move down" aria-label="Move bullet down" onClick={onDown}>↓</button>
+      <button type="button" style={{ ...ctlBtn, color: "var(--red)" }} title="Remove" aria-label="Remove bullet" onClick={onRemove}>✕</button>
+    </span>
+  );
+}
