@@ -25,7 +25,6 @@ import { AppBottomNav } from "./app-shell/AppBottomNav";
 import { BugReportDialog } from "./app-shell/BugReportDialog";
 import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
-import { UmbcWelcomeBanner } from "./UmbcWelcomeBanner";
 import { SignInDialogProvider, useSignInDialog } from "./SignInDialog";
 import { UpgradeDialogProvider } from "./UpgradeDialog";
 import FirstRunWizard from "./FirstRunWizard";
@@ -316,7 +315,6 @@ function AppShellBody({ children }: { children: ReactNode }) {
               className="app-shell-main app-shell-view-pane min-h-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0"
             >
               <FreeScanWelcomeBanner userId={user?.id ?? null} isUmbc={isUmbc} />
-              <UmbcWelcomeBanner userId={user?.id ?? null} />
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
             </SidebarInset>
 

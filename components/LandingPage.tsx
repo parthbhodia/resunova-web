@@ -1204,28 +1204,6 @@ export default function LandingPage() {
       {/* ───────────── Jobs — promoted to first band after the hero ─────── */}
       <JobsBand C={C} dark={dark} />
 
-      {/* ───────────── Stats ticker ─────────────────────────── */}
-      <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, overflow: "hidden", padding: "18px 0" }}>
-        <div style={{ display: "flex", gap: 0, width: "max-content", animation: "ticker 36s linear infinite" }}>
-          {[...Array(4)].flatMap(() => [
-            ["$0",      "Completely free — always"],
-            ["250k+",   "Jobs on the board"],
-            ["400+",    "Job seekers so far"],
-            ["60s",     "Typical tailoring time"],
-            ["4.7 ★",   "Early user rating"],
-            ["ATS",     "Best-practices checklist"],
-            ["Callbacks", "Recruiter & phone screens"],
-            ["FERPA",   "FERPA-informed student privacy"],
-          ]).map(([stat, lbl], i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 40px", flexShrink: 0 }}>
-              <span style={{ fontSize: "var(--font-size-2xl)", fontWeight: 700, color: T.blue, letterSpacing: -0.5 }}>{stat}</span>
-              <span style={{ fontSize: "var(--font-size-base)", color: C.muted, whiteSpace: "nowrap" }}>{lbl}</span>
-              <span style={{ color: C.border, marginLeft: 12, fontSize: "var(--font-size-xl)" }}>·</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* ───────────── AI rewrite preview (B) ─────────────── */}
       <LandingPreviewSection
         id="product-rewrite"
@@ -1819,7 +1797,6 @@ export default function LandingPage() {
       )}
       <style>{`
         @keyframes lpFadeUp  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
-        @keyframes ticker    { from { transform: translateX(0); } to { transform: translateX(-50%); } }
         @keyframes barFill   { from { width: 0; } to { width: var(--w); } }
         @keyframes ringDraw  { from { stroke-dashoffset: var(--full); } to { stroke-dashoffset: var(--off); } }
         @keyframes cardSlide { from { opacity: 0; transform: translateY(32px) rotate(1.5deg); } to { opacity: 1; transform: rotate(1.5deg); } }
