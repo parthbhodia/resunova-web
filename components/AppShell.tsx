@@ -24,8 +24,10 @@ import { AppSidebar } from "./app-shell/AppSidebar";
 import { AppBottomNav } from "./app-shell/AppBottomNav";
 import { BugReportDialog } from "./app-shell/BugReportDialog";
 import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
-import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
+import { ScanPromoBanner } from "./ScanPromoBanner";
 import { UmbcWelcomeBanner } from "./UmbcWelcomeBanner";
+import { ScanToast } from "./ScanToast";
+import { fetchScanGreeting, type ScanGreeting } from "@/lib/scanGreeting";
 import {
   readSidebarCollapsed,
   writeSidebarCollapsed,
@@ -109,6 +111,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [advisorAllowed, setAdvisorAllowed] = useState(false);
   const [mobileBugReportOpen, setMobileBugReportOpen] = useState(false);
+  const [greeting, setGreeting] = useState<ScanGreeting | null>(null);
 
   useEffect(() => {
     setSidebarOpen(!readSidebarCollapsed());
@@ -166,6 +169,33 @@ export default function AppShell({ children }: { children: ReactNode }) {
       void import("@/components/JobsFeed").then((m) => m.prefetchJobsFeed()).catch(() => {});
     };
 
+    // Per-login greeting: on sign-in, fetch the user's remaining scan quota and
+    // surface it as a toast. Guard on sessionStorage (keyed per user id) so the
+    // greeting shows once per browser session — not on every token refresh,
+    // tab focus, or INITIAL_SESSION replay. Cleared on sign-out below.
+    const GREET_GUARD_PREFIX = "rn-scan-greeted:";
+    const greetIfNewLogin = (userId?: string | null, accessToken?: string | null) => {
+      if (!userId) return;
+      const guardKey = `${GREET_GUARD_PREFIX}${userId}`;
+      try {
+        if (sessionStorage.getItem(guardKey) === "1") return;
+        sessionStorage.setItem(guardKey, "1");
+      } catch {
+        // sessionStorage unavailable — fall through and greet anyway.
+      }
+      void fetchScanGreeting(accessToken).then(setGreeting);
+    };
+    const clearGreetGuards = () => {
+      try {
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+          const k = sessionStorage.key(i);
+          if (k && k.startsWith(GREET_GUARD_PREFIX)) sessionStorage.removeItem(k);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+
     supabase.auth.getSession().then(({ data }) => {
       const currentUser = data.session?.user ?? null;
       setUser(currentUser);
@@ -174,6 +204,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       void syncAdvisorAccess(data.session?.access_token);
       void syncInstitutionStudent(currentUser?.email, data.session?.access_token);
       warmJobsFeed(data.session?.access_token);
+      greetIfNewLogin(currentUser?.id, data.session?.access_token);
     });
     const {
       data: { subscription },
@@ -183,7 +214,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
       setIsUmbc(isUmbcUser(currentUser?.email));
       void syncAdvisorAccess(s?.access_token);
       void syncInstitutionStudent(currentUser?.email, s?.access_token);
-      if (_ev === "SIGNED_IN") warmJobsFeed(s?.access_token);
+      if (_ev === "SIGNED_IN") {
+        warmJobsFeed(s?.access_token);
+        greetIfNewLogin(currentUser?.id, s?.access_token);
+      } else if (_ev === "SIGNED_OUT") {
+        clearGreetGuards();
+        setGreeting(null);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -215,6 +252,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
     setHistoryOpen(false);
     setBuilderOpen(false);
   };
+
+  const dismissGreeting = useCallback(() => setGreeting(null), []);
 
   const onSignOut = () => {
     void signOutAndReturnHome();
@@ -279,7 +318,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
               key={active}
               className="app-shell-main app-shell-view-pane min-h-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0"
             >
-              <FreeScanWelcomeBanner userId={user?.id ?? null} isUmbc={isUmbc} />
+              <ScanPromoBanner
+                userId={user?.id ?? null}
+                isUmbc={isUmbc}
+                ready={authChecked}
+                onScan={() => switchView("analyze")}
+              />
               <UmbcWelcomeBanner userId={user?.id ?? null} />
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
             </SidebarInset>
@@ -300,6 +344,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
               onSignIn={onSignIn}
             />
             <BugReportDialog open={mobileBugReportOpen} onOpenChange={setMobileBugReportOpen} />
+
+            <ScanToast
+              open={greeting !== null}
+              message={greeting?.message ?? ""}
+              tone={greeting?.tone ?? "info"}
+              onClose={dismissGreeting}
+            />
 
             <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
               <SheetContent

@@ -17,10 +17,10 @@ beforeEach(() => {
 });
 
 describe("ScanUsageCard — maps each /api/scan-limit-status branch", () => {
-  it("anonymous / not-enforced → free 3-scans copy", async () => {
+  it("anonymous / not-enforced → free 10-scans copy", async () => {
     global.fetch = vi.fn().mockResolvedValue(jsonRes({ enforced: false, unlimited: false }));
     render(<ScanUsageCard />);
-    await waitFor(() => expect(screen.getByText(/3 résumé scans per day/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/10 free résumé scans every day/)).toBeInTheDocument());
     expect(screen.getByText("Free")).toBeInTheDocument();
   });
 

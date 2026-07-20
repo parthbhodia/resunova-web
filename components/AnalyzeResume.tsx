@@ -18,6 +18,7 @@ import {
   type CategoryAssignmentOptions,
 } from "@/lib/analysisCategoryMatch";
 import { apiUrl, resumeFileClientError } from "@/lib/utils";
+import { FREE_DAILY_SCAN_LIMIT } from "@/lib/scanLimits";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
@@ -659,11 +660,11 @@ export default function AnalyzeResume() {
       if (!resp.ok) {
         if (resp.status === 429 && json?.code === "daily_scan_limit_reached") {
           const limit = Number(json?.limit);
-          const freeLimit = Number.isFinite(limit) && limit > 0 ? limit : 3;
+          const freeLimit = Number.isFinite(limit) && limit > 0 ? limit : FREE_DAILY_SCAN_LIMIT;
           setFeedbackToast(
             json?.reason === "anonymous_daily_ip_limit"
-              ? "Free scans used for today — sign in (it's free) for 3 scans/day and saved reports."
-              : `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
+              ? `Free scans used for today — sign in (it's free) for ${freeLimit} scans/day and saved reports.`
+              : `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} free scans a day.`,
           );
         }
         // Content gate (422): not a résumé we can analyze — show a calm,

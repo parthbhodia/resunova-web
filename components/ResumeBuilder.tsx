@@ -9,6 +9,7 @@ import { saveTailorMatchToLibrary, tailorMatchFolder } from "@/lib/tailorAnalyze
 import { accentCardBorder } from "@/lib/accentCardBorder";
 import { getBaseResumeBanner } from "@/lib/libraryFolderLabel";
 import { apiUrl, isResumeUploadFile, parseJsonOrThrow, scoreColor } from "@/lib/utils";
+import { FREE_DAILY_SCAN_LIMIT } from "@/lib/scanLimits";
 import { toUserFriendlyErrorMessage, messageForNonJsonApiFailure } from "@/lib/userFriendlyError";
 import { ApiErrorBanner } from "@/components/ApiErrorBanner";
 import { Button } from "@/components/ui/button";
@@ -1171,9 +1172,9 @@ export default function ResumeBuilder({
           const j = JSON.parse(body) as { error?: string; code?: string; limit?: number };
           if (j?.error) msg = j.error;
           if (resp.status === 429 && j?.code === "daily_scan_limit_reached") {
-            const freeLimit = Number.isFinite(Number(j?.limit)) && Number(j.limit) > 0 ? Number(j.limit) : 5;
+            const freeLimit = Number.isFinite(Number(j?.limit)) && Number(j.limit) > 0 ? Number(j.limit) : FREE_DAILY_SCAN_LIMIT;
             setFeedbackToast(
-              `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
+              `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} free scans a day.`,
             );
           }
         } catch {
@@ -1275,9 +1276,9 @@ export default function ResumeBuilder({
         try {
           const j = JSON.parse(body) as { code?: string; limit?: number };
           if (resp.status === 429 && j?.code === "daily_scan_limit_reached") {
-            const freeLimit = Number.isFinite(Number(j?.limit)) && Number(j.limit) > 0 ? Number(j.limit) : 5;
+            const freeLimit = Number.isFinite(Number(j?.limit)) && Number(j.limit) > 0 ? Number(j.limit) : FREE_DAILY_SCAN_LIMIT;
             setFeedbackToast(
-              `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
+              `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} free scans a day.`,
             );
           }
         } catch {

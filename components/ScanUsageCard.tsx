@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { apiUrl } from "@/lib/utils";
+import { FREE_DAILY_SCAN_LIMIT } from "@/lib/scanLimits";
 import { Card } from "@/components/profileSettingsUi";
 
 type ScanUsageStatus = {
@@ -57,7 +58,7 @@ export default function ScanUsageCard() {
     return (
       <Card title="Plan & usage" badge="Free">
         <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
-          Your account includes <strong style={{ color: "var(--text)" }}>3 résumé scans per day</strong>, free.
+          Your account includes <strong style={{ color: "var(--text)" }}>{FREE_DAILY_SCAN_LIMIT} free résumé scans every day</strong>.
         </p>
       </Card>
     );
@@ -73,7 +74,7 @@ export default function ScanUsageCard() {
     );
   }
 
-  const limit = status.limit ?? 3;
+  const limit = status.limit ?? FREE_DAILY_SCAN_LIMIT;
   const used = status.used ?? 0;
   const remaining = status.remaining ?? Math.max(0, limit - used);
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
