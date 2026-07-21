@@ -1,0 +1,5 @@
+# Raw/intermediate render artifacts (large + regenerable). Final ad MP4s,
+# the branded backdrop, and the section-timing JSON are tracked; these are not.
+*.webm
+_proof-star.png
+frame-*.png
