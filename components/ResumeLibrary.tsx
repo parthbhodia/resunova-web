@@ -10,7 +10,19 @@
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
+import { apiUrl } from "@/lib/utils";
 import LibraryResumeDetailPanel from "./LibraryResumeDetailPanel";
+
+// PDF thumbnail is client-only (react-pdf/pdfjs) — never server-rendered.
+const PdfCardThumbnail = dynamic(() => import("@/components/PdfCardThumbnail"), { ssr: false });
+
+/** Resolve a stored PDF ref (absolute URL or API-relative path) to a fetchable URL. */
+function resolvePdfUrl(raw: string | null | undefined): string | null {
+  if (!raw || !raw.trim()) return null;
+  if (raw.startsWith("http")) return raw;
+  return apiUrl(raw.startsWith("/") ? raw : `/${raw}`);
+}
 import { stashTailorPrefillFromLibrary } from "@/lib/tailorPrefill";
 import { displayPdfUrlForResume } from "@/lib/displayResumePdfUrl";
 import { deleteBuilderResume, fetchLibraryItems, getSupabaseClient, type LibraryItem } from "@/lib/supabase";
@@ -945,6 +957,15 @@ function ResumeCard({
     () => item.kind === "tailored" ? displayPdfUrlForResume(item.record) : null,
     [item],
   );
+  // Real first-page PDF preview for the card thumbnail — uploaded source PDF for
+  // analyzed résumés, the generated PDF for tailored ones. Null ⇒ placeholder.
+  const thumbUrl = useMemo(
+    () =>
+      resolvePdfUrl(
+        item.kind === "analyzed" ? item.analysis.sourcePdfUrl : item.kind === "tailored" ? displayPdf : null,
+      ),
+    [item, displayPdf],
+  );
   const sc = item.score;
   const dateStr = item.createdAt
     ? new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
@@ -1097,6 +1118,7 @@ function ResumeCard({
       aria-label={`${item.title}, ${item.subtitle}. Open ${item.kind === "analyzed" ? "analysis" : item.kind === "builder" ? "builder draft" : "resume"}.`}
     >
       <div className="library-card-preview">
+        {thumbUrl ? <PdfCardThumbnail url={thumbUrl} /> : null}
         {item.kind === "builder" ? (
           <div
             style={{
