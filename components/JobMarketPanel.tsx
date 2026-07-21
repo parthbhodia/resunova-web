@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiUrl } from "@/lib/utils";
 import type { AdminJobMarketResponse, JobMarketSkill } from "@/lib/types";
+import { AdminKpiCard, AdminBarRows, AdminChartCard } from "@/components/admin/charts";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function fmtInt(n: number) { return new Intl.NumberFormat().format(n || 0); }
@@ -16,46 +17,6 @@ function pct(n: number, d: number) { return d > 0 ? Math.round((100 * n) / d) : 
 
 // Module-level cache: the panel unmounts on every host tab flip / page switch.
 let _jmCache: AdminJobMarketResponse | null = null;
-
-// ─── small chart primitives (theme-var styled, matches AdminAnalyticsPanel) ────
-function KPICard({ title, value, sub }: { title: string; value: string; sub?: string }) {
-  return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: "14px 15px", background: "var(--surface)", minWidth: 0 }}>
-      <div style={{ color: "var(--muted)", fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{title}</div>
-      <div style={{ fontSize: 23, fontWeight: 720, marginTop: 5, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
-      {sub && <div style={{ color: "var(--dim)", fontSize: 11.5, marginTop: 5 }}>{sub}</div>}
-    </div>
-  );
-}
-
-function Card({ title, cap, children, full }: { title: string; cap?: React.ReactNode; children: React.ReactNode; full?: boolean }) {
-  return (
-    <section style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "17px 17px 15px", background: "var(--surface)", gridColumn: full ? "1 / -1" : undefined, minWidth: 0 }}>
-      <div style={{ fontWeight: 660, fontSize: 14.5 }}>{title}</div>
-      {cap && <div style={{ fontSize: 12, color: "var(--muted)", margin: "4px 0 14px" }}>{cap}</div>}
-      {!cap && <div style={{ height: 14 }} />}
-      {children}
-    </section>
-  );
-}
-
-function BarRows({ data, label = (x: string) => x, dimKey, color = "var(--accent)" }:
-  { data: Array<[string, number]>; label?: (x: string) => string; dimKey?: (k: string) => boolean; color?: string }) {
-  const max = Math.max(...data.map(d => d[1]), 1);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {data.map(([k, v]) => (
-        <div key={k} style={{ display: "grid", gridTemplateColumns: "112px 1fr 52px", alignItems: "center", gap: 10 }} title={`${label(k)} — ${fmtInt(v)}`}>
-          <div style={{ fontSize: 12.5, color: "var(--muted)", textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label(k)}</div>
-          <div style={{ height: 15, background: "var(--surface2)", borderRadius: 5, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${Math.max(2, (v / max) * 100)}%`, background: dimKey && dimKey(k) ? "var(--dim)" : color, borderRadius: 5 }} />
-          </div>
-          <div style={{ fontSize: 12.5, fontWeight: 600, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtInt(v)}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ─── the panel ────────────────────────────────────────────────────────────────
 interface Props { getAuthHeaders?: () => Promise<Record<string, string>>; }
@@ -130,22 +91,22 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
 
       {/* KPI strip */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
-        <KPICard title="Active U.S. postings" value={fmtInt(k.active_us)} sub="currently open" />
-        <KPICard title="Employers hiring" value={fmtInt(k.employers)} sub="distinct companies" />
-        <KPICard title="Remote share" value={`${pct(k.remote, wmTotal)}%`} sub={`${pct(k.onsite, wmTotal)}% onsite · ${pct(k.hybrid, wmTotal)}% hybrid`} />
-        <KPICard title="Salary transparency" value={`${pct(k.salary_disclosed, k.active_us)}%`} sub="of postings disclose pay" />
-        <KPICard title="H-1B sponsor roles" value={fmtInt(k.h1b)} sub="visa-sponsor flagged" />
-        <KPICard title="Job families" value={fmtInt(k.families)} sub="tracked" />
+        <AdminKpiCard title="Active U.S. postings" value={fmtInt(k.active_us)} sub="currently open" />
+        <AdminKpiCard title="Employers hiring" value={fmtInt(k.employers)} sub="distinct companies" />
+        <AdminKpiCard title="Remote share" value={`${pct(k.remote, wmTotal)}%`} sub={`${pct(k.onsite, wmTotal)}% onsite · ${pct(k.hybrid, wmTotal)}% hybrid`} />
+        <AdminKpiCard title="Salary transparency" value={`${pct(k.salary_disclosed, k.active_us)}%`} sub="of postings disclose pay" />
+        <AdminKpiCard title="H-1B sponsor roles" value={fmtInt(k.h1b)} sub="visa-sponsor flagged" />
+        <AdminKpiCard title="Job families" value={fmtInt(k.families)} sub="tracked" />
       </section>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 15 }}>
         {/* Demand by family */}
-        <Card title="Demand by job family" cap={<>Active U.S. postings per family. <b style={{ color: "var(--text2, var(--muted))" }}>&ldquo;General&rdquo;</b> is the unclassified catch-all.</>}>
-          <BarRows data={data.families.map(f => [f.family, f.n] as [string, number])} label={titleize} dimKey={f => f === "general"} />
-        </Card>
+        <AdminChartCard title="Demand by job family" cap={<>Active U.S. postings per family. <b style={{ color: "var(--text2, var(--muted))" }}>&ldquo;General&rdquo;</b> is the unclassified catch-all.</>}>
+          <AdminBarRows data={data.families.map(f => [f.family, f.n] as [string, number])} label={titleize} dimKey={f => f === "general"} />
+        </AdminChartCard>
 
         {/* Skills in demand */}
-        <Card title="Skills in demand" cap="Times a skill is required or preferred. Pick a family to drill in.">
+        <AdminChartCard title="Skills in demand" cap="Times a skill is required or preferred. Pick a family to drill in.">
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 13 }}>
             {skillFamilies.map(f => (
               <button key={f} type="button" onClick={() => setSkillFam(f)} aria-pressed={skillFam === f}
@@ -159,8 +120,8 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
               </button>
             ))}
           </div>
-          <BarRows data={skillRows.map(s => [s.skill, s.n] as [string, number])} />
-        </Card>
+          <AdminBarRows data={skillRows.map(s => [s.skill, s.n] as [string, number])} />
+        </AdminChartCard>
 
         {/* Salary bands */}
         <section style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "17px 17px 15px", background: "var(--surface)", gridColumn: "1 / -1" }}>
@@ -185,7 +146,7 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
         </section>
 
         {/* Work model */}
-        <Card title="Work model" cap={`Of the ${fmtInt(wmTotal)} postings that state one.`}>
+        <AdminChartCard title="Work model" cap={`Of the ${fmtInt(wmTotal)} postings that state one.`}>
           <div style={{ display: "flex", height: 30, borderRadius: 8, overflow: "hidden", gap: 2 }}>
             {data.work_model.map(w => (
               <div key={w.k} title={`${titleize(w.k)} — ${fmtInt(w.n)} (${pct(w.n, wmTotal)}%)`}
@@ -202,12 +163,12 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
               </span>
             ))}
           </div>
-        </Card>
+        </AdminChartCard>
 
         {/* Seniority */}
-        <Card title="Seniority mix" cap="Labeled seniority across active U.S. postings.">
-          <BarRows data={seniority.map(s => [s.k, s.n] as [string, number])} label={titleize} />
-        </Card>
+        <AdminChartCard title="Seniority mix" cap="Labeled seniority across active U.S. postings.">
+          <AdminBarRows data={seniority.map(s => [s.k, s.n] as [string, number])} label={titleize} />
+        </AdminChartCard>
 
         {/* Trend */}
         <section style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "17px 17px 15px", background: "var(--surface)", gridColumn: "1 / -1" }}>
