@@ -3,3 +3,6 @@
 *.webm
 _proof-star.png
 frame-*.png
+
+# snippet render intermediates
+snips/
