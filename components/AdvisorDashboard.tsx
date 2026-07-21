@@ -21,6 +21,7 @@ import {
   type CategoryHistoryPoint,
 } from "@/components/advisor/AdvisorCharts";
 import AdminAnalyticsPanel from "@/components/AdminAnalyticsPanel";
+import SendTestEmailCard from "@/components/admin/SendTestEmailCard";
 import { AdminKpiCard, AdminBarRows, AdminScoreBars, AdminStackedBar } from "@/components/admin/charts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -883,6 +884,7 @@ function CohortOverview({
       {globalAdmin && activeTab === "analytics" && (
         <div className="flex flex-col gap-6">
           <AdminAnalyticsPanel getAuthHeaders={advisorAuthHeaders} />
+          <SendTestEmailCard getAuthHeaders={advisorAuthHeaders} />
           {/* Bug reports are a platform-support inbox, not cohort data — they
               belong here under Platform analytics, not the Cohort tab. */}
           <BugReportsPanel
