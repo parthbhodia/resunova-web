@@ -6,3 +6,6 @@ frame-*.png
 
 # snippet render intermediates
 snips/
+
+# voiceover work-in-progress (placeholder/robotic mux experiments)
+*-vo.mp4
