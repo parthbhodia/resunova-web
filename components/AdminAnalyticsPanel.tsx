@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiUrl } from "@/lib/utils";
 import type { AdminAnalyticsJobsBlock, AdminAnalyticsResponse, AdminAnalyticsToolRow, AdminAnalyticsUserRow } from "@/lib/types";
+import JobMarketPanel from "@/components/JobMarketPanel";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -540,11 +541,12 @@ function BusinessSection({ jobs }: { jobs: AdminAnalyticsJobsBlock }) {
 
 // ─── panel (exported) ────────────────────────────────────────────────────────
 
-type TabKey = "product" | "jobs" | "business";
+type TabKey = "product" | "jobs" | "business" | "market";
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "product", label: "Product & cost" },
   { key: "jobs", label: "Jobs pipeline" },
   { key: "business", label: "Data & revenue" },
+  { key: "market", label: "Job market" },
 ];
 
 // Module-level payload cache keyed by window: survives the panel unmount/remount
@@ -619,23 +621,29 @@ export default function AdminAnalyticsPanel({ getAuthHeaders }: Props) {
             </button>
           ))}
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-          <span style={{ color: "var(--muted)" }}>Window</span>
-          <select value={days} onChange={e => setDays(Number(e.target.value))}
-            style={{ border: "1px solid var(--border)", borderRadius: 6, padding: "4px 8px", fontSize: 13, background: "var(--surface)", color: "var(--text)" }}>
-            <option value={7}>Last 7 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
-          </select>
-        </label>
+        {/* Job market is a live snapshot, not a windowed series — no day picker. */}
+        {tab !== "market" && (
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <span style={{ color: "var(--muted)" }}>Window</span>
+            <select value={days} onChange={e => setDays(Number(e.target.value))}
+              style={{ border: "1px solid var(--border)", borderRadius: 6, padding: "4px 8px", fontSize: 13, background: "var(--surface)", color: "var(--text)" }}>
+              <option value={7}>Last 7 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+            </select>
+          </label>
+        )}
       </div>
 
-      {loading && !data && (
+      {/* Job market fetches its own endpoint independently of the analytics window. */}
+      {tab === "market" && <JobMarketPanel getAuthHeaders={getAuthHeaders} />}
+
+      {tab !== "market" && loading && !data && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
           {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
         </div>
       )}
-      {error && !data && (
+      {tab !== "market" && error && !data && (
         <div style={{ background: "var(--red-bg, #fef2f2)", border: "1px solid var(--red-ink, #fecaca)", borderRadius: 8, padding: "11px 14px", color: "var(--red-ink, #b91c1c)", fontSize: 13 }}>
           {error}
         </div>
