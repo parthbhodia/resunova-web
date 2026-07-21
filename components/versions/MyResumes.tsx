@@ -103,6 +103,57 @@ export default function MyResumes() {
     setTab("editor");
   }, []);
 
+  // Promote an analyzed/tailored history item into a first-class, editable
+  // version (client-direct createVersion — no scan, no server change).
+  const saveAsVersion = useCallback(
+    async (item: LibraryItem) => {
+      let structured: StructuredResume | null = null;
+      let extractedText: string | null = null;
+      let sourcePdfUrl: string | null = null;
+      let lastScore: number | null = null;
+      let lastScoreSource: string | null = null;
+      let origin: "upload" | "tailor" = "upload";
+
+      if (item.kind === "analyzed") {
+        const raw = (item.analysis.result ?? {}) as Record<string, unknown>;
+        structured = normalizeStructuredResume((raw.structuredResume ?? raw.structured_resume) as StructuredResume | null);
+        extractedText = typeof raw.extractedText === "string" ? raw.extractedText : null;
+        sourcePdfUrl = item.analysis.sourcePdfUrl ?? null;
+        // An analyzed score is a real, general quality score → carry it (llm).
+        lastScore = item.analysis.score ?? item.score ?? null;
+        lastScoreSource = lastScore != null ? "llm" : null;
+        origin = "upload";
+      } else if (item.kind === "tailored") {
+        const doc = (item.record.resume_doc ?? {}) as Record<string, unknown>;
+        structured = normalizeStructuredResume((doc.structured as StructuredResume | null) ?? null);
+        extractedText = typeof doc.extractedText === "string" ? doc.extractedText : null;
+        // A tailored score is a JD-MATCH %, not a quality grade — never carry it
+        // as the version's quality score (honesty invariant).
+        origin = "tailor";
+      } else {
+        return;
+      }
+
+      if (!structured) {
+        flash("Couldn't read this résumé's content — open it instead.");
+        return;
+      }
+      setBusyId(item.key);
+      try {
+        const made = await createVersion({ name: item.title || "Résumé", structured, extractedText, origin, sourcePdfUrl, lastScore, lastScoreSource });
+        if (!made) flash("Sign in to save résumé versions.");
+        else { flash("Saved as a version — opening the editor."); openEditor(made); }
+        await refresh();
+      } catch (e) {
+        console.error("[versions] saveAsVersion", e);
+        flash("Couldn't save as a version — try again.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [flash, refresh, openEditor],
+  );
+
   const listHandlers = {
     onNewVersion: () => setModalOpen(true),
     onOpen: openEditor,
@@ -265,6 +316,7 @@ export default function MyResumes() {
           busyId={busyId}
           legacyItems={legacyItems}
           onOpenLegacy={openLegacy}
+          onSaveAsVersion={saveAsVersion}
         />
       )}
 

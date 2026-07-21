@@ -133,6 +133,7 @@ export function MyResumesView({
   busyId,
   legacyItems,
   onOpenLegacy,
+  onSaveAsVersion,
 }: {
   groups: ResumeVersionGroup[];
   handlers: VersionActionHandlers;
@@ -141,6 +142,8 @@ export function MyResumesView({
    *  the versions list so /my-resumes is the one home for every résumé. */
   legacyItems?: LibraryItem[];
   onOpenLegacy?: (item: LibraryItem) => void;
+  /** Promote an analyzed/tailored history item into a first-class version. */
+  onSaveAsVersion?: (item: LibraryItem) => void;
 }) {
   const totalVersions = groups.reduce((n, g) => n + g.versions.length, 0);
   const hasDefault = groups.some((g) => g.versions.some((v) => v.isDefault));
@@ -190,7 +193,13 @@ export function MyResumesView({
           </div>
           <div style={{ display: "grid", gap: 8 }}>
             {legacyItems.map((item) => (
-              <HistoryRow key={item.key} item={item} onOpen={() => onOpenLegacy?.(item)} />
+              <HistoryRow
+                key={item.key}
+                item={item}
+                onOpen={() => onOpenLegacy?.(item)}
+                onSaveAsVersion={onSaveAsVersion ? () => onSaveAsVersion(item) : undefined}
+                saving={busyId === item.key}
+              />
             ))}
           </div>
         </section>
@@ -206,8 +215,21 @@ const HISTORY_KIND: Record<LibraryItem["kind"], { label: string; tone: string; b
   cover_letter: { label: "Cover letter", tone: "var(--dim)", bg: "var(--surface-2)" },
 };
 
-function HistoryRow({ item, onOpen }: { item: LibraryItem; onOpen: () => void }) {
+function HistoryRow({
+  item,
+  onOpen,
+  onSaveAsVersion,
+  saving,
+}: {
+  item: LibraryItem;
+  onOpen: () => void;
+  onSaveAsVersion?: () => void;
+  saving?: boolean;
+}) {
   const k = HISTORY_KIND[item.kind];
+  // Only résumé-content items can become a version; drafts/cover letters have
+  // their own editors.
+  const canSave = !!onSaveAsVersion && (item.kind === "analyzed" || item.kind === "tailored");
   return (
     <div
       style={{
@@ -249,6 +271,11 @@ function HistoryRow({ item, onOpen }: { item: LibraryItem; onOpen: () => void })
         <span style={{ fontSize: 12.5, fontWeight: 600, color: scoreTone(item.score).c, fontVariantNumeric: "tabular-nums", flex: "none" }}>
           {item.score}
         </span>
+      ) : null}
+      {canSave ? (
+        <button style={miniAccent} onClick={onSaveAsVersion} disabled={saving} title="Make this an editable résumé version">
+          {saving ? "Saving…" : "Save as version"}
+        </button>
       ) : null}
       <button style={miniBtn} onClick={onOpen}>Open</button>
     </div>

@@ -46,11 +46,19 @@ Verification: tsc + vitest + `next build`. The signed-in `fetchLibraryItems`
 merge reuses the Library's own proven fetch, but the combined render needs one
 live pass (auth-gated, not exercisable in the sandbox).
 
-### Phase 2 — New work attaches to a version
-Analyze upload / `analyze-rescore` / Boost create-or-attach a `resume_versions`
-row and stamp `resume_analyses.version_id`, so a fresh scan/upload shows up as a
-version rather than a standalone Library row. Uses the existing
-`createVersion` / `version_id` write path (already present, best-effort).
+### Phase 2 — Promote history into versions ← this PR
+A **"Save as version"** action on each analyzed/tailored history item creates a
+first-class editable version from it (client-direct `createVersion` — no scan,
+no server change). Structured content is pulled from the item
+(`result.structuredResume` for analyzed, `record.resume_doc.structured` for
+tailored) and normalized. **Honesty:** an analyzed item carries its real quality
+score (`last_score_source='llm'`); a tailored item's JD-**match** % is
+deliberately NOT carried as a version quality grade. Drafts / cover letters keep
+their own editors (no promote).
+
+Deferred (riskier, next): auto-attaching every new scan/upload to a version and
+stamping `resume_analyses.version_id` server-side — it changes the load-bearing
+Analyze/Boost save path, so it waits until the promote flow proves out live.
 
 ### Phase 3 — Library becomes per-version history
 The old Library grid becomes a **"scans & history"** view scoped to a version
@@ -63,7 +71,8 @@ résumés into `resume_versions` (grouped by their existing `root_id` lineage), 
 "From your history" empties into first-class versions. Gated behind a live audit.
 
 ## Status
-- [ ] Phase 1 — UI unification (in progress)
-- [ ] Phase 2 — attach new work to a version
+- [x] Phase 1 — UI unification (/my-resumes surfaces history + nav points there)
+- [x] Phase 2 — "Save as version" promotes analyzed/tailored history into versions
+- [ ] Phase 2b — auto-attach new scans/uploads to a version (server, deferred)
 - [ ] Phase 3 — Library → per-version history
 - [ ] Phase 4 — backfill (optional)
