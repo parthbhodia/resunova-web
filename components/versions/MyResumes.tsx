@@ -19,11 +19,14 @@ import {
   deleteVersion,
   createVersion,
   scoreVersionInPlace,
+  listScansForVersion,
+  linkAnalysisToVersion,
   type ResumeVersion,
   type ResumeVersionGroup,
 } from "@/lib/resumeVersions";
 import { stashVersionForTailor, VERSION_TAILOR_URL } from "@/lib/versionTailorPrefill";
 import { stashVersionForBoost, BOOST_JOBS_URL } from "@/lib/versionBoostPrefill";
+import { fetchLibraryItems, type LibraryItem } from "@/lib/supabase";
 import { MyResumesView, NewVersionModal, type NewVersionChoice } from "./MyResumesView";
 import { VersionEditor } from "./VersionEditor";
 
@@ -31,6 +34,7 @@ export default function MyResumes() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [groups, setGroups] = useState<ResumeVersionGroup[]>([]);
+  const [legacyItems, setLegacyItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -46,14 +50,30 @@ export default function MyResumes() {
   }, []);
 
   const refresh = useCallback(async () => {
-    try {
-      setGroups(await listVersionGroups());
-    } catch (e) {
-      console.error("[versions] list", e);
-    } finally {
-      setLoading(false);
-    }
+    // Versions + legacy Library items in parallel; a failure in either leaves
+    // the other intact (both default to []), so the page never hard-fails.
+    const [groupsRes, legacyRes] = await Promise.allSettled([
+      listVersionGroups(),
+      fetchLibraryItems(),
+    ]);
+    if (groupsRes.status === "fulfilled") setGroups(groupsRes.value);
+    else console.error("[versions] list", groupsRes.reason);
+    if (legacyRes.status === "fulfilled") setLegacyItems(legacyRes.value);
+    else console.error("[versions] library", legacyRes.reason);
+    setLoading(false);
   }, []);
+
+  // Route a legacy Library item to its existing surface (reuses ResumeLibrary's
+  // open targets) — no new detail UI.
+  const openLegacy = useCallback(
+    (item: LibraryItem) => {
+      if (item.kind === "analyzed") router.push(`/?view=analyze&analysis=${encodeURIComponent(item.id)}`);
+      else if (item.kind === "builder") router.push(`/template-builder/?builder=${encodeURIComponent(item.id)}`);
+      else if (item.kind === "cover_letter") router.push(`/?view=library&cl=${encodeURIComponent(item.id)}`);
+      else router.push(`/?view=library&resume=${encodeURIComponent(item.record.folder)}`);
+    },
+    [router],
+  );
 
   useEffect(() => {
     void refresh();
@@ -84,6 +104,64 @@ export default function MyResumes() {
     setEditingId(v.id);
     setTab("editor");
   }, []);
+
+  // Promote an analyzed/tailored history item into a first-class, editable
+  // version (client-direct createVersion — no scan, no server change).
+  const saveAsVersion = useCallback(
+    async (item: LibraryItem) => {
+      let structured: StructuredResume | null = null;
+      let extractedText: string | null = null;
+      let sourcePdfUrl: string | null = null;
+      let lastScore: number | null = null;
+      let lastScoreSource: string | null = null;
+      let origin: "upload" | "tailor" = "upload";
+
+      if (item.kind === "analyzed") {
+        const raw = (item.analysis.result ?? {}) as Record<string, unknown>;
+        structured = normalizeStructuredResume((raw.structuredResume ?? raw.structured_resume) as StructuredResume | null);
+        extractedText = typeof raw.extractedText === "string" ? raw.extractedText : null;
+        sourcePdfUrl = item.analysis.sourcePdfUrl ?? null;
+        // An analyzed score is a real, general quality score → carry it (llm).
+        lastScore = item.analysis.score ?? item.score ?? null;
+        lastScoreSource = lastScore != null ? "llm" : null;
+        origin = "upload";
+      } else if (item.kind === "tailored") {
+        const doc = (item.record.resume_doc ?? {}) as Record<string, unknown>;
+        structured = normalizeStructuredResume((doc.structured as StructuredResume | null) ?? null);
+        extractedText = typeof doc.extractedText === "string" ? doc.extractedText : null;
+        // A tailored score is a JD-MATCH %, not a quality grade — never carry it
+        // as the version's quality score (honesty invariant).
+        origin = "tailor";
+      } else {
+        return;
+      }
+
+      if (!structured) {
+        flash("Couldn't read this résumé's content — open it instead.");
+        return;
+      }
+      setBusyId(item.key);
+      try {
+        const made = await createVersion({ name: item.title || "Résumé", structured, extractedText, origin, sourcePdfUrl, lastScore, lastScoreSource });
+        if (!made) flash("Sign in to save résumé versions.");
+        else {
+          // An analyzed item IS a scan (resume_analyses row) — link it to the new
+          // version so the editor's Scan history shows it right away (Phase 2b,
+          // best-effort). Tailored items aren't scans, so there's nothing to link.
+          if (item.kind === "analyzed") await linkAnalysisToVersion(item.id, made.id);
+          flash("Saved as a version — opening the editor.");
+          openEditor(made);
+        }
+        await refresh();
+      } catch (e) {
+        console.error("[versions] saveAsVersion", e);
+        flash("Couldn't save as a version — try again.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [flash, refresh, openEditor],
+  );
 
   const listHandlers = {
     onNewVersion: () => setModalOpen(true),
@@ -138,6 +216,7 @@ export default function MyResumes() {
       return r;
     },
     onViewReport: (analysisId: string) => router.push(`/?view=analyze&analysis=${encodeURIComponent(analysisId)}`),
+    onLoadScans: (versionId: string) => listScansForVersion(versionId),
     onTailor: (v: ResumeVersion) => {
       if (stashVersionForTailor(v)) router.push(VERSION_TAILOR_URL);
       else flash("Add some résumé content before tailoring.");
@@ -241,7 +320,14 @@ export default function MyResumes() {
       {tab === "editor" && editing ? (
         <VersionEditor version={editing} groups={groups} handlers={editorHandlers} />
       ) : (
-        <MyResumesView groups={groups} handlers={listHandlers} busyId={busyId} />
+        <MyResumesView
+          groups={groups}
+          handlers={listHandlers}
+          busyId={busyId}
+          legacyItems={legacyItems}
+          onOpenLegacy={openLegacy}
+          onSaveAsVersion={saveAsVersion}
+        />
       )}
 
       <NewVersionModal open={modalOpen} onClose={() => setModalOpen(false)} onChoose={onChoose} canDuplicate={groups.length > 0} />

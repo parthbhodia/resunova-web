@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
-import { updateVersion, type ResumeVersion, type ResumeVersionGroup } from "@/lib/resumeVersions";
+import { updateVersion, type ResumeVersion, type ResumeVersionGroup, type VersionScan } from "@/lib/resumeVersions";
 import { VersionSwitcher } from "./VersionSwitcher";
 
 /* clone so edits never mutate the prop */
@@ -77,6 +77,8 @@ export interface VersionEditorHandlers {
   onScore: (structured: StructuredResume) => Promise<{ score: number | null; analysisId?: string | null; limited?: boolean; needsAuth?: boolean; error?: string }>;
   /** Open the persisted analysis (full breakdown) in Analyze. */
   onViewReport?: (analysisId: string) => void;
+  /** Load the scans linked to a version (its scan history). */
+  onLoadScans?: (versionId: string) => Promise<VersionScan[]>;
   onTailor: (v: ResumeVersion) => void;
   /** Boost this version against a job (→ Jobs; result chains as a child). */
   onBoost?: (v: ResumeVersion) => void;
@@ -100,7 +102,18 @@ export function VersionEditor({
   const [scoring, setScoring] = useState(false);
   const [scoreMsg, setScoreMsg] = useState<string | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
+  const [scans, setScans] = useState<VersionScan[]>([]);
   const saveTimer = useRef<number | null>(null);
+
+  const loadScans = handlers.onLoadScans;
+  const refreshScans = useCallback(async () => {
+    if (!loadScans) { setScans([]); return; }
+    try {
+      setScans(await loadScans(version.id));
+    } catch {
+      /* keep whatever we had */
+    }
+  }, [loadScans, version.id]);
 
   const runScore = useCallback(async () => {
     setScoring(true);
@@ -114,19 +127,25 @@ export function VersionEditor({
       else if (r.score != null) {
         setScoreMsg(`Scored ${r.score}/100`);
         if (r.analysisId) setReportId(r.analysisId);
+        void refreshScans();
       }
     } catch {
       setScoreMsg("Couldn't score — try again.");
     } finally {
       setScoring(false);
     }
-  }, [handlers, draft]);
+  }, [handlers, draft, refreshScans]);
 
   // reset the draft when the active version changes
   useEffect(() => {
     setDraft(cloneStructured(version.structured));
     setStatus("idle");
   }, [version.id, version.structured]);
+
+  // load this version's scan history (and reload when the version changes)
+  useEffect(() => {
+    void refreshScans();
+  }, [refreshScans]);
 
   const scheduleSave = useCallback(
     (next: StructuredResume) => {
@@ -368,6 +387,8 @@ export function VersionEditor({
         </div>
       </div>
 
+      <ScanHistory scans={scans} onViewReport={handlers.onViewReport} />
+
       <style>{`
         .ve-editable:empty:before { content: attr(data-placeholder); color: var(--dim); opacity: 0.7; }
         .ve-editable:focus { background: var(--accent-bg); border-radius: 3px; box-shadow: 0 0 0 2px var(--accent-bg); }
@@ -434,5 +455,87 @@ function BulletCtls({
       <button type="button" style={ctlBtn} title="Move down" aria-label="Move bullet down" onClick={onDown}>↓</button>
       <button type="button" style={{ ...ctlBtn, color: "var(--red)" }} title="Remove" aria-label="Remove bullet" onClick={onRemove}>✕</button>
     </span>
+  );
+}
+
+/* ── scan history (resume_analyses linked to this version) ───────── */
+
+function fmtScanDate(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function scanScoreColor(score: number | null): string {
+  if (score == null) return "var(--dim)";
+  if (score >= 80) return "var(--green-ink, #059669)";
+  if (score >= 60) return "var(--amber-ink, #b45309)";
+  return "var(--red-ink, #dc2626)";
+}
+
+/**
+ * A version's scan history — the resume_analyses rows linked to it via version_id
+ * (each in-place "Scan & score" appends one). Every row deep-links to the full
+ * Analyze report. Empty state teaches the feature; nothing is fabricated.
+ */
+function ScanHistory({
+  scans,
+  onViewReport,
+}: {
+  scans: VersionScan[];
+  onViewReport?: (analysisId: string) => void;
+}) {
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ ...sectionTitle, display: "flex", alignItems: "baseline", gap: 8 }}>
+        <span>Scan history</span>
+        {scans.length ? (
+          <span style={{ fontSize: 11, fontWeight: 500, color: "var(--dim)", letterSpacing: 0 }}>
+            {scans.length} scan{scans.length === 1 ? "" : "s"}
+          </span>
+        ) : null}
+      </div>
+      {scans.length === 0 ? (
+        <p style={{ fontSize: 12.5, color: "var(--dim)", margin: "6px 0 0", lineHeight: 1.5 }}>
+          No scans yet. Use <strong style={{ color: "var(--muted)" }}>Scan &amp; score</strong> above to
+          check this résumé against the recruiter rubric — each scan is saved here so you can track
+          the score over time.
+        </p>
+      ) : (
+        <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+          {scans.map((s) => (
+            <li
+              key={s.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                fontSize: 13,
+                padding: "8px 12px",
+                border: "1px solid var(--border)",
+                borderRadius: 9,
+                background: "var(--surface)",
+              }}
+            >
+              <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: scanScoreColor(s.score), minWidth: 46, whiteSpace: "nowrap" }}>
+                {s.score != null ? s.score : "—"}
+                <span style={{ fontSize: 10, color: "var(--dim)", fontWeight: 500 }}>/100</span>
+              </span>
+              <span style={{ color: "var(--muted)", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {fmtScanDate(s.createdAt)}
+              </span>
+              {onViewReport ? (
+                <button
+                  onClick={() => onViewReport(s.id)}
+                  style={{ border: "none", background: "none", color: "var(--accent)", cursor: "pointer", fontWeight: 600, fontSize: 12.5, textDecoration: "underline", whiteSpace: "nowrap" }}
+                >
+                  View report →
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

@@ -183,6 +183,33 @@ export async function scoreVersionInPlace(version: {
   return { score, analysisId };
 }
 
+/**
+ * Link a persisted scan (`resume_analyses` row) to a résumé version so the
+ * version's scan history (the editor's "Scan history" panel) includes that
+ * scan — POSTs the Phase-2b `/api/analyze-link-version` primitive, which stamps
+ * `resume_analyses.version_id` server-side (owner-scoped). Best-effort: returns
+ * false (never throws) on any failure, so a failed link never blocks the
+ * version from being created. Used when promoting an analyzed history item.
+ */
+export async function linkAnalysisToVersion(analysisId: string, versionId: string): Promise<boolean> {
+  if (!analysisId || !versionId) return false;
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token) return false;
+    const resp = await fetch(apiUrl("/api/analyze-link-version"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ analysis_id: analysisId, version_id: versionId }),
+    });
+    if (!resp.ok) return false;
+    const json = await resp.json().catch(() => ({}));
+    return !!json?.linked;
+  } catch {
+    return false;
+  }
+}
+
 /* ── row mapping ────────────────────────────────────────────────── */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -251,6 +278,46 @@ export async function fetchVersionById(id: string): Promise<ResumeVersion | null
 
   if (error) throw error;
   return data ? rowToVersion(data) : null;
+}
+
+/** A scan (resume_analyses row) linked to a version via version_id. */
+export interface VersionScan {
+  id: string;
+  label: string;
+  score: number | null;
+  scoreSource: string | null;
+  createdAt: string;
+}
+
+/**
+ * The scans linked to a version — resume_analyses rows whose version_id points at
+ * this version (populated by in-place "Scan & score"). READ-only; scoped to the
+ * owner by RLS. Degrades to [] if the version_id column is absent (a from-scratch
+ * DB predating migration 037) so an older schema never hard-fails the editor.
+ */
+export async function listScansForVersion(versionId: string, limit = 20): Promise<VersionScan[]> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return [];
+  try {
+    const { data, error } = await db
+      .from("resume_analyses")
+      .select("id, label, score, score_source, created_at")
+      .eq("user_id", session.user.id)
+      .eq("version_id", versionId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) return [];
+    return (data ?? []).map((row) => ({
+      id: row.id as string,
+      label: (row.label as string | null) ?? "Scan",
+      score: (row.score as number | null) ?? null,
+      scoreSource: (row.score_source as string | null) ?? null,
+      createdAt: row.created_at as string,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /** The next ordinal across a whole root group (never collides on a restore). */

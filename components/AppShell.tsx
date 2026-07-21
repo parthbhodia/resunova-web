@@ -104,6 +104,8 @@ function AppShellBody({ children }: { children: ReactNode }) {
     (pathname ?? "").replace(/\/$/, "") === "/interview-prep";
   const onCareerProfilePage =
     (pathname ?? "").replace(/\/$/, "") === "/profile";
+  const onMyResumesPage =
+    (pathname ?? "").replace(/\/$/, "") === "/my-resumes";
   const isMobile = useIsMobile();
   const flowRaw = (searchParams?.get("flow") || "tailor").toLowerCase();
   const builderFlow: "tailor" | "template" =
@@ -291,6 +293,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
                 onTemplateBuilderPage={onTemplateBuilderPage}
                 onInterviewPrepPage={onInterviewPrepPage}
                 onCareerProfilePage={onCareerProfilePage}
+                onMyResumesPage={onMyResumesPage}
                 builderActive={builderActive}
                 builderOpen={builderOpen}
                 onBuilderOpenChange={setBuilderOpen}
@@ -332,6 +335,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
               advisorAllowed={advisorAllowed}
               anonMode={anonMode}
               onSignIn={onSignIn}
+              onMyResumesPage={onMyResumesPage}
             />
             <BugReportDialog open={mobileBugReportOpen} onOpenChange={setMobileBugReportOpen} />
             <FirstRunWizard user={user} isUmbc={isUmbc} />

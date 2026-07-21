@@ -9,6 +9,7 @@
 
 import { useState, type CSSProperties } from "react";
 import type { ResumeVersion, ResumeVersionGroup, VersionOrigin } from "@/lib/resumeVersions";
+import type { LibraryItem } from "@/lib/supabase";
 
 /* ── small pieces ───────────────────────────────────────────────── */
 
@@ -130,10 +131,19 @@ export function MyResumesView({
   groups,
   handlers,
   busyId,
+  legacyItems,
+  onOpenLegacy,
+  onSaveAsVersion,
 }: {
   groups: ResumeVersionGroup[];
   handlers: VersionActionHandlers;
   busyId?: string | null;
+  /** Existing Library items (scans / uploads / tailored / drafts) shown below
+   *  the versions list so /my-resumes is the one home for every résumé. */
+  legacyItems?: LibraryItem[];
+  onOpenLegacy?: (item: LibraryItem) => void;
+  /** Promote an analyzed/tailored history item into a first-class version. */
+  onSaveAsVersion?: (item: LibraryItem) => void;
 }) {
   const totalVersions = groups.reduce((n, g) => n + g.versions.length, 0);
   const hasDefault = groups.some((g) => g.versions.some((v) => v.isDefault));
@@ -162,15 +172,112 @@ export function MyResumesView({
         </button>
       </header>
 
-      {groups.length === 0 ? (
+      {groups.length === 0 && !(legacyItems && legacyItems.length) ? (
         <EmptyState onNewVersion={handlers.onNewVersion} />
-      ) : (
+      ) : groups.length > 0 ? (
         <div style={{ display: "grid", gap: 16 }}>
           {groups.map((g) => (
             <ResumeCard key={g.root} group={g} handlers={handlers} busyId={busyId} />
           ))}
         </div>
-      )}
+      ) : null}
+
+      {legacyItems && legacyItems.length > 0 ? (
+        <section style={{ marginTop: groups.length > 0 ? 34 : 4 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
+            <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 650, letterSpacing: -0.2 }}>From your history</h2>
+            <span style={{ fontSize: 12, color: "var(--dim)", fontVariantNumeric: "tabular-nums" }}>{legacyItems.length}</span>
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--dim)", marginBottom: 14 }}>
+            Scans, uploads, tailored résumés and drafts you already have. Open one to view or continue it.
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {legacyItems.map((item) => (
+              <HistoryRow
+                key={item.key}
+                item={item}
+                onOpen={() => onOpenLegacy?.(item)}
+                onSaveAsVersion={onSaveAsVersion ? () => onSaveAsVersion(item) : undefined}
+                saving={busyId === item.key}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+const HISTORY_KIND: Record<LibraryItem["kind"], { label: string; tone: string; bg: string }> = {
+  analyzed: { label: "Analyzed", tone: "var(--accent)", bg: "var(--accent-bg)" },
+  tailored: { label: "Tailored", tone: "var(--green)", bg: "var(--green-bg)" },
+  builder: { label: "Draft", tone: "var(--amber)", bg: "var(--amber-bg)" },
+  cover_letter: { label: "Cover letter", tone: "var(--dim)", bg: "var(--surface-2)" },
+};
+
+function HistoryRow({
+  item,
+  onOpen,
+  onSaveAsVersion,
+  saving,
+}: {
+  item: LibraryItem;
+  onOpen: () => void;
+  onSaveAsVersion?: () => void;
+  saving?: boolean;
+}) {
+  const k = HISTORY_KIND[item.kind];
+  // Only résumé-content items can become a version; drafts/cover letters have
+  // their own editors.
+  const canSave = !!onSaveAsVersion && (item.kind === "analyzed" || item.kind === "tailored");
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "10px 14px",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
+        background: "var(--surface)",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: 0.6,
+          textTransform: "uppercase",
+          color: k.tone,
+          background: k.bg,
+          padding: "4px 8px",
+          borderRadius: 999,
+          whiteSpace: "nowrap",
+          flex: "none",
+        }}
+      >
+        {k.label}
+      </span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 560, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {item.title}
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--dim)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {item.subtitle}
+          {item.createdAt ? ` · ${relTime(item.createdAt)}` : ""}
+        </div>
+      </div>
+      {item.score != null ? (
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: scoreTone(item.score).c, fontVariantNumeric: "tabular-nums", flex: "none" }}>
+          {item.score}
+        </span>
+      ) : null}
+      {canSave ? (
+        <button style={miniAccent} onClick={onSaveAsVersion} disabled={saving} title="Make this an editable résumé version">
+          {saving ? "Saving…" : "Save as version"}
+        </button>
+      ) : null}
+      <button style={miniBtn} onClick={onOpen}>Open</button>
     </div>
   );
 }
