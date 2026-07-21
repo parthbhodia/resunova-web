@@ -24,6 +24,7 @@ import {
 } from "@/lib/resumeVersions";
 import { stashVersionForTailor, VERSION_TAILOR_URL } from "@/lib/versionTailorPrefill";
 import { stashVersionForBoost, BOOST_JOBS_URL } from "@/lib/versionBoostPrefill";
+import { fetchLibraryItems, type LibraryItem } from "@/lib/supabase";
 import { MyResumesView, NewVersionModal, type NewVersionChoice } from "./MyResumesView";
 import { VersionEditor } from "./VersionEditor";
 
@@ -31,6 +32,7 @@ export default function MyResumes() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [groups, setGroups] = useState<ResumeVersionGroup[]>([]);
+  const [legacyItems, setLegacyItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -46,14 +48,30 @@ export default function MyResumes() {
   }, []);
 
   const refresh = useCallback(async () => {
-    try {
-      setGroups(await listVersionGroups());
-    } catch (e) {
-      console.error("[versions] list", e);
-    } finally {
-      setLoading(false);
-    }
+    // Versions + legacy Library items in parallel; a failure in either leaves
+    // the other intact (both default to []), so the page never hard-fails.
+    const [groupsRes, legacyRes] = await Promise.allSettled([
+      listVersionGroups(),
+      fetchLibraryItems(),
+    ]);
+    if (groupsRes.status === "fulfilled") setGroups(groupsRes.value);
+    else console.error("[versions] list", groupsRes.reason);
+    if (legacyRes.status === "fulfilled") setLegacyItems(legacyRes.value);
+    else console.error("[versions] library", legacyRes.reason);
+    setLoading(false);
   }, []);
+
+  // Route a legacy Library item to its existing surface (reuses ResumeLibrary's
+  // open targets) — no new detail UI.
+  const openLegacy = useCallback(
+    (item: LibraryItem) => {
+      if (item.kind === "analyzed") router.push(`/?view=analyze&analysis=${encodeURIComponent(item.id)}`);
+      else if (item.kind === "builder") router.push(`/template-builder/?builder=${encodeURIComponent(item.id)}`);
+      else if (item.kind === "cover_letter") router.push(`/?view=library&cl=${encodeURIComponent(item.id)}`);
+      else router.push(`/?view=library&resume=${encodeURIComponent(item.record.folder)}`);
+    },
+    [router],
+  );
 
   useEffect(() => {
     void refresh();
@@ -241,7 +259,13 @@ export default function MyResumes() {
       {tab === "editor" && editing ? (
         <VersionEditor version={editing} groups={groups} handlers={editorHandlers} />
       ) : (
-        <MyResumesView groups={groups} handlers={listHandlers} busyId={busyId} />
+        <MyResumesView
+          groups={groups}
+          handlers={listHandlers}
+          busyId={busyId}
+          legacyItems={legacyItems}
+          onOpenLegacy={openLegacy}
+        />
       )}
 
       <NewVersionModal open={modalOpen} onClose={() => setModalOpen(false)} onChoose={onChoose} canDuplicate={groups.length > 0} />
