@@ -115,7 +115,7 @@ export function AppBottomNav({
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         {/* Reserve the fixed bottom-nav height (h-14 = 3.5rem, which is z-60 and
             paints OVER this z-50 sheet) as bottom padding, so the footer row
-            (Contact / Report a bug / Sign out) clears the tab bar instead of
+            (Contact / Feedback / Sign out) clears the tab bar instead of
             hiding behind it. */}
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl px-0 pb-[calc(3.5rem+max(env(safe-area-inset-bottom,0px),0.5rem))]">
           <SheetTitle className="sr-only">More</SheetTitle>
@@ -212,7 +212,7 @@ export function AppBottomNav({
                 onClick={() => { setMoreOpen(false); onBugReport(); }}
               >
                 <span className="text-[var(--muted)]">{NAV_ICONS.bug}</span>
-                Report a bug
+                Feedback
               </button>
               {!anonMode && (
                 <button

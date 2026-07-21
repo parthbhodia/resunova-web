@@ -90,16 +90,16 @@ export function BugReportDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Report a bug</DialogTitle>
+          <DialogTitle>Feedback</DialogTitle>
           <DialogDescription>
-            Spotted something broken? Tell us what happened and we'll look into it.
+            Have an idea or spotted something broken? Tell us what's on your mind and we'll look into it.
           </DialogDescription>
         </DialogHeader>
 
         {status === "success" ? (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
             <span className="text-2xl">✓</span>
-            <p className="font-medium">Thanks — report received!</p>
+            <p className="font-medium">Thanks — feedback received!</p>
             <p className="text-sm text-muted-foreground">We'll look into it.</p>
             <DialogClose render={<Button variant="outline" size="sm" className="mt-2" />}>
               Close
@@ -172,7 +172,7 @@ export function BugReportDialog({ open, onOpenChange }: Props) {
                 size="sm"
                 disabled={status === "submitting" || !title.trim() || !description.trim()}
               >
-                {status === "submitting" ? "Sending…" : "Send report"}
+                {status === "submitting" ? "Sending…" : "Send feedback"}
               </Button>
             </DialogFooter>
           </form>

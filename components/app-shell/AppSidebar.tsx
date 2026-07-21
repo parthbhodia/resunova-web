@@ -357,14 +357,14 @@ export function AppSidebar({
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="Report a bug"
+              tooltip="Feedback"
               className={NAV_MENU_BTN_CLASS}
               onClick={() => setBugReportOpen(true)}
             >
               <span className="app-nav-icon" aria-hidden>
                 {NAV_ICONS.bug}
               </span>
-              {showLabels ? <span className="app-nav-label">Report a bug</span> : null}
+              {showLabels ? <span className="app-nav-label">Feedback</span> : null}
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
