@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { authHeaders, scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { canBoost } from "@/lib/boostPrefill";
 import { autoSaveBoostVersion, fetchLatestResumeBase, type ResumeBase } from "@/lib/boostToVersion";
+import { readStashedBoostVersion, clearStashedBoostVersion, type StashedBoostVersion } from "@/lib/versionBoostPrefill";
 import { apiUrl } from "@/lib/utils";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import { TailoringModeModal } from "@/components/TailoringModeModal";
@@ -150,6 +151,10 @@ export default function BoostPanel({
     return () => { alive = false; };
   }, []);
 
+  // Phase 2: a version the user chose to "Boost to a job" (else null → boost the
+  // latest scan, phase-1 behavior). Read once; the stash is consumed on generate.
+  const [boostVersion] = useState<StashedBoostVersion | null>(() => readStashedBoostVersion());
+
   // PDF export
   const previewRef = useRef<HTMLDivElement>(null);
   const { exportPdf, exporting: pdfExporting, error: pdfError } = useHtmlPdfExport();
@@ -188,6 +193,8 @@ export default function BoostPanel({
           notes,
           depth: expDepth,
           tailoring_mode: effMode,
+          // Phase 2: boost this chosen version instead of the latest scan.
+          ...(boostVersion ? { resume_text: boostVersion.extractedText, structured_resume: boostVersion.structured } : {}),
         }),
       });
       if (!resp.ok) {
@@ -198,6 +205,9 @@ export default function BoostPanel({
       }
       const data = await resp.json() as BoostResult;
       setBoostResult(data);
+      // Consume the version stash once the boost has run (the in-memory
+      // `boostVersion` still drives the child-chained auto-save below).
+      if (boostVersion) clearStashedBoostVersion();
     } catch (e) {
       setBoostError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -337,6 +347,7 @@ export default function BoostPanel({
               onApplied={onApplied}
               onScoreChange={onScoreChange}
               onResumePromoted={onResumePromoted}
+              boostVersion={boostVersion}
             />
           )}
         </div>
@@ -571,6 +582,7 @@ function Step3({
   onApplied,
   onScoreChange,
   onResumePromoted,
+  boostVersion,
 }: {
   generating: boolean;
   result: BoostResult | null;
@@ -585,6 +597,7 @@ function Step3({
   onApplied?: (postingId: string, score: number | null) => void;
   onScoreChange?: (postingId: string, score: number) => void;
   onResumePromoted?: (analysisId: string) => void;
+  boostVersion?: StashedBoostVersion | null;
 }) {
   // ── Accept/reject + live-score state (all hooks run before any early return) ──
   const suggestions = useMemo<BoostSuggestion[]>(
@@ -719,7 +732,12 @@ function Step3({
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        if (!resumeBaseRef.current) resumeBaseRef.current = await fetchLatestResumeBase();
+        // Base = the chosen version (phase 2) or the latest scan (phase 1).
+        if (!resumeBaseRef.current) {
+          resumeBaseRef.current = boostVersion
+            ? { structured: boostVersion.structured, extractedText: boostVersion.extractedText }
+            : await fetchLatestResumeBase();
+        }
         const base = resumeBaseRef.current;
         if (!base) return; // no scanned résumé / not signed in
         const pairs = suggestions
@@ -734,6 +752,10 @@ function Step3({
           company: result.company,
           title: result.title,
           matchScore: headlineScore,
+          // Phase 2: chain the result as a CHILD of the version we boosted.
+          sourceVersion: boostVersion
+            ? { id: boostVersion.id, rootId: boostVersion.rootId, version: boostVersion.version, name: boostVersion.name }
+            : null,
         });
         if (!cancelled && id) {
           savedVersionIdRef.current = id;
@@ -743,7 +765,7 @@ function Step3({
     }, 1100);
     return () => { cancelled = true; clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result, accepted, drafts, acceptedCount, headlineScore, scoring]);
+  }, [result, accepted, drafts, acceptedCount, headlineScore, scoring, boostVersion]);
 
   const handleUseForFutureMatches = async () => {
     if (!result || acceptedCount === 0 || promoting) return;
@@ -806,6 +828,12 @@ function Step3({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+      {boostVersion ? (
+        <div style={{ fontSize: 12.5, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
+          <span aria-hidden>↳</span> Boosting your saved version <strong style={{ color: "var(--text)" }}>{boostVersion.name}</strong> — accepted changes save back as a new version of it.
+        </div>
+      ) : null}
+
       {/* ── Match banner — gated on `improved` ── */}
       {improved ? (
         <div style={{ background: "var(--surface)", borderRadius: 14, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>

@@ -23,6 +23,7 @@ import {
   type ResumeVersionGroup,
 } from "@/lib/resumeVersions";
 import { stashVersionForTailor, VERSION_TAILOR_URL } from "@/lib/versionTailorPrefill";
+import { stashVersionForBoost, BOOST_JOBS_URL } from "@/lib/versionBoostPrefill";
 import { MyResumesView, NewVersionModal, type NewVersionChoice } from "./MyResumesView";
 import { VersionEditor } from "./VersionEditor";
 
@@ -139,6 +140,10 @@ export default function MyResumes() {
     onTailor: (v: ResumeVersion) => {
       if (stashVersionForTailor(v)) router.push(VERSION_TAILOR_URL);
       else flash("Add some résumé content before tailoring.");
+    },
+    onBoost: (v: ResumeVersion) => {
+      if (stashVersionForBoost(v)) router.push(BOOST_JOBS_URL);
+      else flash("Add some résumé content before boosting.");
     },
     onDuplicate: (v: ResumeVersion) => void listHandlers.onDuplicate(v),
   };

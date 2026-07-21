@@ -15,6 +15,7 @@ import { fetchAnalyses } from "./supabase";
 import {
   createVersion,
   updateVersion,
+  saveAsChildVersion,
   listVersions,
 } from "./resumeVersions";
 
@@ -78,6 +79,14 @@ export async function findExistingBoostVersion(company: string, title: string): 
   }
 }
 
+/** The version a Boost was launched FROM (phase 2), so its result chains as a child. */
+export interface BoostSourceVersion {
+  id: string;
+  rootId: string;
+  version: number;
+  name: string;
+}
+
 export interface AutoSaveBoostArgs {
   /** Version id already created for this Boost session (update it in place). */
   existingVersionId: string | null;
@@ -87,6 +96,8 @@ export interface AutoSaveBoostArgs {
   title: string;
   /** The accepted-set match score — stored labeled as a match, not a quality grade. */
   matchScore: number | null;
+  /** When Boost was launched from a version, chain the result as its CHILD (phase 2). */
+  sourceVersion?: BoostSourceVersion | null;
 }
 
 /**
@@ -114,6 +125,23 @@ export async function autoSaveBoostVersion(args: AutoSaveBoostArgs): Promise<str
       lastScoreSource: "match",
     });
     return targetId;
+  }
+
+  // Phase 2: launched from a version → chain the result as a CHILD of its lineage.
+  if (args.sourceVersion) {
+    const child = await saveAsChildVersion(
+      { id: args.sourceVersion.id, rootId: args.sourceVersion.rootId, version: args.sourceVersion.version, name: args.sourceVersion.name },
+      {
+        name: args.sourceVersion.name,
+        structured: boosted.structured,
+        extractedText: boosted.extractedText,
+        origin: "tailor",
+        jd: { company: jdCompany, title: jdTitle, text: null },
+        lastScore: args.matchScore,
+        lastScoreSource: "match",
+      },
+    );
+    return child?.id ?? null;
   }
 
   const made = await createVersion({

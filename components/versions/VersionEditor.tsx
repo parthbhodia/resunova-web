@@ -78,6 +78,8 @@ export interface VersionEditorHandlers {
   /** Open the persisted analysis (full breakdown) in Analyze. */
   onViewReport?: (analysisId: string) => void;
   onTailor: (v: ResumeVersion) => void;
+  /** Boost this version against a job (→ Jobs; result chains as a child). */
+  onBoost?: (v: ResumeVersion) => void;
   onDuplicate: (v: ResumeVersion) => void;
 }
 
@@ -207,6 +209,7 @@ export function VersionEditor({
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <button style={btnAccent} onClick={runScore} disabled={scoring}>{scoring ? "Scoring…" : "Scan & score"}</button>
           <button style={btn} onClick={() => handlers.onTailor(version)}>Tailor to a job</button>
+          {handlers.onBoost ? <button style={btn} onClick={() => handlers.onBoost?.(version)}>Boost to a job</button> : null}
           <button style={btn} onClick={() => handlers.onDuplicate(version)}>Duplicate</button>
         </div>
       </div>
