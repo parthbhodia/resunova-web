@@ -56,9 +56,18 @@ score (`last_score_source='llm'`); a tailored item's JD-**match** % is
 deliberately NOT carried as a version quality grade. Drafts / cover letters keep
 their own editors (no promote).
 
-Deferred (riskier, next): auto-attaching every new scan/upload to a version and
-stamping `resume_analyses.version_id` server-side — it changes the load-bearing
-Analyze/Boost save path, so it waits until the promote flow proves out live.
+**Server primitive (shipped):** `POST /api/analyze-link-version` (resunova-api)
+stamps `resume_analyses.version_id` on an already-persisted, owner-owned scan —
+service-role, back-reference FK only, so the scan's content stays immutable.
+A fresh Analyze upload writes its scan row *before* the client knows the version
+id, so the link can't be set at insert; this is the after-the-fact primitive.
+`linkAnalysisToVersion` (web, best-effort) calls it when **promoting an analyzed
+item** ("Save as version"), so that version's scan history includes the original
+scan right away.
+
+Deferred (riskier, next): auto-attaching *every* new scan/upload to a version
+(no manual promote) — it changes the load-bearing Analyze/Boost save path and
+needs create-or-reuse dedupe, so it waits until the promote flow proves out live.
 
 ### Phase 3 — Library becomes per-version history
 The old Library grid becomes a **"scans & history"** view scoped to a version
@@ -82,7 +91,8 @@ résumés into `resume_versions` (grouped by their existing `root_id` lineage), 
 ## Status
 - [x] Phase 1 — UI unification (/my-resumes surfaces history + nav points there)
 - [x] Phase 2 — "Save as version" promotes analyzed/tailored history into versions
-- [ ] Phase 2b — auto-attach new scans/uploads to a version (server, deferred)
+- [~] Phase 2b — link primitive (`/api/analyze-link-version`) shipped + wired
+  into the promote flow; auto-attach on *every* fresh scan still deferred
 - [~] Phase 3 — per-version "Scan history" panel shipped; retire `?view=library`
   nav peer still gated on the live pass + Phase 2b
 - [ ] Phase 4 — backfill (optional)

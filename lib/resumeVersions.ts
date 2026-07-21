@@ -183,6 +183,33 @@ export async function scoreVersionInPlace(version: {
   return { score, analysisId };
 }
 
+/**
+ * Link a persisted scan (`resume_analyses` row) to a résumé version so the
+ * version's scan history (the editor's "Scan history" panel) includes that
+ * scan — POSTs the Phase-2b `/api/analyze-link-version` primitive, which stamps
+ * `resume_analyses.version_id` server-side (owner-scoped). Best-effort: returns
+ * false (never throws) on any failure, so a failed link never blocks the
+ * version from being created. Used when promoting an analyzed history item.
+ */
+export async function linkAnalysisToVersion(analysisId: string, versionId: string): Promise<boolean> {
+  if (!analysisId || !versionId) return false;
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token) return false;
+    const resp = await fetch(apiUrl("/api/analyze-link-version"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ analysis_id: analysisId, version_id: versionId }),
+    });
+    if (!resp.ok) return false;
+    const json = await resp.json().catch(() => ({}));
+    return !!json?.linked;
+  } catch {
+    return false;
+  }
+}
+
 /* ── row mapping ────────────────────────────────────────────────── */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -20,6 +20,7 @@ import {
   createVersion,
   scoreVersionInPlace,
   listScansForVersion,
+  linkAnalysisToVersion,
   type ResumeVersion,
   type ResumeVersionGroup,
 } from "@/lib/resumeVersions";
@@ -143,7 +144,14 @@ export default function MyResumes() {
       try {
         const made = await createVersion({ name: item.title || "Résumé", structured, extractedText, origin, sourcePdfUrl, lastScore, lastScoreSource });
         if (!made) flash("Sign in to save résumé versions.");
-        else { flash("Saved as a version — opening the editor."); openEditor(made); }
+        else {
+          // An analyzed item IS a scan (resume_analyses row) — link it to the new
+          // version so the editor's Scan history shows it right away (Phase 2b,
+          // best-effort). Tailored items aren't scans, so there's nothing to link.
+          if (item.kind === "analyzed") await linkAnalysisToVersion(item.id, made.id);
+          flash("Saved as a version — opening the editor.");
+          openEditor(made);
+        }
         await refresh();
       } catch (e) {
         console.error("[versions] saveAsVersion", e);
