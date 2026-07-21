@@ -257,8 +257,8 @@ function ResumeCard({
             {busyId === head.id ? "…" : "Duplicate"}
           </button>
           {!head.isDefault ? (
-            <button style={miniBtn} onClick={() => handlers.onSetDefault(head)}>
-              Set default
+            <button style={miniBtn} onClick={() => handlers.onSetDefault(head)} title="Make this the résumé the Jobs feed ranks against">
+              Use as my résumé
             </button>
           ) : null}
         </div>

@@ -12,7 +12,7 @@
  */
 
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
-import { getSupabaseClient } from "./supabase";
+import { getSupabaseClient, insertAnalysis } from "./supabase";
 import { apiUrl } from "./utils";
 import { dispatchResumeLibraryChanged } from "./resumeLibraryEvents";
 
@@ -282,7 +282,7 @@ export interface NewRootVersionInput {
   name: string;
   structured: StructuredResume;
   extractedText?: string | null;
-  origin: Extract<VersionOrigin, "upload" | "profile" | "manual">;
+  origin: Extract<VersionOrigin, "upload" | "profile" | "manual" | "tailor">;
   sourcePdfUrl?: string | null;
   lastScore?: number | null;
   lastScoreSource?: string | null;
@@ -449,4 +449,41 @@ export async function deleteVersion(id: string): Promise<void> {
   const { error } = await db.from("resume_versions").delete().eq("id", id);
   if (error) throw error;
   dispatchResumeLibraryChanged();
+}
+
+/**
+ * Promote a version to the user's WORKING résumé — the latest `resume_analyses`
+ * row that the Jobs feed + Boost rank against. Writes a lightweight scoreless row
+ * from the version's current content (synthesized from structured for freshness),
+ * the same mechanism Boost's "use as my résumé" uses. Returns true on success.
+ */
+export async function promoteVersionToWorkingResume(version: {
+  name: string;
+  structured: StructuredResume | null;
+  extractedText: string | null;
+}): Promise<boolean> {
+  const text = structuredToPlainText(version.structured) || (version.extractedText ?? "");
+  if (!text.trim()) return false;
+  const result = {
+    extractedText: text,
+    structuredResume: version.structured ?? undefined,
+    overallScore: null,
+    source: "version_promote",
+  };
+  try {
+    const id = await insertAnalysis(version.name || "My résumé", result);
+    return !!id;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Unify "which résumé is live": mark this version the default (★) AND promote it
+ * to the working résumé, so the starred version is exactly what Jobs ranks
+ * against. One action, one mental model (Boost × Versions plan, phase 3).
+ */
+export async function setVersionAsMyResume(version: ResumeVersion): Promise<boolean> {
+  await setDefaultVersion(version.id);
+  return promoteVersionToWorkingResume(version);
 }

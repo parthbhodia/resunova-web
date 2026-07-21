@@ -91,6 +91,7 @@ export default function VersionsPreview() {
             onScore: async () => { await new Promise((r) => setTimeout(r, 700)); return { score: 83, analysisId: "demo-analysis" }; },
             onViewReport: noop,
             onTailor: noop,
+            onBoost: noop,
             onDuplicate: noop,
           }}
         />
