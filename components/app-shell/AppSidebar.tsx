@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { NAV_ICONS } from "./nav-icons";
 import { LogoFull, LogoMark } from "@/components/BrandLogo";
+import { ScansRemainingPill } from "./ScansRemainingPill";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import {
@@ -189,6 +190,7 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent>
+        <ScansRemainingPill collapsed={state === "collapsed"} />
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
             <SidebarMenu className="group-data-[collapsible=icon]:items-center">
@@ -341,18 +343,6 @@ export function AppSidebar({
                 {theme === "dark" ? NAV_ICONS.themeDark : NAV_ICONS.themeLight}
               </span>
               {showLabels ? <span className="app-nav-label">Theme</span> : null}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Contact"
-              className={NAV_MENU_BTN_CLASS}
-              render={<Link href="/contact" prefetch={false} />}
-            >
-              <span className="app-nav-icon" aria-hidden>
-                {NAV_ICONS.contact}
-              </span>
-              {showLabels ? <span className="app-nav-label">Contact</span> : null}
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
