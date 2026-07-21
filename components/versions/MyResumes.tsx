@@ -15,7 +15,7 @@ import { RESUME_LIBRARY_CHANGED_EVENT } from "@/lib/resumeLibraryEvents";
 import {
   listVersionGroups,
   duplicateVersion,
-  setDefaultVersion,
+  setVersionAsMyResume,
   deleteVersion,
   createVersion,
   scoreVersionInPlace,
@@ -108,11 +108,12 @@ export default function MyResumes() {
     },
     onSetDefault: async (v: ResumeVersion) => {
       try {
-        await setDefaultVersion(v.id);
+        const promoted = await setVersionAsMyResume(v);
+        flash(promoted ? "Now your résumé — Jobs ranks against this one." : "Set as default.");
         await refresh();
       } catch (e) {
         console.error("[versions] setDefault", e);
-        flash("Couldn't set default — try again.");
+        flash("Couldn't set as your résumé — try again.");
       }
     },
     onDelete: async (v: ResumeVersion) => {

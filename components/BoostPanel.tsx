@@ -18,6 +18,7 @@ import { authHeaders, scoreLabel, type JobDetail as JobDetailData } from "@/lib/
 import { canBoost } from "@/lib/boostPrefill";
 import { autoSaveBoostVersion, fetchLatestResumeBase, type ResumeBase } from "@/lib/boostToVersion";
 import { readStashedBoostVersion, clearStashedBoostVersion, type StashedBoostVersion } from "@/lib/versionBoostPrefill";
+import { setDefaultVersion } from "@/lib/resumeVersions";
 import { apiUrl } from "@/lib/utils";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import { TailoringModeModal } from "@/components/TailoringModeModal";
@@ -788,6 +789,11 @@ function Step3({
       const body = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
       if (typeof body?.analysisId === "string") onResumePromoted?.(body.analysisId);
+      // Phase 3: keep "which résumé is live" unified — the boost auto-saved a
+      // version, so star it too (use-resume already promoted the working résumé).
+      if (savedVersionIdRef.current) {
+        try { await setDefaultVersion(savedVersionIdRef.current); } catch { /* best-effort */ }
+      }
       setPromoteMessage(body?.message || "Optimized resume is now used for future job matching.");
     } catch (err) {
       setPromoteError(err instanceof Error ? err.message : "Could not save this optimized resume.");
