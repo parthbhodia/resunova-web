@@ -19,6 +19,7 @@ import {
   deleteVersion,
   createVersion,
   scoreVersionInPlace,
+  listScansForVersion,
   type ResumeVersion,
   type ResumeVersionGroup,
 } from "@/lib/resumeVersions";
@@ -207,6 +208,7 @@ export default function MyResumes() {
       return r;
     },
     onViewReport: (analysisId: string) => router.push(`/?view=analyze&analysis=${encodeURIComponent(analysisId)}`),
+    onLoadScans: (versionId: string) => listScansForVersion(versionId),
     onTailor: (v: ResumeVersion) => {
       if (stashVersionForTailor(v)) router.push(VERSION_TAILOR_URL);
       else flash("Add some résumé content before tailoring.");

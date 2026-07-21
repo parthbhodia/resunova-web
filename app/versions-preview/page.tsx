@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { MyResumesView, NewVersionModal, type VersionActionHandlers } from "@/components/versions/MyResumesView";
 import { VersionEditor } from "@/components/versions/VersionEditor";
-import type { ResumeVersion, ResumeVersionGroup } from "@/lib/resumeVersions";
+import type { ResumeVersion, ResumeVersionGroup, VersionScan } from "@/lib/resumeVersions";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 
 const STRUCT: StructuredResume = {
@@ -60,6 +60,15 @@ const DEMO: ResumeVersionGroup[] = [
   ] },
 ];
 
+// seeded scan history so the editor's "Scan history" panel renders in the preview
+const DEMO_SCANS: Record<string, VersionScan[]> = {
+  pm3: [
+    { id: "s3", label: "Product Manager résumé", score: 84, scoreSource: "llm", createdAt: "2026-07-17T07:10:00Z" },
+    { id: "s2", label: "Product Manager résumé", score: 80, scoreSource: "llm", createdAt: "2026-07-16T18:20:00Z" },
+    { id: "s1", label: "Product Manager résumé", score: 71, scoreSource: "llm", createdAt: "2026-07-12T09:00:00Z" },
+  ],
+};
+
 export default function VersionsPreview() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"list" | "editor">("list");
@@ -90,6 +99,7 @@ export default function VersionsPreview() {
             onNewVersion: () => setOpen(true),
             onScore: async () => { await new Promise((r) => setTimeout(r, 700)); return { score: 83, analysisId: "demo-analysis" }; },
             onViewReport: noop,
+            onLoadScans: async (versionId) => DEMO_SCANS[versionId] ?? [],
             onTailor: noop,
             onBoost: noop,
             onDuplicate: noop,

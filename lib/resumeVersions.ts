@@ -253,6 +253,46 @@ export async function fetchVersionById(id: string): Promise<ResumeVersion | null
   return data ? rowToVersion(data) : null;
 }
 
+/** A scan (resume_analyses row) linked to a version via version_id. */
+export interface VersionScan {
+  id: string;
+  label: string;
+  score: number | null;
+  scoreSource: string | null;
+  createdAt: string;
+}
+
+/**
+ * The scans linked to a version — resume_analyses rows whose version_id points at
+ * this version (populated by in-place "Scan & score"). READ-only; scoped to the
+ * owner by RLS. Degrades to [] if the version_id column is absent (a from-scratch
+ * DB predating migration 037) so an older schema never hard-fails the editor.
+ */
+export async function listScansForVersion(versionId: string, limit = 20): Promise<VersionScan[]> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return [];
+  try {
+    const { data, error } = await db
+      .from("resume_analyses")
+      .select("id, label, score, score_source, created_at")
+      .eq("user_id", session.user.id)
+      .eq("version_id", versionId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) return [];
+    return (data ?? []).map((row) => ({
+      id: row.id as string,
+      label: (row.label as string | null) ?? "Scan",
+      score: (row.score as number | null) ?? null,
+      scoreSource: (row.score_source as string | null) ?? null,
+      createdAt: row.created_at as string,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /** The next ordinal across a whole root group (never collides on a restore). */
 async function nextRootOrdinal(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

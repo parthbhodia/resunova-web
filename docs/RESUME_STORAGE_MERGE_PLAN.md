@@ -65,6 +65,15 @@ The old Library grid becomes a **"scans & history"** view scoped to a version
 (reachable from the version), not a top-level peer of `/my-resumes`. Retire the
 standalone `?view=library` nav entry once Phase 1+2 cover everything.
 
+**Shipped (additive):** the version editor now carries a **"Scan history"**
+panel — the `resume_analyses` rows linked to the version via `version_id`
+(each in-place "Scan & score" appends one), each deep-linking to the full
+Analyze report. Read-only, RLS-scoped, degrades to `[]` if `version_id` is
+absent (`listScansForVersion`). This is the "scans scoped to a version" surface;
+it does **not** yet retire the `?view=library` nav peer — that removal is gated
+on the live signed-in pass Phase 1+2 still need (and on `version_id` being
+populated for more than just in-place scores, i.e. Phase 2b).
+
 ### Phase 4 (optional) — Backfill
 One-time, reversible migration that turns legacy standalone analyses/tailored
 résumés into `resume_versions` (grouped by their existing `root_id` lineage), so
@@ -74,5 +83,6 @@ résumés into `resume_versions` (grouped by their existing `root_id` lineage), 
 - [x] Phase 1 — UI unification (/my-resumes surfaces history + nav points there)
 - [x] Phase 2 — "Save as version" promotes analyzed/tailored history into versions
 - [ ] Phase 2b — auto-attach new scans/uploads to a version (server, deferred)
-- [ ] Phase 3 — Library → per-version history
+- [~] Phase 3 — per-version "Scan history" panel shipped; retire `?view=library`
+  nav peer still gated on the live pass + Phase 2b
 - [ ] Phase 4 — backfill (optional)
