@@ -45,7 +45,7 @@ export function TealScrollStyles() {
       @media (prefers-reduced-motion: reduce) { .lp-featnav { transition: opacity .2s ease; } .lp-featnav[data-show="false"] { transform: none; } }
 
       .lp-comarquee { overflow: hidden; position: relative; }
-      .lp-comarquee-row { display: flex; gap: 12px; width: max-content; animation: lpMarqueeX 42s linear infinite; }
+      .lp-comarquee-row { display: flex; gap: 12px; width: max-content; animation: lpMarqueeX 80s linear infinite; }
       .lp-comarquee:hover .lp-comarquee-row { animation-play-state: paused; }
       @keyframes lpMarqueeX { from { transform: translateX(0); } to { transform: translateX(-50%); } }
       @media (prefers-reduced-motion: reduce) { .lp-comarquee-row { animation: none; } .lp-comarquee { overflow-x: auto; } }
