@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch
 import { useRouter } from "next/navigation";
 import { authHeaders, scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { canBoost } from "@/lib/boostPrefill";
+import { autoSaveBoostVersion, fetchLatestResumeBase, type ResumeBase } from "@/lib/boostToVersion";
 import { apiUrl } from "@/lib/utils";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import { TailoringModeModal } from "@/components/TailoringModeModal";
@@ -602,6 +603,12 @@ function Step3({
   const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
   const [promoteError, setPromoteError] = useState<string | null>(null);
 
+  // Boost → Version auto-save: once the user accepts ≥1 suggestion, the boosted
+  // résumé is saved to My Résumés (created once per job, updated in place).
+  const savedVersionIdRef = useRef<string | null>(null);
+  const resumeBaseRef = useRef<ResumeBase | null>(null);
+  const [savedToLibrary, setSavedToLibrary] = useState(false);
+
   // Reset selections whenever a fresh boost result arrives. Default: NOTHING
   // applied — suggestions render review-first (suggest-then-accept), mirroring
   // Analyze. The preview shows the original résumé and the score sits at
@@ -697,6 +704,47 @@ function Step3({
     onScoreChange?.(postingId, headlineScore);
   }, [acceptedCount, headlineScore, onScoreChange, postingId, result, scoring]);
 
+  // Reset the saved-version session when a fresh boost result arrives.
+  useEffect(() => {
+    savedVersionIdRef.current = null;
+    resumeBaseRef.current = null;
+    setSavedToLibrary(false);
+  }, [result]);
+
+  // Auto-save the boosted résumé to My Résumés once ≥1 suggestion is accepted.
+  // Created once per job, updated in place as the accepted set changes. Waits
+  // for the live re-score to settle so the stored match score is final.
+  useEffect(() => {
+    if (!result || acceptedCount === 0 || scoring) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        if (!resumeBaseRef.current) resumeBaseRef.current = await fetchLatestResumeBase();
+        const base = resumeBaseRef.current;
+        if (!base) return; // no scanned résumé / not signed in
+        const pairs = suggestions
+          .map((s, i) => ({ original: s.original, suggested: drafts[i] ?? s.suggested, keep: accepted[i] }))
+          .filter((x) => x.keep)
+          .map(({ original, suggested }) => ({ original, suggested }));
+        if (pairs.length === 0) return;
+        const id = await autoSaveBoostVersion({
+          existingVersionId: savedVersionIdRef.current,
+          base,
+          pairs,
+          company: result.company,
+          title: result.title,
+          matchScore: headlineScore,
+        });
+        if (!cancelled && id) {
+          savedVersionIdRef.current = id;
+          setSavedToLibrary(true);
+        }
+      } catch { /* best-effort — never block the Boost flow */ }
+    }, 1100);
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, accepted, drafts, acceptedCount, headlineScore, scoring]);
+
   const handleUseForFutureMatches = async () => {
     if (!result || acceptedCount === 0 || promoting) return;
     setPromoting(true);
@@ -781,6 +829,15 @@ function Step3({
                 ? <>Showing the projected score with all {total} suggestions — live per-selection scoring is rolling out.</>
                 : <>Your match {headlineScore > beforeScore ? "is up" : "is"} from <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong> to <strong style={{ color: scoreColor }}>{headlineScore}%</strong> with {acceptedCount} of {total} suggestions applied.</>}
           </span>
+          {savedToLibrary ? (
+            <a
+              href="/my-resumes"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 560, color: "var(--green-ink)", textDecoration: "none", whiteSpace: "nowrap" }}
+              title="This tailored résumé was saved to My Résumés"
+            >
+              <span aria-hidden>✓</span> Saved to My Résumés
+            </a>
+          ) : null}
         </div>
       ) : (
         <div style={{ background: "var(--surface)", borderRadius: 14, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6 }}>

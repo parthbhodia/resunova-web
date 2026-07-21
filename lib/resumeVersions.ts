@@ -282,7 +282,7 @@ export interface NewRootVersionInput {
   name: string;
   structured: StructuredResume;
   extractedText?: string | null;
-  origin: Extract<VersionOrigin, "upload" | "profile" | "manual">;
+  origin: Extract<VersionOrigin, "upload" | "profile" | "manual" | "tailor">;
   sourcePdfUrl?: string | null;
   lastScore?: number | null;
   lastScoreSource?: string | null;
