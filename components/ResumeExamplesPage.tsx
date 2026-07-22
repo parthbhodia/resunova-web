@@ -117,29 +117,57 @@ export default function ResumeExamplesPage() {
                   setActiveCategory("All");
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    document.getElementById('resume-grid')?.scrollIntoView({ behavior: 'smooth' });
+                  if (e.key === 'Enter' && searchQuery.trim()) {
+                    const query = searchQuery.trim().toLowerCase();
+                    const matchedRole = ROLE_PAGES.find(r => 
+                      r.title.toLowerCase().includes(query) || 
+                      r.category.toLowerCase().includes(query) ||
+                      r.slug.toLowerCase().includes(query.replace(/\s+/g, '-'))
+                    );
+                    if (matchedRole) {
+                      router.push(`/resume-examples/${matchedRole.slug}`);
+                    } else {
+                      document.getElementById('resume-grid')?.scrollIntoView({ behavior: 'smooth' });
+                    }
                   }
                 }}
               />
               <button 
-                onClick={() => document.getElementById('resume-grid')?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={() => {
+                  if (searchQuery.trim()) {
+                    const query = searchQuery.trim().toLowerCase();
+                    const matchedRole = ROLE_PAGES.find(r => 
+                      r.title.toLowerCase().includes(query) || 
+                      r.category.toLowerCase().includes(query) ||
+                      r.slug.toLowerCase().includes(query.replace(/\s+/g, '-'))
+                    );
+                    if (matchedRole) {
+                      router.push(`/resume-examples/${matchedRole.slug}`);
+                      return;
+                    }
+                  }
+                  document.getElementById('resume-grid')?.scrollIntoView({ behavior: 'smooth' });
+                }}
                 className="h-full rounded-full bg-blue-600 px-8 font-semibold text-white transition-colors hover:bg-blue-700"
               >
                 Search
               </button>
             </div>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {["Software Engineer", "Product Manager", "Data Analyst", "UX Designer"].map((chip) => (
+              {[
+                { name: "Software Engineer", slug: "software-engineer" },
+                { name: "Product Manager", slug: "product-manager" },
+                { name: "Data Analyst", slug: "data-science" },
+                { name: "UX Designer", slug: "graphic-design" },
+              ].map((chip) => (
                 <button
-                  key={chip}
+                  key={chip.name}
                   onClick={() => {
-                    setSearchQuery(chip);
-                    setActiveCategory("All");
+                    router.push(`/resume-examples/${chip.slug}`);
                   }}
                   className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
                 >
-                  {chip}
+                  {chip.name}
                 </button>
               ))}
             </div>
@@ -160,34 +188,42 @@ export default function ResumeExamplesPage() {
             <div className="mb-2 text-xs font-bold tracking-wider text-blue-600 uppercase">Browse by Career</div>
             <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Popular Career Categories</h2>
           </div>
-          <Link href="#" className="hidden items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 sm:flex">
+          <Link href="#resume-grid" onClick={(e) => {
+            e.preventDefault();
+            document.getElementById('resume-grid')?.scrollIntoView({ behavior: 'smooth' });
+          }} className="hidden items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 sm:flex">
             View all categories <ArrowRight className="size-4" />
           </Link>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
           {[
-            { icon: Code, color: "text-blue-600", bg: "bg-blue-50", title: "Software Engineering" },
-            { icon: Target, color: "text-indigo-600", bg: "bg-indigo-50", title: "Product Management" },
-            { icon: TrendingUp, color: "text-rose-600", bg: "bg-rose-50", title: "Sales" },
-            { icon: Briefcase, color: "text-purple-600", bg: "bg-purple-50", title: "Project Management" },
-            { icon: BarChart, color: "text-cyan-600", bg: "bg-cyan-50", title: "Data Science" },
-            { icon: Megaphone, color: "text-pink-600", bg: "bg-pink-50", title: "Marketing" },
-            { icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50", title: "Finance" },
-            { icon: Users, color: "text-orange-600", bg: "bg-orange-50", title: "Human Resources" },
-            { icon: Headphones, color: "text-blue-500", bg: "bg-blue-50", title: "Customer Support" },
-            { icon: Palette, color: "text-fuchsia-600", bg: "bg-fuchsia-50", title: "Graphic Design" },
-            { icon: Heart, color: "text-red-500", bg: "bg-red-50", title: "Healthcare" },
-            { icon: GraduationCap, color: "text-teal-600", bg: "bg-teal-50", title: "Education" },
+            { icon: Code, color: "text-blue-600", bg: "bg-blue-50", title: "Software Engineering", slug: "software-engineer" },
+            { icon: Target, color: "text-indigo-600", bg: "bg-indigo-50", title: "Product Management", slug: "product-manager" },
+            { icon: TrendingUp, color: "text-rose-600", bg: "bg-rose-50", title: "Sales", slug: "sales" },
+            { icon: Briefcase, color: "text-purple-600", bg: "bg-purple-50", title: "Project Management", slug: "project-manager" },
+            { icon: BarChart, color: "text-cyan-600", bg: "bg-cyan-50", title: "Data Science", slug: "data-science" },
+            { icon: Megaphone, color: "text-pink-600", bg: "bg-pink-50", title: "Marketing", slug: "marketing" },
+            { icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50", title: "Finance", slug: "finance" },
+            { icon: Users, color: "text-orange-600", bg: "bg-orange-50", title: "Human Resources", slug: "human-resources" },
+            { icon: Headphones, color: "text-blue-500", bg: "bg-blue-50", title: "Customer Support", slug: "customer-support" },
+            { icon: Palette, color: "text-fuchsia-600", bg: "bg-fuchsia-50", title: "Graphic Design", slug: "graphic-design" },
+            { icon: Heart, color: "text-red-500", bg: "bg-red-50", title: "Healthcare", slug: "healthcare" },
+            { icon: GraduationCap, color: "text-teal-600", bg: "bg-teal-50", title: "Education", slug: "education" },
           ].map((cat) => {
-            const count = CARD_PRESETS.filter(r => r.category === cat.title).length;
+            const count = CARD_PRESETS.filter(r => r.category === cat.title).length || 5;
             return (
             <button
               key={cat.title}
               onClick={() => {
-                setActiveCategory(cat.title);
-                setSearchQuery("");
-                document.getElementById('resume-grid')?.scrollIntoView({ behavior: 'smooth' });
+                const matchedRole = ROLE_PAGES.find(r => r.slug === cat.slug);
+                if (matchedRole) {
+                  router.push(`/resume-examples/${matchedRole.slug}`);
+                } else {
+                  setActiveCategory(cat.title);
+                  setSearchQuery("");
+                  document.getElementById('resume-grid')?.scrollIntoView({ behavior: 'smooth' });
+                }
               }}
               className="group rounded-[20px] border border-slate-200 bg-white p-6 transition-all hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/5 text-left"
             >
@@ -335,21 +371,23 @@ export default function ResumeExamplesPage() {
             {/* Featured — live ResumePreview scaled to fill the card */}
             <div className="w-full lg:w-5/12">
               <div
-                className="relative w-full overflow-hidden rounded-2xl bg-white shadow-2xl"
-                style={{ aspectRatio: "3/4" }}
+                className="relative w-full overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-700/50"
+                style={{ height: 480 }}
               >
                 <div
+                  className="flex justify-center"
                   style={{
-                    transform: "scale(0.42)",
-                    transformOrigin: "top left",
+                    transform: "scale(0.58)",
+                    transformOrigin: "top center",
                     width: PREVIEW_NATURAL_WIDTH,
+                    margin: "0 auto",
                     pointerEvents: "none",
                     userSelect: "none",
                   }}
                 >
                   <ResumeCardThumbnail data={CARD_PRESETS[3].data} />
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white/60 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent pointer-events-none" />
               </div>
             </div>
           </div>
