@@ -1,8 +1,14 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/brand";
 import { BLOG_POSTS } from "@/lib/atsBlogPosts";
+import { productManagerData } from "@/lib/resumeExampleRoles/product-manager";
 
 export const dynamic = "force-static";
+
+// Registry of all available role pages
+const ROLE_PAGES = [
+  productManagerData,
+];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages: MetadataRoute.Sitemap = [
@@ -21,5 +27,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  return [...staticPages, ...blogPages];
+  const rolePages: MetadataRoute.Sitemap = ROLE_PAGES.map((role) => ({
+    url: `${SITE_URL}/resume-examples/${role.slug}/`,
+    lastModified: new Date(),
+    changeFrequency: "monthly" as const,
+    priority: 0.8,
+  }));
+
+  return [...staticPages, ...blogPages, ...rolePages];
 }

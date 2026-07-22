@@ -161,7 +161,7 @@ function mapStructuredResumeToTemplateData(structured: StructuredResume): TBResu
   };
 }
 
-function stashPrefillData(data: TBResumeData): boolean {
+export function stashTemplateBuilderExactPrefill(data: TBResumeData): boolean {
   try {
     sessionStorage.setItem(
       TEMPLATE_BUILDER_STRUCTURED_PREFILL_KEY,
@@ -171,6 +171,10 @@ function stashPrefillData(data: TBResumeData): boolean {
   } catch {
     return false;
   }
+}
+
+function stashPrefillData(data: TBResumeData): boolean {
+  return stashTemplateBuilderExactPrefill(data);
 }
 
 export function stashTemplateBuilderStructuredPrefillFromStructuredResume(

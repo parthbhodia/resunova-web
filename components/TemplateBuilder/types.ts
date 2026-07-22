@@ -41,7 +41,7 @@ export interface TBProject {
 }
 
 export type TBFont = "Helvetica" | "Times-Roman" | "Courier";
-export type TBStylePreset = "executive" | "modern" | "classic";
+export type TBStylePreset = "executive" | "modern" | "classic" | "azurill" | "onyx" | "bronzor" | "chikorita" | "ditgar" | "ditto" | "gengar" | "glalie" | "kakuna" | "lapras" | "leafish" | "meowth" | "pikachu" | "rhyhorn" | "scizor";
 export type TBPageWidth = "narrow" | "standard" | "wide";
 export type TBFontSize = "small" | "medium" | "large";
 export type TBLayout = "single" | "twoColumn";

@@ -1,6 +1,6 @@
 "use client";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { TBResumeData, TBFont } from "./types";
+import type { TBResumeData, TBFont } from "../TemplateBuilder/types";
 import { getResumePageWidth, getResumeStylePreset } from "@/lib/resumeLayout";
 
 function parseBullets(raw: string): string[] {
@@ -24,23 +24,28 @@ function makeStyles(font: TBFont, accent: string, stylePreset = getResumeStylePr
       paddingHorizontal: pageWidth.paddingX,
       color: "#1a1a1a",
       lineHeight: stylePreset.lineHeight,
+      borderTop: `12px solid ${accent}`,
+    },
+    headerBox: {
+      alignItems: "center",
+      marginBottom: 20,
     },
     name: {
-      fontSize: stylePreset.nameFont,
+      fontSize: stylePreset.nameFont * 1.2,
       fontFamily: bold,
-      letterSpacing: 0.5,
-      marginBottom: 4,
-      color: "#111111",
-      width: "100%",
+      letterSpacing: 1,
+      marginBottom: 8,
+      color: accent,
+      textAlign: "center",
     },
     contactLine: {
       fontSize: stylePreset.metaFont,
       color: "#555555",
       flexDirection: "row",
       flexWrap: "wrap",
-      width: "100%",
+      justifyContent: "center",
+      gap: 12,
     },
-    contactItem: { marginRight: 6 },
     sectionTitle: {
       fontSize: stylePreset.sectionFont,
       fontFamily: bold,
@@ -77,82 +82,38 @@ function Bullet({ text, styles }: { text: string; styles: ReturnType<typeof make
 
 interface Props { data: TBResumeData }
 
-export default function ResumePDFTemplate({ data }: Props) {
-  const { profile, workExperiences, educations, projects, skills, customization } = data;
+export function OnyxPDF({ data }: Props) {
+  const { profile, workExperiences, educations, projects, skills, customization, sectionOrder, hiddenSections } = data;
   const preset = getResumeStylePreset(customization?.stylePreset);
   const pageWidth = getResumePageWidth(customization?.pageWidth);
   const font = customization?.font ?? preset.font;
   const accent = customization?.accentColor ?? preset.accentColor;
   const styles = makeStyles(font, accent, preset, pageWidth);
+  const hidden = new Set(hiddenSections ?? []);
 
   const contactParts = [
-    profile.email,
-    profile.phone,
-    profile.location,
-    profile.website,
-    profile.linkedin,
-    profile.github,
+    profile.email, profile.phone, profile.location,
+    profile.website, profile.linkedin, profile.github,
   ].filter(Boolean);
 
   const featuredWithSkill = skills.featuredSkills.filter((f) => f.skill.trim());
+  
+  const visibleSlots = sectionOrder.filter((s) => !hidden.has(s));
 
-  const isCorePreset = !customization?.stylePreset || ["executive", "modern", "classic"].includes(customization.stylePreset);
-  if (!isCorePreset) {
-    const presetId = customization.stylePreset!;
-    const templateName = presetId.charAt(0).toUpperCase() + presetId.slice(1);
-    
-    // Using a static map for the bundler to resolve the paths
-    const templates: Record<string, any> = {
-      azurill: require("../ResumeTemplates/AzurillPDF").AzurillPDF,
-      onyx: require("../ResumeTemplates/OnyxPDF").OnyxPDF,
-      bronzor: require("../ResumeTemplates/BronzorPDF").BronzorPDF,
-      chikorita: require("../ResumeTemplates/ChikoritaPDF").ChikoritaPDF,
-      ditgar: require("../ResumeTemplates/DitgarPDF").DitgarPDF,
-      ditto: require("../ResumeTemplates/DittoPDF").DittoPDF,
-      gengar: require("../ResumeTemplates/GengarPDF").GengarPDF,
-      glalie: require("../ResumeTemplates/GlaliePDF").GlaliePDF,
-      kakuna: require("../ResumeTemplates/KakunaPDF").KakunaPDF,
-      lapras: require("../ResumeTemplates/LaprasPDF").LaprasPDF,
-      leafish: require("../ResumeTemplates/LeafishPDF").LeafishPDF,
-      meowth: require("../ResumeTemplates/MeowthPDF").MeowthPDF,
-      pikachu: require("../ResumeTemplates/PikachuPDF").PikachuPDF,
-      rhyhorn: require("../ResumeTemplates/RhyhornPDF").RhyhornPDF,
-      scizor: require("../ResumeTemplates/ScizorPDF").ScizorPDF,
-    };
-
-    const TemplateComp = templates[presetId];
-    if (TemplateComp) {
-      return <TemplateComp data={data} />;
-    }
-  }
-
-  return (
-    <Document title={profile.name ? `${profile.name} Resume` : "Resume"}>
-      <Page size="LETTER" style={styles.page}>
-
-        {/* Header */}
-        <View style={{ flexDirection: "column", marginBottom: 14, width: "100%" }}>
-          <Text style={styles.name}>{profile.name || "Your Name"}</Text>
-          <View style={styles.contactLine}>
-            {contactParts.map((c, i) => (
-              <Text key={i} style={styles.contactItem}>
-                {c}{i < contactParts.length - 1 ? "  |  " : ""}
-              </Text>
-            ))}
-          </View>
-        </View>
-
-        {/* Summary */}
-        {profile.summary ? (
-          <View style={styles.section}>
+  const renderSection = (slot: string) => {
+    switch (slot) {
+      case "summary":
+        if (!profile.summary) return null;
+        return (
+          <View key={slot} style={styles.section}>
             <Text style={styles.sectionTitle}>Summary</Text>
             <Text style={styles.summaryText}>{profile.summary}</Text>
           </View>
-        ) : null}
-
-        {/* Experience */}
-        {workExperiences.filter((w) => w.company || w.jobTitle).length > 0 && (
-          <View style={styles.section}>
+        );
+      case "experience":
+        if (workExperiences.filter((w) => w.company || w.jobTitle).length === 0) return null;
+        return (
+          <View key={slot} style={styles.section}>
             <Text style={styles.sectionTitle}>Experience</Text>
             {workExperiences.filter((w) => w.company || w.jobTitle).map((w) => {
               const dateStr = [w.startDate, w.current ? "Present" : w.endDate].filter(Boolean).join(" – ");
@@ -172,11 +133,11 @@ export default function ResumePDFTemplate({ data }: Props) {
               );
             })}
           </View>
-        )}
-
-        {/* Education */}
-        {educations.filter((e) => e.school || e.degree).length > 0 && (
-          <View style={styles.section}>
+        );
+      case "education":
+        if (educations.filter((e) => e.school || e.degree).length === 0) return null;
+        return (
+          <View key={slot} style={styles.section}>
             <Text style={styles.sectionTitle}>Education</Text>
             {educations.filter((e) => e.school || e.degree).map((e) => {
               const dateStr = [e.startDate, e.endDate].filter(Boolean).join(" – ");
@@ -198,11 +159,11 @@ export default function ResumePDFTemplate({ data }: Props) {
               );
             })}
           </View>
-        )}
-
-        {/* Projects */}
-        {projects.filter((p) => p.name).length > 0 && (
-          <View style={styles.section}>
+        );
+      case "projects":
+        if (projects.filter((p) => p.name).length === 0) return null;
+        return (
+          <View key={slot} style={styles.section}>
             <Text style={styles.sectionTitle}>Projects</Text>
             {projects.filter((p) => p.name).map((p) => {
               const bullets = parseBullets(p.bullets);
@@ -220,14 +181,12 @@ export default function ResumePDFTemplate({ data }: Props) {
               );
             })}
           </View>
-        )}
-
-        {/* Skills */}
-        {(featuredWithSkill.length > 0 || skills.descriptions.trim()) ? (
-          <View style={styles.section}>
+        );
+      case "skills":
+        if (featuredWithSkill.length === 0 && !skills.descriptions.trim()) return null;
+        return (
+          <View key={slot} style={styles.section}>
             <Text style={styles.sectionTitle}>Skills</Text>
-
-            {/* Featured skills — 3-column grid, 2 per column */}
             {featuredWithSkill.length > 0 && (
               <View style={{ flexDirection: "row", marginBottom: 5 }}>
                 {[0, 1, 2].map((col) => (
@@ -249,16 +208,31 @@ export default function ResumePDFTemplate({ data }: Props) {
                 ))}
               </View>
             )}
-
-            {/* Category description lines */}
             {skills.descriptions.trim() ? (
               skills.descriptions.split("\n").filter(Boolean).map((line, i) => (
                 <Text key={i} style={styles.skillsText}>{line}</Text>
               ))
             ) : null}
           </View>
-        ) : null}
+        );
+      default:
+        return null;
+    }
+  };
 
+  return (
+    <Document title={profile.name ? `${profile.name} Resume` : "Resume"}>
+      <Page size="LETTER" style={styles.page}>
+        <View style={styles.headerBox}>
+          <Text style={styles.name}>{profile.name || "Your Name"}</Text>
+          <View style={styles.contactLine}>
+            {contactParts.map((c, i) => (
+              <Text key={i}>{c}</Text>
+            ))}
+          </View>
+        </View>
+
+        {visibleSlots.map(slot => renderSection(slot))}
       </Page>
     </Document>
   );

@@ -592,8 +592,8 @@ export default function LandingPage() {
                           </svg>
                         </Link>
                       ))}
-                      <Link
-                        href="/template-builder"
+                      <a
+                        href="/resume-examples"
                         style={{
                           background: "transparent", border: "none", textAlign: "left",
                           fontSize: 14, color: T.blue, cursor: "pointer", marginTop: 8,
@@ -603,7 +603,7 @@ export default function LandingPage() {
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.textDecoration = "none"; }}
                       >
                         View all examples
-                      </Link>
+                      </a>
                     </div>
                   </div>
 

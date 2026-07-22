@@ -1733,7 +1733,7 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
         <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
           Start with a curated default, then adjust font and color below if needed.
         </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 350, overflowY: "auto", paddingRight: 4 }}>
           {STYLE_PRESETS.map((preset) => {
             const active = c.stylePreset === preset.id;
             return (

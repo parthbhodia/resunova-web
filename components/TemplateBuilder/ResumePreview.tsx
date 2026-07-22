@@ -10,6 +10,22 @@ import {
   resumePageRootStyle,
 } from "@/lib/resumeLayout";
 
+import { AzurillTemplate } from "../ResumeTemplates/AzurillTemplate";
+import { OnyxTemplate } from "../ResumeTemplates/OnyxTemplate";
+import { BronzorTemplate } from "../ResumeTemplates/BronzorTemplate";
+import { ChikoritaTemplate } from "../ResumeTemplates/ChikoritaTemplate";
+import { DitgarTemplate } from "../ResumeTemplates/DitgarTemplate";
+import { DittoTemplate } from "../ResumeTemplates/DittoTemplate";
+import { GengarTemplate } from "../ResumeTemplates/GengarTemplate";
+import { GlalieTemplate } from "../ResumeTemplates/GlalieTemplate";
+import { KakunaTemplate } from "../ResumeTemplates/KakunaTemplate";
+import { LaprasTemplate } from "../ResumeTemplates/LaprasTemplate";
+import { LeafishTemplate } from "../ResumeTemplates/LeafishTemplate";
+import { MeowthTemplate } from "../ResumeTemplates/MeowthTemplate";
+import { PikachuTemplate } from "../ResumeTemplates/PikachuTemplate";
+import { RhyhornTemplate } from "../ResumeTemplates/RhyhornTemplate";
+import { ScizorTemplate } from "../ResumeTemplates/ScizorTemplate";
+
 /**
  * Two-column layout section assignment:
  *
@@ -43,6 +59,37 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
     profile.email, profile.phone, profile.location,
     profile.website, profile.linkedin, profile.github,
   ].filter(Boolean);
+
+  // ── Custom Structural Templates ──────────────────────────────────────────
+  const isCorePreset = !customization?.stylePreset || ["executive", "modern", "classic"].includes(customization.stylePreset);
+  if (!isCorePreset) {
+    const presetId = customization.stylePreset!;
+    
+    const templates: Record<string, React.FC<any>> = {
+      azurill: AzurillTemplate,
+      onyx: OnyxTemplate,
+      bronzor: BronzorTemplate,
+      chikorita: ChikoritaTemplate,
+      ditgar: DitgarTemplate,
+      ditto: DittoTemplate,
+      gengar: GengarTemplate,
+      glalie: GlalieTemplate,
+      kakuna: KakunaTemplate,
+      lapras: LaprasTemplate,
+      leafish: LeafishTemplate,
+      meowth: MeowthTemplate,
+      pikachu: PikachuTemplate,
+      rhyhorn: RhyhornTemplate,
+      scizor: ScizorTemplate,
+    };
+
+    const TemplateComp = templates[presetId];
+    if (TemplateComp) {
+      return <TemplateComp previewRef={ref as any} data={data} />;
+    } else {
+      console.error("Failed to load template:", presetId);
+    }
+  }
 
   // ── Single-column layout (default) ─────────────────────────────────────────
   if (layout !== "twoColumn") {
