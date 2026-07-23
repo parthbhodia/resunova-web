@@ -1647,6 +1647,7 @@ export default function LandingPage() {
             <nav className="lp-footer-nav" aria-label="Footer" style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
               {[
                 ["Blog", "/blog"],
+                ["Jobs", "/jobs/"],
                 ["Contact", "/contact"],
                 ["Privacy", "/privacy"],
                 ["Terms", "/terms"],

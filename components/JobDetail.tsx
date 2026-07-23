@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useSignInDialog } from "@/components/SignInDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -244,6 +245,7 @@ function JobDetailFact({ label, children }: { label: string; children: ReactNode
 
 export default function JobDetail({ jobId, embedded = false }: { jobId: string; embedded?: boolean }) {
   const router = useRouter();
+  const { openSignIn } = useSignInDialog();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [boostOpen, setBoostOpen] = useState(false);
   const [prepStatus, setPrepStatus] = useState<JobPrepStatus | null>(null);
@@ -394,6 +396,10 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
           onPrep={onPrep}
           prepStatus={prepStatus}
           prepLaunching={prepLaunching}
+          onContactSignIn={() => openSignIn({
+            title: "Sign in to view hiring contacts",
+            reason: "Create a free account to reveal available recruiter or HR contact information for this job.",
+          })}
         />
       )}
 
@@ -420,6 +426,7 @@ function JobBody({
   onPrep,
   prepStatus,
   prepLaunching,
+  onContactSignIn,
 }: {
   job: JobDetailData;
   embedded?: boolean;
@@ -428,6 +435,7 @@ function JobBody({
   onPrep: () => void;
   prepStatus: JobPrepStatus | null;
   prepLaunching: boolean;
+  onContactSignIn: () => void;
 }) {
   const salaryFull = formatSalaryFull(job);
   const posted = formatPostedAt(job.postedAt);
@@ -606,10 +614,30 @@ function JobBody({
       <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
         <MatchPanel job={job} onBoost={onBoost} signedIn={signedIn} />
         <PrepCard job={job} onPrep={onPrep} prepStatus={prepStatus} prepLaunching={prepLaunching} />
-        <ContactHiringCard job={job} />
+        {signedIn === false ? <LockedHiringContacts onSignIn={onContactSignIn} /> : <ContactHiringCard job={job} />}
         <InsiderPanel postingId={job.id} company={job.company} />
       </div>
     </div>
+  );
+}
+
+function LockedHiringContacts({ onSignIn }: { onSignIn: () => void }) {
+  return (
+    <Card>
+      <CardContent style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--text)" }}>Hiring contacts</div>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
+          Sign in to check for available recruiter or HR contact information for this role.
+        </p>
+        <button
+          type="button"
+          onClick={onSignIn}
+          style={{ border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "10px 14px", fontSize: 12.5, fontWeight: 650, cursor: "pointer" }}
+        >
+          Sign in to view contacts
+        </button>
+      </CardContent>
+    </Card>
   );
 }
 
