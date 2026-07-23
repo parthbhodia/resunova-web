@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { goToFreeScan, signInWithGoogle } from "@/lib/anonScan";
+import { goToFreeScan } from "@/lib/anonScan";
+import { useSignInDialog } from "@/components/SignInDialog";
 import { SITE_URL } from "@/lib/brand";
 import { LogoFull, LogoMark } from "./BrandLogo";
 import { Button } from "@/components/ui/button";
@@ -81,7 +82,6 @@ function useLandingTheme(): [Theme, () => void] {
   }, []);
   return [theme, toggle];
 }
-
 // ── Data ────────────────────────────────────────────────────────────────────
 /** Toggle "Three steps…" / How it works block on the landing page. */
 const SHOW_HOW_SECTION = false;
@@ -360,8 +360,7 @@ function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string
 
 // ── Root ────────────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const { openSignIn } = useSignInDialog();
   const [theme, toggleTheme]  = useLandingTheme();
   const dark = theme === "dark";
   const [showBanner, setShowBanner] = useState(false);
@@ -407,10 +406,8 @@ export default function LandingPage() {
     shadow:  dark ? "0 28px 72px rgba(0,0,0,0.60)" : "0 28px 72px rgba(13,17,23,0.10)",
   };
 
-  async function signIn() {
-    setLoading(true); setError(null);
-    const err = await signInWithGoogle();
-    if (err) { setError(err); setLoading(false); }
+  function signIn() {
+    openSignIn();
   }
 
   const scrollTo = useCallback((id: string) => {
@@ -429,9 +426,9 @@ export default function LandingPage() {
     background: T.blue, color: "#fff",
     border: "none", borderRadius: 10,
     fontSize: "var(--font-size-lg)", fontWeight: 600, letterSpacing: -0.2,
-    cursor: loading ? "wait" : "pointer", fontFamily: "inherit",
+    cursor: "pointer", fontFamily: "inherit",
     transition: "background 0.15s, box-shadow 0.15s",
-    opacity: loading ? 0.7 : 1,
+    opacity: 1,
     boxShadow: `0 4px 16px ${T.blueGlow}`,
     whiteSpace: "nowrap" as const,
   };
@@ -768,7 +765,7 @@ export default function LandingPage() {
               Log In
             </button>
 
-            <Button onClick={signIn} disabled={loading}
+            <Button onClick={signIn}
               aria-label="Create My Resume"
               title="Create My Resume"
               style={{
@@ -793,7 +790,7 @@ export default function LandingPage() {
                 (e.currentTarget as HTMLElement).style.background = T.hot;
               }}
             >
-              {loading ? "Loading…" : "Create My Resume"}
+              Create My Resume
             </Button>
             </div>
 
@@ -1068,7 +1065,6 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {error && <p style={{ fontSize: "var(--font-size-base)", color: "#f85149", marginBottom: 16 }}>{error}</p>}
 
           {/* Social proof */}
           <div className="lp-hero-social" style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -1585,7 +1581,6 @@ export default function LandingPage() {
 
           <button
             onClick={signIn}
-            disabled={loading}
             style={{
               display: "inline-flex", alignItems: "center", gap: 9,
               padding: "17px 30px",
@@ -1594,10 +1589,10 @@ export default function LandingPage() {
               border: "1.5px solid rgba(255,255,255,0.30)",
               borderRadius: 14,
               fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
-              cursor: loading ? "wait" : "pointer", fontFamily: "inherit",
+              cursor: "pointer", fontFamily: "inherit",
               transition: "background 0.15s, border-color 0.15s",
               whiteSpace: "nowrap",
-              opacity: loading ? 0.7 : 1,
+              opacity: 1,
             }}
             onMouseEnter={e => {
               const el = e.currentTarget as HTMLElement;
@@ -1610,7 +1605,7 @@ export default function LandingPage() {
               el.style.borderColor = "rgba(255,255,255,0.30)";
             }}
           >
-            <GoogleG /> {loading ? "Loading…" : "Sign in with Google"}
+            Sign in or create account
           </button>
         </div>
 
@@ -2392,18 +2387,5 @@ function FeatureCell({ f, dark, C }: { f: typeof FEATURES[0]; dark: boolean; C: 
       <h3 style={{ fontSize: "var(--font-size-2xl)", fontWeight: 700, color: C.ink, margin: "0 0 10px", letterSpacing: -0.4 }}>{f.title}</h3>
       <p style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.72, margin: 0 }}>{f.desc}</p>
     </div>
-  );
-}
-
-// ── Lock icon ─────────────────────────────────────────────────────────────────
-// ── Google G icon ─────────────────────────────────────────────────────────────
-function GoogleG() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 48 48">
-      <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.6 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.7-.4-3.9z"/>
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
-      <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.7-.4-3.9z"/>
-    </svg>
   );
 }
