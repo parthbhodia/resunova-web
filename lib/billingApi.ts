@@ -38,8 +38,8 @@ export type BillingStatus = {
  * only — the charge always comes from the Stripe Price object (see the
  * runbook: keep these in sync with the configured Price IDs). */
 export const PLAN_PRICE_LABELS: Record<BillingPriceKey, { title: string; price: string; cadence: string; note?: string }> = {
-  pro_monthly: { title: "Pro Monthly", price: "$9", cadence: "per month" },
-  pro_quarterly: { title: "Pro Quarterly", price: "$21", cadence: "every 3 months", note: "$7/mo — save 22%" },
+  pro_monthly: { title: "Pro Monthly", price: "$19", cadence: "per month" },
+  pro_quarterly: { title: "Pro Quarterly", price: "$39", cadence: "every 3 months", note: "$13/mo — save 32%" },
 };
 
 async function accessToken(): Promise<string | null> {
