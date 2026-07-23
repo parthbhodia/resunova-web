@@ -20,6 +20,7 @@ const PUBLIC_ROUTES = new Set<string>([
   "/terms",
   "/privacy",
   "/contact",
+  "/pricing",
   "/blog",
   "/resume-examples",
   "/jobs",

@@ -14,6 +14,7 @@ import { signOutAndReturnHome } from "@/lib/authSignOut";
 import { apiUrl } from "@/lib/utils";
 import { Card, ToggleSwitch } from "@/components/profileSettingsUi";
 import { ScanUsageWidget } from "@/components/ScanUsageWidget";
+import PlanBillingCard from "@/components/PlanBillingCard";
 import { TailoringModeSelector } from "@/components/TailoringModeModal";
 import { TAILORING_MODE_META, fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 
@@ -307,6 +308,7 @@ export default function AccountSettingsPage() {
         </header>
 
         <AccountCard />
+        <PlanBillingCard />
         <ScanUsageWidget />
         <EmailPreferencesCard />
 
