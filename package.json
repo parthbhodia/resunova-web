@@ -13,7 +13,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:seo-data": "node scripts/build-seo-data.mjs",
+    "build:seo-data": "npm run build:role-seo-data && npm run build:jobs-seo-data",
+    "build:role-seo-data": "node scripts/build-seo-data.mjs",
+    "build:jobs-seo-data": "node scripts/build-jobs-seo-data.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",

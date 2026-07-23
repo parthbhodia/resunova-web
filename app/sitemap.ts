@@ -3,6 +3,7 @@ import { SITE_URL } from "@/lib/brand";
 import { BLOG_POSTS } from "@/lib/atsBlogPosts";
 import { ROLE_RESUME_DATA, ROLE_DATA_LAST_UPDATED, roleResumeHref } from "@/lib/roleResumeData";
 import { COMPARISONS, comparisonHref } from "@/lib/competitorComparison";
+import { JOBS_GENERATED_AT, PUBLIC_JOBS, jobHref } from "@/lib/jobsSeoData";
 
 export const dynamic = "force-static";
 
@@ -16,6 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/terms/`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/privacy/`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/contact/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
+    { url: `${SITE_URL}/jobs/`, lastModified: JOBS_GENERATED_AT ? new Date(JOBS_GENERATED_AT) : new Date(), changeFrequency: "daily", priority: 0.9 },
   ];
 
   const blogPages: MetadataRoute.Sitemap = BLOG_POSTS.map((post) => ({
@@ -39,5 +41,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...blogPages, ...roleExamplePages, ...comparePages];
+  const jobPages: MetadataRoute.Sitemap = PUBLIC_JOBS.map((job) => ({
+    url: `${SITE_URL}${jobHref(job.id)}/`,
+    lastModified: job.postedAt ? new Date(job.postedAt) : (JOBS_GENERATED_AT ? new Date(JOBS_GENERATED_AT) : new Date()),
+    changeFrequency: "daily" as const,
+    priority: 0.7,
+  }));
+
+  return [...staticPages, ...blogPages, ...roleExamplePages, ...comparePages, ...jobPages];
 }

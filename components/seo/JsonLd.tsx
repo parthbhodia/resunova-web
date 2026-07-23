@@ -18,10 +18,9 @@ export default function JsonLd({ data }: { data: object | object[] }): ReactElem
     <>
       {entries.map((entry, i) => (
         <script
-          // eslint-disable-next-line react/no-array-index-key
           key={i}
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(entry) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(entry).replace(/</g, "\\u003c") }}
         />
       ))}
     </>

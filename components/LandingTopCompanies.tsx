@@ -44,7 +44,7 @@ export default function LandingTopCompanies({
 
   const loading = companies === null;
   const goToJobs = () => {
-    window.location.href = "/?view=jobs";
+    window.location.href = "/jobs/";
   };
 
   return (

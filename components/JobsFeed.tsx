@@ -528,15 +528,13 @@ export async function prefetchJobsFeed(): Promise<void> {
     if (feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) return;
 
     const { data: { session } } = await getSupabaseClient().auth.getSession();
-    if (!session?.access_token) return; // feed requires sign-in
     const params = new URLSearchParams();
     if (days) params.set("max_age_days", String(days));
     if (roleQuery) params.set("role", roleQuery);
     appendBrowseParams(params, browseSel);
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+    const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
     if (!resp.ok) return;
     const data = await resp.json();
     if (data?.needsRole) return; // no rows to cache; the tab renders the role prompt
@@ -574,13 +572,13 @@ async function warmFeed(sel: JobsBrowseSelection, days: number): Promise<void> {
     const cacheKey = browseFeedCacheKey(days, roleQuery, sel);
     if (feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) return;
     const { data: { session } } = await getSupabaseClient().auth.getSession();
-    if (!session?.access_token) return;
     const params = new URLSearchParams();
     if (days) params.set("max_age_days", String(days));
     if (roleQuery) params.set("role", roleQuery);
     appendBrowseParams(params, sel);
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers: { Authorization: `Bearer ${session.access_token}` } });
+    const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+    const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
     if (!resp.ok) return;
     const data = await resp.json();
     if (data?.needsRole) return;
@@ -1005,6 +1003,11 @@ export default function JobsFeed({
   const [boostError, setBoostError] = useState<string | null>(null);
 
   const openBoost = useCallback(async (id: string) => {
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
+    if (!session) {
+      openSignIn({ title: "Sign in to optimize your résumé", reason: "Create a free account to tailor your résumé to this job and save the result." });
+      return;
+    }
     setBoostLoadingId(id);
     setBoostError(null);
     try {
@@ -1015,7 +1018,7 @@ export default function JobsFeed({
     } finally {
       setBoostLoadingId(null);
     }
-  }, []);
+  }, [openSignIn]);
 
   // Interview Prep: which jobs the user already has a prep kit for ("Prep ready"),
   // and launching prep prefilled from a job (fetch detail → seed store → navigate).
@@ -1023,6 +1026,11 @@ export default function JobsFeed({
   const [prepLoadingId, setPrepLoadingId] = useState<string | null>(null);
 
   const openPrep = useCallback(async (id: string) => {
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
+    if (!session) {
+      openSignIn({ title: "Sign in for interview prep", reason: "Create a free account to save a role-specific interview kit." });
+      return;
+    }
     setPrepLoadingId(id);
     setBoostError(null);
     try {
@@ -1033,7 +1041,7 @@ export default function JobsFeed({
       setBoostError(err instanceof Error ? err.message : "Couldn't load this job to prep");
       setPrepLoadingId(null);
     }
-  }, [router]);
+  }, [router, openSignIn]);
 
   // Load "Prep ready" status for the jobs in the current feed (signed-in only).
   useEffect(() => {
@@ -1136,7 +1144,7 @@ export default function JobsFeed({
       if (days) params.set("max_age_days", String(days));
       if (roleQuery) params.set("role", roleQuery);
       if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // rank against a chosen past scan
-      appendBrowseParams(params, browseSel, false); // ranked feed: role_family scoping + résumé ranking, NOT the wizard's narrow title aliases / hidden work-model
+      appendBrowseParams(params, browseSel, !session); // anonymous browse uses the selected title/work-model scope; signed-in ranking uses the résumé family
       if (familyOverride !== null) params.set("feed_family", familyOverride); // role-chip pick: "" broadens to all roles, else scope to it
       if (debouncedSearch) params.set("title_any", debouncedSearch); // search the DB by title across all roles
       serverFilterEntries.forEach(([k, v]) => params.set(k, v)); // facet filters → server (DB-wide)
@@ -1219,7 +1227,6 @@ export default function JobsFeed({
     try {
       const supabase = getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) { setFallback({ jobs: [], loading: false, key: fkey }); return; }
       const params = new URLSearchParams();
       // No max_age_days → widest posting window; keep search + role + ranking.
       if (roleQuery) params.set("role", roleQuery);
@@ -1230,9 +1237,8 @@ export default function JobsFeed({
       // Country scope IS applied even in the relaxed set — a US user shouldn't see
       // foreign postings in "outside your filters" (that was the Malta-under-US leak).
       params.set("country", countryScope);
-      const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+      const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
+      const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), { headers });
       if (!resp.ok) { setFallback({ jobs: [], loading: false, key: fkey }); return; }
       const data = await resp.json();
       const jobs: FeedJob[] = Array.isArray(data?.jobs) ? data.jobs : [];
@@ -1371,16 +1377,17 @@ export default function JobsFeed({
   }, []);
 
   const trackApplyClick = useCallback(async (postingId: string) => {
-    // Optimistically mark as applied immediately
-    setAppliedIds((prev) => new Set(prev).add(postingId));
-    hideAppliedJob(postingId);
     try {
       const supabase = getSupabaseClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
+      // Applying is public. Account-owned tracking only starts for signed-in users.
+      if (!session?.access_token) return;
+      setAppliedIds((prev) => new Set(prev).add(postingId));
+      hideAppliedJob(postingId);
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+      headers.Authorization = `Bearer ${session.access_token}`;
       await fetch(apiUrl("/api/jobs/event"), {
         method: "POST",
         headers,
@@ -1797,16 +1804,15 @@ export default function JobsFeed({
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }, [visibleJobs.length, serverHasMore, loadMoreFromServer]);
 
-  // Signed-out visitors get one focused sign-in moment — no dashboard header,
-  // tabs, Refresh, or résumé-ranking copy (which assumes a résumé they lack).
+  // Compatibility fallback for an older API deployment that still gates browsing.
   if (state.status === "signin") {
     return (
       <SignedOutJobsHero
         count={publicCount}
         onSignIn={() =>
           openSignIn({
-            title: "Sign in to browse jobs",
-            reason: "See live openings from company career boards and rank them against your résumé. Free (no credit card).",
+            title: "Sign in to personalize jobs",
+            reason: "Browse is public. Sign in free to rank openings against your résumé and save your progress.",
           })
         }
       />
