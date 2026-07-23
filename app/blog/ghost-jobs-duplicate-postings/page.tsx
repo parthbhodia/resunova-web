@@ -256,7 +256,7 @@ export default function GhostJobsDuplicatePostingsPage() {
           ranks what remains against your résumé, with skill-by-skill match breakdowns and H-1B sponsor data on each
           job.
         </p>
-        <Link href="/?view=jobs" style={{ display: "inline-block", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "9px 16px", fontSize: 13.5, fontWeight: 650, textDecoration: "none" }}>
+        <Link href="/jobs/" style={{ display: "inline-block", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "9px 16px", fontSize: 13.5, fontWeight: 650, textDecoration: "none" }}>
           Browse live jobs
         </Link>
       </div>
