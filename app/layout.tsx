@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import AuthGate from "@/components/AuthGate";
 import AuthHostRedirect from "@/components/AuthHostRedirect";
+import GoogleOneTap from "@/components/GoogleOneTap";
 import { SignInDialogProvider } from "@/components/SignInDialog";
 import { Geist, Inter, DM_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -169,6 +170,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AuthHostRedirect />
+        <GoogleOneTap />
         <SignInDialogProvider>
           <AuthGate>{children}</AuthGate>
         </SignInDialogProvider>

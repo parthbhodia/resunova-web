@@ -12,7 +12,7 @@
  * No navigation to the builder.
  */
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode, type CSSProperties, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { Button } from "@/components/ui/button";
@@ -418,6 +418,51 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
   );
 }
 
+/**
+ * "Apply on company site" link with an Indeed-style auth wall.
+ *
+ * Signed-out visitors (signedIn === false) get the shared sign-in modal instead
+ * of leaving for the employer site — "Create an account or sign in before
+ * applying". Signed-in users (or while the session is still resolving) open the
+ * employer link directly and we record a real `apply_click` (the only place it
+ * fires from the actual Apply button; trackJobEvent is a signed-in-only no-op
+ * for anon, so this never double-counts).
+ */
+function ApplyLink({
+  job,
+  signedIn,
+  style,
+  children,
+}: {
+  job: JobDetailData;
+  signedIn: boolean | null;
+  style: CSSProperties;
+  children: ReactNode;
+}) {
+  const { openSignIn } = useSignInDialog();
+  const onClick = useCallback(
+    (e: MouseEvent<HTMLAnchorElement>) => {
+      if (signedIn === false) {
+        e.preventDefault();
+        openSignIn({
+          title: "Create an account or sign in",
+          reason:
+            "Sign in before applying on the company site — we’ll track this application and can tailor your résumé to the role.",
+        });
+        return;
+      }
+      void trackJobEvent(job.id, "apply_click");
+    },
+    [signedIn, openSignIn, job.id],
+  );
+  if (!job.url) return null;
+  return (
+    <a href={job.url} target="_blank" rel="noopener noreferrer" style={style} onClick={onClick}>
+      {children}
+    </a>
+  );
+}
+
 function JobBody({
   job,
   embedded = false,
@@ -505,21 +550,18 @@ function JobBody({
               </div>
             </div>
 
-            {job.url && (
-              <a
-                href={job.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
-                  alignSelf: "flex-start", padding: "11px 24px", borderRadius: 10,
-                  background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 600,
-                  textDecoration: "none", marginTop: 2,
-                }}
-              >
-                Apply on company site <IconExternal />
-              </a>
-            )}
+            <ApplyLink
+              job={job}
+              signedIn={signedIn}
+              style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+                alignSelf: "flex-start", padding: "11px 24px", borderRadius: 10,
+                background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 600,
+                textDecoration: "none", marginTop: 2,
+              }}
+            >
+              Apply on company site <IconExternal />
+            </ApplyLink>
             <div style={{ fontSize: 12, color: "var(--muted)" }}>
               {formatApplicants(job.applicantCount)} on Resunova
               {posted ? ` · Posted ${posted}` : ""}
@@ -973,14 +1015,13 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
             </button>
           </>
         )}
-        <a
-          href={job.url}
-          target="_blank"
-          rel="noopener noreferrer"
+        <ApplyLink
+          job={job}
+          signedIn={signedIn}
           style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 13.5, fontWeight: 600, textAlign: "center", textDecoration: "none", boxSizing: "border-box", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}
         >
           Apply on company site <IconExternal />
-        </a>
+        </ApplyLink>
       </CardContent>
     </Card>
   );
