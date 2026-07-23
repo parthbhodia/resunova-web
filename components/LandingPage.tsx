@@ -323,71 +323,6 @@ const RESUME_TEMPLATES: TemplateDef[] = [
       </svg>
     ),
   },
-  {
-    name: "Classic", type: "Résumé", accent: "#b45309", darkAccent: "#fbbf24", href: "/template-builder/?preset=classic",
-    thumb: (
-      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
-        <rect width="200" height="264" rx="6" fill="#ffffff" />
-        <text x="100" y="28" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="13.5" fontWeight="700" fill="#1a1a1a">Eleanor R. Whitman</text>
-        <text x="100" y="39" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">Boston, MA · eleanor.whitman@email.com · (617) 555-0119</text>
-        <line x1="20" y1="46" x2="180" y2="46" stroke="#1a1a1a" strokeWidth="0.7" />
-        <text x="18" y="60" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">EXPERIENCE</text>
-        <text x="18" y="72" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.4" fontWeight="700" fill="#1a1a1a">Associate Attorney</text>
-        <text x="182" y="72" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2019 – Present</text>
-        <text x="18" y="80" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fontStyle="italic" fill="#444444">Ropes &amp; Gray LLP — Boston, MA</text>
-        <text x="22" y="89" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Second-chaired three M&amp;A deals totaling $1.2B</text>
-        <text x="22" y="97" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Drafted and negotiated commercial agreements</text>
-        <text x="18" y="110" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.4" fontWeight="700" fill="#1a1a1a">Judicial Law Clerk</text>
-        <text x="182" y="110" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2018 – 2019</text>
-        <text x="18" y="118" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fontStyle="italic" fill="#444444">U.S. District Court, D. Mass.</text>
-        <text x="22" y="127" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Authored bench memoranda for federal civil matters</text>
-        <text x="18" y="142" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">EDUCATION</text>
-        <text x="18" y="154" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.8" fontWeight="700" fill="#1a1a1a">J.D., Harvard Law School</text>
-        <text x="182" y="154" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2018</text>
-        <text x="18" y="162" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fontStyle="italic" fill="#444444">cum laude · Harvard Law Review</text>
-        <text x="18" y="173" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.8" fontWeight="700" fill="#1a1a1a">B.A., Yale University</text>
-        <text x="182" y="173" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2015</text>
-        <text x="18" y="188" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">BAR ADMISSIONS</text>
-        <text x="18" y="200" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">Massachusetts (2018) · New York (2019)</text>
-        <text x="18" y="214" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">HONORS</text>
-        <text x="18" y="226" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">Order of the Coif · Moot Court Champion</text>
-      </svg>
-    ),
-  },
-  {
-    name: "Academic CV", type: "CV", accent: "#7c3aed", darkAccent: "#a78bfa", href: "/template-builder/?preset=classic",
-    thumb: (
-      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
-        <rect width="200" height="264" rx="6" fill="#ffffff" />
-        <text x="100" y="24" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="12.5" fontWeight="700" fill="#1a1a1a">Priya N. Raman, Ph.D.</text>
-        <text x="100" y="34" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#555555">Dept. of Computer Science · Stanford University · praman@stanford.edu</text>
-        <line x1="20" y1="41" x2="180" y2="41" stroke="#1a1a1a" strokeWidth="0.6" />
-        <text x="18" y="53" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">EDUCATION</text>
-        <text x="18" y="63" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Ph.D., Computer Science — MIT</text>
-        <text x="182" y="63" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2020</text>
-        <text x="18" y="71" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">B.S., Computer Science — Caltech</text>
-        <text x="182" y="71" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2015</text>
-        <text x="18" y="84" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">SELECTED PUBLICATIONS</text>
-        <text x="18" y="94" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">1. Raman P., Chen L. Sparse Attention at Scale. NeurIPS 2023.</text>
-        <text x="18" y="101" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">2. Raman P. et al. Efficient Transformers for Long Context. ICML 2023.</text>
-        <text x="18" y="108" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">3. Raman P., Gupta S. Retrieval-Augmented Pretraining. ACL 2022.</text>
-        <text x="18" y="115" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">4. Raman P. et al. Calibrated Uncertainty in LLMs. ICLR 2022.</text>
-        <text x="18" y="122" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">5. Raman P., Lee J. Robust Fine-Tuning of Encoders. EMNLP 2021.</text>
-        <text x="18" y="129" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">6. Raman P. Data-Efficient Representation Learning. NeurIPS 2020.</text>
-        <text x="18" y="142" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">APPOINTMENTS</text>
-        <text x="18" y="152" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Assistant Professor — Stanford University</text>
-        <text x="182" y="152" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2021–</text>
-        <text x="18" y="160" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Research Scientist — Google DeepMind</text>
-        <text x="182" y="160" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2020–21</text>
-        <text x="18" y="173" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">GRANTS &amp; AWARDS</text>
-        <text x="18" y="183" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">NSF CAREER Award (2023) · Best Paper, NeurIPS 2023</text>
-        <text x="18" y="191" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">Google Research Scholar (2022) · MIT Presidential Fellow</text>
-        <text x="18" y="204" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">TEACHING</text>
-        <text x="18" y="214" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">CS224N: NLP with Deep Learning · CS161: Algorithms</text>
-        <text x="18" y="222" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">Advising 5 Ph.D. students · 3 M.S. theses</text>
-      </svg>
-    ),
-  },
 ];
 
 function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string>; dark: boolean }) {
@@ -1184,27 +1119,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <LandingPreviewStyles />
-      <TealScrollStyles />
-
-      {/* ───────────── Floating feature nav (tracks the product sections) ── */}
-      <FloatingFeatureNav
-        C={C}
-        dark={dark}
-        accent={T.hotHover}
-        items={[
-          { id: "jobs", label: "Jobs", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg> },
-          { id: "product-rewrite", label: "AI Rewrites", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> },
-          { id: "product-tour", label: "Tailor", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg> },
-          { id: "templates", label: "Templates", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/></svg> },
-          { id: "interview", label: "Interview", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5h16v10H9l-4 4z"/><path d="M8 9h8M8 12h5"/></svg> },
-        ]}
-      />
-
-      {/* ───────────── Jobs — promoted to first band after the hero ─────── */}
-      <JobsBand C={C} dark={dark} />
-
-      {/* ───────────── Stats ticker ─────────────────────────── */}
+      {/* ───────────── Stats ticker — trust bar directly under the hero ─── */}
       <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, overflow: "hidden", padding: "18px 0" }}>
         <div style={{ display: "flex", gap: 0, width: "max-content", animation: "ticker 36s linear infinite" }}>
           {[...Array(4)].flatMap(() => [
@@ -1225,6 +1140,26 @@ export default function LandingPage() {
           ))}
         </div>
       </div>
+
+      <LandingPreviewStyles />
+      <TealScrollStyles />
+
+      {/* ───────────── Floating feature nav (tracks the product sections) ── */}
+      <FloatingFeatureNav
+        C={C}
+        dark={dark}
+        accent={T.hotHover}
+        items={[
+          { id: "jobs", label: "Jobs", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg> },
+          { id: "product-rewrite", label: "AI Rewrites", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> },
+          { id: "product-tour", label: "Tailor", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg> },
+          { id: "templates", label: "Templates", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/></svg> },
+          { id: "interview", label: "Interview", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5h16v10H9l-4 4z"/><path d="M8 9h8M8 12h5"/></svg> },
+        ]}
+      />
+
+      {/* ───────────── Jobs — promoted to first band after the hero ─────── */}
+      <JobsBand C={C} dark={dark} />
 
       {/* ───────────── AI rewrite preview (B) ─────────────── */}
       <LandingPreviewSection

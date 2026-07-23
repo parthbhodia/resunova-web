@@ -25,7 +25,6 @@ import { AppBottomNav } from "./app-shell/AppBottomNav";
 import { BugReportDialog } from "./app-shell/BugReportDialog";
 import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
-import { UmbcWelcomeBanner } from "./UmbcWelcomeBanner";
 import { SignInDialogProvider, useSignInDialog } from "./SignInDialog";
 import { UpgradeDialogProvider } from "./UpgradeDialog";
 import FirstRunWizard from "./FirstRunWizard";
@@ -103,6 +102,10 @@ function AppShellBody({ children }: { children: ReactNode }) {
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
   const onInterviewPrepPage =
     (pathname ?? "").replace(/\/$/, "") === "/interview-prep";
+  const onCareerProfilePage =
+    (pathname ?? "").replace(/\/$/, "") === "/profile";
+  const onMyResumesPage =
+    (pathname ?? "").replace(/\/$/, "") === "/my-resumes";
   const isMobile = useIsMobile();
   const flowRaw = (searchParams?.get("flow") || "tailor").toLowerCase();
   const builderFlow: "tailor" | "template" =
@@ -289,6 +292,8 @@ function AppShellBody({ children }: { children: ReactNode }) {
                 active={active}
                 onTemplateBuilderPage={onTemplateBuilderPage}
                 onInterviewPrepPage={onInterviewPrepPage}
+                onCareerProfilePage={onCareerProfilePage}
+                onMyResumesPage={onMyResumesPage}
                 builderActive={builderActive}
                 builderOpen={builderOpen}
                 onBuilderOpenChange={setBuilderOpen}
@@ -313,7 +318,6 @@ function AppShellBody({ children }: { children: ReactNode }) {
               className="app-shell-main app-shell-view-pane min-h-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0"
             >
               <FreeScanWelcomeBanner userId={user?.id ?? null} isUmbc={isUmbc} />
-              <UmbcWelcomeBanner userId={user?.id ?? null} />
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
             </SidebarInset>
 
@@ -331,6 +335,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
               advisorAllowed={advisorAllowed}
               anonMode={anonMode}
               onSignIn={onSignIn}
+              onMyResumesPage={onMyResumesPage}
             />
             <BugReportDialog open={mobileBugReportOpen} onOpenChange={setMobileBugReportOpen} />
             <FirstRunWizard user={user} isUmbc={isUmbc} />

@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -22,6 +21,8 @@ import {
   type CategoryHistoryPoint,
 } from "@/components/advisor/AdvisorCharts";
 import AdminAnalyticsPanel from "@/components/AdminAnalyticsPanel";
+import SendTestEmailCard from "@/components/admin/SendTestEmailCard";
+import { AdminKpiCard, AdminBarRows, AdminScoreBars, AdminStackedBar } from "@/components/admin/charts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -306,28 +307,10 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function TierRow({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
-  const pct = total > 0 ? (count / total) * 100 : 0;
-  return (
-    <div className="flex items-center gap-3 border-b border-border py-2 last:border-b-0">
-      <div className="w-24 shrink-0 text-xs text-muted-foreground">{label}</div>
-      <Progress value={pct} className="flex-1 gap-0" style={{ "--primary": color } as CSSProperties} />
-      <div className="w-7 shrink-0 text-right text-xs text-foreground">{count}</div>
-      <div className="w-9 shrink-0 text-right text-[11px] text-muted-foreground">{Math.round(pct)}%</div>
-    </div>
-  );
-}
-
+// Delegates to the shared admin KPI card so the cohort strip and student-detail
+// KPIs match the analytics / job-market tabs exactly (label/figure/sub scale).
 function KpiCard({ value, label, note }: { value: string | number; label: string; note?: string }) {
-  return (
-    <Card size="sm" className="bg-card/95">
-      <CardContent>
-        <div className="text-3xl font-light leading-none tracking-[-0.04em] text-foreground">{value}</div>
-        <div className="mt-2 text-xs font-medium text-foreground">{label}</div>
-        {note && <div className="mt-1 text-[11px] text-muted-foreground">{note}</div>}
-      </CardContent>
-    </Card>
-  );
+  return <AdminKpiCard title={label} value={value} sub={note} />;
 }
 
 function AdvisorCard({
@@ -901,6 +884,7 @@ function CohortOverview({
       {globalAdmin && activeTab === "analytics" && (
         <div className="flex flex-col gap-6">
           <AdminAnalyticsPanel getAuthHeaders={advisorAuthHeaders} />
+          <SendTestEmailCard getAuthHeaders={advisorAuthHeaders} />
           {/* Bug reports are a platform-support inbox, not cohort data — they
               belong here under Platform analytics, not the Cohort tab. */}
           <BugReportsPanel
@@ -945,37 +929,31 @@ function CohortOverview({
       )}
 
       <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <AdvisorCard title="Resume readiness" description="Strong visual distribution across score tiers.">
-          <TierRow label="Strong (85-100)" count={tiers.strong} total={tierTotal} color="var(--green)" />
-          <TierRow label="Good (70-84)" count={tiers.good} total={tierTotal} color="var(--accent)" />
-          <TierRow label="Mid (50-69)" count={tiers.mid} total={tierTotal} color="var(--amber)" />
-          <TierRow label="Needs work (<50)" count={tiers.low} total={tierTotal} color="var(--red)" />
+        <AdvisorCard title="Resume readiness" description="How the cohort's latest scores split across tiers.">
           {tierTotal === 0 ? (
-            <p className="pt-3 text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               No student data yet. Invite students or wait for their first resume analysis.
             </p>
-          ) : null}
+          ) : (
+            <AdminStackedBar
+              segments={[
+                { label: "Strong (85-100)", value: tiers.strong, color: "var(--green)" },
+                { label: "Good (70-84)", value: tiers.good, color: "var(--accent)" },
+                { label: "Mid (50-69)", value: tiers.mid, color: "var(--amber)" },
+                { label: "Needs work (<50)", value: tiers.low, color: "var(--red)" },
+              ]}
+            />
+          )}
         </AdvisorCard>
 
         <AdvisorCard title="Top improvement areas" description="Most frequent weaknesses across students.">
           {topImprovementAreas.length === 0 ? (
             <p className="text-sm text-muted-foreground">Not enough data yet.</p>
           ) : (
-            topImprovementAreas.map((item, idx) => {
-              const max = topImprovementAreas[0]?.count || 1;
-              const width = Math.max(8, Math.round((item.count / max) * 100));
-              return (
-                <div key={idx} className="border-b border-border py-2 last:border-b-0">
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-foreground">{item.issue}</span>
-                    <Badge variant="outline">{item.count} {pluralStudents(item.count)}</Badge>
-                  </div>
-                  <div className="h-1.5 rounded bg-muted">
-                    <div className="h-full rounded bg-foreground/70" style={{ width: `${width}%` }} />
-                  </div>
-                </div>
-              );
-            })
+            <AdminBarRows
+              data={topImprovementAreas.map(item => [item.issue, item.count] as [string, number])}
+              labelWidth={150}
+            />
           )}
         </AdvisorCard>
       </div>
@@ -1014,15 +992,14 @@ function CohortOverview({
         )}
       </AdvisorCard>
 
-      <AdvisorCard title="Dimension averages" description="Cohort-level category health snapshot." className="mb-4">
-        {Object.entries(DIM_LABELS).map(([k, label]) => (
-          <div key={k} className="flex items-center justify-between border-b border-border py-2 text-sm last:border-b-0">
-            <span className="text-muted-foreground">{label}</span>
-            <Badge variant="outline" style={{ color: scoreColor(data.dimension_avgs[k as keyof DimAvgs]) }}>
-              {data.dimension_avgs[k as keyof DimAvgs] !== null ? Math.round(data.dimension_avgs[k as keyof DimAvgs] as number) : "—"}
-            </Badge>
-          </div>
-        ))}
+      <AdvisorCard title="Dimension averages" description="Cohort-level category health, scored 0-100." className="mb-4">
+        <AdminScoreBars
+          data={Object.entries(DIM_LABELS).map(([k, label]) => ({
+            label,
+            score: data.dimension_avgs[k as keyof DimAvgs],
+          }))}
+          colorFn={scoreColor}
+        />
       </AdvisorCard>
 
       <Card>

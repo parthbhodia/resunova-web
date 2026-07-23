@@ -6,7 +6,7 @@
  *   /                            -> analyze (default)
  *   /?view=builder&flow=tailor -> JD tailor workflow (legacy flow=template redirects to /template-builder)
  *   /?view=library               -> library grid (+ optional right detail panel when resume=<f>)
- *   /?view=profile&prefill=1     -> Profile page + optional session prefill from Analyze / template flow
+ *   /?view=profile               -> redirects to /profile (the Career Profile dashboard)
  *   /?view=jobs                  -> jobs (placeholder for now)
  *   /?view=cover-letter          -> cover letter builder (+ optional ?cl=<id> to reopen saved)
  *   /?view=builder&flow=tailor&base=<folder> -> builder with folder pre-loaded
@@ -24,7 +24,6 @@ import ContentSourcePicker from "@/components/ContentSourcePicker";
 import ManualResumeForm from "@/components/ManualResumeForm";
 import ResumeLibrary from "@/components/ResumeLibrary";
 import AnalyzeResume from "@/components/AnalyzeResume";
-import ProfilePage from "@/components/ProfilePage";
 import AccountSettingsPage from "@/components/AccountSettingsPage";
 import AdvisorDashboard from "@/components/AdvisorDashboard";
 import JobsFeed from "@/components/JobsFeed";
@@ -105,6 +104,17 @@ function RouterView() {
     router.replace("/template-builder/");
   }, [view, flow, router]);
 
+  /** Legacy `?view=profile` — the standalone Career Profile dashboard at
+   * /profile replaced the old in-shell Tailor-defaults form. Keep old bookmarks
+   * working by redirecting. */
+  const profileRedirectRef = useRef(false);
+  useEffect(() => {
+    if (view !== "profile") return;
+    if (profileRedirectRef.current) return;
+    profileRedirectRef.current = true;
+    router.replace("/profile");
+  }, [view, router]);
+
   if (view === "home") {
     return (
       <ViewFill>
@@ -122,14 +132,8 @@ function RouterView() {
     );
   }
   if (view === "profile") {
-    const prefill = (params?.get("prefill") || "").trim() === "1";
-    return (
-      <ViewFill>
-        <ScrollPane>
-          <ProfilePage prefill={prefill} />
-        </ScrollPane>
-      </ViewFill>
-    );
+    // Redirecting to /profile (see effect above); render nothing meanwhile.
+    return <ViewFill><ScrollPane>{null}</ScrollPane></ViewFill>;
   }
   if (view === "account") {
     return (

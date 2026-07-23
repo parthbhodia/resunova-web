@@ -372,3 +372,29 @@ export interface AdminAnalyticsResponse {
   };
   jobs?: AdminAnalyticsJobsBlock;
 }
+
+// ── Job Market analysis (GET /api/admin/job-market → admin_job_market RPC) ─────
+export interface JobMarketSkill { skill: string; n: number; required: number; }
+
+export interface AdminJobMarketResponse {
+  generated_at: string;
+  kpis: {
+    active_us: number;
+    employers: number;
+    sources: number;
+    families: number;
+    onsite: number;
+    hybrid: number;
+    remote: number;
+    salary_disclosed: number;
+    h1b: number;
+  };
+  families: Array<{ family: string; n: number }>;
+  work_model: Array<{ k: string; n: number }>;
+  seniority: Array<{ k: string; n: number }>;
+  salary: Array<{ family: string; n: number; p25: number; median: number; p75: number }>;
+  trend: Array<{ wk: string; n: number }>;
+  skills_overall: JobMarketSkill[];
+  skills_by_family: Record<string, JobMarketSkill[]>;
+  cached?: boolean;
+}

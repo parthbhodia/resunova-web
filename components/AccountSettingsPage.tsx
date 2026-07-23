@@ -299,7 +299,7 @@ export default function AccountSettingsPage() {
           <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6, maxWidth: 540 }}>
             Manage your account, plan, and notifications. Looking for your résumé details, target roles, or
             education? Those live on your{" "}
-            <Link href="/?view=profile" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+            <Link href="/profile" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
               Profile
             </Link>
             .
