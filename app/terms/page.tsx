@@ -77,7 +77,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="3. Account Registration">
-            <p>Access to the Service requires authentication via your Google account. By signing in, you authorize Resunova to receive your name, email address, and profile picture from Google as provided by Google&apos;s OAuth 2.0 service.</p>
+            <p>Access to account features requires authentication using an email address and password or a supported third-party provider such as Google. When you use a third-party provider, you authorize Resunova to receive the account information that provider shares, such as your name, email address, and profile picture.</p>
             <p>You are responsible for all activity that occurs under your account. You must notify us immediately at {CONTACT_EMAIL} if you suspect unauthorized use of your account.</p>
           </Section>
 

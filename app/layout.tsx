@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import AuthGate from "@/components/AuthGate";
 import AuthHostRedirect from "@/components/AuthHostRedirect";
+import { SignInDialogProvider } from "@/components/SignInDialog";
 import { Geist, Inter, DM_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { SITE_URL as BRAND_SITE_URL } from "@/lib/brand";
@@ -168,7 +169,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AuthHostRedirect />
-        <AuthGate>{children}</AuthGate>
+        <SignInDialogProvider>
+          <AuthGate>{children}</AuthGate>
+        </SignInDialogProvider>
       </body>
     </html>
   );

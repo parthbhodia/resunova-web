@@ -13,7 +13,7 @@ import { signOutAndReturnHome } from "@/lib/authSignOut";
 import { POST_LOGIN_DEST_KEY } from "@/lib/anonScan";
 import { getSupabaseClient } from "@/lib/supabase";
 import { apiUrl } from "@/lib/utils";
-import { isUmbcUser } from "@/lib/userDomainDetection";
+import { isInstitutionUser, isUmbcUser } from "@/lib/userDomainDetection";
 import ResumeSidebar from "./ResumeSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
@@ -25,7 +25,7 @@ import { AppBottomNav } from "./app-shell/AppBottomNav";
 import { BugReportDialog } from "./app-shell/BugReportDialog";
 import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
-import { SignInDialogProvider, useSignInDialog } from "./SignInDialog";
+import { useSignInDialog } from "./SignInDialog";
 import { UpgradeDialogProvider } from "./UpgradeDialog";
 import FirstRunWizard from "./FirstRunWizard";
 import {
@@ -158,7 +158,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
       accessToken?: string | null,
     ) => {
       if (!accessToken) return;
-      if (!isUmbcUser(email)) return;
+      if (!isInstitutionUser(email)) return;
       try {
         await fetch(apiUrl("/api/sync-institution-student"), {
           method: "POST",
@@ -371,13 +371,9 @@ function AppShellBody({ children }: { children: ReactNode }) {
 }
 
 export default function AppShell({ children }: { children: ReactNode }) {
-  // The provider wraps the whole shell so the sidebar, top bar, bottom nav, AND
-  // every view rendered as children share one sign-in modal (useSignInDialog).
   return (
-    <SignInDialogProvider>
-      <UpgradeDialogProvider>
-        <AppShellBody>{children}</AppShellBody>
-      </UpgradeDialogProvider>
-    </SignInDialogProvider>
+    <UpgradeDialogProvider>
+      <AppShellBody>{children}</AppShellBody>
+    </UpgradeDialogProvider>
   );
 }

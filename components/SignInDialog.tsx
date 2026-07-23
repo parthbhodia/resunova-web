@@ -9,12 +9,10 @@
  * straight to Google OAuth while others showed a card first.
  *
  * Now every gated action calls `useSignInDialog().openSignIn({ reason })` and gets
- * the SAME branded modal — matching how EnhanceCV / Kickresume / Jobright funnel all
- * sign-in through one consistent surface. Resunova is Google-only, so the modal's
- * primary (and only) action is "Continue with Google".
+ * the SAME branded modal, with email/password and Google as equivalent entry paths.
  *
- * Mount <SignInDialogProvider> once (in AppShell) so it wraps the sidebar, the top
- * bar, the bottom nav, AND every view rendered as AppShell children.
+ * Mount <SignInDialogProvider> once in the root layout so marketing pages, shell
+ * navigation, and every gated feature use the same account entry point.
  */
 
 import {
@@ -23,6 +21,7 @@ import {
   useContext,
   useMemo,
   useState,
+  type FormEvent,
   type ReactNode,
 } from "react";
 import {
@@ -32,7 +31,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { signInWithGoogle } from "@/lib/anonScan";
+import { sendPasswordReset, signInWithEmail, signUpWithEmail } from "@/lib/emailAuth";
 
 /** Small Google "G" so the CTA reads as a real OAuth button, not a generic link. */
 function GoogleGlyph({ size = 18 }: { size?: number }) {
@@ -88,17 +89,28 @@ const DEFAULT_REASON =
 const VALUE_PROPS = [
   "Save & revisit every résumé scan",
   "Match and tailor to live job openings",
-  "No credit card (Google sign-in only)",
+  "No credit card required",
 ];
+
+type EmailMode = "sign-in" | "sign-up" | "forgot";
 
 export function SignInDialogProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [opts, setOpts] = useState<SignInDialogOptions>({});
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<EmailMode>("sign-in");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const openSignIn = useCallback((next?: SignInDialogOptions) => {
     setOpts(next ?? {});
     setBusy(false);
+    setMode("sign-in");
+    setPassword("");
+    setError(null);
+    setNotice(null);
     setOpen(true);
   }, []);
 
@@ -106,16 +118,64 @@ export function SignInDialogProvider({ children }: { children: ReactNode }) {
 
   const handleGoogle = useCallback(async () => {
     setBusy(true);
+    setError(null);
     // Redirect navigates away on success; only reachable again on error.
     const err = await signInWithGoogle();
-    if (err) setBusy(false);
+    if (err) {
+      setError(err);
+      setBusy(false);
+    }
   }, []);
+
+  const selectMode = (nextMode: EmailMode) => {
+    setMode(nextMode);
+    setPassword("");
+    setError(null);
+    setNotice(null);
+  };
+
+  const handleEmail = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setNotice(null);
+
+    if (mode !== "forgot" && password.length < 8) {
+      setError("Use at least 8 characters for your password.");
+      return;
+    }
+
+    setBusy(true);
+    if (mode === "forgot") {
+      const resetError = await sendPasswordReset(email);
+      setBusy(false);
+      if (resetError) setError(resetError);
+      else setNotice("Check your inbox for a password reset link.");
+      return;
+    }
+
+    if (mode === "sign-up") {
+      const result = await signUpWithEmail(email, password);
+      setBusy(false);
+      if (result.error) setError(result.error);
+      else if (result.needsConfirmation) {
+        setNotice("Check your inbox to confirm your email, then return to Resunova.");
+      } else {
+        setOpen(false);
+      }
+      return;
+    }
+
+    const signInError = await signInWithEmail(email, password);
+    setBusy(false);
+    if (signInError) setError(signInError);
+    else setOpen(false);
+  };
 
   return (
     <SignInDialogContext.Provider value={value}>
       {children}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
           <div className="flex flex-col items-center gap-3 px-2 pt-2 text-center">
             <DialogTitle className="text-lg font-semibold">
               {opts.title || DEFAULT_TITLE}
@@ -136,15 +196,105 @@ export function SignInDialogProvider({ children }: { children: ReactNode }) {
             ))}
           </ul>
 
+          <div className="grid grid-cols-2 rounded-lg bg-muted p-1" aria-label="Account action">
+            <button
+              type="button"
+              onClick={() => selectMode("sign-in")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode !== "sign-up" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Log in
+            </button>
+            <button
+              type="button"
+              onClick={() => selectMode("sign-up")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode === "sign-up" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Create account
+            </button>
+          </div>
+
+          <form className="space-y-3" onSubmit={(event) => void handleEmail(event)}>
+            <label className="block space-y-1.5 text-sm font-medium text-foreground">
+              Email
+              <Input
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.edu"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                disabled={busy}
+                required
+                className="h-10"
+              />
+            </label>
+            {mode !== "forgot" ? (
+              <label className="block space-y-1.5 text-sm font-medium text-foreground">
+                Password
+                <Input
+                  type="password"
+                  autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+                  placeholder={mode === "sign-up" ? "At least 8 characters" : "Your password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={busy}
+                  required
+                  minLength={8}
+                  className="h-10"
+                />
+              </label>
+            ) : (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                We will send a secure reset link to this email address.
+              </p>
+            )}
+
+            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+            {notice ? <p role="status" className="rounded-lg bg-accent/10 px-3 py-2 text-sm text-foreground">{notice}</p> : null}
+
+            <Button type="submit" disabled={busy} className="w-full" size="lg">
+              {busy
+                ? "Please wait…"
+                : mode === "sign-up"
+                  ? "Create free account"
+                  : mode === "forgot"
+                    ? "Send reset link"
+                    : "Log in with email"}
+            </Button>
+          </form>
+
+          <div className="flex items-center gap-3 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
+            or
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
           <Button
             onClick={() => void handleGoogle()}
             disabled={busy}
             size="lg"
-            className="mt-2 w-full gap-2.5 bg-white text-[#1f2937] ring-1 ring-foreground/10 hover:bg-white/90 dark:bg-white dark:text-[#1f2937]"
+            className="w-full gap-2.5 bg-white text-[#1f2937] ring-1 ring-foreground/10 hover:bg-white/90 dark:bg-white dark:text-[#1f2937]"
           >
             <GoogleGlyph />
             {busy ? "Opening Google…" : "Continue with Google"}
           </Button>
+
+          {mode === "sign-in" ? (
+            <button
+              type="button"
+              onClick={() => selectMode("forgot")}
+              className="text-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Forgot your password?
+            </button>
+          ) : mode === "forgot" ? (
+            <button
+              type="button"
+              onClick={() => selectMode("sign-in")}
+              className="text-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Back to login
+            </button>
+          ) : null}
 
           <p className="px-4 text-center text-[11px] leading-relaxed text-muted-foreground">
             By continuing you agree to our{" "}

@@ -145,14 +145,14 @@ export default function PrivacyPage() {
             <ThirdPartyTable rows={[
               {
                 name: "Supabase",
-                purpose: "Database and file storage for your account data, saved resumes, and analysis results",
-                data: "Email, user ID, resume content, analysis results, generated PDFs",
+                purpose: "Authentication, database, and file storage for your account data, saved resumes, and analysis results",
+                data: "Email, password hash when email login is used, user ID, resume content, analysis results, generated PDFs",
                 location: "US/EU (varies by Supabase region)",
                 link: "https://supabase.com/privacy",
               },
               {
                 name: "Google OAuth 2.0",
-                purpose: "Authentication: sign in with your Google account",
+                purpose: "Optional authentication when you choose Continue with Google",
                 data: "Email, name, profile picture, Google user ID",
                 location: "US (Google LLC)",
                 link: "https://policies.google.com/privacy",
@@ -222,7 +222,7 @@ export default function PrivacyPage() {
             <ul>
               <li>All data is transmitted over HTTPS/TLS</li>
               <li>Database access is controlled by Row-Level Security (RLS) policies; your data is only accessible to your account</li>
-              <li>Authentication is handled by Supabase Auth with Google OAuth 2.0</li>
+              <li>Authentication is handled by Supabase Auth using email/password or supported OAuth providers such as Google</li>
             </ul>
             <p>No system is 100% secure. If you discover a security vulnerability, please disclose it responsibly to <a href="mailto:parthbhodia08@gmail.com" style={{ color: "var(--accent)" }}>parthbhodia08@gmail.com</a>.</p>
           </Section>
