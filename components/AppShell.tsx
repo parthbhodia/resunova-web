@@ -27,6 +27,7 @@ import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
 import { useSignInDialog } from "./SignInDialog";
 import { UpgradeDialogProvider } from "./UpgradeDialog";
+import CheckoutReturnNotice from "./CheckoutReturnNotice";
 import FirstRunWizard from "./FirstRunWizard";
 import {
   readSidebarCollapsed,
@@ -374,6 +375,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <UpgradeDialogProvider>
       <AppShellBody>{children}</AppShellBody>
+      <CheckoutReturnNotice />
     </UpgradeDialogProvider>
   );
 }

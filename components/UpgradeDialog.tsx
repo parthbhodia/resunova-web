@@ -15,9 +15,10 @@
  * HONESTY NOTE: the Free-vs-Pro numbers below are the REAL server-side caps
  * (FREE_SCAN_DAILY_LIMIT=3, INTERVIEW_PREP_DAILY_LIMIT=2 in the API's
  * services/scan_limits.py). Everything else — job feed, tracker, referrals — has
- * no daily cap today, so it's shown as "Included", not a fake number. There is
- * not yet a Pro billing backend; the CTA routes to /contact as a waitlist
- * placeholder until checkout exists.
+ * no daily cap today, so it's shown as "Included", not a fake number.
+ * The CTA opens Stripe Checkout via POST /api/billing/checkout; when checkout
+ * isn't live (flag off / signed out / request failure) it falls back to the
+ * /pricing page instead of dead-ending.
  */
 
 import {
@@ -36,13 +37,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { createCheckoutSession } from "@/lib/billingApi";
 
 /** Real free-tier daily caps (keep in sync with API services/scan_limits.py). */
 export const FREE_SCAN_DAILY_LIMIT = 3;
 export const FREE_INTERVIEW_DAILY_LIMIT = 2;
 
-/** Where the "Upgrade" CTA points until a real checkout exists. */
-const UPGRADE_CTA_HREF = "/contact";
+/** Fallback when Stripe Checkout is unavailable (flag off, signed out, error). */
+const UPGRADE_FALLBACK_HREF = "/pricing";
 
 const CheckIcon = (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -132,10 +134,24 @@ export function UpgradeDialogProvider({ children }: { children: ReactNode }) {
   const hitLimit = typeof opts.limit === "number" || Boolean(opts.code);
   const resetIn = resetLabel(opts.resetAt);
 
-  const goUpgrade = useCallback(() => {
-    setOpen(false);
-    router.push(UPGRADE_CTA_HREF);
-  }, [router]);
+  const [checkingOut, setCheckingOut] = useState(false);
+
+  const goUpgrade = useCallback(async () => {
+    if (checkingOut) return;
+    setCheckingOut(true);
+    try {
+      const result = await createCheckoutSession("pro_monthly");
+      if ("url" in result) {
+        // Full-page redirect to Stripe-hosted Checkout.
+        window.location.assign(result.url);
+        return;
+      }
+      setOpen(false);
+      router.push(UPGRADE_FALLBACK_HREF);
+    } finally {
+      setCheckingOut(false);
+    }
+  }, [checkingOut, router]);
 
   return (
     <UpgradeDialogContext.Provider value={value}>
@@ -224,9 +240,9 @@ export function UpgradeDialogProvider({ children }: { children: ReactNode }) {
               </div>
 
               <div className="mt-auto flex flex-col gap-2 pt-1">
-                <Button size="lg" className="w-full gap-2" onClick={goUpgrade}>
+                <Button size="lg" className="w-full gap-2" onClick={goUpgrade} disabled={checkingOut}>
                   {CrownIcon}
-                  Upgrade to Pro
+                  {checkingOut ? "Opening checkout…" : "Upgrade to Pro"}
                 </Button>
                 <button
                   type="button"
