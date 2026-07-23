@@ -22,17 +22,18 @@ const PUBLIC_ROUTES = new Set<string>([
   "/contact",
   "/blog",
   "/resume-examples",
+  "/jobs",
   "/ats-resume-checker",
   "/template-builder",
   "/profile",
 ]);
 // Path prefixes that bypass auth — recipient share pages live at /r/<shortid>,
 // programmatic SEO role pages at /resume-examples/<role>, comparisons at /compare/<slug>.
-const PUBLIC_PREFIXES = ["/r/", "/blog/", "/resume-examples/", "/compare/"];
+const PUBLIC_PREFIXES = ["/r/", "/blog/", "/resume-examples/", "/compare/", "/jobs/"];
 
 const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true";
 
-function isPublicPath(pathname: string | null): boolean {
+export function isPublicPath(pathname: string | null): boolean {
   if (!pathname) return false;
   const trimmed = pathname.replace(/\/$/, "");
   if (PUBLIC_ROUTES.has(trimmed)) return true;
@@ -75,6 +76,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setForceLanding(readForceLandingAfterSignOut());
+    // Public documents never need auth to render. Avoid initializing Supabase so
+    // SEO/local-preview pages also work when client auth env vars are absent.
+    if (publicRoute) {
+      setChecked(true);
+      return;
+    }
     const supabase = getSupabaseClient();
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -94,7 +101,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       }
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [publicRoute]);
 
   if (publicRoute) return <>{children}</>;
 
