@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LogoFull } from "@/components/BrandLogo";
 import JsonLd from "@/components/seo/JsonLd";
+import ResumeExamplesCatalog from "@/components/ResumeExamplesCatalog";
 import { SITE_URL } from "@/lib/brand";
 import { ROLE_RESUME_DATA, roleResumeHref, roleDataYear } from "@/lib/roleResumeData";
+import { PUBLIC_RESUME_EXAMPLES } from "@/lib/resumeExamplesCatalog";
 
 const YEAR = roleDataYear();
 
@@ -95,11 +97,16 @@ export default function ResumeExamplesHubPage() {
           Resume examples by role
         </h1>
         <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.65, margin: "0 0 36px" }}>
-          Every example below is built from the skills employers actually ask for in live job postings for that role:
-          frequency-ranked, with a scored sample résumé, salary data, and the keywords that pass ATS. Pick your role,
-          then tailor your own in seconds.
+          Start with a data-backed role guide built from live job postings, or browse the fictional example library for
+          a structure that fits your experience. Pick an example, then replace every detail with your own verified work.
         </p>
 
+        <nav aria-label="Resume example sections" style={{ display: "flex", flexWrap: "wrap", gap: 10, margin: "0 0 28px" }}>
+          <Link href="#role-guides" style={{ border: "1px solid var(--border)", borderRadius: 999, color: "var(--text)", fontSize: 13, fontWeight: 650, padding: "8px 14px", textDecoration: "none" }}>Data-backed guides</Link>
+          <Link href="#example-library" style={{ border: "1px solid var(--border)", borderRadius: 999, color: "var(--text)", fontSize: 13, fontWeight: 650, padding: "8px 14px", textDecoration: "none" }}>60 fictional examples</Link>
+        </nav>
+
+        <h2 id="role-guides" style={{ fontSize: 22, fontWeight: 750, letterSpacing: -0.5, margin: "0 0 14px" }}>Data-backed role guides</h2>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 14 }}>
           {ROLE_RESUME_DATA.map((role) => (
             <li key={role.slug}>
@@ -116,9 +123,9 @@ export default function ResumeExamplesHubPage() {
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
-                  <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, letterSpacing: -0.3 }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, letterSpacing: -0.3 }}>
                     {`${role.label} Resume Example`}
-                  </h2>
+                  </h3>
                   <span style={{ fontSize: 12, color: "var(--dim)", whiteSpace: "nowrap" }}>
                     {role.postingsAnalyzed.toLocaleString("en-US")} postings
                   </span>
@@ -131,6 +138,8 @@ export default function ResumeExamplesHubPage() {
             </li>
           ))}
         </ul>
+
+        <ResumeExamplesCatalog examples={PUBLIC_RESUME_EXAMPLES} />
 
         <p style={{ marginTop: 32, fontSize: 13, color: "var(--dim)", lineHeight: 1.6 }}>
           Don’t see your role yet? More are being added. In the meantime, run your résumé through the{" "}
