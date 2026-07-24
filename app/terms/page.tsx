@@ -116,10 +116,11 @@ export default function TermsPage() {
             <p>Resunova does <b>not sell</b> your personal data. We use and retain data only as described there (including to operate the Service, for user analytics to improve the product, and for internal training and quality improvement), and not for unrelated commercial resale.</p>
           </Section>
 
-          <Section title="8. Free Tier and Future Billing">
+          <Section title="8. Free Tier and Paid Subscriptions">
             <p>
-              The Service is offered <b>completely free of charge</b> to support students and the broader job-seeking community: we believe in the greater good of equitable access to career tools.
-              We reserve the right to introduce paid tiers or modify the free tier in the future. We will provide reasonable advance notice of any such changes.
+              The Service includes a <b>free tier</b> that supports students and the broader job-seeking community: we believe in equitable access to career tools.
+              We also offer optional paid subscription plans (such as Resunova Pro) that unlock additional usage and features. Subscription prices, billing periods, and included features are presented at the point of purchase; subscriptions renew automatically until canceled, and you can cancel at any time, effective at the end of the current billing period.
+              We reserve the right to modify the free tier or paid plans in the future and will provide reasonable advance notice of material changes.
             </p>
           </Section>
 

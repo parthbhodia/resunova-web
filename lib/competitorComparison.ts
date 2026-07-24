@@ -45,11 +45,11 @@ export const COMPARISONS: Comparison[] = [
     competitorUrl: "https://www.kickresume.com",
     asOf: "June 2026",
     intro:
-      "Resunova and Kickresume both build resumes, score them against ATS rules, and tailor them to a job description. The core difference is the paywall: Resunova is completely free (including the full ATS report, AI rewrites, and a formatted PDF download), while Kickresume gates those behind a paid Premium plan.",
+      "Resunova and Kickresume both build resumes, score them against ATS rules, and tailor them to a job description. The core difference is what you get free: Resunova's free tier includes the full ATS report, AI rewrites, and a formatted PDF download (Pro adds higher limits), while Kickresume gates those behind a paid Premium plan.",
     rows: [
       {
         feature: "Price",
-        resunova: "Completely free, no paid tier",
+        resunova: "Free to start; optional Pro at $19/month or $39/quarter unlocks higher usage limits",
         competitor: "Freemium: a free plan plus a paid Premium subscription for full features",
       },
       {
@@ -90,17 +90,17 @@ export const COMPARISONS: Comparison[] = [
       },
       {
         feature: "Student offer",
-        resunova: "Free for everyone, built for students and the job-seeking community",
+        resunova: "Free tier for everyone, built for students and the job-seeking community",
         competitor: "Roughly 6 months of free Premium for verified students and teachers",
       },
     ],
     verdict:
-      "Kickresume is a polished, broad product (40+ templates, an AI writing suite, cover letters, a website builder), and if you want that full toolkit and are willing to pay for Premium, it's a strong choice. Resunova makes a narrower bet: the things that actually move you past an ATS (an honest score, job-description tailoring, and a clean ATS-friendly PDF) are free, with no download paywall, aimed at students and early-career job seekers. If \"free, no catch\" matters most to you, Resunova wins; if you want the widest premium feature set and will subscribe, Kickresume earns its price.",
+      "Kickresume is a polished, broad product (40+ templates, an AI writing suite, cover letters, a website builder), and if you want that full toolkit and are willing to pay for Premium, it's a strong choice. Resunova makes a narrower bet: the things that actually move you past an ATS (an honest score, job-description tailoring, and a clean ATS-friendly PDF) start free, with no download paywall, aimed at students and early-career job seekers. If starting free with the essentials matters most to you, Resunova wins; if you want the widest premium feature set and will subscribe, Kickresume earns its price.",
     faq: [
       {
         question: "Is Resunova really free?",
         answer:
-          "Yes, completely free, including the full ATS score, job-description tailoring, AI rewrites, and a formatted PDF download. There is no paid tier and no credit card. It's built for students and the job-seeking community.",
+          "You can start free, no credit card: the full ATS score, job-description tailoring, AI rewrites, and a formatted PDF download are all in the free tier. An optional Pro plan unlocks higher usage limits. It's built for students and the job-seeking community.",
       },
       {
         question: "What's the main difference between Resunova and Kickresume?",
@@ -132,12 +132,12 @@ export const COMPARISONS: Comparison[] = [
     rows: [
       {
         feature: "Price",
-        resunova: "Completely free, no paid tier",
+        resunova: "Free to start; optional Pro at $19/month or $39/quarter unlocks higher usage limits",
         competitor: "Free plan limited to 5 scans per month; Premium is $49.95/month or $89.95 per quarter, with a 7-day trial",
       },
       {
         feature: "Scan limits",
-        resunova: "Unlimited: score your resume against as many job descriptions as you want",
+        resunova: "Free scans every day against any job description; Pro raises the limits",
         competitor: "5 free scans per month (unused scans roll over, capped at 5); unlimited requires Premium",
       },
       {
@@ -177,12 +177,12 @@ export const COMPARISONS: Comparison[] = [
       },
     ],
     verdict:
-      "Jobscan is the category veteran and its match report is genuinely thorough: 30+ checks, ATS-specific tips, and a LinkedIn optimizer nothing else here offers. If you scan more than five jobs a month, though, you are on the $49.95/month plan, and independent reviews consistently note the same trap: chasing the match-rate percentage rewards keyword stuffing, which recruiters see through. Resunova's bet is different: the scan, the tailoring, and the rewrites are free and unlimited, and the scoring model is deliberately built so the way to raise your score is to be genuinely qualified and say so clearly, not to paste the job description back at itself. If you want the deepest report and LinkedIn coverage and will pay for it, Jobscan is strong. If you want unlimited honest tailoring for free, Resunova wins.",
+      "Jobscan is the category veteran and its match report is genuinely thorough: 30+ checks, ATS-specific tips, and a LinkedIn optimizer nothing else here offers. If you scan more than five jobs a month, though, you are on the $49.95/month plan, and independent reviews consistently note the same trap: chasing the match-rate percentage rewards keyword stuffing, which recruiters see through. Resunova's bet is different: the scan, the tailoring, and the rewrites start free, and the scoring model is deliberately built so the way to raise your score is to be genuinely qualified and say so clearly, not to paste the job description back at itself. If you want the deepest report and LinkedIn coverage and will pay for it, Jobscan is strong. If you want honest tailoring at a fraction of the price, Resunova wins.",
     faq: [
       {
         question: "Is Jobscan free?",
         answer:
-          "Partly. The free plan includes 5 scans per month (unused scans roll over, capped at 5) and the resume builder with PDF downloads. The full match report, Power Edit rewrites, and unlimited scans require Premium at $49.95/month or $89.95 per quarter (as of July 2026). Resunova's scan, tailoring, and rewrites are free and unlimited.",
+          "Partly. The free plan includes 5 scans per month (unused scans roll over, capped at 5) and the resume builder with PDF downloads. The full match report, Power Edit rewrites, and unlimited scans require Premium at $49.95/month or $89.95 per quarter (as of July 2026). Resunova's scan, tailoring, and rewrites start free, with Pro at $19/month for higher limits.",
       },
       {
         question: "Is a 75%+ Jobscan match rate enough to get interviews?",
@@ -197,7 +197,7 @@ export const COMPARISONS: Comparison[] = [
       {
         question: "What does Resunova have that Jobscan doesn't?",
         answer:
-          "Unlimited free scans and rewrites, and a job feed built on Resunova's own posting corpus with disclosed salary and H-1B sponsor data. Jobscan counters with a LinkedIn optimizer and cover letter tools, which Resunova doesn't have yet.",
+          "Free daily scans and rewrites, and a job feed built on Resunova's own posting corpus with disclosed salary and H-1B sponsor data. Jobscan counters with a LinkedIn optimizer and cover letter tools, which Resunova doesn't have yet.",
       },
     ],
     footnotes: [
@@ -210,11 +210,11 @@ export const COMPARISONS: Comparison[] = [
     competitorUrl: "https://www.tealhq.com",
     asOf: "July 2026",
     intro:
-      "Teal is a job-search workspace: an excellent free job tracker, a resume builder, and an AI toolkit, with the analysis depth gated behind Teal+. Resunova is narrower and fully free: unlimited resume scoring and honest tailoring against real posting data. Which fits depends on whether you want an organizer or an optimizer.",
+      "Teal is a job-search workspace: an excellent free job tracker, a resume builder, and an AI toolkit, with the analysis depth gated behind Teal+. Resunova is narrower and free to start: resume scoring and honest tailoring against real posting data, with an optional Pro plan for higher limits. Which fits depends on whether you want an organizer or an optimizer.",
     rows: [
       {
         feature: "Price",
-        resunova: "Completely free, no paid tier",
+        resunova: "Free to start; optional Pro at $19/month or $39/quarter unlocks higher usage limits",
         competitor: "Free plan plus Teal+ at $13 per week, $29 per 30 days, or $79 per 90 days; no annual plan",
       },
       {
@@ -229,12 +229,12 @@ export const COMPARISONS: Comparison[] = [
       },
       {
         feature: "Keyword visibility",
-        resunova: "Free: the full gap analysis for any job description, unlimited",
+        resunova: "Free: the full gap analysis for any job description, with daily free scans",
         competitor: "Free plan shows only the top 5 keywords per job; the full keyword list requires Teal+",
       },
       {
         feature: "AI bullet rewrites",
-        resunova: "Free and unlimited: honest rewrites that only claim credit when a requirement is genuinely covered",
+        resunova: "Free: honest rewrites that only claim credit when a requirement is genuinely covered",
         competitor: "Free plan includes a small one-time credit allotment (single-digit bullet credits, 2 summaries, 2 cover letters); unlimited requires Teal+",
       },
       {
@@ -254,17 +254,17 @@ export const COMPARISONS: Comparison[] = [
       },
     ],
     verdict:
-      "Teal's free job tracker is the best in this category, and if your main problem is organizing dozens of applications, Teal is genuinely worth installing. The catch is where the analysis lives: the free plan shows only the top 5 keywords per job and a handful of one-time AI credits, so actually optimizing every application means Teal+, billed weekly or monthly. Resunova flips that: tracking is not its game, but the full match analysis, gap breakdown, and unlimited honest rewrites are free for every job you throw at it, scored against real posting data rather than raw keyword overlap. Many job seekers could sensibly use both: Teal to track, Resunova to tailor.",
+      "Teal's free job tracker is the best in this category, and if your main problem is organizing dozens of applications, Teal is genuinely worth installing. The catch is where the analysis lives: the free plan shows only the top 5 keywords per job and a handful of one-time AI credits, so actually optimizing every application means Teal+, billed weekly or monthly. Resunova flips that: tracking is not its game, but the full match analysis, gap breakdown, and honest rewrites are free to use for the jobs you throw at it, scored against real posting data rather than raw keyword overlap. Many job seekers could sensibly use both: Teal to track, Resunova to tailor.",
     faq: [
       {
         question: "Is Teal really free?",
         answer:
-          "The tracker is genuinely free and unlimited. The analysis is where the free plan thins out: 5 visible keywords per job, basic resume analysis, and one-time AI credits (a few bullets, 2 summaries, 2 cover letters). Full keywords, advanced analysis, and unlimited AI require Teal+ at $13/week, $29/30 days, or $79/90 days (as of July 2026). Resunova's full analysis and rewrites are free and unlimited.",
+          "The tracker is genuinely free and unlimited. The analysis is where the free plan thins out: 5 visible keywords per job, basic resume analysis, and one-time AI credits (a few bullets, 2 summaries, 2 cover letters). Full keywords, advanced analysis, and unlimited AI require Teal+ at $13/week, $29/30 days, or $79/90 days (as of July 2026). Resunova's full analysis and rewrites start free, with Pro at $19/month for higher limits.",
       },
       {
         question: "What's the main difference between Resunova and Teal?",
         answer:
-          "Teal is a job-search workspace built around its tracker, with resume analysis as a gated add-on. Resunova is a resume optimizer built around scoring and honest tailoring, with everything free. If you want one tool to organize your search, Teal; if you want unlimited depth on every application, Resunova; plenty of people use both.",
+          "Teal is a job-search workspace built around its tracker, with resume analysis as a gated add-on. Resunova is a resume optimizer built around scoring and honest tailoring, free to start. If you want one tool to organize your search, Teal; if you want depth on every application, Resunova; plenty of people use both.",
       },
       {
         question: "How do the match scores differ?",

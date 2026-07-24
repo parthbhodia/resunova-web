@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     template: "%s · Resunova",
   },
   description:
-    "Completely free AI resume tailoring for students and the job-seeking community. Paste any job description, get a match score, gap analysis, and an ATS-friendly PDF in under a minute.",
+    "AI resume tailoring for students and the job-seeking community. Start free, upgrade anytime: paste any job description, get a match score, gap analysis, and an ATS-friendly PDF in under a minute.",
   keywords: [
     "resume builder",
     "AI resume",
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: "Resunova: AI Resume Tailoring for Every Job Description",
     description:
-      "Completely free for students and the community. Tailor your resume in 60 seconds: match score, gap analysis, and ATS-friendly PDF included.",
+      "Start free, upgrade anytime. Tailor your resume in 60 seconds: match score, gap analysis, and ATS-friendly PDF included.",
     locale: "en_US",
     // OG image auto-served from app/opengraph-image.tsx
   },
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Resunova: AI Resume Tailoring for Every Job Description",
     description:
-      "Completely free for students and the community. Tailor your resume in 60 seconds (match score, gap analysis, and ATS-friendly PDF).",
+      "Start free, upgrade anytime. Tailor your resume in 60 seconds (match score, gap analysis, and ATS-friendly PDF).",
     // Twitter image auto-served from app/twitter-image.tsx
   },
   robots: {
@@ -122,7 +122,7 @@ const jsonLd = {
       "operatingSystem": "Web",
       "url": SITE_URL,
       "description":
-        "Completely free AI resume builder for students and the community. It tailors your resume to any job description, scores your fit, and exports an ATS-friendly PDF.",
+        "AI resume builder for students and the community. Start free, upgrade anytime: it tailors your resume to any job description, scores your fit, and exports an ATS-friendly PDF.",
       "offers": {
         "@type": "Offer",
         "price": "0",

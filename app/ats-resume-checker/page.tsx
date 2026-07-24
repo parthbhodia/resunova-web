@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     url: CANONICAL,
     title: "Free ATS Resume Checker: Score Your Resume Instantly",
     description:
-      "Upload your resume and get an instant ATS score with the fixes to pass. Completely free.",
+      "Upload your resume and get an instant ATS score with the fixes to pass. Free to check, no credit card.",
   },
 };
 
@@ -52,7 +52,7 @@ const FAQ: { question: string; answer: string }[] = [
   {
     question: "Is Resunova's ATS resume checker free?",
     answer:
-      "Yes. Upload your resume and get a full score and fix list for free, no credit card. Resunova is built for students and the job-seeking community.",
+      "Yes. Upload your resume and get a full score and fix list free, no credit card. Resunova is built for students and the job-seeking community; a Pro plan unlocks higher usage limits.",
   },
   {
     question: "What is a good ATS resume score?",
@@ -183,7 +183,7 @@ export default function AtsResumeCheckerPage() {
         >
           Upload your resume and get an instant score for how an applicant tracking system reads it (parseability,
           keywords, quantified impact, and formatting) with the specific fixes to climb the recruiter&rsquo;s search
-          results. Completely free, no credit card.
+          results. Free to check, no credit card.
         </p>
 
         {/* Primary CTA */}
