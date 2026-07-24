@@ -655,6 +655,18 @@ export default function LandingPage() {
                       >
                         View all examples
                       </Link>
+                      <Link
+                        href="/skills-for-resume"
+                        style={{
+                          background: "transparent", border: "none", textAlign: "left",
+                          fontSize: 14, color: T.blue, cursor: "pointer",
+                          fontWeight: 600, textDecoration: "none"
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.textDecoration = "underline"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.textDecoration = "none"; }}
+                      >
+                        Skills by role
+                      </Link>
                     </div>
                   </div>
 
@@ -1643,6 +1655,10 @@ export default function LandingPage() {
               {[
                 ["Blog", "/blog"],
                 ["Jobs", "/jobs/"],
+                ["Resume Examples", "/resume-examples"],
+                ["Skills for Resume", "/skills-for-resume"],
+                ["Cover Letter", "/cover-letter"],
+                ["ATS Checker", "/ats-resume-checker"],
                 ["Contact", "/contact"],
                 ["Privacy", "/privacy"],
                 ["Terms", "/terms"],
