@@ -702,6 +702,11 @@ export function roleResumeHref(slug: string): string {
   return `/resume-examples/${slug}`;
 }
 
+/** Canonical path for a role's skills page (no trailing slash — sitemap/canonical append it). */
+export function skillsForResumeHref(slug: string): string {
+  return `/skills-for-resume/${slug}`;
+}
+
 export function getRoleResumeData(slug: string): RoleResumeData | undefined {
   return ROLE_RESUME_DATA.find((r) => r.slug === slug);
 }

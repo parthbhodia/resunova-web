@@ -80,7 +80,7 @@ export const COMPARISONS: Comparison[] = [
       },
       {
         feature: "Cover letter builder",
-        resunova: "Not yet. Resunova focuses on the resume",
+        resunova: "Free: AI drafts from your resume + the job description, with matching templates",
         competitor: "Yes, AI cover letters with matching templates (Premium AI)",
       },
       {
@@ -197,7 +197,7 @@ export const COMPARISONS: Comparison[] = [
       {
         question: "What does Resunova have that Jobscan doesn't?",
         answer:
-          "Free daily scans and rewrites, and a job feed built on Resunova's own posting corpus with disclosed salary and H-1B sponsor data. Jobscan counters with a LinkedIn optimizer and cover letter tools, which Resunova doesn't have yet.",
+          "Free daily scans and rewrites, a free cover letter builder that drafts from your resume, and a job feed built on Resunova's own posting corpus with disclosed salary and H-1B sponsor data. Jobscan counters with a LinkedIn optimizer, which Resunova doesn't have yet.",
       },
     ],
     footnotes: [
@@ -279,6 +279,240 @@ export const COMPARISONS: Comparison[] = [
     ],
     footnotes: [
       "Compiled from Teal's public pages (tealhq.com pricing, job tracker, and help center articles on the Job Matcher, Resume Analyzer, exports, and job search) and multiple independent reviews as of July 2026, then independently fact-checked. Teal+ pricing confirmed from Teal's own pricing page and help center; Teal's pages showed minor internal inconsistencies on free bullet-credit counts, so this page states the conservative range. Feature sets change; verify current details on tealhq.com. Corrections welcome at contact@resunova.io.",
+    ],
+  },
+  {
+    slug: "resunova-vs-canva",
+    competitor: "Canva",
+    competitorUrl: "https://www.canva.com/resumes/templates/",
+    asOf: "July 2026",
+    intro:
+      "Canva is a design tool with beautiful resume templates; Resunova is a resume tool built for getting past an ATS. The trade-off is real: Canva's visual layouts (columns, icons, graphics) are exactly what applicant tracking systems parse worst, while Resunova scores, tailors, and exports an ATS-safe PDF free.",
+    rows: [
+      {
+        feature: "Price",
+        resunova: "Free to start; optional Pro at $19/month or $39/quarter unlocks higher usage limits",
+        competitor: "Free templates; many designs, photos, and elements require Canva Pro",
+      },
+      {
+        feature: "Template style",
+        resunova: "Clean, single-column, ATS-safe layouts (incl. creative presets that stay parseable)",
+        competitor: "Thousands of visually striking designs: columns, icons, graphics, photos",
+      },
+      {
+        feature: "ATS compatibility",
+        resunova: "Built for it: real text, standard headings, single-column export, plus an ATS score that tells you how a parser reads your file",
+        competitor: "Many popular Canva layouts use multi-column designs, graphics, and text effects that ATS parsers commonly scramble or drop",
+        caveat: true,
+      },
+      {
+        feature: "ATS resume score",
+        resunova: "Free: full score across 7 dimensions with the weakest bullets flagged and rewritten",
+        competitor: "None — Canva doesn't analyze or score resume content",
+      },
+      {
+        feature: "Tailor to a job description",
+        resunova: "Free: paste a JD, get a match score, gap analysis, and keyword fixes",
+        competitor: "None — you edit the design; matching a job's requirements is entirely manual",
+      },
+      {
+        feature: "AI writing help",
+        resunova: "Free AI rewrites for weak bullets, grounded in your real experience",
+        competitor: "Magic Write can draft generic text (Pro feature, credit-limited), but it isn't resume-analysis aware",
+      },
+      {
+        feature: "Cover letter",
+        resunova: "Free cover letter builder: AI drafts from your resume + the JD, with matching templates",
+        competitor: "Cover letter design templates; the writing is up to you",
+      },
+      {
+        feature: "Best for",
+        resunova: "Applying through job portals and company career sites, where an ATS reads your file first",
+        competitor: "Design-forward fields (graphic design, some creative roles) where a human sees the file directly, and print/portfolio use",
+      },
+    ],
+    verdict:
+      "Use the right tool for the audience reading your resume. If a human designer or art director will look at your file directly, Canva's visual templates can genuinely help you stand out. But most applications today go through an applicant tracking system first — and the decorative layouts that make Canva resumes beautiful (columns, icons, graphics, stylized text) are precisely what parsers misread. Resunova optimizes for that reality: an honest ATS score, tailoring against the actual job description, and a clean parseable PDF, free. Many applicants use both: Canva for the portfolio, Resunova for the application.",
+    faq: [
+      {
+        question: "Are Canva resumes ATS-friendly?",
+        answer:
+          "Some are, many aren't. Canva's simplest single-column text templates can parse fine, but the popular multi-column, icon-and-graphic designs are commonly scrambled by ATS parsers: skills baked into graphics get dropped, columns read out of order, and headers get missed. If you're applying through an ATS, test the file — Resunova's free checker shows exactly what a parser extracts.",
+      },
+      {
+        question: "Can Canva check my resume against a job description?",
+        answer:
+          "No. Canva is a design tool: it makes the document look good but doesn't analyze content, score keywords, or compare your resume to a job posting. Resunova's free scan does all three and rewrites the weakest bullets.",
+      },
+      {
+        question: "Should I use Canva or a resume builder?",
+        answer:
+          "If the application goes through a job portal or company career site, use an ATS-focused builder and keep the layout simple. If a human will view the file directly (design portfolios, some creative and hospitality roles), Canva's templates are a legitimate choice. When in doubt, submit the ATS-safe version.",
+      },
+      {
+        question: "Is Canva's resume builder free?",
+        answer:
+          "Canva has genuinely free resume templates, though many designs and elements are gated behind Canva Pro. The bigger cost is invisible: a beautiful template that an ATS can't parse. Resunova's free tier includes the ATS score, tailoring, AI rewrites, and a formatted PDF download.",
+      },
+    ],
+    footnotes: [
+      "Compiled from Canva's public resume-template and Magic Write pages and widely-reported ATS parsing behavior for multi-column/graphic layouts, as of July 2026. Canva's exact Pro pricing varies by region and is omitted; verify on canva.com. ATS parsing varies by vendor — the safe test is what a parser actually extracts from your specific file. Feature sets change; corrections welcome at contact@resunova.io.",
+    ],
+  },
+  {
+    slug: "resunova-vs-google-docs",
+    competitor: "Google Docs",
+    competitorUrl: "https://docs.google.com",
+    asOf: "July 2026",
+    intro:
+      "Google Docs is free and its resume templates are fine for a first draft — but it's a word processor, not a resume tool. It can't score your resume, match it to a job description, or tell you why recruiters skip it. Resunova starts free too, and does exactly those things.",
+    rows: [
+      {
+        feature: "Price",
+        resunova: "Free to start; optional Pro at $19/month or $39/quarter unlocks higher usage limits",
+        competitor: "Free with a Google account",
+      },
+      {
+        feature: "Templates",
+        resunova: "Free template builder with ATS-safe layouts, no sign-up required",
+        competitor: "A handful of built-in resume templates (Serif, Coral, Spearmint, Swiss, Modern Writer)",
+      },
+      {
+        feature: "ATS resume score",
+        resunova: "Free: full score across 7 dimensions, weakest bullets flagged with a rewrite for each",
+        competitor: "None — Docs has no notion of resume quality",
+      },
+      {
+        feature: "Tailor to a job description",
+        resunova: "Free: match score, gap analysis, and keyword fixes against any pasted JD",
+        competitor: "Manual — you re-read the posting and edit by hand each time",
+      },
+      {
+        feature: "AI writing help",
+        resunova: "Free AI rewrites grounded in your actual experience",
+        competitor: "Gemini in Docs can draft text (plan-dependent), but it isn't resume-analysis aware",
+      },
+      {
+        feature: "Formatting risk",
+        resunova: "Exports a clean, parseable PDF: standard headings, single column, real text",
+        competitor: "Easy to break parseability with tables, text boxes, columns, and headers/footers as you customize",
+        caveat: true,
+      },
+      {
+        feature: "Cover letter",
+        resunova: "Free builder: AI drafts from your resume + the JD, matching templates, PDF/DOCX export",
+        competitor: "Blank page or a generic template; the writing is up to you",
+      },
+      {
+        feature: "Best for",
+        resunova: "Actually optimizing the resume: scoring, tailoring, and passing ATS filters",
+        competitor: "Quick free drafting, collaboration/comments, and simple documents",
+      },
+    ],
+    verdict:
+      "Google Docs is a fine place to draft a resume and an excellent place to collaborate on one — and it's genuinely free. But it stops at 'document editor': no score, no job-description matching, no keyword analysis, and it's easy to drift into tables and text boxes that ATS parsers mangle. Resunova's free tier picks up where Docs stops: it reads your resume like a parser does, scores it honestly, tailors it to the job you're actually applying for, and exports a clean PDF. Draft wherever you like — but check and tailor before you submit.",
+    faq: [
+      {
+        question: "Are Google Docs resume templates ATS-friendly?",
+        answer:
+          "Mostly yes in their default form — they're simple, single-column, real-text layouts. The risk comes from customization: adding tables, text boxes, columns, or putting contact info in the header/footer region, all of which common parsers misread. A quick free scan shows what an ATS actually extracts from your file.",
+      },
+      {
+        question: "Can Google Docs check my resume for ATS?",
+        answer:
+          "No. Docs has no resume scoring, keyword matching, or ATS analysis. Gemini can rewrite sentences if your plan includes it, but it doesn't know what an ATS looks for or what the job posting requires. Resunova's checker does both, free.",
+      },
+      {
+        question: "Is a Google Docs resume good enough?",
+        answer:
+          "For the document itself, it can be. What Docs can't tell you is whether the content competes: whether your bullets carry numbers, whether the role's keywords are present, and how you score against the specific job description. That analysis is the difference between a resume that exists and one that ranks.",
+      },
+      {
+        question: "Can I import my Google Docs resume into Resunova?",
+        answer:
+          "Yes — download it as a PDF from Docs and upload it to Resunova. You'll get the full free score and fix list, and you can tailor it to any job description from there.",
+      },
+    ],
+    footnotes: [
+      "Compiled from Google Docs' public template gallery and Google Workspace feature documentation as of July 2026. Gemini-in-Docs availability depends on the user's Google plan and rollout region. ATS parsing behavior varies by vendor. Feature sets change; corrections welcome at contact@resunova.io.",
+    ],
+  },
+  {
+    slug: "resunova-vs-chatgpt",
+    competitor: "ChatGPT",
+    competitorUrl: "https://chatgpt.com",
+    asOf: "July 2026",
+    intro:
+      "ChatGPT can write resume bullets — with the right prompts, good ones. But it's a chat window: no formatted document, no ATS score, no guardrail against invented experience, and you re-prompt from scratch for every job. Resunova productizes that loop: score, tailor, rewrite, and export, grounded in your real resume, free.",
+    rows: [
+      {
+        feature: "Price",
+        resunova: "Free to start; optional Pro at $19/month or $39/quarter unlocks higher usage limits",
+        competitor: "Free tier with usage limits; Plus subscription for more capacity",
+      },
+      {
+        feature: "Output",
+        resunova: "A formatted, ATS-safe resume PDF (and DOCX cover letter) you can submit directly",
+        competitor: "Text in a chat window — formatting into a submittable document is on you",
+      },
+      {
+        feature: "ATS resume score",
+        resunova: "Free: a repeatable 7-dimension score with the weakest bullets flagged",
+        competitor: "It can offer opinions if asked, but there's no consistent scoring rubric — ask twice, get two answers",
+      },
+      {
+        feature: "Tailor to a job description",
+        resunova: "Free: deterministic match score + gap analysis against the JD, then targeted rewrites",
+        competitor: "Possible with careful prompting, but you rebuild the workflow (paste resume, paste JD, iterate) for every application",
+      },
+      {
+        feature: "Fabrication risk",
+        resunova: "Rewrites are validated against your original resume — numbers and facts you didn't write don't ship",
+        competitor: "Known failure mode: confidently invents metrics, tools, and achievements unless you police every line",
+        caveat: true,
+      },
+      {
+        feature: "Keyword honesty",
+        resunova: "Only suggests weaving in skills your experience actually supports",
+        competitor: "Will happily stuff any keyword you ask for, supported or not",
+      },
+      {
+        feature: "Cover letter",
+        resunova: "Free builder: drafts from your resume + JD with matching templates, PDF/DOCX export",
+        competitor: "Can draft solid text; formatting and fact-checking are manual",
+      },
+      {
+        feature: "Best for",
+        resunova: "The end-to-end application: score → tailor → export, consistently, per job",
+        competitor: "Brainstorming, phrasing alternatives, interview prep conversations, one-off writing help",
+      },
+    ],
+    verdict:
+      "ChatGPT is genuinely useful in a job search — for brainstorming bullet phrasings, prepping interview answers, and unsticking a blank page. Its weakness is that it's a conversation, not a system: the output isn't a formatted document, the quality depends on your prompting, the 'score' changes every time you ask, and its best-known failure mode is confidently inventing achievements you never had. Resunova turns the same AI capability into a repeatable pipeline with guardrails — an honest score, JD tailoring, rewrites validated against what your resume actually says, and a submittable PDF — free. Use ChatGPT to think; use a resume tool to apply.",
+    faq: [
+      {
+        question: "Can ChatGPT write my resume?",
+        answer:
+          "It can draft one, and with detailed prompts the text can be good. What it can't do is give you a formatted ATS-safe document, a consistent score, or a guarantee it didn't embellish — models are well documented to invent metrics and experience when asked to 'improve' a resume. Whatever it writes, verify every claim before submitting.",
+      },
+      {
+        question: "Is ChatGPT good for tailoring a resume to a job description?",
+        answer:
+          "It's workable but manual: you paste your resume and the JD, prompt carefully, and repeat for every application. A purpose-built tool runs the same comparison deterministically — which requirements you match, which are missing, and which bullets to fix — and keeps the score consistent across runs so you can tell whether an edit actually helped.",
+      },
+      {
+        question: "Do recruiters care if a resume was written with ChatGPT?",
+        answer:
+          "Recruiters care whether the resume is true, specific, and relevant. Obvious AI tells — generic buzzwords, invented-sounding metrics, uniform sentence rhythm — hurt you regardless of the tool. That's why Resunova validates rewrites against your original text and flags unsupported claims instead of inventing them.",
+      },
+      {
+        question: "Is Resunova just ChatGPT with a wrapper?",
+        answer:
+          "No. The scoring and job-matching layers are deterministic (the same resume and JD produce the same score), the rewrite layer is AI with validators that block fabricated numbers and no-op edits, and the output is a formatted ATS-safe document. The AI drafts; the system keeps it honest and submittable.",
+      },
+    ],
+    footnotes: [
+      "Compiled from OpenAI's public ChatGPT pricing/feature pages and widely-documented LLM behavior around resume fabrication, as of July 2026. ChatGPT's exact tiers and limits change frequently; verify on chatgpt.com. Resunova's validation behavior is described from its own product documentation. Corrections welcome at contact@resunova.io.",
     ],
   },
 ];
