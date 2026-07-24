@@ -2,6 +2,14 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoFull } from "@/components/BrandLogo";
 import BlogEngagement from "@/components/blog/BlogEngagement";
+import JsonLd from "@/components/seo/JsonLd";
+import {
+  BLOG_POSTS,
+  blogPostBySlug,
+  blogPostHref,
+  createBlogPostJsonLd,
+  formatPublishedAt,
+} from "@/lib/atsBlogPosts";
 
 export default function BlogArticleLayout({
   title,
@@ -17,6 +25,15 @@ export default function BlogArticleLayout({
   slug?: string;
   children: ReactNode;
 }) {
+  const post = slug ? blogPostBySlug(slug) : undefined;
+  const articleMeta = meta ?? (post ? (
+    <ByLine
+      readMinutes={post.readMinutes}
+      published={formatPublishedAt(post.publishedAt) ?? post.publishedAt}
+      updated={post.modifiedAt !== post.publishedAt ? formatPublishedAt(post.modifiedAt) ?? post.modifiedAt : undefined}
+    />
+  ) : null);
+
   return (
     <div
       style={{
@@ -83,20 +100,30 @@ export default function BlogArticleLayout({
             {subtitle}
           </p>
         ) : null}
-        {meta ? <div style={{ margin: "0 0 14px" }}>{meta}</div> : null}
+        {slug ? <JsonLd data={createBlogPostJsonLd(slug)} /> : null}
+        {articleMeta ? <div style={{ margin: "0 0 14px" }}>{articleMeta}</div> : null}
         {slug ? (
           <BlogEngagement slug={slug} />
         ) : (
-          <div style={{ margin: meta ? "0 0 32px" : "0 0 36px", paddingBottom: 28, borderBottom: "1px solid var(--border)" }} />
+          <div style={{ margin: articleMeta ? "0 0 32px" : "0 0 36px", paddingBottom: 28, borderBottom: "1px solid var(--border)" }} />
         )}
         <article style={{ fontSize: 15, lineHeight: 1.75, color: "var(--muted)" }}>{children}</article>
+        {slug ? <RelatedPosts currentSlug={slug} /> : null}
       </main>
     </div>
   );
 }
 
 /* Byline / read-time row shown under the subtitle. */
-function ByLine({ readMinutes, updated }: { readMinutes: number; updated: string }) {
+function ByLine({
+  readMinutes,
+  published,
+  updated,
+}: {
+  readMinutes: number;
+  published: string;
+  updated?: string;
+}) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 13, color: "var(--dim)" }}>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -108,8 +135,40 @@ function ByLine({ readMinutes, updated }: { readMinutes: number; updated: string
       <span aria-hidden>·</span>
       <span>{readMinutes} min read</span>
       <span aria-hidden>·</span>
-      <span>Updated {updated}</span>
+      <span>Published {published}</span>
+      {updated ? <span aria-hidden>·</span> : null}
+      {updated ? <span>Updated {updated}</span> : null}
     </div>
+  );
+}
+
+function RelatedPosts({ currentSlug }: { currentSlug: string }) {
+  const current = blogPostBySlug(currentSlug);
+  if (!current) return null;
+
+  const related = BLOG_POSTS
+    .filter((post) => post.slug !== currentSlug)
+    .toSorted((a, b) => Number(b.tag === current.tag) - Number(a.tag === current.tag))
+    .slice(0, 3);
+
+  return (
+    <aside style={{ marginTop: 56, borderTop: "1px solid var(--border)", paddingTop: 28 }} aria-labelledby="related-posts-heading">
+      <h2 id="related-posts-heading" style={{ margin: "0 0 16px", fontSize: 19, color: "var(--text)" }}>
+        Continue reading
+      </h2>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 12 }}>
+        {related.map((post) => (
+          <li key={post.slug}>
+            <Link href={blogPostHref(post.slug)} style={{ color: "var(--text)", fontWeight: 650, textDecoration: "none" }}>
+              {post.title}
+            </Link>
+            <p style={{ margin: "4px 0 0", color: "var(--dim)", fontSize: 13, lineHeight: 1.5 }}>
+              {post.description}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </aside>
   );
 }
 

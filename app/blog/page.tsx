@@ -16,6 +16,20 @@ export const metadata: Metadata = {
     "Original research from a live corpus of about 270,000 job postings pulled straight from company hiring systems, plus practical guides to the software reading your résumé.",
   robots: { index: true, follow: true },
   alternates: { canonical: "/blog/" },
+  openGraph: {
+    type: "website",
+    url: "/blog/",
+    siteName: "Resunova",
+    title: "Resunova Job Market Research and Resume Guides",
+    description:
+      "Original job-market research from Resunova's live postings corpus, plus practical resume, ATS, and job-search guides.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Resunova Job Market Research and Resume Guides",
+    description:
+      "Original job-market research from Resunova's live postings corpus, plus practical resume, ATS, and job-search guides.",
+  },
 };
 
 const research = BLOG_POSTS.filter(hasFinding);

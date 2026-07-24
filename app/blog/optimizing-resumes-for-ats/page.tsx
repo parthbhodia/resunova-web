@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import BlogArticleLayout, { Section, List } from "@/components/blog/BlogArticleLayout";
 import {
@@ -8,13 +7,9 @@ import {
   ATS_GUIDE_FORMAT_CHECKLIST,
   ATS_GUIDE_TOP_TIPS,
 } from "@/lib/atsBestPracticesContent";
+import { createBlogPostMetadata } from "@/lib/atsBlogPosts";
 
-export const metadata: Metadata = {
-  title: "Optimizing Résumés for ATS · Resunova Blog",
-  description:
-    "Formatting and keyword guidance adapted from the UIC Office of Career Services: single column, standard headers, and keywords in context.",
-  robots: { index: true, follow: true },
-};
+export const metadata = createBlogPostMetadata("optimizing-resumes-for-ats");
 
 export default function OptimizingResumesForAtsPage() {
   return (
