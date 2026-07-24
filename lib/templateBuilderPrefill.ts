@@ -18,6 +18,7 @@ import {
   normalizeStructuredResume,
   type StructuredResume,
 } from "@/store/resumeAnalyzeStore";
+import type { RoleResumeData } from "@/lib/roleResumeData";
 
 const TEMPLATE_BUILDER_STRUCTURED_PREFILL_KEY = "rn_template_builder_structured_prefill";
 
@@ -158,6 +159,33 @@ function mapStructuredResumeToTemplateData(structured: StructuredResume): TBResu
         hiddenSections,
       };
     })(),
+  };
+}
+
+/** Build a TBResumeData skeleton from role-page data (skills + example summary). */
+export function prefillFromRole(role: RoleResumeData): TBResumeData {
+  const featuredSkills = DEFAULT_FEATURED_SKILLS();
+  role.topSkills.slice(0, featuredSkills.length).forEach((skill, idx) => {
+    featuredSkills[idx] = { skill: skill.name, rating: idx < 2 ? 5 : 4 };
+  });
+
+  return {
+    ...DEFAULT_RESUME,
+    profile: {
+      ...DEFAULT_RESUME.profile,
+      summary: role.example.summary,
+    },
+    workExperiences: [DEFAULT_WORK()],
+    educations: [DEFAULT_EDU()],
+    projects: [DEFAULT_PROJECT()],
+    skills: {
+      featuredSkills,
+      descriptions: role.topSkills.map((s) => s.name).join(", "),
+    },
+    customization: DEFAULT_CUSTOMIZATION,
+    sectionOrder: normalizeSectionOrder(DEFAULT_RESUME.sectionOrder, []),
+    hiddenSections: ["projects"],
+    customSections: [],
   };
 }
 
