@@ -25,11 +25,15 @@ export function sponsorBadgeLabel(
   return parts.join(" · ");
 }
 
-/** $128k / $87,500 → compact USD label. Null/invalid → "". */
+/** $128k → compact USD label. Null/invalid → "".
+ *
+ * Wages under $10k are HIDDEN, not shown: some DOL rows store the certified
+ * wage in hourly (or otherwise non-annual) units, so "median $132" would
+ * read as nonsense. We don't annualize (×2080 would be inventing a unit the
+ * data doesn't state) — ambiguous data is omitted, per the honesty bar. */
 export function formatWage(wage: number | null): string {
-  if (wage == null || !Number.isFinite(wage) || wage <= 0) return "";
-  if (wage >= 1000) return `$${Math.round(wage / 1000)}k`;
-  return `$${Math.round(wage)}`;
+  if (wage == null || !Number.isFinite(wage) || wage < 10_000) return "";
+  return `$${Math.round(wage / 1000)}k`;
 }
 
 /** "3 days ago" freshness label; "" when unknown. */

@@ -22,8 +22,11 @@ describe("formatWage", () => {
     expect(formatWage(128000)).toBe("$128k");
     expect(formatWage(87500)).toBe("$88k");
   });
-  it("keeps sub-1k literal and drops invalid", () => {
-    expect(formatWage(950)).toBe("$950");
+  it("hides ambiguous-unit wages (under $10k could be hourly) and invalid", () => {
+    expect(formatWage(132)).toBe(""); // hourly-looking DOL row — never "median $132"
+    expect(formatWage(950)).toBe("");
+    expect(formatWage(9999)).toBe("");
+    expect(formatWage(10_000)).toBe("$10k");
     expect(formatWage(null)).toBe("");
     expect(formatWage(0)).toBe("");
     expect(formatWage(Number.NaN)).toBe("");
