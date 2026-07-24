@@ -18,6 +18,7 @@ const v = (over: Partial<ResumeVersion>): ResumeVersion => ({
   lastScore: null,
   lastScoreSource: null,
   isDefault: false,
+  sourceRootId: null,
   createdAt: "2026-07-01T00:00:00Z",
   updatedAt: "2026-07-01T00:00:00Z",
   ...over,
