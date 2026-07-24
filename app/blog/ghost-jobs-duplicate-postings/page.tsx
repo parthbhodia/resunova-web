@@ -1,37 +1,9 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import BlogArticleLayout, { Section } from "@/components/blog/BlogArticleLayout";
 import JsonLd from "@/components/seo/JsonLd";
-import { SITE_URL } from "@/lib/brand";
+import { createBlogPostMetadata } from "@/lib/atsBlogPosts";
 
-export const metadata: Metadata = {
-  title: "We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates.",
-  description:
-    "When we turned on six new ATS integrations, daily postings jumped 7x. About 38% of that day's new listings were the exact same job, reposted over and over. Here's what we found and how we built a fix that runs continuously.",
-  robots: { index: true, follow: true },
-  alternates: { canonical: "/blog/ghost-jobs-duplicate-postings/" },
-  openGraph: {
-    title: "13,000 of the new postings were duplicates",
-    description:
-      "When six new ATS integrations went live, daily postings jumped 7x, but 38% of that surge day's postings were byte-identical duplicates of another posting in the same batch.",
-    type: "article",
-  },
-};
-
-const CANONICAL = `${SITE_URL}/blog/ghost-jobs-duplicate-postings/`;
-
-const ARTICLE_JSONLD = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: "We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates.",
-  description:
-    "When six new ATS integrations went live, daily postings jumped 7x, but 38% of that surge day's postings were byte-identical duplicates of another posting in the same batch.",
-  datePublished: "2026-07-14",
-  dateModified: "2026-07-14",
-  author: { "@type": "Organization", name: "Resunova", url: SITE_URL },
-  publisher: { "@id": `${SITE_URL}/#org` },
-  mainEntityOfPage: CANONICAL,
-};
+export const metadata = createBlogPostMetadata("ghost-jobs-duplicate-postings");
 
 const FAQ_JSONLD = {
   "@context": "https://schema.org",
@@ -60,21 +32,6 @@ const FAQ_JSONLD = {
         "@type": "Answer",
         text: "A byte-identical match on the job description text works better than a normalized/fuzzy match. A looser, normalized-text comparison was tried first and it collapsed about 17,000 postings that only shared boilerplate or a template across different companies, not the same job. Matching on the raw, exact text avoids merging postings that only look alike.",
       },
-    },
-  ],
-};
-
-const BREADCRUMB_JSONLD = {
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
-    { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE_URL}/blog/` },
-    {
-      "@type": "ListItem",
-      position: 3,
-      name: "13,000 of the new postings were duplicates",
-      item: CANONICAL,
     },
   ],
 };
@@ -138,7 +95,7 @@ export default function GhostJobsDuplicatePostingsPage() {
       title="We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates."
       subtitle="Turning on six new ATS integrations took our daily ingest from about 530 postings to about 3,700. Before we could celebrate the jump, we noticed something: a huge share of it was the same job, posted again and again. Here's what we found, why it happens, and what the feed looks like now that we catch it automatically."
     >
-      <JsonLd data={[ARTICLE_JSONLD, FAQ_JSONLD, BREADCRUMB_JSONLD]} />
+      <JsonLd data={FAQ_JSONLD} />
 
       <p style={{ margin: "0 0 14px" }}>
         Resunova's jobs feed pulls postings straight from company ATS and career-site APIs (Workday, Greenhouse,

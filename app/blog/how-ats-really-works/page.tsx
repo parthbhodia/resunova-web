@@ -1,15 +1,10 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import BlogArticleLayout, { Section, List } from "@/components/blog/BlogArticleLayout";
 import { RESEARCH_QUICK_CHECKLIST } from "@/lib/atsBestPracticesContent";
+import { createBlogPostMetadata } from "@/lib/atsBlogPosts";
 import { ATS_RESEARCH_SECTIONS } from "@/lib/atsResearchContent";
 
-export const metadata: Metadata = {
-  title: "How ATS Really Works · Resunova Blog",
-  description:
-    "Parsing research across major ATS platforms: visibility vs rejection, exact job titles, keyword bands, layout traps, and a quick-fix checklist.",
-  robots: { index: true, follow: true },
-};
+export const metadata = createBlogPostMetadata("how-ats-really-works");
 
 export default function HowAtsReallyWorksPage() {
   return (

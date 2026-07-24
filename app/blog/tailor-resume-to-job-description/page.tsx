@@ -1,9 +1,7 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import BlogArticleLayout, {
   Section,
   List,
-  ByLine,
   TableOfContents,
   Figure,
   Callout,
@@ -15,32 +13,14 @@ import {
   KeywordMatchShot,
   BulletRewriteShot,
 } from "@/components/blog/TailorVisuals";
+import { blogPostCanonical, createBlogPostMetadata } from "@/lib/atsBlogPosts";
 
-const CANONICAL = "https://www.resunova.io/blog/tailor-resume-to-job-description/";
+const CANONICAL = blogPostCanonical("tailor-resume-to-job-description");
 const TITLE = "How to Tailor Your Resume to a Job Description (Step-by-Step)";
 const DESCRIPTION =
   "A step-by-step guide to matching your resume to any job posting — keyword extraction, bullet rewrites, and ATS checks. Score your resume against any JD free with Resunova.";
 
-export const metadata: Metadata = {
-  title: "How to Tailor Your Resume to a Job Description · Resunova Blog",
-  description: DESCRIPTION,
-  robots: { index: true, follow: true },
-  alternates: { canonical: CANONICAL },
-  openGraph: {
-    type: "article",
-    url: CANONICAL,
-    siteName: "Resunova",
-    title: TITLE,
-    description: DESCRIPTION,
-    publishedTime: "2026-06-10T00:00:00.000Z",
-    modifiedTime: "2026-07-18T00:00:00.000Z",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: TITLE,
-    description: DESCRIPTION,
-  },
-};
+export const metadata = createBlogPostMetadata("tailor-resume-to-job-description");
 
 const TOC = [
   { id: "why-tailoring-works", label: "Why tailoring works" },
@@ -98,22 +78,6 @@ function StructuredData() {
   const json = [
     {
       "@context": "https://schema.org",
-      "@type": "BlogPosting",
-      headline: TITLE,
-      description: DESCRIPTION,
-      image: "https://www.resunova.io/blog/tailor-resume-to-job-description/opengraph-image.png",
-      author: { "@type": "Organization", name: "Resunova", url: "https://www.resunova.io" },
-      publisher: {
-        "@type": "Organization",
-        name: "Resunova",
-        logo: { "@type": "ImageObject", url: "https://www.resunova.io/opengraph-image.png" },
-      },
-      datePublished: "2026-06-10",
-      dateModified: "2026-07-18",
-      mainEntityOfPage: { "@type": "WebPage", "@id": CANONICAL },
-    },
-    {
-      "@context": "https://schema.org",
       "@type": "HowTo",
       name: "How to Tailor Your Resume to a Job Description",
       description: DESCRIPTION,
@@ -149,7 +113,6 @@ export default function TailorResumeToJobDescriptionPage() {
     <BlogArticleLayout
       title={TITLE}
       subtitle="Generic applications rarely land interviews — not because applicants are unqualified, but because their resume doesn't mirror what the recruiter is scanning for. Here's how to fix that, step by step."
-      meta={<ByLine readMinutes={7} updated="July 2026" />}
       slug="tailor-resume-to-job-description"
     >
       <StructuredData />

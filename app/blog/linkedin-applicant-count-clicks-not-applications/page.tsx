@@ -1,37 +1,9 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import BlogArticleLayout, { Section } from "@/components/blog/BlogArticleLayout";
 import JsonLd from "@/components/seo/JsonLd";
-import { SITE_URL } from "@/lib/brand";
+import { createBlogPostMetadata } from "@/lib/atsBlogPosts";
 
-export const metadata: Metadata = {
-  title: "LinkedIn's Applicant Count Is Measuring Clicks, Not Applications",
-  description:
-    "When a posting sends you to a company's own site, LinkedIn keeps no record of who actually applied. Add everyone who doesn't meet the requirements and the '100 applicants' scaring you off is a much smaller number of real competitors.",
-  robots: { index: true, follow: true },
-  alternates: { canonical: "/blog/linkedin-applicant-count-clicks-not-applications/" },
-  openGraph: {
-    title: "LinkedIn's applicant count is measuring clicks, not applications",
-    description:
-      "For postings that redirect to a company's own site, LinkedIn has confirmed it keeps no record of who applied. So what is that number actually counting, and how many real competitors are behind it?",
-    type: "article",
-  },
-};
-
-const CANONICAL = `${SITE_URL}/blog/linkedin-applicant-count-clicks-not-applications/`;
-
-const ARTICLE_JSONLD = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: "LinkedIn's Applicant Count Is Measuring Clicks, Not Applications",
-  description:
-    "For postings that redirect to a company's own site, LinkedIn has confirmed it keeps no record of who applied. Combined with how few applicants meet a posting's stated requirements, the visible applicant count badly overstates real competition.",
-  datePublished: "2026-07-16",
-  dateModified: "2026-07-16",
-  author: { "@type": "Organization", name: "Resunova", url: SITE_URL },
-  publisher: { "@id": `${SITE_URL}/#org` },
-  mainEntityOfPage: CANONICAL,
-};
+export const metadata = createBlogPostMetadata("linkedin-applicant-count-clicks-not-applications");
 
 const FAQ_JSONLD = {
   "@context": "https://schema.org",
@@ -68,21 +40,6 @@ const FAQ_JSONLD = {
         "@type": "Answer",
         text: "More specific than most applicants assume. Across 164,913 active US job postings measured in the Resunova corpus, the median posting lists 13 concrete hard requirements (named skills, tools, certifications, licenses, degrees, or domain experience), and 76.4% list eight or more. In healthcare specifically, 81.3% of postings require at least one certification or license, which is a pass/fail gate rather than something a resume rewrite can bridge.",
       },
-    },
-  ],
-};
-
-const BREADCRUMB_JSONLD = {
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
-    { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE_URL}/blog/` },
-    {
-      "@type": "ListItem",
-      position: 3,
-      name: "LinkedIn's applicant count is measuring clicks",
-      item: CANONICAL,
     },
   ],
 };
@@ -154,7 +111,7 @@ export default function LinkedInApplicantCountPage() {
       title="LinkedIn's Applicant Count Is Measuring Clicks, Not Applications"
       subtitle="When a posting sends you to a company's own site, LinkedIn has confirmed it keeps no record of who actually applied. So what is that number counting? And once you subtract the people who never submitted and the people who don't meet the requirements, how many real competitors are left? Here's the mechanism, the employer-side data, and what our own corpus of 164,913 postings says about why the qualified pile is always so small."
     >
-      <JsonLd data={[ARTICLE_JSONLD, FAQ_JSONLD, BREADCRUMB_JSONLD]} />
+      <JsonLd data={FAQ_JSONLD} />
 
       <p style={{ margin: "0 0 14px" }}>
         You find a job you actually want. You are qualified. Then you see it: <strong>127 applicants</strong>. You close

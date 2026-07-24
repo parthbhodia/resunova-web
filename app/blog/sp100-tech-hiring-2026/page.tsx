@@ -1,13 +1,8 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import BlogArticleLayout, { Section } from "@/components/blog/BlogArticleLayout";
+import { createBlogPostMetadata } from "@/lib/atsBlogPosts";
 
-export const metadata: Metadata = {
-  title: "What 13,128 Live Job Postings at S&P 100 Companies Reveal · Resunova Blog",
-  description:
-    "We pulled live openings straight from ~50 S&P 100 career APIs: remote is 3x rarer, the big-company pay premium is gone, and two companies advertise below their own DOL wage filings.",
-  robots: { index: true, follow: true },
-};
+export const metadata = createBlogPostMetadata("sp100-tech-hiring-2026");
 
 // ── data (queried from the Resunova jobs corpus, 2026-07-05, US postings) ────
 

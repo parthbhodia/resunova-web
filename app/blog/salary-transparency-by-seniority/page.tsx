@@ -1,22 +1,9 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import BlogArticleLayout, { Section } from "@/components/blog/BlogArticleLayout";
 import JsonLd from "@/components/seo/JsonLd";
-import { SITE_URL } from "@/lib/brand";
+import { createBlogPostMetadata } from "@/lib/atsBlogPosts";
 
-export const metadata: Metadata = {
-  title: "Why Don't Jobs List Salary? 109,159 Postings Say: The Higher the Role, the More They Hide It",
-  description:
-    "We measured salary disclosure across 109,159 active US job postings. Entry-level roles list pay 41% of the time. Director roles: 14%. The gap survives every control we threw at it.",
-  robots: { index: true, follow: true },
-  alternates: { canonical: "/blog/salary-transparency-by-seniority/" },
-  openGraph: {
-    title: "The higher the job, the more they hide the pay",
-    description:
-      "Salary disclosure rates by seniority across 109,159 active US job postings: entry 41%, senior 28%, director 14%.",
-    type: "article",
-  },
-};
+export const metadata = createBlogPostMetadata("salary-transparency-by-seniority");
 
 // ── data (Resunova jobs corpus, active US postings, queried 2026-07-14) ──────
 
@@ -110,21 +97,6 @@ function TechOnlyChart() {
 
 // ── page ─────────────────────────────────────────────────────────────────────
 
-const CANONICAL = `${SITE_URL}/blog/salary-transparency-by-seniority/`;
-
-const ARTICLE_JSONLD = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: "Why Don't Jobs List Salary? The Higher the Role, the More They Hide It",
-  description:
-    "Salary disclosure rates by seniority across 109,159 active US job postings: entry-level roles list pay 41% of the time, director roles 14%.",
-  datePublished: "2026-07-14",
-  dateModified: "2026-07-14",
-  author: { "@type": "Organization", name: "Resunova", url: SITE_URL },
-  publisher: { "@id": `${SITE_URL}/#org` },
-  mainEntityOfPage: CANONICAL,
-};
-
 const FAQ_JSONLD = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
@@ -156,21 +128,6 @@ const FAQ_JSONLD = {
   ],
 };
 
-const BREADCRUMB_JSONLD = {
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
-    { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE_URL}/blog/` },
-    {
-      "@type": "ListItem",
-      position: 3,
-      name: "The higher the job, the more they hide the pay",
-      item: CANONICAL,
-    },
-  ],
-};
-
 export default function SalaryTransparencyBySeniorityPage() {
   return (
     <BlogArticleLayout
@@ -178,7 +135,7 @@ export default function SalaryTransparencyBySeniorityPage() {
       title="The Higher the Job, the More They Hide the Pay"
       subtitle="We measured how often active US job postings disclose a salary, rung by rung up the career ladder. Entry-level postings tell you the pay 41% of the time. By director level it drops to 14%. We tried to explain the gap away with industry mix and sample effects. It would not go away."
     >
-      <JsonLd data={[ARTICLE_JSONLD, FAQ_JSONLD, BREADCRUMB_JSONLD]} />
+      <JsonLd data={FAQ_JSONLD} />
 
       <p style={{ margin: "0 0 14px" }}>
         &quot;Competitive salary&quot; is the most expensive phrase in job hunting. Every hour spent tailoring a
