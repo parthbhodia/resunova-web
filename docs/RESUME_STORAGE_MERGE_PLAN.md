@@ -1,6 +1,18 @@
 # Résumé storage merge — one home for résumés
 
-**Goal:** make `/my-resumes` (the résumé-versions workspace) the single place a
+> **DIRECTION REVERSED (2026-07-24).** Production evidence (resume_versions at
+> 0 rows ever; 10/39 60-day users returning; an observed user reaching for
+> edit right at the score) flipped the winner: **the Library hub
+> (`/?view=library`) is the ONE home**, and `/my-resumes` is retired behind a
+> client redirect. Editing moved to the moment of score. Shipped as M1-M4
+> (web #167 nav repoint + redirect, #169 edit-at-score + versions dual-write +
+> `source_root_id` + `client_events`, #171 versions as hub cards with
+> absorption + in-pane editor, and the M4 cleanup PR deleting the workspace).
+> Design doc: `~/.gstack/projects/resunova/parth-main-design-20260724-012719.md`.
+> The sections below are the ORIGINAL plan, kept for lineage — do not resume
+> its direction.
+
+**Goal (superseded):** make `/my-resumes` (the résumé-versions workspace) the single place a
 user manages résumés, folding in the legacy **Library** (`/?view=library`) so
 there aren't two disconnected "My Résumés" surfaces.
 

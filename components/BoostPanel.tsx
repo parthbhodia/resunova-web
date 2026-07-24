@@ -865,7 +865,7 @@ function Step3({
           </span>
           {savedToLibrary ? (
             <a
-              href="/my-resumes"
+              href="/?view=library"
               style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 560, color: "var(--green-ink)", textDecoration: "none", whiteSpace: "nowrap" }}
               title="This tailored résumé was saved to My Résumés"
             >

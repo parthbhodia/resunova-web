@@ -49,7 +49,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 type SortKey = "recent" | "score" | "name";
 type FilterKey = "all" | "base" | "analyzed" | "tailored" | "builder" | "cover_letter" | "default";
 
-/** Primary tab bar matching the "AI Resume Analysis" hub. `base` = analyzed + builder drafts. */
+/** Primary tab bar for the "My Résumés" hub. `base` = analyzed + builder drafts + editable résumés. */
 const LIBRARY_TABS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All" },
   { key: "base", label: "Base Resumes" },
@@ -664,7 +664,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                     lineHeight: 1.15,
                   }}
                 >
-                  AI Resume Analysis
+                  My Résumés
                 </h1>
                 <p style={{ fontSize: 13.5, color: "var(--muted)", letterSpacing: "-0.02em", lineHeight: 1.55, margin: 0, maxWidth: 520 }}>
                   {loading || signedIn === null
