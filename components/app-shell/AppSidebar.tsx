@@ -46,7 +46,6 @@ export type AppSidebarProps = {
   onTemplateBuilderPage: boolean;
   onInterviewPrepPage: boolean;
   onCareerProfilePage?: boolean;
-  onMyResumesPage?: boolean;
   builderActive: boolean;
   builderOpen: boolean;
   onBuilderOpenChange: (open: boolean) => void;
@@ -121,7 +120,6 @@ export function AppSidebar({
   onTemplateBuilderPage,
   onInterviewPrepPage,
   onCareerProfilePage = false,
-  onMyResumesPage = false,
   builderActive,
   builderOpen,
   onBuilderOpenChange,
@@ -198,21 +196,21 @@ export function AppSidebar({
             <SidebarMenu className="group-data-[collapsible=icon]:items-center">
               <NavItem
                 view="home"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && !onMyResumesPage && active === "home"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "home"}
                 onClick={gated("home")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <NavItem
                 view="analyze"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && !onMyResumesPage && active === "analyze"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "analyze"}
                 onClick={() => onSwitchView("analyze")}
                 showLabels={showLabels}
               />
 
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={builderActive && !onInterviewPrepPage && !onMyResumesPage}
+                  isActive={builderActive && !onInterviewPrepPage}
                   tooltip={VIEW_LABELS.builder}
                   className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS, "w-full")}
                   onClick={handleBuilderClick}
@@ -288,21 +286,21 @@ export function AppSidebar({
 
               <NavItem
                 view="library"
-                isActive={onMyResumesPage}
-                onClick={() => (anonMode ? onSignIn?.() : router.push("/my-resumes"))}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "library"}
+                onClick={gated("library")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <NavItem
                 view="cover-letter"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && !onMyResumesPage && active === "cover-letter"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "cover-letter"}
                 onClick={gated("cover-letter")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <NavItem
                 view="jobs"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && !onMyResumesPage && active === "jobs"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "jobs"}
                 onClick={gated("jobs")}
                 showLabels={showLabels}
                 locked={anonMode}
@@ -310,7 +308,7 @@ export function AppSidebar({
               {advisorAllowed ? (
                 <NavItem
                   view="advisor"
-                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && !onMyResumesPage && active === "advisor"}
+                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "advisor"}
                   onClick={() => onSwitchView("advisor")}
                   showLabels={showLabels}
                 />
@@ -375,7 +373,7 @@ export function AppSidebar({
               <AppSidebarUser
                 initial={userInitial}
                 onProfile={() => router.push("/profile")}
-                onMyResumes={() => router.push("/my-resumes")}
+                onMyResumes={() => onSwitchView("library")}
                 onAccount={() => onSwitchView("account")}
                 onSignOut={onSignOut}
               />

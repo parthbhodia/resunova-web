@@ -29,8 +29,6 @@ type Props = {
   /** Signed-out free-scan visitor: locked tabs route to sign-in. */
   anonMode?: boolean;
   onSignIn?: () => void;
-  /** True when the current route is /my-resumes (the Resumes tab target). */
-  onMyResumesPage?: boolean;
 };
 
 export function AppBottomNav({
@@ -47,7 +45,6 @@ export function AppBottomNav({
   advisorAllowed = false,
   anonMode = false,
   onSignIn,
-  onMyResumesPage = false,
 }: Props) {
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -57,8 +54,6 @@ export function AppBottomNav({
       onSignIn?.();
       return;
     }
-    // "Resumes" tab now opens the unified /my-resumes home (was view=library).
-    if (v === "library") { router.push("/my-resumes"); return; }
     if (v === "builder") onBuilder();
     else onSelect(v);
   };
@@ -78,7 +73,7 @@ export function AppBottomNav({
         aria-label="Primary"
       >
         {MOBILE_TAB_VIEWS.map((v) => {
-          const isAct = v === "builder" ? builderActive : v === "library" ? onMyResumesPage : v === active;
+          const isAct = v === "builder" ? builderActive : v === active;
           return (
             <button
               key={v}
