@@ -16,7 +16,6 @@ const PUBLIC_ROUTES = new Set<string>([
   "/editor-preview",
   "/profile-mockup",
   "/landing-preview",
-  "/versions-preview",
   "/terms",
   "/privacy",
   "/contact",
