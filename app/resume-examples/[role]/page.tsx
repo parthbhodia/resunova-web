@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { LogoFull } from "@/components/BrandLogo";
 import JsonLd from "@/components/seo/JsonLd";
 import SkillFrequencyTable from "@/components/seo/SkillFrequencyTable";
+import RolePrefillCTA from "@/components/RolePrefillCTA";
 import { SITE_URL } from "@/lib/brand";
 import {
   ROLE_RESUME_DATA,
@@ -299,21 +300,7 @@ export default async function RoleResumeExamplePage({
               Paste a job description and Resunova tailors your résumé to it: match score, gap analysis, and an
               ATS-friendly PDF in under a minute. Start free.
             </p>
-            <Link
-              href="/"
-              style={{
-                display: "inline-block",
-                padding: "10px 18px",
-                borderRadius: 10,
-                background: "var(--accent)",
-                color: "var(--accent-foreground)",
-                fontWeight: 700,
-                fontSize: 14,
-                textDecoration: "none",
-              }}
-            >
-              Tailor my résumé free →
-            </Link>
+            <RolePrefillCTA role={data} />
           </section>
 
           {/* Sibling links (no orphans) */}
