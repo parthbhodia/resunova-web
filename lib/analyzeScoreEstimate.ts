@@ -12,7 +12,9 @@
  * mean(categoryScores) design without pretending to reimplement it.
  *
  * This is an ESTIMATE for instant feedback. "Update score" runs the real
- * analysis and persists it; the estimate is never stored anywhere.
+ * analysis and persists a verified result. The estimate itself is persisted
+ * only on saved snapshots — analyses children and the linked resume_versions
+ * row — always marked score_source='estimate', never as a verified grade.
  */
 import {
   bulletBelongsToCategory,

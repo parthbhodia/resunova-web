@@ -14,7 +14,7 @@ const version = (over: Partial<ResumeVersion> = {}): ResumeVersion => ({
   id: "v1", name: "Ada's résumé", rootId: "r1", parentId: null, version: 2,
   structured: struct, extractedText: null, origin: "tailor", sourcePdfUrl: null,
   jdText: null, jdCompany: "Stripe", jdTitle: "PM", lastScore: 80, lastScoreSource: "match",
-  isDefault: false, createdAt: "2026-07-20T00:00:00Z", updatedAt: "2026-07-20T00:00:00Z", ...over,
+  isDefault: false, sourceRootId: null, createdAt: "2026-07-20T00:00:00Z", updatedAt: "2026-07-20T00:00:00Z", ...over,
 });
 
 describe("versionBoostPrefill", () => {

@@ -8,7 +8,7 @@ function mkVersion(over: Partial<ResumeVersion> = {}): ResumeVersion {
     id: "pm3", name: "Product Manager résumé", rootId: "pm", parentId: null, version: 3,
     structured: null, extractedText: null, origin: "upload", sourcePdfUrl: null,
     jdText: null, jdCompany: null, jdTitle: null, lastScore: 84, lastScoreSource: "llm",
-    isDefault: true, createdAt: "2026-07-10T00:00:00Z", updatedAt: "2026-07-17T00:00:00Z",
+    isDefault: true, sourceRootId: null, createdAt: "2026-07-10T00:00:00Z", updatedAt: "2026-07-17T00:00:00Z",
     ...over,
   };
 }

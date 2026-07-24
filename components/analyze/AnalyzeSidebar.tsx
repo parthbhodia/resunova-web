@@ -17,8 +17,18 @@ import type { AnalysisResult } from "./analyzeTypes";
 import { scoreColor, scoreLabel, formatExperienceTenureChip } from "./analyzeViewHelpers";
 
 /** Pinned (non-scrolling) sidebar header. Before an analysis: a "Recent
- * Analyses" label. After: the overall score ring + label + tenure chip. */
-export function AnalyzeSidebarPinned({ result }: { result: AnalysisResult | null }) {
+ * Analyses" label. After: the overall score ring + label + tenure chip, plus
+ * the edit-at-score entry point (M2): editing must be discoverable exactly
+ * where the score is judged. */
+export function AnalyzeSidebarPinned({
+  result,
+  onEditResume,
+  hasEditedVersion = false,
+}: {
+  result: AnalysisResult | null;
+  onEditResume?: () => void;
+  hasEditedVersion?: boolean;
+}) {
   if (!result) {
     return (
       <>
@@ -40,6 +50,32 @@ export function AnalyzeSidebarPinned({ result }: { result: AnalysisResult | null
       <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: scoreColor(result.overallScore) }}>
         {scoreLabel(result.overallScore)}
       </div>
+      {onEditResume && (
+        <button
+          type="button"
+          onClick={onEditResume}
+          style={{
+            marginTop: 10,
+            padding: "7px 16px",
+            borderRadius: 9,
+            border: "1px solid var(--border)",
+            background: "var(--accent-bg)",
+            color: "var(--accent)",
+            fontSize: 12.5,
+            fontWeight: 700,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            whiteSpace: "nowrap",
+          }}
+        >
+          ✎ {hasEditedVersion ? "Keep editing" : "Edit résumé"}
+        </button>
+      )}
+      {hasEditedVersion && (
+        <div style={{ marginTop: 6, fontSize: 10.5, color: "var(--muted)", textAlign: "center" }}>
+          Your edited résumé is saved
+        </div>
+      )}
       {formatExperienceTenureChip(result.experienceSummary) && (
         <div
           title="Parsed from experience section date ranges (internships included). Overlapping roles are merged."

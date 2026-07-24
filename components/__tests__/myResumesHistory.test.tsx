@@ -11,7 +11,7 @@ function mkVersion(over: Partial<ResumeVersion>): ResumeVersion {
     id: "v1", name: "Product Manager résumé", rootId: "r1", parentId: null, version: 1,
     structured: null, extractedText: null, origin: "upload", sourcePdfUrl: null,
     jdText: null, jdCompany: null, jdTitle: null, lastScore: 82, lastScoreSource: "llm",
-    isDefault: false, createdAt: "2026-07-10T00:00:00Z", updatedAt: "2026-07-12T00:00:00Z",
+    isDefault: false, sourceRootId: null, createdAt: "2026-07-10T00:00:00Z", updatedAt: "2026-07-12T00:00:00Z",
     ...over,
   };
 }

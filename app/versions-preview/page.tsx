@@ -44,7 +44,7 @@ const base = (over: Partial<ResumeVersion>): ResumeVersion => ({
   id: Math.random().toString(36).slice(2),
   name: "Résumé", rootId: "r", parentId: null, version: 1, structured: null, extractedText: null,
   origin: "upload", sourcePdfUrl: null, jdText: null, jdCompany: null, jdTitle: null,
-  lastScore: null, lastScoreSource: null, isDefault: false,
+  lastScore: null, lastScoreSource: null, isDefault: false, sourceRootId: null,
   createdAt: "2026-07-12T00:00:00Z", updatedAt: "2026-07-17T06:00:00Z", ...over,
 });
 

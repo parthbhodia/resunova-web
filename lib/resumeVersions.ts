@@ -15,6 +15,7 @@ import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 import { getSupabaseClient, insertAnalysis } from "./supabase";
 import { apiUrl } from "./utils";
 import { dispatchResumeLibraryChanged } from "./resumeLibraryEvents";
+import { logClientEvent } from "./clientEvents";
 
 export type VersionOrigin = "upload" | "duplicate" | "profile" | "tailor" | "manual";
 
@@ -34,6 +35,8 @@ export interface ResumeVersion {
   lastScore: number | null;
   lastScoreSource: string | null;
   isDefault: boolean;
+  /** resume_analyses lineage root this version was edited from (migration 041). */
+  sourceRootId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -210,6 +213,132 @@ export async function linkAnalysisToVersion(analysisId: string, versionId: strin
   }
 }
 
+/**
+ * The editable version mirroring an analyses lineage, if one exists — the
+ * deterministic reverse lookup on source_root_id (migration 041, indexed).
+ */
+export async function findVersionBySourceRoot(sourceRootId: string): Promise<ResumeVersion | null> {
+  if (!sourceRootId) return null;
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return null;
+  try {
+    const { data, error } = await db
+      .from("resume_versions")
+      .select(SELECT_COLS)
+      .eq("user_id", session.user.id)
+      .eq("source_root_id", sourceRootId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return rowToVersion(data);
+  } catch {
+    return null;
+  }
+}
+
+export interface UpsertEditedVersionArgs {
+  /** resume_analyses lineage root (parent.rootId ?? parent.id). */
+  sourceRootId: string;
+  /** The specific analyses row this save produced — linked for scan history. */
+  analysisId: string | null;
+  name: string;
+  structured: StructuredResume;
+  extractedText: string | null;
+  /** Deterministic estimate carried as the version's score, marked 'estimate'. */
+  projectedScore: number | null;
+}
+
+export interface UpsertEditedVersionResult {
+  version: ResumeVersion;
+  created: boolean;
+  linked: boolean;
+}
+
+/**
+ * The report's edit-at-score dual-write (M2): keep ONE editable version per
+ * analyses lineage. Looks up by source_root_id; updates it in place, or creates
+ * the root v1 ("Edited {Mon D}", origin 'manual') when none exists. Then stamps
+ * the scan link (analysis.version_id) — awaited, one retry, `link_failed`
+ * logged on double failure; a failed link never fails the save (the
+ * source_root_id anchor already guarantees re-entry and idempotence).
+ * THROWS on version write failure — the caller isolates that from the
+ * analyses-child save it accompanies.
+ */
+export async function upsertEditedVersion(args: UpsertEditedVersionArgs): Promise<UpsertEditedVersionResult | null> {
+  const existing = await findVersionBySourceRoot(args.sourceRootId);
+  let version: ResumeVersion;
+  let created = false;
+
+  if (existing) {
+    await updateVersion(existing.id, {
+      structured: args.structured,
+      extractedText: args.extractedText,
+      lastScore: args.projectedScore,
+      lastScoreSource: args.projectedScore != null ? "estimate" : undefined,
+    });
+    version = {
+      ...existing,
+      structured: args.structured,
+      extractedText: args.extractedText,
+      lastScore: args.projectedScore ?? existing.lastScore,
+      lastScoreSource: args.projectedScore != null ? "estimate" : existing.lastScoreSource,
+    };
+  } else {
+    const label = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const fresh = await createVersion({
+      name: args.name.trim() || `Edited ${label}`,
+      structured: args.structured,
+      extractedText: args.extractedText,
+      origin: "manual",
+      lastScore: args.projectedScore,
+      lastScoreSource: args.projectedScore != null ? "estimate" : null,
+      sourceRootId: args.sourceRootId,
+    });
+    if (!fresh) return null; // no session
+    version = fresh;
+    created = true;
+  }
+
+  let linked = false;
+  if (args.analysisId) {
+    linked = await linkAnalysisToVersion(args.analysisId, version.id);
+    if (!linked) linked = await linkAnalysisToVersion(args.analysisId, version.id);
+    if (!linked) {
+      void logClientEvent("link_failed", { analysis_id: args.analysisId, version_id: version.id });
+    }
+  }
+  return { version, created, linked };
+}
+
+/**
+ * After a verified LLM rescore, mirror the result onto the linked version so
+ * it never holds a stale estimate (reconciliation rule: the analyses head is
+ * canonical for ranking; the linked version mirrors the last saved state).
+ * Best-effort: returns false, never throws.
+ */
+export async function syncVersionAfterRescore(args: {
+  sourceRootId: string;
+  score: number | null;
+  structured?: StructuredResume | null;
+  extractedText?: string | null;
+}): Promise<boolean> {
+  try {
+    const existing = await findVersionBySourceRoot(args.sourceRootId);
+    if (!existing) return false;
+    await updateVersion(existing.id, {
+      ...(args.structured ? { structured: args.structured } : {}),
+      ...(args.extractedText != null ? { extractedText: args.extractedText } : {}),
+      lastScore: args.score,
+      lastScoreSource: "llm",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /* ── row mapping ────────────────────────────────────────────────── */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -230,6 +359,7 @@ function rowToVersion(row: any): ResumeVersion {
     lastScore: (row.last_score as number | null) ?? null,
     lastScoreSource: (row.last_score_source as string | null) ?? null,
     isDefault: Boolean(row.is_default),
+    sourceRootId: (row.source_root_id as string | null) ?? null,
     createdAt: row.created_at as string,
     updatedAt: (row.updated_at as string | null) ?? (row.created_at as string),
   };
@@ -238,7 +368,7 @@ function rowToVersion(row: any): ResumeVersion {
 const SELECT_COLS =
   "id, name, root_id, parent_id, version, structured, extracted_text, origin, " +
   "source_pdf_url, jd_text, jd_company, jd_title, last_score, last_score_source, " +
-  "is_default, created_at, updated_at";
+  "is_default, source_root_id, created_at, updated_at";
 
 /* ── reads ──────────────────────────────────────────────────────── */
 
@@ -353,6 +483,8 @@ export interface NewRootVersionInput {
   sourcePdfUrl?: string | null;
   lastScore?: number | null;
   lastScoreSource?: string | null;
+  /** Analyses lineage root this version mirrors (edit-at-score flow). */
+  sourceRootId?: string | null;
 }
 
 /**
@@ -377,6 +509,7 @@ export async function createVersion(input: NewRootVersionInput): Promise<ResumeV
       source_pdf_url: input.sourcePdfUrl ?? null,
       last_score: input.lastScore ?? null,
       last_score_source: input.lastScoreSource ?? null,
+      source_root_id: input.sourceRootId ?? null,
     })
     .select(SELECT_COLS)
     .single();

@@ -34,6 +34,8 @@ import {
 } from "@/components/AnalyzeExperience";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan, takeAnalyzeJd } from "@/lib/anonScan";
+import { logClientEvent, stashPrewallEvent, flushPrewallEvents } from "@/lib/clientEvents";
+import { upsertEditedVersion, syncVersionAfterRescore, findVersionBySourceRoot } from "@/lib/resumeVersions";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { useUpgradeDialog } from "@/components/UpgradeDialog";
 import { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
@@ -96,6 +98,14 @@ export default function AnalyzeResume() {
   /** Keys local preview-edit drafts (`rn_az_edit_v1_*` in localStorage); set to history row id or optimistic `local_*` id. */
   const [activeEditDraftId, setActiveEditDraftId] = useState<string | null>(null);
   const [editDraftStatus, setEditDraftStatus] = useState<string | null>(null);
+  /** The editable version mirroring the active analyses lineage (re-entry chip). */
+  const [hasEditedVersion, setHasEditedVersion] = useState(false);
+  // Edit-at-score funnel (M2): dedupe report_view/delta_view per draft; detect
+  // edit_bounce (clicked Edit, changed nothing, left).
+  const editClickedRef = useRef(false);
+  const versionSavedRef = useRef(false);
+  const reportViewLoggedForRef = useRef<string | null>(null);
+  const deltaLoggedForRef = useRef<string | null>(null);
   const [aiRewritingIdx, setAiRewritingIdx] = useState<number | null>(null);
   // Session + history bootstrap (user identity, analyze history, scan quota) —
   // state + mount effect live in the hook; scan/restore/delete/save-version
@@ -292,12 +302,25 @@ export default function AnalyzeResume() {
       setFeedbackToast("Score updated — your fixes are saved and future job matching uses the fixed résumé.");
       const candidateName = res.resumeHeader?.[0]?.trim() || res.structuredResume?.full_name?.trim();
       void persistResult(candidateName || "Updated résumé", resWithMeta, draftId);
+      // Reconciliation rule (M2): the verified score also lands on the linked
+      // editable version, so it never holds a stale estimate or stale text.
+      const parentRec = parentAnalysisId ? azHistory.find((r) => r.id === parentAnalysisId) : undefined;
+      const rescoreSourceRoot =
+        (res as { analysisRootId?: string | null }).analysisRootId ?? parentRec?.rootId ?? parentAnalysisId ?? null;
+      if (rescoreSourceRoot) {
+        void syncVersionAfterRescore({
+          sourceRootId: rescoreSourceRoot,
+          score: typeof res.overallScore === "number" ? res.overallScore : null,
+          structured: patch.patchedStructured ?? undefined,
+          extractedText: patch.patchedText,
+        });
+      }
     } catch (e: unknown) {
       setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : "Unknown error"));
     } finally {
       setRescoring(false);
     }
-  }, [rescoring, persistResult, activeEditDraftId]);
+  }, [rescoring, persistResult, activeEditDraftId, azHistory]);
 
   // After sign-in lands (fresh mount post-OAuth), restore the stashed anonymous
   // scan: the user arrives on their already-finished, now-unlocked report and
@@ -318,6 +341,40 @@ export default function AnalyzeResume() {
     // the session lands, and the stash read is one-shot either way.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  // Pre-wall funnel events (a signed-out edit_click) flush once a session
+  // exists; a stashed edit_click also resumes the edit intent on the restored
+  // report so the user lands back "in the editor" after sign-in.
+  const resumeEditIntentRef = useRef(false);
+  useEffect(() => {
+    if (!userId) return;
+    void flushPrewallEvents().then((events) => {
+      if (events.some((e) => e.event === "edit_click")) resumeEditIntentRef.current = true;
+    });
+  }, [userId]);
+
+  // report_view — the click-through denominator. Signed-in views only (RLS);
+  // logged once per persisted analysis.
+  useEffect(() => {
+    if (!result || !userId || !activeEditDraftId) return;
+    if (activeEditDraftId.startsWith("local_")) return;
+    if (reportViewLoggedForRef.current === activeEditDraftId) return;
+    reportViewLoggedForRef.current = activeEditDraftId;
+    void logClientEvent("report_view", { analysis_id: activeEditDraftId });
+  }, [result, userId, activeEditDraftId]);
+
+  // Re-entry: does the active analyses lineage already have an edited version?
+  useEffect(() => {
+    let cancelled = false;
+    setHasEditedVersion(false);
+    if (!userId || !result || !activeEditDraftId || activeEditDraftId.startsWith("local_")) return;
+    const rec = azHistory.find((r) => r.id === activeEditDraftId);
+    const sourceRootId = rec?.rootId ?? rec?.id ?? activeEditDraftId;
+    void findVersionBySourceRoot(sourceRootId).then((v) => {
+      if (!cancelled && v) setHasEditedVersion(true);
+    });
+    return () => { cancelled = true; };
+  }, [userId, result, activeEditDraftId, azHistory]);
 
   const run = useCallback(async (file: File) => {
     setLoading(true);
@@ -755,6 +812,63 @@ export default function AnalyzeResume() {
     [result, previewLineOverrides, categoryAssignmentOpts],
   );
 
+  // ── Edit at the moment of score (M2) ───────────────────────────────────────
+  // The edit affordances (inline preview edits + fix cards) predate this button;
+  // it exists to make them DISCOVERABLE right where the score is judged, and to
+  // instrument the funnel. Signed-out clicks stash intent and hit the wall.
+  const startEditFlow = useCallback(() => {
+    if (!result) return;
+    if (!userId) {
+      stashPrewallEvent("edit_click", {});
+      openSignIn({ reason: "Sign in free to edit your résumé here and watch your score improve." });
+      return;
+    }
+    editClickedRef.current = true;
+    void logClientEvent("edit_click", { analysis_id: activeEditDraftId });
+    setImprovementPlanVisible(true);
+    if ((result.bulletAnalysis?.length ?? 0) > 0) setSelectedBulletIndex(0);
+    setFeedbackToast(
+      "Click any line in your résumé preview to edit it — the score estimate updates as you fix things, and Save keeps the edits in your history.",
+    );
+  }, [result, userId, activeEditDraftId, openSignIn]);
+
+  // A stashed pre-wall edit_click resumes automatically once the restored
+  // report is on screen post-sign-in.
+  useEffect(() => {
+    if (!resumeEditIntentRef.current || !result || !userId) return;
+    resumeEditIntentRef.current = false;
+    startEditFlow();
+  }, [result, userId, startEditFlow]);
+
+  // delta_view — the first time a draft shows a projected score movement.
+  useEffect(() => {
+    if (!result || !userId || !activeEditDraftId) return;
+    if (!scoreEstimate || scoreEstimate.resolvedCount === 0) return;
+    if (deltaLoggedForRef.current === activeEditDraftId) return;
+    deltaLoggedForRef.current = activeEditDraftId;
+    void logClientEvent("delta_view", {
+      analysis_id: activeEditDraftId,
+      current: scoreEstimate.current,
+      projected: scoreEstimate.projected,
+    });
+  }, [result, userId, activeEditDraftId, scoreEstimate]);
+
+  // edit_bounce — entered edit mode, changed nothing, left (report/draft
+  // switched away or unmounted). Distinguishes "wrong editor" from "no demand".
+  useEffect(() => {
+    if (!activeEditDraftId) return;
+    const draftAtMount = activeEditDraftId;
+    return () => {
+      if (!editClickedRef.current || versionSavedRef.current) return;
+      const st = useResumeAnalyzeStore.getState();
+      const touched =
+        Object.keys(st.lineOverrides).length > 0 || (st.summaryOverride ?? "").trim().length > 0;
+      if (!touched) void logClientEvent("edit_bounce", { analysis_id: draftAtMount });
+      editClickedRef.current = false;
+      versionSavedRef.current = false;
+    };
+  }, [activeEditDraftId]);
+
   const bulletPrimaryCategories = useMemo(
     () => (result?.bulletAnalysis?.length
       ? buildBulletPrimaryCategories(result.bulletAnalysis, categoryAssignmentOpts)
@@ -1113,8 +1227,26 @@ export default function AnalyzeResume() {
     // not-yet-persisted case).
     persistEdits(activeEditDraftId);
 
-    const parent = azHistory.find((r) => r.id === activeEditDraftId);
-    const persisted = !!parent && !activeEditDraftId.startsWith("local_");
+    let parent = azHistory.find((r) => r.id === activeEditDraftId);
+    let persisted = !!parent && !activeEditDraftId.startsWith("local_");
+    // A local_ draft with a signed-in session (anon-scanned then signed up, or
+    // the original insert failed): persist the analysis NOW so the save can
+    // dual-write — this cohort must not silently skip the versions experiment.
+    if (!persisted && parent && result && userId) {
+      try {
+        const newId = await insertAnalysis(parent.label || "My résumé", result, {
+          sourcePdfUrl: result.sourcePdfUrl ?? null,
+          sourceFilename: result.sourceFilename ?? null,
+        });
+        if (newId) {
+          migrateEdits(activeEditDraftId, newId);
+          setActiveEditDraftId(newId);
+          setAzHistory((prev) => prev.map((r) => (r.id === activeEditDraftId ? { ...r, id: newId } : r)));
+          parent = { ...parent, id: newId };
+          persisted = true;
+        }
+      } catch { /* fall through to the browser-only save below */ }
+    }
     if (!persisted || !parent || !result || !userId) {
       setEditDraftStatus("Saved preview edits in this browser.");
       return;
@@ -1155,6 +1287,9 @@ export default function AnalyzeResume() {
         setEditDraftStatus("Saved preview edits in this browser.");
         return;
       }
+      // The analyses child is committed — this save counts (bounce guard) even
+      // if the version mirror below fails.
+      versionSavedRef.current = true;
       // The new version is the head: the just-committed edits are baked into it,
       // so re-hydrate the working copy from the snapshot and drop the parent's
       // now-committed draft. Subsequent edits branch a further child from here.
@@ -1173,13 +1308,43 @@ export default function AnalyzeResume() {
         structuredResume: versionResult.structuredResume,
         bulletMap: versionResult.bulletMap,
       });
-      setEditDraftStatus(`Saved as v${created.version}. Added to this résumé's history.`);
+      setEditDraftStatus("Saved — your edits are in this résumé's history.");
+
+      // Dual-write (M2): mirror the save onto the ONE editable version for this
+      // lineage. Isolated on purpose — the analyses child above is already
+      // committed, so a version failure must not turn the save into an error
+      // (it logs, and the next save self-heals via the source_root_id lookup).
+      const sourceRootId = created.rootId ?? parent.rootId ?? parent.id;
+      const structuredForVersion = patch.patchedStructured ?? st.structuredResume;
+      if (structuredForVersion) {
+        try {
+          const up = await upsertEditedVersion({
+            sourceRootId,
+            analysisId: created.id,
+            name: parent.label || "",
+            structured: structuredForVersion,
+            extractedText: patch.patchedText,
+            projectedScore: typeof scoreEstimate?.projected === "number" ? scoreEstimate.projected : null,
+          });
+          if (up) {
+            setHasEditedVersion(true);
+            void logClientEvent("version_save", {
+              version_id: up.version.id,
+              created: up.created,
+              linked: up.linked,
+              analysis_id: created.id,
+            });
+          }
+        } catch {
+          void logClientEvent("version_write_failed", { analysis_id: created.id });
+        }
+      }
     } catch {
       setEditDraftStatus("Saved locally; couldn't add a cloud version this time.");
     } finally {
       setSavingVersion(false);
     }
-  }, [activeEditDraftId, result, userId, azHistory, scoreEstimate, persistEdits, clearEditsStore]);
+  }, [activeEditDraftId, result, userId, azHistory, scoreEstimate, persistEdits, clearEditsStore, migrateEdits, setAzHistory]);
 
   const clearLocalPreviewDraft = useCallback(() => {
     if (!activeEditDraftId || !result) return;
@@ -1196,7 +1361,9 @@ export default function AnalyzeResume() {
   }, [activeEditDraftId, result]);
 
   /* ── Shared sidebar: pinned strip (score / recent header) + scrollable body ─── */
-  const sidebarPinned = <AnalyzeSidebarPinned result={result} />;
+  const sidebarPinned = (
+    <AnalyzeSidebarPinned result={result} onEditResume={startEditFlow} hasEditedVersion={hasEditedVersion} />
+  );
 
   const sidebarScroll = !result ? (
     <AnalyzeHistoryRail loading={loadingHistory} empty={azHistory.length === 0} rows={azHistoryRows} />
@@ -1849,6 +2016,17 @@ export default function AnalyzeResume() {
                   </div>
                 </div>
                 <div style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  onClick={startEditFlow}
+                  style={{
+                    padding: "8px 14px", borderRadius: 8,
+                    border: "1px solid var(--border)",
+                    background: "var(--accent-bg)", color: "var(--accent)",
+                    fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    whiteSpace: "nowrap", flexShrink: 0, marginRight: 8,
+                  }}
+                >✎ {hasEditedVersion ? "Keep editing" : "Edit"}</button>
                 <button
                   type="button"
                   onClick={() => {
