@@ -1,0 +1,136 @@
+/**
+ * Sponsor board: paywall keys off contactsLocked (never an empty list), the
+ * pro path renders contacts, and funnel events dedup. jsdom + mocked API.
+ */
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const trackJobEvent = vi.fn(async (_postingId: string, _event: string) => {});
+const fetchJobDetail = vi.fn();
+const authHeaders = vi.fn(async (): Promise<Record<string, string>> => ({ Authorization: "Bearer t" }));
+
+vi.mock("@/lib/jobsApi", () => ({
+  authHeaders: () => authHeaders(),
+  fetchJobDetail: (id: string) => fetchJobDetail(id),
+  trackJobEvent: (id: string, ev: string) => trackJobEvent(id, ev),
+}));
+vi.mock("@/lib/billingApi", () => ({
+  createCheckoutSession: vi.fn(async () => ({ error: "checkout_unavailable" })),
+}));
+
+import SponsorJobsBoard from "@/components/SponsorJobsBoard";
+
+const FEED_JOB = {
+  id: "p1",
+  title: "Backend Engineer",
+  company: "Stripe",
+  url: "https://x",
+  location: "New York, NY",
+  workModel: "hybrid",
+  h1bSponsor: true,
+  h1bCertifiedCount: 47,
+  h1bMedianWage: 128000,
+  postedAt: new Date().toISOString(),
+  matchScore: 71,
+};
+
+function mockFeed(jobs: unknown[]) {
+  vi.stubGlobal("fetch", vi.fn(async () => ({
+    ok: true,
+    json: async () => ({ jobs, ranked: true, signedIn: true }),
+  })) as unknown as typeof fetch);
+}
+
+beforeEach(() => {
+  trackJobEvent.mockClear();
+  fetchJobDetail.mockReset();
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+describe("SponsorJobsBoard", () => {
+  it("renders sponsor cards with the honest badge", async () => {
+    mockFeed([FEED_JOB]);
+    render(<SponsorJobsBoard />);
+    await waitFor(() => expect(screen.getByText("Backend Engineer")).toBeInTheDocument());
+    expect(screen.getByText("Filed 47 H-1B LCAs · median $128k")).toBeInTheDocument();
+  });
+
+  it("shows the zero-results state, not a blank pane", async () => {
+    mockFeed([]);
+    render(<SponsorJobsBoard />);
+    await waitFor(() =>
+      expect(screen.getByText(/No sponsor-matched postings right now/)).toBeInTheDocument(),
+    );
+  });
+
+  it("shows an error card on feed failure", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) })) as unknown as typeof fetch);
+    render(<SponsorJobsBoard />);
+    await waitFor(() => expect(screen.getByText(/couldn't load/i)).toBeInTheDocument());
+  });
+
+  it("locked detail → paywall card + paywall_view once, even on re-open", async () => {
+    mockFeed([FEED_JOB]);
+    fetchJobDetail.mockResolvedValue({
+      jdText: "JD text", url: "https://x", contacts: [], contactsLocked: true,
+      matched: [], missing: [], injectableKeywords: [], matchScore: 71, matchedCount: 1, totalRequirements: 2,
+    });
+    render(<SponsorJobsBoard />);
+    await waitFor(() => expect(screen.getByText("Backend Engineer")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Backend Engineer"));
+    await waitFor(() => expect(screen.getByTestId("paywall-card")).toBeInTheDocument());
+    // close + re-open: no duplicate events
+    fireEvent.click(screen.getByText("Backend Engineer"));
+    fireEvent.click(screen.getByText("Backend Engineer"));
+    const events = trackJobEvent.mock.calls.map((c) => c[1]);
+    expect(events.filter((e) => e === "paywall_view")).toHaveLength(1);
+    expect(events.filter((e) => e === "reveal_click")).toHaveLength(1);
+  });
+
+  it("unlocked detail with contacts → contacts card, no paywall", async () => {
+    mockFeed([FEED_JOB]);
+    fetchJobDetail.mockResolvedValue({
+      jdText: "JD text", url: "https://x", contactsLocked: false,
+      contacts: [{ email: "hr@stripe.com", type: "hr", source: "dol_lca", confidence: 1, pocTitle: "Director of HR", createdAt: null }],
+      matched: [], missing: [], injectableKeywords: [], matchScore: 71, matchedCount: 1, totalRequirements: 2,
+    });
+    render(<SponsorJobsBoard />);
+    await waitFor(() => expect(screen.getByText("Backend Engineer")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Backend Engineer"));
+    await waitFor(() => expect(screen.getByTestId("contacts-card")).toBeInTheDocument());
+    expect(screen.queryByTestId("paywall-card")).not.toBeInTheDocument();
+    expect(screen.getByText(/hr@stripe\.com/)).toBeInTheDocument();
+  });
+
+  it("empty contacts WITHOUT contactsLocked shows neither card (no fake paywall)", async () => {
+    mockFeed([FEED_JOB]);
+    fetchJobDetail.mockResolvedValue({
+      jdText: "JD text", url: "https://x", contacts: [], contactsLocked: false,
+      matched: [], missing: [], injectableKeywords: [], matchScore: 71, matchedCount: 1, totalRequirements: 2,
+    });
+    render(<SponsorJobsBoard />);
+    await waitFor(() => expect(screen.getByText("Backend Engineer")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Backend Engineer"));
+    await waitFor(() => expect(screen.getByText("JD text")).toBeInTheDocument());
+    expect(screen.queryByTestId("paywall-card")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("contacts-card")).not.toBeInTheDocument();
+  });
+
+  it("signed-out + locked shows the sign-in card instead of the paywall", async () => {
+    authHeaders.mockResolvedValueOnce({});
+    mockFeed([FEED_JOB]);
+    fetchJobDetail.mockResolvedValue({
+      jdText: "JD", url: "", contacts: [], contactsLocked: true,
+      matched: [], missing: [], injectableKeywords: [], matchScore: null, matchedCount: 0, totalRequirements: 0,
+    });
+    render(<SponsorJobsBoard />);
+    await waitFor(() => expect(screen.getByText("Backend Engineer")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Backend Engineer"));
+    await waitFor(() => expect(screen.getByTestId("signin-card")).toBeInTheDocument());
+    expect(screen.queryByTestId("paywall-card")).not.toBeInTheDocument();
+  });
+});

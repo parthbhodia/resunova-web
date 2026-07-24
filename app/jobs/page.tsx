@@ -18,7 +18,10 @@ export default function JobsIndexPage() {
     <main className="mx-auto min-h-screen max-w-5xl px-5 py-8 text-text sm:px-8">
       <header className="mb-12 flex items-center justify-between border-b border-border pb-5">
         <Link href="/" aria-label="Resunova home"><LogoFull /></Link>
-        <Link href="/?view=jobs" className="text-sm font-semibold text-accent">Personalized job matches</Link>
+        <div className="flex items-center gap-5">
+          <Link href="/jobs/sponsors/" className="text-sm font-semibold text-accent">H-1B sponsor jobs</Link>
+          <Link href="/?view=jobs" className="text-sm font-semibold text-accent">Personalized job matches</Link>
+        </div>
       </header>
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-accent">Direct from employers</p>
       <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">Fresh jobs, open to everyone.</h1>

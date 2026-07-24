@@ -96,6 +96,10 @@ export type JobDetail = {
   resumeText: string;
   structuredResume: Record<string, unknown> | null;
   contacts?: JobContact[];
+  /** True ⇒ this posting's contacts exist behind the Pro gate (H-1B sponsor
+   * postings for non-Pro callers). Distinct from an empty contacts list,
+   * which just means none were found — the paywall card keys off THIS. */
+  contactsLocked?: boolean;
   matched: RequirementItem[];
   missing: RequirementItem[];
   injectableKeywords: string[];
@@ -170,7 +174,12 @@ export async function authHeaders(): Promise<Record<string, string>> {
  *  break the UX it measures. `keepalive` so it survives a navigation. */
 export async function trackJobEvent(
   postingId: string,
-  event: "apply_click" | "save" | "hide" | "contact_reveal" | "contact_copy" | "contact_email",
+  event:
+    | "apply_click" | "save" | "hide"
+    | "contact_reveal" | "contact_copy" | "contact_email"
+    // Sponsor-page paywall funnel (H-1B wedge demand test). Backend gate:
+    // _JOB_EVENT_TYPES + the job_post_events CHECK must both list these.
+    | "paywall_view" | "reveal_click" | "checkout_start" | "checkout_complete",
 ): Promise<void> {
   try {
     const headers = await authHeaders();
