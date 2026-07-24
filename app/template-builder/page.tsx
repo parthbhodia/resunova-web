@@ -4,7 +4,7 @@ import AppShell from "@/components/AppShell";
 import TemplateBuilderShell from "@/components/TemplateBuilder/TemplateBuilderShell";
 
 export const metadata: Metadata = {
-  title: "Resume Template Builder",
+  title: "Free Resume Templates & Builder — No Sign-Up Required",
   description:
     "Build and download a professional ATS-friendly resume PDF for free — no sign-up required.",
 };

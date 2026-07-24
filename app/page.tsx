@@ -5,9 +5,9 @@ import { FAQ_ITEMS } from "@/lib/faqContent";
 const SITE_URL = "https://www.resunova.io";
 
 export const metadata: Metadata = {
-  title: "Resunova: AI Resume Tailoring for Every Job Description",
+  title: "Free AI Resume Builder — Tailor Your Resume to Any Job | Resunova",
   description:
-    "AI resume tailoring for students and the job-seeking community. Start free, upgrade anytime: paste any job description, get a match score, gap analysis, and an ATS-friendly PDF in under a minute.",
+    "Free AI resume builder for students and the job-seeking community. Create your resume, score it across 8 dimensions, tailor it to any job description, and download an ATS-friendly PDF in under a minute. Start free, upgrade anytime.",
   alternates: {
     canonical: `${SITE_URL}/`,
   },

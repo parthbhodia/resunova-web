@@ -25,12 +25,16 @@ const OAUTH_HOST_REDIRECT_SCRIPT = `(function(){try{var site=${JSON.stringify(CA
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default:  "Resunova: AI Resume Tailoring for Every Job Description",
+    default:  "Free AI Resume Builder — Tailor Your Resume to Any Job | Resunova",
     template: "%s · Resunova",
   },
   description:
-    "AI resume tailoring for students and the job-seeking community. Start free, upgrade anytime: paste any job description, get a match score, gap analysis, and an ATS-friendly PDF in under a minute.",
+    "Free AI resume builder for students and the job-seeking community. Create your resume, score it across 8 dimensions, tailor it to any job description, and download an ATS-friendly PDF in under a minute. Start free, upgrade anytime.",
   keywords: [
+    "free resume builder",
+    "free AI resume builder",
+    "resume builder free",
+    "create resume",
     "resume builder",
     "AI resume",
     "ATS resume",
@@ -51,17 +55,17 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: "Resunova: AI Resume Tailoring for Every Job Description",
+    title: "Free AI Resume Builder — Tailor Your Resume to Any Job | Resunova",
     description:
-      "Start free, upgrade anytime. Tailor your resume in 60 seconds: match score, gap analysis, and ATS-friendly PDF included.",
+      "Start free, upgrade anytime. Create, score, and tailor your resume in 60 seconds: match score, gap analysis, and ATS-friendly PDF included.",
     locale: "en_US",
     // OG image auto-served from app/opengraph-image.tsx
   },
   twitter: {
     card: "summary_large_image",
-    title: "Resunova: AI Resume Tailoring for Every Job Description",
+    title: "Free AI Resume Builder — Tailor Your Resume to Any Job | Resunova",
     description:
-      "Start free, upgrade anytime. Tailor your resume in 60 seconds (match score, gap analysis, and ATS-friendly PDF).",
+      "Start free, upgrade anytime. Create, score, and tailor your resume in 60 seconds (match score, gap analysis, and ATS-friendly PDF).",
     // Twitter image auto-served from app/twitter-image.tsx
   },
   robots: {
@@ -122,7 +126,7 @@ const jsonLd = {
       "operatingSystem": "Web",
       "url": SITE_URL,
       "description":
-        "AI resume builder for students and the community. Start free, upgrade anytime: it tailors your resume to any job description, scores your fit, and exports an ATS-friendly PDF.",
+        "Free AI resume builder for students and the community. Start free, upgrade anytime: it tailors your resume to any job description, scores your fit, and exports an ATS-friendly PDF.",
       "offers": {
         "@type": "Offer",
         "price": "0",
