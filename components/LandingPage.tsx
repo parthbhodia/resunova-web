@@ -459,7 +459,7 @@ export default function LandingPage() {
           <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.4 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ display: "inline-block", verticalAlign: "-2px", marginRight: 8 }}><path d="M12 2l1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7z" /></svg>
             <strong style={{ fontWeight: 700 }}>New:</strong>
-            {" "}AI bullet rewrites + 8-dimension résumé scoring. No account, no paywall.
+            {" "}AI bullet rewrites + 8-dimension résumé scoring. No account needed. Start free.
             {" "}
             <button
               onClick={() => { goToFreeScan(); }}
@@ -989,8 +989,8 @@ export default function LandingPage() {
             fontWeight: 600, letterSpacing: 0.2, maxWidth: "100%",
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.blue, display: "inline-block", flexShrink: 0 }} />
-            <span className="lp-hero-sub-full">Completely free · No account to scan · Built for students &amp; career switchers · ATS-safe</span>
-            <span className="lp-hero-sub-short">Completely free · No account · ATS-safe</span>
+            <span className="lp-hero-sub-full">Start free · No account to scan · Built for students &amp; career switchers · ATS-safe</span>
+            <span className="lp-hero-sub-short">Start free · No account · ATS-safe</span>
           </div>
 
           {/* Headline — DM Sans 800. Full on desktop; punchy 2-liner on phones. */}
@@ -1003,11 +1003,11 @@ export default function LandingPage() {
               Score your résumé.<br />
               Fix the weak bullets.<br />
               Tailor it to any job.<br />
-              <span style={{ color: T.blue }}>Free. Actually free.</span>
+              <span style={{ color: T.blue }}>Start free. Upgrade anytime.</span>
             </span>
             <span className="lp-hero-sub-short">
               Score, fix, and tailor<br />your résumé.{" "}
-              <span style={{ color: T.blue }}>Actually free.</span>
+              <span style={{ color: T.blue }}>Start free.</span>
             </span>
           </h1>
 
@@ -1020,7 +1020,7 @@ export default function LandingPage() {
               An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>honest rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
             </span>
             <strong style={{ color: C.ink, fontWeight: 700 }}>No account.</strong>{" "}
-            <strong style={{ color: "#16a34a", fontWeight: 700 }}>No paywall.</strong>
+            <strong style={{ color: "#16a34a", fontWeight: 700 }}>No credit card.</strong>
           </p>
 
           {/* CTA row */}
@@ -1061,7 +1061,7 @@ export default function LandingPage() {
 
             {/* Trust micro-copy */}
             <p style={{ fontSize: 13, color: C.muted, margin: 0, letterSpacing: -0.1 }}>
-              No account needed to scan &nbsp;·&nbsp; Sign in only to save your analysis &nbsp;·&nbsp; Completely free
+              No account needed to scan &nbsp;·&nbsp; Sign in only to save your analysis &nbsp;·&nbsp; Start free, upgrade anytime
             </p>
           </div>
 
@@ -1119,7 +1119,7 @@ export default function LandingPage() {
       <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, overflow: "hidden", padding: "18px 0" }}>
         <div style={{ display: "flex", gap: 0, width: "max-content", animation: "ticker 36s linear infinite" }}>
           {[...Array(4)].flatMap(() => [
-            ["$0",      "Completely free — always"],
+            ["Free",    "Start free, upgrade anytime"],
             ["250k+",   "Jobs on the board"],
             ["400+",    "Job seekers so far"],
             ["60s",     "Typical tailoring time"],
@@ -1546,8 +1546,8 @@ export default function LandingPage() {
           In about sixty seconds,<br />you&apos;ll know exactly what to fix.
         </h2>
         <p style={{ fontSize: "var(--font-size-xl)", color: "rgba(255,255,255,0.82)", margin: "0 0 44px", lineHeight: 1.65, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
-          <strong style={{ color: "#fff", fontWeight: 700 }}>Completely free</strong>
-          {" "}for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Upload your résumé and apply with one built to earn callbacks.
+          <strong style={{ color: "#fff", fontWeight: 700 }}>Start free, upgrade anytime.</strong>
+          {" "}Built for students, lifelong learners, and anyone in the job-seeking community. No credit card to scan. Upload your résumé and apply with one built to earn callbacks.
         </p>
 
         {/* Dual CTA */}
@@ -1611,7 +1611,7 @@ export default function LandingPage() {
 
         {/* Micro-copy */}
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", margin: 0 }}>
-          No credit card &nbsp;·&nbsp; No paywall &nbsp;·&nbsp; Nothing to cancel
+          No credit card to start &nbsp;·&nbsp; Free daily scans &nbsp;·&nbsp; Cancel anytime
         </p>
       </section>
 

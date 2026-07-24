@@ -297,7 +297,7 @@ export default async function RoleResumeExamplePage({
             <h2 style={{ ...sectionTitle, margin: "0 0 8px" }}>Build your {data.label.toLowerCase()} résumé</h2>
             <p style={{ margin: "0 0 14px", color: "var(--muted)" }}>
               Paste a job description and Resunova tailors your résumé to it: match score, gap analysis, and an
-              ATS-friendly PDF in under a minute. Completely free.
+              ATS-friendly PDF in under a minute. Start free.
             </p>
             <Link
               href="/"

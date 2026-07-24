@@ -13,7 +13,7 @@ export type FaqItem = { q: string; a: string };
 export const FAQ_ITEMS: FaqItem[] = [
   {
     q: "Is Resunova free to use?",
-    a: "Yes, Resunova is completely free for students and the broader job-seeking community. Upload your resume, paste any job description, and get a match score, gap analysis, and ATS-friendly PDF export (no credit card required).",
+    a: "Yes, you can start free with no credit card. Upload your resume, paste any job description, and get a match score, gap analysis, and ATS-friendly PDF export. An optional Pro plan unlocks higher usage limits, and you can upgrade anytime.",
   },
   {
     q: "What is an ATS resume score?",

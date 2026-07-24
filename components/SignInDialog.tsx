@@ -84,7 +84,7 @@ export function useSignInDialog(): SignInDialogContextValue {
 
 const DEFAULT_TITLE = "Sign in to Resunova";
 const DEFAULT_REASON =
-  "Free forever: save your reports, tailor to any job, and unlock every feature.";
+  "Start free: save your reports, tailor to any job, and upgrade anytime.";
 
 const VALUE_PROPS = [
   "Save & revisit every résumé scan",
