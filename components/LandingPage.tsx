@@ -725,7 +725,8 @@ export default function LandingPage() {
             </div>
 
             {[
-              ["Resume", "templates", "/?view=builder"],
+              ["Resume Builder", "templates", "/?view=builder"],
+              ["Resume Examples", "resume-examples-nav", "/resume-examples/"],
               ["Cover Letter", "cover-letter", "/?view=cover-letter"],
               ["ATS Checker", "analyze", "/?view=analyze"],
               ["Blog", "blog-nav", "/blog/"]
@@ -931,6 +932,10 @@ export default function LandingPage() {
                 </div>
               )}
             </div>
+
+            <a href="/resume-examples/" onClick={(e) => { e.preventDefault(); setMenuOpen(false); window.location.assign("/resume-examples/"); }} style={{ padding: "16px 0", fontSize: 18, fontWeight: 500, color: C.ink, textDecoration: "none", borderBottom: `1px solid ${C.border}` }}>
+              Resume Examples
+            </a>
 
             {/* Cover Letter Accordion */}
             <div style={{ borderBottom: `1px solid ${C.border}` }}>
