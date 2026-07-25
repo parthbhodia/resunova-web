@@ -6,6 +6,8 @@ import { LogoFull } from "@/components/BrandLogo";
 import JsonLd from "@/components/seo/JsonLd";
 import SkillFrequencyTable from "@/components/seo/SkillFrequencyTable";
 import RolePrefillCTA from "@/components/RolePrefillCTA";
+import RoleExampleResumeEmbed from "@/components/seo/RoleExampleResumeEmbed";
+import { fullExampleForRole } from "@/lib/roleExampleResume";
 import { SITE_URL } from "@/lib/brand";
 import {
   ROLE_RESUME_DATA,
@@ -57,6 +59,7 @@ export default async function RoleResumeExamplePage({
   const canonical = `${SITE_URL}${roleResumeHref(data.slug)}/`;
   const siblings = ROLE_RESUME_DATA.filter((r) => r.slug !== data.slug);
   const formattedSalary = `$${data.salary.medianUsd.toLocaleString("en-US")}`;
+  const fullExample = fullExampleForRole(data.slug, data.label);
 
   const articleJsonLd = {
     "@context": "https://schema.org",
@@ -196,7 +199,8 @@ export default async function RoleResumeExamplePage({
             />
           </section>
 
-          {/* Scored example */}
+          {/* Scored example — a full rendered résumé document when the catalog
+              has a matching example; the text fragment remains the fallback. */}
           <section style={{ marginBottom: 40 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
               <h2 style={{ ...sectionTitle, margin: 0 }}>Example {data.label.toLowerCase()} résumé</h2>
@@ -211,33 +215,52 @@ export default async function RoleResumeExamplePage({
                   padding: "4px 12px",
                 }}
               >
-                Resunova score {data.example.score}/100
+                Resunova score {fullExample ? fullExample.score : data.example.score}/100
               </span>
             </div>
-            <div
-              style={{
-                padding: "22px 24px",
-                borderRadius: 14,
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-              }}
-            >
-              <p style={{ margin: "0 0 14px", color: "var(--text)", fontWeight: 600 }}>Summary</p>
-              <p style={{ margin: "0 0 20px" }}>{data.example.summary}</p>
-              <p style={{ margin: "0 0 10px", color: "var(--text)", fontWeight: 600 }}>Experience bullets</p>
-              <ul style={{ margin: 0, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 10 }}>
-                {data.example.bullets.map((b, i) => (
-                  <li key={i}>{b}</li>
-                ))}
-              </ul>
-            </div>
-            <p style={{ marginTop: 14, fontSize: 13, color: "var(--dim)" }}>
-              Notice every bullet leads with a strong verb and ends in a measurable outcome. That pattern is what earns
-              the score above.{" "}
-              <Link href="/" style={{ color: "var(--accent)" }}>
-                Score your own résumé free →
-              </Link>
-            </p>
+            {fullExample ? (
+              <>
+                <RoleExampleResumeEmbed
+                  data={fullExample.data}
+                  filename={`${data.slug}-resume-example.pdf`}
+                />
+                <p style={{ marginTop: 14, fontSize: 13, color: "var(--dim)" }}>
+                  A complete, scored {fullExample.title.toLowerCase()} résumé (fictional candidate) built with
+                  Resunova. Notice every bullet leads with a strong verb and ends in a measurable outcome — that
+                  pattern is what earns the score above.{" "}
+                  <Link href="/" style={{ color: "var(--accent)" }}>
+                    Score your own résumé free →
+                  </Link>
+                </p>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    padding: "22px 24px",
+                    borderRadius: 14,
+                    border: "1px solid var(--border)",
+                    background: "var(--surface)",
+                  }}
+                >
+                  <p style={{ margin: "0 0 14px", color: "var(--text)", fontWeight: 600 }}>Summary</p>
+                  <p style={{ margin: "0 0 20px" }}>{data.example.summary}</p>
+                  <p style={{ margin: "0 0 10px", color: "var(--text)", fontWeight: 600 }}>Experience bullets</p>
+                  <ul style={{ margin: 0, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 10 }}>
+                    {data.example.bullets.map((b, i) => (
+                      <li key={i}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+                <p style={{ marginTop: 14, fontSize: 13, color: "var(--dim)" }}>
+                  Notice every bullet leads with a strong verb and ends in a measurable outcome. That pattern is what
+                  earns the score above.{" "}
+                  <Link href="/" style={{ color: "var(--accent)" }}>
+                    Score your own résumé free →
+                  </Link>
+                </p>
+              </>
+            )}
           </section>
 
           {/* Salary + work model */}
