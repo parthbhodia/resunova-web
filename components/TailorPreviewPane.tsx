@@ -35,6 +35,10 @@ interface Props {
   /** Clicking a preview bullet reports its index so the caller can open the
    *  corresponding sidebar section (the Tailor analog of Analyze's card link). */
   onBulletLinkedSelect?: (bulletIndex: number) => void;
+  /** The bullet currently being worked on. Drives AnnotatedResumePanel's mirror
+   *  frame, its per-row ring and its scroll-into-view — all of which were dead
+   *  in Tailor purely because this prop was never forwarded. */
+  selectedBulletIndex?: number | null;
   /** Optional DOCX export when a tailored folder exists. */
   onExportDocx?: () => void;
   exportDocxEnabled?: boolean;
@@ -67,6 +71,7 @@ export default function TailorPreviewPane({
   patchBulletRewrite,
   patchPreviewLine,
   onBulletLinkedSelect,
+  selectedBulletIndex = null,
   onExportDocx,
   exportDocxEnabled = false,
   docxExportBusy = false,
@@ -88,6 +93,7 @@ export default function TailorPreviewPane({
       previewLineOverrides={previewLineOverrides}
       patchPreviewLine={patchPreviewLine ?? noopPatch}
       onBulletLinkedSelect={onBulletLinkedSelect}
+      selectedBulletIndex={selectedBulletIndex}
       extractedText={extractedText.trim() || null}
       structuredResume={structuredResume}
       structuredResumeAuthoritative

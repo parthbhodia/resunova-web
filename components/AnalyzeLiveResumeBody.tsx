@@ -2323,7 +2323,9 @@ export default function AnalyzeLiveResumeBody({
                     background: bgTint,
                     borderLeft: leftBar,
                     boxShadow: isSelected ? "inset 0 0 0 1.5px var(--resume-paper-accent)" : undefined,
-                    cursor: hasActionable ? "pointer" : "default",
+                    // A gap-fix target is clickable even without an analysis rewrite;
+                    // without this it was tinted like a target but showed no pointer.
+                    cursor: hasActionable || isGapFixTarget ? "pointer" : "default",
                     animation: isPulsing ? "az-mirror-pulse 0.85s ease-out 1" : undefined,
                     position: canHide ? "relative" : undefined,
                   }}

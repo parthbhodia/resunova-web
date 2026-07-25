@@ -115,6 +115,11 @@ type SharedProps = {
   onFixKeywords?: (keywords: string[]) => void;
   /** Open the full prep workspace carrying this run's résumé, JD, company and role. */
   onOpenInterviewPrep?: () => void;
+  /** Gap-fix cards sitting on the selected bullet. A bullet can carry several. */
+  activeGapFixIds?: ReadonlySet<string>;
+  onGapFixActivate?: (id: string) => void;
+  /** Current preview text per bullet index, so a card shows what it is really editing. */
+  gapFixBulletText?: (suggestionId: string) => string | undefined;
   fixingGapName?: string | null;
   gapFixPanel?: GapFixPanel | null;
   gapFixError?: string | null;
@@ -233,7 +238,7 @@ function useTailorRatingsState({
     ...(gapFixPanel
       ? [{ id: "gapfix" as Tab, label: "Gap fix", score: `${gapFixPanel.suggestions.length}`, color: "#818cf8" }]
       : []),
-    ...(hasSuggestions ? [{ id: "fixes" as Tab, label: "Fixes", score: "Review", color: "#818cf8" }] : []),
+    ...(hasSuggestions ? [{ id: "fixes" as Tab, label: "Polish", score: "Review", color: "#818cf8" }] : []),
   ];
 
   const tabIdx = tabOrder.indexOf(activeTab);
@@ -583,6 +588,9 @@ export function TailorMatchDetail(props: SharedProps) {
             gapFixDrafts={gapFixDrafts}
             onGapFixDraftChange={onGapFixDraftChange}
             applyBusy={applyBusy}
+            activeGapFixIds={props.activeGapFixIds}
+            onGapFixActivate={props.onGapFixActivate}
+            gapFixBulletText={props.gapFixBulletText}
           />
         )}
         {activeTab === "fixes" && (

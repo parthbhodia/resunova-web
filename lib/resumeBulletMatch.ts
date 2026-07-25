@@ -201,6 +201,26 @@ export function resolveBulletIndexForGapFix(
   return registerGapFixBullet(bullets, original, suggested, profileText);
 }
 
+/**
+ * suggestion.id → bulletAnalysis index, for the suggestions that match a bullet.
+ *
+ * Suggestions whose `original` matches nothing are OMITTED rather than stored as
+ * -1: at apply time those go through registerGapFixBullet and become a new
+ * bullet, so the card must not claim to be editing an existing one.
+ */
+export function gapFixTargetBulletMap(
+  suggestions: Array<{ id: string; original: string }>,
+  bullets: LiveBulletItem[],
+  profileText: string,
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const s of suggestions) {
+    const idx = matchOriginalToBulletIndex(s.original, bullets, profileText);
+    if (idx >= 0) map.set(s.id, idx);
+  }
+  return map;
+}
+
 /** Indices to purple-highlight while a gap-fix panel is open (existing analysis bullets only). */
 export function gapFixTargetBulletIndices(
   suggestions: Array<{ original: string; suggested: string }>,

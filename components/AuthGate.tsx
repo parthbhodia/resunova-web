@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -67,9 +68,9 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
             fontSize: 14, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
           }}
         >
-          Sign in — it&apos;s free
+          Sign in, it&apos;s free
         </button>
-        <a
+        <Link
           href="/"
           style={{
             display: "inline-block", marginTop: 14,
@@ -77,7 +78,7 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
           }}
         >
           Back to home
-        </a>
+        </Link>
       </div>
     </div>
   );

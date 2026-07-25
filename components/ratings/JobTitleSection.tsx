@@ -189,7 +189,7 @@ export function JobTitleSection({
               </button>
             </div>
             <p style={{ margin: 0, fontSize: 11, color: "var(--dim)", lineHeight: 1.5 }}>
-              This changes the headline at the top of your résumé — not any past
+              This changes the headline at the top of your résumé, not any past
               employer&apos;s job title under Experience. Only edit it to something you
               can honestly stand behind in an interview.
             </p>

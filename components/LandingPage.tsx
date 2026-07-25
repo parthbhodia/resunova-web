@@ -1219,7 +1219,7 @@ export default function LandingPage() {
       <LandingPreviewSection
         id="product-scan"
         eyebrow="Line-by-line analysis"
-        title="See what a recruiter would flag — before you apply."
+        title="See what a recruiter would flag, before you apply."
         desc="Upload a PDF and get flagged weaknesses, strong bullets, and a first fix you can accept in one click."
         C={C}
         wide
@@ -1448,7 +1448,7 @@ export default function LandingPage() {
           and the interview block below announces the feature itself).
           Re-enable by removing `false &&`. */}
       {false && (
-      <div role="region" aria-label="Interview coaching — now live" style={{
+      <div role="region" aria-label="Interview coaching, now live" style={{
         background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
         padding: "14px 24px",
         display: "flex", alignItems: "center", justifyContent: "center", gap: 11, flexWrap: "wrap", textAlign: "center",
@@ -1528,7 +1528,7 @@ export default function LandingPage() {
       <section aria-label="University partnerships" className="lp-sec" style={{ background: C.bg, padding: "76px 40px", borderTop: `1px solid ${C.border}` }}>
         {/* Desktop: static SVG banner. Its text is unreadable when the image
             scales below ~640px, so mobile swaps in a real-HTML card instead. */}
-        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova — university career centers" className="lp-uni-desktop" style={{ display: "block", maxWidth: 1040, margin: "0 auto", borderRadius: 24, overflow: "hidden", boxShadow: C.shadow }}>
+        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova, for university career centers" className="lp-uni-desktop" style={{ display: "block", maxWidth: 1040, margin: "0 auto", borderRadius: 24, overflow: "hidden", boxShadow: C.shadow }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- static SVG banner; next/image can't optimize SVG and breaks `output: export` */}
           <img
             src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/university-partners-banner.svg`}
@@ -1538,7 +1538,7 @@ export default function LandingPage() {
             style={{ display: "block", width: "100%", height: "auto" }}
           />
         </Link>
-        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova — university career centers" className="lp-uni-mobile" style={{ display: "none", textDecoration: "none", borderRadius: 20, overflow: "hidden", boxShadow: C.shadow, background: "linear-gradient(135deg, #14284d 0%, #1e3a8a 55%, #2563eb 100%)", padding: "26px 22px" }}>
+        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova, for university career centers" className="lp-uni-mobile" style={{ display: "none", textDecoration: "none", borderRadius: 20, overflow: "hidden", boxShadow: C.shadow, background: "linear-gradient(135deg, #14284d 0%, #1e3a8a 55%, #2563eb 100%)", padding: "26px 22px" }}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#93c5fd", textTransform: "uppercase", margin: "0 0 10px" }}>University partnerships</p>
           <h3 style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em", color: "#ffffff", margin: "0 0 10px" }}>
             Built with university career centers

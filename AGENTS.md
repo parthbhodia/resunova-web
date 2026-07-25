@@ -19,3 +19,35 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Local dev without backend repo
 
 Point `.env.local` at staging or production Railway API. You do not need backend source to build UI features.
+
+## Writing UI copy
+
+**No spaced em dashes in anything a user reads.** One or two is a writing style;
+scattered through a product it reads as machine-written, and on a page selling
+AI-assisted work that costs exactly the credibility we are charging for.
+
+Rewrite each one as the punctuation the sentence actually wants:
+
+```
+Upload your résumé — we do the rest      →  Upload your résumé. We do the rest.
+Only add skills — you can back them up   →  Only add skills you can back up.
+Saved to My Résumés — 3 versions         →  Saved to My Résumés (3 versions)
+Importance: 4 — how critical this is     →  Importance: 4. How critical this is.
+```
+
+A blanket swap to ` - ` replaces one tell with a worse one. Pick per sentence.
+
+Two uses are legitimate and stay:
+
+- a bare `—` standing in for an empty value (`company.trim() || "—"`)
+- en dashes inside ranges (`May 2022 – Present`, `p25–p75`)
+
+Code comments are out of scope; users never see them.
+
+`lib/__tests__/uiCopyStyle.test.ts` holds the line with a count baseline, the
+same shape as the lint ratchet: copy may not get worse, and the number comes
+down as the remaining files are cleaned up.
+
+Other tells worth avoiding: "seamlessly", "effortlessly", "unlock the power of",
+"in today's fast-paced", and rule-of-three padding ("fast, simple, and
+reliable").

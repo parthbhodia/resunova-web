@@ -297,7 +297,7 @@ export default function LibraryResumeDetailPanel({
             >
               {pdfSrc ? (
                 <iframe
-                  title={`Preview — ${meta.company}`}
+                  title={`Preview: ${meta.company}`}
                   src={pdfSrc}
                   style={{
                     width: "100%",

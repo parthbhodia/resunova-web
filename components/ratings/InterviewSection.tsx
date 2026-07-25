@@ -256,7 +256,7 @@ export function InterviewSection({ keyGap, tips = [], questions = [], onGetSugge
                 </span>
               </div>
               <p style={{ margin: "0 0 14px", fontSize: 11, color: "var(--dim)", lineHeight: 1.5 }}>
-                Coaching on how to position your story for this role — not automatic PDF edits.
+                Coaching on how to position your story for this role, not automatic PDF edits.
                 Use bullet suggestions below for résumé changes.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -293,7 +293,7 @@ export function InterviewSection({ keyGap, tips = [], questions = [], onGetSugge
 
           {tips.length === 0 && !keyGap && (
             <div style={{ padding: "24px", textAlign: "center", color: "var(--dim)", fontSize: 13 }}>
-              No coaching tips yet — run &ldquo;Get suggestions&rdquo; to generate them.
+              No coaching tips yet. Run &ldquo;Get suggestions&rdquo; to generate them.
             </div>
           )}
         </>
@@ -304,7 +304,7 @@ export function InterviewSection({ keyGap, tips = [], questions = [], onGetSugge
         <>
           {questions.length === 0 ? (
             <div style={{ padding: "24px", textAlign: "center", color: "var(--dim)", fontSize: 13 }}>
-              No interview questions yet — run &ldquo;Get suggestions&rdquo; to generate them.
+              No interview questions yet. Run &ldquo;Get suggestions&rdquo; to generate them.
             </div>
           ) : (
             <>

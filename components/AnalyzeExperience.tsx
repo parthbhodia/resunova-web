@@ -143,7 +143,7 @@ export function AnalyzeUploadLanding({
           id="az-jd-input"
           value={jd}
           onChange={(e) => onJdChange(e.target.value)}
-          placeholder="Paste the role you care about — we'll flag missing keywords and score job match…"
+          placeholder="Paste the role you care about. We'll flag missing keywords and score job match…"
           rows={3}
           className="az-analyze-jd-textarea"
         />

@@ -283,7 +283,7 @@ export default function InsiderPanel({
             <input
               style={{ ...inputStyle, marginTop: 8, fontSize: 12, background: "var(--surface)" }}
               value={school}
-              placeholder="Your school — unlocks an alumni-at-company search"
+              placeholder="Your school (unlocks an alumni-at-company search)"
               onChange={(e) => {
                 const v = e.target.value;
                 setSchool(v);

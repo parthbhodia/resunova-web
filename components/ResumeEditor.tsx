@@ -593,7 +593,7 @@ function ContactCard({ contact, onChange, onCustomChange }: {
             fontSize: 9, fontWeight: 600, padding: "2px 6px",
             background: "var(--surface2)", color: "var(--dim)",
             borderRadius: 4, letterSpacing: 0.3,
-          }} title="No marker block found in this resume's .tex — re-generate to gain edit support">
+          }} title="No marker block found in this resume's .tex. Re-generate to gain edit support.">
             READ-ONLY
           </span>
         )}
@@ -980,7 +980,7 @@ function SectionRewritePopover({ onRun, onCancel }: { onRun: (instr: string) => 
         <input
           value={val}
           onChange={e => setVal(e.target.value)}
-          placeholder='Custom instruction — e.g. "emphasize Python and distributed systems"'
+          placeholder='Custom instruction, e.g. "emphasize Python and distributed systems"'
           style={{ fontSize: 12, padding: "6px 10px", flex: 1 }}
         />
         <button
@@ -1728,7 +1728,7 @@ function PreviewSurface({ resume, pdfUrl, dirty }: {
                 cursor: "pointer", fontFamily: "inherit",
                 letterSpacing: -0.1,
               }}
-              title={m === "pdf" && dirty ? "PDF reflects last save — unsaved edits not shown" : ""}
+              title={m === "pdf" && dirty ? "PDF reflects last save. Unsaved edits not shown." : ""}
             >
               {m === "pdf" ? "PDF" : "Live preview"}
               {m === "pdf" && dirty && <span style={{ marginLeft: 4, color: "var(--orange)" }}>•</span>}

@@ -420,7 +420,7 @@ export default function CoverLetterBuilder() {
                 signingIn={signingIn}
                 onSignIn={signIn}
                 title="Sign in to generate with AI"
-                subtitle="Paste a job description and let AI draft a tailored cover letter — free with a Google account."
+                subtitle="Paste a job description and let AI draft a tailored cover letter, free with a Google account."
               />
             </div>
           )}

@@ -120,7 +120,7 @@ function CompanyCard({
       aria-hidden={hidden || undefined}
       tabIndex={hidden ? -1 : undefined}
       onClick={onGo}
-      aria-label={hidden ? undefined : `${c.company}, ${c.activeCount.toLocaleString()} open roles — browse jobs`}
+      aria-label={hidden ? undefined : `${c.company}, ${c.activeCount.toLocaleString()} open roles, browse jobs`}
       className="lp-co-card"
       style={{
         flexShrink: 0,

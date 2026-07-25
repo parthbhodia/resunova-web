@@ -87,7 +87,7 @@ function NavItem({
     <SidebarMenuItem>
       <SidebarMenuButton
         isActive={isActive}
-        tooltip={locked ? `${VIEW_LABELS[view]} — sign in free to use` : VIEW_LABELS[view]}
+        tooltip={locked ? `${VIEW_LABELS[view]}: sign in free to use` : VIEW_LABELS[view]}
         className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
         onClick={onClick}
       >
@@ -185,7 +185,7 @@ export function AppSidebar({
                 type="button"
                 className="flex min-w-0 flex-1 cursor-pointer items-center justify-start border-0 bg-transparent p-0 font-inherit"
                 onClick={() => onSwitchView("home")}
-                aria-label="Resunova — go to Home"
+                aria-label="Resunova, go to Home"
               >
                 <LogoFull markSize={26} textColor="var(--text)" variant={isUmbc ? "umbc" : "resunova"} />
               </button>
@@ -366,14 +366,14 @@ export function AppSidebar({
           <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
             {anonMode ? (
               <SidebarMenuButton
-                tooltip="Sign in free — save reports, unlock all features"
+                tooltip="Sign in free to save reports and unlock all features"
                 className={cn(NAV_MENU_BTN_CLASS, "!text-accent font-semibold")}
                 onClick={() => onSignIn?.()}
               >
                 <span className="app-nav-icon" aria-hidden>
                   {NAV_ICONS.lock}
                 </span>
-                {showLabels ? <span className="app-nav-label">Sign in — free</span> : null}
+                {showLabels ? <span className="app-nav-label">Sign in, free</span> : null}
               </SidebarMenuButton>
             ) : (
               <AppSidebarUser

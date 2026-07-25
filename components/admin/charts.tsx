@@ -27,7 +27,7 @@ export function AdminBarRows({ data, label = (x: string) => x, dimKey, color = "
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {data.map(([k, v]) => (
-        <div key={k} style={{ display: "grid", gridTemplateColumns: `${labelWidth}px 1fr 52px`, alignItems: "center", gap: 10 }} title={`${label(k)} — ${fmtInt(v)}`}>
+        <div key={k} style={{ display: "grid", gridTemplateColumns: `${labelWidth}px 1fr 52px`, alignItems: "center", gap: 10 }} title={`${label(k)}: ${fmtInt(v)}`}>
           <div style={{ fontSize: 13, color: "var(--muted)", textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label(k)}</div>
           <div style={{ height: 15, background: "var(--surface2)", borderRadius: 5, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${Math.max(2, (v / max) * 100)}%`, background: dimKey && dimKey(k) ? "var(--dim)" : color, borderRadius: 5 }} />
@@ -46,7 +46,7 @@ export function AdminScoreBars({ data, colorFn, labelWidth = 150 }:
     <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
       {data.map(({ label, score }) => (
         <div key={label} style={{ display: "grid", gridTemplateColumns: `${labelWidth}px 1fr 34px`, alignItems: "center", gap: 10 }}
-          title={score !== null ? `${label} — ${Math.round(score)}/100` : `${label} — no data`}>
+          title={score !== null ? `${label}: ${Math.round(score)}/100` : `${label}: no data`}>
           <div style={{ fontSize: 13, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
           <div style={{ height: 15, background: "var(--surface2)", borderRadius: 5, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${Math.max(2, Math.min(100, score ?? 0))}%`, background: colorFn(score), borderRadius: 5 }} />
@@ -69,7 +69,7 @@ export function AdminStackedBar({ segments, minLabelPct = 8 }: { segments: Stack
     <div>
       <div style={{ display: "flex", height: 30, borderRadius: 8, overflow: "hidden", gap: 2 }}>
         {segments.filter(s => s.value > 0).map(s => (
-          <div key={s.label} title={`${s.label} — ${fmtInt(s.value)} (${pct(s.value)}%)`}
+          <div key={s.label} title={`${s.label}: ${fmtInt(s.value)} (${pct(s.value)}%)`}
             style={{ width: `${(s.value / total) * 100}%`, background: s.color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 650 }}>
             {pct(s.value) >= minLabelPct ? `${pct(s.value)}%` : ""}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { suggestionsWithDrafts } from "@/lib/tailorGapFix";
 import { GapFixSuggestionCard, type GapFixSuggestion } from "@/components/ratings/GapFixSuggestionCard";
 
@@ -19,6 +19,12 @@ type Props = {
   gapFixDrafts?: Record<string, string>;
   onGapFixDraftChange?: (id: string, text: string) => void;
   applyBusy?: boolean;
+  /** Cards on the currently selected bullet — plural, since a bullet can carry several. */
+  activeGapFixIds?: ReadonlySet<string>;
+  onGapFixActivate?: (id: string) => void;
+  /** The bullet's CURRENT preview text, which diverges from s.original once
+   *  another fix has already been applied to the same line. */
+  gapFixBulletText?: (suggestionId: string) => string | undefined;
 };
 
 export default function GapFixTabPanel({
@@ -30,6 +36,9 @@ export default function GapFixTabPanel({
   gapFixDrafts = {},
   onGapFixDraftChange,
   applyBusy = false,
+  activeGapFixIds,
+  onGapFixActivate,
+  gapFixBulletText,
 }: Props) {
   const panelSuggestions = useMemo(
     () => (gapFixPanel.suggestions ?? []).filter((s) => s.original?.trim() && s.suggested?.trim()),
@@ -52,6 +61,22 @@ export default function GapFixTabPanel({
   };
 
   const effectiveChecked = checkedIds;
+
+  // Bring the card for a clicked preview bullet into view. Same shape as
+  // CategoryFixPanel: the 80ms defer matters because this panel is mounted
+  // fresh when the tab switches, so the refs populate in the same commit.
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const firstActiveId = activeGapFixIds && activeGapFixIds.size > 0
+    ? panelSuggestions.find((s) => activeGapFixIds.has(s.id))?.id
+    : undefined;
+
+  useEffect(() => {
+    if (!firstActiveId) return;
+    const t = setTimeout(() => {
+      cardRefs.current.get(firstActiveId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [firstActiveId]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0, height: "100%" }}>
@@ -147,6 +172,13 @@ export default function GapFixTabPanel({
                   onToggleCheck={() => toggleCheck(s.id)}
                   draftText={gapFixDrafts[s.id] ?? s.suggested}
                   onDraftChange={(text) => onGapFixDraftChange?.(s.id, text)}
+                  active={!!activeGapFixIds?.has(s.id)}
+                  onActivate={onGapFixActivate ? () => onGapFixActivate(s.id) : undefined}
+                  targetBulletText={gapFixBulletText?.(s.id)}
+                  cardRef={(el) => {
+                    if (el) cardRefs.current.set(s.id, el);
+                    else cardRefs.current.delete(s.id);
+                  }}
                 />
               ))}
             </div>

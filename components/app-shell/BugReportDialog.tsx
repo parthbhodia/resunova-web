@@ -99,7 +99,7 @@ export function BugReportDialog({ open, onOpenChange }: Props) {
         {status === "success" ? (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
             <span className="text-2xl">✓</span>
-            <p className="font-medium">Thanks — feedback received!</p>
+            <p className="font-medium">Thanks! Feedback received.</p>
             <p className="text-sm text-muted-foreground">We'll look into it.</p>
             <DialogClose render={<Button variant="outline" size="sm" className="mt-2" />}>
               Close

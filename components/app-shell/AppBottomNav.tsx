@@ -136,7 +136,7 @@ export function AppBottomNav({
               <span className="flex size-9 items-center justify-center rounded-full bg-accent text-white">
                 {NAV_ICONS.lock}
               </span>
-              <span className="text-sm font-semibold text-accent">Sign in — free</span>
+              <span className="text-sm font-semibold text-accent">Sign in, free</span>
             </button>
           ) : (
             <button
