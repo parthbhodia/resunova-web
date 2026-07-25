@@ -505,14 +505,22 @@ export default function LandingPage() {
             @media (min-width: 768px) { .lp-header-inner { padding: 0 32px !important; } }
           `}</style>
           {/* Logo — shared SVG mark + wordmark */}
-          <Link href="/" prefetch={false} style={{ textDecoration: "none", color: "inherit", display: "flex", alignItems: "center" }} aria-label="Resunova home">
+          <Link href="/" prefetch={false} style={{ flexShrink: 0, textDecoration: "none", color: "inherit", display: "flex", alignItems: "center" }} aria-label="Resunova home">
             <LogoFull markSize={32} textColor={dark ? "#ffffff" : "#0f172a"} />
           </Link>
 
           {/* Center Nav */}
-          <nav className="lp-nav hidden md-flex" style={{ display: "none", alignItems: "center", justifyContent: "center", gap: 36, position: "absolute", left: 0, right: 0, height: "100%", pointerEvents: "none" }}>
+          {/* IN FLOW, deliberately. This nav used to be `position: absolute;
+              left: 0; right: 0`, which took it out of the flex row and stretched
+              it across the whole header — so it centred on the viewport while
+              the logo and the action buttons laid themselves out underneath it.
+              Between the 1024px breakpoint and roughly 1200px the two groups
+              simply drew on top of each other ("ATS Checker" over "Log In").
+              As a flex child it negotiates width like everything else, so the
+              overlap is not possible at any viewport. */}
+          <nav className="lp-nav hidden md-flex" style={{ display: "none", alignItems: "center", justifyContent: "center", gap: 36, height: "100%", flex: "1 1 auto", minWidth: 0 }}>
             <style>{`
-              @media (min-width: 768px) { .md-flex { display: flex !important; } }
+              @media (min-width: 1024px) { .md-flex { display: flex !important; } }
               .mega-menu-dropdown {
                 position: fixed;
                 top: 76px;
@@ -738,7 +746,7 @@ export default function LandingPage() {
           </nav>
 
           {/* Right side actions */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 16 }}>
             {/* Theme toggle — kept from the previous header (all breakpoints) */}
             <button onClick={toggleTheme} title={dark ? "Light mode" : "Dark mode"} style={{
               width: 34, height: 34, borderRadius: 8,
@@ -828,7 +836,7 @@ export default function LandingPage() {
             }}
           >
             <style>{`
-              @media (min-width: 768px) { .md-hide { display: none !important; } }
+              @media (min-width: 1024px) { .md-hide { display: none !important; } }
             `}</style>
             {menuOpen
               ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -1780,8 +1788,8 @@ export default function LandingPage() {
         @keyframes lpArrowPop { from { transform: translateY(4px) scale(0); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
         .lp-hero-sub-short { display: none; }
         .lp-nav-burger { display: none; }
-        @media (min-width: 769px) { .lp-nav-menu { display: none !important; } }
-        @media (max-width: 768px) {
+        @media (min-width: 1024px) { .lp-nav-menu { display: none !important; } }
+        @media (max-width: 1023.98px) {
           .lp-nav-cta { display: none !important; }
           .lp-nav-section { display: none !important; }
           .lp-nav-burger { display: inline-flex !important; }
