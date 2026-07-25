@@ -24,7 +24,7 @@ import {
   type JobContact,
   type JobFeedItem,
 } from "@/lib/jobsApi";
-import { createCheckoutSession } from "@/lib/billingApi";
+import { createCheckoutSession, PLAN_PRICE_LABELS, type BillingPriceKey } from "@/lib/billingApi";
 import { OnceGuard, postedAgoLabel, sponsorBadgeLabel } from "@/lib/sponsorJobs";
 import { apiUrl } from "@/lib/utils";
 
@@ -46,7 +46,9 @@ export default function SponsorJobsBoard() {
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, DetailState>>({});
-  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  // Which plan's button is mid-redirect (null = idle). Per-plan so only the
+  // clicked button shows a busy label while both stay disabled.
+  const [checkoutBusy, setCheckoutBusy] = useState<BillingPriceKey | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
   const guard = useRef(new OnceGuard());
 
@@ -133,17 +135,19 @@ export default function SponsorJobsBoard() {
     }
   }, [details]);
 
-  const startCheckout = useCallback(async (postingId: string) => {
+  const startCheckout = useCallback(async (postingId: string, priceKey: BillingPriceKey) => {
     if (checkoutBusy) return;
-    setCheckoutBusy(true);
+    setCheckoutBusy(priceKey);
     try {
+      // One checkout_start per posting regardless of which plan they pick —
+      // the funnel measures "reached checkout", not plan preference.
       if (guard.current.fire(`checkout:${postingId}`)) void trackJobEvent(postingId, "checkout_start");
       try {
         sessionStorage.setItem(CHECKOUT_POSTING_KEY, postingId);
       } catch {
         /* private mode — checkout_complete attribution is best-effort */
       }
-      const result = await createCheckoutSession("pro_monthly");
+      const result = await createCheckoutSession(priceKey);
       if ("url" in result) {
         window.location.href = result.url;
         return;
@@ -151,7 +155,7 @@ export default function SponsorJobsBoard() {
       // Graceful fallback — /pricing carries the full plans + sign-in path.
       window.location.href = "/pricing/";
     } finally {
-      setCheckoutBusy(false);
+      setCheckoutBusy(null);
     }
   }, [checkoutBusy]);
 
@@ -245,17 +249,38 @@ export default function SponsorJobsBoard() {
                             <p className="text-sm font-bold text-text">Recruiter contact — Pro</p>
                             <p className="mt-1 text-sm text-rn-muted">
                               Unlock the hiring contact for this and every sponsor posting, where available.
-                              $19/month, cancel anytime.
+                              Cancel anytime.
                             </p>
-                            <button
-                              type="button"
-                              onClick={() => void startCheckout(job.id)}
-                              disabled={checkoutBusy}
-                              className="mt-3 rounded-lg bg-accent px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
-                            >
-                              {checkoutBusy ? "Opening checkout…" : "Unlock with Pro"}
-                            </button>
-                            <Link href="/pricing/" className="ml-3 text-sm font-semibold text-accent">
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void startCheckout(job.id, "pro_monthly")}
+                                disabled={checkoutBusy !== null}
+                                data-testid="checkout-monthly"
+                                className="rounded-lg bg-accent px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                              >
+                                {checkoutBusy === "pro_monthly"
+                                  ? "Opening checkout…"
+                                  : `${PLAN_PRICE_LABELS.pro_monthly.price}/mo`}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void startCheckout(job.id, "pro_quarterly")}
+                                disabled={checkoutBusy !== null}
+                                data-testid="checkout-quarterly"
+                                className="rounded-lg border border-accent px-4 py-2 text-sm font-bold text-accent disabled:opacity-60"
+                              >
+                                {checkoutBusy === "pro_quarterly"
+                                  ? "Opening checkout…"
+                                  : `${PLAN_PRICE_LABELS.pro_quarterly.price}/3 mo`}
+                              </button>
+                              {PLAN_PRICE_LABELS.pro_quarterly.note && (
+                                <span className="text-xs font-semibold text-accent">
+                                  {PLAN_PRICE_LABELS.pro_quarterly.note}
+                                </span>
+                              )}
+                            </div>
+                            <Link href="/pricing/" className="mt-3 inline-block text-sm font-semibold text-accent">
                               See plans
                             </Link>
                           </div>
