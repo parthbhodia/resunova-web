@@ -54,7 +54,7 @@ const cardStyle: React.CSSProperties = {
   borderRadius: "var(--radius-xl)",
   padding: "20px 22px",
 };
-const labelStyle: React.CSSProperties = { fontSize: 11.5, color: "var(--muted)", marginBottom: 5, display: "block" };
+const labelStyle: React.CSSProperties = { fontSize: 12, color: "var(--muted)", marginBottom: 5, display: "block" };
 const inputStyle: React.CSSProperties = {
   width: "100%",
   fontSize: 13,
@@ -222,7 +222,7 @@ export default function InsiderPanel({
           <button
             onClick={() => { setError(null); setAdding(true); }}
             style={{
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: 600,
               padding: "7px 13px",
               borderRadius: "var(--radius)",
@@ -249,7 +249,7 @@ export default function InsiderPanel({
           border: "1px solid color-mix(in srgb, var(--accent) 22%, transparent)",
         }}
       >
-        <div style={{ fontSize: 11.5, lineHeight: 1.5, color: "var(--muted)", marginBottom: company ? 10 : 0 }}>
+        <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", marginBottom: company ? 10 : 0 }}>
           A warm referral lifts your reply rate ~4×.{" "}
           {company
             ? <>Find alumni &amp; recruiters at {company} on LinkedIn, then add the ones you&apos;ll message.</>
@@ -345,7 +345,7 @@ export default function InsiderPanel({
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button
               onClick={() => { setAdding(false); setError(null); }}
-              style={{ fontSize: 12.5, padding: "8px 14px", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", cursor: "pointer" }}
+              style={{ fontSize: 13, padding: "8px 14px", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", cursor: "pointer" }}
             >
               Cancel
             </button>
@@ -353,7 +353,7 @@ export default function InsiderPanel({
               onClick={handleAdd}
               disabled={!form.contactName.trim() || saving}
               style={{
-                fontSize: 12.5,
+                fontSize: 13,
                 fontWeight: 600,
                 padding: "8px 16px",
                 borderRadius: "var(--radius)",
@@ -377,10 +377,10 @@ export default function InsiderPanel({
       {/* list */}
       <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
         {contacts === null && (
-          <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 0" }}>Loading…</div>
+          <div style={{ fontSize: 13, color: "var(--muted)", padding: "8px 0" }}>Loading…</div>
         )}
         {contacts !== null && sorted.length === 0 && !adding && (
-          <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 0", lineHeight: 1.6 }}>
+          <div style={{ fontSize: 13, color: "var(--muted)", padding: "8px 0", lineHeight: 1.6 }}>
             No contacts yet — use the LinkedIn searches above to find an alumnus, a former colleague,
             or a recruiter at {company || "the company"}, then add the ones you&apos;ll reach out to.
           </div>
@@ -417,7 +417,7 @@ export default function InsiderPanel({
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {c.contactName}
                 </span>
                 {c.contactUrl && (
@@ -431,7 +431,7 @@ export default function InsiderPanel({
                   </a>
                 )}
               </div>
-              <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {[c.contactTitle, REFERRAL_RELATIONSHIP_LABELS[c.relationship]].filter(Boolean).join(" · ")}
               </div>
             </div>
@@ -440,7 +440,7 @@ export default function InsiderPanel({
               disabled={pendingId === c.id}
               onChange={(e) => void handleStatus(c.id, e.target.value as ReferralStatus)}
               style={{
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: 600,
                 padding: "5px 6px",
                 borderRadius: "var(--radius)",

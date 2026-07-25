@@ -55,7 +55,7 @@ export function ApiErrorBanner({
                 margin: "10px 0 0",
                 paddingLeft: 20,
                 color: "var(--muted)",
-                fontSize: 12.5,
+                fontSize: 13,
               }}
             >
               {d.steps.map((step, i) => (

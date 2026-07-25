@@ -135,7 +135,7 @@ function SectionHeading({ children, style }: { children: React.ReactNode; style?
   return (
     <h2
       style={{
-        fontSize: 11.5,
+        fontSize: 12,
         fontWeight: 700,
         letterSpacing: "0.1em",
         textTransform: "uppercase",
@@ -155,7 +155,7 @@ function TagPill({ tag }: { tag: string }) {
   return (
     <span
       style={{
-        fontSize: 10.5,
+        fontSize: 11,
         fontWeight: 700,
         letterSpacing: "0.07em",
         textTransform: "uppercase",
@@ -244,7 +244,7 @@ function LedeCard({ post }: { post: BlogPostMeta }) {
       >
         {post.title}
       </h3>
-      <p style={{ fontSize: 14.5, color: "var(--muted)", lineHeight: 1.6, margin: 0, maxWidth: 720 }}>
+      <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6, margin: 0, maxWidth: 720 }}>
         {post.description}
       </p>
     </Link>
@@ -260,11 +260,11 @@ function ResearchCard({ post }: { post: BlogPostMeta }) {
       <Stat post={post} size={34} />
       <h3
         className="bx-title"
-        style={{ fontSize: 16.5, fontWeight: 700, letterSpacing: -0.2, lineHeight: 1.35, margin: "2px 0 8px" }}
+        style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.2, lineHeight: 1.35, margin: "2px 0 8px" }}
       >
         {post.title}
       </h3>
-      <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 16px" }}>
+      <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 16px" }}>
         {post.description}
       </p>
       {/* marginTop:auto pins the meta line to the bottom so every card in a row
@@ -295,7 +295,7 @@ function GuideRow({ post }: { post: BlogPostMeta }) {
       <h3 className="bx-title" style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.2, margin: "0 0 5px" }}>
         {post.title}
       </h3>
-      <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 8px", maxWidth: 720 }}>
+      <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 8px", maxWidth: 720 }}>
         {post.description}
       </p>
       <MetaLine post={post} />

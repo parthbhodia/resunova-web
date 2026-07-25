@@ -498,6 +498,19 @@ export default function ResumeLibrary({ onUseAsBase }: {
           border-radius: var(--radius-pill, 99px);
           flex-wrap: wrap;
         }
+        /* On a phone the pill bar wraps to two rows and stops reading as one
+           control. Keep it a single swipeable line instead. */
+        @media (max-width: 768px) {
+          .library-tabs {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            max-width: 100%;
+          }
+          .library-tabs::-webkit-scrollbar { height: 0; }
+          .library-tab { flex: 0 0 auto; }
+        }
         .library-tab {
           border: none;
           background: transparent;
@@ -666,7 +679,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                 >
                   My Résumés
                 </h1>
-                <p style={{ fontSize: 13.5, color: "var(--muted)", letterSpacing: "-0.02em", lineHeight: 1.55, margin: 0, maxWidth: 520 }}>
+                <p style={{ fontSize: 14, color: "var(--muted)", letterSpacing: "-0.02em", lineHeight: 1.55, margin: 0, maxWidth: 520 }}>
                   {loading || signedIn === null
                     ? "Loading…"
                     : signedIn
@@ -988,7 +1001,7 @@ function CreateNewCard({ onClick }: { onClick: () => void }) {
       <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.02em" }}>
         Create New Resume
       </span>
-      <span style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, maxWidth: 220 }}>
+      <span style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, maxWidth: 220 }}>
         Upload, start from scratch, or tailor for a specific job.
       </span>
       <span style={{ marginTop: 6, fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>Get Started →</span>
@@ -1023,7 +1036,7 @@ function EmptyLibrary({
       <h2 style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--text)", marginBottom: 8 }}>
         {hasAny ? "No matches" : signedIn ? "No résumés yet" : "Nothing to show yet"}
       </h2>
-      <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.6, maxWidth: 400, margin: "0 auto 20px" }}>
+      <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6, maxWidth: 400, margin: "0 auto 20px" }}>
         {hasAny
           ? `Nothing matches “${filter}”. Try another search or clear the filter.`
           : signedIn
@@ -1425,7 +1438,7 @@ function ResumeCard({
           {item.kind === "analyzed" && issues.length > 0 && (
             <div style={{ marginTop: 8, display: "grid", gap: 5 }}>
               {issues.map((issue, i) => (
-                <div key={`${issue}-${i}`} style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.35, display: "flex", gap: 6 }}>
+                <div key={`${issue}-${i}`} style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.35, display: "flex", gap: 6 }}>
                   <span style={{ color: "var(--amber)", fontWeight: 800 }}>•</span>
                   <span style={{ display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{issue}</span>
                 </div>

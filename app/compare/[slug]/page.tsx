@@ -248,7 +248,7 @@ export default async function ComparePage({
           </section>
 
           {c.footnotes.map((fn, i) => (
-            <p key={i} style={{ fontSize: 12.5, color: "var(--dim)", lineHeight: 1.6, marginTop: 12 }}>
+            <p key={i} style={{ fontSize: 13, color: "var(--dim)", lineHeight: 1.6, marginTop: 12 }}>
               <sup>†</sup> {fn}
             </p>
           ))}

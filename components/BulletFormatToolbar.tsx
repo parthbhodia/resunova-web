@@ -54,7 +54,7 @@ export function BulletFormatToolbar({
 
 const btnStyle: React.CSSProperties = {
   font: "inherit",
-  fontSize: 12.5,
+  fontSize: 13,
   minWidth: 26,
   height: 25,
   border: "none",

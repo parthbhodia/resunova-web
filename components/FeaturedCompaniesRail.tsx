@@ -66,7 +66,7 @@ export default function FeaturedCompaniesRail({
           <button
             type="button"
             onClick={() => onSelect(selected)}
-            style={{ fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+            style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
           >
             Clear ✕
           </button>
@@ -113,10 +113,10 @@ export default function FeaturedCompaniesRail({
                 {active && <span aria-hidden style={{ fontSize: 15, fontWeight: 700, color: "var(--accent)" }}>✓</span>}
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {c.company}
                 </div>
-                <div style={{ fontSize: 12.5, color: "var(--muted)", fontVariantNumeric: "tabular-nums", marginTop: 1 }}>
+                <div style={{ fontSize: 13, color: "var(--muted)", fontVariantNumeric: "tabular-nums", marginTop: 1 }}>
                   {c.activeCount.toLocaleString()} open roles
                 </div>
               </div>

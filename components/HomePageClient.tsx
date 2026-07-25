@@ -33,10 +33,11 @@ import { useIsDesktop } from "@/hooks/use-mobile";
 import ApplicationTracker from "@/components/ApplicationTracker";
 import CoverLetterBuilder from "@/components/CoverLetterBuilder";
 import HomeDashboard from "@/components/HomeDashboard";
+import AppShellSkeleton from "@/components/app-shell/AppShellSkeleton";
 
 export default function HomePageClient() {
   return (
-    <Suspense fallback={<ShellSkeleton />}>
+    <Suspense fallback={<AppShellSkeleton />}>
       <AppShell>
         <RouterView />
       </AppShell>
@@ -208,19 +209,6 @@ function RouterView() {
   );
 }
 
-function ShellSkeleton() {
-  return (
-    <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "var(--bg)",
-    }}>
-      <div style={{
-        width: 22, height: 22, border: "2px solid var(--surface2)", borderTopColor: "var(--accent)",
-        borderRadius: "50%", animation: "spin 0.8s linear infinite",
-      }} />
-    </div>
-  );
-}
 
 /**
  * Jobs routing/layout:
@@ -317,7 +305,7 @@ function JobsTabShell() {
             type="button"
             onClick={() => setTab(t.key)}
             style={{
-              fontSize: 13.5,
+              fontSize: 14,
               fontWeight: tab === t.key ? 600 : 400,
               padding: "7px 14px",
               borderRadius: "8px 8px 0 0",

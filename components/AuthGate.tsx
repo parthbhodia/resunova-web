@@ -10,6 +10,7 @@ import {
 } from "@/lib/authSignOut";
 import { urlRequestsPublicAppView } from "@/lib/anonScan";
 import LandingPage from "./LandingPage";
+import AppShellSkeleton from "./app-shell/AppShellSkeleton";
 
 // Routes that intentionally bypass auth — design-system / preview pages.
 const PUBLIC_ROUTES = new Set<string>([
@@ -130,13 +131,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  if (!checked) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg)" }}>
-        <div style={{ width: 20, height: 20, border: "2px solid var(--surface2)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-      </div>
-    );
-  }
+  // Session still resolving on a non-home route: draw the shell that is about
+  // to appear rather than a spinner on an empty page.
+  if (!checked) return <AppShellSkeleton />;
 
   if (!session) return <LandingPage />;
 

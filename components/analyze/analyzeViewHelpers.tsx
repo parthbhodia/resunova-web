@@ -97,7 +97,7 @@ export const CATEGORY_COACH: Partial<Record<keyof AnalysisResult["categoryScores
 };
 
 export const COACH_BODY_STYLE: React.CSSProperties = {
-  fontSize: 12.5,
+  fontSize: 13,
   lineHeight: 1.55,
   color: "var(--muted)",
   margin: 0,

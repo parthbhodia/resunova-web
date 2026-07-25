@@ -378,7 +378,7 @@ function CopyButton({ text }: { text: string }) {
         fontSize: 10.5,
         fontWeight: 600,
         cursor: "pointer",
-        transition: "all 0.15s",
+        transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
         fontFamily: "inherit",
         letterSpacing: 0.2,
         flexShrink: 0,

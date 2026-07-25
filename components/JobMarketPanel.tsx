@@ -83,9 +83,9 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
     <div style={{ fontFamily: "inherit" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Job Market — live hiring demand</h2>
-        <span style={{ fontSize: 11.5, color: "var(--dim)" }}>{fmtInt(k.employers)} employers · {k.sources} sources</span>
+        <span style={{ fontSize: 12, color: "var(--dim)" }}>{fmtInt(k.employers)} employers · {k.sources} sources</span>
       </div>
-      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 18px", maxWidth: "68ch" }}>
+      <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 18px", maxWidth: "68ch" }}>
         What U.S. employers are hiring for right now, from Resunova&rsquo;s active job-posting corpus — real currently-open postings, not projections.
       </p>
 
@@ -125,7 +125,7 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
 
         {/* Salary bands */}
         <section style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "17px 17px 15px", background: "var(--surface)", gridColumn: "1 / -1" }}>
-          <div style={{ fontWeight: 660, fontSize: 14.5 }}>Pay bands by family</div>
+          <div style={{ fontWeight: 660, fontSize: 14 }}>Pay bands by family</div>
           <div style={{ fontSize: 12, color: "var(--muted)", margin: "4px 0 16px" }}>
             Annualized. <b>Bar = 25th→75th percentile</b>, dot = median. From the {pct(k.salary_disclosed, k.active_us)}% of postings that disclose pay; hourly annualized ×2,080.
           </div>
@@ -133,12 +133,12 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
             {data.salary.map(s => (
               <div key={s.family} style={{ display: "grid", gridTemplateColumns: "116px 1fr", alignItems: "center", gap: 12 }}
                 title={`${titleize(s.family)} — median ${money(s.median)} · ${money(s.p25)}–${money(s.p75)} (n=${fmtInt(s.n)})`}>
-                <div style={{ fontSize: 12.5, color: "var(--muted)", textAlign: "right" }}>{titleize(s.family)}</div>
+                <div style={{ fontSize: 13, color: "var(--muted)", textAlign: "right" }}>{titleize(s.family)}</div>
                 <div style={{ position: "relative", height: 20 }}>
                   <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 2, background: "var(--surface2)", transform: "translateY(-50%)", borderRadius: 2 }} />
                   <div style={{ position: "absolute", top: "50%", height: 8, borderRadius: 5, background: "var(--accent)", opacity: 0.28, transform: "translateY(-50%)", left: `${(s.p25 / salMax) * 100}%`, width: `${((s.p75 - s.p25) / salMax) * 100}%` }} />
                   <div style={{ position: "absolute", top: "50%", width: 11, height: 11, borderRadius: "50%", background: "var(--accent)", border: "2px solid var(--surface)", transform: "translate(-50%,-50%)", left: `${(s.median / salMax) * 100}%` }} />
-                  <div style={{ position: "absolute", top: "50%", transform: "translate(8px,-50%)", left: `${(s.p75 / salMax) * 100}%`, fontSize: 11.5, fontWeight: 650, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{money(s.median)}</div>
+                  <div style={{ position: "absolute", top: "50%", transform: "translate(8px,-50%)", left: `${(s.p75 / salMax) * 100}%`, fontSize: 12, fontWeight: 650, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{money(s.median)}</div>
                 </div>
               </div>
             ))}
@@ -157,7 +157,7 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 13 }}>
             {data.work_model.map(w => (
-              <span key={w.k} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--muted)" }}>
+              <span key={w.k} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--muted)" }}>
                 <span style={{ width: 11, height: 11, borderRadius: 3, background: wmColor[w.k] || "var(--accent)" }} />
                 {titleize(w.k)} <b style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{fmtInt(w.n)}</b>
               </span>
@@ -172,7 +172,7 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
 
         {/* Trend */}
         <section style={{ border: "1px solid var(--border)", borderRadius: 14, padding: "17px 17px 15px", background: "var(--surface)", gridColumn: "1 / -1" }}>
-          <div style={{ fontWeight: 660, fontSize: 14.5 }}>Active postings by week posted</div>
+          <div style={{ fontWeight: 660, fontSize: 14 }}>Active postings by week posted</div>
           <div style={{ fontSize: 12, color: "var(--muted)", margin: "4px 0 12px", maxWidth: "72ch" }}>
             Freshness of the live corpus — <b>not</b> a market hiring trend. The ramp mostly reflects that active postings skew recent and that crawl coverage grew; older postings get retired.
           </div>

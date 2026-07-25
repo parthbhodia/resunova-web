@@ -189,7 +189,7 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
 
   const editButtonStyle: React.CSSProperties = {
     background: "transparent", border: "1px solid transparent", color: "var(--muted)", cursor: "pointer",
-    display: "flex", alignItems: "center", padding: 6, borderRadius: 8, transition: "all 0.2s"
+    display: "flex", alignItems: "center", padding: 6, borderRadius: 8, transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s"
   };
 
   return (

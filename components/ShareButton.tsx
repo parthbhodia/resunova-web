@@ -220,7 +220,7 @@ export default function ShareButton({ folder, pdfUrl, userId, ensureLibraryRow }
               readOnly value={shareUrl}
               onFocus={e => e.currentTarget.select()}
               style={{
-                flex: 1, fontSize: 11.5, color: "var(--text)",
+                flex: 1, fontSize: 12, color: "var(--text)",
                 background: "transparent", border: "none", outline: "none",
                 fontFamily: "monospace", letterSpacing: -0.2,
               }}
@@ -228,7 +228,7 @@ export default function ShareButton({ folder, pdfUrl, userId, ensureLibraryRow }
             <button
               onClick={onCopy}
               style={{
-                fontSize: 10.5, padding: "3px 9px",
+                fontSize: 11, padding: "3px 9px",
                 background: copied ? "var(--green)" : "var(--accent)",
                 color: "#fff", border: "none", borderRadius: 5,
                 cursor: "pointer", fontFamily: "inherit",

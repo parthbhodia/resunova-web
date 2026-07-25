@@ -10,6 +10,11 @@
  *   DELETE /api/applications/{id}
  *
  * All mutations are optimistic with rollback on error.
+ *
+ * The tracker lives under `RouterView`, which unmounts it on every `?view=`
+ * switch — so the loaded list is held in the shared client cache
+ * (`lib/clientCache`) and re-painted instantly on the way back, with a silent
+ * refresh behind it. The skeleton is for cold loads only.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useSignInDialog } from "@/components/SignInDialog";
+import { readCache, writeCache, invalidateCache, updateCache } from "@/lib/clientCache";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -56,6 +62,22 @@ type TrackerState =
   | { status: "error"; message: string }
   | { status: "unauthenticated" }
   | { status: "ready"; applications: Application[]; stats: Stats };
+
+// ---------------------------------------------------------------------------
+// Cache
+// ---------------------------------------------------------------------------
+
+/** One entry, stamped with the owner so a user switch can't paint stale rows. */
+type TrackerCache = { userId: string; applications: Application[]; stats: Stats };
+
+const TRACKER_CACHE_KEY = "applications:list";
+/** Long enough to make view-switching feel instant, short enough to stay honest. */
+const TRACKER_TTL_MS = 120_000;
+
+/** Called on sign-out so the next account starts clean. */
+export function clearApplicationTrackerCache(): void {
+  invalidateCache(TRACKER_CACHE_KEY);
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -114,7 +136,7 @@ function recomputeStats(applications: Application[]): Stats {
 
 function chipStyle(active: boolean): React.CSSProperties {
   return {
-    fontSize: 12.5,
+    fontSize: 13,
     padding: "5px 12px",
     borderRadius: 999,
     border: "1px solid " + (active ? "var(--accent)" : "var(--surface2)"),
@@ -193,7 +215,7 @@ function AddApplicationForm({ onAdd, onCancel }: AddFormProps) {
   };
 
   const labelStyle: React.CSSProperties = {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: 600,
     color: "var(--muted)",
     display: "block",
@@ -271,7 +293,7 @@ function AddApplicationForm({ onAdd, onCancel }: AddFormProps) {
             </div>
           </div>
           {error && (
-            <p style={{ fontSize: 12.5, color: "var(--red-ink, #dc2626)", margin: "10px 0 0" }}>{error}</p>
+            <p style={{ fontSize: 13, color: "var(--red-ink, #dc2626)", margin: "10px 0 0" }}>{error}</p>
           )}
           <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <Button type="submit" size="sm" disabled={saving}>
@@ -330,7 +352,7 @@ function AppCard({ app, onStatusChange, onNotesChange, onDelete }: AppCardProps)
 
   const textareaStyle: React.CSSProperties = {
     width: "100%",
-    fontSize: 12.5,
+    fontSize: 13,
     padding: "6px 9px",
     borderRadius: 7,
     border: "1px solid var(--surface2)",
@@ -357,7 +379,7 @@ function AppCard({ app, onStatusChange, onNotesChange, onDelete }: AppCardProps)
               {app.title && (
                 <>
                   <span style={{ color: "var(--muted)", fontSize: 13 }}>·</span>
-                  <span style={{ fontSize: 13.5, color: "var(--text)" }}>{app.title}</span>
+                  <span style={{ fontSize: 14, color: "var(--text)" }}>{app.title}</span>
                 </>
               )}
               {app.url && (
@@ -365,7 +387,7 @@ function AppCard({ app, onStatusChange, onNotesChange, onDelete }: AppCardProps)
                   href={app.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ fontSize: 11.5, color: "var(--accent)", textDecoration: "none" }}
+                  style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none" }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   ↗ View posting
@@ -502,29 +524,60 @@ function StatsStrip({ stats }: { stats: Stats }) {
 
 export default function ApplicationTracker() {
   const { openSignIn } = useSignInDialog();
-  const [state, setState] = useState<TrackerState>({ status: "loading" });
+  // Paint the last-known list immediately; the refresh below replaces it.
+  const [state, setState] = useState<TrackerState>(() => {
+    const hit = readCache<TrackerCache>(TRACKER_CACHE_KEY, TRACKER_TTL_MS);
+    return hit
+      ? { status: "ready", applications: hit.data.applications, stats: hit.data.stats }
+      : { status: "loading" };
+  });
   const [showAddForm, setShowAddForm] = useState(false);
   const [activeGroup, setActiveGroup] = useState<AppStatus | "all">("all");
 
   // ------------------------------------------------------------------
   // Load
   // ------------------------------------------------------------------
-  const loadApplications = useCallback(async () => {
-    setState({ status: "loading" });
+
+  /** Mirror the current list into the cache so the next mount paints instantly. */
+  const cacheApplications = useCallback((userId: string, applications: Application[], stats: Stats) => {
+    writeCache<TrackerCache>(TRACKER_CACHE_KEY, { userId, applications, stats });
+  }, []);
+
+  /**
+   * Apply an optimistic list change to BOTH the view and the cache, so
+   * switching away and back shows the post-mutation state rather than
+   * resurrecting the row the user just changed.
+   */
+  const commit = useCallback((applications: Application[], stats: Stats) => {
+    setState({ status: "ready", applications, stats });
+    updateCache<TrackerCache>(TRACKER_CACHE_KEY, (prev) => ({ ...prev, applications, stats }));
+  }, []);
+
+  const loadApplications = useCallback(async (quiet = false) => {
+    // `quiet` = a refresh over already-painted rows: never flash a skeleton.
+    if (!quiet) setState((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
     try {
       const supabase = getSupabaseClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
+        invalidateCache(TRACKER_CACHE_KEY);
         setState({ status: "unauthenticated" });
         return;
+      }
+      // A cached list belonging to a different account must never be shown.
+      const cached = readCache<TrackerCache>(TRACKER_CACHE_KEY, TRACKER_TTL_MS);
+      if (cached && cached.data.userId !== session.user.id) {
+        invalidateCache(TRACKER_CACHE_KEY);
+        setState({ status: "loading" });
       }
       const headers: Record<string, string> = {
         Authorization: `Bearer ${session.access_token}`,
       };
       const resp = await fetch(apiUrl("/api/applications"), { headers });
       if (resp.status === 401) {
+        invalidateCache(TRACKER_CACHE_KEY);
         setState({ status: "unauthenticated" });
         return;
       }
@@ -535,17 +588,22 @@ export default function ApplicationTracker() {
       const data = await resp.json();
       const applications: Application[] = Array.isArray(data?.applications) ? data.applications : [];
       const stats: Stats = data?.stats ?? recomputeStats(applications);
+      cacheApplications(session.user.id, applications, stats);
       setState({ status: "ready", applications, stats });
     } catch (err) {
-      setState({
-        status: "error",
-        message: err instanceof Error ? err.message : "Failed to load applications",
-      });
+      // A failed refresh over painted rows keeps them; only a cold failure
+      // is allowed to replace the view with an error card.
+      setState((prev) =>
+        prev.status === "ready"
+          ? prev
+          : { status: "error", message: err instanceof Error ? err.message : "Failed to load applications" },
+      );
     }
-  }, []);
+  }, [cacheApplications]);
 
   useEffect(() => {
-    void loadApplications();
+    const hasPainted = readCache<TrackerCache>(TRACKER_CACHE_KEY, TRACKER_TTL_MS) != null;
+    void loadApplications(hasPainted);
   }, [loadApplications]);
 
   // ------------------------------------------------------------------
@@ -561,7 +619,7 @@ export default function ApplicationTracker() {
       a.id === id ? { ...a, status: newStatus, updatedAt: new Date().toISOString() } : a
     );
     const newStats = recomputeStats(updated);
-    setState({ status: "ready", applications: updated, stats: newStats });
+    commit(updated, newStats);
 
     try {
       const headers = await bearerHeaders();
@@ -573,9 +631,9 @@ export default function ApplicationTracker() {
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     } catch {
       // Rollback
-      setState({ status: "ready", applications: prev, stats: recomputeStats(prev) });
+      commit(prev, recomputeStats(prev));
     }
-  }, [state]);
+  }, [state, commit]);
 
   const handleNotesChange = useCallback(async (id: string, notes: string) => {
     if (state.status !== "ready") return;
@@ -584,7 +642,7 @@ export default function ApplicationTracker() {
     const updated = prev.map((a) =>
       a.id === id ? { ...a, notes: notes || null, updatedAt: new Date().toISOString() } : a
     );
-    setState({ status: "ready", applications: updated, stats: state.stats });
+    commit(updated, state.stats);
 
     try {
       const headers = await bearerHeaders();
@@ -595,9 +653,9 @@ export default function ApplicationTracker() {
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     } catch {
-      setState({ status: "ready", applications: prev, stats: state.stats });
+      commit(prev, state.stats);
     }
-  }, [state]);
+  }, [state, commit]);
 
   const handleDelete = useCallback(async (id: string) => {
     if (state.status !== "ready") return;
@@ -606,7 +664,7 @@ export default function ApplicationTracker() {
     const prev = state.applications;
     const updated = prev.filter((a) => a.id !== id);
     const newStats = recomputeStats(updated);
-    setState({ status: "ready", applications: updated, stats: newStats });
+    commit(updated, newStats);
 
     try {
       const headers = await bearerHeaders();
@@ -616,21 +674,21 @@ export default function ApplicationTracker() {
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     } catch {
-      setState({ status: "ready", applications: prev, stats: recomputeStats(prev) });
+      commit(prev, recomputeStats(prev));
     }
-  }, [state]);
+  }, [state, commit]);
 
   const handleAdd = useCallback((app: Application) => {
     if (state.status !== "ready") {
       // Shouldn't happen, but handle gracefully
-      setState({ status: "ready", applications: [app], stats: recomputeStats([app]) });
+      commit([app], recomputeStats([app]));
       setShowAddForm(false);
       return;
     }
     const updated = [app, ...state.applications];
-    setState({ status: "ready", applications: updated, stats: recomputeStats(updated) });
+    commit(updated, recomputeStats(updated));
     setShowAddForm(false);
-  }, [state]);
+  }, [state, commit]);
 
   // ------------------------------------------------------------------
   // Render
@@ -654,7 +712,7 @@ export default function ApplicationTracker() {
         <Card>
           <CardContent style={{ padding: "40px 28px", textAlign: "center" }}>
             <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: 0 }}>Sign in to use the tracker</h2>
-            <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 18px", maxWidth: 420 }}>
+            <p style={{ fontSize: 14, color: "var(--muted)", margin: "10px auto 18px", maxWidth: 420 }}>
               Your application tracker is saved to your account — sign in to get started.
             </p>
             <Button onClick={() => openSignIn({ title: "Sign in to use the tracker", reason: "Your application tracker is saved to your account — sign in to get started." })}>
@@ -671,7 +729,7 @@ export default function ApplicationTracker() {
       <div style={{ maxWidth: 880, margin: "0 auto", padding: "28px 20px 64px", width: "100%" }}>
         <Card>
           <CardContent style={{ padding: "32px 28px", textAlign: "center" }}>
-            <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "0 0 14px" }}>
+            <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 0 14px" }}>
               Couldn&apos;t load applications: {state.message}
             </p>
             <Button variant="outline" onClick={() => void loadApplications()}>
@@ -741,9 +799,9 @@ export default function ApplicationTracker() {
         />
       )}
 
-      {/* Group filter chips */}
+      {/* Group filter chips — one swipeable line on phones (.rn-scroll-rail). */}
       {applications.length > 0 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <div className="rn-scroll-rail" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
           {groupChips.map((g) => {
             const count =
               g === "all"
@@ -788,7 +846,7 @@ export default function ApplicationTracker() {
             <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: "0 0 8px" }}>
               No applications tracked yet
             </h2>
-            <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "0 auto 18px", maxWidth: 440 }}>
+            <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 auto 18px", maxWidth: 440 }}>
               Apply to jobs from the Recommended tab and they&apos;ll appear here, or add one manually.
             </p>
             <Button size="sm" onClick={() => setShowAddForm(true)}>
@@ -803,7 +861,7 @@ export default function ApplicationTracker() {
         <div key={groupStatus} style={{ marginBottom: 28 }}>
           <div
             style={{
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: 700,
               color: "var(--muted)",
               textTransform: "uppercase",

@@ -51,7 +51,7 @@ export default function CheckoutReturnNotice() {
       <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", margin: "0 0 4px" }}>
         ✓ Payment received — welcome to Pro
       </p>
-      <p style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 10px" }}>
+      <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 10px" }}>
         Your daily limits are being lifted now (this takes a few seconds). You can
         check your plan any time in{" "}
         <Link href="/?view=settings" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>

@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 import { updateVersion, type ResumeVersion, type ResumeVersionGroup, type VersionScan } from "@/lib/resumeVersions";
 import { VersionSwitcher } from "./VersionSwitcher";
+import { Tip } from "@/components/ui/tip";
 
 /* clone so edits never mutate the prop */
 function cloneStructured(s: StructuredResume | null): StructuredResume {
@@ -213,12 +214,12 @@ export function VersionEditor({
         <VersionSwitcher groups={groups} activeId={version.id} onSelect={handlers.onSwitch} onNewVersion={handlers.onNewVersion} />
         <span style={{ fontSize: 12, color: "var(--dim)", minWidth: 58, fontVariantNumeric: "tabular-nums" }}>{statusLabel}</span>
         {scoreMsg ? (
-          <span style={{ fontSize: 12.5, color: "var(--accent)", fontWeight: 560, display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, color: "var(--accent)", fontWeight: 560, display: "inline-flex", alignItems: "center", gap: 8 }}>
             {scoreMsg}
             {reportId && handlers.onViewReport ? (
               <button
                 onClick={() => handlers.onViewReport?.(reportId)}
-                style={{ border: "none", background: "none", color: "var(--accent)", cursor: "pointer", fontWeight: 600, textDecoration: "underline", fontSize: 12.5 }}
+                style={{ border: "none", background: "none", color: "var(--accent)", cursor: "pointer", fontWeight: 600, textDecoration: "underline", fontSize: 13 }}
               >
                 View full report →
               </button>
@@ -256,7 +257,7 @@ export function VersionEditor({
           onCommit={(v) => patch((d) => { d.headline = v; })}
           style={{ display: "block", fontSize: 14, color: "var(--muted)", marginTop: 2 }}
         />
-        <div style={{ fontSize: 12.5, color: "var(--dim)", marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontSize: 13, color: "var(--dim)", marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
           {(["email", "phone", "location", "linkedin"] as const).map((k, i) => (
             <span key={k} style={{ display: "inline-flex", gap: 8 }}>
               {i > 0 && contact.length > 1 ? <span aria-hidden>·</span> : null}
@@ -277,7 +278,7 @@ export function VersionEditor({
               value={draft.summary}
               placeholder="A short professional summary…"
               onCommit={(v) => patch((d) => { d.summary = v; })}
-              style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--text)" }}
+              style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text)" }}
             />
           </>
         ) : null}
@@ -285,7 +286,7 @@ export function VersionEditor({
         {draft.experience.length ? <div style={sectionTitle}>Experience</div> : null}
         {draft.experience.map((exp, ei) => (
           <div key={ei} style={{ marginBottom: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13.5 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}>
               <span style={{ fontWeight: 600 }}>
                 <Editable value={exp.role} placeholder="Role" onCommit={(v) => patch((d) => { d.experience[ei].role = v; })} />
                 {" · "}
@@ -323,7 +324,7 @@ export function VersionEditor({
         {draft.projects.length ? <div style={sectionTitle}>Projects</div> : null}
         {draft.projects.map((p, pi) => (
           <div key={pi} style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>
               <Editable value={p.name} placeholder="Project" onCommit={(v) => patch((d) => { d.projects[pi].name = v; })} />
               {p.tech ? (
                 <span style={{ color: "var(--dim)", fontWeight: 400 }}>
@@ -352,7 +353,7 @@ export function VersionEditor({
 
         {draft.education.length ? <div style={sectionTitle}>Education</div> : null}
         {draft.education.map((ed, edi) => (
-          <div key={edi} style={{ fontSize: 13.5, display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
+          <div key={edi} style={{ fontSize: 14, display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
             <span>
               <span style={{ fontWeight: 600 }}>
                 <Editable value={ed.institution} placeholder="Institution" onCommit={(v) => patch((d) => { d.education[edi].institution = v; })} />
@@ -401,7 +402,7 @@ export function VersionEditor({
 }
 
 const btn: CSSProperties = {
-  fontSize: 12.5,
+  fontSize: 13,
   color: "var(--text)",
   border: "1px solid var(--border)",
   background: "var(--bg)",
@@ -451,9 +452,9 @@ function BulletCtls({
 }) {
   return (
     <span className="ve-bullet-ctls" style={{ display: "inline-flex", gap: 2, marginLeft: 8, verticalAlign: "middle" }}>
-      <button type="button" style={ctlBtn} title="Move up" aria-label="Move bullet up" onClick={onUp}>↑</button>
-      <button type="button" style={ctlBtn} title="Move down" aria-label="Move bullet down" onClick={onDown}>↓</button>
-      <button type="button" style={{ ...ctlBtn, color: "var(--red)" }} title="Remove" aria-label="Remove bullet" onClick={onRemove}>✕</button>
+      <Tip label="Move bullet up"><button type="button" style={ctlBtn} onClick={onUp}>↑</button></Tip>
+      <Tip label="Move bullet down"><button type="button" style={ctlBtn} onClick={onDown}>↓</button></Tip>
+      <Tip label="Remove bullet"><button type="button" style={{ ...ctlBtn, color: "var(--red)" }} onClick={onRemove}>✕</button></Tip>
     </span>
   );
 }
@@ -496,7 +497,7 @@ function ScanHistory({
         ) : null}
       </div>
       {scans.length === 0 ? (
-        <p style={{ fontSize: 12.5, color: "var(--dim)", margin: "6px 0 0", lineHeight: 1.5 }}>
+        <p style={{ fontSize: 13, color: "var(--dim)", margin: "6px 0 0", lineHeight: 1.5 }}>
           No scans yet. Use <strong style={{ color: "var(--muted)" }}>Scan &amp; score</strong> above to
           check this résumé against the recruiter rubric — each scan is saved here so you can track
           the score over time.
@@ -527,7 +528,7 @@ function ScanHistory({
               {onViewReport ? (
                 <button
                   onClick={() => onViewReport(s.id)}
-                  style={{ border: "none", background: "none", color: "var(--accent)", cursor: "pointer", fontWeight: 600, fontSize: 12.5, textDecoration: "underline", whiteSpace: "nowrap" }}
+                  style={{ border: "none", background: "none", color: "var(--accent)", cursor: "pointer", fontWeight: 600, fontSize: 13, textDecoration: "underline", whiteSpace: "nowrap" }}
                 >
                   View report →
                 </button>

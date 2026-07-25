@@ -41,7 +41,7 @@ export function JobTopMatchesCard({
   return (
     <div style={CARD}>
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>Your top matches</div>
-      <p style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5, margin: "0 0 12px" }}>
+      <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, margin: "0 0 12px" }}>
         Best résumé matches across your current role, country, and work filters.
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -62,11 +62,11 @@ export function JobTopMatchesCard({
                 title={`Open ${job.title} at ${job.company}`}
                 style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", padding: "7px 8px", borderRadius: 9, border: "1px solid var(--surface2)", background: "var(--surface2)", cursor: "pointer", fontFamily: "inherit" }}
               >
-                <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 700, background: colors.bg, color: colors.fg }}>
+                <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, background: colors.bg, color: colors.fg }}>
                   {score}
                 </span>
                 <span style={{ minWidth: 0, flex: 1 }}>
-                  <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.title}</span>
+                  <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.title}</span>
                   <span style={{ display: "block", fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.company}</span>
                 </span>
               </button>

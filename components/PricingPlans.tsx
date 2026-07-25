@@ -46,7 +46,7 @@ function FeatureList({ items }: { items: string[] }) {
   return (
     <ul style={{ listStyle: "none", padding: 0, margin: "0 0 22px", display: "flex", flexDirection: "column", gap: 10 }}>
       {items.map((f) => (
-        <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 13.5, lineHeight: 1.5, color: "var(--text)" }}>
+        <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 14, lineHeight: 1.5, color: "var(--text)" }}>
           <span style={{ color: "var(--green-ink)", marginTop: 2, flexShrink: 0 }}>{CheckIcon}</span>
           {f}
         </li>
@@ -123,7 +123,7 @@ export default function PricingPlans() {
         <section style={cardStyle} aria-label="Free plan">
           <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px" }}>Free</h2>
           <p style={{ fontSize: 30, fontWeight: 800, letterSpacing: -1, margin: "0 0 2px" }}>$0</p>
-          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 18px" }}>forever</p>
+          <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 18px" }}>forever</p>
           <FeatureList items={FREE_FEATURES} />
           <Button variant="outline" className="w-full mt-auto" onClick={() => router.push("/")}>
             Start scanning free
@@ -134,12 +134,12 @@ export default function PricingPlans() {
         <section style={{ ...cardStyle, border: "1.5px solid var(--accent)" }} aria-label="Pro Monthly plan">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
             <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{PLAN_PRICE_LABELS.pro_monthly.title}</h2>
-            <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent-foreground, #fff)", background: "var(--accent)", borderRadius: 999, padding: "3px 9px" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent-foreground, #fff)", background: "var(--accent)", borderRadius: 999, padding: "3px 9px" }}>
               Popular
             </span>
           </div>
           <p style={{ fontSize: 30, fontWeight: 800, letterSpacing: -1, margin: "0 0 2px" }}>{PLAN_PRICE_LABELS.pro_monthly.price}</p>
-          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 18px" }}>{PLAN_PRICE_LABELS.pro_monthly.cadence}</p>
+          <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 18px" }}>{PLAN_PRICE_LABELS.pro_monthly.cadence}</p>
           <FeatureList items={PRO_FEATURES} />
           <Button className="w-full mt-auto" onClick={() => startCheckout("pro_monthly")} disabled={busyKey !== null}>
             {busyKey === "pro_monthly" ? "Opening checkout…" : "Upgrade to Pro"}
@@ -150,7 +150,7 @@ export default function PricingPlans() {
         <section style={cardStyle} aria-label="Pro Quarterly plan">
           <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px" }}>{PLAN_PRICE_LABELS.pro_quarterly.title}</h2>
           <p style={{ fontSize: 30, fontWeight: 800, letterSpacing: -1, margin: "0 0 2px" }}>{PLAN_PRICE_LABELS.pro_quarterly.price}</p>
-          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 18px" }}>
+          <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 18px" }}>
             {PLAN_PRICE_LABELS.pro_quarterly.cadence}
             {PLAN_PRICE_LABELS.pro_quarterly.note ? ` · ${PLAN_PRICE_LABELS.pro_quarterly.note}` : ""}
           </p>

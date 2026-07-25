@@ -109,7 +109,7 @@ export default function SaveToProfilePrompt() {
           </div>
           <Link
             href="/profile"
-            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", textDecoration: "none", whiteSpace: "nowrap" }}
+            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 600, color: "var(--accent)", textDecoration: "none", whiteSpace: "nowrap" }}
           >
             View Profile <ArrowRight size={13} />
           </Link>
@@ -132,7 +132,7 @@ export default function SaveToProfilePrompt() {
               border: "none",
               background: "var(--accent)",
               color: "#fff",
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: 600,
               cursor: status === "saving" ? "default" : "pointer",
               opacity: status === "saving" ? 0.65 : 1,

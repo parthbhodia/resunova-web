@@ -50,7 +50,7 @@ export function KeywordsSection({
             flexWrap: "wrap",
           }}
         >
-          <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--text)", flex: 1 }}>{kw}</span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", flex: 1 }}>{kw}</span>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {onFixKeyword && !isAddressed && (
@@ -64,7 +64,7 @@ export function KeywordsSection({
                   border: "1px solid rgba(99,102,241,0.4)",
                   background: isFixing ? "rgba(99,102,241,0.15)" : "rgba(99,102,241,0.08)",
                   color: "#818cf8",
-                  fontSize: 11.5, fontWeight: 600, fontFamily: "inherit",
+                  fontSize: 12, fontWeight: 600, fontFamily: "inherit",
                   cursor: (isFixing || !!fixingKeyword) ? "not-allowed" : "pointer",
                   opacity: (fixingKeyword && !isFixing) ? 0.5 : 1,
                   whiteSpace: "nowrap",

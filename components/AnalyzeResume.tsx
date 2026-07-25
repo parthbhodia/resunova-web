@@ -52,6 +52,7 @@ import SaveToProfilePrompt from "./analyze/SaveToProfilePrompt";
 import AnalyzeImprovementPlan from "./analyze/AnalyzeImprovementPlan";
 import { useAnalyzeSession } from "./analyze/useAnalyzeSession";
 import { useAnalyzeLoaderProgress } from "./analyze/useAnalyzeLoaderProgress";
+import { Tip } from "@/components/ui/tip";
 
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -603,7 +604,7 @@ export default function AnalyzeResume() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontWeight: 600,
                   color: "var(--text)",
                   overflow: "hidden",
@@ -636,7 +637,7 @@ export default function AnalyzeResume() {
                     {rec.scoreSource === "estimate" && (
                       <span
                         title="Estimated score from applied edits (not a fresh LLM re-score)"
-                        style={{ fontSize: 9.5, color: "var(--dim)", fontWeight: 500, fontStyle: "italic" }}
+                        style={{ fontSize: 10, color: "var(--dim)", fontWeight: 500, fontStyle: "italic" }}
                       >
                         est
                       </span>
@@ -661,11 +662,9 @@ export default function AnalyzeResume() {
               </div>
             </div>
           </button>
-          <button
+          <Tip label="Remove analysis"><button
             type="button"
             onClick={() => deleteRecord(rec.id)}
-            title="Remove"
-            aria-label="Remove analysis"
             style={{
               width: 22,
               height: 22,
@@ -693,7 +692,7 @@ export default function AnalyzeResume() {
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
               <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
-          </button>
+          </button></Tip>
         </div>
       );
 
@@ -722,7 +721,7 @@ export default function AnalyzeResume() {
               <span
                 style={{
                   flex: 1,
-                  fontSize: 11.5,
+                  fontSize: 12,
                   fontWeight: 700,
                   color: "var(--text)",
                   overflow: "hidden",
@@ -768,7 +767,7 @@ export default function AnalyzeResume() {
                     background: "none",
                     border: "none",
                     color: "var(--dim)",
-                    fontSize: 10.5,
+                    fontSize: 11,
                     fontWeight: 600,
                     cursor: "pointer",
                     fontFamily: "inherit",
@@ -1437,7 +1436,7 @@ export default function AnalyzeResume() {
             border: "1px solid rgba(148,163,184,0.32)",
             boxShadow: "0 14px 30px rgba(2,6,23,0.35)",
             color: "#f8fafc",
-            fontSize: 12.5,
+            fontSize: 13,
             lineHeight: 1.45,
             letterSpacing: -0.15,
           }}
@@ -1757,11 +1756,10 @@ export default function AnalyzeResume() {
             Improvement Plan
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button
+            <Tip label="Hide improvement plan for more space"><button
               type="button"
               className="az-desktop-sidebar-toggle"
               onClick={() => setImprovementPlanVisible(false)}
-              title="Hide improvement plan for more space"
               style={{
                 width: 24, height: 24, borderRadius: 6,
                 border: "none", background: "var(--surface2)",
@@ -1774,11 +1772,10 @@ export default function AnalyzeResume() {
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
                 <path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            </button>
+            </button></Tip>
             {/* Mobile: close overlay */}
-            <button
+            <Tip label="Close panel"><button
               onClick={() => setHistoryOpen(false)}
-              title="Close panel"
               className="az-mobile-only"
               style={{
                 width: 24, height: 24, borderRadius: 6,
@@ -1792,7 +1789,7 @@ export default function AnalyzeResume() {
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
-            </button>
+            </button></Tip>
           </div>
         </div>
         <div className="az-sidebar-inner">
@@ -1985,7 +1982,7 @@ export default function AnalyzeResume() {
                 {result.overallScore}
                 <span style={{ fontSize: 11, fontWeight: 500, color: "var(--dim)" }}>/100</span>
               </span>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: scoreColor(result.overallScore) }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: scoreColor(result.overallScore) }}>
                 {scoreLabel(result.overallScore)}
               </span>
               <span style={{ fontSize: 11, color: "var(--muted)" }}>· Resume score</span>
@@ -2248,7 +2245,7 @@ export default function AnalyzeResume() {
                 display: "inline-flex", alignItems: "center", gap: 6,
                 padding: "7px 14px", borderRadius: 8, border: "1px solid var(--border)",
                 background: "var(--surface2)", cursor: "pointer", fontFamily: "inherit",
-                fontSize: 12.5, fontWeight: 500, color: "var(--muted)", width: "fit-content",
+                fontSize: 13, fontWeight: 500, color: "var(--muted)", width: "fit-content",
                 transition: "background var(--transition)",
               }}
               onMouseEnter={e => { e.currentTarget.style.background = "var(--surface3)"; }}
@@ -2310,7 +2307,7 @@ export default function AnalyzeResume() {
                 <div style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>
                   {activeCategoryLabel}
                 </div>
-                <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.7, margin: 0 }}>
+                <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.7, margin: 0 }}>
                   {activeCategory === "summary"
                     ? "Recruiters skim the summary first. Aim for 25-75 words leading with role + years + domain, with specifics instead of filler. Apply the rewrite below or edit it, and it updates the preview and PDF."
                     : CATEGORY_DESCRIPTIONS[activeCategory] ?? ""}
@@ -2324,7 +2321,7 @@ export default function AnalyzeResume() {
                     borderLeft: "3px solid var(--accent)",
                   }}>
                     <div style={{
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: 0.45,
@@ -2334,11 +2331,11 @@ export default function AnalyzeResume() {
                       Why this score
                     </div>
                     {explainingCategory === activeCategory ? (
-                      <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.65, margin: 0, fontStyle: "italic" }}>
+                      <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.65, margin: 0, fontStyle: "italic" }}>
                         Generating explanation…
                       </p>
                     ) : activeCategoryRationale ? (
-                      <p style={{ fontSize: 13.5, color: "var(--text)", lineHeight: 1.65, margin: 0 }}>
+                      <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.65, margin: 0 }}>
                         {activeCategoryRationale}
                       </p>
                     ) : activeCategory ? (
@@ -2352,7 +2349,7 @@ export default function AnalyzeResume() {
                           border: "1px solid var(--accent)",
                           background: "rgba(99,102,241,0.10)",
                           color: "var(--accent)",
-                          fontSize: 12.5, fontWeight: 600,
+                          fontSize: 13, fontWeight: 600,
                           cursor: "pointer",
                           fontFamily: "inherit",
                         }}
@@ -2417,7 +2414,7 @@ export default function AnalyzeResume() {
                       }}>
                         {issue.severity}
                       </span>
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{issue.issue}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{issue.issue}</span>
                     </div>
                     <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>
                       {issue.suggestion}
@@ -2437,7 +2434,7 @@ export default function AnalyzeResume() {
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                               {issue.items.map((it, k) => (
                                 <span key={k} style={{
-                                  fontSize: 12.5, padding: "3px 9px", borderRadius: 8,
+                                  fontSize: 13, padding: "3px 9px", borderRadius: 8,
                                   background: "var(--red-tint, rgba(248,113,113,0.12))",
                                   color: "var(--red-ink, var(--red))",
                                   border: "1px solid rgba(248,113,113,0.25)",
@@ -2448,7 +2445,7 @@ export default function AnalyzeResume() {
                             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                               {issue.items.map((it, k) => (
                                 <div key={k} style={{
-                                  fontSize: 12.5, lineHeight: 1.5, padding: "7px 10px", borderRadius: 8,
+                                  fontSize: 13, lineHeight: 1.5, padding: "7px 10px", borderRadius: 8,
                                   background: "var(--red-tint, rgba(248,113,113,0.10))",
                                   color: "var(--text)",
                                   border: "1px solid rgba(248,113,113,0.20)",
@@ -2492,7 +2489,7 @@ export default function AnalyzeResume() {
                     Original ({result.summaryAnalysis.wordCount} words)
                   </div>
                   <div style={{
-                    fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55,
+                    fontSize: 13, color: "var(--muted)", lineHeight: 1.55,
                     padding: "8px 12px", background: "var(--surface2)",
                     borderRadius: 8, borderLeft: "3px solid var(--border)",
                   }}>
@@ -2517,7 +2514,7 @@ export default function AnalyzeResume() {
                         <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 8 }}>
                           Suggested rewrite
                           {applied && !editing && (
-                            <span style={{ fontSize: 10.5, color: "var(--green-ink, #047857)", fontWeight: 700 }}>· applied to preview ✓</span>
+                            <span style={{ fontSize: 11, color: "var(--green-ink, #047857)", fontWeight: 700 }}>· applied to preview ✓</span>
                           )}
                         </div>
                         {editing ? (
@@ -2527,7 +2524,7 @@ export default function AnalyzeResume() {
                             rows={4}
                             autoFocus
                             style={{
-                              fontSize: 12.5, color: "var(--text)", lineHeight: 1.55,
+                              fontSize: 13, color: "var(--text)", lineHeight: 1.55,
                               padding: "8px 12px", background: "var(--surface)",
                               borderRadius: 8, border: "1px solid #1565c0",
                               fontFamily: "inherit", resize: "vertical", width: "100%",
@@ -2535,7 +2532,7 @@ export default function AnalyzeResume() {
                           />
                         ) : (
                           <div style={{
-                            fontSize: 12.5, color: "var(--text)", lineHeight: 1.55,
+                            fontSize: 13, color: "var(--text)", lineHeight: 1.55,
                             padding: "8px 12px", background: "rgba(34,197,94,0.06)",
                             borderRadius: 8, borderLeft: "3px solid rgba(34,197,94,0.4)",
                           }}>
@@ -2760,7 +2757,7 @@ export default function AnalyzeResume() {
                           gap: 10,
                           flexWrap: "wrap",
                         }}>
-                          <span style={{ fontSize: 12.5, color: "var(--dim)", lineHeight: 1.45 }}>
+                          <span style={{ fontSize: 13, color: "var(--dim)", lineHeight: 1.45 }}>
                             No auto-rewrite passed quality checks.
                           </span>
                           <button
@@ -2815,9 +2812,9 @@ export default function AnalyzeResume() {
                               padding: "5px 10px", borderRadius: 7,
                               border: `1px solid ${copiedBullet === safeIdx ? "rgba(52,211,153,0.5)" : "rgba(52,211,153,0.3)"}`,
                               background: copiedBullet === safeIdx ? "rgba(52,211,153,0.15)" : "rgba(52,211,153,0.08)",
-                              color: "var(--green)", fontSize: 10.5, fontWeight: 600,
+                              color: "var(--green)", fontSize: 11, fontWeight: 600,
                               cursor: "pointer", fontFamily: "inherit",
-                              transition: "all 0.15s",
+                              transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                             }}
                           >
                             {copiedBullet === safeIdx ? "Copied!" : "Copy"}
@@ -2932,7 +2929,7 @@ export default function AnalyzeResume() {
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
                         Reads a little AI-written
                       </div>
-                      <p style={{ fontSize: 12.5, lineHeight: 1.55, color: "var(--muted)", margin: 0 }}>
+                      <p style={{ fontSize: 13, lineHeight: 1.55, color: "var(--muted)", margin: 0 }}>
                         Your résumé uses the em-dash (—) {emCount} times. It&rsquo;s a common AI-writing
                         tell that many recruiters notice. Swapping most of them for commas or periods
                         makes it read more like you. (The fixes this tool suggests already avoid it.)
@@ -3014,7 +3011,7 @@ export default function AnalyzeResume() {
                           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, marginBottom: 3 }}>
                             {flag.issue}
                           </div>
-                          <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
+                          <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
                             {flag.risk}
                           </div>
                         </div>
@@ -3259,8 +3256,8 @@ export default function AnalyzeResume() {
                                       padding: "3px 9px", borderRadius: 6,
                                       border: `1px solid ${copiedBullet === i ? "rgba(52,211,153,0.5)" : "rgba(52,211,153,0.3)"}`,
                                       background: copiedBullet === i ? "rgba(52,211,153,0.15)" : "rgba(52,211,153,0.08)",
-                                      color: "var(--green)", fontSize: 10.5, fontWeight: 600,
-                                      cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                                      color: "var(--green)", fontSize: 11, fontWeight: 600,
+                                      cursor: "pointer", fontFamily: "inherit", transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                                     }}
                                   >
                                     {copiedBullet === i ? "✓ Copied" : "Copy"}
@@ -3295,8 +3292,8 @@ export default function AnalyzeResume() {
                                       padding: "3px 9px", borderRadius: 6,
                                       border: `1px solid ${copiedBullet === i ? "rgba(251,191,36,0.55)" : "rgba(251,191,36,0.34)"}`,
                                       background: copiedBullet === i ? "rgba(251,191,36,0.16)" : "rgba(251,191,36,0.08)",
-                                      color: "var(--amber)", fontSize: 10.5, fontWeight: 600,
-                                      cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                                      color: "var(--amber)", fontSize: 11, fontWeight: 600,
+                                      cursor: "pointer", fontFamily: "inherit", transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                                     }}
                                   >
                                     {copiedBullet === i ? "✓ Copied" : "Copy draft"}
@@ -3436,7 +3433,7 @@ export default function AnalyzeResume() {
                       display: "flex", alignItems: "center", gap: 8,
                       padding: "11px 22px", borderRadius: 10,
                       background: "var(--amber)", border: "none", color: "#fff",
-                      fontSize: 13.5, fontWeight: 600, cursor: "pointer",
+                      fontSize: 14, fontWeight: 600, cursor: "pointer",
                       transition: "opacity var(--transition)",
                       letterSpacing: -0.2,
                     }}
@@ -3458,7 +3455,7 @@ export default function AnalyzeResume() {
                       display: "flex", alignItems: "center", gap: 8,
                       padding: "11px 20px", borderRadius: 10,
                       background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--muted)",
-                      fontSize: 13.5, fontWeight: 500, cursor: "pointer",
+                      fontSize: 14, fontWeight: 500, cursor: "pointer",
                       transition: "background var(--transition), border-color var(--transition)",
                       letterSpacing: -0.2,
                     }}

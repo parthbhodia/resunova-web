@@ -1837,7 +1837,7 @@ export default function AnalyzeLiveResumeBody({
                 background: isSelected && sectionEditable ? "rgba(var(--accent-rgb, 200, 121, 58), 0.06)" : "transparent",
                 borderRadius: isSelected ? 4 : 0,
                 cursor: sectionEditable ? "pointer" : "default",
-                transition: "all 0.15s",
+                transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                 position: "relative",
               }}
             >

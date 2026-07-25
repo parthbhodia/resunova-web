@@ -208,7 +208,7 @@ export function UpgradeDialogProvider({ children }: { children: ReactNode }) {
               </div>
 
               {hitLimit ? (
-                <p className="rounded-lg border border-[var(--amber-bg)] bg-[var(--amber-bg)] px-3 py-2 text-[12.5px] leading-relaxed text-[var(--amber-ink)]">
+                <p className="rounded-lg border border-[var(--amber-bg)] bg-[var(--amber-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--amber-ink)]">
                   You&apos;ve used all {opts.limit ?? FREE_SCAN_DAILY_LIMIT} free{" "}
                   {featureLabel(opts)} today
                   {resetIn ? ` — resets ${resetIn}` : ""}. Upgrade for unlimited access.
@@ -247,7 +247,7 @@ export function UpgradeDialogProvider({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="text-[12.5px] text-[var(--muted)] transition-colors hover:text-[var(--text)]"
+                  className="text-[13px] text-[var(--muted)] transition-colors hover:text-[var(--text)]"
                 >
                   Maybe later
                 </button>

@@ -24,6 +24,7 @@ import { apiUrl } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUpgradeDialog } from "@/components/UpgradeDialog";
+import { readCache, writeCache } from "@/lib/clientCache";
 
 type AppStats = {
   saved: number;
@@ -145,7 +146,7 @@ function QuickAction({
         ) : null}
       </div>
       <span className="text-[14px] font-semibold text-[var(--text)]">{title}</span>
-      <span className="text-[12.5px] leading-snug text-[var(--muted)]">{desc}</span>
+      <span className="text-[13px] leading-snug text-[var(--muted)]">{desc}</span>
     </button>
   );
 }
@@ -156,17 +157,35 @@ const CheckGlyph = (
   </svg>
 );
 
+/* ---------- snapshot cache ----------
+   Home is remounted on every `?view=` switch. Holding the last render above
+   the component tree turns the return trip into an instant paint instead of
+   four round-trips behind a skeleton. Cleared wholesale on sign-out. */
+
+type HomeSnapshot = {
+  name: string;
+  items: LibraryItem[];
+  stats: AppStats | null;
+  scan: ScanStatus | null;
+};
+
+const HOME_CACHE_KEY = "home:dashboard";
+const HOME_TTL_MS = 90_000;
+
 /* ---------- main component ---------- */
 
 export default function HomeDashboard() {
   const router = useRouter();
   const { openUpgrade } = useUpgradeDialog();
 
-  const [loading, setLoading] = useState(true);
-  const [name, setName] = useState<string>("there");
-  const [items, setItems] = useState<LibraryItem[]>([]);
-  const [stats, setStats] = useState<AppStats | null>(null);
-  const [scan, setScan] = useState<ScanStatus | null>(null);
+  // Home is the first thing seen after sign-in and is returned to constantly,
+  // so the last snapshot paints immediately while the refresh runs behind it.
+  const cached = readCache<HomeSnapshot>(HOME_CACHE_KEY, HOME_TTL_MS)?.data ?? null;
+  const [loading, setLoading] = useState(!cached);
+  const [name, setName] = useState<string>(cached?.name ?? "there");
+  const [items, setItems] = useState<LibraryItem[]>(cached?.items ?? []);
+  const [stats, setStats] = useState<AppStats | null>(cached?.stats ?? null);
+  const [scan, setScan] = useState<ScanStatus | null>(cached?.scan ?? null);
 
   useEffect(() => {
     let alive = true;
@@ -177,49 +196,44 @@ export default function HomeDashboard() {
       } = await supabase.auth.getSession();
       const user = session?.user ?? null;
       const token = session?.access_token ?? null;
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : null;
 
-      // Greeting name — profile displayName first, else email prefix.
-      let display: string | null = null;
-      try {
-        const profile = await fetchUserProfile();
-        display = profile?.displayName ?? null;
-      } catch {
-        /* non-fatal */
-      }
-      if (alive) setName(firstName(display, user?.email));
+      const json = async <T,>(path: string): Promise<T | null> => {
+        if (!authHeaders) return null;
+        const resp = await fetch(apiUrl(path), { headers: authHeaders });
+        return resp.ok ? ((await resp.json()) as T) : null;
+      };
 
-      // Library items (résumés + analyses + drafts).
-      try {
-        const rows = await fetchLibraryItems();
-        if (alive) setItems(rows);
-      } catch {
-        if (alive) setItems([]);
-      }
+      // These four are independent. Awaiting them in sequence made the
+      // dashboard wait out four round-trips before painting anything.
+      const [profileR, itemsR, appsR, scanR] = await Promise.allSettled([
+        fetchUserProfile(),
+        fetchLibraryItems(),
+        json<{ stats?: AppStats }>("/api/applications"),
+        json<ScanStatus>("/api/scan-limit-status"),
+      ]);
+      if (!alive) return;
 
-      // Application tracker stats + Free-plan quota (best-effort, need a token).
-      if (token) {
-        const authHeaders = { Authorization: `Bearer ${token}` };
-        try {
-          const resp = await fetch(apiUrl("/api/applications"), { headers: authHeaders });
-          if (resp.ok) {
-            const data = await resp.json();
-            if (alive && data?.stats) setStats(data.stats as AppStats);
-          }
-        } catch {
-          /* non-fatal */
-        }
-        try {
-          const resp = await fetch(apiUrl("/api/scan-limit-status"), { headers: authHeaders });
-          if (resp.ok) {
-            const data = (await resp.json()) as ScanStatus;
-            if (alive) setScan(data);
-          }
-        } catch {
-          /* non-fatal */
-        }
-      }
+      const nextName = firstName(
+        profileR.status === "fulfilled" ? profileR.value?.displayName ?? null : null,
+        user?.email,
+      );
+      const nextItems = itemsR.status === "fulfilled" ? itemsR.value : [];
+      const nextStats =
+        appsR.status === "fulfilled" && appsR.value?.stats ? appsR.value.stats : null;
+      const nextScan = scanR.status === "fulfilled" ? scanR.value : null;
 
-      if (alive) setLoading(false);
+      setName(nextName);
+      setItems(nextItems);
+      setStats(nextStats);
+      setScan(nextScan);
+      setLoading(false);
+      writeCache<HomeSnapshot>(HOME_CACHE_KEY, {
+        name: nextName,
+        items: nextItems,
+        stats: nextStats,
+        scan: nextScan,
+      });
     })();
     return () => {
       alive = false;
@@ -400,7 +414,7 @@ export default function HomeDashboard() {
               </div>
             ) : recent.length === 0 ? (
               <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-6">
-                <p className="text-[13.5px] text-[var(--muted)]">
+                <p className="text-[14px] text-[var(--muted)]">
                   No résumés yet. Upload one to get an instant ATS score.
                 </p>
                 <Button size="sm" onClick={() => router.push("/?view=analyze")}>
@@ -458,7 +472,7 @@ export default function HomeDashboard() {
                 {doneCount}/{checklist.length}
               </span>
             </div>
-            <p className="mt-1 text-[12.5px] text-[var(--muted)]">
+            <p className="mt-1 text-[13px] text-[var(--muted)]">
               {allDone
                 ? "You're all set — go land your dream job."
                 : "Finish these to get the most out of Resunova."}

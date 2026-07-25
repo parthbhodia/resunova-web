@@ -63,7 +63,7 @@ export function AIEnhanceButton({ bullet, onEnhanced, context = {} }: AIEnhanceB
         disabled={loading}
         title="Enhance bullet with AI (ATS-optimized)"
         style={{
-          fontSize: 10.5,
+          fontSize: 11,
           fontWeight: 600,
           padding: "5px 10px",
           borderRadius: 7,

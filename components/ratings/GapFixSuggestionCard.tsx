@@ -134,7 +134,7 @@ export function GapFixSuggestionCard({
         {employerLabel && (
           <span style={{
             display: "inline-flex", alignItems: "center", gap: 4,
-            fontSize: 10.5, fontWeight: 600, color: "var(--muted)",
+            fontSize: 11, fontWeight: 600, color: "var(--muted)",
             background: "var(--surface2)", border: "1px solid var(--border)",
             borderRadius: 20, padding: "2px 8px", maxWidth: 160,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -148,7 +148,7 @@ export function GapFixSuggestionCard({
       {/* ── Rationale ── */}
       {s.reason && (
         <div style={{ padding: "8px 14px", borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-          <p style={{ margin: 0, fontSize: 11.5, fontStyle: "italic", color: "var(--muted)", lineHeight: 1.5 }}>
+          <p style={{ margin: 0, fontSize: 12, fontStyle: "italic", color: "var(--muted)", lineHeight: 1.5 }}>
             {s.reason}
           </p>
         </div>
@@ -194,7 +194,7 @@ export function GapFixSuggestionCard({
               borderRadius: 6,
               background: "rgba(52,211,153,0.06)",
               border: "1px solid rgba(52,211,153,0.25)",
-              fontSize: 12.5,
+              fontSize: 13,
               color: "var(--text)",
               lineHeight: 1.45,
               fontFamily: "inherit",

@@ -2492,7 +2492,7 @@ export default function ResumeBuilder({
             border: "1px solid rgba(148,163,184,0.32)",
             boxShadow: "0 14px 30px rgba(2,6,23,0.35)",
             color: "#f8fafc",
-            fontSize: 12.5,
+            fontSize: 13,
             lineHeight: 1.45,
             letterSpacing: -0.15,
           }}
@@ -2708,7 +2708,7 @@ export default function ResumeBuilder({
                       <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>
                         Recent jobs
                       </div>
-                      <div style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.45 }}>
+                      <div style={{ fontSize: 11, color: "var(--dim)", lineHeight: 1.45 }}>
                         Pick up where you left off — company, role, and JD restore automatically.
                       </div>
                     </div>
@@ -2784,7 +2784,7 @@ export default function ResumeBuilder({
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 6, letterSpacing: -0.2 }}>
                     Template &amp; PDF — layout only
                   </div>
-                  <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 }}>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>
                     Choose the <strong style={{ color: "var(--text)" }}>output layout</strong> (LaTeX style: sections, typography, spacing on the server).
                     This path is <strong style={{ color: "var(--text)" }}>not</strong> for job-description tailoring — no JD analysis here.
                     Upload or confirm your content, then compile. For fonts/header fine-tuning beyond these presets, use the gallery editor, then return here.
@@ -2898,7 +2898,7 @@ export default function ResumeBuilder({
                         Profile page. Everything stays on this device until we add cloud sync.
                       </InfoTip>
                     </div>
-                    <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55, letterSpacing: -0.1 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.55, letterSpacing: -0.1 }}>
                       Fill empty Profile fields from this resume — nothing gets overwritten.
                     </p>
                     {profileSyncUpsell.autoFilled && profileSyncUpsell.filledLabels.length > 0 ? (
@@ -3354,7 +3354,7 @@ export default function ResumeBuilder({
                   <h2 id="rb-results-heading" style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.5, color: "var(--text)", margin: 0, lineHeight: 1.2 }}>
                     {generating ? "Building your PDF…" : result?.folder ? "Your tailored résumé is ready" : "Analysis ready — review gaps & download PDF"}
                   </h2>
-                  <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "2px 0 0", letterSpacing: -0.1, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <p style={{ fontSize: 13, color: "var(--muted)", margin: "2px 0 0", letterSpacing: -0.1, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <span>{[role, company].map((s) => s.trim()).filter(Boolean).join(" · ") || "Match results"}</span>
                     {user?.id && (
                       <TailorSaveStatusPill state={saveStatus.state} onRetry={retryTailorSave} />
@@ -3365,7 +3365,7 @@ export default function ResumeBuilder({
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
                   {user?.id && (
                     <span title="How AI rewrites tailor to the JD — applies to gap fixes and Boost" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>AI style</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>AI style</span>
                       <TailoringModeSelector
                         value={tailoringMode ?? "honest"}
                         onChange={commitTailoringMode}
@@ -3398,14 +3398,14 @@ export default function ResumeBuilder({
                       <DropdownMenuContent align="end" sideOffset={6} className="w-64">
                         <DropdownMenuItem onClick={tryAnotherJob}>
                           <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "1px 0" }}>
-                            <span style={{ fontSize: 12.5, fontWeight: 600 }}>Try a different JD</span>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>Try a different JD</span>
                             <span style={{ fontSize: 11, color: "var(--muted)" }}>Keeps this résumé, clears the job details</span>
                           </div>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={startOverTailor}>
                           <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "1px 0" }}>
-                            <span style={{ fontSize: 12.5, fontWeight: 600 }}>Start over</span>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>Start over</span>
                             <span style={{ fontSize: 11, color: "var(--muted)" }}>Clears the résumé too — upload a new one</span>
                           </div>
                         </DropdownMenuItem>
@@ -4900,7 +4900,7 @@ function ResumePaperView({
           if (subtitleLineIndex >= 0 && i === subtitleLineIndex && !isAllCaps(t)) {
             if (isBareLocationLabelLine(t)) return null;
             return (
-              <div key={i} style={{ fontSize: 9.5, color: "#64748b", textAlign: nameCenteredCaps ? "center" : "left", marginBottom: harshibarCompactPreview ? 5 : 8 }}>
+              <div key={i} style={{ fontSize: 10, color: "#64748b", textAlign: nameCenteredCaps ? "center" : "left", marginBottom: harshibarCompactPreview ? 5 : 8 }}>
                 {paperLineDisplayContent(t)}
               </div>
             );
@@ -5211,10 +5211,10 @@ function StepCard({ step, title, subtitle, children }: {
           fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0,
         }}>{step}</div>
         <div>
-          <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: -0.3, color: "var(--text)", lineHeight: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: -0.3, color: "var(--text)", lineHeight: 1 }}>
             {title}
           </div>
-          <div style={{ fontSize: 11.5, color: "var(--dim)", marginTop: 3, letterSpacing: -0.1 }}>
+          <div style={{ fontSize: 12, color: "var(--dim)", marginTop: 3, letterSpacing: -0.1 }}>
             {subtitle}
           </div>
         </div>
@@ -5288,7 +5288,7 @@ function InfoTip({ children, label }: { children: React.ReactNode; label?: strin
             border: "1px solid var(--border)",
             borderRadius: 8,
             boxShadow: "var(--shadow-card)",
-            fontSize: 11.5,
+            fontSize: 12,
             lineHeight: 1.5,
             letterSpacing: -0.1,
             fontWeight: 400,
@@ -5367,7 +5367,7 @@ function RescanOverlay() {
           <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", letterSpacing: -0.4, marginBottom: 6 }}>
             Refining Your Match
           </div>
-          <div style={{ fontSize: 12.5, color: "#64748b", lineHeight: 1.5 }}>
+          <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>
             Analyzing your updated résumé against the job description…
           </div>
         </div>
@@ -5404,7 +5404,7 @@ function RescanOverlay() {
           ))}
         </div>
 
-        <div style={{ fontSize: 10.5, color: "#94a3b8", letterSpacing: 0.3, fontWeight: 600 }}>
+        <div style={{ fontSize: 11, color: "#94a3b8", letterSpacing: 0.3, fontWeight: 600 }}>
           USUALLY TAKES 3–8 SECONDS
         </div>
       </div>
@@ -5643,7 +5643,7 @@ function BuilderUploadExtractLoader({
             }} aria-hidden />
           )}
         </span>
-        <span style={{ fontSize: 12.5, fontWeight: active || done ? 600 : 500, letterSpacing: -0.2, flex: 1 }}>
+        <span style={{ fontSize: 13, fontWeight: active || done ? 600 : 500, letterSpacing: -0.2, flex: 1 }}>
           {label}
         </span>
       </div>
@@ -5811,7 +5811,7 @@ function BuilderGeneratePdfLoader({
         <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.45, color: "var(--text)", marginBottom: 4 }}>
           {title}
         </div>
-        <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, letterSpacing: -0.1 }}>
+        <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--muted)", lineHeight: 1.5, letterSpacing: -0.1 }}>
           {subtitle}
         </p>
         <div style={{ marginBottom: 14 }}>
@@ -5842,7 +5842,7 @@ function BuilderGeneratePdfLoader({
           key={tipIdx}
           className="fade-in"
           style={{
-            fontSize: 12.5,
+            fontSize: 13,
             color: "var(--accent)",
             fontWeight: 500,
             lineHeight: 1.5,
@@ -5935,7 +5935,7 @@ function BuilderSuggestAnalysisLoader({
         <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.45, color: "var(--text)", marginBottom: 4 }}>
           Comparing your résumé to this role
         </div>
-        <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, letterSpacing: -0.1 }}>
+        <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--muted)", lineHeight: 1.5, letterSpacing: -0.1 }}>
           Reading your résumé and the job posting.
         </p>
         <div style={{ marginBottom: 14 }}>
@@ -5948,7 +5948,7 @@ function BuilderSuggestAnalysisLoader({
           key={tipIdx}
           className="fade-in"
           style={{
-            fontSize: 12.5,
+            fontSize: 13,
             color: "var(--accent)",
             fontWeight: 500,
             lineHeight: 1.5,
@@ -6120,7 +6120,7 @@ function GenerateOverlay({ mode = "generate" }: { mode?: "generate" | "suggest" 
         <div
           key={tipIdx}
           style={{
-            fontSize: 12.5,
+            fontSize: 13,
             color: "var(--muted)",
             lineHeight: 1.55,
             minHeight: 40,

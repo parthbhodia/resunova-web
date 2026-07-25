@@ -147,7 +147,7 @@ export default function JobSearchActivationWidget({
       <div style={{ padding: "14px 18px 18px" }}>
         {/* Step 1: Role chips */}
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>
             Roles you&apos;re targeting
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -168,7 +168,7 @@ export default function JobSearchActivationWidget({
                     fontWeight: active ? 700 : 500,
                     cursor: "pointer",
                     fontFamily: "inherit",
-                    transition: "all 0.1s",
+                    transition: "background-color 0.1s, border-color 0.1s, color 0.1s, box-shadow 0.1s, transform 0.1s, opacity 0.1s",
                   }}
                 >
                   {active ? "✓ " : ""}{r}
@@ -227,7 +227,7 @@ export default function JobSearchActivationWidget({
 
         {/* Step 2: Location */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>
             Location preference
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
@@ -277,7 +277,7 @@ export default function JobSearchActivationWidget({
               border: "none",
               background: canSave ? "var(--accent)" : "var(--surface2)",
               color: canSave ? "#fff" : "var(--dim)",
-              fontSize: 13.5, fontWeight: 700, cursor: canSave ? "pointer" : "default",
+              fontSize: 14, fontWeight: 700, cursor: canSave ? "pointer" : "default",
               fontFamily: "inherit", letterSpacing: -0.2,
               boxShadow: canSave ? "0 4px 16px color-mix(in srgb, var(--accent) 30%, transparent)" : "none",
             }}

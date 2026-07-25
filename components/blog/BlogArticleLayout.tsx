@@ -190,7 +190,7 @@ function TableOfContents({ items }: { items: { id: string; label: string }[] }) 
       </p>
       <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 24px" }}>
         {items.map((it, i) => (
-          <li key={it.id} style={{ display: "flex", gap: 8, fontSize: 13.5 }}>
+          <li key={it.id} style={{ display: "flex", gap: 8, fontSize: 14 }}>
             <span style={{ color: "var(--dim)", fontWeight: 700, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</span>
             <a href={`#${it.id}`} style={{ color: "var(--muted)", textDecoration: "none" }}>
               {it.label}
@@ -259,7 +259,7 @@ function Figure({ children, caption }: { children: ReactNode; caption: string })
   return (
     <figure style={{ margin: "22px 0" }}>
       {children}
-      <figcaption style={{ marginTop: 10, fontSize: 12.5, color: "var(--dim)", textAlign: "center", lineHeight: 1.5 }}>
+      <figcaption style={{ marginTop: 10, fontSize: 13, color: "var(--dim)", textAlign: "center", lineHeight: 1.5 }}>
         {caption}
       </figcaption>
     </figure>
@@ -287,8 +287,8 @@ function Callout({ kind = "tip", title, children }: { kind?: "tip" | "warn"; tit
         {tip ? "💡" : "⚠️"}
       </span>
       <div>
-        <p style={{ margin: "0 0 4px", fontSize: 13.5, fontWeight: 700, color: "var(--text)" }}>{title}</p>
-        <div style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.6 }}>{children}</div>
+        <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{title}</p>
+        <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>{children}</div>
       </div>
     </div>
   );
@@ -319,7 +319,7 @@ function CTACard({ heading, body, href, cta }: { heading: string; body: string; 
           borderRadius: 10,
           background: "var(--accent)",
           color: "#fff",
-          fontSize: 14.5,
+          fontSize: 14,
           fontWeight: 700,
           textDecoration: "none",
         }}

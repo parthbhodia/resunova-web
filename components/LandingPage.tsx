@@ -521,7 +521,7 @@ export default function LandingPage() {
                 opacity: 0;
                 visibility: hidden;
                 transform: translateY(-4px);
-                transition: all 0.2s ease-out;
+                transition: background-color 0.2s ease-out, border-color 0.2s ease-out, color 0.2s ease-out, box-shadow 0.2s ease-out, transform 0.2s ease-out, opacity 0.2s ease-out;
                 z-index: 1000;
                 pointer-events: none;
                 display: flex;
@@ -764,7 +764,7 @@ export default function LandingPage() {
                 padding: "8px 20px",
                 borderRadius: 12,
                 cursor: "pointer",
-                transition: "all 0.2s",
+                transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
                 fontFamily: "inherit"
               }}
               onMouseEnter={e => { 
@@ -789,7 +789,7 @@ export default function LandingPage() {
                 padding: "8px 24px",
                 borderRadius: 999,
                 cursor: "pointer",
-                transition: "all 0.2s",
+                transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
                 fontFamily: "inherit",
                 boxShadow: "0 4px 14px rgba(212,119,47,0.35)"
               }}
@@ -818,7 +818,7 @@ export default function LandingPage() {
               background: "transparent",
               border: `1px solid transparent`,
               cursor: "pointer", alignItems: "center", justifyContent: "center", display: "flex",
-              color: C.ink, transition: "all 0.15s",
+              color: C.ink, transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
             }}
             onMouseEnter={e => { 
               (e.currentTarget as HTMLElement).style.backgroundColor = dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"; 
@@ -2069,8 +2069,8 @@ function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, st
   const queueRow = (q: JobCard) => (
     <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 14px" }}>
       <div style={{ width: 22, height: 22, borderRadius: 6, background: C.bg2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transform: "scale(0.82)" }}>{q.logo}</div>
-      <span style={{ fontSize: 12.5, fontWeight: 650, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{q.title}</span>
-      <span style={{ fontSize: 11.5, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{q.company}</span>
+      <span style={{ fontSize: 13, fontWeight: 650, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{q.title}</span>
+      <span style={{ fontSize: 12, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{q.company}</span>
       <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{q.low} match</span>
     </div>
   );
@@ -2401,7 +2401,7 @@ function FeatureCell({ f, dark, C }: { f: typeof FEATURES[0]; dark: boolean; C: 
       {/* Feature number — bold blue DM Sans, no serif */}
       <div style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, color: T.blue, letterSpacing: "0.08em", marginBottom: 14 }}>{f.num}</div>
       <h3 style={{ fontSize: "var(--font-size-2xl)", fontWeight: 700, color: C.ink, margin: "0 0 10px", letterSpacing: -0.4 }}>{f.title}</h3>
-      <p style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.72, margin: 0 }}>{f.desc}</p>
+      <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.72, margin: 0 }}>{f.desc}</p>
     </div>
   );
 }

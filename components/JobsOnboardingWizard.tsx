@@ -175,7 +175,7 @@ export default function JobsOnboardingWizard({
                 <span key={s} style={{ width: 24, height: 4, borderRadius: 2, background: s <= step ? "var(--accent)" : "var(--surface2)", transition: "background 0.15s" }} />
               ))}
             </div>
-            <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--dim)", letterSpacing: "0.06em", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", letterSpacing: "0.06em", marginBottom: 8 }}>
               STEP {step} OF 4
             </div>
 
@@ -297,7 +297,7 @@ export default function JobsOnboardingWizard({
           {/* ── Right: live count + blurred teaser ── */}
           <div style={{ flex: "1 1 200px", minWidth: 200, borderLeft: "1px solid var(--border)", background: "var(--surface2, rgba(0,0,0,0.02))", padding: "28px 22px", display: "flex", flexDirection: "column" }}>
             {!role.trim() ? (
-              <div style={{ margin: "auto 0", textAlign: "center", color: "var(--dim)", fontSize: 12.5, lineHeight: 1.5 }}>
+              <div style={{ margin: "auto 0", textAlign: "center", color: "var(--dim)", fontSize: 13, lineHeight: 1.5 }}>
                 Pick a role to see live matches.
               </div>
             ) : (
@@ -305,16 +305,16 @@ export default function JobsOnboardingWizard({
                 <div style={{ fontSize: 30, fontWeight: 800, color: "var(--text)", lineHeight: 1, minHeight: 30, display: "flex", alignItems: "center" }}>
                   {count != null ? count.toLocaleString() : countLoading ? <Spinner size={22} /> : "—"}
                 </div>
-                <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>{countCaption}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>{countCaption}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 18, filter: "blur(0.6px)", opacity: 0.82 }}>
                   {[{ t: "Software Engineer", c: "Google · New York, NY" }, { t: "Frontend Engineer", c: "Stripe · Remote (US)" }].map((j) => (
                     <div key={j.t} style={{ border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface)", padding: "8px 10px" }}>
-                      <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text)" }}>{j.t}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{j.t}</div>
                       <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 1 }}>{j.c}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 9.5, color: "var(--dim)", marginTop: 12 }}>preview · results unlock when you continue</div>
+                <div style={{ fontSize: 10, color: "var(--dim)", marginTop: 12 }}>preview · results unlock when you continue</div>
               </>
             )}
           </div>

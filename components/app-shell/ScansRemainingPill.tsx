@@ -93,7 +93,7 @@ export function ScansRemainingPill({ collapsed }: { collapsed: boolean }) {
         background: grad,
         color: "#fff",
         boxShadow: glow,
-        fontSize: 12.5,
+        fontSize: 13,
         fontWeight: 700,
         letterSpacing: -0.2,
         position: "relative",

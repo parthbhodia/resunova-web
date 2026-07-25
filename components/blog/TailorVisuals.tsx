@@ -47,7 +47,7 @@ export function ProductFrame({
         </div>
         <span
           style={{
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: 600,
             color: "var(--dim)",
             letterSpacing: -0.1,
@@ -92,7 +92,7 @@ function StaticRing({ score, size = 104 }: { score: number; size?: number }) {
           <span style={{ fontSize: 27, fontWeight: 700, letterSpacing: -1.5, color }}>{score}</span>
           <span style={{ fontSize: 12, color: "var(--dim)" }}>/100</span>
         </div>
-        <div style={{ fontSize: 10.5, color: "var(--dim)", marginTop: 3 }}>Match score</div>
+        <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 3 }}>Match score</div>
       </div>
     </div>
   );
@@ -110,14 +110,14 @@ export function MatchScoreShot() {
       <div style={{ display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
         <StaticRing score={87} />
         <div style={{ flex: "1 1 220px", minWidth: 0 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, background: "var(--green-bg)", color: "var(--green)", fontSize: 11.5, fontWeight: 700, marginBottom: 12 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, background: "var(--green-bg)", color: "var(--green)", fontSize: 12, fontWeight: 700, marginBottom: 12 }}>
             ● Strong match — interview-ready
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {stats.map((s) => (
               <div key={s.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                 <span style={{ fontSize: 13, color: "var(--muted)" }}>{s.label}</span>
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: s.color }}>{s.value}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: s.color }}>{s.value}</span>
               </div>
             ))}
           </div>
@@ -168,7 +168,7 @@ function GapRow({
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", letterSpacing: -0.3 }}>{name}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: -0.3 }}>{name}</span>
           {fixed && (
             <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: "rgba(52,211,153,0.18)", color: "var(--green-ink, #34d399)" }}>
               ✓ Fixed
@@ -177,7 +177,7 @@ function GapRow({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <WeightChip w={weight} />
-          <span style={{ fontSize: 13.5, fontWeight: 700, color: sc, minWidth: 36 }}>{score}/10</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: sc, minWidth: 36 }}>{score}/10</span>
           <div style={{ width: 52, height: 4, borderRadius: 2, background: "rgba(148,163,184,0.35)", overflow: "hidden" }} aria-hidden>
             <div style={{ width: `${score * 10}%`, height: "100%", background: sc }} />
           </div>
@@ -234,7 +234,7 @@ function Chip({ text, kind }: { text: string; kind: "hit" | "miss" }) {
         gap: 5,
         padding: "4px 10px",
         borderRadius: 999,
-        fontSize: 12.5,
+        fontSize: 13,
         fontWeight: 600,
         border: `1px solid ${hit ? "rgba(52,211,153,0.4)" : "rgba(248,113,113,0.4)"}`,
         background: hit ? "var(--green-bg)" : "var(--red-bg)",
@@ -256,7 +256,7 @@ export function KeywordMatchShot() {
       ariaLabel="Resunova keyword match: seven matched keywords including Python, SQL and Airflow, and three keywords missing from the resume — Kubernetes, Terraform and SLA."
     >
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: "var(--green)", marginBottom: 9 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: "var(--green)", marginBottom: 9 }}>
           Matched in your resume
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -266,7 +266,7 @@ export function KeywordMatchShot() {
         </div>
       </div>
       <div>
-        <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: "var(--red)", marginBottom: 9 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: "var(--red)", marginBottom: 9 }}>
           Missing — add these
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -295,10 +295,10 @@ export function BulletRewriteShot() {
             padding: "11px 13px",
           }}
         >
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: "var(--red)", marginBottom: 5 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: "var(--red)", marginBottom: 5 }}>
             Before
           </div>
-          <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--muted)", lineHeight: 1.5 }}>
             Responsible for managing the data pipeline.
           </p>
         </div>
@@ -313,10 +313,10 @@ export function BulletRewriteShot() {
             padding: "11px 13px",
           }}
         >
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: "var(--green)", marginBottom: 5 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: "var(--green)", marginBottom: 5 }}>
             After
           </div>
-          <p style={{ margin: 0, fontSize: 13.5, color: "var(--text)", lineHeight: 1.5, fontWeight: 500 }}>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--text)", lineHeight: 1.5, fontWeight: 500 }}>
             Redesigned ETL pipeline in <strong>Python/Airflow</strong>, cutting data latency from{" "}
             <strong>4 hours to 15 minutes</strong> and unblocking <strong>5 downstream ML teams</strong>.
           </p>

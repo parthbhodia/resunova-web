@@ -18,7 +18,7 @@ import { useSignInDialog } from "@/components/SignInDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchJobDetail, scoreLabel, trackJobEvent, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { fetchJobDetail, peekJobDetail, scoreLabel, trackJobEvent, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { fetchJobPrepStatuses, getSupabaseClient, type JobPrepStatus } from "@/lib/supabase";
 import { goToFreeScan, stashAnalyzeJd } from "@/lib/anonScan";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
@@ -164,9 +164,9 @@ export function parseJdBlocks(raw: string): JdBlock[] {
 /** Renders parsed JD blocks as real headings, paragraphs, and bullet lists. */
 function JobDescription({ text }: { text: string }) {
   const blocks = useMemo(() => parseJdBlocks(text), [text]);
-  if (!blocks.length) return <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)" }}>No description available for this posting.</p>;
+  if (!blocks.length) return <p style={{ margin: 0, fontSize: 14, color: "var(--muted)" }}>No description available for this posting.</p>;
   return (
-    <div style={{ fontSize: 13.5, lineHeight: 1.62, color: "var(--muted)" }}>
+    <div style={{ fontSize: 14, lineHeight: 1.62, color: "var(--muted)" }}>
       {blocks.map((b, i) => {
         if (b.type === "heading") {
           return (
@@ -237,7 +237,7 @@ function Chip({ children, tone }: { children: ReactNode; tone?: "green" }) {
 function JobDetailFact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)", marginBottom: 6 }}>{label}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>{children}</div>
     </div>
   );
@@ -246,16 +246,26 @@ function JobDetailFact({ label, children }: { label: string; children: ReactNode
 export default function JobDetail({ jobId, embedded = false }: { jobId: string; embedded?: boolean }) {
   const router = useRouter();
   const { openSignIn } = useSignInDialog();
-  const [state, setState] = useState<LoadState>({ status: "loading" });
+  // A job the feed already warmed on hover opens straight into content —
+  // flashing a skeleton over data we hold would be theatre.
+  const [state, setState] = useState<LoadState>(() => {
+    const warm = peekJobDetail(jobId);
+    return warm ? { status: "ready", job: warm } : { status: "loading" };
+  });
   const [boostOpen, setBoostOpen] = useState(false);
   const [prepStatus, setPrepStatus] = useState<JobPrepStatus | null>(null);
   const [prepLaunching, setPrepLaunching] = useState(false);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ force = false } = {}) => {
+    const warm = !force && peekJobDetail(jobId);
+    if (warm) {
+      setState({ status: "ready", job: warm });
+      return;
+    }
     setState({ status: "loading" });
     try {
-      const job = await fetchJobDetail(jobId);
+      const job = await fetchJobDetail(jobId, { force });
       setState({ status: "ready", job });
     } catch (err) {
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load job" });
@@ -345,7 +355,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
           <button
             onClick={backToFeed}
             aria-label="Close job detail"
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer", padding: "5px 10px", fontSize: 12.5, color: "var(--muted)" }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer", padding: "5px 10px", fontSize: 13, color: "var(--muted)" }}
           >
             <IconClose /> Close
           </button>
@@ -355,7 +365,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
           onClick={backToFeed}
           style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: "2px 0", marginBottom: 18 }}
         >
-          <span style={{ fontSize: 13.5, color: "var(--muted)" }}>‹ Back to Jobs</span>
+          <span style={{ fontSize: 14, color: "var(--muted)" }}>‹ Back to Jobs</span>
         </button>
       )}
 
@@ -381,8 +391,8 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
       {state.status === "error" && (
         <Card>
           <CardContent style={{ padding: "32px 28px", textAlign: "center" }}>
-            <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "0 0 14px" }}>Couldn&apos;t load this job: {state.message}</p>
-            <Button variant="outline" onClick={() => void load()}>Try again</Button>
+            <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 0 14px" }}>Couldn&apos;t load this job: {state.message}</p>
+            <Button variant="outline" onClick={() => void load({ force: true })}>Try again</Button>
           </CardContent>
         </Card>
       )}
@@ -535,7 +545,7 @@ function JobBody({
                   )}
                 </div>
                 {(job.location || (job.workModel && WM_LABEL[job.workModel])) && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 13.5, color: "var(--muted)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 14, color: "var(--muted)" }}>
                     <IconPin />
                     <span>
                       {job.location}
@@ -544,7 +554,7 @@ function JobBody({
                     </span>
                   </div>
                 )}
-                <div style={{ marginTop: 8, fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>
+                <div style={{ marginTop: 8, fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
                   {salaryFull ? `${salaryFull}  ·  ` : ""}Full-time
                 </div>
               </div>
@@ -556,7 +566,7 @@ function JobBody({
               style={{
                 display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
                 alignSelf: "flex-start", padding: "11px 24px", borderRadius: 10,
-                background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 600,
+                background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600,
                 textDecoration: "none", marginTop: 2,
               }}
             >
@@ -667,14 +677,14 @@ function LockedHiringContacts({ onSignIn }: { onSignIn: () => void }) {
   return (
     <Card>
       <CardContent style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--text)" }}>Hiring contacts</div>
-        <p style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>Hiring contacts</div>
+        <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
           Sign in to check for available recruiter or HR contact information for this role.
         </p>
         <button
           type="button"
           onClick={onSignIn}
-          style={{ border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "10px 14px", fontSize: 12.5, fontWeight: 650, cursor: "pointer" }}
+          style={{ border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "10px 14px", fontSize: 13, fontWeight: 650, cursor: "pointer" }}
         >
           Sign in to view contacts
         </button>
@@ -772,7 +782,7 @@ function ContactHiringCard({ job }: { job: JobDetailData }) {
 
   const actionBtn: React.CSSProperties = {
     border: "1px solid var(--border)", background: "transparent", color: "var(--text)",
-    borderRadius: 9, padding: "8px 11px", fontSize: 12.5, fontWeight: 650, cursor: "pointer",
+    borderRadius: 9, padding: "8px 11px", fontSize: 13, fontWeight: 650, cursor: "pointer",
     textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6,
   };
   const accentBtn: React.CSSProperties = {
@@ -783,8 +793,8 @@ function ContactHiringCard({ job }: { job: JobDetailData }) {
     <Card>
       <CardContent style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
-          <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--text)" }}>Contact hiring team</div>
-          <p style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, margin: "5px 0 0" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>Contact hiring team</div>
+          <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, margin: "5px 0 0" }}>
             Public or suggested hiring contact. Draft only; Resunova will not send emails automatically.
           </p>
         </div>
@@ -796,20 +806,20 @@ function ContactHiringCard({ job }: { job: JobDetailData }) {
                 {contactTypeLabel(contact.type)}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 650, color: revealed ? "var(--text)" : "var(--muted)", wordBreak: "break-all" }}>
+                <span style={{ fontSize: 14, fontWeight: 650, color: revealed ? "var(--text)" : "var(--muted)", wordBreak: "break-all" }}>
                   {revealed ? contact.email : maskEmail(contact.email)}
                 </span>
                 {revealed && (
                   <button type="button" onClick={() => void copy(contact.email)} title="Copy email"
-                    style={{ ...actionBtn, padding: "4px 8px", fontSize: 11.5, flexShrink: 0 }}>
+                    style={{ ...actionBtn, padding: "4px 8px", fontSize: 12, flexShrink: 0 }}>
                     {copied === contact.email ? "Copied ✓" : "Copy"}
                   </button>
                 )}
               </div>
               {contact.pocTitle ? (
-                <div style={{ fontSize: 11.5, color: "var(--text)", marginTop: 3 }}>{contact.pocTitle}</div>
+                <div style={{ fontSize: 12, color: "var(--text)", marginTop: 3 }}>{contact.pocTitle}</div>
               ) : null}
-              <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>{contactSourceLabel(contact.source)}</div>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{contactSourceLabel(contact.source)}</div>
             </div>
           ))}
         </div>
@@ -839,7 +849,7 @@ function ContactHiringCard({ job }: { job: JobDetailData }) {
                   rows={7}
                   spellCheck
                   style={{
-                    width: "100%", boxSizing: "border-box", fontFamily: "inherit", fontSize: 12.5,
+                    width: "100%", boxSizing: "border-box", fontFamily: "inherit", fontSize: 13,
                     lineHeight: 1.5, color: "var(--text)", background: "var(--surface)",
                     border: "1px solid var(--border)", borderRadius: 10, padding: "10px 11px", resize: "vertical",
                   }}
@@ -847,7 +857,7 @@ function ContactHiringCard({ job }: { job: JobDetailData }) {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                   <span style={{ fontSize: 11, color: "var(--muted)" }}>Saved on this device. Used for both Draft email and Gmail.</span>
                   <button type="button" onClick={() => saveTemplate(DEFAULT_TEMPLATE(job.title, job.company))}
-                    style={{ ...actionBtn, padding: "4px 9px", fontSize: 11.5 }}>
+                    style={{ ...actionBtn, padding: "4px 9px", fontSize: 12 }}>
                     Reset
                   </button>
                 </div>
@@ -909,7 +919,7 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
           </div>
         </div>
         <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.04em", color: "var(--text)" }}>{scoreLabel(score)}</div>
-        <div style={{ fontSize: 12.5, color: "var(--muted)", textAlign: "center" }}>
+        <div style={{ fontSize: 13, color: "var(--muted)", textAlign: "center" }}>
           {score == null
             ? "Scan your résumé to see how you match this role."
             : `Your résumé matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
@@ -1018,7 +1028,7 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
         <ApplyLink
           job={job}
           signedIn={signedIn}
-          style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 13.5, fontWeight: 600, textAlign: "center", textDecoration: "none", boxSizing: "border-box", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}
+          style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, textAlign: "center", textDecoration: "none", boxSizing: "border-box", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}
         >
           Apply on company site <IconExternal />
         </ApplyLink>
@@ -1046,7 +1056,7 @@ function PrepCard({
           <IconMic />
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Prepare for your interview</div>
         </div>
-        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--muted)" }}>
+        <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--muted)" }}>
           {ready
             ? `Your prep kit for ${job.company || "this role"} is ready — ${prepStatus!.questionCount} questions with STAR+R answers and best-story matches.`
             : `Generate company-specific questions for ${job.company || "this role"} from your résumé and this job description — with STAR+R answer structures.`}
@@ -1062,7 +1072,7 @@ function PrepCard({
             border: ready ? "1px solid color-mix(in srgb, var(--green-ink) 40%, transparent)" : "none",
             background: ready ? "color-mix(in srgb, var(--green-ink) 12%, transparent)" : "var(--accent)",
             color: ready ? "var(--green-ink)" : "var(--accent-ink, #fff)",
-            fontSize: 13.5,
+            fontSize: 14,
             fontWeight: 600,
             cursor: prepLaunching ? "wait" : "pointer",
             opacity: prepLaunching ? 0.7 : 1,
