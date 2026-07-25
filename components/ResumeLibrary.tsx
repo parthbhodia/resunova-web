@@ -498,6 +498,19 @@ export default function ResumeLibrary({ onUseAsBase }: {
           border-radius: var(--radius-pill, 99px);
           flex-wrap: wrap;
         }
+        /* On a phone the pill bar wraps to two rows and stops reading as one
+           control. Keep it a single swipeable line instead. */
+        @media (max-width: 768px) {
+          .library-tabs {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            max-width: 100%;
+          }
+          .library-tabs::-webkit-scrollbar { height: 0; }
+          .library-tab { flex: 0 0 auto; }
+        }
         .library-tab {
           border: none;
           background: transparent;

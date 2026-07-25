@@ -346,12 +346,56 @@ select option { background: var(--surface); }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    /* Without this, an `infinite` animation does not stop — it restarts every
+       0.01ms and pins a core repainting. Collapsing the iteration count is
+       what actually ends the animation. */
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
   }
   .rb-suggest-loader-topshine {
     animation: none !important;
     background: var(--accent);
     opacity: 0.35;
   }
+}
+
+/* ── Horizontal rails on small screens ────────────────────────
+   A wrapping row of filter chips turns into four stacked rows on a phone and
+   pushes the actual content below the fold. On narrow viewports these rows
+   become a single swipeable line instead — the pattern every mobile app uses
+   for filters. Desktop keeps wrapping.
+
+   Requires any popup the row opens to be portalled to <body>; an in-flow menu
+   would be clipped by `overflow-x`. */
+.rn-scroll-rail::-webkit-scrollbar { height: 0; width: 0; }
+
+/* The app-shell skeleton's sidebar rail — the real sidebar is off-canvas on
+   phones, so tracing it there would promise a column that never arrives. */
+@media (max-width: 768px) {
+  .rn-shell-skel-rail { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .rn-scroll-rail {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    /* Bleed to the viewport edge so the last chip is visibly cut off — the
+       affordance that tells the user there is more to swipe. */
+    margin-inline: -16px;
+    padding-inline: 16px;
+    scroll-padding-inline: 16px;
+  }
+  .rn-scroll-rail > * {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+  /* `margin-left:auto` would collapse the whole rail in a nowrap scroller. */
+  .rn-scroll-rail > .rn-rail-end { margin-left: 0 !important; }
 }
 
 /* ── Mobile responsive overrides ──────────────────────────── */

@@ -168,7 +168,7 @@ export default function JobSearchActivationWidget({
                     fontWeight: active ? 700 : 500,
                     cursor: "pointer",
                     fontFamily: "inherit",
-                    transition: "all 0.1s",
+                    transition: "background-color 0.1s, border-color 0.1s, color 0.1s, box-shadow 0.1s, transform 0.1s, opacity 0.1s",
                   }}
                 >
                   {active ? "✓ " : ""}{r}

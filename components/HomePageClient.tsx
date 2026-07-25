@@ -208,16 +208,59 @@ function RouterView() {
   );
 }
 
+/**
+ * First paint of the whole app.
+ *
+ * This used to be a centred spinner on an empty page — the single most-seen
+ * loading state in the product, and the one that made the app read as
+ * unfinished. It now traces the shell that is about to appear (sidebar rail,
+ * header, content blocks) so the layout arrives before the data and nothing
+ * jumps when it does.
+ */
 function ShellSkeleton() {
+  const block = (style: React.CSSProperties): React.CSSProperties => ({
+    background: "var(--surface2)",
+    borderRadius: 8,
+    ...style,
+  });
   return (
-    <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "var(--bg)",
-    }}>
-      <div style={{
-        width: 22, height: 22, border: "2px solid var(--surface2)", borderTopColor: "var(--accent)",
-        borderRadius: "50%", animation: "spin 0.8s linear infinite",
-      }} />
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading Resunova"
+      style={{ minHeight: "100vh", display: "flex", background: "var(--bg)" }}
+    >
+      {/* Sidebar rail — hidden on phones, matching the real shell. */}
+      <div
+        className="rn-shell-skel-rail"
+        style={{
+          width: "var(--sidebar-w, 232px)",
+          flexShrink: 0,
+          borderRight: "1px solid var(--border)",
+          padding: "18px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        <div style={block({ height: 26, width: 128, marginBottom: 12 })} />
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} style={block({ height: 32, opacity: 0.7 })} />
+        ))}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, padding: "22px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={block({ height: 30, width: 220 })} />
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} style={block({ height: 84 })} />
+          ))}
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} style={block({ height: 92, opacity: 0.85 })} />
+        ))}
+      </div>
+      <span className="sr-only">Loading Resunova</span>
     </div>
   );
 }

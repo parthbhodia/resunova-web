@@ -18,7 +18,7 @@ import { useSignInDialog } from "@/components/SignInDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchJobDetail, scoreLabel, trackJobEvent, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { fetchJobDetail, peekJobDetail, scoreLabel, trackJobEvent, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { fetchJobPrepStatuses, getSupabaseClient, type JobPrepStatus } from "@/lib/supabase";
 import { goToFreeScan, stashAnalyzeJd } from "@/lib/anonScan";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
@@ -246,16 +246,26 @@ function JobDetailFact({ label, children }: { label: string; children: ReactNode
 export default function JobDetail({ jobId, embedded = false }: { jobId: string; embedded?: boolean }) {
   const router = useRouter();
   const { openSignIn } = useSignInDialog();
-  const [state, setState] = useState<LoadState>({ status: "loading" });
+  // A job the feed already warmed on hover opens straight into content —
+  // flashing a skeleton over data we hold would be theatre.
+  const [state, setState] = useState<LoadState>(() => {
+    const warm = peekJobDetail(jobId);
+    return warm ? { status: "ready", job: warm } : { status: "loading" };
+  });
   const [boostOpen, setBoostOpen] = useState(false);
   const [prepStatus, setPrepStatus] = useState<JobPrepStatus | null>(null);
   const [prepLaunching, setPrepLaunching] = useState(false);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ force = false } = {}) => {
+    const warm = !force && peekJobDetail(jobId);
+    if (warm) {
+      setState({ status: "ready", job: warm });
+      return;
+    }
     setState({ status: "loading" });
     try {
-      const job = await fetchJobDetail(jobId);
+      const job = await fetchJobDetail(jobId, { force });
       setState({ status: "ready", job });
     } catch (err) {
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load job" });
@@ -382,7 +392,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
         <Card>
           <CardContent style={{ padding: "32px 28px", textAlign: "center" }}>
             <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 0 14px" }}>Couldn&apos;t load this job: {state.message}</p>
-            <Button variant="outline" onClick={() => void load()}>Try again</Button>
+            <Button variant="outline" onClick={() => void load({ force: true })}>Try again</Button>
           </CardContent>
         </Card>
       )}

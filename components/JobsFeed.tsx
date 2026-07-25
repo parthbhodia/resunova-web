@@ -1913,8 +1913,9 @@ export default function JobsFeed({
             </FilterMenu>
           </div>
 
-          {/* Row 2 — filter dropdowns */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {/* Row 2 — filter dropdowns. One swipeable line on phones (see
+              .rn-scroll-rail); wraps as before on desktop. */}
+          <div className="rn-scroll-rail" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <FilterMenu label={`Date: ${AGE_FILTERS.find((f) => f.key === ageFilter)?.label ?? "Any"}`} active={ageFilter !== DEFAULT_AGE_FILTER} onClear={() => setAgeFilter(DEFAULT_AGE_FILTER)} width={180}>
               {AGE_FILTERS.map((f) => (
                 <MenuOption key={f.key} label={f.label} selected={ageFilter === f.key} onClick={() => setAgeFilter(f.key)} />
@@ -2002,7 +2003,7 @@ export default function JobsFeed({
               </FilterMenu>
             )}
 
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="rn-rail-end" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
               <FilterMenu label={`Sort: ${SORT_OPTIONS.find((s) => s.key === sortBy)?.label ?? "Best match"}`} align="right" width={170}>
                 {SORT_OPTIONS.map((s) => (
                   <MenuOption key={s.key} label={s.label} selected={sortBy === s.key} onClick={() => setSortBy(s.key)} />

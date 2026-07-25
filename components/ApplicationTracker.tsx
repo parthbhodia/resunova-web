@@ -799,9 +799,9 @@ export default function ApplicationTracker() {
         />
       )}
 
-      {/* Group filter chips */}
+      {/* Group filter chips — one swipeable line on phones (.rn-scroll-rail). */}
       {applications.length > 0 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <div className="rn-scroll-rail" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
           {groupChips.map((g) => {
             const count =
               g === "all"

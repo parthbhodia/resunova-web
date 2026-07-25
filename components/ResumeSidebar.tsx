@@ -146,7 +146,7 @@ export default function ResumeSidebar({ activeFolder, onSelect }: Props) {
                     padding: "4px 6px 4px 10px", borderRadius: 8, width: "100%",
                     background: isActive ? "var(--accent-bg)" : "transparent",
                     border: isActive ? "1px solid rgba(0,113,227,0.25)" : "1px solid transparent",
-                    transition: "all 0.12s",
+                    transition: "background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s",
                   }}
                   onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--surface2)"; }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
@@ -209,7 +209,7 @@ export default function ResumeSidebar({ activeFolder, onSelect }: Props) {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       width: 28, height: 28, borderRadius: 6, flexShrink: 0,
                       color: "var(--dim)", background: "transparent", border: "none",
-                      cursor: "pointer", transition: "all 0.12s",
+                      cursor: "pointer", transition: "background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s",
                     }}
                     onMouseEnter={e => { e.currentTarget.style.background = "var(--surface3)"; e.currentTarget.style.color = "var(--accent)"; }}
                     onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--dim)"; }}
@@ -233,7 +233,7 @@ export default function ResumeSidebar({ activeFolder, onSelect }: Props) {
                         display: "flex", alignItems: "center", justifyContent: "center",
                         width: 28, height: 28, borderRadius: 6, flexShrink: 0,
                         color: "var(--dim)", textDecoration: "none",
-                        transition: "all 0.12s",
+                        transition: "background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s",
                       }}
                       onMouseEnter={e => { e.currentTarget.style.background = "var(--surface3)"; e.currentTarget.style.color = "var(--accent)"; }}
                       onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--dim)"; }}

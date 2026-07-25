@@ -491,7 +491,7 @@ export default function ResumeEditor({ initial, saving, saveError, folder, onSav
                 border: "none", borderRadius: 10,
                 cursor: dirty && !saving ? "pointer" : "not-allowed",
                 fontWeight: 700, letterSpacing: -0.2, fontFamily: "inherit",
-                transition: "all 0.15s",
+                transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
               }}
             >
               {saving ? "Re-compiling…" : dirty ? "Save & re-compile PDF" : "No changes"}
@@ -1545,7 +1545,7 @@ function GenerateSkillsModal({
                       color: on ? "#1d4ed8" : "#475569",
                       fontSize: 12.5, fontWeight: on ? 600 : 400,
                       cursor: "pointer", fontFamily: "inherit",
-                      transition: "all 0.12s",
+                      transition: "background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s",
                     }}
                   >
                     {on && <span style={{ marginRight: 4 }}>✓</span>}

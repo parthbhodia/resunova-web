@@ -521,7 +521,7 @@ export default function LandingPage() {
                 opacity: 0;
                 visibility: hidden;
                 transform: translateY(-4px);
-                transition: all 0.2s ease-out;
+                transition: background-color 0.2s ease-out, border-color 0.2s ease-out, color 0.2s ease-out, box-shadow 0.2s ease-out, transform 0.2s ease-out, opacity 0.2s ease-out;
                 z-index: 1000;
                 pointer-events: none;
                 display: flex;
@@ -764,7 +764,7 @@ export default function LandingPage() {
                 padding: "8px 20px",
                 borderRadius: 12,
                 cursor: "pointer",
-                transition: "all 0.2s",
+                transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
                 fontFamily: "inherit"
               }}
               onMouseEnter={e => { 
@@ -789,7 +789,7 @@ export default function LandingPage() {
                 padding: "8px 24px",
                 borderRadius: 999,
                 cursor: "pointer",
-                transition: "all 0.2s",
+                transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
                 fontFamily: "inherit",
                 boxShadow: "0 4px 14px rgba(212,119,47,0.35)"
               }}
@@ -818,7 +818,7 @@ export default function LandingPage() {
               background: "transparent",
               border: `1px solid transparent`,
               cursor: "pointer", alignItems: "center", justifyContent: "center", display: "flex",
-              color: C.ink, transition: "all 0.15s",
+              color: C.ink, transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
             }}
             onMouseEnter={e => { 
               (e.currentTarget as HTMLElement).style.backgroundColor = dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"; 

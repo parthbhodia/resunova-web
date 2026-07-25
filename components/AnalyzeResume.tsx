@@ -2814,7 +2814,7 @@ export default function AnalyzeResume() {
                               background: copiedBullet === safeIdx ? "rgba(52,211,153,0.15)" : "rgba(52,211,153,0.08)",
                               color: "var(--green)", fontSize: 11, fontWeight: 600,
                               cursor: "pointer", fontFamily: "inherit",
-                              transition: "all 0.15s",
+                              transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                             }}
                           >
                             {copiedBullet === safeIdx ? "Copied!" : "Copy"}
@@ -3257,7 +3257,7 @@ export default function AnalyzeResume() {
                                       border: `1px solid ${copiedBullet === i ? "rgba(52,211,153,0.5)" : "rgba(52,211,153,0.3)"}`,
                                       background: copiedBullet === i ? "rgba(52,211,153,0.15)" : "rgba(52,211,153,0.08)",
                                       color: "var(--green)", fontSize: 11, fontWeight: 600,
-                                      cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                                      cursor: "pointer", fontFamily: "inherit", transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                                     }}
                                   >
                                     {copiedBullet === i ? "✓ Copied" : "Copy"}
@@ -3293,7 +3293,7 @@ export default function AnalyzeResume() {
                                       border: `1px solid ${copiedBullet === i ? "rgba(251,191,36,0.55)" : "rgba(251,191,36,0.34)"}`,
                                       background: copiedBullet === i ? "rgba(251,191,36,0.16)" : "rgba(251,191,36,0.08)",
                                       color: "var(--amber)", fontSize: 11, fontWeight: 600,
-                                      cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                                      cursor: "pointer", fontFamily: "inherit", transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                                     }}
                                   >
                                     {copiedBullet === i ? "✓ Copied" : "Copy draft"}

@@ -238,6 +238,15 @@ export function prefetchJobDetail(id: string): void {
   void fetchJobDetail(id).catch(() => {});
 }
 
+/**
+ * A posting's cached detail if one is on hand, else null. Never fetches — for
+ * seeding initial render state so a hover-warmed job opens with no skeleton.
+ */
+export function peekJobDetail(id: string): JobDetail | null {
+  const hit = readCache<JobDetail>(JOB_DETAIL_KEY(id), JOB_DETAIL_TTL_MS);
+  return hit && !hit.stale ? hit.data : null;
+}
+
 /** Drop a posting's cached detail — call after anything that changes its match. */
 export function invalidateJobDetail(id?: string): void {
   if (id) invalidateCache(JOB_DETAIL_KEY(id));

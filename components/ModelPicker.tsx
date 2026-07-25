@@ -31,7 +31,7 @@ export default function ModelPicker({ value, onChange }: Props) {
             border: "none",
             cursor: "pointer",
             whiteSpace: "nowrap",
-            transition: "all 0.15s",
+            transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
             background: value === m.value ? "var(--accent-bg)" : "transparent",
             color:      value === m.value ? "var(--accent)"    : "var(--muted)",
             fontWeight: value === m.value ? 600 : 400,

@@ -76,7 +76,7 @@ function BulletCard({
               justifyContent: "center",
               cursor: "pointer",
               flexShrink: 0,
-              transition: "all 0.12s",
+              transition: "background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s",
             }}
           >
             {accepted && <span style={{ fontSize: 11, color: "#fff", fontWeight: 700 }}>✓</span>}
@@ -276,7 +276,7 @@ function CategoryNav({
               fontWeight: 600,
               fontFamily: "inherit",
               cursor: "pointer",
-              transition: "all 0.12s",
+              transition: "background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s",
               opacity: isSkipped ? 0.55 : 1,
             }}
           >
@@ -422,7 +422,7 @@ export default function SuggestionsPanel({
               fontWeight: 700,
               fontFamily: "inherit",
               cursor: totalAccepted > 0 && !applyBusy ? "pointer" : "not-allowed",
-              transition: "all 0.15s",
+              transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
               flexShrink: 0,
             }}
           >
