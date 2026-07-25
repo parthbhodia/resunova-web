@@ -173,6 +173,25 @@ export function GapFixSuggestionCard({
           </div>
         )}
 
+        {/* Append shows WHICH existing bullet it's extending — without this, the
+            "+ Adding content" box below is disconnected from the résumé and the
+            user has to guess (or hunt the preview) for where it lands. Not
+            struck through: unlike a rewrite, nothing here is being removed. */}
+        {actionType === "append" && s.original && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 4 }}>
+              Appending to this bullet
+            </div>
+            <div style={{
+              padding: "7px 10px", borderRadius: 6,
+              background: "var(--surface)", border: "1px solid var(--border)",
+              fontSize: 12, color: "var(--muted)", lineHeight: 1.45,
+            }}>
+              {s.original}
+            </div>
+          </div>
+        )}
+
         {/* Editable suggestion */}
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 4 }}>

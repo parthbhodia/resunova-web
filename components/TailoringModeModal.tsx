@@ -61,10 +61,12 @@ export function TailoringModeSelector({
   );
 }
 
-/** One-time explainer shown the first time a signed-in user runs Tailor or
- *  Boost with no stored tailoring_mode. Blocking by design: the choice shapes
- *  every rewrite from then on, and it's changeable any time from the results
- *  header or Account settings. */
+/** One-time explainer shown the first time ANY user (signed in or anonymous)
+ *  runs Tailor or Boost with no stored tailoring_mode. Blocking by design: the
+ *  choice shapes every rewrite from then on, and it's changeable any time from
+ *  the results header or Account settings. Anonymous choices persist to
+ *  localStorage only (see lib/tailoringMode.ts); signed-in choices also mirror
+ *  to user_profiles.tailoring_mode. */
 export function TailoringModeModal({
   open,
   initialMode = "honest",

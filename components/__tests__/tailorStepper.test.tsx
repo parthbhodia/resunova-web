@@ -51,6 +51,19 @@ describe("TailorMatchDetail — guided stepper", () => {
     expect(back2.style.visibility).toBe("visible");
   });
 
+  it("resets the panel scroll to the top when the step changes", () => {
+    const { container, rerender } = render(
+      <TailorMatchDetail ratings={ratings} activeTab="job_title" onActiveTabChange={() => {}} />,
+    );
+    const scroller = container.querySelector('[style*="overflow-y: auto"]') as HTMLElement;
+    expect(scroller).toBeTruthy();
+    const scrollTo = vi.fn();
+    scroller.scrollTo = scrollTo;
+
+    rerender(<TailorMatchDetail ratings={ratings} activeTab="qualifications" onActiveTabChange={() => {}} />);
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+  });
+
   it("last guided step offers Back to Overview instead of Next", () => {
     const onActiveTabChange = vi.fn();
     const { getByText, queryByText } = render(

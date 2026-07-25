@@ -52,6 +52,8 @@ import {
   remapLineOverrides,
   suggestionsWithDrafts,
 } from "@/lib/tailorGapFix";
+import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToStructured";
+import { prefillPrepFromTailor } from "@/lib/interviewPrepLaunch";
 import type { AddressedGapAction } from "@/lib/types";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
@@ -546,6 +548,17 @@ export default function ResumeBuilder({
       }
       return { ...prev, [path]: text };
     });
+    setScoreStale(true);
+  }, []);
+  // The résumé's self-authored headline (e.g. "Software Engineer"), distinct
+  // from any specific employer's job title under Experience — those never
+  // change here. Editing this is the honest lever for the Job Title match:
+  // the backend already includes `headline` in what it sends the rating LLM
+  // (_resume_json_for_rating), so this genuinely moves that score instead of
+  // faking it. Empty string = no override, use the extracted headline as-is.
+  const [tailorHeadlineOverride, setTailorHeadlineOverride] = useState("");
+  const handleHeadlineOverrideChange = useCallback((text: string) => {
+    setTailorHeadlineOverride(text);
     setScoreStale(true);
   }, []);
   /** Bullet-level structural op (drag-reorder / add / delete) from the Tailor
@@ -1251,7 +1264,9 @@ export default function ResumeBuilder({
     if (!profile) { setAnalyzeError("Please upload your résumé first."); return; }
     // First-use: ask how the AI should tailor before the first analyze; the
     // modal re-invokes this via handleAnalyzeRef after the choice is saved.
-    if (user?.id && tailoringMode === null) {
+    // Anonymous users get asked too — saveTailoringMode() already persists to
+    // localStorage regardless of session, only the Supabase write is skipped.
+    if (tailoringMode === null) {
       pendingAnalyzeAfterModeRef.current = true;
       setShowTailoringModal(true);
       return;
@@ -1361,12 +1376,19 @@ export default function ResumeBuilder({
     // Always send the structured doc with overrides patched in — even after
     // gap fixes change bullets. This skips a backend re-extraction round-trip
     // and ensures the scorer sees exactly the content the user edited.
-    const patchedStructured = tailorStructuredResume
+    const structuredWithFieldOverrides = tailorStructuredResume
       ? applyFieldOverridesToStructured(
           patchStructuredWithOverrides(tailorStructuredResume, effectiveBullets, effectiveOverrides),
           tailorFieldOverrides,
         )
       : null;
+    // applyFieldOverridesToStructured only understands bullet paths (exp.N.bullets.M),
+    // so the headline override is applied separately, directly onto the field the
+    // rating LLM actually reads (_resume_json_for_rating includes `headline`).
+    const headlineOverride = tailorHeadlineOverride.trim();
+    const patchedStructured = structuredWithFieldOverrides && headlineOverride
+      ? { ...structuredWithFieldOverrides, headline: headlineOverride }
+      : structuredWithFieldOverrides;
     setTailorRescoring(true);
     try {
       const resp = await fetch(apiUrl("/api/analyze"), {
@@ -1466,7 +1488,7 @@ export default function ResumeBuilder({
     candidateProfile, jd, company, role, model, user?.id, result?.folder,
     tailorBulletAnalysis, tailorLineOverrides, addressedGaps, addressedGapActions,
     tailorAppliedBulletIndices, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze,
-    persistTailorMatch,
+    persistTailorMatch, tailorFieldOverrides, tailorHeadlineOverride,
   ]);
 
   /** Plain text with tailor bullet overrides applied (for gap-fix API + rescoring). */
@@ -2298,6 +2320,97 @@ export default function ResumeBuilder({
   ) => {
     await applyGapFixes(items);
   }, [applyGapFixes]);
+
+  const skillCategories = useMemo(
+    () => skillCategoryOptions(tailorStructuredResume),
+    [tailorStructuredResume],
+  );
+
+  /**
+   * Bulk-add bare skills to the Skills section.
+   *
+   * Deterministic and local: no LLM call, and it edits the skills array rather
+   * than a bullet, so it cannot collide with a gap fix the way a bullet rewrite
+   * can. Keywords the résumé already lists are reported back as skipped and
+   * still marked addressed — the résumé does cover them, which is why nothing
+   * was written.
+   */
+  const addSkillsToResume = useCallback((keywords: string[], category: string) => {
+    if (!tailorStructuredResume || keywords.length === 0) return;
+    const { structured, added, skipped } = addSkillsToStructured(
+      tailorStructuredResume,
+      keywords,
+      category,
+    );
+    const covered = [...added, ...skipped];
+    if (covered.length === 0) return;
+
+    if (added.length > 0) {
+      setStructuredUpload((prev) => (prev ? { ...prev, structured } : prev));
+    }
+    setAddressedGaps((prev) => new Set([...prev, ...covered]));
+    setAddressedGapActions((prev) => {
+      const next = [...prev];
+      for (const label of covered) {
+        const id = makeStableGapId(label, "keyword");
+        if (!next.some((a) => a.id === id)) {
+          next.push({ id, label, type: "keyword", appliedText: label });
+        }
+      }
+      return next;
+    });
+    setResult((prevResult) => {
+      if (!prevResult?.ratings) return prevResult;
+      let ratings = prevResult.ratings;
+      for (const label of covered) {
+        ratings = applyOptimisticGapAddressed(ratings, label, "keyword");
+      }
+      return { ...prevResult, ratings };
+    });
+    setScoreStale(true);
+  }, [tailorStructuredResume]);
+
+  const openInterviewPrep = useCallback(() => {
+    // /interview-prep is not a public route, so pushing it while signed out
+    // lands the visitor on the landing page with no explanation. Ask first.
+    if (!user) { openSignIn(); return; }
+    prefillPrepFromTailor({
+      resumeText: effectiveCandidateProfile,
+      structured: tailorStructuredResume
+        ? applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides)
+        : null,
+      jobDescription: jd,
+      company,
+      role,
+    });
+    router.push("/interview-prep/dashboard");
+  }, [user, openSignIn, effectiveCandidateProfile, tailorStructuredResume, tailorFieldOverrides, jd, company, role, router]);
+
+  /** One batched rewrite pass for several contextual gaps, instead of one call each. */
+  const fixKeywordsBatched = useCallback((keywords: string[]) => {
+    const list = keywords.filter(Boolean);
+    if (list.length === 0) return;
+    if (list.length === 1) {
+      void handleFixGap({
+        name: list[0],
+        notes: `This keyword is missing from the resume. Rewrite one of the most relevant existing bullets to naturally incorporate "${list[0]}" without fabricating experience.`,
+        type: "keyword",
+      });
+      return;
+    }
+    // The gap panel is keyed by a single label, so the batch is named for the
+    // set and the whole list goes into the notes. The backend prompt already
+    // knows how to weave several requirements into one rewrite.
+    void handleFixGap({
+      name: list.join(", "),
+      notes:
+        `These keywords are all missing from the resume: ${list.join(", ")}. `
+        + "Rewrite the most relevant existing bullets to cover as many of them as can be "
+        + "supported honestly, preferring one rewrite that carries several over several "
+        + "separate rewrites. Never fabricate experience to fit a keyword.",
+      type: "keyword",
+    });
+  }, [handleFixGap]);
 
   const ratings = result?.ratings;
   const displayRatings = useMemo(() => {
@@ -3363,15 +3476,16 @@ export default function ResumeBuilder({
                 </div>
                 {/* Header action buttons */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
-                  {user?.id && (
-                    <span title="How AI rewrites tailor to the JD — applies to gap fixes and Boost" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>AI style</span>
-                      <TailoringModeSelector
-                        value={tailoringMode ?? "honest"}
-                        onChange={commitTailoringMode}
-                      />
-                    </span>
-                  )}
+                  {/* Anonymous users get this too — the choice persists to localStorage
+                      either way; only the Supabase mirror needs a session (see
+                      lib/tailoringMode.ts saveTailoringMode). */}
+                  <span title="How AI rewrites tailor to the JD — applies to gap fixes and Boost" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>AI style</span>
+                    <TailoringModeSelector
+                      value={tailoringMode ?? "honest"}
+                      onChange={commitTailoringMode}
+                    />
+                  </span>
                   <div style={{ display: "inline-flex", border: "1px solid var(--border-strong, var(--border))", borderRadius: 7, overflow: "hidden" }}>
                     <Button
                       variant="outline"
@@ -3587,6 +3701,10 @@ export default function ResumeBuilder({
                   <div className="tb-split-work-slot">
                     <TailorMatchDetail
                       ratings={displayRatings}
+                      headlineDraft={tailorHeadlineOverride}
+                      onHeadlineDraftChange={handleHeadlineOverrideChange}
+                      onRescoreTitle={tailorStructuredResume ? () => { void rescoreTailorRatings(); } : undefined}
+                      titleRescoring={tailorRescoring}
                       onFixGap={(item: DetailedRatingItem, gapType) => {
                         void handleFixGap({
                           name: item.text,
@@ -3601,6 +3719,10 @@ export default function ResumeBuilder({
                           type: "keyword",
                         });
                       }}
+                      onAddSkills={tailorStructuredResume ? addSkillsToResume : undefined}
+                      skillCategories={skillCategories}
+                      onFixKeywords={fixKeywordsBatched}
+                      onOpenInterviewPrep={openInterviewPrep}
                       fixingGapName={gapFixLoading}
                       gapFixPanel={gapFixPanel}
                       gapFixError={gapFixError}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { AddressedGapAction, RatingsData, DetailedRatingItem } from "@/lib/types";
 import { isDetailedRatings } from "@/lib/types";
@@ -107,6 +107,14 @@ type SharedProps = {
   ratings: RatingsData;
   onFixGap?: (item: DetailedRatingItem, gapType: AddressedGapAction["type"]) => void;
   onFixKeyword?: (keyword: string) => void;
+  /** Bulk: write selected bare skills into the résumé's Skills section. */
+  onAddSkills?: (keywords: string[], category: string) => void;
+  skillCategories?: string[];
+  addSkillsBusy?: boolean;
+  /** Bulk: one batched rewrite pass covering several contextual gaps. */
+  onFixKeywords?: (keywords: string[]) => void;
+  /** Open the full prep workspace carrying this run's résumé, JD, company and role. */
+  onOpenInterviewPrep?: () => void;
   fixingGapName?: string | null;
   gapFixPanel?: GapFixPanel | null;
   gapFixError?: string | null;
@@ -127,6 +135,15 @@ type SharedProps = {
   applyBusy?: boolean;
   activeTab?: Tab;
   onActiveTabChange?: (tab: Tab) => void;
+  /** Résumé headline draft for the Job Title panel's editor — distinct from any
+   *  specific employer's title under Experience, which stays untouched. Empty
+   *  string = no override, show the extracted headline / LLM's resume_title. */
+  headlineDraft?: string;
+  onHeadlineDraftChange?: (text: string) => void;
+  /** Re-runs /api/analyze with the current headline draft applied. Undefined
+   *  when there's no structured résumé to attach the override to. */
+  onRescoreTitle?: () => void;
+  titleRescoring?: boolean;
 };
 
 /** Sidebar grouping: ATS-facing dimensions vs the human-recruiter read. */
@@ -431,6 +448,17 @@ export function TailorMatchDetail(props: SharedProps) {
       props.onActiveTabChange?.("overall");
     }
   }, [props.activeTab, props.gapFixPanel, props.onActiveTabChange]);
+
+  // A step change swaps the entire panel body. Without this the reader lands
+  // in the middle of the new step at whatever offset the previous one happened
+  // to be scrolled to — and the Next button sits at the bottom, so that offset
+  // is almost always "the end". Instant, not smooth: this is an arrival at a
+  // new step, not a move to a target on the current one.
+  const detailScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    detailScrollRef.current?.scrollTo({ top: 0 });
+  }, [props.activeTab]);
+
   if (!state) return null;
 
   const {
@@ -510,11 +538,19 @@ export function TailorMatchDetail(props: SharedProps) {
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: (activeTab === "fixes" || activeTab === "gapfix") ? 0 : "24px 28px" }}>
+      <div ref={detailScrollRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: (activeTab === "fixes" || activeTab === "gapfix") ? 0 : "24px 28px" }}>
         {activeTab === "overall" && (
           <OverallSection overallScore={overall_score} jobTitleScore={job_title?.score} verdict={verdict} whats_working={whats_working} gaps={gaps} keywords={keywords} qualifications={qualifications} responsibilities={responsibilities} roleContext={props.ratings?.role_context ?? []} onNavigate={setActiveTab} />
         )}
-        {activeTab === "job_title" && <JobTitleSection jobTitle={job_title} />}
+        {activeTab === "job_title" && (
+          <JobTitleSection
+            jobTitle={job_title}
+            headlineDraft={props.headlineDraft}
+            onHeadlineDraftChange={props.onHeadlineDraftChange}
+            onRescoreTitle={props.onRescoreTitle}
+            rescoring={props.titleRescoring}
+          />
+        )}
         {activeTab === "qualifications" && (
           <CoveredMissingSection category={qualifications} label="Qualifications" onFixGap={onFixGap} fixingGapName={fixingGapName} addressedGaps={addressedGaps} addressedGapActions={addressedGapActions} />
         )}
@@ -522,10 +558,20 @@ export function TailorMatchDetail(props: SharedProps) {
           <CoveredMissingSection category={responsibilities} label="Responsibilities" onFixGap={onFixGap} fixingGapName={fixingGapName} addressedGaps={addressedGaps} addressedGapActions={addressedGapActions} />
         )}
         {activeTab === "keywords" && (
-          <KeywordsSection keywords={keywords} onFixKeyword={onFixKeyword} fixingKeyword={fixingGapName} addressedGaps={addressedGaps} addressedGapActions={addressedGapActions} />
+          <KeywordsSection
+            keywords={keywords}
+            onFixKeyword={onFixKeyword}
+            fixingKeyword={fixingGapName}
+            addressedGaps={addressedGaps}
+            addressedGapActions={addressedGapActions}
+            onAddSkills={props.onAddSkills}
+            skillCategories={props.skillCategories}
+            addSkillsBusy={props.addSkillsBusy}
+            onFixKeywords={props.onFixKeywords}
+          />
         )}
         {activeTab === "interview" && (
-          <InterviewSection keyGap={keyGap} tips={strategicTips} questions={interviewQuestions} onGetSuggestions={onGetSuggestions} suggestionsLoading={suggestionsLoading} />
+          <InterviewSection keyGap={keyGap} tips={strategicTips} questions={interviewQuestions} onGetSuggestions={onGetSuggestions} suggestionsLoading={suggestionsLoading} onOpenInterviewPrep={props.onOpenInterviewPrep} />
         )}
         {activeTab === "gapfix" && gapFixPanel && (
           <GapFixTabPanel
