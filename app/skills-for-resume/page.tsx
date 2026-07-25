@@ -13,11 +13,9 @@ import {
 const CANONICAL = `${SITE_URL}/skills-for-resume/`;
 const YEAR = roleDataYear();
 
-const TOTAL_POSTINGS = ROLE_RESUME_DATA.reduce((n, r) => n + r.postingsAnalyzed, 0);
-
 export const metadata: Metadata = {
-  title: `Skills for Your Resume (${YEAR}): Ranked by Real Job Postings, per Role`,
-  description: `Which skills to put on a resume, by role — ranked by how often ${TOTAL_POSTINGS.toLocaleString("en-US")}+ live job postings request each skill, not by opinion. Pick your role for the exact list, then check your resume against it free.`,
+  title: `Skills for Your Resume (${YEAR}): Ranked by Real Job-Posting Data, per Role`,
+  description: `Which skills to put on a resume, by role — ranked by how often employers actually request each skill in published job-posting research, not by opinion. Pick your role for the exact list, then check your resume against it free.`,
   alternates: { canonical: CANONICAL },
   robots: { index: true, follow: true },
   openGraph: {
@@ -115,16 +113,16 @@ export default function SkillsForResumeIndexPage() {
             marginBottom: 12,
           }}
         >
-          Ranked by live job postings · Updated {ROLE_DATA_LAST_UPDATED.slice(0, 10)}
+          Ranked by real job-posting data · Updated {ROLE_DATA_LAST_UPDATED.slice(0, 10)}
         </p>
         <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1.1, lineHeight: 1.12, margin: "0 0 16px" }}>
           Skills for your resume, ranked by real demand
         </h1>
         <p style={{ fontSize: 16, color: "var(--muted)", lineHeight: 1.7, margin: "0 0 32px" }}>
           The right skills for a resume depend entirely on the role — so instead of one generic list, each page below
-          ranks skills by how often live job postings for that role actually request them, computed from{" "}
-          {TOTAL_POSTINGS.toLocaleString("en-US")}+ postings in Resunova&rsquo;s jobs dataset. Pick your role, get the
-          exact list, then check your resume against it free.
+          ranks skills by how often employers actually request them in job postings, drawn from published hiring
+          research (each page cites its source). Pick your role, get the exact list, then check your resume against it
+          free.
         </p>
 
         <section style={{ marginBottom: 44 }}>

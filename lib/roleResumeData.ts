@@ -49,8 +49,14 @@ export const ROLE_DATA_LAST_UPDATED = GENERATED.generatedAt ?? "2026-06-26";
 export type RoleSkill = {
   /** Canonical skill/requirement name as it should appear on a résumé. */
   name: string;
-  /** Share of analyzed postings for this role that ask for the skill (0–100). */
-  sharePct: number;
+  /**
+   * Share of analyzed postings for this role that ask for the skill (0–100).
+   * null when the skill is genuinely top-demanded per the cited research but
+   * that source didn't publish a per-skill percentage (e.g. it named the skill
+   * in a top-N list, or only published a combined share for several skills
+   * together) — never fabricate a number to fill this in.
+   */
+  sharePct: number | null;
 };
 
 export type RoleFaqItem = { question: string; answer: string };
@@ -68,6 +74,15 @@ export type RoleResumeData = {
   intro: string;
   /** Most-requested requirement_concepts for this role, frequency-sorted. */
   topSkills: RoleSkill[];
+  /**
+   * When set, topSkills come from PUBLISHED external research (not the Resunova
+   * corpus): this string is the citation rendered under the skills table, and
+   * the live corpus overlay must NOT overwrite the curated skills. Added when
+   * the coarse role_family aggregates proved too polluted to show (generic
+   * concepts, casing dupes, diluted shares) — revisit once the api endpoint
+   * learns title-scoped aggregation.
+   */
+  skillsSource?: string;
   salary: {
     /** Median annual base in USD. */
     medianUsd: number;
@@ -97,19 +112,20 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "software",
     postingsAnalyzed: 18400,
     intro:
-      "A strong software engineer résumé leads with the stack in the job description, proves each skill with a shipped, measurable outcome, and fits on one page. Across live postings, JavaScript, Python, and React are the most-requested skills, so name them and back them with impact, not task lists.",
+      "A strong software engineer résumé leads with the stack in the job description, proves each skill with a shipped, measurable outcome, and fits on one page. Per published hiring research, Python, Agile, Java, and AWS are the most-requested skills, so name them and back them with impact, not task lists.",
     topSkills: [
-      { name: "JavaScript", sharePct: 71 },
-      { name: "Python", sharePct: 64 },
-      { name: "React", sharePct: 58 },
-      { name: "SQL", sharePct: 52 },
-      { name: "AWS", sharePct: 47 },
-      { name: "TypeScript", sharePct: 44 },
-      { name: "Git", sharePct: 41 },
-      { name: "REST APIs", sharePct: 38 },
-      { name: "Docker", sharePct: 33 },
-      { name: "CI/CD", sharePct: 27 },
+      { name: "Python", sharePct: 35 },
+      { name: "Agile", sharePct: 30 },
+      { name: "Java", sharePct: 27 },
+      { name: "AWS", sharePct: 27 },
+      { name: "CI/CD", sharePct: 26 },
+      { name: "JavaScript", sharePct: 19 },
+      { name: "TypeScript", sharePct: 18 },
+      { name: "C++", sharePct: 12 },
+      { name: "C#", sharePct: 12 },
     ],
+    skillsSource:
+      "Source: InterviewStack.io analysis of 48,207 US software-engineer job postings (2026). Percentages are the share of postings requesting each skill.",
     salary: { medianUsd: 122000, rangeLabel: "$95k–$165k" },
     workModel: { remotePct: 38, hybridPct: 41, onsitePct: 21 },
     example: {
@@ -126,7 +142,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What technical skills should a software engineer resume include?",
         answer:
-          "Lead with the languages and frameworks named in the job description. Across live postings, JavaScript (71%), Python (64%), and React (58%) appear most often. List them in a dedicated Skills section and prove each in a bullet with a shipped, measurable outcome.",
+          "Lead with the languages and frameworks named in the job description. Per a 2026 analysis of 48,207 US software-engineer postings, Python (35%), Agile (30%), Java (27%), and AWS (27%) appear most often. List them in a dedicated Skills section and prove each in a bullet with a shipped, measurable outcome.",
       },
       {
         question: "How long should a software engineer resume be?",
@@ -146,19 +162,20 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "data",
     postingsAnalyzed: 9600,
     intro:
-      "A strong data analyst résumé proves you turn data into decisions, not just charts. SQL is effectively required (it appears in 87% of analyst postings), so pair it with a visualization tool and a scripting language, and quantify the business outcome every analysis drove.",
+      "A strong data analyst résumé proves you turn data into decisions, not just charts. SQL is the single most-requested skill (53% of analyst postings, per 2026 research), so pair it with a visualization tool and a scripting language, and quantify the business outcome every analysis drove.",
     topSkills: [
-      { name: "SQL", sharePct: 87 },
-      { name: "Excel", sharePct: 68 },
-      { name: "Python", sharePct: 54 },
-      { name: "Tableau", sharePct: 49 },
-      { name: "Data Visualization", sharePct: 43 },
-      { name: "Power BI", sharePct: 36 },
-      { name: "Statistics", sharePct: 31 },
-      { name: "ETL", sharePct: 27 },
-      { name: "R", sharePct: 22 },
-      { name: "A/B Testing", sharePct: 19 },
+      { name: "SQL", sharePct: 53 },
+      { name: "Microsoft Excel", sharePct: 41 },
+      { name: "Python", sharePct: 31 },
+      { name: "Power BI", sharePct: 29 },
+      { name: "Problem solving", sharePct: 29 },
+      { name: "Tableau", sharePct: 26 },
+      { name: "R", sharePct: 25 },
+      { name: "Machine learning", sharePct: 14 },
+      { name: "Presentation skills", sharePct: 14 },
     ],
+    skillsSource:
+      "Source: 365 Data Science, Data Analyst Job Outlook (2026) \u2014 share of analyzed US data-analyst job postings requesting each skill.",
     salary: { medianUsd: 84000, rangeLabel: "$62k–$115k" },
     workModel: { remotePct: 31, hybridPct: 44, onsitePct: 25 },
     example: {
@@ -175,7 +192,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What skills should a data analyst resume highlight?",
         answer:
-          "SQL is non-negotiable: it appears in 87% of analyst postings. Pair it with a visualization tool (Tableau 49%, Power BI 36%) and a scripting language (Python 54%), and quantify the decisions your analysis drove.",
+          "SQL is the single most-requested skill, appearing in 53% of analyst postings (365 Data Science, 2026). Pair it with Excel (41%), Python (31%), and a visualization tool (Power BI 29%, Tableau 26%), and quantify the decisions your analysis drove.",
       },
       {
         question: "Should a data analyst resume include a portfolio?",
@@ -195,19 +212,17 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "healthcare",
     postingsAnalyzed: 14200,
     intro:
-      "A strong registered nurse résumé leads with your license and certifications, then your unit type, patient load, and measurable outcomes. BLS certification appears in 64% of RN postings and ACLS in 44%, so list them explicitly, and mirror the EHR system named in the job posting.",
+      "A strong registered nurse résumé leads with your license and certifications, then your unit type, patient load, and measurable outcomes. An active RN license is named in 99% of postings and BLS certification in 53% (Indeed employer data, 2026), so list them explicitly, and mirror the EHR system named in the job posting.",
     topSkills: [
-      { name: "Patient Care", sharePct: 78 },
-      { name: "BLS Certification", sharePct: 64 },
-      { name: "Electronic Health Records (EHR)", sharePct: 57 },
-      { name: "Medication Administration", sharePct: 51 },
-      { name: "ACLS", sharePct: 44 },
-      { name: "Care Planning", sharePct: 38 },
-      { name: "IV Therapy", sharePct: 33 },
-      { name: "Patient Education", sharePct: 29 },
-      { name: "Epic (EHR)", sharePct: 24 },
-      { name: "Wound Care", sharePct: 21 },
+      { name: "RN license", sharePct: 99 },
+      { name: "BLS certification", sharePct: 53 },
+      { name: "CPR certification", sharePct: 17 },
+      { name: "Medication administration", sharePct: 9 },
+      { name: "PALS certification", sharePct: 8 },
+      { name: "Critical care experience", sharePct: 5 },
     ],
+    skillsSource:
+      "Source: Indeed employer duties & skills data \u2014 share of US registered-nurse job postings on Indeed requesting each skill (2026).",
     salary: { medianUsd: 89000, rangeLabel: "$68k–$120k" },
     workModel: { remotePct: 4, hybridPct: 6, onsitePct: 90 },
     example: {
@@ -224,7 +239,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What should a registered nurse resume include?",
         answer:
-          "Lead with your license and certifications (RN, BLS in 64% of postings, ACLS in 44%), then unit type, patient load, and outcomes such as satisfaction scores or error rates.",
+          "Lead with your license and certifications — an active RN license is named in 99% of postings and BLS certification in 53% (Indeed employer data, 2026) — then unit type, patient load, and outcomes such as satisfaction scores or error rates.",
       },
       {
         question: "Do nursing resumes need a summary?",
@@ -234,7 +249,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "How do I make a nursing resume ATS-friendly?",
         answer:
-          "Spell out certifications both ways (e.g. 'Basic Life Support (BLS)'), use standard section headings, and mirror the EHR system named in the posting. Epic appears in 24% of RN listings.",
+          "Spell out certifications both ways (e.g. 'Basic Life Support (BLS)'), use standard section headings, and mirror the EHR system named in the posting.",
       },
     ],
   },
@@ -244,19 +259,17 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "sales",
     postingsAnalyzed: 11800,
     intro:
-      "A strong sales representative résumé is built on numbers: quota attainment, revenue closed, ranking, and conversion rates. Salesforce appears in 69% of sales postings, so name your CRM and the segment you sell into, then let your results do the rest.",
+      "A strong sales representative résumé is built on numbers: quota attainment, revenue closed, ranking, and conversion rates. Customer service and B2B sales are the skills employers name most (Indeed employer data, 2026), so name your CRM and the segment you sell into, then let your results do the rest.",
     topSkills: [
-      { name: "CRM (Salesforce)", sharePct: 69 },
-      { name: "Prospecting", sharePct: 61 },
-      { name: "Negotiation", sharePct: 52 },
-      { name: "Pipeline Management", sharePct: 47 },
-      { name: "Cold Calling", sharePct: 41 },
-      { name: "B2B Sales", sharePct: 37 },
-      { name: "Account Management", sharePct: 33 },
-      { name: "Lead Generation", sharePct: 29 },
-      { name: "Forecasting", sharePct: 24 },
-      { name: "Closing", sharePct: 21 },
+      { name: "Customer service", sharePct: 21 },
+      { name: "B2B sales", sharePct: 12 },
+      { name: "Negotiation", sharePct: 10 },
+      { name: "Outside sales", sharePct: 9 },
+      { name: "Marketing", sharePct: 5 },
+      { name: "Business development", sharePct: 5 },
     ],
+    skillsSource:
+      "Source: Indeed employer duties & skills data \u2014 share of US sales-representative job postings on Indeed requesting each skill (2026).",
     salary: { medianUsd: 72000, rangeLabel: "$48k–$110k OTE" },
     workModel: { remotePct: 34, hybridPct: 39, onsitePct: 27 },
     example: {
@@ -273,7 +286,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What should a sales representative resume emphasize?",
         answer:
-          "Numbers above all: quota attainment (% of target), revenue closed, ranking, and conversion rates. Then tools (Salesforce appears in 69% of postings) and the segment you sell into.",
+          "Numbers above all: quota attainment (% of target), revenue closed, ranking, and conversion rates. Then the skills employers name most — customer service (21% of postings) and B2B sales (12%) (Indeed employer data, 2026) — and the segment you sell into.",
       },
       {
         question: "How do I show sales results without confidential numbers?",
@@ -283,7 +296,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "Should a sales resume list specific CRMs?",
         answer:
-          "Yes, name them. Salesforce (69%) and HubSpot are the most-requested; mirroring the CRM in the posting helps pass ATS keyword screens.",
+          "Yes, name them. Salesforce and HubSpot are the CRMs employers name most often; mirroring the CRM in the posting helps pass ATS keyword screens.",
       },
     ],
   },
@@ -293,19 +306,21 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "operations",
     postingsAnalyzed: 26300,
     intro:
-      "A strong operations manager résumé proves you make systems run better, faster, and cheaper. Excel and project management dominate postings, but the winning bullet quantifies the process you improved and the dollars or hours you saved. Name your ERP, your PM tool, and the scale you managed.",
+      "A strong operations manager résumé proves you make systems run better, faster, and cheaper. Operations expertise, leadership, and communication dominate postings, but the winning bullet quantifies the process you improved and the dollars or hours you saved. Name your ERP, your PM tool, and the scale you managed.",
     topSkills: [
-      { name: "Excel", sharePct: 62 },
-      { name: "Project Management", sharePct: 54 },
-      { name: "SQL", sharePct: 38 },
-      { name: "SAP", sharePct: 35 },
-      { name: "Microsoft Office", sharePct: 31 },
-      { name: "Data Analysis", sharePct: 28 },
-      { name: "Supply Chain", sharePct: 25 },
-      { name: "Process Improvement", sharePct: 22 },
-      { name: "Budgeting", sharePct: 19 },
-      { name: "Lean / Six Sigma", sharePct: 16 },
+      { name: "Operations", sharePct: 69 },
+      { name: "Leadership", sharePct: 56 },
+      { name: "Communication", sharePct: 56 },
+      { name: "Operations Management", sharePct: 54 },
+      { name: "Management", sharePct: 51 },
+      { name: "Customer Service", sharePct: 37 },
+      { name: "Problem Solving", sharePct: 30 },
+      { name: "Planning", sharePct: 24 },
+      { name: "Project Management", sharePct: 23 },
+      { name: "Process Improvement", sharePct: 20 },
     ],
+    skillsSource:
+      "Source: Lightcast job-postings data via NC State University's Operations Manager career profile \u2014 share of US postings requesting each skill, trailing 12 months (2026).",
     salary: { medianUsd: 85000, rangeLabel: "$65k–$115k" },
     workModel: { remotePct: 18, hybridPct: 37, onsitePct: 45 },
     example: {
@@ -322,7 +337,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What skills should an operations manager resume highlight?",
         answer:
-          "Excel (62% of postings) and project management (54%) are table stakes. Differentiate with an ERP system (SAP, Oracle, NetSuite), a continuous-improvement methodology (Lean, Six Sigma), and quantified process gains.",
+          "Operations expertise (named in 69% of postings), leadership, and communication are table stakes, per 2026 Lightcast postings data. Differentiate with an ERP system (SAP, Oracle, NetSuite), a continuous-improvement methodology (Lean, Six Sigma), and quantified process gains.",
       },
       {
         question: "How do I quantify operations impact on a resume?",
@@ -344,17 +359,19 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     intro:
       "A strong financial analyst résumé proves you build models that drive decisions, not just spreadsheets. Excel is practically universal, but the real differentiator is showing that your analysis led to a funding decision, a cost cut, or a pricing change. Name your modeling tools and the stakes involved.",
     topSkills: [
-      { name: "Excel", sharePct: 74 },
-      { name: "Financial Modeling", sharePct: 58 },
-      { name: "Accounting (GAAP)", sharePct: 49 },
-      { name: "CPA", sharePct: 42 },
-      { name: "SQL", sharePct: 36 },
-      { name: "PowerPoint", sharePct: 32 },
-      { name: "Budgeting & Forecasting", sharePct: 28 },
-      { name: "ERP (SAP/Oracle)", sharePct: 24 },
-      { name: "Bloomberg Terminal", sharePct: 19 },
-      { name: "Python / VBA", sharePct: 15 },
+      { name: "Finance", sharePct: 80 },
+      { name: "Accounting", sharePct: 70 },
+      { name: "Financial Analysis", sharePct: 70 },
+      { name: "Data Visualization (Power BI/Tableau)", sharePct: 64 },
+      { name: "Communication", sharePct: 48 },
+      { name: "Forecasting", sharePct: 46 },
+      { name: "Microsoft Excel", sharePct: 45 },
+      { name: "Financial Statements", sharePct: 42 },
+      { name: "Budgeting", sharePct: 39 },
+      { name: "Financial Modeling", sharePct: 28 },
     ],
+    skillsSource:
+      "Source: Lightcast job-postings data via NC State University's Financial Analyst career profile (trailing 12 months); data-visualization figure from Research.com's 2025 review of 1,000 finance job ads.",
     salary: { medianUsd: 82000, rangeLabel: "$60k–$115k" },
     workModel: { remotePct: 22, hybridPct: 48, onsitePct: 30 },
     example: {
@@ -371,12 +388,12 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What should a financial analyst resume emphasize?",
         answer:
-          "Excel proficiency is assumed (74% of postings). The differentiators are modeling depth (DCF, LBO, scenario analysis), the decisions your work informed, and the dollar amounts at stake.",
+          "Finance and accounting expertise are assumed (80% and 70% of postings, per 2026 Lightcast data), and Excel proficiency is close behind. The differentiators are modeling depth (DCF, LBO, scenario analysis), the decisions your work informed, and the dollar amounts at stake.",
       },
       {
         question: "Does a financial analyst resume need a CPA?",
         answer:
-          "CPA appears in 42% of postings, so it helps. If you have it, list it prominently. If not, emphasize modeling output and any relevant certifications like CFA Level progress.",
+          "It helps but isn't universal — if you have it, list it prominently. If not, emphasize financial modeling output and any relevant certifications like CFA Level progress.",
       },
       {
         question: "How long should a financial analyst resume be?",
@@ -391,19 +408,21 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "marketing",
     postingsAnalyzed: 11500,
     intro:
-      "A strong marketing manager résumé connects campaigns to revenue, not vanity metrics. SEO, project management, and CRM tools (Salesforce, HubSpot) dominate postings. Show the pipeline you built, the CAC you lowered, or the conversion rate you moved, and name the channels that got you there.",
+      "A strong marketing manager résumé connects campaigns to revenue, not vanity metrics. Communication, core marketing expertise, and sales acumen dominate postings. Show the pipeline you built, the CAC you lowered, or the conversion rate you moved, and name the channels that got you there.",
     topSkills: [
-      { name: "SEO / SEM", sharePct: 55 },
-      { name: "Project Management", sharePct: 44 },
-      { name: "Salesforce", sharePct: 38 },
-      { name: "HubSpot", sharePct: 33 },
-      { name: "Google Analytics", sharePct: 30 },
-      { name: "Content Strategy", sharePct: 27 },
-      { name: "Social Media (TikTok, Instagram)", sharePct: 24 },
-      { name: "Email Marketing", sharePct: 21 },
-      { name: "Paid Media (Google Ads, Meta)", sharePct: 18 },
-      { name: "Marketing Automation", sharePct: 15 },
+      { name: "Communication", sharePct: 67 },
+      { name: "Marketing", sharePct: 63 },
+      { name: "Sales", sharePct: 56 },
+      { name: "Leadership", sharePct: 40 },
+      { name: "Strategic Marketing", sharePct: 30 },
+      { name: "Management", sharePct: 30 },
+      { name: "Planning", sharePct: 28 },
+      { name: "Innovation", sharePct: 21 },
+      { name: "Digital Marketing", sharePct: null },
+      { name: "Social Media", sharePct: null },
     ],
+    skillsSource:
+      "Source: Lightcast job-postings data via NC State University's Marketing Manager career profile and Franklin University's Lightcast-based career guide (259,516 US postings, Sep 2022-Aug 2023).",
     salary: { medianUsd: 92000, rangeLabel: "$68k–$130k" },
     workModel: { remotePct: 35, hybridPct: 40, onsitePct: 25 },
     example: {
@@ -420,7 +439,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What skills should a marketing manager resume include?",
         answer:
-          "SEO/SEM (55% of postings), a CRM (Salesforce 38%, HubSpot 33%), and analytics (Google Analytics 30%) are the most-requested. Layer in channel-specific expertise and tie every skill to a revenue or pipeline metric.",
+          "Communication (67% of postings) and core marketing expertise (63%) are the most-requested, per 2026 Lightcast data, with sales acumen (56%) close behind. Layer in channel-specific and CRM skills and tie every one to a revenue or pipeline metric.",
       },
       {
         question: "How do I show marketing ROI on a resume?",
@@ -440,19 +459,21 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "product",
     postingsAnalyzed: 5100,
     intro:
-      "A strong product manager résumé shows you shipped outcomes, not features. AI and API fluency are rising fast in postings, but the core signal is still: did you define the right problem, align the team, and move a business metric? Lead with the metric, not the Jira board.",
+      "A strong product manager résumé shows you shipped outcomes, not features. Product-management fluency is named in 96% of postings and data-driven decision-making is rising fast, but the core signal is still: did you define the right problem, align the team, and move a business metric? Lead with the metric, not the Jira board.",
     topSkills: [
-      { name: "Product Strategy", sharePct: 58 },
-      { name: "SQL", sharePct: 45 },
-      { name: "AI / ML Fluency", sharePct: 42 },
-      { name: "APIs", sharePct: 38 },
-      { name: "User Stories / PRDs", sharePct: 35 },
-      { name: "Data Analytics", sharePct: 31 },
-      { name: "Jira / Agile", sharePct: 28 },
-      { name: "A/B Testing", sharePct: 24 },
-      { name: "Roadmapping", sharePct: 21 },
-      { name: "Stakeholder Management", sharePct: 18 },
+      { name: "Product Management", sharePct: 96 },
+      { name: "Communication", sharePct: 60 },
+      { name: "Data-Driven Decision Making", sharePct: 48 },
+      { name: "Marketing", sharePct: 43 },
+      { name: "New Product Development", sharePct: 42 },
+      { name: "Leadership", sharePct: 42 },
+      { name: "Product Strategy", sharePct: 39 },
+      { name: "Product Roadmaps", sharePct: 29 },
+      { name: "Agile Methodology", sharePct: 26 },
+      { name: "Product Lifecycle Management", sharePct: 22 },
     ],
+    skillsSource:
+      "Source: Lightcast job-postings data via NC State University's Product Manager career profile (trailing 12 months); data-skills figure from a 2025 analysis of 250+ top PM job postings.",
     salary: { medianUsd: 135000, rangeLabel: "$105k–$180k" },
     workModel: { remotePct: 36, hybridPct: 42, onsitePct: 22 },
     example: {
@@ -474,7 +495,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "Do product managers need technical skills on their resume?",
         answer:
-          "SQL (45% of postings) and AI/ML fluency (42%) are increasingly expected. You don't need to code, but showing you can query data, understand APIs, and evaluate AI capabilities sets you apart.",
+          "Data-driven decision-making is named in nearly half of 2025's top postings (per a 250+ posting analysis). You don't need to code, but showing you can query data, understand APIs, and evaluate AI capabilities sets you apart.",
       },
       {
         question: "How do I show product impact without sharing confidential metrics?",
@@ -491,17 +512,17 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     intro:
       "A strong recruiter résumé is a meta-test: you screen résumés for a living, so yours had better be flawless. Greenhouse, Workday, and LinkedIn Recruiter dominate tool mentions. Lead with fill rate, time-to-hire, and candidate quality metrics, not 'managed full-cycle recruiting.'",
     topSkills: [
-      { name: "LinkedIn Recruiter", sharePct: 62 },
-      { name: "Greenhouse", sharePct: 55 },
-      { name: "Workday", sharePct: 48 },
-      { name: "HRIS", sharePct: 42 },
-      { name: "Sourcing", sharePct: 38 },
-      { name: "Employee Relations", sharePct: 34 },
-      { name: "Performance Management", sharePct: 30 },
-      { name: "Excel", sharePct: 27 },
-      { name: "Diversity Hiring", sharePct: 22 },
-      { name: "Employer Branding", sharePct: 18 },
+      { name: "Communication", sharePct: 31 },
+      { name: "Recruiting (end-to-end recruitment)", sharePct: null },
+      { name: "Applicant tracking systems (ATS)", sharePct: null },
+      { name: "Sourcing", sharePct: null },
+      { name: "Interviewing", sharePct: null },
+      { name: "Talent acquisition", sharePct: null },
+      { name: "Customer service", sharePct: null },
+      { name: "Teamwork / collaboration", sharePct: null },
     ],
+    skillsSource:
+      "Source: LinkedIn Talent Blog, Most In-Demand Skills for Recruiters (2024); ZipRecruiter Career Keyword Mapper; A. Rathnayake analysis of 4,600 recruitment postings (2024).",
     salary: { medianUsd: 72000, rangeLabel: "$52k–$100k" },
     workModel: { remotePct: 42, hybridPct: 35, onsitePct: 23 },
     example: {
@@ -523,7 +544,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "Which ATS should a recruiter name on their resume?",
         answer:
-          "Greenhouse (55% of postings) and Workday (48%) are the most requested. Name every ATS you've used and the volume you managed in each.",
+          "Name every applicant tracking system you've used (Greenhouse, Workday, Lever, and similar are all frequently requested) and the volume you managed in each.",
       },
       {
         question: "How does a recruiter resume differ from an HR generalist resume?",
@@ -540,17 +561,17 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     intro:
       "A strong paralegal résumé proves attention to detail through the document itself. Drafting, legal research, and Microsoft Office appear in nearly every posting. Show the case types you've supported, the volume of filings you've managed, and any area-specific expertise like corporate governance or IP.",
     topSkills: [
-      { name: "Legal Research (Westlaw/LexisNexis)", sharePct: 58 },
-      { name: "Drafting & Document Review", sharePct: 54 },
-      { name: "Microsoft Office (Word, Excel, Outlook)", sharePct: 48 },
-      { name: "Corporate Governance", sharePct: 35 },
-      { name: "E-Discovery", sharePct: 30 },
-      { name: "Case Management Software", sharePct: 27 },
-      { name: "Filing & Compliance", sharePct: 24 },
-      { name: "Contract Review", sharePct: 21 },
-      { name: "Litigation Support", sharePct: 18 },
-      { name: "Privacy / Data Protection", sharePct: 14 },
+      { name: "Legal research", sharePct: 70 },
+      { name: "Legal drafting and writing", sharePct: 60 },
+      { name: "Communication", sharePct: null },
+      { name: "Litigation support", sharePct: null },
+      { name: "Case management", sharePct: null },
+      { name: "e-Discovery (e.g. Relativity)", sharePct: null },
+      { name: "Legal technology", sharePct: null },
+      { name: "Attention to detail", sharePct: null },
     ],
+    skillsSource:
+      "Source: Research.com analysis of legal-studies job postings (2026); NALA hiring-manager survey (2023); Rasmussen University analysis of 80,000+ paralegal postings (2024).",
     salary: { medianUsd: 62000, rangeLabel: "$45k–$82k" },
     workModel: { remotePct: 15, hybridPct: 40, onsitePct: 45 },
     example: {
@@ -589,17 +610,17 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     intro:
       "A strong teacher résumé goes beyond 'taught 25 students.' Show grade levels, subject areas, student outcomes (test score gains, graduation rates), and the instructional strategies that got you there. Differentiated instruction, classroom technology, and data-driven planning appear in the majority of postings.",
     topSkills: [
-      { name: "Classroom Instruction", sharePct: 68 },
-      { name: "Differentiated Instruction", sharePct: 55 },
-      { name: "Curriculum Development", sharePct: 48 },
-      { name: "Classroom Technology", sharePct: 42 },
-      { name: "Student Assessment", sharePct: 38 },
-      { name: "Data-Driven Planning", sharePct: 34 },
-      { name: "Special Education (IEP)", sharePct: 28 },
-      { name: "Classroom Management", sharePct: 25 },
-      { name: "Parent Communication", sharePct: 21 },
-      { name: "Google Classroom / LMS", sharePct: 17 },
+      { name: "Communication", sharePct: 70 },
+      { name: "Classroom management", sharePct: 65 },
+      { name: "Curriculum development", sharePct: 19 },
+      { name: "Instruction", sharePct: 18 },
+      { name: "Collaboration", sharePct: 13 },
+      { name: "Subject-matter expertise", sharePct: null },
+      { name: "Lesson planning", sharePct: null },
+      { name: "Technology integration", sharePct: null },
     ],
+    skillsSource:
+      "Source: Research.com analysis of teaching-careers job postings (2026); ZipRecruiter Career Keyword Mapper \u2014 Classroom Teacher.",
     salary: { medianUsd: 58000, rangeLabel: "$42k–$78k" },
     workModel: { remotePct: 5, hybridPct: 8, onsitePct: 87 },
     example: {
@@ -636,19 +657,20 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
     roleFamily: "design",
     postingsAnalyzed: 3700,
     intro:
-      "A strong graphic designer résumé leads with Figma, Adobe Creative Suite, and a portfolio link. Design systems, typography, and user research appear in the top requirements. The résumé itself is a design artifact, so clean layout, hierarchy, and consistency matter as much as the content.",
+      "A strong graphic designer résumé leads with Figma, Adobe Creative Suite, and a portfolio link. Digital design skills and traditional design tools dominate postings, and AI design tools are a fast-rising differentiator. The résumé itself is a design artifact, so clean layout, hierarchy, and consistency matter as much as the content.",
     topSkills: [
-      { name: "Figma", sharePct: 65 },
-      { name: "Adobe Creative Suite", sharePct: 58 },
-      { name: "Design Systems", sharePct: 42 },
-      { name: "Typography", sharePct: 38 },
-      { name: "User Research", sharePct: 34 },
-      { name: "Interaction Design", sharePct: 31 },
-      { name: "Prototyping", sharePct: 28 },
-      { name: "Illustrator", sharePct: 25 },
-      { name: "Photoshop", sharePct: 22 },
-      { name: "Motion Graphics", sharePct: 16 },
+      { name: "Digital design skills", sharePct: 80 },
+      { name: "Traditional design tools + digital media", sharePct: 75 },
+      { name: "Figma", sharePct: 67 },
+      { name: "Motion graphics / animation (senior roles)", sharePct: 45 },
+      { name: "AI design tools (Midjourney, DALL-E, Firefly)", sharePct: 32 },
+      { name: "Adobe Photoshop", sharePct: null },
+      { name: "Adobe Illustrator", sharePct: null },
+      { name: "Adobe InDesign", sharePct: null },
+      { name: "Typography and layout", sharePct: null },
     ],
+    skillsSource:
+      "Source: Research.com analysis of 10,000+ graphic-design job postings (2026); Colorlib Graphic Design Statistics (2026); Lightcast data via Dice.",
     salary: { medianUsd: 75000, rangeLabel: "$55k–$105k" },
     workModel: { remotePct: 40, hybridPct: 38, onsitePct: 22 },
     example: {
@@ -665,7 +687,7 @@ const ROLE_RESUME_SEED: RoleResumeData[] = [
       {
         question: "What tools should a graphic designer resume list?",
         answer:
-          "Figma (65% of postings) and Adobe Creative Suite (58%) are near-universal. Add design-system tools (Storybook, Tokens Studio) and prototyping tools (Principle, ProtoPie) if you use them.",
+          "Figma is now required in 67% of design job listings (up from 30% in 2021), and digital design skills broadly are required in over 80% of postings. Add design-system tools (Storybook, Tokens Studio) and prototyping tools (Principle, ProtoPie) if you use them.",
       },
       {
         question: "Does a graphic designer resume need a portfolio link?",
@@ -688,7 +710,11 @@ function mergeLiveData(seed: RoleResumeData): RoleResumeData {
   return {
     ...seed,
     postingsAnalyzed: live.postingsAnalyzed ?? seed.postingsAnalyzed,
-    topSkills: live.topSkills && live.topSkills.length > 0 ? live.topSkills : seed.topSkills,
+    // Externally-sourced skills (skillsSource set) are authoritative: the live
+    // overlay aggregates the whole coarse role_family, which pollutes per-role
+    // lists with generic concepts at diluted shares.
+    topSkills:
+      !seed.skillsSource && live.topSkills && live.topSkills.length > 0 ? live.topSkills : seed.topSkills,
     salary: live.salary ?? seed.salary,
     workModel: live.workModel ?? seed.workModel,
   };

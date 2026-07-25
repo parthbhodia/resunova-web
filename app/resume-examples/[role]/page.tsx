@@ -189,13 +189,15 @@ export default async function RoleResumeExamplePage({
           <section style={{ marginBottom: 40 }}>
             <h2 style={sectionTitle}>Skills employers ask for most</h2>
             <p style={{ margin: "0 0 18px" }}>
-              These are the most-requested requirements across live {data.label.toLowerCase()} postings. Put the ones
-              you have in a dedicated Skills section and prove the top few in your bullets.
+              {data.skillsSource
+                ? `The most-requested skills in ${data.label.toLowerCase()} job postings, per published hiring research. Put the ones you have in a dedicated Skills section and prove the top few in your bullets.`
+                : `These are the most-requested requirements across live ${data.label.toLowerCase()} postings. Put the ones you have in a dedicated Skills section and prove the top few in your bullets.`}
             </p>
             <SkillFrequencyTable
               skills={data.topSkills}
               postingsAnalyzed={data.postingsAnalyzed}
               roleLabel={data.label.toLowerCase()}
+              sourceNote={data.skillsSource}
             />
           </section>
 

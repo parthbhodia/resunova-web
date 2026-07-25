@@ -35,7 +35,9 @@ export async function generateMetadata({
   if (!data) return { title: "Skills for Resume" };
   const canonical = `${SITE_URL}${skillsForResumeHref(data.slug)}/`;
   const top3 = data.topSkills.slice(0, 3).map((s) => s.name).join(", ");
-  const description = `The skills to put on a ${data.label.toLowerCase()} resume in ${YEAR}, ranked by how often ${data.postingsAnalyzed.toLocaleString("en-US")} live job postings ask for each: ${top3}, and more — plus where to put them so an ATS finds them.`;
+  const description = data.skillsSource
+    ? `The skills to put on a ${data.label.toLowerCase()} resume in ${YEAR}, ranked by how often employers request each in published job-posting research: ${top3}, and more — plus where to put them so an ATS finds them.`
+    : `The skills to put on a ${data.label.toLowerCase()} resume in ${YEAR}, ranked by how often ${data.postingsAnalyzed.toLocaleString("en-US")} live job postings ask for each: ${top3}, and more — plus where to put them so an ATS finds them.`;
   return {
     title: `Top Skills for a ${data.label} Resume (${YEAR}): Ranked by Real Job Postings`,
     description,
@@ -84,7 +86,9 @@ export default async function SkillsForResumePage({
         name: `What skills should I put on a ${data.label.toLowerCase()} resume?`,
         acceptedAnswer: {
           "@type": "Answer",
-          text: `Lead with the skills employers actually request. Across ${formattedCount} live ${data.label.toLowerCase()} postings, the most-requested are ${top3.map((s) => `${s.name} (${s.sharePct}%)`).join(", ")}. List the ones you genuinely have in a Skills section, and prove the top two or three inside your experience bullets with a measurable outcome.`,
+          text: data.skillsSource
+            ? `Lead with the skills employers actually request. Per published job-posting research, the most-requested are ${top3.map((s) => `${s.name} (${s.sharePct}%)`).join(", ")}. List the ones you genuinely have in a Skills section, and prove the top two or three inside your experience bullets with a measurable outcome.`
+            : `Lead with the skills employers actually request. Across ${formattedCount} live ${data.label.toLowerCase()} postings, the most-requested are ${top3.map((s) => `${s.name} (${s.sharePct}%)`).join(", ")}. List the ones you genuinely have in a Skills section, and prove the top two or three inside your experience bullets with a measurable outcome.`,
         },
       },
       {
@@ -189,14 +193,26 @@ export default async function SkillsForResumePage({
             marginBottom: 12,
           }}
         >
-          From {formattedCount} live job postings · Updated {ROLE_DATA_LAST_UPDATED.slice(0, 10)}
+          {data.skillsSource
+            ? `From published hiring research · Updated ${ROLE_DATA_LAST_UPDATED.slice(0, 10)}`
+            : `From ${formattedCount} live job postings · Updated ${ROLE_DATA_LAST_UPDATED.slice(0, 10)}`}
         </p>
         <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1, lineHeight: 1.14, margin: "0 0 16px" }}>
           Top skills for a {data.label.toLowerCase()} resume ({YEAR})
         </h1>
         <p style={{ fontSize: 16, color: "var(--muted)", lineHeight: 1.7, margin: "0 0 28px" }}>
-          Not a generic listicle: these are the skills employers request most across {formattedCount} live{" "}
-          {data.label.toLowerCase()} job postings in Resunova&rsquo;s jobs dataset, ranked by how often each appears.{" "}
+          {data.skillsSource ? (
+            <>
+              Not a generic listicle: these are the skills employers request most in {data.label.toLowerCase()} job
+              postings, ranked by published hiring research (source cited below).{" "}
+            </>
+          ) : (
+            <>
+              Not a generic listicle: these are the skills employers request most across {formattedCount} live{" "}
+              {data.label.toLowerCase()} job postings in Resunova&rsquo;s jobs dataset, ranked by how often each
+              appears.{" "}
+            </>
+          )}
           {top3.map((s) => s.name).join(", ")} lead the field — list the ones you genuinely have, and prove the top
           two or three with a measurable bullet.
         </p>
@@ -206,6 +222,7 @@ export default async function SkillsForResumePage({
             skills={data.topSkills}
             postingsAnalyzed={data.postingsAnalyzed}
             roleLabel={data.label}
+            sourceNote={data.skillsSource}
           />
         </section>
 
