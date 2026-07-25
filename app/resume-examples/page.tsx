@@ -2,17 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LogoFull } from "@/components/BrandLogo";
 import JsonLd from "@/components/seo/JsonLd";
-import ResumeExamplesCatalog from "@/components/ResumeExamplesCatalog";
+import ResumeExamplesMarketplace from "@/components/ResumeExamplesMarketplace";
 import { SITE_URL } from "@/lib/brand";
 import { ROLE_RESUME_DATA, roleResumeHref, roleDataYear } from "@/lib/roleResumeData";
-import { PUBLIC_RESUME_EXAMPLES } from "@/lib/resumeExamplesCatalog";
+import { TOTAL_RESUME_EXAMPLES, TOTAL_RESUME_CATEGORIES } from "@/lib/resumeExampleCategories";
 
 const YEAR = roleDataYear();
 
 export const metadata: Metadata = {
-  title: `Resume Examples by Role (${YEAR})`,
-  description:
-    "Real resume examples by role, each built from the skills employers actually ask for in live job postings, with a scored sample, salary data, and ATS keywords. Free to tailor your own.",
+  title: `${TOTAL_RESUME_EXAMPLES}+ Resume Examples by Role (${YEAR})`,
+  description: `Browse ${TOTAL_RESUME_EXAMPLES}+ real, scored resume examples across ${TOTAL_RESUME_CATEGORIES} careers, each built from the skills employers actually ask for. Free to tailor your own — no sign-up required.`,
   alternates: { canonical: `${SITE_URL}/resume-examples/` },
   robots: { index: true, follow: true },
 };
@@ -71,6 +70,9 @@ export default function ResumeExamplesHubPage() {
           <LogoFull markSize={26} textColor="var(--text)" />
         </Link>
         <nav style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 13 }}>
+          <Link href="/skills-for-resume" style={{ color: "var(--dim)", textDecoration: "none" }}>
+            Skills for Resume
+          </Link>
           <Link href="/blog" style={{ color: "var(--dim)", textDecoration: "none" }}>
             Blog
           </Link>
@@ -80,77 +82,25 @@ export default function ResumeExamplesHubPage() {
         </nav>
       </header>
 
-      <main style={{ maxWidth: 760, margin: "0 auto", padding: "48px 24px 90px" }}>
-        <p
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: "var(--accent)",
-            marginBottom: 12,
-          }}
-        >
-          Resume Examples
-        </p>
-        <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1.1, lineHeight: 1.12, margin: "0 0 14px" }}>
-          Resume examples by role
-        </h1>
-        <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.65, margin: "0 0 36px" }}>
-          Start with a data-backed role guide built from live job postings, or browse the fictional example library for
-          a structure that fits your experience. Pick an example, then replace every detail with your own verified work.
-        </p>
-
-        <nav aria-label="Resume example sections" style={{ display: "flex", flexWrap: "wrap", gap: 10, margin: "0 0 28px" }}>
-          <Link href="#role-guides" style={{ border: "1px solid var(--border)", borderRadius: 999, color: "var(--text)", fontSize: 13, fontWeight: 650, padding: "8px 14px", textDecoration: "none" }}>Data-backed guides</Link>
-          <Link href="#example-library" style={{ border: "1px solid var(--border)", borderRadius: 999, color: "var(--text)", fontSize: 13, fontWeight: 650, padding: "8px 14px", textDecoration: "none" }}>60 fictional examples</Link>
+      <main style={{ maxWidth: 1120, margin: "0 auto", padding: "40px 24px 90px" }}>
+        <nav aria-label="Breadcrumb" style={{ fontSize: 13, color: "var(--dim)", marginBottom: 24 }}>
+          <Link href="/" style={{ color: "var(--dim)", textDecoration: "none" }}>
+            Home
+          </Link>
+          <span style={{ margin: "0 8px" }}>/</span>
+          <span style={{ color: "var(--muted)" }}>Resume Examples</span>
         </nav>
 
-        <h2 id="role-guides" style={{ fontSize: 22, fontWeight: 750, letterSpacing: -0.5, margin: "0 0 14px" }}>Data-backed role guides</h2>
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 14 }}>
-          {ROLE_RESUME_DATA.map((role) => (
-            <li key={role.slug}>
-              <Link
-                href={`${roleResumeHref(role.slug)}/`}
-                style={{
-                  display: "block",
-                  padding: "20px 22px",
-                  borderRadius: 14,
-                  border: "1px solid var(--border)",
-                  background: "var(--surface)",
-                  textDecoration: "none",
-                  color: "inherit",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
-                  <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, letterSpacing: -0.3 }}>
-                    {`${role.label} Resume Example`}
-                  </h3>
-                  <span style={{ fontSize: 12, color: "var(--dim)", whiteSpace: "nowrap" }}>
-                    {role.postingsAnalyzed.toLocaleString("en-US")} postings
-                  </span>
-                </div>
-                <p style={{ fontSize: 14, color: "var(--muted)", margin: 0, lineHeight: 1.55 }}>
-                  Top skills:{" "}
-                  {role.topSkills.slice(0, 4).map((s) => s.name).join(", ")} · Median {role.salary.rangeLabel}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <ResumeExamplesMarketplace />
 
-        <ResumeExamplesCatalog examples={PUBLIC_RESUME_EXAMPLES} />
-
-        <p style={{ marginTop: 32, fontSize: 13, color: "var(--dim)", lineHeight: 1.6 }}>
-          Don’t see your role yet? More are being added. In the meantime, run your résumé through the{" "}
+        <p style={{ marginTop: 8, fontSize: 13, color: "var(--dim)", lineHeight: 1.6, textAlign: "center" }}>
+          These examples use fictional candidates and employers. Contact details and license numbers are
+          intentionally omitted. Replace every detail with your own accurate, verifiable information before
+          applying. Don&rsquo;t see your role yet? Run your résumé through the{" "}
           <Link href="/ats-resume-checker" style={{ color: "var(--accent)" }}>
             free ATS resume checker
           </Link>{" "}
-          or read our{" "}
-          <Link href="/blog" style={{ color: "var(--accent)" }}>
-            ATS guides
-          </Link>
-          .
+          instead.
         </p>
       </main>
     </div>
