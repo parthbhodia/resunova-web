@@ -6,6 +6,7 @@ export type ResumeCatalogExample = {
   category: string;
   level: string;
   desc: string;
+  score: number;
   tags: string[];
   data: TBResumeData;
 };
@@ -21,6 +22,7 @@ export const PUBLIC_RESUME_EXAMPLES: ResumeCatalogExample[] = RESUME_EXAMPLES_DA
   category: example.category,
   level: example.level,
   desc: example.desc,
+  score: example.score,
   tags: example.tags,
   data: {
     ...example.data,
