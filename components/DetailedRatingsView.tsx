@@ -107,6 +107,10 @@ type SharedProps = {
   ratings: RatingsData;
   onFixGap?: (item: DetailedRatingItem, gapType: AddressedGapAction["type"]) => void;
   onFixKeyword?: (keyword: string) => void;
+  /** One pass over every remaining gap, reviewed before anything is applied. */
+  onFixEverything?: () => void;
+  openGapCount?: number;
+  fixEverythingBusy?: boolean;
   /** Bulk: write selected bare skills into the résumé's Skills section. */
   onAddSkills?: (keywords: string[], category: string) => void;
   skillCategories?: string[];
@@ -277,9 +281,15 @@ export function TailorMatchSidebar({
   onActiveTabChange,
   collapsed = false,
   onCollapsedChange,
+  onFixEverything,
+  openGapCount = 0,
+  fixEverythingBusy = false,
 }: Pick<SharedProps, "ratings" | "hasSuggestions" | "gapFixPanel" | "strategicTips" | "interviewQuestions" | "activeTab" | "onActiveTabChange"> & {
   collapsed?: boolean;
   onCollapsedChange?: (c: boolean) => void;
+  onFixEverything?: () => void;
+  openGapCount?: number;
+  fixEverythingBusy?: boolean;
 }) {
   const state = useTailorRatingsState({ ratings, hasSuggestions, gapFixPanel, strategicTips, interviewQuestions, activeTab: activeTabProp, onActiveTabChange });
   if (!state) return null;
@@ -422,6 +432,35 @@ export function TailorMatchSidebar({
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1, lineHeight: 1.35 }}>How well this résumé covers the job</div>
               </div>
             </div>
+
+            {/* One pass over every open gap. Working them one at a time is a
+                round trip, a panel and an apply each; this batches by gap type
+                and lands the whole set in one review. Nothing is written until
+                the user confirms in that panel. */}
+            {onFixEverything && openGapCount > 0 && (
+              <button
+                type="button"
+                onClick={onFixEverything}
+                disabled={fixEverythingBusy}
+                className="md-state-layer"
+                style={{
+                  width: "100%", marginBottom: 12,
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                  padding: "10px 12px", borderRadius: 10, border: "none",
+                  background: "var(--accent)", color: "#fff",
+                  fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+                  cursor: fixEverythingBusy ? "wait" : "pointer",
+                  opacity: fixEverythingBusy ? 0.75 : 1,
+                  boxShadow: "var(--md-elevation-1)",
+                  transition: "box-shadow var(--md-duration-medium) var(--md-easing-standard)",
+                }}
+              >
+                <span>{fixEverythingBusy ? "Finding fixes…" : `⚡ Fix everything (${openGapCount})`}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.85 }}>
+                  {fixEverythingBusy ? "One pass over every gap" : "Review before anything changes"}
+                </span>
+              </button>
+            )}
 
             {atsRows.length > 0 && groupLabel("Beat the ATS")}
             {atsRows.map(renderRow)}
@@ -657,6 +696,9 @@ export default function DetailedRatingsView(props: SharedProps) {
       }}
     >
       <TailorMatchSidebar
+        onFixEverything={props.onFixEverything}
+        openGapCount={props.openGapCount}
+        fixEverythingBusy={props.fixEverythingBusy}
         {...props}
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
