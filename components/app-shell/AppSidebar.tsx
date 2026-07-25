@@ -28,6 +28,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { isPublicAppView } from "@/lib/anonScan";
 import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
 import { AppSidebarUser } from "./AppSidebarUser";
 import { BugReportDialog } from "./BugReportDialog";
@@ -141,9 +142,14 @@ export function AppSidebar({
   const { state, setOpen } = useSidebar();
   const showLabels = state === "expanded";
   const [bugReportOpen, setBugReportOpen] = React.useState(false);
-  /** Locked views send anonymous visitors to sign-in instead of the view. */
+  /**
+   * Views a signed-out visitor may not use send them to sign-in instead.
+   * Membership comes from the shared PUBLIC_APP_VIEWS so a click and a pasted
+   * URL always agree — they used to be separate lists and disagreed on `jobs`.
+   */
+  const isLocked = (view: AppView) => anonMode && !isPublicAppView(view);
   const gated = (view: AppView) => () => {
-    if (anonMode) onSignIn?.();
+    if (isLocked(view)) onSignIn?.();
     else onSwitchView(view);
   };
   const handleBuilderClick = () => {
@@ -275,7 +281,7 @@ export function AppSidebar({
                   isActive={onInterviewPrepPage}
                   tooltip="Interview Prep"
                   className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
-                  onClick={() => router.push("/interview-prep")}
+                  onClick={() => { if (anonMode) onSignIn?.(); else router.push("/interview-prep"); }}
                 >
                   <span className="app-nav-icon" aria-hidden>
                     {NAV_ICONS.interviewPrep}
@@ -289,21 +295,21 @@ export function AppSidebar({
                 isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "library"}
                 onClick={gated("library")}
                 showLabels={showLabels}
-                locked={anonMode}
+                locked={isLocked("library")}
               />
               <NavItem
                 view="cover-letter"
                 isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "cover-letter"}
                 onClick={gated("cover-letter")}
                 showLabels={showLabels}
-                locked={anonMode}
+                locked={isLocked("cover-letter")}
               />
               <NavItem
                 view="jobs"
                 isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "jobs"}
                 onClick={gated("jobs")}
                 showLabels={showLabels}
-                locked={anonMode}
+                locked={isLocked("jobs")}
               />
               {advisorAllowed ? (
                 <NavItem
