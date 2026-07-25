@@ -14,8 +14,13 @@ vi.mock("@/lib/jobsApi", () => ({
   fetchJobDetail: (id: string) => fetchJobDetail(id),
   trackJobEvent: (id: string, ev: string) => trackJobEvent(id, ev),
 }));
+const createCheckoutSession = vi.fn(async (_key: string) => ({ error: "checkout_unavailable" }));
 vi.mock("@/lib/billingApi", () => ({
-  createCheckoutSession: vi.fn(async () => ({ error: "checkout_unavailable" })),
+  createCheckoutSession: (key: string) => createCheckoutSession(key),
+  PLAN_PRICE_LABELS: {
+    pro_monthly: { title: "Pro Monthly", price: "$19", cadence: "per month" },
+    pro_quarterly: { title: "Pro Quarterly", price: "$39", cadence: "every 3 months", note: "$13/mo — save 32%" },
+  },
 }));
 
 import SponsorJobsBoard from "@/components/SponsorJobsBoard";
@@ -89,6 +94,26 @@ describe("SponsorJobsBoard", () => {
     const events = trackJobEvent.mock.calls.map((c) => c[1]);
     expect(events.filter((e) => e === "paywall_view")).toHaveLength(1);
     expect(events.filter((e) => e === "reveal_click")).toHaveLength(1);
+  });
+
+  it("paywall offers BOTH plans; each starts its own checkout, one checkout_start", async () => {
+    mockFeed([FEED_JOB]);
+    fetchJobDetail.mockResolvedValue({
+      jdText: "JD text", url: "https://x", contacts: [], contactsLocked: true,
+      matched: [], missing: [], injectableKeywords: [], matchScore: 71, matchedCount: 1, totalRequirements: 2,
+    });
+    render(<SponsorJobsBoard />);
+    await waitFor(() => expect(screen.getByText("Backend Engineer")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Backend Engineer"));
+    await waitFor(() => expect(screen.getByTestId("paywall-card")).toBeInTheDocument());
+
+    expect(screen.getByTestId("checkout-monthly")).toHaveTextContent("$19/mo");
+    expect(screen.getByTestId("checkout-quarterly")).toHaveTextContent("$39/3 mo");
+    expect(screen.getByText("$13/mo — save 32%")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("checkout-quarterly"));
+    await waitFor(() => expect(createCheckoutSession).toHaveBeenCalledWith("pro_quarterly"));
+    expect(trackJobEvent.mock.calls.filter((c) => c[1] === "checkout_start")).toHaveLength(1);
   });
 
   it("unlocked detail with contacts → contacts card, no paywall", async () => {
