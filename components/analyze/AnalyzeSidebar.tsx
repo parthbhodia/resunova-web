@@ -35,7 +35,7 @@ export function AnalyzeSidebarPinned({
         <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}>
           Recent Analyses
         </div>
-        <div style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.45 }}>
+        <div style={{ fontSize: 11, color: "var(--dim)", lineHeight: 1.45 }}>
           Saves scores and extracted résumé text to your account (not the original PDF file).
         </div>
       </>
@@ -61,7 +61,7 @@ export function AnalyzeSidebarPinned({
             border: "1px solid var(--border)",
             background: "var(--accent-bg)",
             color: "var(--accent)",
-            fontSize: 12.5,
+            fontSize: 13,
             fontWeight: 700,
             cursor: "pointer",
             fontFamily: "inherit",
@@ -72,7 +72,7 @@ export function AnalyzeSidebarPinned({
         </button>
       )}
       {hasEditedVersion && (
-        <div style={{ marginTop: 6, fontSize: 10.5, color: "var(--muted)", textAlign: "center" }}>
+        <div style={{ marginTop: 6, fontSize: 11, color: "var(--muted)", textAlign: "center" }}>
           Your edited résumé is saved
         </div>
       )}
@@ -81,7 +81,7 @@ export function AnalyzeSidebarPinned({
           title="Parsed from experience section date ranges (internships included). Overlapping roles are merged."
           style={{
             marginTop: 8,
-            fontSize: 10.5,
+            fontSize: 11,
             fontWeight: 600,
             color: "var(--muted)",
             textAlign: "center",

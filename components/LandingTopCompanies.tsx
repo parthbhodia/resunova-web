@@ -143,7 +143,7 @@ function CompanyCard({
         <div style={{ fontSize: 14, fontWeight: 600, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {c.company}
         </div>
-        <div style={{ fontSize: 12.5, color: C.muted, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>
+        <div style={{ fontSize: 13, color: C.muted, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>
           {c.activeCount.toLocaleString()} open roles
         </div>
       </div>

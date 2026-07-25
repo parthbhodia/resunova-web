@@ -565,7 +565,7 @@ export function TailorMatchDetail(props: SharedProps) {
               style={navBtn({ visibility: prev ? "visible" : "hidden" })}>
               ‹ Back
             </button>
-            <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6 }}>
               Step {idx + 1} of {navTabs.length}
             </div>
             {next ? (

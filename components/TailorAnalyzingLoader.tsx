@@ -105,7 +105,7 @@ export default function TailorAnalyzingLoader() {
           <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.4, color: "var(--text)" }}>
             Analysing your résumé
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 1 }}>
+          <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 1 }}>
             Usually about 20 seconds — hang tight, no need to refresh.
           </div>
         </div>
@@ -155,13 +155,13 @@ export default function TailorAnalyzingLoader() {
               </span>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
-                  fontSize: 13.5, fontWeight: current || done ? 700 : 600,
+                  fontSize: 14, fontWeight: current || done ? 700 : 600,
                   color: current ? "var(--text)" : done ? "var(--text)" : "var(--muted)",
                 }}>
                   {s.label}
                 </div>
                 {current && (
-                  <div className="rb-an-pulse" style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 1, animation: "rbAnPulse 1.6s ease-in-out infinite" }}>
+                  <div className="rb-an-pulse" style={{ fontSize: 12, color: "var(--muted)", marginTop: 1, animation: "rbAnPulse 1.6s ease-in-out infinite" }}>
                     {s.sub}
                   </div>
                 )}

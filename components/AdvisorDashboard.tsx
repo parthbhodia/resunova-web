@@ -582,7 +582,7 @@ function StudentDetailPanel({
                 {d.latest_source_pdf_url ? (
                   <>
                     {d.latest_source_filename ? (
-                      <p style={{ margin: "0 0 10px", fontSize: 11.5, color: "var(--muted)" }}>
+                      <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted)" }}>
                         {d.latest_source_filename}
                       </p>
                     ) : null}
@@ -599,7 +599,7 @@ function StudentDetailPanel({
                 ) : (
                   <pre style={{
                     margin: 0,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     lineHeight: 1.7,
                     color: "var(--text)",
                     whiteSpace: "pre-wrap",

@@ -197,10 +197,10 @@ export function TailorSaveToast({
         )}
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: "0 0 1px", fontSize: 12.5, fontWeight: 700, color: "var(--text)" }}>
+        <p style={{ margin: "0 0 1px", fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
           {isError ? "Couldn't save this match" : "Saved to My Resumes"}
         </p>
-        <p style={{ margin: 0, fontSize: 11.5, color: "var(--muted, #8c7d68)" }}>
+        <p style={{ margin: 0, fontSize: 12, color: "var(--muted, #8c7d68)" }}>
           {isError ? (
             <>
               <button
@@ -208,7 +208,7 @@ export function TailorSaveToast({
                 onClick={onRetry}
                 style={{
                   font: "inherit",
-                  fontSize: 11.5,
+                  fontSize: 12,
                   fontWeight: 700,
                   color: "var(--red, #b8452f)",
                   background: "none",

@@ -504,7 +504,7 @@ function BusinessSection({ jobs }: { jobs: AdminAnalyticsJobsBlock }) {
     <section style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <div>
         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 3 }}>Data assets</h2>
-        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>
+        <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 12px" }}>
           The sellable supply-side inventory: market-intelligence and contact data captured as a byproduct of the feed.
         </p>
         <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
@@ -518,7 +518,7 @@ function BusinessSection({ jobs }: { jobs: AdminAnalyticsJobsBlock }) {
 
       <div>
         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 3 }}>Contact engagement</h2>
-        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>
+        <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 12px" }}>
           The gated hiring-contact reveal funnel: the signal for whether the contacts feature earns a premium tier.
         </p>
         {f.reveals === 0 ? (

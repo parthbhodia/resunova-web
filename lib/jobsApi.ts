@@ -5,6 +5,7 @@
  */
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
+import { readCache, writeCache, invalidateCache } from "@/lib/clientCache";
 
 export type RequirementItem = {
   canonical: string;
@@ -195,14 +196,52 @@ export async function trackJobEvent(
   }
 }
 
-export async function fetchJobDetail(id: string): Promise<JobDetail> {
+const JOB_DETAIL_KEY = (id: string) => `job:detail:${id}`;
+/** Short by design: the payload carries a résumé match score that a rescore changes. */
+const JOB_DETAIL_TTL_MS = 120_000;
+
+/**
+ * A posting's full detail.
+ *
+ * Cached per tab so the three paths that all need the same payload — opening
+ * the detail pane, Optimize, and Prep interview — fetch it once, and so a
+ * hover-warmed prefetch actually pays off at click time. Pass `force` after a
+ * rescore, when the cached match score is no longer the truth.
+ *
+ * The cache is cleared wholesale on sign-out (see `lib/authSignOut`), so a
+ * signed-in payload can never be shown to the next account on this tab.
+ */
+export async function fetchJobDetail(id: string, { force = false } = {}): Promise<JobDetail> {
+  if (!force) {
+    const hit = readCache<JobDetail>(JOB_DETAIL_KEY(id), JOB_DETAIL_TTL_MS);
+    if (hit && !hit.stale) return hit.data;
+  }
   const headers = await authHeaders();
   const resp = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(id)}`), { headers });
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}));
     throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
   }
-  return resp.json();
+  const detail: JobDetail = await resp.json();
+  writeCache(JOB_DETAIL_KEY(id), detail);
+  return detail;
+}
+
+/**
+ * Warm one posting's detail in the background. Best-effort: a failure here is
+ * a no-op, and the real fetch will surface any error at click time.
+ */
+export function prefetchJobDetail(id: string): void {
+  if (!id) return;
+  const hit = readCache<JobDetail>(JOB_DETAIL_KEY(id), JOB_DETAIL_TTL_MS);
+  if (hit && !hit.stale) return;
+  void fetchJobDetail(id).catch(() => {});
+}
+
+/** Drop a posting's cached detail — call after anything that changes its match. */
+export function invalidateJobDetail(id?: string): void {
+  if (id) invalidateCache(JOB_DETAIL_KEY(id));
+  else invalidateCache("job:detail:", { prefix: true });
 }
 
 /** Ordered logo URL candidates for a company, best guess first.

@@ -145,7 +145,7 @@ function QuickAction({
         ) : null}
       </div>
       <span className="text-[14px] font-semibold text-[var(--text)]">{title}</span>
-      <span className="text-[12.5px] leading-snug text-[var(--muted)]">{desc}</span>
+      <span className="text-[13px] leading-snug text-[var(--muted)]">{desc}</span>
     </button>
   );
 }
@@ -400,7 +400,7 @@ export default function HomeDashboard() {
               </div>
             ) : recent.length === 0 ? (
               <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-6">
-                <p className="text-[13.5px] text-[var(--muted)]">
+                <p className="text-[14px] text-[var(--muted)]">
                   No résumés yet. Upload one to get an instant ATS score.
                 </p>
                 <Button size="sm" onClick={() => router.push("/?view=analyze")}>
@@ -458,7 +458,7 @@ export default function HomeDashboard() {
                 {doneCount}/{checklist.length}
               </span>
             </div>
-            <p className="mt-1 text-[12.5px] text-[var(--muted)]">
+            <p className="mt-1 text-[13px] text-[var(--muted)]">
               {allDone
                 ? "You're all set — go land your dream job."
                 : "Finish these to get the most out of Resunova."}

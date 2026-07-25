@@ -12,7 +12,7 @@
  * submits applications on the user's behalf.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, fetchAnalyses, type JobPrepStatus, type AnalyzeRecord } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
-import { fetchJobDetail, fetchCompanyOptions, fetchTitleOptions, type JobDetail as JobDetailData, type CompanyOption, type TitleOption } from "@/lib/jobsApi";
+import { fetchJobDetail, prefetchJobDetail, invalidateJobDetail, fetchCompanyOptions, fetchTitleOptions, type JobDetail as JobDetailData, type CompanyOption, type TitleOption } from "@/lib/jobsApi";
 import SearchableSelect, { type SelectItem } from "@/components/SearchableSelect";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { useSignInDialog } from "@/components/SignInDialog";
@@ -44,6 +44,8 @@ import { JobTopMatchesCard } from "@/components/jobs/JobTopMatchesCard";
 import { useJobTopMatches, type JobTopMatch } from "@/lib/useJobTopMatches";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
 import { SENIORITY_BUCKET_VALS, NATIONWIDE_LOCATION, matchRoleSuggestions } from "@/lib/jobsTaxonomy";
+import { Tip } from "@/components/ui/tip";
+import { usePrefetchOnIntent } from "@/hooks/usePrefetchOnIntent";
 
 export type FeedJob = {
   id: string;
@@ -285,7 +287,7 @@ function filterButtonStyle(active: boolean): CSSProperties {
 const COUNT_BADGE: CSSProperties = {
   display: "inline-flex", alignItems: "center", justifyContent: "center",
   minWidth: 16, height: 16, padding: "0 4px", borderRadius: 8,
-  fontSize: 10.5, fontWeight: 700, background: "var(--accent)", color: "#fff",
+  fontSize: 11, fontWeight: 700, background: "var(--accent)", color: "#fff",
 };
 
 /** Toggle a key in a Set-valued filter state. */
@@ -406,7 +408,7 @@ function LocationPicker({ value, onChange }: { value: string; onChange: (v: stri
       <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
         {LOCATION_SUGGESTIONS.map((s) => (
           <button key={s} type="button" onClick={() => onChange(s)} style={{
-            fontSize: 11.5, padding: "4px 9px", borderRadius: 20, cursor: "pointer", fontFamily: "inherit",
+            fontSize: 12, padding: "4px 9px", borderRadius: 20, cursor: "pointer", fontFamily: "inherit",
             border: `1px solid ${value === s ? "var(--accent)" : "var(--surface2)"}`,
             background: value === s ? "var(--accent-bg)" : "transparent",
             color: value === s ? "var(--accent)" : "var(--muted)",
@@ -1361,6 +1363,9 @@ export default function JobsFeed({
     if (feedCache?.data.status === "ready") {
       feedCache = { ...feedCache, data: patchFeed(feedCache.data) };
     }
+    // The cached detail payload carries the OLD match score — drop it so the
+    // next open re-reads the score the user just moved.
+    invalidateJobDetail(postingId);
   }, []);
 
   const hideAppliedJob = useCallback((postingId: string) => {
@@ -1582,135 +1587,27 @@ export default function JobsFeed({
   // Shared card renderer — used by the main list and the "outside your filters"
   // fallback section. `reasonChip` adds a muted tag explaining why a fallback
   // job didn't match the active filters.
-  const renderJobCard = (job: FeedJob, reasonChip?: string) => {
-    const salary = formatSalary(job);
-    const posted = formatPostedAt(job.postedAt);
-    return (
-      <Card
-        key={job.id}
-        onClick={() => openJobUrl(job.id)}
-        style={{
-          cursor: "pointer",
-          ...(job.id === selectedJobId
-            ? { outline: "2px solid var(--accent)", outlineOffset: -1, background: "var(--accent-bg)" }
-            : null),
-        }}
-      >
-        <CardContent
-          style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}
-        >
-          <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
-          <div style={{ flex: isMobile ? "1 1 140px" : "1 1 240px", minWidth: 0 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
-            <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontWeight: 500 }}>{job.company}</span>
-              {job.location && <span>· {job.location}</span>}
-              {posted && <span>· {posted}</span>}
-            </div>
-            <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
-              {reasonChip && (
-                <Badge style={{ fontSize: 11, background: "var(--surface2)", color: "var(--muted)", border: "1px solid var(--surface2)" }}>
-                  {reasonChip}
-                </Badge>
-              )}
-              {salary && <Badge variant="secondary" style={{ fontSize: 11 }}>{salary}</Badge>}
-              {job.workModel && WORK_MODEL_LABEL[job.workModel] && (
-                <Badge variant="secondary" style={{ fontSize: 11 }}>{WORK_MODEL_LABEL[job.workModel]}</Badge>
-              )}
-              {job.seniority && SENIORITY_LABEL[job.seniority] && (
-                <Badge variant="secondary" style={{ fontSize: 11 }}>{SENIORITY_LABEL[job.seniority]}</Badge>
-              )}
-              {(job.h1bSponsor || job.visaSponsorship === "yes") && (
-                <Badge
-                  style={{
-                    fontSize: 11,
-                    background: "color-mix(in srgb, #16a34a 14%, transparent)",
-                    color: "#16a34a",
-                    border: "1px solid color-mix(in srgb, #16a34a 32%, transparent)",
-                  }}
-                >
-                  {job.h1bSponsor && job.h1bCertifiedCount
-                    ? `H-1B sponsor · ${job.h1bCertifiedCount.toLocaleString()}`
-                    : "H-1B sponsor"}
-                </Badge>
-              )}
-              {job.titleMatch && (
-                <Badge
-                  style={{
-                    fontSize: 11,
-                    background: "color-mix(in srgb, var(--accent) 12%, transparent)",
-                    color: "var(--accent)",
-                    border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-                  }}
-                >
-                  🎯 Target role
-                </Badge>
-              )}
-            </div>
-          </div>
-          {!listMode && (
-            <div style={{ flexShrink: 0, display: "flex", flexDirection: isMobile ? "row" : "column", gap: 7, alignItems: "stretch", flexWrap: isMobile ? "wrap" : "nowrap", width: isMobile ? "100%" : "auto" }}>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); void openBoost(job.id); }}
-                disabled={boostLoadingId === job.id}
-                style={{
-                  fontSize: 12.5, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: "none",
-                  background: "#c4793a", color: "#fff",
-                  cursor: boostLoadingId === job.id ? "wait" : "pointer", whiteSpace: "nowrap",
-                  opacity: boostLoadingId === job.id ? 0.7 : 1, fontFamily: "inherit",
-                  flex: isMobile ? "1 1 auto" : undefined,
-                }}
-              >
-                {boostLoadingId === job.id ? "Loading…" : "✦ Optimize"}
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); void openPrep(job.id); }}
-                disabled={prepLoadingId === job.id}
-                style={{
-                  fontSize: 12.5, fontWeight: 600, padding: "7px 14px", borderRadius: 8,
-                  border: prepStatuses[job.id]
-                    ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
-                    : "1px solid var(--surface2)",
-                  background: prepStatuses[job.id]
-                    ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
-                    : "transparent",
-                  color: prepStatuses[job.id] ? "var(--green-ink)" : "var(--text)",
-                  cursor: prepLoadingId === job.id ? "wait" : "pointer", whiteSpace: "nowrap",
-                  opacity: prepLoadingId === job.id ? 0.7 : 1, fontFamily: "inherit",
-                  flex: isMobile ? "1 1 auto" : undefined,
-                }}
-              >
-                {prepLoadingId === job.id ? "Loading…" : prepStatuses[job.id] ? "🎤 Prep ready" : "🎤 Prep interview"}
-              </button>
-              <a
-                href={job.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => { e.stopPropagation(); void trackApplyClick(job.id); }}
-                style={{
-                  fontSize: 12.5, fontWeight: 600, padding: "7px 14px", borderRadius: 8, textAlign: "center",
-                  flex: isMobile ? "1 1 100%" : undefined,
-                  border: appliedIds.has(job.id)
-                    ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
-                    : "1px solid var(--surface2)",
-                  color: appliedIds.has(job.id) ? "var(--green-ink)" : "var(--text)",
-                  background: appliedIds.has(job.id)
-                    ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
-                    : "transparent",
-                  textDecoration: "none", whiteSpace: "nowrap",
-                  transition: "color 0.15s, border-color 0.15s, background 0.15s",
-                }}
-              >
-                {appliedIds.has(job.id) ? "Applied ✓" : "View & apply ↗"}
-              </a>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
+  const jobIntent = usePrefetchOnIntent();
+
+  const renderJobCard = (job: FeedJob, reasonChip?: string) => (
+    <JobCard
+      key={job.id}
+      job={job}
+      reasonChip={reasonChip}
+      selected={job.id === selectedJobId}
+      applied={appliedIds.has(job.id)}
+      prepReady={Boolean(prepStatuses[job.id])}
+      boostLoading={boostLoadingId === job.id}
+      prepLoading={prepLoadingId === job.id}
+      isMobile={isMobile}
+      listMode={listMode}
+      onOpen={openJobUrl}
+      onBoost={openBoost}
+      onPrep={openPrep}
+      onApply={trackApplyClick}
+      onIntent={jobIntent(job.id, () => prefetchJobDetail(job.id))}
+    />
+  );
 
   // Count label: "342 of 9,338 jobs" when the backend reports the feed-scope
   // total (server count over the same family/location/recency) and the visible
@@ -1868,7 +1765,7 @@ export default function JobsFeed({
       </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
             {state.status === "ready" ? feedCountLabel : "Jobs"}
           </span>
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -1901,7 +1798,7 @@ export default function JobsFeed({
           </DialogHeader>
           {recentScans && recentScans.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>Recent scans</span>
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>Recent scans</span>
               <div style={{ maxHeight: 236, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
                 {recentScans.map((scan) => {
                   const isActive = scan.id === (rankAnalysisId || recentScans[0]?.id);
@@ -1972,7 +1869,7 @@ export default function JobsFeed({
               }}
             />
             <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Choose résumé (PDF)</span>
-            <span style={{ fontSize: 12.5, color: "var(--muted)" }}>We&apos;ll re-score every job against the new résumé.</span>
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>We&apos;ll re-score every job against the new résumé.</span>
           </label>
           <DialogFooter>
             <Button variant="outline" onClick={() => setUpdateResumeOpen(false)}>Cancel</Button>
@@ -2082,7 +1979,7 @@ export default function JobsFeed({
               <button
                 type="button"
                 onClick={clearAllFilters}
-                style={{ fontSize: 12.5, padding: "7px 8px", borderRadius: 8, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}
+                style={{ fontSize: 13, padding: "7px 8px", borderRadius: 8, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}
               >
                 Clear all
               </button>
@@ -2135,10 +2032,10 @@ export default function JobsFeed({
         {state.status === "ready" && scanning && (
           <div style={{ marginBottom: 16, borderRadius: 12, border: "1px solid color-mix(in srgb, var(--accent) 22%, transparent)", background: "color-mix(in srgb, var(--accent) 5%, var(--surface))", padding: "11px 16px", display: "flex", alignItems: "center", gap: 11 }}>
             <span aria-hidden style={{ display: "inline-block", width: 15, height: 15, flexShrink: 0, borderRadius: "50%", border: "2px solid color-mix(in srgb, var(--accent) 25%, transparent)", borderTopColor: "var(--accent)", animation: "rn-spin 0.7s linear infinite" }} />
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
               {state.ranked ? "Re-ranking against your new résumé…" : "Ranking these against your résumé…"}
             </span>
-            <span style={{ fontSize: 11.5, color: "var(--muted)" }}>scores appear in a moment</span>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>scores appear in a moment</span>
             <style>{"@keyframes rn-spin{to{transform:rotate(360deg)}}"}</style>
           </div>
         )}
@@ -2146,7 +2043,7 @@ export default function JobsFeed({
         {/* Scan failed: keep the (unranked) feed; offer a retry. */}
         {state.status === "ready" && scanError && !scanning && (
           <div style={{ marginBottom: 16, borderRadius: 12, border: "1px solid color-mix(in srgb, var(--red, #f87171) 35%, transparent)", background: "color-mix(in srgb, var(--red, #f87171) 6%, var(--surface))", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12.5, color: "var(--text)", minWidth: 0 }}>{scanError}</span>
+            <span style={{ fontSize: 13, color: "var(--text)", minWidth: 0 }}>{scanError}</span>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
               <Button variant="outline" size="sm" onClick={() => setScanError(null)}>Dismiss</Button>
               {lastUploadFileRef.current && browseSel && (
@@ -2162,7 +2059,7 @@ export default function JobsFeed({
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
                 {state.role ? <>Showing <span style={{ color: "var(--accent)" }}>{state.role}</span> roles</> : "Browsing live jobs"}
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+              <div style={{ fontSize: 13, color: "var(--muted)" }}>
                 Scan your résumé to rank these by fit and unlock per-job match scores.
               </div>
             </div>
@@ -2181,7 +2078,7 @@ export default function JobsFeed({
         {state.status === "error" && (
           <Card>
             <CardContent style={{ padding: "32px 28px", textAlign: "center" }}>
-              <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "0 0 14px" }}>
+              <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 0 14px" }}>
                 Couldn&apos;t load the job feed: {state.message}
               </p>
               <Button variant="outline" onClick={() => void loadFeed(true)}>
@@ -2199,7 +2096,7 @@ export default function JobsFeed({
             <button
               type="button"
               onClick={() => handleCompanySelect(companyFilter)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
             >
               Clear ✕
             </button>
@@ -2218,7 +2115,7 @@ export default function JobsFeed({
           <Card>
             <CardContent style={{ padding: "40px 28px", textAlign: "center" }}>
               <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: 0 }}>No openings in this window</h2>
-              <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 0", maxWidth: 440 }}>
+              <p style={{ fontSize: 14, color: "var(--muted)", margin: "10px auto 0", maxWidth: 440 }}>
                 Try a wider posting-age filter above; the feed is restocked by daily scans of company career boards.
               </p>
             </CardContent>
@@ -2278,7 +2175,7 @@ export default function JobsFeed({
               <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", margin: 0, textTransform: "uppercase", letterSpacing: "0.03em" }}>
                 Outside your filters
               </h3>
-              <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>
                 {debouncedSearch
                   ? `Matches for “${debouncedSearch}” beyond your current date / location / filters`
                   : "Roles beyond your current date / location / filters"}
@@ -2360,13 +2257,189 @@ const SIDEBAR_CARD: CSSProperties = {
 const SIDEBAR_INPUT: CSSProperties = {
   flex: 1,
   minWidth: 0,
-  fontSize: 12.5,
+  fontSize: 13,
   padding: "7px 10px",
   borderRadius: 8,
   border: "1px solid var(--surface2)",
   background: "var(--bg)",
   color: "var(--text)",
 };
+
+
+/**
+ * One row in the feed.
+ *
+ * Memoized and lifted out of `JobsFeed` on purpose: the feed re-renders on
+ * every keystroke in the search box and on every filter toggle, and each card
+ * mounts a `CompanyLogo`. As an inline closure, all ~50 visible cards
+ * re-rendered on each of those; as a memo with primitive props they only
+ * re-render when their own data changes. Every callback below is `useCallback`
+ * -stable in the parent, which is what makes the memo actually hold.
+ *
+ * `onIntent` warms this posting's detail on hover/focus, so Optimize, Prep and
+ * the detail pane usually open against an already-fetched payload.
+ */
+type JobCardProps = {
+  job: FeedJob;
+  reasonChip?: string;
+  selected: boolean;
+  applied: boolean;
+  prepReady: boolean;
+  boostLoading: boolean;
+  prepLoading: boolean;
+  isMobile: boolean;
+  listMode: boolean;
+  onOpen: (id: string) => void;
+  onBoost: (id: string) => void;
+  onPrep: (id: string) => void;
+  onApply: (id: string) => void;
+  onIntent: React.HTMLAttributes<HTMLElement>;
+};
+
+const JobCard = memo(function JobCard({
+  job,
+  reasonChip,
+  selected,
+  applied,
+  prepReady,
+  boostLoading,
+  prepLoading,
+  isMobile,
+  listMode,
+  onOpen,
+  onBoost,
+  onPrep,
+  onApply,
+  onIntent,
+}: JobCardProps) {
+  const salary = formatSalary(job);
+  const posted = formatPostedAt(job.postedAt);
+  return (
+    <Card
+              onClick={() => onOpen(job.id)}
+      {...onIntent}
+      style={{
+        cursor: "pointer",
+        ...(selected
+          ? { outline: "2px solid var(--accent)", outlineOffset: -1, background: "var(--accent-bg)" }
+          : null),
+      }}
+    >
+      <CardContent
+        style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}
+      >
+        <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
+        <div style={{ flex: isMobile ? "1 1 140px" : "1 1 240px", minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
+          <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 500 }}>{job.company}</span>
+            {job.location && <span>· {job.location}</span>}
+            {posted && <span>· {posted}</span>}
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
+            {reasonChip && (
+              <Badge style={{ fontSize: 11, background: "var(--surface2)", color: "var(--muted)", border: "1px solid var(--surface2)" }}>
+                {reasonChip}
+              </Badge>
+            )}
+            {salary && <Badge variant="secondary" style={{ fontSize: 11 }}>{salary}</Badge>}
+            {job.workModel && WORK_MODEL_LABEL[job.workModel] && (
+              <Badge variant="secondary" style={{ fontSize: 11 }}>{WORK_MODEL_LABEL[job.workModel]}</Badge>
+            )}
+            {job.seniority && SENIORITY_LABEL[job.seniority] && (
+              <Badge variant="secondary" style={{ fontSize: 11 }}>{SENIORITY_LABEL[job.seniority]}</Badge>
+            )}
+            {(job.h1bSponsor || job.visaSponsorship === "yes") && (
+              <Badge
+                style={{
+                  fontSize: 11,
+                  background: "color-mix(in srgb, #16a34a 14%, transparent)",
+                  color: "#16a34a",
+                  border: "1px solid color-mix(in srgb, #16a34a 32%, transparent)",
+                }}
+              >
+                {job.h1bSponsor && job.h1bCertifiedCount
+                  ? `H-1B sponsor · ${job.h1bCertifiedCount.toLocaleString()}`
+                  : "H-1B sponsor"}
+              </Badge>
+            )}
+            {job.titleMatch && (
+              <Badge
+                style={{
+                  fontSize: 11,
+                  background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                  color: "var(--accent)",
+                  border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+                }}
+              >
+                🎯 Target role
+              </Badge>
+            )}
+          </div>
+        </div>
+        {!listMode && (
+          <div style={{ flexShrink: 0, display: "flex", flexDirection: isMobile ? "row" : "column", gap: 7, alignItems: "stretch", flexWrap: isMobile ? "wrap" : "nowrap", width: isMobile ? "100%" : "auto" }}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onBoost(job.id); }}
+              disabled={boostLoading}
+              style={{
+                fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: "none",
+                background: "#c4793a", color: "#fff",
+                cursor: boostLoading ? "wait" : "pointer", whiteSpace: "nowrap",
+                opacity: boostLoading ? 0.7 : 1, fontFamily: "inherit",
+                flex: isMobile ? "1 1 auto" : undefined,
+              }}
+            >
+              {boostLoading ? "Loading…" : "✦ Optimize"}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onPrep(job.id); }}
+              disabled={prepLoading}
+              style={{
+                fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 8,
+                border: prepReady
+                  ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
+                  : "1px solid var(--surface2)",
+                background: prepReady
+                  ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
+                  : "transparent",
+                color: prepReady ? "var(--green-ink)" : "var(--text)",
+                cursor: prepLoading ? "wait" : "pointer", whiteSpace: "nowrap",
+                opacity: prepLoading ? 0.7 : 1, fontFamily: "inherit",
+                flex: isMobile ? "1 1 auto" : undefined,
+              }}
+            >
+              {prepLoading ? "Loading…" : prepReady ? "🎤 Prep ready" : "🎤 Prep interview"}
+            </button>
+            <a
+              href={job.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => { e.stopPropagation(); onApply(job.id); }}
+              style={{
+                fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 8, textAlign: "center",
+                flex: isMobile ? "1 1 100%" : undefined,
+                border: applied
+                  ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
+                  : "1px solid var(--surface2)",
+                color: applied ? "var(--green-ink)" : "var(--text)",
+                background: applied
+                  ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
+                  : "transparent",
+                textDecoration: "none", whiteSpace: "nowrap",
+                transition: "color 0.15s, border-color 0.15s, background 0.15s",
+              }}
+            >
+              {applied ? "Applied ✓" : "View & apply ↗"}
+            </a>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+});
 
 function JobsSidebar({
   isMobile,
@@ -2433,7 +2506,7 @@ function JobsSidebar({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", fontSize: 13.5, fontWeight: 600, color: "var(--text)", padding: "11px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", fontFamily: "inherit" }}
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", fontSize: 14, fontWeight: 600, color: "var(--text)", padding: "11px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", fontFamily: "inherit" }}
         >
           Saved filters &amp; tools
           <span style={{ fontSize: 10, opacity: 0.6, transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
@@ -2475,7 +2548,7 @@ function JobsSidebar({
               </button>
             </div>
             {saveError && (
-              <p style={{ fontSize: 11.5, color: "var(--red, #b91c1c)", margin: "0 0 10px", lineHeight: 1.4 }}>
+              <p style={{ fontSize: 12, color: "var(--red, #b91c1c)", margin: "0 0 10px", lineHeight: 1.4 }}>
                 {saveError}
               </p>
             )}
@@ -2495,13 +2568,15 @@ function JobsSidebar({
                   // The chip is truncated with an ellipsis — hovering shows the full
                   // name (the whole "title · experience · … · date" tagline) + action.
                   title={`${f.name}\n(click to apply)`}
-                  style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 12.5, fontWeight: 500, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--surface2)", color: "var(--text)", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 13, fontWeight: 500, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--surface2)", color: "var(--text)", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                 >
                   {f.name}
                 </button>
-                <button onClick={() => void remove(f.id)} aria-label={`Delete ${f.name}`} style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 15, cursor: "pointer", padding: 2, flexShrink: 0 }}>
-                  ×
-                </button>
+                <Tip label={`Delete ${f.name}`}>
+                  <button onClick={() => void remove(f.id)} style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 15, cursor: "pointer", padding: 2, flexShrink: 0 }}>
+                    ×
+                  </button>
+                </Tip>
               </div>
             ))}
           </div>
@@ -2510,7 +2585,7 @@ function JobsSidebar({
 
       {/* Resunova-native widget — replaces jobright's "Career Coach" upsell. */}
       <div style={SIDEBAR_CARD}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>Sharpen your matches</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>Sharpen your matches</div>
         <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 12px" }}>
           Your résumé is the match profile. Re-scan after edits to refresh every score across the feed.
         </p>
@@ -2568,14 +2643,14 @@ function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 20px 72px", width: "100%" }}>
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 22 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg, color-mix(in srgb, var(--accent) 10%, transparent))", padding: "5px 12px", borderRadius: 999, marginBottom: 14 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg, color-mix(in srgb, var(--accent) 10%, transparent))", padding: "5px 12px", borderRadius: 999, marginBottom: 14 }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)" }} />
           {proofText}
         </div>
         <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: -0.6, color: "var(--text)", margin: "0 0 8px", lineHeight: 1.15 }}>
           Find jobs that match your résumé
         </h1>
-        <p style={{ fontSize: 14.5, color: "var(--muted)", margin: "0 auto", maxWidth: 420, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 auto", maxWidth: 420, lineHeight: 1.5 }}>
           Live openings from company career boards, ranked by fit.
         </p>
       </div>
@@ -2596,7 +2671,7 @@ function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn
       {/* Category quick-picks (gated) */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 26 }}>
         {categories.map((c) => (
-          <button key={c} type="button" onClick={onSignIn} style={{ fontSize: 12.5, fontWeight: 500, color: "var(--muted)", background: "transparent", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 13px", cursor: "pointer", fontFamily: "inherit" }}>
+          <button key={c} type="button" onClick={onSignIn} style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)", background: "transparent", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 13px", cursor: "pointer", fontFamily: "inherit" }}>
             {c}
           </button>
         ))}
@@ -2611,8 +2686,8 @@ function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--surface2)", flexShrink: 0 }} />
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{j.title}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--muted)" }}>{j.co} · {j.loc}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{j.title}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>{j.co} · {j.loc}</div>
                 </div>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2627,7 +2702,7 @@ function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn
           <div style={{ textAlign: "center", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, boxShadow: "0 16px 48px rgba(0,0,0,0.18)", padding: "24px 28px", maxWidth: 360 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 12 }}>Sign in to see your matches</div>
             <Button size="lg" onClick={onSignIn} style={{ minWidth: 230 }}>Sign in to browse</Button>
-            <div style={{ fontSize: 11.5, color: "var(--dim)", marginTop: 11 }}>Free · no credit card</div>
+            <div style={{ fontSize: 12, color: "var(--dim)", marginTop: 11 }}>Free · no credit card</div>
           </div>
         </div>
       </div>

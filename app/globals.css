@@ -164,10 +164,32 @@
   --transition:  0.18s cubic-bezier(0.4,0,0.2,1);
 }
 
-/* Typography scale — centralized font sizes, weights, and line-heights */
+/* Typography scale — centralized font sizes, weights, and line-heights.
+ *
+ * `--fs-*` is the canonical ladder and mirrors `FS` in lib/typography.ts —
+ * change one and change the other. New UI picks a step from it; no raw or
+ * half-pixel sizes. The résumé paper is exempt (print metrics own their own
+ * sizes in lib/resumeLayout.ts).
+ *
+ * The `--font-size-*` block below it predates the ladder and does not sit on
+ * it (9/15/26/52). It is kept so existing call sites do not shift; treat it as
+ * legacy and reach for `--fs-*` in anything new. */
 :root,
 [data-theme="dark"],
 [data-theme="light"] {
+  --fs-micro:      10px;  /* dense badges, chips, table meta */
+  --fs-caption:    11px;  /* secondary meta, sidebar labels  */
+  --fs-small:      12px;  /* dense UI text, compact controls */
+  --fs-body:       13px;  /* default app-chrome body         */
+  --fs-body-lg:    14px;  /* comfortable body, inputs        */
+  --fs-subhead:    16px;  /* card titles, section subheads   */
+  --fs-title:      18px;  /* panel titles                    */
+  --fs-h3:         20px;
+  --fs-h2:         24px;
+  --fs-h1:         30px;
+  --fs-display:    36px;
+  --fs-display-lg: 48px;
+
   --font-size-xs:        9px;
   --font-size-sm:        11px;
   --font-size-base:      13px;

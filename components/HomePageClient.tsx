@@ -317,7 +317,7 @@ function JobsTabShell() {
             type="button"
             onClick={() => setTab(t.key)}
             style={{
-              fontSize: 13.5,
+              fontSize: 14,
               fontWeight: tab === t.key ? 600 : 400,
               padding: "7px 14px",
               borderRadius: "8px 8px 0 0",

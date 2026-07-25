@@ -13,7 +13,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    include: ["components/**/*.test.{ts,tsx}"],
+    // `lib/**` was missing, so lib/__tests__/sponsorJobs.test.ts never ran.
+    include: ["components/**/*.test.{ts,tsx}", "lib/**/*.test.{ts,tsx}"],
     css: false,
     restoreMocks: true,
   },

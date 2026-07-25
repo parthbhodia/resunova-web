@@ -59,7 +59,7 @@ export default function SkillFrequencyTable({
           </li>
         ))}
       </ul>
-      <p style={{ marginTop: 16, fontSize: 12.5, color: "var(--dim)" }}>
+      <p style={{ marginTop: 16, fontSize: 13, color: "var(--dim)" }}>
         Share of {formattedCount} analyzed {roleLabel} job postings requesting each skill. Source:
         Resunova jobs dataset, updated regularly.
       </p>

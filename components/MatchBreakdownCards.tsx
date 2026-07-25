@@ -90,7 +90,7 @@ export default function MatchBreakdownCards({
               </div>
 
               {notes ? (
-                <p style={{ margin: 0, marginBottom: weak && !isAddressed && (onImprove || onFixGap) ? 10 : 0, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                <p style={{ margin: 0, marginBottom: weak && !isAddressed && (onImprove || onFixGap) ? 10 : 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
                   {notes}
                 </p>
               ) : null}

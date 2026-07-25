@@ -97,7 +97,7 @@ function renderWithHighlights(text: string, terms?: string[]): ReactNode {
 }
 
 const actionBtnBase: CSSProperties = {
-  fontSize: 10.5,
+  fontSize: 11,
   fontWeight: 600,
   padding: "5px 10px",
   borderRadius: 7,
@@ -157,7 +157,7 @@ export default function BulletImprovedEditor({
             </div>
             {suggestionNote && (
               <div style={{
-                fontSize: 10.5,
+                fontSize: 11,
                 fontWeight: 600,
                 color: "var(--amber-ink, var(--amber))",
                 marginBottom: 6,

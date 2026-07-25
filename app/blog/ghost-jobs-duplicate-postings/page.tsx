@@ -66,9 +66,9 @@ function BarRow({ label, value, max, color = "var(--accent)", bold = false }: {
 function ChartCard({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
     <figure style={{ margin: "18px 0 6px", border: "1px solid var(--border)", borderRadius: 14, background: "var(--surface)", padding: "18px 20px" }}>
-      <figcaption style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)", marginBottom: 14 }}>{title}</figcaption>
+      <figcaption style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 14 }}>{title}</figcaption>
       <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>{children}</div>
-      {note && <p style={{ fontSize: 11.5, color: "var(--dim)", margin: "12px 0 0", lineHeight: 1.5 }}>{note}</p>}
+      {note && <p style={{ fontSize: 12, color: "var(--dim)", margin: "12px 0 0", lineHeight: 1.5 }}>{note}</p>}
     </figure>
   );
 }
@@ -213,7 +213,7 @@ export default function GhostJobsDuplicatePostingsPage() {
           ranks what remains against your résumé, with skill-by-skill match breakdowns and H-1B sponsor data on each
           job.
         </p>
-        <Link href="/jobs/" style={{ display: "inline-block", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "9px 16px", fontSize: 13.5, fontWeight: 650, textDecoration: "none" }}>
+        <Link href="/jobs/" style={{ display: "inline-block", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "9px 16px", fontSize: 14, fontWeight: 650, textDecoration: "none" }}>
           Browse live jobs
         </Link>
       </div>

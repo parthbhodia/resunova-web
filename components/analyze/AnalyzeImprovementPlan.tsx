@@ -80,7 +80,7 @@ export default function AnalyzeImprovementPlan({
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
                 Save a version
               </div>
-              <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.45, marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.45, marginBottom: 10 }}>
                 Saves your applied edits as a new version in this résumé&rsquo;s history, with the updated estimated score. Restore any earlier version from history anytime.
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -114,7 +114,7 @@ export default function AnalyzeImprovementPlan({
                     border: "1px solid var(--border)",
                     background: "transparent",
                     color: "var(--muted)",
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: 500,
                     cursor: "pointer",
                     fontFamily: "inherit",
@@ -124,7 +124,7 @@ export default function AnalyzeImprovementPlan({
                 </button>
               </div>
               {editDraftStatus ? (
-                <div style={{ marginTop: 10, fontSize: 10.5, color: "var(--green)", lineHeight: 1.4 }}>
+                <div style={{ marginTop: 10, fontSize: 11, color: "var(--green)", lineHeight: 1.4 }}>
                   {editDraftStatus}
                 </div>
               ) : null}
@@ -132,7 +132,7 @@ export default function AnalyzeImprovementPlan({
 
           {/* Hint */}
           <div style={{
-            fontSize: 10.5, color: "var(--dim)", marginBottom: 14,
+            fontSize: 11, color: "var(--dim)", marginBottom: 14,
             lineHeight: 1.5, display: "flex", alignItems: "flex-start", gap: 6,
           }}>
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
@@ -300,7 +300,7 @@ export default function AnalyzeImprovementPlan({
                       >
                         {CATEGORY_ICONS[key]}
                       </span>
-                      <span style={{ flex: 1, fontSize: 11.5, fontWeight: 500, color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {label}
                       </span>
                       {affectedCount > 0 && (

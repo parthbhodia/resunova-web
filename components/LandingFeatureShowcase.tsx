@@ -799,7 +799,7 @@ export function VariantD({ embedded = false }: VariantProps = {}) {
             <div style={{ padding:"28px 32px", display:"flex", gap:24, alignItems:"center",
               animation:"slideIn 0.35s ease both" }}>
               <div style={{ flex:1, padding:"16px", background:BG, borderRadius:12,
-                border:`1px solid ${BOR}`, fontSize:10.5, color:MUT, lineHeight:1.9 }}>
+                border:`1px solid ${BOR}`, fontSize:11, color:MUT, lineHeight:1.9 }}>
                 <strong style={{ color:INK, fontSize:13 }}>Alex Johnson</strong><br/>
                 Software Engineer II · Stripe<br/>
                 <span style={{ color:G }}>●</span> Architected REST API 2M+ req/day...<br/>

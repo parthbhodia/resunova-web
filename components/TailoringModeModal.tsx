@@ -107,7 +107,7 @@ export function TailoringModeModal({
         <h2 id="tailoring-mode-title" style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 800, color: "var(--text)", letterSpacing: -0.3 }}>
           How should AI tailor your résumé?
         </h2>
-        <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
+        <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
           Applies to Tailor and Boost rewrites. You can change this anytime from the results toolbar or Account settings.
         </p>
 
@@ -138,7 +138,7 @@ export function TailoringModeModal({
                   background: "var(--surface)",
                   transition: "border-color .12s",
                 }} />
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)" }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
                   {TAILORING_MODE_META[mode].label}
                   {mode === "honest" && (
                     <span style={{ marginLeft: 7, fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: 0.4 }}>
@@ -163,7 +163,7 @@ export function TailoringModeModal({
             type="button"
             onClick={onCancel}
             style={{
-              font: "inherit", fontSize: 12.5, fontWeight: 600,
+              font: "inherit", fontSize: 13, fontWeight: 600,
               padding: "7px 14px", borderRadius: 8,
               border: "1px solid var(--border)", background: "transparent",
               color: "var(--muted)", cursor: "pointer",
@@ -175,7 +175,7 @@ export function TailoringModeModal({
             type="button"
             onClick={() => onSave(selected)}
             style={{
-              font: "inherit", fontSize: 12.5, fontWeight: 700,
+              font: "inherit", fontSize: 13, fontWeight: 700,
               padding: "7px 16px", borderRadius: 8, border: "none",
               background: "var(--accent)", color: "#fff", cursor: "pointer",
             }}

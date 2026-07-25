@@ -266,7 +266,7 @@ export default async function RoleResumeExamplePage({
                 </div>
               ))}
             </div>
-            <p style={{ marginTop: 12, fontSize: 12.5, color: "var(--dim)" }}>
+            <p style={{ marginTop: 12, fontSize: 13, color: "var(--dim)" }}>
               From {data.postingsAnalyzed.toLocaleString("en-US")} analyzed {data.label.toLowerCase()} postings. Figures
               vary by location and seniority.
             </p>

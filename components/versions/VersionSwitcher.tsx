@@ -140,7 +140,7 @@ export function VersionSwitcher({ groups, activeId, onSelect, onNewVersion, plac
         >
           <div
             style={{
-              fontSize: 10.5,
+              fontSize: 11,
               letterSpacing: 0.6,
               textTransform: "uppercase",
               color: "var(--dim)",
@@ -186,7 +186,7 @@ export function VersionSwitcher({ groups, activeId, onSelect, onNewVersion, plac
                     {jd ? <>tailored for <span style={{ color: "var(--accent)" }}>{jd}</span></> : "base résumé"}
                   </span>
                 </span>
-                <span style={{ fontSize: 10.5, color: "var(--dim)", fontFamily: "var(--font-mono, ui-monospace, monospace)" }}>
+                <span style={{ fontSize: 11, color: "var(--dim)", fontFamily: "var(--font-mono, ui-monospace, monospace)" }}>
                   {isActive ? "current" : "switch"}
                 </span>
               </button>
@@ -205,7 +205,7 @@ export function VersionSwitcher({ groups, activeId, onSelect, onNewVersion, plac
                 justifyContent: "center",
                 gap: 8,
                 width: "100%",
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: 560,
                 color: "var(--accent)",
                 background: "var(--accent-bg)",

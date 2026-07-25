@@ -151,7 +151,7 @@ export default function SearchableSelect({
         >
           {item.icon && <span style={{ display: "inline-flex", flexShrink: 0, color: i === highlight ? "var(--accent)" : "var(--dim)" }}>{item.icon}</span>}
           <span style={{ minWidth: 0 }}>
-            <span style={{ display: "block", fontSize: 13.5, fontWeight: i === highlight ? 600 : 500, color: i === highlight ? "var(--accent)" : "var(--text)" }}>
+            <span style={{ display: "block", fontSize: 14, fontWeight: i === highlight ? 600 : 500, color: i === highlight ? "var(--accent)" : "var(--text)" }}>
               {item.label}
             </span>
             {item.sub && (
@@ -167,7 +167,7 @@ export default function SearchableSelect({
       style={{
         ...menuPos,
         background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-        boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: "12px 14px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5,
+        boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: "12px 14px", fontSize: 13, color: "var(--muted)", lineHeight: 1.5,
       }}
     >
       {emptyHint}

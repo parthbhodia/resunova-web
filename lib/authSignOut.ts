@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
+import { invalidateCache } from "@/lib/clientCache";
 
 const FORCE_LANDING_KEY = "rn-force-landing";
 
@@ -24,6 +25,9 @@ export function clearForceLandingAfterSignOut(): void {
 /** Sign out of Supabase and hard-navigate home so AuthGate re-evaluates. */
 export async function signOutAndReturnHome(): Promise<void> {
   const devBypass = process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true";
+  // Drop every cached per-account payload before the session goes away, so a
+  // second account signing in on this tab can never paint the first one's data.
+  invalidateCache();
   try {
     await getSupabaseClient().auth.signOut({ scope: "global" });
   } catch {

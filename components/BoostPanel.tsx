@@ -84,7 +84,7 @@ function SkippedKeywordList({ result }: { result: BoostResult }) {
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>
+      <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>
         SKIPPED · {detailed.length}
       </span>
       {detailed.map((s) => (
@@ -400,7 +400,7 @@ function Step1({ job, ready, onNext, onScanFirst }: {
           <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>YOU HAVE</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
             {visMatched.map((r, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, fontSize: 12.5, background: "rgba(var(--green-ink-rgb, 4,120,87),0.08)", color: "var(--text)", border: "1px solid rgba(var(--green-ink-rgb, 4,120,87),0.18)" }}>
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, fontSize: 13, background: "rgba(var(--green-ink-rgb, 4,120,87),0.08)", color: "var(--text)", border: "1px solid rgba(var(--green-ink-rgb, 4,120,87),0.18)" }}>
                 <span style={{ color: "var(--green-ink)", fontWeight: 700 }}>✓</span>
                 {r.canonical}
               </span>
@@ -420,7 +420,7 @@ function Step1({ job, ready, onNext, onScanFirst }: {
           <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>ADD THESE TO LEVEL UP</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
             {visGaps.map((r, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 999, fontSize: 12.5, fontWeight: 500, background: "color-mix(in srgb, #c4793a 12%, transparent)", color: "var(--text)", border: "1px solid color-mix(in srgb, #c4793a 34%, transparent)" }}>
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 999, fontSize: 13, fontWeight: 500, background: "color-mix(in srgb, #c4793a 12%, transparent)", color: "var(--text)", border: "1px solid color-mix(in srgb, #c4793a 34%, transparent)" }}>
                 <span style={{ color: "#c4793a", fontWeight: 700 }}>+</span>
                 {r.canonical}
               </span>
@@ -431,7 +431,7 @@ function Step1({ job, ready, onNext, onScanFirst }: {
               {showAllGaps ? "Show fewer" : `Show all ${job.missing.length} ›`}
             </button>
           )}
-          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 13, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
             One tap tailors your résumé to add <strong style={{ color: "var(--text)" }}>{job.missing.length}</strong> of these — from your real experience.
           </p>
         </div>
@@ -442,7 +442,7 @@ function Step1({ job, ready, onNext, onScanFirst }: {
         {ready ? (
           <button
             onClick={onNext}
-            style={{ width: "100%", padding: "14px 0", borderRadius: 11, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 600, cursor: "pointer" }}
+            style={{ width: "100%", padding: "14px 0", borderRadius: 11, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
           >
             Improve my résumé for this job →
           </button>
@@ -495,7 +495,7 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
               <div key={s} style={{ border: `1px solid ${on ? "var(--accent)" : "var(--surface2)"}`, borderRadius: 12, padding: "12px 14px", background: "var(--surface)", display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <Checkbox on={on} onClick={() => toggleSection(s)} />
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{SECTION_LABELS[s] || s}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{SECTION_LABELS[s] || s}</span>
                   <button onClick={() => setNoteFor(noteFor === s ? null : s)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--accent)", fontWeight: 500 }}>
                     {notes[s] ? "✎ note" : "+ note"}
                   </button>
@@ -506,7 +506,7 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
                     onChange={(e) => setNotes((p) => ({ ...p, [s]: e.target.value }))}
                     placeholder="Optional: how should we steer this section? e.g. 'emphasize fintech work'"
                     rows={2}
-                    style={{ width: "100%", fontSize: 12.5, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--bg)", color: "var(--text)", resize: "vertical", boxSizing: "border-box" }}
+                    style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--bg)", color: "var(--text)", resize: "vertical", boxSizing: "border-box" }}
                   />
                 )}
                 {s === "experience" && on && (
@@ -528,13 +528,13 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
             {total > 12 ? " We tailor up to 12 keywords per run." : ""}
           </p>
           {total === 0 ? (
-            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0 }}>No missing concrete keywords — your résumé already covers this role&apos;s hard requirements.</p>
+            <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>No missing concrete keywords — your résumé already covers this role&apos;s hard requirements.</p>
           ) : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {job.injectableKeywords.map((k) => {
                 const on = keywords.has(k);
                 return (
-                  <button key={k} onClick={() => toggleKeyword(k)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, fontSize: 12.5, cursor: "pointer", border: `1px solid ${on ? "var(--accent)" : "var(--surface2)"}`, background: on ? "var(--accent-bg)" : "var(--surface)", color: on ? "var(--accent)" : "var(--text)", fontWeight: 500 }}>
+                  <button key={k} onClick={() => toggleKeyword(k)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, fontSize: 13, cursor: "pointer", border: `1px solid ${on ? "var(--accent)" : "var(--surface2)"}`, background: on ? "var(--accent-bg)" : "var(--surface)", color: on ? "var(--accent)" : "var(--text)", fontWeight: 500 }}>
                     <span style={{ color: "var(--accent)", fontWeight: 600 }}>{on ? "✓" : "+"}</span>
                     {k}
                   </button>
@@ -550,7 +550,7 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
         <button
           onClick={onGenerate}
           disabled={selected.size === 0 && keywords.size === 0}
-          style={{ width: "100%", padding: "14px 0", borderRadius: 11, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 600, opacity: selected.size === 0 && keywords.size === 0 ? 0.55 : 1, cursor: selected.size === 0 && keywords.size === 0 ? "not-allowed" : "pointer" }}
+          style={{ width: "100%", padding: "14px 0", borderRadius: 11, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, opacity: selected.size === 0 && keywords.size === 0 ? 0.55 : 1, cursor: selected.size === 0 && keywords.size === 0 ? "not-allowed" : "pointer" }}
         >
           Generate tailored résumé →
         </button>
@@ -558,7 +558,7 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
           <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--muted)", padding: 0 }}>
             ‹ Back
           </button>
-          <span style={{ fontSize: 11.5, color: "var(--muted)" }}>
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>
             {selected.size} section{selected.size === 1 ? "" : "s"} · {keywords.size} keyword{keywords.size === 1 ? "" : "s"}
           </span>
         </div>
@@ -816,7 +816,7 @@ function Step3({
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center", paddingTop: 32 }}>
         <span style={{ fontSize: 28 }}>⚠️</span>
-        <p style={{ fontSize: 13.5, color: "var(--text)", textAlign: "center", margin: 0, lineHeight: 1.6, maxWidth: 380 }}>{error}</p>
+        <p style={{ fontSize: 14, color: "var(--text)", textAlign: "center", margin: 0, lineHeight: 1.6, maxWidth: 380 }}>{error}</p>
         <button
           onClick={onRetry}
           style={{ padding: "11px 28px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 4 }}
@@ -835,7 +835,7 @@ function Step3({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       {boostVersion ? (
-        <div style={{ fontSize: 12.5, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ fontSize: 13, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
           <span aria-hidden>↳</span> Boosting your saved version <strong style={{ color: "var(--text)" }}>{boostVersion.name}</strong> — accepted changes save back as a new version of it.
         </div>
       ) : null}
@@ -844,12 +844,12 @@ function Step3({
       {improved ? (
         <div style={{ background: "var(--surface)", borderRadius: 14, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>BEFORE</span>
+            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>BEFORE</span>
             <span style={{ fontSize: 28, fontWeight: 700, color: "var(--muted)", lineHeight: 1 }}>{beforeScore}%</span>
           </div>
           <span style={{ fontSize: 22, color: "var(--muted)" }}>→</span>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>
               {acceptedCount === total ? "AFTER" : "NOW"}
             </span>
             <span style={{ fontSize: 36, fontWeight: 700, color: scoreColor, lineHeight: 1, opacity: scoring ? 0.55 : 1, transition: "opacity 0.15s" }}>
@@ -875,8 +875,8 @@ function Step3({
         </div>
       ) : (
         <div style={{ background: "var(--surface)", borderRadius: 14, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>No honest improvements to apply</span>
-          <span style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>No honest improvements to apply</span>
+          <span style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>
             {result.skippedKeywords.length > 0
               ? <>The keywords below couldn&apos;t be added honestly. Your match stays at <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong>.</>
               : <>Your résumé already covers what this posting asks for, or the remaining gaps can&apos;t be closed truthfully. Match: <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong>.</>}
@@ -912,7 +912,7 @@ function Step3({
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "8px 4px 2px" }}>
                     {s.gainedRequirements!.map((req) => (
                       <span key={req} style={{
-                        fontSize: 10.5, fontWeight: 600, color: "var(--green-ink)",
+                        fontSize: 11, fontWeight: 600, color: "var(--green-ink)",
                         background: "rgba(34,197,94,0.10)", border: "1px solid rgba(34,197,94,0.25)",
                         borderRadius: 20, padding: "2px 9px",
                       }}>+ {req}</span>
@@ -1005,7 +1005,7 @@ function Step3({
         </button>
       </div>
 
-      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0, lineHeight: 1.55 }}>
+      <p style={{ fontSize: 13, color: "var(--muted)", margin: 0, lineHeight: 1.55 }}>
         Applying with this tailored version? Use it for future matches to rerun scoring against this optimized resume.
       </p>
 
@@ -1013,7 +1013,7 @@ function Step3({
         <p
           role={promoteError ? "alert" : "status"}
           style={{
-            fontSize: 12.5,
+            fontSize: 13,
             color: promoteError ? "#b91c1c" : "var(--green-ink)",
             margin: 0,
             lineHeight: 1.5,
@@ -1033,7 +1033,7 @@ function Step3({
 
 const linkBtnStyle: CSSProperties = {
   background: "none", border: "none", padding: 0, cursor: "pointer",
-  fontSize: 11.5, fontWeight: 600, color: "var(--accent)",
+  fontSize: 12, fontWeight: 600, color: "var(--accent)",
 };
 
 function SectionHeading({ n, title, badge }: { n: number; title: string; badge?: string }) {
@@ -1041,7 +1041,7 @@ function SectionHeading({ n, title, badge }: { n: number; title: string; badge?:
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <span style={{ width: 22, height: 22, borderRadius: 999, background: "var(--text)", color: "var(--bg)", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
       <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>{title}</span>
-      {badge && <span style={{ marginLeft: "auto", fontSize: 11.5, fontWeight: 600, color: "var(--muted)", background: "var(--surface2)", padding: "3px 9px", borderRadius: 999 }}>{badge}</span>}
+      {badge && <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "var(--surface2)", padding: "3px 9px", borderRadius: 999 }}>{badge}</span>}
     </div>
   );
 }
@@ -1059,8 +1059,8 @@ function RadioOpt({ on, onClick, title, sub }: { on: boolean; onClick: () => voi
     <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, cursor: "pointer", textAlign: "left", border: "none", background: on ? "var(--accent-bg)" : "var(--surface2)" }}>
       <span style={{ width: 16, height: 16, borderRadius: 999, border: `${on ? 5 : 1.5}px solid ${on ? "var(--accent)" : "var(--muted)"}`, background: "var(--bg)", flexShrink: 0 }} />
       <span style={{ display: "flex", flexDirection: "column" }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>{title}</span>
-        <span style={{ fontSize: 11.5, color: "var(--muted)" }}>{sub}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{title}</span>
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>{sub}</span>
       </span>
     </button>
   );

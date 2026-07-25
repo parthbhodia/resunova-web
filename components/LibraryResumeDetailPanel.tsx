@@ -218,7 +218,7 @@ export default function LibraryResumeDetailPanel({
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
                 Job matching
               </div>
-              <p style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 10px" }}>
+              <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 10px" }}>
                 {item.isDefault
                   ? "This is the résumé Jobs and Boost currently match against."
                   : "Make this the résumé Jobs and Boost match against."}
@@ -558,7 +558,7 @@ function AnalyzedDetails({
         <SectionBlock title="Top issues">
           <div style={{ display: "grid", gap: 8 }}>
             {topIssues.map((issue, i) => (
-              <div key={`${issue}-${i}`} style={{ fontSize: 12.5, color: "var(--text)", lineHeight: 1.45, display: "flex", gap: 8 }}>
+              <div key={`${issue}-${i}`} style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.45, display: "flex", gap: 8 }}>
                 <span style={{ color: "var(--amber)", fontWeight: 800 }}>•</span>
                 <span>{issue}</span>
               </div>
@@ -571,7 +571,7 @@ function AnalyzedDetails({
         <SectionBlock title="Strengths">
           <div style={{ display: "grid", gap: 8 }}>
             {topStrengths.map((strength, i) => (
-              <div key={`${strength}-${i}`} style={{ fontSize: 12.5, color: "var(--text)", lineHeight: 1.45, display: "flex", gap: 8 }}>
+              <div key={`${strength}-${i}`} style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.45, display: "flex", gap: 8 }}>
                 <span style={{ color: "var(--green)", fontWeight: 800 }}>•</span>
                 <span>{strength}</span>
               </div>
@@ -583,7 +583,7 @@ function AnalyzedDetails({
       {sourcePdfUrl ? (
         <SectionBlock title="Uploaded PDF">
           {sourceFilename ? (
-            <p style={{ margin: "0 0 8px", fontSize: 11.5, color: "var(--muted)" }}>{sourceFilename}</p>
+            <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted)" }}>{sourceFilename}</p>
           ) : null}
           <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
             <iframe
