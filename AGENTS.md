@@ -51,3 +51,48 @@ down as the remaining files are cleaned up.
 Other tells worth avoiding: "seamlessly", "effortlessly", "unlock the power of",
 "in today's fast-paced", and rule-of-three padding ("fast, simple, and
 reliable").
+
+## Material Design
+
+New UI follows **Material Design 3**, built on the existing shadcn/base-ui
+primitives. We deliberately did **not** install MUI: running two component
+libraries means two theme systems, two sets of primitives, and a permanent seam
+between old and new screens. Material is a token layer instead, so every
+component keeps its current API.
+
+Tokens live in `lib/material.ts` and are mirrored as `--md-*` custom properties
+in `app/globals.css`. One definition, two consumers, pinned by
+`lib/__tests__/material.test.ts` so they cannot drift.
+
+**Elevation** is six defined levels, not ad-hoc box-shadows:
+
+```tsx
+<Card variant="elevated" />                    // resting 1, hover 2
+className="shadow-[var(--md-elevation-3)]"     // menus, raised chips
+```
+
+**Interaction uses the state layer**, not a hover background per variant. Add
+`md-state-layer` to an interactive element and it gets hover, focus and pressed
+feedback by overlaying its own foreground colour at Material's opacities. One
+rule covers every colour, including ones added later:
+
+```tsx
+<button className="md-state-layer bg-primary text-primary-foreground" />
+```
+
+Do not write `hover:bg-*` on a component that already has the state layer —
+the two stack and the result is muddy.
+
+**Motion** comes from the scale: `var(--md-easing-standard)` with
+`var(--md-duration-medium)`. Never `transition: all`.
+
+**Shape**: `var(--md-shape-sm|md|lg|xl)`.
+
+### Off limits
+
+The résumé paper and everything on the PDF export path — `lib/resumeLayout.ts`,
+`AnnotatedResumePanel`, `AnalyzeLiveResumeBody`, `ResumeEditor`,
+`TemplateBuilder/*`, `CoverLetterPreview`. Those shadows and sizes are print
+metrics that drive Chromium pagination, and Material elevation renders as a grey
+box in an exported PDF. The exemption is asserted in the test; the state layer
+is also stripped from the export via `.az-clean-export`.
