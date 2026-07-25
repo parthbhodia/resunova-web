@@ -35,6 +35,22 @@ export function normalizeGapKey(text: string): string {
     .trim();
 }
 
+/**
+ * Case/whitespace-only fold that KEEPS the characters which carry meaning in a
+ * technology name. `normalizeGapKey` strips them, so `C++`, `C#` and `C` all
+ * collapse to `c` and anything under three characters is then dropped by
+ * `tokenizeGap`'s length filter — leaving labels that could not match even
+ * themselves. Keeping `+ # .` makes those distinct and comparable.
+ */
+export function normalizeGapKeyStrict(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9+#.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const GAP_STOP_WORDS = new Set([
   "framework",
   "platform",
@@ -63,6 +79,13 @@ export function tokenizeGap(text: string): string[] {
  * Intentionally strict: session overlay must not clear unrelated missing items.
  */
 export function gapKeysMatch(a: string, b: string): boolean {
+  // Identical labels are the same requirement, whatever their length. This runs
+  // before tokenization because the token path exists to pair labels that DRIFT,
+  // and its length filter throws away short names like C++ / Go / R entirely.
+  // Equal strings can never be a false positive, so this only adds matches.
+  const aStrict = normalizeGapKeyStrict(a);
+  if (aStrict && aStrict === normalizeGapKeyStrict(b)) return true;
+
   const aTokens = tokenizeGap(a);
   const bTokens = tokenizeGap(b);
   if (!aTokens.length || !bTokens.length) return false;
