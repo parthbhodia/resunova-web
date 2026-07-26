@@ -11,8 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getSupabaseClient } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 
 const CATEGORIES = [
   { value: "general", label: "General" },
@@ -56,16 +55,9 @@ export function BugReportDialog({ open, onOpenChange }: Props) {
     setErrorMsg("");
 
     try {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
-      }
-
-      const res = await fetch(apiUrl("/api/bug-report"), {
+      const res = await apiFetch("/api/bug-report", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim(),

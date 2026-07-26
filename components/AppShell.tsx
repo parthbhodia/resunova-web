@@ -12,7 +12,6 @@ import { UmbcProvider } from "@/contexts/UmbcContext";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
 import { POST_LOGIN_DEST_KEY } from "@/lib/anonScan";
 import { getSupabaseClient } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
 import { isInstitutionUser, isUmbcUser } from "@/lib/userDomainDetection";
 import ResumeSidebar from "./ResumeSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -34,6 +33,7 @@ import {
   writeSidebarCollapsed,
   type AppView,
 } from "./app-shell/nav-config";
+import { apiFetch } from "@/lib/apiClient";
 
 export type { AppView } from "./app-shell/nav-config";
 
@@ -138,9 +138,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const resp = await fetch(apiUrl("/api/advisor-access"), {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        const resp = await apiFetch("/api/advisor-access");
         if (!resp.ok) {
           setAdvisorAllowed(false);
           return;
@@ -159,10 +157,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
       if (!accessToken) return;
       if (!isInstitutionUser(email)) return;
       try {
-        await fetch(apiUrl("/api/sync-institution-student"), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        await apiFetch("/api/sync-institution-student", { method: "POST" });
       } catch {
         // Best-effort sync only; never block shell render/auth UX.
       }

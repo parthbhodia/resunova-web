@@ -16,7 +16,8 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { apiUrl, parseJsonOrThrow } from "@/lib/utils";
+import { parseJsonOrThrow } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 
 interface ResolveResp {
   shortid?:    string;
@@ -55,7 +56,7 @@ function SharePageInner() {
     let cancelled = false;
     (async () => {
       try {
-        const resp = await fetch(apiUrl(`/api/share/${encodeURIComponent(shortid)}`));
+        const resp = await apiFetch(`/api/share/${encodeURIComponent(shortid)}`);
         const json = await parseJsonOrThrow<ResolveResp>(resp);
         if (!resp.ok) throw new Error(json.error ?? `HTTP ${resp.status}`);
         if (!cancelled) setData(json);

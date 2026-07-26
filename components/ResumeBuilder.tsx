@@ -113,6 +113,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { apiFetch } from "@/lib/apiClient";
 
 const TailoredPdfPreview = dynamic(
   () => import("@/components/TailoredPdfPreview"),
@@ -1056,7 +1057,7 @@ export default function ResumeBuilder({
     setExtractingJd(true);
     setExtractError(null);
     try {
-      const resp = await fetch(apiUrl("/api/extract-jd"), {
+      const resp = await apiFetch("/api/extract-jd", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
@@ -1171,7 +1172,7 @@ export default function ResumeBuilder({
 
       let lastErr: Error | null = null;
       for (let attempt = 0; attempt < 2; attempt++) {
-        const resp = await fetch(apiUrl(`/api/ats-check/${encodeURIComponent(folder)}`), {
+        const resp = await apiFetch(`/api/ats-check/${encodeURIComponent(folder)}`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({
@@ -1285,7 +1286,7 @@ export default function ResumeBuilder({
     setError(null);
     saveStatus.resetForNewRun();
     try {
-      const resp = await fetch(apiUrl("/api/analyze"), {
+      const resp = await apiFetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1395,7 +1396,7 @@ export default function ResumeBuilder({
       : structuredWithFieldOverrides;
     setTailorRescoring(true);
     try {
-      const resp = await fetch(apiUrl("/api/analyze"), {
+      const resp = await apiFetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1632,7 +1633,7 @@ export default function ResumeBuilder({
     setSuggestResearchDigest("");
 
     try {
-      const resp = await fetch(apiUrl("/api/suggest-changes-stream"), {
+      const resp = await apiFetch("/api/suggest-changes-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1960,7 +1961,7 @@ export default function ResumeBuilder({
         : { ...EMPTY_RESULT, baseFolder, baseLoaded: baseFolder ? null : false };
 
     try {
-      const resp = await fetch(apiUrl("/api/generate-stream"), {
+      const resp = await apiFetch("/api/generate-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: ac.signal,
@@ -2222,7 +2223,7 @@ export default function ResumeBuilder({
     setGapFixError(null);
     setGapFixPanel(null);
     try {
-      const resp = await fetch(apiUrl("/api/suggest-gap-fix"), {
+      const resp = await apiFetch("/api/suggest-gap-fix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2559,7 +2560,7 @@ export default function ResumeBuilder({
       // résumé snapshot, and collisions between their results are merged at
       // apply time rather than letting a later batch overwrite an earlier one.
       const responses = await Promise.all(openGapBatches.map(async (batch) => {
-        const resp = await fetch(apiUrl("/api/suggest-gap-fix"), {
+        const resp = await apiFetch("/api/suggest-gap-fix", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -3,9 +3,8 @@
  * (GET /api/jobs/<id>) are both scored deterministically server-side —
  * no LLM tokens per request.
  */
-import { apiUrl } from "@/lib/utils";
-import { getSupabaseClient } from "@/lib/supabase";
 import { readCache, writeCache, invalidateCache } from "@/lib/clientCache";
+import { apiFetch, accessToken } from "@/lib/apiClient";
 
 export type RequirementItem = {
   canonical: string;
@@ -137,7 +136,7 @@ export function scoreLabel(score: number | null): string {
 export type CompanyOption = { company: string; domain: string; activeCount: number };
 export async function fetchCompanyOptions(q: string): Promise<CompanyOption[]> {
   try {
-    const resp = await fetch(apiUrl(`/api/jobs/companies?q=${encodeURIComponent(q.trim())}`));
+    const resp = await apiFetch(`/api/jobs/companies?q=${encodeURIComponent(q.trim())}`);
     if (!resp.ok) return [];
     const data = await resp.json();
     return Array.isArray(data?.companies) ? data.companies : [];
@@ -151,23 +150,12 @@ export async function fetchCompanyOptions(q: string): Promise<CompanyOption[]> {
 export type TitleOption = { title: string; activeCount: number };
 export async function fetchTitleOptions(q: string): Promise<TitleOption[]> {
   try {
-    const resp = await fetch(apiUrl(`/api/jobs/titles?q=${encodeURIComponent(q.trim())}`));
+    const resp = await apiFetch(`/api/jobs/titles?q=${encodeURIComponent(q.trim())}`);
     if (!resp.ok) return [];
     const data = await resp.json();
     return Array.isArray(data?.titles) ? data.titles : [];
   } catch {
     return [];
-  }
-}
-
-export async function authHeaders(): Promise<Record<string, string>> {
-  try {
-    const {
-      data: { session },
-    } = await getSupabaseClient().auth.getSession();
-    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-  } catch {
-    return {};
   }
 }
 
@@ -183,11 +171,10 @@ export async function trackJobEvent(
     | "paywall_view" | "reveal_click" | "checkout_start" | "checkout_complete",
 ): Promise<void> {
   try {
-    const headers = await authHeaders();
-    if (!headers.Authorization) return; // only signed-in users are tracked
-    await fetch(apiUrl("/api/jobs/event"), {
+    if (!(await accessToken())) return; // only signed-in users are tracked
+    await apiFetch("/api/jobs/event", {
       method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ posting_id: postingId, event }),
       keepalive: true,
     });
@@ -216,8 +203,7 @@ export async function fetchJobDetail(id: string, { force = false } = {}): Promis
     const hit = readCache<JobDetail>(JOB_DETAIL_KEY(id), JOB_DETAIL_TTL_MS);
     if (hit && !hit.stale) return hit.data;
   }
-  const headers = await authHeaders();
-  const resp = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(id)}`), { headers });
+  const resp = await apiFetch(`/api/jobs/${encodeURIComponent(id)}`);
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}));
     throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
@@ -292,7 +278,7 @@ export type FeaturedCompany = {
  *  Returns [] on any failure so the rail simply doesn't render. */
 export async function fetchFeaturedCompanies(): Promise<FeaturedCompany[]> {
   try {
-    const resp = await fetch(apiUrl("/api/jobs/featured-companies"));
+    const resp = await apiFetch("/api/jobs/featured-companies");
     if (!resp.ok) return [];
     const data = await resp.json();
     return Array.isArray(data?.companies) ? data.companies : [];

@@ -5,8 +5,7 @@
  * The `filters` blob is owned by JobsFeed (FilterSnapshot below) — the backend
  * persists it opaquely.
  */
-import { apiUrl } from "@/lib/utils";
-import { authHeaders } from "@/lib/jobsApi";
+import { apiFetch } from "@/lib/apiClient";
 
 /** The serializable slice of JobsFeed's filter state that a saved filter holds. */
 export type FilterSnapshot = {
@@ -41,17 +40,15 @@ async function parseError(resp: Response): Promise<never> {
 }
 
 export async function fetchJobFilters(): Promise<SavedFilter[]> {
-  const headers = await authHeaders();
-  const resp = await fetch(apiUrl("/api/job-filters"), { headers });
+  const resp = await apiFetch("/api/job-filters");
   if (!resp.ok) return parseError(resp);
   return (await resp.json()).filters ?? [];
 }
 
 export async function createJobFilter(name: string, filters: Partial<FilterSnapshot>): Promise<SavedFilter> {
-  const headers = await authHeaders();
-  const resp = await fetch(apiUrl("/api/job-filters"), {
+  const resp = await apiFetch("/api/job-filters", {
     method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, filters }),
   });
   if (!resp.ok) return parseError(resp);
@@ -62,10 +59,9 @@ export async function updateJobFilter(
   id: string,
   patch: { name?: string; filters?: Partial<FilterSnapshot> },
 ): Promise<SavedFilter> {
-  const headers = await authHeaders();
-  const resp = await fetch(apiUrl(`/api/job-filters/${encodeURIComponent(id)}`), {
+  const resp = await apiFetch(`/api/job-filters/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
   if (!resp.ok) return parseError(resp);
@@ -73,10 +69,8 @@ export async function updateJobFilter(
 }
 
 export async function deleteJobFilter(id: string): Promise<void> {
-  const headers = await authHeaders();
-  const resp = await fetch(apiUrl(`/api/job-filters/${encodeURIComponent(id)}`), {
+  const resp = await apiFetch(`/api/job-filters/${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers,
   });
   if (!resp.ok) return parseError(resp);
 }

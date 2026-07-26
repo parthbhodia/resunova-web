@@ -27,7 +27,12 @@ export function useScanToast() {
     if (
       data?.code === "interview_prep_limit_reached" ||
       data?.code === "daily_scan_limit_reached" ||
-      data?.code === "scan_limit_reached"
+      data?.code === "scan_limit_reached" ||
+      // Codes from the uniform refusal envelope. Kept alongside the older
+      // per-endpoint ones so this works against both, since the web ships
+      // before the backend switches over.
+      data?.code === "quota_exceeded" ||
+      data?.code === "sign_in_required"
     ) {
       setScanMeta(data);
     }

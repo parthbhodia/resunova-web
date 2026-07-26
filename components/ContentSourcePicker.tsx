@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiErrorBanner } from "@/components/ApiErrorBanner";
 import { apiErrorFromUnknown, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
-import { apiUrl, parseJsonOrThrow, resumeFileClientError } from "@/lib/utils";
+import { parseJsonOrThrow, resumeFileClientError } from "@/lib/utils";
 import { fetchResumes } from "@/lib/supabase";
 import type { ResumeRecord } from "@/lib/types";
+import { apiFetch } from "@/lib/apiClient";
 
 const PROFILE_KEY = "rn_builder_profile_prefill";
 const STYLE_REF_KEY = "rn_builder_style_ref";
@@ -36,7 +37,7 @@ export function UploadResumePdfPanel({ onDone }: { onDone: (profileText: string)
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const resp = await fetch(apiUrl("/api/upload-resume"), { method: "POST", body: fd });
+      const resp = await apiFetch("/api/upload-resume", { method: "POST", body: fd });
       const json = await parseJsonOrThrow<{ error?: string; text?: string; code?: string; missing?: string[] }>(resp);
       if (!resp.ok) {
         // Content gate (422): show the calm, instructive banner.

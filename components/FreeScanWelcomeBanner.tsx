@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getSupabaseClient } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 
 const FREE_SCAN_BANNER_KEY_PREFIX = "rn-free-scan-banner-dismissed";
 
@@ -41,12 +40,7 @@ export function FreeScanWelcomeBanner({ userId, isUmbc }: FreeScanWelcomeBannerP
     let cancelled = false;
     (async () => {
       try {
-        const supabase = getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const headers: Record<string, string> = session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : {};
-        const resp = await fetch(apiUrl("/api/scan-limit-status"), { headers });
+        const resp = await apiFetch("/api/scan-limit-status");
         const data = (await resp.json()) as { limit?: number; unlimited?: boolean };
         if (!cancelled && !data.unlimited && typeof data.limit === "number") {
           setLimit(data.limit);

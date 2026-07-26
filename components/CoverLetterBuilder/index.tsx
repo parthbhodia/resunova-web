@@ -9,9 +9,10 @@ import { CoverLetterEditOverlay } from "./CoverLetterEditOverlay";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import { fetchUserProfile, getSupabaseClient } from "@/lib/supabase";
 import { AlignmentType, Document, Packer, Paragraph, TextRun } from "docx";
-import { apiUrl, parseJsonOrThrow } from "@/lib/utils";
+import { parseJsonOrThrow } from "@/lib/utils";
 import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "./SignInToUseAi";
+import { apiFetch } from "@/lib/apiClient";
 
 type TabKey = "recipient" | "author" | "content" | "style";
 type Step = "mode" | "pick" | "jd" | "build";
@@ -124,12 +125,9 @@ export default function CoverLetterBuilder() {
       const { data: { session } } = await db.auth.getSession();
       if (!session?.access_token) { setJdGenerating(false); return; }
 
-      const response = await fetch(apiUrl("/api/cl-generate"), {
+      const response = await apiFetch("/api/cl-generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jd: jdText,
           role: jdRole,

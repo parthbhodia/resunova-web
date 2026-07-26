@@ -14,18 +14,18 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction, type RefObject } from "react";
 import { useRouter } from "next/navigation";
-import { authHeaders, scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { canBoost } from "@/lib/boostPrefill";
 import { autoSaveBoostVersion, fetchLatestResumeBase, type ResumeBase } from "@/lib/boostToVersion";
 import { readStashedBoostVersion, clearStashedBoostVersion, type StashedBoostVersion } from "@/lib/versionBoostPrefill";
 import { setDefaultVersion } from "@/lib/resumeVersions";
-import { apiUrl } from "@/lib/utils";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import { TailoringModeModal } from "@/components/TailoringModeModal";
 import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 import AnalyzeLiveResumeBody from "@/components/AnalyzeLiveResumeBody";
 import { GapFixSuggestionCard, type GapFixSuggestion } from "@/components/ratings/GapFixSuggestionCard";
 import { resumeLayoutFromPreviewStyle, resumeLayoutCssVars, resumePageRootStyle, RESUME_BULLET_STYLESHEET } from "@/lib/resumeLayout";
+import { apiFetch } from "@/lib/apiClient";
 
 // ─── Boost API response ────────────────────────────────────────────────────
 // Contract mirrors resunova-api's /api/jobs/boost (docs/boost-frontend-spec.md).
@@ -183,10 +183,9 @@ export default function BoostPanel({
     setBoostResult(null);
     setBoostError(null);
     try {
-      const headers = await authHeaders();
-      const resp = await fetch(apiUrl("/api/jobs/boost"), {
+      const resp = await apiFetch("/api/jobs/boost", {
         method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           posting_id: job.id,
           keywords: [...keywords],
@@ -653,10 +652,9 @@ function Step3({
           .map((s, i) => ({ original: s.original, suggested: drafts[i] ?? s.suggested, keep: accepted[i] }))
           .filter((x) => x.keep)
           .map(({ original, suggested }) => ({ original, suggested }));
-        const headers = await authHeaders();
-        const resp = await fetch(apiUrl("/api/jobs/boost/score"), {
+        const resp = await apiFetch("/api/jobs/boost/score", {
           method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ posting_id: postingId, suggestions: subset }),
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -774,10 +772,9 @@ function Step3({
     setPromoteError(null);
     setPromoteMessage(null);
     try {
-      const headers = await authHeaders();
-      const resp = await fetch(apiUrl("/api/jobs/boost/use-resume"), {
+      const resp = await apiFetch("/api/jobs/boost/use-resume", {
         method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           posting_id: postingId,
           title: result.title,

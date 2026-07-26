@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useResumeAnalyzeStore, type StructuredResume } from "@/store/resumeAnalyzeStore";
 import type { CSSProperties, FocusEvent as ReactFocusEvent, HTMLAttributes, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { apiUrl } from "@/lib/utils";
-import { getSupabaseClient } from "@/lib/supabase";
 import BulletImprovedEditor from "@/components/BulletImprovedEditor";
 import { BulletFormatToolbar } from "@/components/BulletFormatToolbar";
 import { highlightMetricSpans } from "@/lib/highlightResumeMetrics";
@@ -40,6 +38,7 @@ import {
   paragraphBlockStyle,
   type ResumeSectionRole,
 } from "@/lib/resumeLayout";
+import { apiFetch } from "@/lib/apiClient";
 
 export type { LiveBulletItem } from "@/lib/resumeBulletMatch";
 export { findBulletIndexForLine, normalizeForMatch } from "@/lib/resumeBulletMatch";
@@ -1476,13 +1475,9 @@ export default function AnalyzeLiveResumeBody({
   const requestPopupAiRewrite = useCallback(async (idx: number, originalBullet: string, category: string) => {
     setAiRewritingIdx(idx);
     try {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
-      const resp = await fetch(apiUrl("/api/rewrite-bullet"), {
+      const resp = await apiFetch("/api/rewrite-bullet", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bullet: originalBullet, rewrite: true, instruction: category }),
       });
       if (!resp.ok) throw new Error("rewrite failed");

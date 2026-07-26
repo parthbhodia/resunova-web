@@ -2,8 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { buildNameRoleExportFilename } from "@/lib/resumeFileName";
-import { apiUrl } from "@/lib/utils";
 import { useResumeAnalyzeStore } from "@/store/resumeAnalyzeStore";
+import { apiFetch } from "@/lib/apiClient";
 
 export interface UseAnalyzeExportOptions {
   jd?: string;
@@ -83,7 +83,7 @@ export function useAnalyzeExport(opts: UseAnalyzeExportOptions = {}): UseAnalyze
     setExporting(true);
     setError(null);
     try {
-      const resp = await fetch(apiUrl("/api/export-docx"), {
+      const resp = await apiFetch("/api/export-docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

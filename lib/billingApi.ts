@@ -9,7 +9,7 @@
  * treating it as "signed out".
  */
 import { getSupabaseClient } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 
 export type BillingPriceKey = "pro_monthly" | "pro_quarterly";
 
@@ -61,9 +61,9 @@ export async function createCheckoutSession(
   const token = await accessToken();
   if (!token) return { error: "signed_out" };
   try {
-    const resp = await fetch(apiUrl("/api/billing/checkout"), {
+    const resp = await apiFetch("/api/billing/checkout", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ priceKey }),
     });
     if (resp.ok) {
@@ -85,10 +85,7 @@ export async function createPortalSession(): Promise<string | null> {
   const token = await accessToken();
   if (!token) return null;
   try {
-    const resp = await fetch(apiUrl("/api/billing/portal"), {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const resp = await apiFetch("/api/billing/portal", { method: "POST" });
     if (!resp.ok) return null;
     const json = await resp.json();
     return typeof json?.url === "string" && json.url ? json.url : null;
@@ -103,9 +100,7 @@ export async function fetchBillingStatus(): Promise<BillingStatus | null> {
   const token = await accessToken();
   if (!token) return null;
   try {
-    const resp = await fetch(apiUrl("/api/billing/status"), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const resp = await apiFetch("/api/billing/status");
     if (!resp.ok) return null;
     const json = await resp.json();
     if (!json || typeof json !== "object" || (json.plan !== "free" && json.plan !== "pro")) return null;

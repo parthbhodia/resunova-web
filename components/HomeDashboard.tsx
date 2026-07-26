@@ -20,11 +20,11 @@ import {
   fetchUserProfile,
   type LibraryItem,
 } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUpgradeDialog } from "@/components/UpgradeDialog";
 import { readCache, writeCache } from "@/lib/clientCache";
+import { apiFetch } from "@/lib/apiClient";
 
 type AppStats = {
   saved: number;
@@ -39,6 +39,8 @@ type AppStats = {
 type ScanStatus = {
   enforced?: boolean;
   unlimited?: boolean;
+  /** "pro" | "institution" for unlimited tiers; absent on the metered tier. */
+  plan?: string | null;
   limit?: number;
   used?: number;
   remaining?: number;
@@ -196,11 +198,9 @@ export default function HomeDashboard() {
       } = await supabase.auth.getSession();
       const user = session?.user ?? null;
       const token = session?.access_token ?? null;
-      const authHeaders = token ? { Authorization: `Bearer ${token}` } : null;
-
       const json = async <T,>(path: string): Promise<T | null> => {
-        if (!authHeaders) return null;
-        const resp = await fetch(apiUrl(path), { headers: authHeaders });
+        if (!token) return null;
+        const resp = await apiFetch(path);
         return resp.ok ? ((await resp.json()) as T) : null;
       };
 
@@ -293,7 +293,7 @@ export default function HomeDashboard() {
   const recent = items.slice(0, 4);
 
   const planLabel = scan?.unlimited
-    ? "Unlimited"
+    ? (scan.plan === "pro" ? "Pro" : scan.plan === "institution" ? "University" : "Unlimited")
     : scan?.enforced && typeof scan.remaining === "number"
       ? `Free · ${Math.max(0, scan.remaining)} scan${scan.remaining === 1 ? "" : "s"} left today`
       : "Free plan";

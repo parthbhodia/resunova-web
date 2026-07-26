@@ -12,8 +12,8 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseClient, fetchAnalyses, type AnalyzeRecord } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
 import { lsLoad, lsSave } from "./analyzeHistoryStore";
+import { apiFetch } from "@/lib/apiClient";
 
 export function useAnalyzeSession() {
   const [scansRemaining, setScansRemaining] = useState<number | null>(null);
@@ -32,7 +32,7 @@ export function useAnalyzeSession() {
         setIsAnon(true);
         setLoadingHistory(false);
         // Anonymous quota (per-IP) so the remaining count still shows.
-        fetch(apiUrl("/api/scan-limit-status"))
+        apiFetch("/api/scan-limit-status")
           .then(r => r.json())
           .then((data: Record<string, unknown>) => {
             if (data.enforced && !data.unlimited && typeof data.remaining === "number") {
@@ -48,17 +48,14 @@ export function useAnalyzeSession() {
       // Seed from localStorage immediately so UI isn't empty while fetching
       setAzHistory(lsLoad(user.id));
       // Fetch scan quota so remaining count shows before the first scan
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        const authHeader: Record<string, string> = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-        fetch(apiUrl("/api/scan-limit-status"), { headers: authHeader })
-          .then(r => r.json())
-          .then((data: Record<string, unknown>) => {
-            if (data.enforced && !data.unlimited && typeof data.remaining === "number") {
-              setScansRemaining(data.remaining as number);
-            }
-          })
-          .catch(() => { /* non-critical */ });
-      });
+      apiFetch("/api/scan-limit-status")
+        .then(r => r.json())
+        .then((data: Record<string, unknown>) => {
+          if (data.enforced && !data.unlimited && typeof data.remaining === "number") {
+            setScansRemaining(data.remaining as number);
+          }
+        })
+        .catch(() => { /* non-critical */ });
       try {
         const rows = await fetchAnalyses(25);   // higher: version chains share the list
         setAzHistory(rows);

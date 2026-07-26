@@ -18,6 +18,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef, type CSSProperties } from "react";
 import type { ParsedResume, ParsedBullet, ParsedSection, ParsedEntry } from "@/lib/types";
 import { diffWords } from "@/lib/textDiff";
+import { apiFetch } from "@/lib/apiClient";
 
 /** Strip LaTeX markup from a label string so users see plain text. */
 function cleanLatex(raw: string): string {
@@ -1412,7 +1413,7 @@ function GenerateSkillsModal({
     setGenerating(true); setError(null); setGenerated(null); setSelected(new Set()); setSuggestions([]);
     try {
       const { apiUrl } = await import("@/lib/utils");
-      const resp = await fetch(apiUrl("/api/generate-skills"), {
+      const resp = await apiFetch("/api/generate-skills", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: roleToUse.trim(), existing_skills: existingSkills }),

@@ -5,6 +5,7 @@ import { type ProfileFormState, EMPTY_PROFILE } from "./profileStorage";
 import { type ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "./resumeExtractorService";
 import { dispatchResumeLibraryChanged } from "./resumeLibraryEvents";
 import { coerceTemplateBuilderData } from "./coerceTemplateBuilderData";
+import { apiFetch } from "@/lib/apiClient";
 
 /* ── Analyze-history types ───────────────────────────────────── */
 // result is typed as Record<string,unknown> here because the DB stores raw
@@ -979,14 +980,9 @@ export async function fetchLatestPrepSession(): Promise<PrepSessionRecord | null
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token) return null;
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/latest`,
-      {
+    const res = await apiFetch(`/api/interview-prep/latest`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
       },
     );
 
@@ -1112,14 +1108,9 @@ export async function fetchPrepSessions(): Promise<PrepSessionSummary[]> {
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token) return [];
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/sessions`,
-      {
+    const res = await apiFetch(`/api/interview-prep/sessions`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
       },
     );
     if (!res.ok) return [];
@@ -1148,14 +1139,9 @@ export async function fetchPrepSessionById(id: string): Promise<PrepSessionRecor
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token || !id) return null;
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/session/${encodeURIComponent(id)}`,
-      {
+    const res = await apiFetch(`/api/interview-prep/session/${encodeURIComponent(id)}`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
       },
     );
     if (!res.ok) return null;
@@ -1181,11 +1167,8 @@ export async function deletePrepSession(sessionId: string): Promise<boolean> {
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token || !sessionId) return false;
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/session/${encodeURIComponent(sessionId)}`,
-      {
+    const res = await apiFetch(`/api/interview-prep/session/${encodeURIComponent(sessionId)}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${session.access_token}` },
       },
     );
     return res.ok;
@@ -1224,14 +1207,9 @@ export async function fetchStoryBank(sessionId?: string | null): Promise<PrepSto
     // Scope the bank to the current prep session (this résumé) so we never show
     // a previous résumé's stories.
     const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : "";
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/stories${qs}`,
-      {
+    const res = await apiFetch(`/api/interview-prep/stories${qs}`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
       },
     );
     if (!res.ok) return [];
@@ -1264,11 +1242,8 @@ export async function deleteStory(storyId: string): Promise<boolean> {
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token || !storyId) return false;
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/story/${encodeURIComponent(storyId)}`,
-      {
+    const res = await apiFetch(`/api/interview-prep/story/${encodeURIComponent(storyId)}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${session.access_token}` },
       },
     );
     return res.ok;
@@ -1298,14 +1273,9 @@ export async function fetchJobPrepStatuses(
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token) return {};
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/job-statuses?ids=${encodeURIComponent(ids.join(","))}`,
-      {
+    const res = await apiFetch(`/api/interview-prep/job-statuses?ids=${encodeURIComponent(ids.join(","))}`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
       },
     );
     if (!res.ok) return {};

@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from "react";
 import { useCoverLetterStore } from "@/store/coverLetterStore";
 import { CL_TEMPLATES } from "./types";
-import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "./SignInToUseAi";
+import { apiFetch } from "@/lib/apiClient";
 
 const inputBase: React.CSSProperties = {
   width: "100%", padding: "8px 11px", borderRadius: 6,
@@ -61,12 +61,9 @@ function AITextarea({ field, context, onEnhanced, value, style, signedIn, signin
       const { data: { session } } = await db.auth.getSession();
       if (!session?.access_token) { setShowSignIn(true); return; }
 
-      const res = await fetch(apiUrl("/api/cl-enhance"), {
+      const res = await apiFetch("/api/cl-enhance", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: String(value ?? ""), field, context }),
       });
       // Session expired / rejected by the backend → prompt to sign in again.

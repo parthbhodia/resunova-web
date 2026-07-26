@@ -19,7 +19,7 @@ import {
 import { patchAppliedEditsIntoResume } from "@/lib/analyzeRescore";
 import { hiddenBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeBody";
 import { estimateScoreAfterFixes } from "@/lib/analyzeScoreEstimate";
-import { apiUrl, resumeFileClientError } from "@/lib/utils";
+import { resumeFileClientError } from "@/lib/utils";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
@@ -53,6 +53,7 @@ import AnalyzeImprovementPlan from "./analyze/AnalyzeImprovementPlan";
 import { useAnalyzeSession } from "./analyze/useAnalyzeSession";
 import { useAnalyzeLoaderProgress } from "./analyze/useAnalyzeLoaderProgress";
 import { Tip } from "@/components/ui/tip";
+import { apiFetch, refusalFrom } from "@/lib/apiClient";
 
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -270,12 +271,9 @@ export default function AnalyzeResume() {
         setFeedbackToast("Sign in to update your score — the rescored report is saved to your history.");
         return;
       }
-      const resp = await fetch(apiUrl("/api/analyze-rescore"), {
+      const resp = await apiFetch("/api/analyze-rescore", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           resume_text: patch.patchedText,
           structured_resume: patch.patchedStructured ?? undefined,
@@ -284,8 +282,14 @@ export default function AnalyzeResume() {
       });
       const json = await resp.json();
       if (!resp.ok) {
-        if (resp.status === 429 && json?.code === "daily_scan_limit_reached") {
-          setFeedbackToast("Daily scan limit reached — updating the score counts as a scan. Try again tomorrow.");
+        const refusal = refusalFrom(resp.status, json);
+        if (refusal?.remedy === "sign_in") {
+          setFeedbackToast("Sign in to update your score. The rescored report is saved to your history.");
+          openSignIn({ reason: "Sign in to rescore and keep your report history." });
+          return;
+        }
+        if (refusal) {
+          setFeedbackToast("Daily scan limit reached. Updating the score counts as a scan, so try again tomorrow.");
           openUpgrade(json);
           return;
         }
@@ -395,22 +399,24 @@ export default function AnalyzeResume() {
     try {
       const supabase = getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
-      const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
       if (session?.user?.id) {
         fd.set("user_id", session.user.id);
         if (session.user.email) fd.set("user_email", session.user.email);
       }
-      const resp = await fetch(apiUrl("/api/analyze-upload"), { method: "POST", body: fd, headers });
+      const resp = await apiFetch("/api/analyze-upload", { method: "POST", body: fd });
       const json = await resp.json();
       if (!resp.ok) {
-        if (resp.status === 429 && json?.code === "daily_scan_limit_reached") {
-          const limit = Number(json?.limit);
-          const freeLimit = Number.isFinite(limit) && limit > 0 ? limit : 3;
-          if (json?.reason === "anonymous_daily_ip_limit") {
-            // Anonymous cap → sign in (free) first, not a Pro pitch.
-            setFeedbackToast("Free scans used for today — sign in (it's free) for 3 scans/day and saved reports.");
+        // Branch on the refusal's `remedy`, not on its wording: what the user
+        // has to do next is the backend's call, and matching prose meant a copy
+        // edit could quietly start pitching Pro to someone who only needed to
+        // sign in.
+        const refusal = refusalFrom(resp.status, json);
+        if (refusal) {
+          if (refusal.remedy === "sign_in") {
+            setFeedbackToast("Free scans used for today. Sign in (it's free) for 3 scans a day and saved reports.");
             openSignIn({ reason: "Sign in free for more résumé scans and saved reports." });
           } else {
+            const freeLimit = refusal.limit && refusal.limit > 0 ? refusal.limit : 3;
             setFeedbackToast(`Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`);
             openUpgrade(json);
           }
@@ -467,7 +473,7 @@ export default function AnalyzeResume() {
     try {
       const supabase = getSupabaseClient();
       const { data: { user } } = await supabase.auth.getUser();
-      const resp = await fetch(apiUrl(`/api/analyze-folder/${encodeURIComponent(folder)}`), {
+      const resp = await apiFetch(`/api/analyze-folder/${encodeURIComponent(folder)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user?.id ?? "", jd }),
@@ -1110,13 +1116,9 @@ export default function AnalyzeResume() {
   const requestAiRewrite = useCallback(async (idx: number, originalBullet: string, category: string) => {
     setAiRewritingIdx(idx);
     try {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
-      const resp = await fetch(apiUrl("/api/rewrite-bullet"), {
+      const resp = await apiFetch("/api/rewrite-bullet", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bullet: originalBullet, rewrite: true, instruction: category }),
       });
       if (!resp.ok) throw new Error("rewrite failed");
@@ -1158,7 +1160,7 @@ export default function AnalyzeResume() {
     explainInflightRef.current.add(category);
     setExplainingCategory(category);
     try {
-      const resp = await fetch(apiUrl("/api/explain-category-score"), {
+      const resp = await apiFetch("/api/explain-category-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

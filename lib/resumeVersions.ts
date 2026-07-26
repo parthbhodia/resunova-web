@@ -16,6 +16,7 @@ import { getSupabaseClient, insertAnalysis } from "./supabase";
 import { apiUrl } from "./utils";
 import { dispatchResumeLibraryChanged } from "./resumeLibraryEvents";
 import { logClientEvent } from "./clientEvents";
+import { apiFetch, refusalFrom } from "@/lib/apiClient";
 
 export type VersionOrigin = "upload" | "duplicate" | "profile" | "tailor" | "manual";
 
@@ -162,9 +163,9 @@ export async function scoreVersionInPlace(version: {
     return { score: null, error: "Résumé is too short to score — add more detail first." };
   }
 
-  const resp = await fetch(apiUrl("/api/analyze-rescore"), {
+  const resp = await apiFetch("/api/analyze-rescore", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       resume_text: text,
       structured_resume: version.structured ?? undefined,
@@ -174,7 +175,9 @@ export async function scoreVersionInPlace(version: {
   });
   const json = await resp.json().catch(() => ({}));
   if (!resp.ok) {
-    if (resp.status === 429 && json?.code === "daily_scan_limit_reached") return { score: null, limited: true };
+    const refusal = refusalFrom(resp.status, json);
+    if (refusal?.remedy === "upgrade") return { score: null, limited: true };
+    if (refusal) return { score: null, needsAuth: true };
     return { score: null, error: json?.error || `Scoring failed (HTTP ${resp.status})` };
   }
 
@@ -200,9 +203,9 @@ export async function linkAnalysisToVersion(analysisId: string, versionId: strin
     const db = getSupabaseClient();
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token) return false;
-    const resp = await fetch(apiUrl("/api/analyze-link-version"), {
+    const resp = await apiFetch("/api/analyze-link-version", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ analysis_id: analysisId, version_id: versionId }),
     });
     if (!resp.ok) return false;

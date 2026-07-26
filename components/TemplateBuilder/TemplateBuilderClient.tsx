@@ -8,13 +8,14 @@ import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import ResumePreview from "./ResumePreview";
 import type { TBFont } from "./types";
 import { PAGE_WIDTH_OPTIONS, STYLE_PRESETS } from "./templateStyles";
-import { apiUrl, resumeFileClientError } from "@/lib/utils";
+import { resumeFileClientError } from "@/lib/utils";
 import { buildNameRoleExportFilename } from "@/lib/resumeFileName";
 import { consumeTemplateBuilderStructuredPrefill, stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/templateBuilderPrefill";
 import TemplateBuilderSectionsPanel from "./TemplateBuilderSectionsPanel";
 import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "@/components/CoverLetterBuilder/SignInToUseAi";
 import TemplateBuilderReviewPanel, { reviewScoreColor, type ReviewResult } from "./TemplateBuilderReviewPanel";
+import { apiFetch } from "@/lib/apiClient";
 
 /* ── Shared style helpers ──────────────────────────────────────── */
 const inputBase: React.CSSProperties = {
@@ -138,9 +139,9 @@ async function tbEnhanceCall(
   } catch { /* treat as signed out */ }
   if (!token) return { ok: false, needSignIn: true };
   try {
-    const res = await fetch(apiUrl("/api/tb-enhance"), {
+    const res = await apiFetch("/api/tb-enhance", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, type, context: context ?? {} }),
     });
     if (res.status === 401 || res.status === 403) return { ok: false, needSignIn: true };
@@ -306,12 +307,9 @@ function AIGenerateButton({ kind, buildContext, onGenerated, label = "✦ Genera
         setLoading(false);
         return;
       }
-      const res = await fetch(apiUrl("/api/tb-generate"), {
+      const res = await apiFetch("/api/tb-generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, context: buildContext }),
       });
       if (res.status === 401 || res.status === 403) {
@@ -628,7 +626,7 @@ export default function TemplateBuilderClient() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const resp = await fetch(apiUrl("/api/upload-resume"), { method: "POST", body: fd });
+      const resp = await apiFetch("/api/upload-resume", { method: "POST", body: fd });
       const json = (await resp.json()) as { error?: string; structuredResume?: unknown };
       if (!resp.ok) {
         throw new Error(json.error ?? `Upload failed (${resp.status})`);

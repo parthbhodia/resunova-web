@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { authHeaders } from "@/lib/jobsApi";
-import { apiUrl } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 
 export type JobTopMatch = {
   id: string;
@@ -70,10 +69,8 @@ export function useJobTopMatches({
 
     (async () => {
       try {
-        const headers = await authHeaders();
         if (controller.signal.aborted) return;
-        const resp = await fetch(apiUrl(`/api/jobs/top-matches?${query}`), {
-          headers,
+        const resp = await apiFetch(`/api/jobs/top-matches?${query}`, {
           signal: controller.signal,
         });
         if (!resp.ok) {
