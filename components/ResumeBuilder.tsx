@@ -56,6 +56,7 @@ import {
 import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToStructured";
 import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
 import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes } from "@/lib/fixEverything";
+import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
 import { prefillPrepFromTailor } from "@/lib/interviewPrepLaunch";
 import type { AddressedGapAction } from "@/lib/types";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
@@ -2507,6 +2508,14 @@ export default function ResumeBuilder({
   }, [user, openSignIn, effectiveCandidateProfile, tailorStructuredResume, tailorFieldOverrides, jd, company, role, router]);
 
   const [fixAllBusy, setFixAllBusy] = useState(false);
+  // Read once on mount rather than at render: localStorage is unavailable
+  // during SSR of the static export, and a lazy initialiser keeps this out of
+  // an effect.
+  const [fixAllAutoApply, setFixAllAutoApplyState] = useState(() => getFixAllAutoApply());
+  const toggleFixAllAutoApply = (on: boolean) => {
+    setFixAllAutoApplyState(on);
+    setFixAllAutoApply(on);
+  };
 
   const openGapBatches = useMemo(
     // Raw ratings, not displayRatings: that memo is declared further down, and
@@ -2579,6 +2588,23 @@ export default function ResumeBuilder({
         setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
         return;
       }
+
+      // Explicit opt-in only. The switch is off by default and the button says
+      // which of the two it will do, so the résumé never changes unprompted —
+      // but a user who has done this twenty times should not have to click
+      // through a review every time. Applied edits stay reversible: they are
+      // preview overrides, and every bullet keeps its revert control.
+      if (fixAllAutoApply) {
+        await applyGapFixes(
+          all.map((s) => ({
+            id: s.id, section: s.section, original: s.original,
+            suggested: s.suggested, reason: s.reason, priority: s.priority,
+          })),
+          openGapBatches.map((b) => batchGapName(b)).join(", "),
+        );
+        return;
+      }
+
       setGapFixPanel({
         gapName: openGapBatches.map((b) => batchGapName(b)).join(", "),
         gapNotes: `${all.length} rewrite${all.length === 1 ? "" : "s"} across ${openGapCount} gaps.`,
@@ -2591,8 +2617,8 @@ export default function ResumeBuilder({
     } finally {
       setFixAllBusy(false);
     }
-  }, [jd, openGapBatches, openGapCount, fixAllBusy, effectiveCandidateProfile, tailorStructuredResume,
-      tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
+  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, applyGapFixes, effectiveCandidateProfile,
+      tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
 
   /** One batched rewrite pass for several contextual gaps, instead of one call each. */
   const fixKeywordsBatched = useCallback((keywords: string[]) => {
@@ -3933,6 +3959,8 @@ export default function ResumeBuilder({
                       onFixEverything={() => { void fixEverything(); }}
                       openGapCount={openGapCount}
                       fixEverythingBusy={fixAllBusy}
+                      fixEverythingAutoApply={fixAllAutoApply}
+                      onFixEverythingAutoApplyChange={toggleFixAllAutoApply}
                       onOpenInterviewPrep={openInterviewPrep}
                       activeGapFixIds={activeGapFixIds}
                       onGapFixActivate={(id) => setTailorSelection({ kind: "gapfix", id })}

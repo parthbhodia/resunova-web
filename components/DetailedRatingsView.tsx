@@ -12,6 +12,7 @@ import { KeywordsSection } from "./ratings/KeywordsSection";
 import { InterviewSection } from "./ratings/InterviewSection";
 import CategoryFixPanel from "./CategoryFixPanel";
 import GapFixTabPanel from "./ratings/GapFixTabPanel";
+import { fixAllButtonLabel } from "@/lib/fixEverythingPrefs";
 
 export type Tab = "overall" | "job_title" | "qualifications" | "responsibilities" | "keywords" | "interview" | "gapfix" | "fixes";
 
@@ -111,6 +112,9 @@ type SharedProps = {
   onFixEverything?: () => void;
   openGapCount?: number;
   fixEverythingBusy?: boolean;
+  /** Opt-in: skip the review and write the rewrites straight in. Off by default. */
+  fixEverythingAutoApply?: boolean;
+  onFixEverythingAutoApplyChange?: (on: boolean) => void;
   /** Bulk: write selected bare skills into the résumé's Skills section. */
   onAddSkills?: (keywords: string[], category: string) => void;
   skillCategories?: string[];
@@ -284,12 +288,16 @@ export function TailorMatchSidebar({
   onFixEverything,
   openGapCount = 0,
   fixEverythingBusy = false,
+  fixEverythingAutoApply = false,
+  onFixEverythingAutoApplyChange,
 }: Pick<SharedProps, "ratings" | "hasSuggestions" | "gapFixPanel" | "strategicTips" | "interviewQuestions" | "activeTab" | "onActiveTabChange"> & {
   collapsed?: boolean;
   onCollapsedChange?: (c: boolean) => void;
   onFixEverything?: () => void;
   openGapCount?: number;
   fixEverythingBusy?: boolean;
+  fixEverythingAutoApply?: boolean;
+  onFixEverythingAutoApplyChange?: (on: boolean) => void;
 }) {
   const state = useTailorRatingsState({ ratings, hasSuggestions, gapFixPanel, strategicTips, interviewQuestions, activeTab: activeTabProp, onActiveTabChange });
   if (!state) return null;
@@ -342,6 +350,7 @@ export function TailorMatchSidebar({
 
       {/* Score card + grouped nav — hidden when collapsed */}
       {!sidebarCollapsed && (() => {
+        const fixAllLabel = fixAllButtonLabel(openGapCount, fixEverythingAutoApply, fixEverythingBusy);
         const renderRow = (tab: (typeof navTabs)[number]) => {
           const isActive = activeTab === tab.id;
           const isLow = tab.color === "#ef4444" || tab.color === "#f59e0b";
@@ -455,11 +464,33 @@ export function TailorMatchSidebar({
                   transition: "box-shadow var(--md-duration-medium) var(--md-easing-standard)",
                 }}
               >
-                <span>{fixEverythingBusy ? "Finding fixes…" : `⚡ Fix everything (${openGapCount})`}</span>
+                <span>{fixAllLabel.title}</span>
                 <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.85 }}>
-                  {fixEverythingBusy ? "One pass over every gap" : "Review before anything changes"}
+                  {fixAllLabel.subtitle}
                 </span>
               </button>
+            )}
+
+            {/* Opt-in, off by default. Rewrites go into the user's résumé, so
+                the default has to be "show me first" — but someone who has done
+                this twenty times shouldn't re-review every pass. The button
+                label above changes with it, so the click never surprises. */}
+            {onFixEverything && openGapCount > 0 && onFixEverythingAutoApplyChange && (
+              <label
+                style={{
+                  display: "flex", alignItems: "center", gap: 7, marginBottom: 12,
+                  padding: "0 2px", cursor: "pointer",
+                  fontSize: 11, color: "var(--muted)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={fixEverythingAutoApply}
+                  onChange={(e) => onFixEverythingAutoApplyChange(e.target.checked)}
+                  style={{ accentColor: "var(--accent)", cursor: "pointer" }}
+                />
+                Apply automatically, without reviewing
+              </label>
             )}
 
             {atsRows.length > 0 && groupLabel("Beat the ATS")}
@@ -699,6 +730,8 @@ export default function DetailedRatingsView(props: SharedProps) {
         onFixEverything={props.onFixEverything}
         openGapCount={props.openGapCount}
         fixEverythingBusy={props.fixEverythingBusy}
+        fixEverythingAutoApply={props.fixEverythingAutoApply}
+        onFixEverythingAutoApplyChange={props.onFixEverythingAutoApplyChange}
         {...props}
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
