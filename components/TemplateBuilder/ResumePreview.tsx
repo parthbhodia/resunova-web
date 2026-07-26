@@ -153,7 +153,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
             {renderContactRowWithIcons("#444")}
           </div>
           {sidebarSlots.map((slot) => (
-            <div key={slot}>{renderSectionSlot(slot, data, ctx, true)}</div>
+            <div key={slot}>{renderSectionSlot(slot, data, ctx)}</div>
           ))}
         </div>
         <div
@@ -260,7 +260,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
           `}</style>
           
           {sidebarSlots.map((slot) => (
-            <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx, true)}</div>
+            <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx)}</div>
           ))}
         </div>
       </div>
@@ -349,7 +349,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
             }}
           >
             {sidebarSlots.map((slot) => (
-              <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx, true)}</div>
+              <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx)}</div>
             ))}
           </div>
         </div>
