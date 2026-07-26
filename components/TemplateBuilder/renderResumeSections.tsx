@@ -12,7 +12,6 @@ import {
   resumeMetaStyle,
   resumeSectionTitleStyle,
   resumeSecondaryEntryBlockStyle,
-  resumeSkillsGridStyle,
   resumeSkillsTextStyle,
   resumeSummaryStyle,
 } from "@/lib/resumeLayout";
@@ -25,10 +24,8 @@ export function renderTbContentSection(
   section: TBContentSection,
   data: TBResumeData,
   ctx: ResumeLayoutContext,
-  isSidebar?: boolean
 ): ReactNode {
   const { profile, workExperiences, educations, projects, skills } = data;
-  const { preset } = ctx;
 
   switch (section) {
     case "summary":
@@ -112,27 +109,14 @@ export function renderTbContentSection(
     case "skills": {
       const featuredWithSkill = skills.featuredSkills.filter((f) => f.skill.trim());
       if (!featuredWithSkill.length && !skills.descriptions.trim()) return null;
+      // Featured skills render as a plain highlighted list — no proficiency
+      // dots (self-assessed ratings carry no signal for recruiters/ATS).
       return (
         <>
           <div style={resumeSectionTitleStyle(ctx)}>Skills</div>
           {featuredWithSkill.length > 0 && (
-            <div style={resumeSkillsGridStyle(isSidebar)}>
-              {featuredWithSkill.map((fs, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: preset.bodyFont, color: "#222" }}>
-                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {fs.skill}
-                  </span>
-                  <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                    {Array.from({ length: 5 }, (_, ci) => (
-                      <div key={ci} style={{
-                        width: 7, height: 7, borderRadius: "50%",
-                        background: ci < fs.rating ? ctx.accent : "#d9d9d9",
-                        flexShrink: 0,
-                      }} />
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div style={{ ...resumeSkillsTextStyle(ctx), fontWeight: 600, color: "#222", marginBottom: 2 }}>
+              {featuredWithSkill.map((fs) => fs.skill).join("  ·  ")}
             </div>
           )}
           {skills.descriptions.trim() && (
@@ -168,7 +152,6 @@ export function renderSectionSlot(
   slot: string,
   data: TBResumeData,
   ctx: ResumeLayoutContext,
-  isSidebar?: boolean
 ): ReactNode {
   const customId = parseCustomSectionId(slot);
   if (customId) {
@@ -176,7 +159,7 @@ export function renderSectionSlot(
     return section ? renderCustomSection(section, ctx) : null;
   }
   if (isCoreSectionSlot(slot)) {
-    return renderTbContentSection(slot, data, ctx, isSidebar);
+    return renderTbContentSection(slot, data, ctx);
   }
   return null;
 }
