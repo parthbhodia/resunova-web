@@ -118,7 +118,7 @@ function AITextarea({ field, context, onEnhanced, value, style, signedIn, signin
             onSignIn={onSignIn}
             onDismiss={() => setShowSignIn(false)}
             title="Sign in to use AI Enhance"
-            subtitle="Polish your wording with AI — free with a Google account."
+            subtitle="Polish your wording with AI, free with a Google account."
           />
         </div>
       )}

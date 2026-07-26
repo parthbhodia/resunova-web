@@ -141,6 +141,17 @@ function scoreBg(score: number): string {
 }
 
 /** Thick left callout when the user applied a preview-line rewrite. */
+/** Violet frame for a gap-fix target: the row is already tinted violet, and a
+ *  score-tier tone would put a red "weak" frame around a bullet the user is
+ *  simply working on. */
+function mirrorGapFixStyles(): { bar: string; bg: string; shadow: string } {
+  return {
+    bar: "rgba(139, 92, 246, 0.95)",
+    bg: "rgba(139, 92, 246, 0.14)",
+    shadow: "0 0 20px rgba(139, 92, 246, 0.22)",
+  };
+}
+
 function mirrorAppliedStyles(): { bar: string; bg: string; shadow: string } {
   return {
     bar: "rgba(52, 211, 153, 0.92)",
@@ -745,9 +756,14 @@ export default function AnnotatedResumePanel({
     const bullet = bulletAnalysis[idx];
     const score = bullet?.score ?? 60;
     const previewApplied = previewLineOverrides[idx] !== undefined;
-    const tone = previewApplied ? mirrorAppliedStyles() : mirrorToneStyles(score);
+    const tone = previewApplied
+      ? mirrorAppliedStyles()
+      : gapFixTargetBulletIndices.includes(idx)
+        ? mirrorGapFixStyles()
+        : mirrorToneStyles(score);
     setMirrorBox({ top, height, opacity: 1, ...tone });
-  }, [presentationOnly, selectedBulletIndex, bulletAnalysis, effectiveExtracted, previewLineOverrides]);
+  }, [presentationOnly, selectedBulletIndex, bulletAnalysis, effectiveExtracted, previewLineOverrides,
+      gapFixTargetBulletIndices]);
 
   useLayoutEffect(() => {
     updateMirrorPosition();
@@ -886,7 +902,7 @@ export default function AnnotatedResumePanel({
             type="button"
             disabled={!builderReady || builderOpening || !onOpenBuilder}
             onClick={e => { e.preventDefault(); onOpenBuilder?.(); }}
-            title="Open Résumé Builder — pick a LaTeX layout and tailor to a job"
+            title="Open Résumé Builder to pick a layout and tailor to a job"
             style={{
               fontSize: 11,
               fontWeight: 700,
@@ -1209,7 +1225,7 @@ export default function AnnotatedResumePanel({
               ) : null}
               {scoreEstimate ? (
                 <span
-                  title="Deterministic estimate from your applied fixes — real scoring needs the full analysis. Click Update score to run it and save."
+                  title="Deterministic estimate from your applied fixes. Real scoring needs the full analysis: click Update score to run it and save."
                   style={{
                     display: "inline-flex",
                     alignItems: "center",

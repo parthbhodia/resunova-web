@@ -1,5 +1,8 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import { gapFixAppendDelta } from "@/lib/gapFixAppendDelta";
+
 export type GapFixSuggestion = {
   id: string;
   section: string;
@@ -21,6 +24,15 @@ type Props = {
   draftText: string;
   onDraftChange: (text: string) => void;
   showCheckbox?: boolean;
+  /** This card's bullet is the one selected in the preview. */
+  active?: boolean;
+  /** Select this card's bullet in the preview. */
+  onActivate?: () => void;
+  /** The bullet's CURRENT preview text. Prefer it over `suggestion.original`,
+   *  which is the LLM's quote of the pristine line and goes stale as soon as
+   *  another fix lands on the same bullet. */
+  targetBulletText?: string;
+  cardRef?: (el: HTMLDivElement | null) => void;
 };
 
 const RISK_STYLES: Record<string, { bg: string; color: string; label: string }> = {
@@ -47,20 +59,43 @@ export function GapFixSuggestionCard({
   draftText,
   onDraftChange,
   showCheckbox = true,
+  active = false,
+  onActivate,
+  targetBulletText,
+  cardRef,
 }: Props) {
   const risk = RISK_STYLES[s.risk_level ?? "low"] ?? RISK_STYLES.low;
   const actionType = s.action_type ?? "rewrite";
   const categoryLabel = (s.category ? CATEGORY_LABEL[s.category] : null) ?? s.section.toUpperCase();
   const employerLabel = (s.employer || s.section || "").trim();
 
+  // The line this card actually edits. `s.original` is the LLM's quote of the
+  // pristine bullet and goes stale once another fix lands on the same line.
+  const baseText = (targetBulletText ?? s.original ?? "").trim();
+  // No matching bullet in the résumé means apply will REGISTER a new one, so
+  // the card must not claim to be extending something that exists.
+  const isNewBullet = !baseText;
+  const delta = useMemo(
+    () => (baseText ? gapFixAppendDelta(baseText, draftText) : null),
+    [baseText, draftText],
+  );
+  const [editing, setEditing] = useState(false);
+
   return (
     <div
+      ref={cardRef}
+      onClick={onActivate}
       style={{
         borderRadius: 12,
+        // Distinct from the indigo `checked` border: selection and "will be
+        // applied" are different states and must not look alike.
         border: checked ? "1.5px solid rgba(99,102,241,0.4)" : "1px solid var(--border)",
+        outline: active ? "2px solid rgba(139,92,246,0.85)" : "none",
+        outlineOffset: 1,
         background: checked ? "rgba(99,102,241,0.02)" : "var(--surface2)",
         overflow: "hidden",
-        transition: "border-color 0.15s, background 0.15s",
+        cursor: onActivate ? "pointer" : undefined,
+        transition: "border-color 0.15s, background 0.15s, outline-color 0.15s",
       }}
     >
       {/* ── Header row ── */}
@@ -156,52 +191,73 @@ export function GapFixSuggestionCard({
 
       {/* ── Content ── */}
       <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-        {/* Original (shown as strikethrough for rewrite) */}
-        {actionType === "rewrite" && (
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 4 }}>
-              Original
-            </div>
-            <div style={{
-              padding: "7px 10px", borderRadius: 6,
-              background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.15)",
-              fontSize: 12, color: "var(--muted)", lineHeight: 1.45,
-              textDecoration: "line-through", textDecorationColor: "rgba(239,68,68,0.4)",
-            }}>
-              {s.original}
-            </div>
-          </div>
-        )}
+        {/* WHERE it lands. Without this the box below is disconnected from the
+            résumé and the user has to hunt the preview to find the target. */}
+        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", letterSpacing: 0.3, textTransform: "uppercase" }}>
+          {isNewBullet
+            ? `New bullet · ${employerLabel || s.section}`
+            : `${actionType === "append" ? "Appending to" : "Rewriting"} · ${employerLabel || s.section}`}
+        </div>
 
-        {/* Editable suggestion */}
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 4 }}>
-            {actionType === "append" ? "+ Adding content" : "Content modification"}
-          </div>
+        {editing || isNewBullet || !delta || delta.kind !== "append" ? (
           <textarea
             value={draftText}
             onChange={(e) => onDraftChange(e.target.value)}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onFocus={(e) => e.stopPropagation()}
-            rows={3}
+            // Grow with the content: at rows=3 the original prefix scrolled out
+            // of sight, so the user saw a fragment with no anchor.
+            rows={Math.min(12, Math.max(3, Math.ceil(draftText.length / 60)))}
             aria-label="Suggested correction"
             style={{
-              cursor: "text",
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "8px 10px",
-              borderRadius: 6,
-              background: "rgba(52,211,153,0.06)",
-              border: "1px solid rgba(52,211,153,0.25)",
-              fontSize: 13,
-              color: "var(--text)",
-              lineHeight: 1.45,
-              fontFamily: "inherit",
-              resize: "vertical",
-              minHeight: 68,
+              cursor: "text", width: "100%", boxSizing: "border-box",
+              padding: "8px 10px", borderRadius: 6,
+              background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.25)",
+              fontSize: 13, color: "var(--text)", lineHeight: 1.45,
+              fontFamily: "inherit", resize: "vertical",
             }}
           />
+        ) : (
+          /* The finished bullet with the new words marked, so "adding content"
+             shows WHAT is being added and where it attaches. Computed from the
+             live draft, so the highlight stays truthful after an edit. */
+          <div
+            style={{
+              padding: "8px 10px", borderRadius: 6,
+              background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.25)",
+              fontSize: 13, color: "var(--text)", lineHeight: 1.5,
+            }}
+          >
+            <span style={{ color: "var(--muted)" }}>{draftText.slice(0, delta.addedStart)}</span>
+            <mark style={{
+              background: "rgba(52,211,153,0.30)", color: "var(--text)",
+              borderRadius: 3, padding: "0 2px", fontWeight: 600,
+            }}>
+              {draftText.slice(delta.addedStart, delta.addedEnd)}
+            </mark>
+            <span style={{ color: "var(--muted)" }}>{draftText.slice(delta.addedEnd)}</span>
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {!isNewBullet && delta?.kind === "append" && !editing && (
+            <span style={{ fontSize: 11, color: "var(--dim)" }}>
+              Highlighted text is what this fix adds.
+            </span>
+          )}
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setEditing((v) => !v); }}
+            style={{
+              fontFamily: "inherit", fontSize: 11, fontWeight: 700,
+              color: "var(--accent)", background: "none", border: "none",
+              cursor: "pointer", padding: 0,
+            }}
+          >
+            {editing ? "Done" : "Edit text"}
+          </button>
         </div>
       </div>
     </div>

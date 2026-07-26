@@ -805,7 +805,7 @@ export default function TemplateBuilderClient() {
           <button
             onClick={() => { setImportError(null); importFileRef.current?.click(); }}
             disabled={importing}
-            title="Import an existing PDF or Word résumé — extracts content and fills the builder"
+            title="Import an existing PDF or Word résumé to fill the builder"
             style={{
               fontSize: 12,
               color: importing ? "var(--muted)" : "var(--text)",

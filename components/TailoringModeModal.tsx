@@ -61,10 +61,12 @@ export function TailoringModeSelector({
   );
 }
 
-/** One-time explainer shown the first time a signed-in user runs Tailor or
- *  Boost with no stored tailoring_mode. Blocking by design: the choice shapes
- *  every rewrite from then on, and it's changeable any time from the results
- *  header or Account settings. */
+/** One-time explainer shown the first time ANY user (signed in or anonymous)
+ *  runs Tailor or Boost with no stored tailoring_mode. Blocking by design: the
+ *  choice shapes every rewrite from then on, and it's changeable any time from
+ *  the results header or Account settings. Anonymous choices persist to
+ *  localStorage only (see lib/tailoringMode.ts); signed-in choices also mirror
+ *  to user_profiles.tailoring_mode. */
 export function TailoringModeModal({
   open,
   initialMode = "honest",
@@ -155,7 +157,7 @@ export function TailoringModeModal({
         })}
 
         <p style={{ margin: "10px 0 14px", fontSize: 11, color: "var(--dim, var(--muted))", lineHeight: 1.5 }}>
-          Either way, Resunova never invents employers, job titles, credentials, or metrics — every rewrite starts from a real bullet on your résumé.
+          Either way, Resunova never invents employers, job titles, credentials, or metrics. Every rewrite starts from a real bullet on your résumé.
         </p>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

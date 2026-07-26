@@ -468,7 +468,7 @@ export function OverallSection({
             Good to know about this role
           </div>
           <div style={{ fontSize: 12, color: "var(--dim)", marginBottom: 10, lineHeight: 1.45 }}>
-            Fit factors you can&apos;t fix by editing a bullet — worth keeping in mind when you apply.
+            Fit factors you can&apos;t fix by editing a bullet. Worth keeping in mind when you apply.
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {roleContext.map((c, i) => (

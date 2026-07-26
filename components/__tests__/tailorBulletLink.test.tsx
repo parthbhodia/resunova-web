@@ -53,4 +53,35 @@ describe("Tailor preview → sidebar bullet link", () => {
     fireEvent.click(bullet);
     expect(onBulletLinkedSelect).toHaveBeenCalledWith(0);
   });
+
+  // Regression guard for "this is not highlighting the section we are on".
+  // AnnotatedResumePanel has drawn a selected-bullet ring all along; Tailor
+  // simply never forwarded the prop, so the affordance was dead here.
+  it("marks the selected bullet so the user can see where they are", () => {
+    const { container } = render(
+      <TailorPreviewPane
+        extractedText=""
+        resumeHeader={["Parth Bhodia"]}
+        bulletAnalysis={bulletAnalysis}
+        structuredResume={structured}
+        selectedBulletIndex={0}
+      />,
+    );
+    const bullet = container.querySelector('[data-bullet-idx="0"]') as HTMLElement;
+    expect(bullet.style.boxShadow).toContain("inset");
+  });
+
+  it("leaves bullets unmarked when nothing is selected", () => {
+    const { container } = render(
+      <TailorPreviewPane
+        extractedText=""
+        resumeHeader={["Parth Bhodia"]}
+        bulletAnalysis={bulletAnalysis}
+        structuredResume={structured}
+        selectedBulletIndex={null}
+      />,
+    );
+    const bullet = container.querySelector('[data-bullet-idx="0"]') as HTMLElement;
+    expect(bullet.style.boxShadow).toBe("");
+  });
 });

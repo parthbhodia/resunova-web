@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -9,8 +10,79 @@ import {
   readForceLandingAfterSignOut,
 } from "@/lib/authSignOut";
 import { urlRequestsPublicAppView } from "@/lib/anonScan";
+import { useSignInDialog } from "./SignInDialog";
 import LandingPage from "./LandingPage";
 import AppShellSkeleton from "./app-shell/AppShellSkeleton";
+
+/** Human name for a gated route, so the prompt says what you were heading to. */
+const GATED_ROUTE_LABELS: Record<string, string> = {
+  "/interview-prep": "Interview Prep",
+  "/my-resumes": "My Résumés",
+  "/account": "your account",
+};
+
+function gatedRouteLabel(pathname: string | null): string | null {
+  if (!pathname) return null;
+  const trimmed = pathname.replace(/\/$/, "");
+  for (const [prefix, label] of Object.entries(GATED_ROUTE_LABELS)) {
+    if (trimmed === prefix || trimmed.startsWith(prefix + "/")) return label;
+  }
+  return null;
+}
+
+/**
+ * Shown when a signed-out visitor opens a route that needs an account.
+ *
+ * The previous behaviour rendered the marketing landing page here while the
+ * URL still read /interview-prep — indistinguishable from being silently
+ * teleported home. Keeping the URL and naming the destination means the
+ * visitor knows what happened and lands where they meant to after signing in.
+ */
+function SignInRequired({ pathname }: { pathname: string | null }) {
+  const { openSignIn } = useSignInDialog();
+  const label = gatedRouteLabel(pathname);
+  return (
+    <div style={{
+      minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 24, background: "var(--bg)",
+    }}>
+      <div style={{
+        width: "min(420px, 100%)", textAlign: "center",
+        background: "var(--surface)", border: "1px solid var(--border)",
+        borderRadius: 14, padding: "30px 26px",
+      }}>
+        <h1 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800, color: "var(--text)" }}>
+          Sign in to continue
+        </h1>
+        <p style={{ margin: "0 0 20px", fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
+          {label
+            ? `${label} needs a free account so your work is saved to it.`
+            : "This page needs a free account so your work is saved to it."}
+        </p>
+        <button
+          type="button"
+          onClick={() => openSignIn()}
+          style={{
+            width: "100%", padding: "11px 18px", borderRadius: 10, border: "none",
+            background: "var(--accent)", color: "#fff",
+            fontSize: 14, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
+          }}
+        >
+          Sign in, it&apos;s free
+        </button>
+        <Link
+          href="/"
+          style={{
+            display: "inline-block", marginTop: 14,
+            fontSize: 13, fontWeight: 600, color: "var(--muted)", textDecoration: "none",
+          }}
+        >
+          Back to home
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 // Routes that intentionally bypass auth — design-system / preview pages.
 const PUBLIC_ROUTES = new Set<string>([
@@ -135,7 +207,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // to appear rather than a spinner on an empty page.
   if (!checked) return <AppShellSkeleton />;
 
-  if (!session) return <LandingPage />;
+  // A gated route while signed out: say so, keep the URL. Rendering the
+  // marketing page here read as an unexplained bounce to the homepage.
+  if (!session) return <SignInRequired pathname={pathname} />;
 
   return <>{children}</>;
 }

@@ -31,6 +31,24 @@ export const CATEGORY_ORDER: SuggestionCategory[] = [
   "remove_filler",
 ];
 
+/**
+ * What this panel is allowed to own.
+ *
+ * `add_keywords`, `relevance` and `strengthen_impact` all rewrite a bullet to
+ * cover the JD — which is exactly what the Keywords / Qualifications /
+ * Responsibilities tabs already do, from the surface that can actually clear
+ * the gap chip and move the score. Offering the same fix twice, in two places,
+ * writing the same override map, was a duplicate AND a source of collisions.
+ *
+ * These three are what nothing else offers: résumé quality rather than JD
+ * coverage. The backend still returns the full set; they are dropped here.
+ */
+export const POLISH_CATEGORIES: SuggestionCategory[] = [
+  "quantify_impact",
+  "action_verbs",
+  "remove_filler",
+];
+
 export interface Suggestion {
   id: string;
   section: string;
@@ -122,7 +140,7 @@ export const useSuggestionsStore = create<SuggestionsStore>((set, get) => ({
         ? s.category
         : ("strengthen_impact" as SuggestionCategory),
       id: s.id || `s${i + 1}`,
-    }));
+    })).filter((s) => POLISH_CATEGORIES.includes(s.category));
     // Open the first category automatically
     const cats = CATEGORY_ORDER.filter((c) => normalised.some((s) => s.category === c));
     // Start with all suggestions pending — user reviews and accepts/skips each one.

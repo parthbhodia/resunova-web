@@ -28,7 +28,21 @@ export const ANON_ANALYSIS_STASH_KEY = "rn_anon_analysis_v1";
  *              backend 401s anonymous feed requests) instead of redirecting to
  *              the marketing landing. Job *detail* pages stay public for SEO.
  */
-const PUBLIC_APP_VIEWS = new Set(["analyze", "builder", "jobs"]);
+/**
+ * `?view=` values a signed-out visitor may use.
+ *
+ * Single source of truth: AuthGate honours it when a URL is opened directly,
+ * and the sidebar / bottom nav honour it when the same view is reached by
+ * clicking. Those used to be separate hand-kept lists, which drifted — `jobs`
+ * loaded fine when you pasted the URL but hit a sign-in wall when you clicked
+ * the nav item for it.
+ */
+export const PUBLIC_APP_VIEWS: ReadonlySet<string> = new Set(["analyze", "builder", "jobs"]);
+
+/** True when a signed-out visitor is allowed to open this in-app view. */
+export function isPublicAppView(view: string): boolean {
+  return PUBLIC_APP_VIEWS.has(view.toLowerCase());
+}
 
 /** True when the URL requests a view that signed-out visitors are allowed to use. */
 export function urlRequestsPublicAppView(): boolean {

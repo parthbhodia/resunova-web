@@ -112,7 +112,7 @@ export default function TailorResumeToJobDescriptionPage() {
   return (
     <BlogArticleLayout
       title={TITLE}
-      subtitle="Generic applications rarely land interviews — not because applicants are unqualified, but because their resume doesn't mirror what the recruiter is scanning for. Here's how to fix that, step by step."
+      subtitle="Generic applications rarely land interviews, and not because applicants are unqualified, but because their resume doesn't mirror what the recruiter is scanning for. Here's how to fix that, step by step."
       slug="tailor-resume-to-job-description"
     >
       <StructuredData />
@@ -178,7 +178,7 @@ export default function TailorResumeToJobDescriptionPage() {
         </p>
       </Section>
 
-      <Section title="Weave keywords into context — don't stuff them" id="step-3-keywords" step={3}>
+      <Section title="Weave keywords into context, don't stuff them" id="step-3-keywords" step={3}>
         <p style={{ margin: "0 0 14px" }}>
           Keyword stuffing (hiding white text, listing 60 skills in a row) is detectable by modern
           ATS platforms and flagged by AI-assisted screening tools. You want roughly 25–35 relevant,

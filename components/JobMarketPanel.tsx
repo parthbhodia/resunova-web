@@ -132,7 +132,7 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
             {data.salary.map(s => (
               <div key={s.family} style={{ display: "grid", gridTemplateColumns: "116px 1fr", alignItems: "center", gap: 12 }}
-                title={`${titleize(s.family)} — median ${money(s.median)} · ${money(s.p25)}–${money(s.p75)} (n=${fmtInt(s.n)})`}>
+                title={`${titleize(s.family)}: median ${money(s.median)} · ${money(s.p25)}–${money(s.p75)} (n=${fmtInt(s.n)})`}>
                 <div style={{ fontSize: 13, color: "var(--muted)", textAlign: "right" }}>{titleize(s.family)}</div>
                 <div style={{ position: "relative", height: 20 }}>
                   <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 2, background: "var(--surface2)", transform: "translateY(-50%)", borderRadius: 2 }} />
@@ -149,7 +149,7 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
         <AdminChartCard title="Work model" cap={`Of the ${fmtInt(wmTotal)} postings that state one.`}>
           <div style={{ display: "flex", height: 30, borderRadius: 8, overflow: "hidden", gap: 2 }}>
             {data.work_model.map(w => (
-              <div key={w.k} title={`${titleize(w.k)} — ${fmtInt(w.n)} (${pct(w.n, wmTotal)}%)`}
+              <div key={w.k} title={`${titleize(w.k)}: ${fmtInt(w.n)} (${pct(w.n, wmTotal)}%)`}
                 style={{ width: `${(w.n / wmTotal) * 100}%`, background: wmColor[w.k] || "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 650 }}>
                 {pct(w.n, wmTotal) > 7 ? `${pct(w.n, wmTotal)}%` : ""}
               </div>

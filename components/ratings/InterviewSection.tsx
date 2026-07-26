@@ -10,7 +10,40 @@ type Props = {
   questions?: string[];
   onGetSuggestions?: () => void;
   suggestionsLoading?: boolean;
+  /** Hand this run's résumé, JD, company and role to the full prep workspace. */
+  onOpenInterviewPrep?: () => void;
 };
+
+/**
+ * Route into the full prep workspace carrying what Tailor already knows.
+ * Without it the user lands on an empty setup screen and re-pastes the JD and
+ * re-uploads the résumé they just finished tailoring.
+ */
+function FullPrepLink({ onClick, variant }: { onClick: () => void; variant: "primary" | "quiet" }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={variant === "primary"
+        ? {
+            display: "inline-flex", alignItems: "center", gap: 8,
+            padding: "11px 22px", borderRadius: 10,
+            border: "1px solid var(--border)", background: "var(--surface)",
+            color: "var(--text)", fontSize: 13, fontWeight: 700, fontFamily: "inherit",
+            cursor: "pointer",
+          }
+        : {
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "7px 13px", borderRadius: 8,
+            border: "1px solid var(--border)", background: "var(--surface)",
+            color: "var(--accent)", fontSize: 12, fontWeight: 700, fontFamily: "inherit",
+            cursor: "pointer",
+          }}
+    >
+      🎤 Practise in Interview Prep →
+    </button>
+  );
+}
 
 const CATEGORY_LABELS: { id: QuestionCategory; label: string; emoji: string }[] = [
   { id: "all",         label: "All",        emoji: "📋" },
@@ -55,7 +88,7 @@ function classify(q: string): QuestionCategory {
   return "technical";
 }
 
-export function InterviewSection({ keyGap, tips = [], questions = [], onGetSuggestions, suggestionsLoading }: Props) {
+export function InterviewSection({ keyGap, tips = [], questions = [], onGetSuggestions, suggestionsLoading, onOpenInterviewPrep }: Props) {
   const [activeSection, setActiveSection] = useState<"coaching" | "questions">("coaching");
   const [questionFilter, setQuestionFilter] = useState<QuestionCategory>("all");
 
@@ -69,8 +102,9 @@ export function InterviewSection({ keyGap, tips = [], questions = [], onGetSugge
           <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>
             Interview prep not generated yet
           </div>
-          <p style={{ margin: 0, fontSize: 13, color: "var(--dim)", lineHeight: 1.6, maxWidth: 320 }}>
-            Generate coaching tips and role-specific interview questions tailored to this job.
+          <p style={{ margin: 0, fontSize: 13, color: "var(--dim)", lineHeight: 1.6, maxWidth: 340 }}>
+            Get quick coaching tips and likely questions here, or open the full prep
+            workspace with this résumé and job description already loaded.
           </p>
         </div>
         {onGetSuggestions && (
@@ -105,6 +139,7 @@ export function InterviewSection({ keyGap, tips = [], questions = [], onGetSugge
             )}
           </button>
         )}
+        {onOpenInterviewPrep && <FullPrepLink onClick={onOpenInterviewPrep} variant="primary" />}
       </div>
     );
   }
@@ -175,6 +210,12 @@ export function InterviewSection({ keyGap, tips = [], questions = [], onGetSugge
         ))}
       </div>
 
+      {onOpenInterviewPrep && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -6 }}>
+          <FullPrepLink onClick={onOpenInterviewPrep} variant="quiet" />
+        </div>
+      )}
+
       {/* ── Coaching panel ───────────────────────────────── */}
       {activeSection === "coaching" && (
         <>
@@ -215,7 +256,7 @@ export function InterviewSection({ keyGap, tips = [], questions = [], onGetSugge
                 </span>
               </div>
               <p style={{ margin: "0 0 14px", fontSize: 11, color: "var(--dim)", lineHeight: 1.5 }}>
-                Coaching on how to position your story for this role — not automatic PDF edits.
+                Coaching on how to position your story for this role, not automatic PDF edits.
                 Use bullet suggestions below for résumé changes.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -252,7 +293,7 @@ export function InterviewSection({ keyGap, tips = [], questions = [], onGetSugge
 
           {tips.length === 0 && !keyGap && (
             <div style={{ padding: "24px", textAlign: "center", color: "var(--dim)", fontSize: 13 }}>
-              No coaching tips yet — run &ldquo;Get suggestions&rdquo; to generate them.
+              No coaching tips yet. Run &ldquo;Get suggestions&rdquo; to generate them.
             </div>
           )}
         </>
@@ -263,7 +304,7 @@ export function InterviewSection({ keyGap, tips = [], questions = [], onGetSugge
         <>
           {questions.length === 0 ? (
             <div style={{ padding: "24px", textAlign: "center", color: "var(--dim)", fontSize: 13 }}>
-              No interview questions yet — run &ldquo;Get suggestions&rdquo; to generate them.
+              No interview questions yet. Run &ldquo;Get suggestions&rdquo; to generate them.
             </div>
           ) : (
             <>

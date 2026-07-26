@@ -1367,7 +1367,7 @@ function ResumeCard({
             {displayPdf ? (
               <Badge
                 variant="secondary"
-                title={item.kind === "tailored" && item.record.pdf_url ? "Stored PDF link" : "API PDF path (not saved to library — open to verify)"}
+                title={item.kind === "tailored" && item.record.pdf_url ? "Stored PDF link" : "API PDF path (not saved to library, open to verify)"}
                 style={{
                   fontSize: 10,
                   fontWeight: 700,

@@ -273,7 +273,7 @@ export default function TemplateBuilderSectionsPanel({
             style={textareaBase}
             value={editingCustom.lines}
             onChange={(e) => store.setCustomSection(editingCustom.id, "lines", e.target.value)}
-            placeholder={"AWS Solutions Architect — 2024\nPMP — Project Management Institute"}
+            placeholder={"AWS Solutions Architect, 2024\nPMP, Project Management Institute"}
           />
         </div>
       ) : null}
