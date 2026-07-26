@@ -475,6 +475,12 @@ export default function TemplateBuilderClient() {
   const [narrow, setNarrow] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
 
+  // The preview used to be pinned at scale(0.82), which left the résumé looking
+  // small with dead space either side on a wide screen and clipped it on a
+  // narrow one. Scale to fit the pane instead, never enlarging past 1:1.
+  const previewPaneRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(0.82);
+
   const builderIdFromUrl = (searchParams?.get("builder") ?? "").trim();
   const presetFromUrl = (searchParams?.get("preset") ?? "").trim().toLowerCase();
 
@@ -503,6 +509,23 @@ export default function TemplateBuilderClient() {
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width ?? 0;
       if (w > 0) setNarrow(w < 880);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loaded]);
+
+  // Fit the 8.5in paper to the preview pane. Same `loaded` dependency reason as
+  // above: the pane only mounts once the builder has loaded.
+  useEffect(() => {
+    const el = previewPaneRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const PAPER_PX = 816; // 8.5in at 96dpi
+    const GUTTER = 44;    // horizontal padding of the scroll area
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) {
+        setPreviewScale(Math.max(0.55, Math.min(1, (w - GUTTER) / PAPER_PX)));
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -1069,7 +1092,7 @@ export default function TemplateBuilderClient() {
         )}
 
         {/* ── Right: Preview Panel ──────────────────────────── */}
-        <div style={{
+        <div ref={previewPaneRef} style={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
@@ -1086,7 +1109,7 @@ export default function TemplateBuilderClient() {
             justifyContent: "center",
             alignItems: "flex-start",
           }}>
-            <div style={{ transform: "scale(0.82)", transformOrigin: "top center", minWidth: "8.5in" }}>
+            <div style={{ transform: `scale(${previewScale})`, transformOrigin: "top center", minWidth: "8.5in" }}>
               <ResumePreview ref={previewRef} data={data} />
             </div>
           </div>

@@ -243,12 +243,24 @@ export const DEFAULT_RESUME: TBResumeData = {
   customSections: [],
 };
 
-// Prefilled demo resume — shown to first-time users so the preview is never blank
+// Prefilled demo resume — shown to first-time users so the preview is never
+// blank. Kept at the depth of a real, complete one-page resume (3 roles, 4-5
+// quantified bullets each, two education entries, projects, certifications) so
+// the builder demonstrates what a finished document looks like rather than a
+// half-empty page.
 export const DEMO_RESUME: TBResumeData = {
   customization: DEFAULT_CUSTOMIZATION,
-  sectionOrder: [...DEFAULT_CORE_SECTION_ORDER],
+  sectionOrder: [...DEFAULT_CORE_SECTION_ORDER, "custom:demo-c1"],
   hiddenSections: [],
-  customSections: [],
+  customSections: [
+    {
+      id: "demo-c1",
+      title: "Certifications",
+      lines:
+        "AWS Certified Solutions Architect - Associate, Amazon Web Services, 2024\n" +
+        "Certified Kubernetes Application Developer (CKAD), Cloud Native Computing Foundation, 2023",
+    },
+  ],
   profile: {
     name: "Alex Johnson",
     email: "alex.johnson@email.com",
@@ -258,35 +270,53 @@ export const DEMO_RESUME: TBResumeData = {
     linkedin: "linkedin.com/in/alexjohnson",
     github: "github.com/alexjohnson",
     summary:
-      "Full-stack software engineer with 4+ years building scalable web applications and ML-powered features. " +
-      "Experienced in React, TypeScript, Python, and cloud infrastructure. Passionate about developer tooling and product-led growth.",
+      "Full-stack software engineer with 5 years building scalable web applications and ML-powered features " +
+      "for payments and marketplace products. Shipped an onboarding flow that cut time-to-first-charge by 38% " +
+      "and a webhook pipeline handling 2M+ events per day. Works across React, TypeScript, Python, and Go on AWS, " +
+      "with a focus on latency and reliability. Leads a team of four and mentors incoming engineers.",
   },
   workExperiences: [
     {
       id: "demo-w1",
-      company: "Stripe",
+      company: "Northgate Payments",
       jobTitle: "Software Engineer II",
       location: "San Francisco, CA",
       startDate: "Jun 2022",
       endDate: "",
       current: true,
       bullets:
-        "Designed and shipped the onboarding flow for Stripe Tax, reducing time-to-first-charge by 38%\n" +
-        "Built a real-time webhook replay system handling 2M+ events/day using Go and Kafka\n" +
-        "Led a cross-functional team of 4 engineers to migrate legacy PHP services to a Go microservice architecture\n" +
-        "Improved dashboard p99 latency from 1.8 s to 340 ms by introducing Redis caching and query optimization",
+        "Designed and shipped a self-serve tax onboarding flow used by 40,000 merchants, reducing time-to-first-charge by 38%\n" +
+        "Built a real-time webhook replay system handling 2M+ events per day in Go and Kafka, cutting failed-delivery tickets by 61%\n" +
+        "Led a cross-functional team of 4 engineers migrating 18 legacy PHP services to a Go microservice architecture with zero downtime\n" +
+        "Improved dashboard p99 latency from 1.8s to 340ms by introducing Redis caching and rewriting eight N+1 query paths\n" +
+        "Mentored 3 junior engineers and introduced a design-review checklist that cut post-release defects by 27%",
     },
     {
       id: "demo-w2",
-      company: "Airbnb",
-      jobTitle: "Software Engineer Intern",
-      location: "San Francisco, CA",
-      startDate: "May 2021",
-      endDate: "Aug 2021",
+      company: "Vantage Marketplace",
+      jobTitle: "Software Engineer",
+      location: "Oakland, CA",
+      startDate: "Jul 2020",
+      endDate: "Jun 2022",
       current: false,
       bullets:
-        "Developed a React component library used by 12 product teams, cutting UI dev time by 20%\n" +
-        "Integrated a third-party accessibility linter into the CI pipeline, raising WCAG compliance from 64% to 91%",
+        "Developed a React component library adopted by 12 product teams, cutting new-screen build time by 20%\n" +
+        "Rebuilt the search ranking service in Python, lifting click-through on results from 22% to 31%\n" +
+        "Added an accessibility linter to CI, raising WCAG 2.1 AA compliance across the app from 64% to 91%\n" +
+        "Cut AWS spend $88K annually by right-sizing EC2 instances and moving batch jobs to spot capacity",
+    },
+    {
+      id: "demo-w3",
+      company: "Bayline Software",
+      jobTitle: "Software Engineer Intern",
+      location: "San Jose, CA",
+      startDate: "May 2019",
+      endDate: "Aug 2019",
+      current: false,
+      bullets:
+        "Built an internal metrics dashboard in React and D3 adopted by 5 engineering teams for weekly reviews\n" +
+        "Wrote 140+ unit and integration tests, raising service coverage from 47% to 82%\n" +
+        "Automated a manual release checklist into a CI workflow, saving roughly 6 engineer-hours per release",
     },
   ],
   educations: [
@@ -295,10 +325,20 @@ export const DEMO_RESUME: TBResumeData = {
       school: "University of California, Berkeley",
       degree: "B.S. Electrical Engineering & Computer Science",
       location: "Berkeley, CA",
-      startDate: "Aug 2018",
-      endDate: "May 2022",
+      startDate: "Aug 2016",
+      endDate: "May 2020",
       gpa: "3.87",
-      coursework: "Algorithms, Distributed Systems, Machine Learning, Computer Architecture",
+      coursework: "Algorithms, Distributed Systems, Machine Learning, Computer Architecture, Databases",
+    },
+    {
+      id: "demo-e2",
+      school: "Diablo Valley College",
+      degree: "A.S. Computer Science",
+      location: "Pleasant Hill, CA",
+      startDate: "Aug 2014",
+      endDate: "May 2016",
+      gpa: "3.9",
+      coursework: "Data Structures, Discrete Mathematics, Linear Algebra",
     },
   ],
   projects: [
