@@ -1452,20 +1452,6 @@ export default function LandingPage() {
           Parked for now (stacked bands cluttered the reviews→interview seam,
           and the interview block below announces the feature itself).
           Re-enable by removing `false &&`. */}
-      {false && (
-      <div role="region" aria-label="Interview coaching, now live" style={{
-        background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
-        padding: "14px 24px",
-        display: "flex", alignItems: "center", justifyContent: "center", gap: 11, flexWrap: "wrap", textAlign: "center",
-      }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-          <rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="19" x2="12" y2="22" /><line x1="8.5" y1="22" x2="15.5" y2="22" />
-        </svg>
-        <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.45 }}>
-          <strong style={{ fontWeight: 700 }}>Now live:</strong> AI mock interviews tailored to the exact role — part of our growing university partnerships, including <strong style={{ fontWeight: 700 }}>UMBC</strong>.
-        </span>
-      </div>
-      )}
 
       {/* ───────────── Interview coaching ───────────────────── */}
       <section id="interview" className="lp-interview-sec" style={{ background: T.blockGreen, borderRadius: "clamp(36px, 8vw, 110px) 0 0 0", padding: "108px 40px 100px", scrollMarginTop: 120 }}>
@@ -1527,39 +1513,6 @@ export default function LandingPage() {
             </button>
           </div>
         </div>
-      </section>
-
-      {/* ───────────── University partnerships banner (image) ── */}
-      <section aria-label="University partnerships" className="lp-sec" style={{ background: C.bg, padding: "76px 40px", borderTop: `1px solid ${C.border}` }}>
-        {/* Desktop: static SVG banner. Its text is unreadable when the image
-            scales below ~640px, so mobile swaps in a real-HTML card instead. */}
-        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova, for university career centers" className="lp-uni-desktop" style={{ display: "block", maxWidth: 1040, margin: "0 auto", borderRadius: 24, overflow: "hidden", boxShadow: C.shadow }}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG banner; next/image can't optimize SVG and breaks `output: export` */}
-          <img
-            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/university-partners-banner.svg`}
-            alt="Resunova partners with university career centers, including UMBC (University of Maryland, Baltimore County) — unlimited scans and Career Center-aligned feedback for students, with more campuses joining."
-            width={1200}
-            height={360}
-            style={{ display: "block", width: "100%", height: "auto" }}
-          />
-        </Link>
-        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova, for university career centers" className="lp-uni-mobile" style={{ display: "none", textDecoration: "none", borderRadius: 20, overflow: "hidden", boxShadow: C.shadow, background: "linear-gradient(135deg, #14284d 0%, #1e3a8a 55%, #2563eb 100%)", padding: "26px 22px" }}>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#93c5fd", textTransform: "uppercase", margin: "0 0 10px" }}>University partnerships</p>
-          <h3 style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em", color: "#ffffff", margin: "0 0 10px" }}>
-            Built with university career centers
-          </h3>
-          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", lineHeight: 1.6, margin: "0 0 18px" }}>
-            Unlimited scans and Career Center–aligned feedback for students — with more campuses joining.
-          </p>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.22)", borderRadius: 10, padding: "8px 12px", fontSize: 13, fontWeight: 700, color: "#fde68a" }}>
-              🎓 UMBC
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#f59e0b", color: "#1e293b", borderRadius: 999, padding: "9px 16px", fontSize: 13, fontWeight: 800 }}>
-              Partner with us →
-            </span>
-          </div>
-        </Link>
       </section>
 
       {/* ───────────── FAQ (visible + JSON-LD for the crawlable homepage) ── */}
@@ -1813,7 +1766,6 @@ export default function LandingPage() {
           .lp-jobs-band { padding: 64px 20px !important; }
           .lp-hero-h1   { font-size: 48px !important; }
         }
-        .lp-uni-mobile { display: none !important; }
         .lp-sticky-cta { display: none; }
         @keyframes lpStickyIn { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @media (max-width: 640px) {
@@ -1852,8 +1804,6 @@ export default function LandingPage() {
           /* Tighter mobile rhythm: 100/40 desktop padding wastes ~20% of a
              390px viewport's width and adds screens of empty space. */
           .lp-sec { padding: 64px 20px !important; }
-          .lp-uni-desktop { display: none !important; }
-          .lp-uni-mobile { display: block !important; }
           /* Interview trio: swipe instead of a 3-screen stack. */
           .lp-interview-grid {
             display: flex !important;

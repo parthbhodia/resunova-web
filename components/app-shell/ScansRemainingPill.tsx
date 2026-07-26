@@ -14,7 +14,7 @@ type Status = {
 /**
  * Shiny "scans left today" pill for the sidebar. Reads the real quota from
  * /api/scan-limit-status (same source as ScanUsageCard). Renders only for
- * signed-in, enforced free users — hidden for anonymous, UMBC/unlimited, or
+ * signed-in, enforced free users — hidden for anonymous, unlimited plans, or
  * when the count is unknown. Refetches on window focus so it stays fresh after
  * a scan.
  */

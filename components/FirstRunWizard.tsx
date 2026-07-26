@@ -12,7 +12,7 @@
  *
  * It is deliberately conservative about WHEN it appears so it never nags returning
  * users or interrupts the anonymous-scan → sign-in hand-off:
- *   • signed in, not a UMBC user (they get their own welcome)
+ *   • signed in, not an institution user
  *   • account created within the last 24h (genuinely new)
  *   • hasn't already been completed/skipped (per-user localStorage flag)
  *   • the user did NOT arrive via the anonymous free-scan funnel (they're already

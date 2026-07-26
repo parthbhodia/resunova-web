@@ -417,7 +417,7 @@ export default function AnalyzeResume() {
             openSignIn({ reason: "Sign in free for more résumé scans and saved reports." });
           } else {
             const freeLimit = refusal.limit && refusal.limit > 0 ? refusal.limit : 3;
-            setFeedbackToast(`Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`);
+            setFeedbackToast(`Daily limit reached. The free plan includes ${freeLimit} scans a day.`);
             openUpgrade(json);
           }
           return;
