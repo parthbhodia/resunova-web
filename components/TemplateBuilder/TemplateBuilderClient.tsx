@@ -411,29 +411,45 @@ const FONT_OPTIONS: { label: string; value: TBFont; sub: string }[] = [
   { label: "Courier", value: "Courier",     sub: "Technical / developer" },
 ];
 
-type SectionKey = "sections" | "profile" | "experience" | "education" | "projects" | "skills" | "customize" | "review";
+/**
+ * The editor has three MODES, not eight tabs. Everything you actually write —
+ * profile, experience, education, projects, skills — lives together in one
+ * continuously scrollable "Content" column (the EnhanceCV/Teal pattern), so
+ * filling out a résumé is one scroll instead of eight round-trips through a
+ * tab bar. Design and Review are genuinely different activities, so they stay
+ * separate modes.
+ */
+type EditorMode = "content" | "design" | "review";
 
-const TABS: { key: SectionKey; label: string; icon: string }[] = [
-  { key: "sections",   label: "Sections",   icon: "☰" },
+const MODES: { key: EditorMode; label: string; icon: string }[] = [
+  { key: "content", label: "Content", icon: "📝" },
+  { key: "design",  label: "Design",  icon: "🎨" },
+  // Not "✦" — that glyph is the app's established AI/magic marker (AI Enhance,
+  // AI Generate, etc. throughout this file); Review is a plain checklist mode,
+  // and reusing ✦ here collided with the toolbar's "Check ATS" button.
+  { key: "review",  label: "Review",  icon: "🔍" },
+];
+
+/** Anchors for the in-column jump nav. Order matches the stacked blocks. */
+type ContentBlockKey = "sections" | "profile" | "experience" | "education" | "projects" | "skills";
+
+const CONTENT_BLOCKS: { key: ContentBlockKey; label: string; icon: string }[] = [
+  { key: "sections",   label: "Arrange",    icon: "☰" },
   { key: "profile",    label: "Profile",    icon: "👤" },
   { key: "experience", label: "Experience", icon: "💼" },
   { key: "education",  label: "Education",  icon: "🎓" },
   { key: "projects",   label: "Projects",   icon: "🚀" },
   { key: "skills",     label: "Skills",     icon: "⚡" },
-  { key: "customize",  label: "Style",      icon: "🎨" },
-  // Not "✦" — that glyph is the app's established AI/magic marker (AI Enhance,
-  // AI Generate, etc. throughout this file); Review is a plain checklist tab,
-  // and reusing ✦ here collided with the toolbar's "Check ATS" button, which
-  // also renders a bare ✦ (visible at the icon-only mobile tab rail width).
-  { key: "review",     label: "Review",     icon: "🔍" },
 ];
+
+const contentBlockDomId = (key: ContentBlockKey) => `tb-block-${key}`;
 
 export default function TemplateBuilderClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const store = useTemplateBuilderStore();
   const { data, loaded } = store;
-  const [activeTab, setActiveTab] = useState<SectionKey>("sections");
+  const [mode, setMode] = useState<EditorMode>("content");
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
   const [editingCustomId, setEditingCustomId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -666,34 +682,108 @@ export default function TemplateBuilderClient() {
         ? "rgba(185, 28, 28, 0.96)"
         : "rgba(30, 41, 59, 0.96)";
 
-  // The active section's editor — rendered in the full side panel (wide) or in
-  // the flyout drawer (narrow / iPad).
-  const sectionContent = (
+  // Scroll a content block into view within the editor column. Used by the
+  // jump nav and by the Arrange panel's per-section edit button — in the
+  // scrolling editor "edit this section" means "take me to it", not "swap tabs".
+  // Plain function, not useCallback: this sits below an early return, so a hook
+  // here would break hook ordering.
+  const jumpToBlock = (key: ContentBlockKey) => {
+    document.getElementById(contentBlockDomId(key))?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // The editor body. In "content" mode every writable section is stacked in one
+  // scrollable column so the whole résumé can be filled top-to-bottom without
+  // hunting through tabs.
+  const editorBody = (
     <>
-      {activeTab === "sections" && (
-        <TemplateBuilderSectionsPanel
-          store={store}
-          sectionOrder={data.sectionOrder}
-          hiddenSections={data.hiddenSections}
-          customSections={data.customSections}
-          editingCustomId={editingCustomId}
-          onEditCustomSection={setEditingCustomId}
-          onEditSection={(tab) => {
-            setEditingCustomId(null);
-            setActiveTab(tab);
-          }}
-        />
+      {mode === "content" && (
+        <>
+          <ContentBlock id={contentBlockDomId("sections")} title="Arrange sections" icon="☰" first>
+            <TemplateBuilderSectionsPanel
+              store={store}
+              sectionOrder={data.sectionOrder}
+              hiddenSections={data.hiddenSections}
+              customSections={data.customSections}
+              editingCustomId={editingCustomId}
+              onEditCustomSection={setEditingCustomId}
+              onEditSection={(tab) => {
+                setEditingCustomId(null);
+                jumpToBlock(tab);
+              }}
+            />
+          </ContentBlock>
+          <ContentBlock id={contentBlockDomId("profile")} title="Profile" icon="👤">
+            <ProfileSection store={store} data={data} />
+          </ContentBlock>
+          <ContentBlock id={contentBlockDomId("experience")} title="Experience" icon="💼">
+            <ExperienceSection store={store} data={data} />
+          </ContentBlock>
+          <ContentBlock id={contentBlockDomId("education")} title="Education" icon="🎓">
+            <EducationSection store={store} data={data} />
+          </ContentBlock>
+          <ContentBlock id={contentBlockDomId("projects")} title="Projects" icon="🚀">
+            <ProjectsSection store={store} data={data} />
+          </ContentBlock>
+          <ContentBlock id={contentBlockDomId("skills")} title="Skills" icon="⚡">
+            <SkillsSection store={store} data={data} />
+          </ContentBlock>
+        </>
       )}
-      {activeTab === "profile" && <ProfileSection store={store} data={data} />}
-      {activeTab === "experience" && <ExperienceSection store={store} data={data} />}
-      {activeTab === "education" && <EducationSection store={store} data={data} />}
-      {activeTab === "projects" && <ProjectsSection store={store} data={data} />}
-      {activeTab === "skills" && <SkillsSection store={store} data={data} />}
-      {activeTab === "customize" && <CustomizeSection store={store} c={c} />}
-      {activeTab === "review" && <TemplateBuilderReviewPanel data={data} result={reviewResult} onResult={setReviewResult} />}
+      {mode === "design" && <CustomizeSection store={store} c={c} />}
+      {mode === "review" && <TemplateBuilderReviewPanel data={data} result={reviewResult} onResult={setReviewResult} />}
     </>
   );
-  const activeTabMeta = TABS.find((t) => t.key === activeTab);
+
+  const activeModeMeta = MODES.find((m) => m.key === mode);
+
+  const modeSwitcher = (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${MODES.length}, 1fr)`, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+      {MODES.map((m) => (
+        <button
+          key={m.key}
+          onClick={() => setMode(m.key)}
+          style={{
+            background: mode === m.key ? "var(--bg)" : "transparent",
+            border: "none",
+            borderBottom: mode === m.key ? "2px solid var(--accent)" : "2px solid transparent",
+            borderRight: "1px solid var(--border)",
+            padding: "10px 4px", cursor: "pointer", display: "flex", alignItems: "center",
+            justifyContent: "center", gap: 6, transition: "background 0.12s",
+            color: mode === m.key ? "var(--accent)" : "var(--muted)", fontFamily: "inherit",
+          }}
+        >
+          <span style={{ fontSize: 14 }} aria-hidden>{m.icon}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.2 }}>{m.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  // Jump nav — only meaningful for the long stacked content column.
+  const jumpNav = mode === "content" ? (
+    <div
+      className="rn-scroll-rail"
+      style={{
+        display: "flex", gap: 4, padding: "7px 10px", overflowX: "auto",
+        background: "var(--surface2)", borderBottom: "1px solid var(--border)", flexShrink: 0,
+      }}
+    >
+      {CONTENT_BLOCKS.map((b) => (
+        <button
+          key={b.key}
+          onClick={() => jumpToBlock(b.key)}
+          title={`Jump to ${b.label}`}
+          style={{
+            flexShrink: 0, background: "var(--surface)", border: "1px solid var(--border)",
+            borderRadius: 999, padding: "3px 10px", cursor: "pointer", fontFamily: "inherit",
+            fontSize: 11, fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap",
+          }}
+        >
+          {b.label}
+        </button>
+      ))}
+    </div>
+  ) : null;
 
   return (
     <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
@@ -751,7 +841,7 @@ export default function TemplateBuilderClient() {
           </span>
           <button
             type="button"
-            onClick={() => setActiveTab("review")}
+            onClick={() => { setMode("review"); setPanelOpen(true); }}
             title={reviewResult ? "Open ATS & Job Match review" : "Score your résumé against a job"}
             style={{
               display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontFamily: "inherit",
@@ -898,20 +988,20 @@ export default function TemplateBuilderClient() {
         {/* ── Left: Form Panel ──────────────────────────────── */}
         {narrow ? (
           <>
-            {/* Collapsed icon rail — taps open the section as a flyout */}
+            {/* Collapsed icon rail — taps open that mode as a flyout */}
             <div style={{
               width: 56, flexShrink: 0, display: "flex", flexDirection: "column",
               borderRight: "1px solid var(--border)", background: "var(--surface)", overflowY: "auto", zIndex: 27,
             }}>
-              {TABS.map((tab) => {
-                const isOpen = panelOpen && activeTab === tab.key;
+              {MODES.map((m) => {
+                const isOpen = panelOpen && mode === m.key;
                 return (
                   <button
-                    key={tab.key}
-                    title={tab.label}
+                    key={m.key}
+                    title={m.label}
                     onClick={() => {
-                      if (panelOpen && activeTab === tab.key) setPanelOpen(false);
-                      else { setActiveTab(tab.key); setPanelOpen(true); }
+                      if (panelOpen && mode === m.key) setPanelOpen(false);
+                      else { setMode(m.key); setPanelOpen(true); }
                     }}
                     style={{
                       border: "none",
@@ -922,8 +1012,8 @@ export default function TemplateBuilderClient() {
                       color: isOpen ? "var(--accent)" : "var(--muted)",
                     }}
                   >
-                    <span style={{ fontSize: 17 }}>{tab.icon}</span>
-                    <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.1, textAlign: "center" }}>{tab.label}</span>
+                    <span style={{ fontSize: 17 }} aria-hidden>{m.icon}</span>
+                    <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.1, textAlign: "center" }}>{m.label}</span>
                   </button>
                 );
               })}
@@ -947,7 +1037,7 @@ export default function TemplateBuilderClient() {
                     padding: "10px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0,
                   }}>
                     <span style={{ fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span aria-hidden style={{ fontSize: 15 }}>{activeTabMeta?.icon}</span>{activeTabMeta?.label}
+                      <span aria-hidden style={{ fontSize: 15 }}>{activeModeMeta?.icon}</span>{activeModeMeta?.label}
                     </span>
                     <button
                       onClick={() => setPanelOpen(false)}
@@ -955,8 +1045,9 @@ export default function TemplateBuilderClient() {
                       style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}
                     >‹ Hide</button>
                   </div>
+                  {jumpNav}
                   <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 36px" }}>
-                    {sectionContent}
+                    {editorBody}
                   </div>
                 </div>
               </>
@@ -967,31 +1058,12 @@ export default function TemplateBuilderClient() {
             width: 340, minWidth: 300, flexShrink: 0, display: "flex", flexDirection: "column",
             borderRight: "1px solid var(--border)", background: "var(--surface)", overflow: "hidden",
           }}>
-            {/* Section Tabs */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-              {TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  style={{
-                    background: activeTab === tab.key ? "var(--bg)" : "transparent",
-                    border: "none",
-                    borderBottom: activeTab === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
-                    borderRight: "1px solid var(--border)",
-                    padding: "10px 4px", cursor: "pointer", display: "flex", flexDirection: "column",
-                    alignItems: "center", gap: 3, transition: "background 0.12s",
-                    color: activeTab === tab.key ? "var(--accent)" : "var(--muted)", fontFamily: "inherit",
-                  }}
-                >
-                  <span style={{ fontSize: 15 }}>{tab.icon}</span>
-                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{tab.label}</span>
-                </button>
-              ))}
-            </div>
+            {modeSwitcher}
+            {jumpNav}
 
-            {/* Section Content */}
+            {/* One continuous scroll — all content sections stacked */}
             <div style={{ flex: 1, overflowY: "auto", padding: "18px 16px 32px" }}>
-              {sectionContent}
+              {editorBody}
             </div>
           </div>
         )}
@@ -1258,6 +1330,39 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
 /* ── Section sub-components ────────────────────────────────────── */
 
 type StoreType = TemplateBuilderStore;
+
+/** One anchored, headed block in the stacked content column. */
+function ContentBlock({ id, title, icon, first, children }: {
+  id: string;
+  title: string;
+  icon: string;
+  first?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      id={id}
+      style={{
+        // scroll-margin keeps the heading clear of the sticky nav above the
+        // scroll container when jumpToBlock scrolls this into view.
+        scrollMarginTop: 8,
+        paddingTop: first ? 0 : 22,
+        marginTop: first ? 0 : 22,
+        borderTop: first ? "none" : "1px solid var(--border)",
+      }}
+    >
+      <div style={{
+        display: "flex", alignItems: "center", gap: 7, marginBottom: 12,
+        fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase",
+        color: "var(--muted)",
+      }}>
+        <span aria-hidden style={{ fontSize: 13 }}>{icon}</span>
+        {title}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
@@ -1590,40 +1695,20 @@ function SkillsSection({ store, data }: { store: StoreType; data: StoreType["dat
     <>
       <SectionHeading>Skills</SectionHeading>
 
-      {/* Featured skills with proficiency circles */}
+      {/* Featured skills — plain names; proficiency-dot ratings were removed
+          (self-assessed dots carry no signal for recruiters or ATS parsers). */}
       <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px", lineHeight: 1.5 }}>
-        Featured skills — shown with proficiency dots in the résumé.
+        Featured skills — shown as a highlighted list at the top of the Skills section.
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 20 }}>
         {featuredSkills.map((fs, idx) => (
-          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input
-              style={{ ...inputBase, flex: 1, fontSize: 12 }}
-              placeholder={`Skill ${idx + 1}`}
-              value={fs.skill}
-              onChange={(e) => store.setFeaturedSkill(idx, e.target.value, fs.rating)}
-            />
-            <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-              {Array.from({ length: 5 }, (_, ci) => (
-                <button
-                  key={ci}
-                  title={`${ci + 1} / 5`}
-                  onClick={() => store.setFeaturedSkill(idx, fs.skill, ci + 1 === fs.rating ? 0 : ci + 1)}
-                  style={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: "50%",
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    background: ci < fs.rating ? "var(--accent)" : "var(--border)",
-                    transition: "background 0.1s",
-                  }}
-                />
-              ))}
-            </div>
-          </div>
+          <input
+            key={idx}
+            style={{ ...inputBase, fontSize: 12 }}
+            placeholder={`Skill ${idx + 1}`}
+            value={fs.skill}
+            onChange={(e) => store.setFeaturedSkill(idx, e.target.value, fs.rating)}
+          />
         ))}
       </div>
 
