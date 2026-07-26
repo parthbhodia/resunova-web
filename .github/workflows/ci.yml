@@ -1,0 +1,84 @@
+name: CI
+
+# Nothing used to run on a pull request into main: deploy.yml is push-to-main
+# and staging.yml only covers PRs into staging. A type error or a failing test
+# reached production and the first signal was a red deploy, after the merge.
+#
+# Note this only REPORTS unless "require status checks to pass before merging"
+# is enabled for main in the repository settings.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast signal (~1 min). Split from the build so a type error does not wait
+  # behind a three-minute Next export to surface.
+  check:
+    name: Typecheck, tests, lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
+
+      # Not a plain `eslint` run: main carries hundreds of pre-existing errors,
+      # so a hard gate would be red from day one and promptly ignored. This
+      # fails only when a change ADDS errors. See scripts/lint-ratchet.mjs.
+      - name: Lint (no new errors)
+        run: node scripts/lint-ratchet.mjs
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Placeholders, not secrets. The Supabase client only has to CONSTRUCT for
+      # the static export to prerender — with these unset it throws on mount and
+      # every page renders empty, which looks like a build pass but is not one.
+      # Literals also keep this job working on a fork PR, which cannot read
+      # secrets.
+      #
+      # `build:seo-data` is deliberately skipped: it calls the backend, and the
+      # generator falls back to the committed snapshot when that fails, so
+      # running it here would test the network rather than the code.
+      - name: Build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://www.resunova.io
+          NEXT_PUBLIC_API_URL: https://api.invalid
+          NEXT_PUBLIC_SUPABASE_URL: https://ci.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_000000000000
+        run: npm run build

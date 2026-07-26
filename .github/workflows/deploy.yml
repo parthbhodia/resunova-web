@@ -30,6 +30,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Gate the deploy. Without these the build was the only check standing
+      # between a merge and production, so a type error or a failing test went
+      # live. A failure here stops the job before the artifact is uploaded, so
+      # Pages keeps serving the previous build: stale beats broken.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
+
       - name: Build
         env:
           NEXT_PUBLIC_BASE_PATH: ""
