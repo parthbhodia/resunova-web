@@ -7,10 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const trackJobEvent = vi.fn(async (_postingId: string, _event: string) => {});
 const fetchJobDetail = vi.fn();
-const authHeaders = vi.fn(async (): Promise<Record<string, string>> => ({ Authorization: "Bearer t" }));
-
 vi.mock("@/lib/jobsApi", () => ({
-  authHeaders: () => authHeaders(),
   fetchJobDetail: (id: string) => fetchJobDetail(id),
   trackJobEvent: (id: string, ev: string) => trackJobEvent(id, ev),
 }));
@@ -39,10 +36,13 @@ const FEED_JOB = {
   matchScore: 71,
 };
 
-function mockFeed(jobs: unknown[]) {
+// `signedIn` comes from the feed payload — the component takes the server's
+// word for whether the request was authenticated rather than probing the
+// client session, so that is what these tests vary.
+function mockFeed(jobs: unknown[], signedIn = true) {
   vi.stubGlobal("fetch", vi.fn(async () => ({
     ok: true,
-    json: async () => ({ jobs, ranked: true, signedIn: true }),
+    json: async () => ({ jobs, ranked: true, signedIn }),
   })) as unknown as typeof fetch);
 }
 
@@ -146,8 +146,7 @@ describe("SponsorJobsBoard", () => {
   });
 
   it("signed-out + locked shows the sign-in card instead of the paywall", async () => {
-    authHeaders.mockResolvedValueOnce({});
-    mockFeed([FEED_JOB]);
+    mockFeed([FEED_JOB], false);
     fetchJobDetail.mockResolvedValue({
       jdText: "JD", url: "", contacts: [], contactsLocked: true,
       matched: [], missing: [], injectableKeywords: [], matchScore: null, matchedCount: 0, totalRequirements: 0,

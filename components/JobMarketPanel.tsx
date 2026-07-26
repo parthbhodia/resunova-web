@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiUrl } from "@/lib/utils";
 import type { AdminJobMarketResponse, JobMarketSkill } from "@/lib/types";
 import { AdminKpiCard, AdminBarRows, AdminChartCard } from "@/components/admin/charts";
+import { apiFetch } from "@/lib/apiClient";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function fmtInt(n: number) { return new Intl.NumberFormat().format(n || 0); }
@@ -19,9 +19,7 @@ function pct(n: number, d: number) { return d > 0 ? Math.round((100 * n) / d) : 
 let _jmCache: AdminJobMarketResponse | null = null;
 
 // ─── the panel ────────────────────────────────────────────────────────────────
-interface Props { getAuthHeaders?: () => Promise<Record<string, string>>; }
-
-export default function JobMarketPanel({ getAuthHeaders }: Props) {
+export default function JobMarketPanel() {
   const [data, setData] = useState<AdminJobMarketResponse | null>(() => _jmCache);
   const [loading, setLoading] = useState(!_jmCache);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +30,7 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
     (async () => {
       setError(null);
       try {
-        const headers = getAuthHeaders ? await getAuthHeaders() : {};
-        const resp = await fetch(apiUrl("/api/admin/job-market"), { headers });
+        const resp = await apiFetch("/api/admin/job-market");
         const json = await resp.json() as AdminJobMarketResponse & { error?: string };
         if (!alive) return;
         if (json.error) { setError(json.error); if (!_jmCache) setData(null); }
@@ -45,7 +42,7 @@ export default function JobMarketPanel({ getAuthHeaders }: Props) {
       }
     })();
     return () => { alive = false; };
-  }, [getAuthHeaders]);
+  }, []);
 
   // Skill families that actually have data, ordered by demand.
   const skillFamilies = useMemo(() => {

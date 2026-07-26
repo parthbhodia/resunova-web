@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiUrl } from "@/lib/utils";
 import type { AdminAnalyticsJobsBlock, AdminAnalyticsResponse, AdminAnalyticsToolRow, AdminAnalyticsUserRow } from "@/lib/types";
 import JobMarketPanel from "@/components/JobMarketPanel";
+import { apiFetch } from "@/lib/apiClient";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -557,16 +557,11 @@ const _panelCache = new Map<number, AdminAnalyticsResponse>();
 let _lastTab: TabKey = "product";
 let _lastDays = 30;
 
-interface Props {
-  /** Pass the caller's auth-header factory so the panel reuses existing session auth. */
-  getAuthHeaders?: () => Promise<Record<string, string>>;
-}
-
 function CardSkeleton({ h = 90 }: { h?: number }) {
   return <div style={{ height: h, borderRadius: 10, background: "var(--surface2)", opacity: 0.6 }} />;
 }
 
-export default function AdminAnalyticsPanel({ getAuthHeaders }: Props) {
+export default function AdminAnalyticsPanel() {
   const [days, setDays] = useState(_lastDays);
   const [tab, setTab] = useState<TabKey>(_lastTab);
   const [loading, setLoading] = useState(!_panelCache.has(_lastDays));
@@ -583,8 +578,7 @@ export default function AdminAnalyticsPanel({ getAuthHeaders }: Props) {
     setError(null);
     (async () => {
       try {
-        const headers = getAuthHeaders ? await getAuthHeaders() : {};
-        const resp = await fetch(apiUrl(`/api/admin/analytics?days=${days}`), { headers });
+        const resp = await apiFetch(`/api/admin/analytics?days=${days}`);
         const json = await resp.json() as AdminAnalyticsResponse & { error?: string };
         if (!alive) return;
         if (json.error) { setError(json.error); if (!cached) setData(null); }
@@ -597,7 +591,7 @@ export default function AdminAnalyticsPanel({ getAuthHeaders }: Props) {
       }
     })();
     return () => { alive = false; };
-  }, [days, getAuthHeaders]);
+  }, [days]);
 
   const insights = useMemo(() => (data ? computeInsights(data) : []), [data]);
   const costLabel = data?.summary.cost_usd != null
@@ -636,7 +630,7 @@ export default function AdminAnalyticsPanel({ getAuthHeaders }: Props) {
       </div>
 
       {/* Job market fetches its own endpoint independently of the analytics window. */}
-      {tab === "market" && <JobMarketPanel getAuthHeaders={getAuthHeaders} />}
+      {tab === "market" && <JobMarketPanel />}
 
       {tab !== "market" && loading && !data && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>

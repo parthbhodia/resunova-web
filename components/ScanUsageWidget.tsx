@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseClient } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 import { Card } from "@/components/profileSettingsUi";
 
 type ScanUsageStatus = {
   enforced: boolean;
   unlimited?: boolean;
+  /** "pro" | "institution" for unlimited tiers; absent on the metered tier. */
+  plan?: string | null;
   allowed?: boolean;
   limit?: number;
   used?: number;
@@ -15,7 +16,7 @@ type ScanUsageStatus = {
   resetAt?: string | null;
 };
 
-export function ScanUsageWidget({ apiBase = "" }: { apiBase?: string }) {
+export function ScanUsageWidget() {
   const [resumeStatus, setResumeStatus] = useState<ScanUsageStatus | null>(null);
   const [prepStatus, setPrepStatus] = useState<ScanUsageStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,15 +25,9 @@ export function ScanUsageWidget({ apiBase = "" }: { apiBase?: string }) {
     let cancelled = false;
     (async () => {
       try {
-        const supabase = getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const headers: Record<string, string> = session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : {};
-
         const [respResume, respPrep] = await Promise.all([
-          fetch(apiBase + apiUrl("/api/scan-limit-status"), { headers }),
-          fetch(apiBase + apiUrl("/api/interview-prep/limit-status"), { headers })
+          apiFetch("/api/scan-limit-status"),
+          apiFetch("/api/interview-prep/limit-status"),
         ]);
 
         const [dataResume, dataPrep] = await Promise.all([
@@ -51,7 +46,7 @@ export function ScanUsageWidget({ apiBase = "" }: { apiBase?: string }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [apiBase]);
+  }, []);
 
   if (loading) {
     return (
@@ -88,9 +83,15 @@ function renderUsageBar(status: ScanUsageStatus | null, label: string) {
   }
   
   if (status.unlimited) {
+    // Name the actual plan. Hard-coding UMBC told Pro subscribers they were on
+    // a university account.
     return (
       <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
-        Unlimited {label}: included with your UMBC account.
+        {status.plan === "pro"
+          ? `Unlimited ${label}: included with Pro.`
+          : status.plan === "institution"
+            ? `Unlimited ${label}: included with your university account.`
+            : `Unlimited ${label} on your current plan.`}
       </p>
     );
   }

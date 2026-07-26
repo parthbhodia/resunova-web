@@ -23,17 +23,7 @@ import {
   ROLE_SUGGESTIONS, US_METROS, NATIONWIDE_LOCATION, matchRoleSuggestions, matchMetros,
   browseSelectionToParams, type JobsBrowseSelection,
 } from "@/lib/jobsTaxonomy";
-import { apiUrl } from "@/lib/utils";
-import { getSupabaseClient } from "@/lib/supabase";
-
-async function authHeaders(): Promise<Record<string, string>> {
-  try {
-    const { data: { session } } = await getSupabaseClient().auth.getSession();
-    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-  } catch {
-    return {};
-  }
-}
+import { apiFetch } from "@/lib/apiClient";
 
 const SearchIcon = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
@@ -130,7 +120,7 @@ export default function JobsOnboardingWizard({
       try {
         const params = browseSelectionToParams(selection);
         params.set("max_age_days", "30");
-        const resp = await fetch(apiUrl(`/api/jobs/count?${params.toString()}`), { headers: await authHeaders() });
+        const resp = await apiFetch(`/api/jobs/count?${params.toString()}`);
         const data = await resp.json().catch(() => ({}));
         if (!cancelled) setCount(typeof data?.count === "number" ? data.count : null);
       } catch {

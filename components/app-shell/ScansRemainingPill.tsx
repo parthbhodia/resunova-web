@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 
 type Status = {
   enforced?: boolean;
@@ -29,9 +29,7 @@ export function ScansRemainingPill({ collapsed }: { collapsed: boolean }) {
         setStatus(null);
         return;
       }
-      const resp = await fetch(apiUrl("/api/scan-limit-status"), {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+      const resp = await apiFetch("/api/scan-limit-status");
       setStatus((await resp.json()) as Status);
     } catch {
       /* non-critical */

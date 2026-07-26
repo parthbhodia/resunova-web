@@ -23,6 +23,7 @@ import {
 import AdminAnalyticsPanel from "@/components/AdminAnalyticsPanel";
 import SendTestEmailCard from "@/components/admin/SendTestEmailCard";
 import { AdminKpiCard, AdminBarRows, AdminScoreBars, AdminStackedBar } from "@/components/admin/charts";
+import { apiFetch } from "@/lib/apiClient";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -279,11 +280,6 @@ function reviewReason(student: Student): string {
   return "Strong profile, periodic check only";
 }
 
-async function advisorAuthHeaders(): Promise<Record<string, string>> {
-  const { data: { session } } = await getSupabaseClient().auth.getSession();
-  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-}
-
 // ── Module-level cache ────────────────────────────────────────────────────────
 // The root RouterView unmounts this dashboard on every page switch (?view=…),
 // so component state dies with it. Keep the loaded cohort payload + active tab
@@ -415,8 +411,7 @@ function StudentDetailPanel({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    advisorAuthHeaders()
-      .then(headers => fetch(`${apiUrl("/api/student-detail")}?student_id=${encodeURIComponent(studentId)}`, { headers }))
+    apiFetch(`/api/student-detail?student_id=${encodeURIComponent(studentId)}`)
       .then(r => r.ok ? r.json() : r.json().then((e: { error?: string }) => Promise.reject(e.error ?? `HTTP ${r.status}`)))
       .then(d => { if (!cancelled) setDetail(d as StudentDetail); })
       .catch(e => { if (!cancelled) setError(typeof e === "string" ? e : "Failed to load."); })
@@ -430,8 +425,7 @@ function StudentDetailPanel({
     let cancelled = false;
     setMatchesLoading(true);
     setMatches(null);
-    advisorAuthHeaders()
-      .then(headers => fetch(`${apiUrl("/api/student-job-matches")}?student_id=${encodeURIComponent(studentId)}&limit=10`, { headers }))
+    apiFetch(`/api/student-job-matches?student_id=${encodeURIComponent(studentId)}&limit=10`)
       .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
       .then(d => { if (!cancelled) setMatches(d as JobMatchesResponse); })
       .catch(() => { if (!cancelled) setMatches({ jobs: [], ranked: false }); })
@@ -883,8 +877,8 @@ function CohortOverview({
       {/* ── Platform Analytics tab (global admins only) ── */}
       {globalAdmin && activeTab === "analytics" && (
         <div className="flex flex-col gap-6">
-          <AdminAnalyticsPanel getAuthHeaders={advisorAuthHeaders} />
-          <SendTestEmailCard getAuthHeaders={advisorAuthHeaders} />
+          <AdminAnalyticsPanel />
+          <SendTestEmailCard />
           {/* Bug reports are a platform-support inbox, not cohort data — they
               belong here under Platform analytics, not the Cohort tab. */}
           <BugReportsPanel
@@ -1097,9 +1091,7 @@ export default function AdvisorDashboard() {
     setBugReportsLoading(true);
     setBugReportsError(null);
     try {
-      const resp = await fetch(apiUrl("/api/admin/bug-reports?limit=50"), {
-        headers: await advisorAuthHeaders(),
-      });
+      const resp = await apiFetch("/api/admin/bug-reports?limit=50");
       if (resp.status === 403) {
         setBugReports([]);
         return;
@@ -1121,7 +1113,7 @@ export default function AdvisorDashboard() {
     }
     setError(null);
     try {
-      const resp = await fetch(apiUrl("/api/cohort-stats"), { headers: await advisorAuthHeaders() });
+      const resp = await apiFetch("/api/cohort-stats");
       if (resp.status === 401) { setError("not_signed_in"); setData(null); clearCohortCache(); return; }
       if (resp.status === 403) { setError("not_authorized"); setData(null); clearCohortCache(); return; }
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);

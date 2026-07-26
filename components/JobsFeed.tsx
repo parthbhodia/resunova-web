@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, fetchAnalyses, type JobPrepStatus, type AnalyzeRecord } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, prefetchJobDetail, invalidateJobDetail, fetchCompanyOptions, fetchTitleOptions, type JobDetail as JobDetailData, type CompanyOption, type TitleOption } from "@/lib/jobsApi";
@@ -46,6 +45,7 @@ import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
 import { SENIORITY_BUCKET_VALS, NATIONWIDE_LOCATION, matchRoleSuggestions } from "@/lib/jobsTaxonomy";
 import { Tip } from "@/components/ui/tip";
 import { usePrefetchOnIntent } from "@/hooks/usePrefetchOnIntent";
+import { apiFetch } from "@/lib/apiClient";
 
 export type FeedJob = {
   id: string;
@@ -529,14 +529,12 @@ export async function prefetchJobsFeed(): Promise<void> {
     // Already warm → nothing to do.
     if (feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) return;
 
-    const { data: { session } } = await getSupabaseClient().auth.getSession();
     const params = new URLSearchParams();
     if (days) params.set("max_age_days", String(days));
     if (roleQuery) params.set("role", roleQuery);
     appendBrowseParams(params, browseSel);
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
-    const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
+    const resp = await apiFetch(`/api/jobs/feed${qs}`);
     if (!resp.ok) return;
     const data = await resp.json();
     if (data?.needsRole) return; // no rows to cache; the tab renders the role prompt
@@ -573,14 +571,12 @@ async function warmFeed(sel: JobsBrowseSelection, days: number): Promise<void> {
     const roleQuery = sel.role.trim();
     const cacheKey = browseFeedCacheKey(days, roleQuery, sel);
     if (feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) return;
-    const { data: { session } } = await getSupabaseClient().auth.getSession();
     const params = new URLSearchParams();
     if (days) params.set("max_age_days", String(days));
     if (roleQuery) params.set("role", roleQuery);
     appendBrowseParams(params, sel);
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
-    const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
+    const resp = await apiFetch(`/api/jobs/feed${qs}`);
     if (!resp.ok) return;
     const data = await resp.json();
     if (data?.needsRole) return;
@@ -619,12 +615,11 @@ async function analyzeResumeUpload(file: File): Promise<{ seniorityGuess?: strin
   // set this (it renders the full result synchronously).
   fd.append("defer_analysis", "1");
   const { data: { session } } = await getSupabaseClient().auth.getSession();
-  const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
   if (session?.user?.id) {
     fd.set("user_id", session.user.id);
     if (session.user.email) fd.set("user_email", session.user.email);
   }
-  const resp = await fetch(apiUrl("/api/analyze-upload"), { method: "POST", body: fd, headers });
+  const resp = await apiFetch("/api/analyze-upload", { method: "POST", body: fd });
   const json = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     if (resp.status === 429) throw new Error("Daily scan limit reached. Try tomorrow, or browse without ranking below.");
@@ -720,7 +715,7 @@ export default function JobsFeed({
     let cancelled = false;
     const days = AGE_FILTERS.find((f) => f.key === DEFAULT_AGE_FILTER)?.days ?? 0;
     const qs = days ? `?max_age_days=${days}` : "";
-    fetch(apiUrl(`/api/jobs/public-count${qs}`))
+    apiFetch(`/api/jobs/public-count${qs}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (!cancelled && d && typeof d.count === "number") setPublicCount(d.count); })
       .catch(() => {});
@@ -1139,9 +1134,6 @@ export default function JobsFeed({
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      const headers: Record<string, string> = session?.access_token
-        ? { Authorization: `Bearer ${session.access_token}` }
-        : {};
       const params = new URLSearchParams();
       if (days) params.set("max_age_days", String(days));
       if (roleQuery) params.set("role", roleQuery);
@@ -1151,7 +1143,7 @@ export default function JobsFeed({
       if (debouncedSearch) params.set("title_any", debouncedSearch); // search the DB by title across all roles
       serverFilterEntries.forEach(([k, v]) => params.set(k, v)); // facet filters → server (DB-wide)
       const qs = params.toString() ? `?${params.toString()}` : "";
-      const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
+      const resp = await apiFetch(`/api/jobs/feed${qs}`);
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
         // In quiet mode never swap the visible feed for an empty/state screen —
@@ -1239,8 +1231,7 @@ export default function JobsFeed({
       // Country scope IS applied even in the relaxed set — a US user shouldn't see
       // foreign postings in "outside your filters" (that was the Malta-under-US leak).
       params.set("country", countryScope);
-      const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
-      const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), { headers });
+      const resp = await apiFetch(`/api/jobs/feed?${params.toString()}`);
       if (!resp.ok) { setFallback({ jobs: [], loading: false, key: fkey }); return; }
       const data = await resp.json();
       const jobs: FeedJob[] = Array.isArray(data?.jobs) ? data.jobs : [];
@@ -1391,11 +1382,9 @@ export default function JobsFeed({
       if (!session?.access_token) return;
       setAppliedIds((prev) => new Set(prev).add(postingId));
       hideAppliedJob(postingId);
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      headers.Authorization = `Bearer ${session.access_token}`;
-      await fetch(apiUrl("/api/jobs/event"), {
+      await apiFetch("/api/jobs/event", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ posting_id: postingId, event: "apply_click" }),
         keepalive: true,
       });
@@ -1647,8 +1636,6 @@ export default function JobsFeed({
     if (state.status !== "ready" || !state.hasMore || typeof state.nextOffset !== "number" || loadingMore) return;
     setLoadingMore(true);
     try {
-      const { data: { session } } = await getSupabaseClient().auth.getSession();
-      const headers: Record<string, string> = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
       const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
       const params = new URLSearchParams();
       if (days) params.set("max_age_days", String(days));
@@ -1659,7 +1646,7 @@ export default function JobsFeed({
       serverFilterEntries.forEach(([k, v]) => params.set(k, v)); // page the same facet filters
       params.set("offset", String(state.nextOffset));
       params.set("feed_family", state.feedFamily ?? "");
-      const resp = await fetch(apiUrl(`/api/jobs/feed?${params.toString()}`), { headers });
+      const resp = await apiFetch(`/api/jobs/feed?${params.toString()}`);
       if (!resp.ok) return;
       const data = await resp.json();
       const more: FeedJob[] = Array.isArray(data?.jobs) ? data.jobs : [];

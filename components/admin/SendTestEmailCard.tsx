@@ -2,21 +2,17 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { apiUrl } from "@/lib/utils";
 import { AdminChartCard } from "./charts";
+import { apiFetch } from "@/lib/apiClient";
 
 /**
  * Admin-only utility: fire a one-off test email through Resend via the
  * backend's admin-gated POST /api/admin/send-test-email. Uses the signed-in
- * admin's session token (getAuthHeaders), so there's no token juggling — one
- * click sends. Recipient is optional; empty ⇒ the backend sends to the
+ * admin's session token, attached by apiFetch, so there's no token juggling:
+ * one click sends. Recipient is optional; empty ⇒ the backend sends to the
  * requesting admin's own account email.
  */
-export default function SendTestEmailCard({
-  getAuthHeaders,
-}: {
-  getAuthHeaders: () => Promise<Record<string, string>>;
-}) {
+export default function SendTestEmailCard() {
   const [to, setTo] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "err">("idle");
   const [msg, setMsg] = useState("");
@@ -25,11 +21,10 @@ export default function SendTestEmailCard({
     setStatus("sending");
     setMsg("");
     try {
-      const headers = { ...(await getAuthHeaders()), "Content-Type": "application/json" };
       const body = to.trim() ? { to: to.trim() } : {};
-      const resp = await fetch(apiUrl("/api/admin/send-test-email"), {
+      const resp = await apiFetch("/api/admin/send-test-email", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const json = (await resp.json().catch(() => ({}))) as {

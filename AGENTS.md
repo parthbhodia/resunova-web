@@ -96,3 +96,54 @@ The résumé paper and everything on the PDF export path — `lib/resumeLayout.t
 metrics that drive Chromium pagination, and Material elevation renders as a grey
 box in an exported PDF. The exemption is asserted in the test; the state layer
 is also stripped from the export via `.az-clean-export`.
+
+## Calling the backend
+
+**Always `apiFetch` from `lib/apiClient.ts`. Never a bare `fetch` at an API URL.**
+
+```tsx
+import { apiFetch } from "@/lib/apiClient";
+
+const resp = await apiFetch("/api/analyze", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
+```
+
+It resolves the base URL and attaches `Authorization: Bearer <token>` when a
+Supabase session exists. Otherwise it sends no auth header at all — anonymous
+use is deliberate (a visitor gets a free scan before signing in), and an empty
+bearer would read to the backend as failed auth rather than as a guest. **Do
+not gate UI on being signed in just because a call needs the API.**
+
+This exists because about twenty endpoints shipped with no auth header: every
+call site was making the decision itself, and a new one starts from a blank
+`fetch`. `lib/__tests__/apiClientUsage.test.ts` fails the build if a raw
+`fetch(apiUrl(...))` reappears, so the fix cannot quietly erode.
+
+Two things the helper deliberately does not do:
+
+- **It does not set `Content-Type`.** A FormData body needs the browser to pick
+  the multipart boundary; defaulting the header would break every upload.
+- **It does not parse the response.** Streaming endpoints
+  (`/api/generate-stream`, `/api/suggest-changes-stream`) need the raw body.
+
+**Refusals: branch on `remedy`, never on the message.** A 401 or 429 carries
+`{ code, remedy: "sign_in" | "upgrade", limit, used, remaining, resetAt }`.
+Read it with `refusalFrom(status, body)`:
+
+```tsx
+const refusal = refusalFrom(resp.status, json);
+if (refusal?.remedy === "sign_in") openSignIn();
+else if (refusal) openUpgrade(json);
+```
+
+Matching on prose meant a copy edit could start pitching Pro to someone who
+only needed to sign in. `refusalFrom` also falls back to the status for older
+payloads that predate `remedy`, so this works before and after the backend
+switches over.
+
+**Plans:** `/api/scan-limit-status` returns `unlimited` plus a `plan`
+(`"pro" | "institution"`). Use `planLabel()` — never assume an unlimited user is
+a university account, and never show a metered "Free" badge to a subscriber.

@@ -11,12 +11,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
-import { apiUrl } from "@/lib/utils";
 import { Card, ToggleSwitch } from "@/components/profileSettingsUi";
 import { ScanUsageWidget } from "@/components/ScanUsageWidget";
 import PlanBillingCard from "@/components/PlanBillingCard";
 import { TailoringModeSelector } from "@/components/TailoringModeModal";
 import { TAILORING_MODE_META, fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
+import { apiFetch } from "@/lib/apiClient";
 
 type NotifyPrefs = { accountChanges: boolean; scanLimit: boolean; features: boolean };
 const NOTIFY_DEFAULTS: NotifyPrefs = { accountChanges: true, scanLimit: false, features: false };
@@ -55,9 +55,7 @@ function EmailPreferencesCard() {
         const supabase = getSupabaseClient();
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) return;
-        const resp = await fetch(apiUrl("/api/profile/notify-prefs"), {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
+        const resp = await apiFetch("/api/profile/notify-prefs");
         if (!resp.ok || cancelled) return;
         const prefs = (await resp.json()) as NotifyPrefs;
         const merged = { ...NOTIFY_DEFAULTS, ...prefs };
@@ -83,14 +81,9 @@ function EmailPreferencesCard() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
-        const supabase = getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const resp = await fetch(apiUrl("/api/profile/notify-prefs"), {
+        const resp = await apiFetch("/api/profile/notify-prefs", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(next),
         });
         setSaveStatus(resp.ok ? "saved" : "error");

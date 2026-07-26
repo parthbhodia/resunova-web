@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useState } from "react";
-import { apiUrl } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 
 /**
  * Strip Analyze annotation chrome from a cloned DOM before PDF export.
@@ -169,7 +169,7 @@ export function useHtmlPdfExport() {
 <body>${cleaned.outerHTML}</body>
 </html>`;
 
-      const resp = await fetch(apiUrl("/api/export-pdf-html"), {
+      const resp = await apiFetch("/api/export-pdf-html", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ html, filename }),

@@ -22,10 +22,10 @@ import { fetchJobDetail, peekJobDetail, scoreLabel, trackJobEvent, type JobDetai
 import { fetchJobPrepStatuses, getSupabaseClient, type JobPrepStatus } from "@/lib/supabase";
 import { goToFreeScan, stashAnalyzeJd } from "@/lib/anonScan";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
-import { apiUrl } from "@/lib/utils";
 import BoostPanel from "@/components/BoostPanel";
 import CompanyLogo from "@/components/CompanyLogo";
 import InsiderPanel from "@/components/InsiderPanel";
+import { apiFetch } from "@/lib/apiClient";
 
 type LoadState =
   | { status: "loading" }
@@ -300,15 +300,9 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
 
   const trackApplyClick = useCallback(async (postingId: string) => {
     try {
-      const supabase = getSupabaseClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-      await fetch(apiUrl("/api/jobs/event"), {
+      await apiFetch("/api/jobs/event", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ posting_id: postingId, event: "apply_click" }),
         keepalive: true,
       });

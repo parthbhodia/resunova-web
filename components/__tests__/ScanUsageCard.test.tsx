@@ -24,11 +24,30 @@ describe("ScanUsageCard — maps each /api/scan-limit-status branch", () => {
     expect(screen.getByText("Free")).toBeInTheDocument();
   });
 
-  it("institution user → unlimited / UMBC branch", async () => {
+  it("institution user → unlimited / university branch", async () => {
+    global.fetch = vi.fn().mockResolvedValue(jsonRes({ enforced: true, unlimited: true, plan: "institution" }));
+    render(<ScanUsageCard />);
+    await waitFor(() => expect(screen.getByText(/university account/)).toBeInTheDocument());
+    expect(screen.getByText("University")).toBeInTheDocument();
+  });
+
+  it("Pro subscriber gets a Pro badge, not Free and not UMBC", async () => {
+    // The regression this guards: a paying subscriber saw a "Free" badge next
+    // to an Upgrade button, because pro_subscription had no branch server-side
+    // and every unlimited user was labelled UMBC client-side.
+    global.fetch = vi.fn().mockResolvedValue(jsonRes({ enforced: true, unlimited: true, plan: "pro" }));
+    render(<ScanUsageCard />);
+    await waitFor(() => expect(screen.getByText("Pro")).toBeInTheDocument());
+    expect(screen.getByText(/included with Pro/)).toBeInTheDocument();
+    expect(screen.queryByText("Free")).not.toBeInTheDocument();
+    expect(screen.queryByText("UMBC")).not.toBeInTheDocument();
+  });
+
+  it("unlimited with no named plan is still not shown as Free", async () => {
     global.fetch = vi.fn().mockResolvedValue(jsonRes({ enforced: true, unlimited: true }));
     render(<ScanUsageCard />);
-    await waitFor(() => expect(screen.getByText(/Unlimited résumé scans/)).toBeInTheDocument());
-    expect(screen.getByText("UMBC")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Unlimited")).toBeInTheDocument());
+    expect(screen.queryByText("Free")).not.toBeInTheDocument();
   });
 
   it("free enforced → progressbar + remaining-today copy", async () => {
@@ -56,6 +75,19 @@ describe("ScanUsageCard — maps each /api/scan-limit-status branch", () => {
     render(<ScanUsageCard />);
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [, opts] = fetchMock.mock.calls[0];
-    expect(opts.headers.Authorization).toBe("Bearer tok");
+    // apiFetch hands fetch a Headers instance, not a plain object.
+    expect(new Headers(opts.headers).get("Authorization")).toBe("Bearer tok");
+  });
+
+  it("sends no Authorization header when signed out", async () => {
+    // Anonymous use is deliberate: sending an empty or bogus bearer would make
+    // the backend treat a guest as a failed auth rather than as a guest.
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    const fetchMock = vi.fn().mockResolvedValue(jsonRes({ enforced: false, unlimited: false }));
+    global.fetch = fetchMock;
+    render(<ScanUsageCard />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [, opts] = fetchMock.mock.calls[0];
+    expect(new Headers(opts?.headers).has("Authorization")).toBe(false);
   });
 });

@@ -21,10 +21,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { readCache, writeCache, invalidateCache, updateCache } from "@/lib/clientCache";
+import { apiFetch } from "@/lib/apiClient";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -98,16 +98,6 @@ const STATUS_OPTIONS: AppStatus[] = ["saved", "applied", "interviewing", "offer"
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function bearerHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
-  const supabase = getSupabaseClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const h: Record<string, string> = { "Content-Type": "application/json", ...extra };
-  if (session?.access_token) h.Authorization = `Bearer ${session.access_token}`;
-  return h;
-}
-
 function formatRelativeDate(iso: string | null): string {
   if (!iso) return "";
   const ts = Date.parse(iso);
@@ -175,10 +165,9 @@ function AddApplicationForm({ onAdd, onCancel }: AddFormProps) {
     setSaving(true);
     setError(null);
     try {
-      const headers = await bearerHeaders();
-      const resp = await fetch(apiUrl("/api/applications"), {
+      const resp = await apiFetch("/api/applications", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           company: company.trim() || null,
           title: title.trim() || null,
@@ -572,10 +561,7 @@ export default function ApplicationTracker() {
         invalidateCache(TRACKER_CACHE_KEY);
         setState({ status: "loading" });
       }
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${session.access_token}`,
-      };
-      const resp = await fetch(apiUrl("/api/applications"), { headers });
+      const resp = await apiFetch("/api/applications");
       if (resp.status === 401) {
         invalidateCache(TRACKER_CACHE_KEY);
         setState({ status: "unauthenticated" });
@@ -622,10 +608,9 @@ export default function ApplicationTracker() {
     commit(updated, newStats);
 
     try {
-      const headers = await bearerHeaders();
-      const resp = await fetch(apiUrl(`/api/applications/${encodeURIComponent(id)}`), {
+      const resp = await apiFetch(`/api/applications/${encodeURIComponent(id)}`, {
         method: "PATCH",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -645,10 +630,9 @@ export default function ApplicationTracker() {
     commit(updated, state.stats);
 
     try {
-      const headers = await bearerHeaders();
-      const resp = await fetch(apiUrl(`/api/applications/${encodeURIComponent(id)}`), {
+      const resp = await apiFetch(`/api/applications/${encodeURIComponent(id)}`, {
         method: "PATCH",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes: notes || null }),
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -667,10 +651,8 @@ export default function ApplicationTracker() {
     commit(updated, newStats);
 
     try {
-      const headers = await bearerHeaders();
-      const resp = await fetch(apiUrl(`/api/applications/${encodeURIComponent(id)}`), {
+      const resp = await apiFetch(`/api/applications/${encodeURIComponent(id)}`, {
         method: "DELETE",
-        headers,
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     } catch {

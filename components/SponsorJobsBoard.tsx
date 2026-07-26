@@ -18,7 +18,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  authHeaders,
   fetchJobDetail,
   trackJobEvent,
   type JobContact,
@@ -26,7 +25,7 @@ import {
 } from "@/lib/jobsApi";
 import { createCheckoutSession, PLAN_PRICE_LABELS, type BillingPriceKey } from "@/lib/billingApi";
 import { OnceGuard, postedAgoLabel, sponsorBadgeLabel } from "@/lib/sponsorJobs";
-import { apiUrl } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 
 const CHECKOUT_POSTING_KEY = "rn_sponsor_checkout_posting";
 
@@ -57,14 +56,18 @@ export default function SponsorJobsBoard() {
     let cancelled = false;
     (async () => {
       try {
-        const headers = await authHeaders();
-        setSignedIn(Boolean(headers.Authorization));
-        const resp = await fetch(apiUrl("/api/jobs/feed?sponsor=1&country=US"), { headers });
+        const resp = await apiFetch("/api/jobs/feed?sponsor=1&country=US");
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         if (cancelled) return;
         setJobs(Array.isArray(data?.jobs) ? data.jobs : []);
         setRanked(Boolean(data?.ranked));
+        // Take the server's word for whether this request was authenticated.
+        // Probing the client session separately can disagree with it — an
+        // expired token reads as signed in locally while the server treats the
+        // request as anonymous, which would show contacts instead of the
+        // paywall.
+        setSignedIn(Boolean(data?.signedIn));
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
       }
