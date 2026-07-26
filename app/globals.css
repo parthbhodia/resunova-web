@@ -190,6 +190,43 @@
   --fs-display:    36px;
   --fs-display-lg: 48px;
 
+  /* ── Material Design 3 ────────────────────────────────────────────────
+     Mirrored from lib/material.ts — keep both sides in step (a test pins
+     it, same arrangement as the --fs-* ladder above).
+
+     Elevation is six defined levels rather than ad-hoc box-shadows, and
+     interaction uses a STATE LAYER: a translucent overlay of the element's
+     own foreground colour, so one rule covers every colour instead of a
+     bespoke hover background per variant.
+
+     NOT for the résumé paper or anything on the PDF export path — those
+     shadows and sizes are print metrics and Material elevation renders as
+     grey boxes in an exported PDF. */
+  --md-elevation-0: none;
+  --md-elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.30), 0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --md-elevation-2: 0 1px 2px 0 rgb(0 0 0 / 0.30), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --md-elevation-3: 0 4px 8px 3px rgb(0 0 0 / 0.15), 0 1px 3px 0 rgb(0 0 0 / 0.30);
+  --md-elevation-4: 0 6px 10px 4px rgb(0 0 0 / 0.15), 0 2px 3px 0 rgb(0 0 0 / 0.30);
+  --md-elevation-5: 0 8px 12px 6px rgb(0 0 0 / 0.15), 0 4px 4px 0 rgb(0 0 0 / 0.30);
+
+  --md-state-hover:   0.08;
+  --md-state-focus:   0.10;
+  --md-state-pressed: 0.10;
+
+  --md-shape-xs: 4px;
+  --md-shape-sm: 8px;
+  --md-shape-md: 12px;
+  --md-shape-lg: 16px;
+  --md-shape-xl: 28px;
+
+  --md-easing-standard:   cubic-bezier(0.2, 0, 0, 1);
+  --md-easing-decelerate: cubic-bezier(0, 0, 0, 1);
+  --md-easing-accelerate: cubic-bezier(0.3, 0, 1, 1);
+
+  --md-duration-short:  100ms;
+  --md-duration-medium: 200ms;
+  --md-duration-long:   300ms;
+
   --font-size-xs:        9px;
   --font-size-sm:        11px;
   --font-size-base:      13px;
@@ -1584,4 +1621,40 @@ select option { background: var(--surface); }
   html {
     @apply font-sans;
   }
+}
+/* ── Material state layer ──────────────────────────────────────────────────
+   Material tints an interactive surface by overlaying its FOREGROUND colour
+   at a fixed opacity, rather than defining a separate hover background for
+   every variant. Applied as a ::after layer so it composites over whatever
+   background the variant already has — including gradients — and so one rule
+   covers colours added later.
+
+   `position: relative` and `isolation` are set on the host so the layer can
+   never escape its own stacking context. */
+.md-state-layer {
+  position: relative;
+  isolation: isolate;
+}
+.md-state-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--md-duration-medium) var(--md-easing-standard);
+}
+.md-state-layer:hover::after        { opacity: var(--md-state-hover); }
+.md-state-layer:focus-visible::after { opacity: var(--md-state-focus); }
+.md-state-layer:active::after       { opacity: var(--md-state-pressed); }
+.md-state-layer:disabled::after,
+.md-state-layer[data-disabled]::after { opacity: 0; }
+
+/* The overlay is review chrome, not document content: strip it from the
+   Chromium PDF capture along with every other animation. */
+.az-clean-export .md-state-layer::after { opacity: 0 !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .md-state-layer::after { transition-duration: 0.01ms; }
 }

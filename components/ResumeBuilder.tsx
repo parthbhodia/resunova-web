@@ -55,6 +55,8 @@ import {
 } from "@/lib/tailorGapFix";
 import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToStructured";
 import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
+import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes } from "@/lib/fixEverything";
+import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
 import { prefillPrepFromTailor } from "@/lib/interviewPrepLaunch";
 import type { AddressedGapAction } from "@/lib/types";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
@@ -2505,6 +2507,119 @@ export default function ResumeBuilder({
     router.push("/interview-prep/dashboard");
   }, [user, openSignIn, effectiveCandidateProfile, tailorStructuredResume, tailorFieldOverrides, jd, company, role, router]);
 
+  const [fixAllBusy, setFixAllBusy] = useState(false);
+  // Read once on mount rather than at render: localStorage is unavailable
+  // during SSR of the static export, and a lazy initialiser keeps this out of
+  // an effect.
+  const [fixAllAutoApply, setFixAllAutoApplyState] = useState(() => getFixAllAutoApply());
+  const toggleFixAllAutoApply = (on: boolean) => {
+    setFixAllAutoApplyState(on);
+    setFixAllAutoApply(on);
+  };
+
+  const openGapBatches = useMemo(
+    // Raw ratings, not displayRatings: that memo is declared further down, and
+    // collectUnaddressedGaps filters by the same addressed set anyway.
+    () => collectUnaddressedGaps(result?.ratings, addressedGaps, addressedGapActions),
+    [result?.ratings, addressedGaps, addressedGapActions],
+  );
+  const openGapCount = countGaps(openGapBatches);
+
+  /**
+   * Fix everything in one pass.
+   *
+   * Batches by gap TYPE rather than firing one request per gap: three focused
+   * prompts instead of a dozen, and — more importantly — no sequence of rounds
+   * each re-reading a résumé the previous round already changed. The results
+   * land in the normal gap-fix panel, so the user still reviews before anything
+   * is written. Nothing is auto-applied; the validators reject fabrication, but
+   * a rewrite the candidate can't stand behind is theirs to catch.
+   */
+  const fixEverything = useCallback(async () => {
+    if (!jd.trim() || openGapBatches.length === 0 || fixAllBusy) return;
+    const prof = effectiveCandidateProfile.trim();
+    if (!tailorStructuredResume && !prof) {
+      setGapFixError("Fix everything needs résumé text. Upload a PDF or paste your profile, then try again.");
+      return;
+    }
+    if (tailoringMode === null) { setShowTailoringModal(true); return; }
+
+    setFixAllBusy(true);
+    setGapFixError(null);
+    setGapFixPanel(null);
+    try {
+      const structured = tailorStructuredResume
+        ? applyFieldOverridesToStructured(
+            patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
+            tailorFieldOverrides,
+          )
+        : null;
+
+      // Parallel, not sequential: each batch is generated against the same
+      // résumé snapshot, and collisions between their results are merged at
+      // apply time rather than letting a later batch overwrite an earlier one.
+      const responses = await Promise.all(openGapBatches.map(async (batch) => {
+        const resp = await fetch(apiUrl("/api/suggest-gap-fix"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tailoring_mode: tailoringMode ?? "honest",
+            gap_name: batchGapName(batch),
+            gap_notes: batchGapNotes(batch),
+            job_description: jd.trim(),
+            ...(structured ? { structured_resume: structured } : {}),
+            ...(prof ? { candidate_profile: prof } : {}),
+          }),
+        });
+        if (!resp.ok) return [];
+        const data = await resp.json() as { suggestions?: unknown[] };
+        return (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[];
+      }));
+
+      // Namespace ids per batch: the API numbers them from 1 each time, so
+      // merging raw would collide and the review panel would key two different
+      // cards the same.
+      const all = responses.flatMap((list, i) =>
+        list
+          .filter((s) => s.original?.trim() && s.suggested?.trim())
+          .map((s) => ({ ...s, id: `b${i}_${s.id}` })));
+
+      if (all.length === 0) {
+        setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
+        return;
+      }
+
+      // Explicit opt-in only. The switch is off by default and the button says
+      // which of the two it will do, so the résumé never changes unprompted —
+      // but a user who has done this twenty times should not have to click
+      // through a review every time. Applied edits stay reversible: they are
+      // preview overrides, and every bullet keeps its revert control.
+      if (fixAllAutoApply) {
+        await applyGapFixes(
+          all.map((s) => ({
+            id: s.id, section: s.section, original: s.original,
+            suggested: s.suggested, reason: s.reason, priority: s.priority,
+          })),
+          openGapBatches.map((b) => batchGapName(b)).join(", "),
+        );
+        return;
+      }
+
+      setGapFixPanel({
+        gapName: openGapBatches.map((b) => batchGapName(b)).join(", "),
+        gapNotes: `${all.length} rewrite${all.length === 1 ? "" : "s"} across ${openGapCount} gaps.`,
+        suggestions: all,
+        gapType: "qualification",
+      });
+      setResultsActiveTab("gapfix");
+    } catch {
+      setGapFixError("Could not generate fixes. Please try again.");
+    } finally {
+      setFixAllBusy(false);
+    }
+  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, applyGapFixes, effectiveCandidateProfile,
+      tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
+
   /** One batched rewrite pass for several contextual gaps, instead of one call each. */
   const fixKeywordsBatched = useCallback((keywords: string[]) => {
     const list = keywords.filter(Boolean);
@@ -3841,6 +3956,11 @@ export default function ResumeBuilder({
                       onAddSkills={tailorStructuredResume ? addSkillsToResume : undefined}
                       skillCategories={skillCategories}
                       onFixKeywords={fixKeywordsBatched}
+                      onFixEverything={() => { void fixEverything(); }}
+                      openGapCount={openGapCount}
+                      fixEverythingBusy={fixAllBusy}
+                      fixEverythingAutoApply={fixAllAutoApply}
+                      onFixEverythingAutoApplyChange={toggleFixAllAutoApply}
                       onOpenInterviewPrep={openInterviewPrep}
                       activeGapFixIds={activeGapFixIds}
                       onGapFixActivate={(id) => setTailorSelection({ kind: "gapfix", id })}
