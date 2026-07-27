@@ -114,9 +114,6 @@ export default function TemplateBuilderSectionsPanel({
       <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", margin: "0 0 6px" }}>
         Section order
       </h3>
-      <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 14px", lineHeight: 1.5 }}>
-        Drag to reorder. Add certifications, awards, volunteering, and more. Name + contact stay at the top.
-      </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {sectionOrder.map((slot, idx) => {
           const isHidden = hidden.has(slot);
