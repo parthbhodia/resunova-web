@@ -227,17 +227,23 @@ function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AIText
     <div style={{ position: "relative" }}>
       <textarea
         value={value}
-        style={{ ...textareaBase, ...style as React.CSSProperties, paddingBottom: showBtn ? 36 : undefined }}
+        style={{ ...textareaBase, ...style as React.CSSProperties }}
         {...rest}
       />
+      {/*
+        The button used to be absolutely positioned over the textarea with a
+        36px bottom padding reserving space for it. That fails as soon as the
+        content scrolls: the padding moves with the text, so the last visible
+        line ends up UNDER the button. Same fault the bullet rows had.
+        It sits below the field now, out of the text flow entirely.
+      */}
       {showBtn && (
         <div style={{
-          position: "absolute",
-          bottom: 7,
-          right: 8,
           display: "flex",
           gap: 5,
           alignItems: "center",
+          justifyContent: "flex-end",
+          marginTop: 4,
         }}>
           {error && (
             <span style={{ fontSize: 10, color: "var(--red, #ef4444)", maxWidth: 140, textAlign: "right" }}>{error}</span>

@@ -323,7 +323,16 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 a { cursor: pointer; }
 
 /* ── Form elements ────────────────────────────────────────── */
-input, textarea, select {
+/*
+ * Bare form controls only.
+ *
+ * MUI renders a real <input> INSIDE its own outlined container, so without
+ * this exclusion the inner element picks up the border, radius, background and
+ * padding below and you get a box drawn inside a box — visible as doubled
+ * chrome on every MUI TextField. The MUI control already carries all of these
+ * from the theme, so it must opt out rather than be overridden.
+ */
+input:not([class*="Mui"]), textarea:not([class*="Mui"]), select:not([class*="Mui"]) {
   font-family: inherit;
   font-size: 14px;
   letter-spacing: -0.1px;
@@ -336,8 +345,8 @@ input, textarea, select {
   width: 100%;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
-input:hover, textarea:hover { border-color: var(--border-h); }
-input:focus, textarea:focus, select:focus {
+input:not([class*="Mui"]):hover, textarea:not([class*="Mui"]):hover { border-color: var(--border-h); }
+input:not([class*="Mui"]):focus, textarea:not([class*="Mui"]):focus, select:not([class*="Mui"]):focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.22);
 }
