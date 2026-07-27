@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTemplateBuilderStore } from "@/store/templateBuilderStore";
 import { getSupabaseClient, fetchBuilderResumeById, upsertBuilderResume } from "@/lib/supabase";
@@ -23,6 +23,7 @@ import { TBInput, TBTextarea } from "@/components/mui/fields";
 import { useCanvasEdit } from "@/components/canvas/useCanvasEdit";
 import { CANVAS_STYLESHEET } from "@/components/canvas/CanvasPrimitives";
 import { PageBoundaryRule, usePageOverflow } from "@/components/canvas/PageBoundaryRule";
+import CommandPalette, { useCommandPalette, type Command } from "@/components/canvas/CommandPalette";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -529,6 +530,7 @@ export default function TemplateBuilderClient() {
   const [panelOpen, setPanelOpen] = useState(false);
   // Phone only: which surface is showing. Defaults to the editor.
   const [phoneView, setPhoneView] = useState<"edit" | "preview">("edit");
+  const palette = useCommandPalette();
 
   // The preview used to be pinned at scale(0.82), then at a floor of 0.55 —
   // both tuned on a wide screen. At 390px the computed fit is ~0.40, so the
@@ -545,7 +547,7 @@ export default function TemplateBuilderClient() {
   // which is the single most consequential thing a résumé editor can hide
   // from the user, so it is surfaced as a rule on the canvas.
   const paperContentRef = useRef<HTMLDivElement>(null);
-  const pageOverflowPx = usePageOverflow(paperContentRef, loaded);
+  const pageFit = usePageOverflow(paperContentRef, loaded);
 
   const builderIdFromUrl = (searchParams?.get("builder") ?? "").trim();
   const presetFromUrl = (searchParams?.get("preset") ?? "").trim().toLowerCase();
@@ -827,6 +829,28 @@ export default function TemplateBuilderClient() {
     </>
   );
 
+  // A plain array, not useMemo: it sits below the same early return that
+  // forces jumpToBlock to be a plain function, and CommandPalette filters
+  // on render anyway — thirteen items is not worth a hook-ordering hazard.
+  const commands: Command[] = [
+    ...CONTENT_BLOCKS.map((b) => ({
+      id: `go-${b.key}`, group: "go", label: `Go to ${b.label}`,
+      run: () => { setMode("content"); jumpToBlock(b.key); },
+    })),
+    { id: "add-work", group: "add", label: "Add a position", run: () => { setMode("content"); store.addWork(); } },
+    { id: "add-edu", group: "add", label: "Add education", run: () => { setMode("content"); store.addEducation(); } },
+    { id: "add-proj", group: "add", label: "Add a project", run: () => { setMode("content"); store.addProject(); } },
+    { id: "design", group: "design", label: "Change template or layout", keywords: "font colour color style",
+      run: () => setMode(narrow ? "design" : "content") },
+    { id: "ats", group: "review", label: "Check ATS score", keywords: "job match review",
+      run: () => { setMode("review"); setPanelOpen(true); } },
+    { id: "import", group: "file", label: "Import an existing résumé", keywords: "upload pdf word",
+      run: () => { setImportError(null); importFileRef.current?.click(); } },
+    { id: "example", group: "file", label: "Load the example résumé", run: store.reset },
+    { id: "save", group: "file", label: "Save to Resume Hub", run: () => void handleSaveToLibrary() },
+    { id: "download", group: "file", label: "Download PDF", keywords: "export", run: handleDownload },
+  ];
+
   const activeModeMeta = MODES.find((m) => m.key === mode);
 
   // Design is a left-hand MODE only where there is no inspector to hold it.
@@ -878,6 +902,7 @@ export default function TemplateBuilderClient() {
   return (
     <MuiThemeRegistry>
     <style>{CANVAS_STYLESHEET}</style>
+    <CommandPalette open={palette.open} onClose={() => palette.setOpen(false)} commands={commands} />
     <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       {feedbackToast ? (
         <div
@@ -914,6 +939,7 @@ export default function TemplateBuilderClient() {
 
       {/* ── Top Bar ─────────────────────────────────────────── */}
       <TemplateBuilderTopBar
+        pageFit={pageFit}
         atsScore={reviewResult?.overallScore ?? null}
         atsColor={reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : undefined}
         onOpenReview={() => { setMode("review"); setPanelOpen(true); }}
@@ -1105,7 +1131,7 @@ export default function TemplateBuilderClient() {
                 only way to discover that is to download the file.
                 az-pdf-ignore keeps it out of the export.
               */}
-              {!phone && <PageBoundaryRule overflowPx={pageOverflowPx} />}
+              {!phone && <PageBoundaryRule overflowPx={pageFit.overflowPx} />}
             </div>
           </div>
         </div>

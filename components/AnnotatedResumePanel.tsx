@@ -496,7 +496,7 @@ export default function AnnotatedResumePanel({
   // Where does page 1 end? The Analyze canvas is where people iterate on
   // content, so "will this still fit on one page" is the question being asked
   // on every edit — and the answer was only discoverable by downloading.
-  const pageOverflowPx = usePageOverflow(paperRef);
+  const pageFit = usePageOverflow(paperRef);
 
   // Callback to handle section selection from preview
   const onSectionSelected = useCallback((blockIdx: number) => {
@@ -1453,7 +1453,7 @@ export default function AnnotatedResumePanel({
             margin: "0 auto",
           }}
         >
-          <PageBoundaryRule overflowPx={pageOverflowPx} />
+          <PageBoundaryRule overflowPx={pageFit.overflowPx} />
           {presentationOnly && highlightsEnabled && (
             <div
               className="az-pdf-ignore"
