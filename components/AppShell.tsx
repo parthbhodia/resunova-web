@@ -117,6 +117,9 @@ function AppShellBody({ children }: { children: ReactNode }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Which path the user last toggled the nav on. Their explicit choice beats
+  // the workspace-route default, but only for the route they made it on.
+  const [sidebarTogglePath, setSidebarTogglePath] = useState<string | null>(null);
   const [advisorAllowed, setAdvisorAllowed] = useState(false);
   const [mobileBugReportOpen, setMobileBugReportOpen] = useState(false);
 
@@ -124,10 +127,25 @@ function AppShellBody({ children }: { children: ReactNode }) {
     setSidebarOpen(!readSidebarCollapsed());
   }, []);
 
+  // Workspace routes open collapsed: these are the surfaces where the canvas
+  // or the editor wants the horizontal room, and the nav has nothing to do
+  // once you are on them.
+  //
+  // DERIVED, not an effect. Pushing this through setState in a pathname effect
+  // is a cascading render (the repo's lint ratchet rejects it) and it also
+  // fights the user: their toggle would be overwritten on the next render.
+  // Instead the collapse applies until they toggle ON THIS path, after which
+  // their choice wins.
+  const WORKSPACE_PATHS = ["/template-builder", "/my-resumes", "/interview-prep", "/profile"];
+  const onWorkspaceRoute = WORKSPACE_PATHS.some((p) => pathname?.startsWith(p));
+  const sidebarOpenEffective =
+    onWorkspaceRoute && sidebarTogglePath !== pathname ? false : sidebarOpen;
+
   const handleSidebarOpenChange = useCallback((open: boolean) => {
     setSidebarOpen(open);
+    setSidebarTogglePath(pathname ?? null);
     writeSidebarCollapsed(!open);
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -232,6 +250,13 @@ function AppShellBody({ children }: { children: ReactNode }) {
     router.push(`/?view=${next}`);
     setHistoryOpen(false);
     setBuilderOpen(false);
+    // Collapse the nav on every switch. You navigate once and then work; the
+    // rail sitting open afterwards costs ~240px of the workspace for a menu
+    // whose job is already done. It reopens on the toggle, and the choice is
+    // NOT written to storage — this is a per-navigation behaviour, not a new
+    // persisted preference, so the user's own collapsed/expanded setting
+    // survives a reload.
+    setSidebarOpen(false);
   };
 
   const goBuilderFlow = (flow: "tailor" | "template") => {
@@ -269,7 +294,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
     <UmbcProvider isUmbc={isUmbc}>
       <TooltipProvider delay={0}>
         <SidebarProvider
-          open={sidebarOpen}
+          open={sidebarOpenEffective}
           onOpenChange={handleSidebarOpenChange}
           defaultOpen={!readSidebarCollapsed()}
           className="app-shell-root min-h-dvh max-h-dvh overflow-hidden bg-background"

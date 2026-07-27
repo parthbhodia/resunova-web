@@ -38,6 +38,10 @@ import BoltIcon from "@mui/icons-material/Bolt";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import CloseIcon from "@mui/icons-material/Close";
+import UndoIcon from "@mui/icons-material/Undo";
+import CircularProgress from "@mui/material/CircularProgress";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import Button from "@mui/material/Button";
 import LockIcon from "@mui/icons-material/Lock";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -1147,6 +1151,16 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
   const [aiLoading, setAiLoading] = useState(false);
   const [undoVal, setUndoVal] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  // Grow the field to fit its content. This writes to the DOM rather than to
+  // state on purpose — an external-system update is what effects are for, and
+  // a setState here would be the cascading render the ratchet rejects.
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(44, el.scrollHeight)}px`;
+  }, [value]);
   const wordCount = value.trim().split(/\s+/).filter(Boolean).length;
   const showAi = wordCount >= 3;
 
@@ -1167,85 +1181,98 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
   }, [value, context, onChange, signedIn, onRequireSignIn]);
 
   return (
-    <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 6 }}>
+    /*
+      Was: textarea and a VERTICAL stack of icon buttons side by side, with the
+      AI button absolutely positioned over the text.
+
+      Three things broke at once in a narrow panel. The 44px tap floor made the
+      button column ~132px tall next to a ~38px textarea, so every bullet grew a
+      huge blank gutter. `rows={2}` clipped any bullet longer than two lines.
+      And the AI button sat bottom-right INSIDE the text box, so it covered the
+      last line rather than sitting beside it.
+
+      Now: the text gets the full width and grows with its content, and the
+      controls sit in one horizontal row underneath. Same 44px targets, no
+      overlap, no dead vertical space.
+    */
+    <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 10 }}>
       <span style={{ color: "var(--muted)", fontSize: 14, marginTop: 9, flexShrink: 0, userSelect: "none" }}>•</span>
-      <div style={{ flex: 1, position: "relative" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <textarea
+          ref={taRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          rows={2}
+          // Height is MEASURED, not estimated. A character-count guess was the
+          // first attempt and it still clipped: how many lines a bullet wraps
+          // to depends on the column width and the glyphs, which the component
+          // cannot know. scrollHeight is the browser's own answer.
+          rows={1}
           style={{
             ...textareaBase,
-            minHeight: 38,
+            minHeight: 44,
             resize: "vertical",
-            paddingRight: showAi ? 82 : undefined,
             lineHeight: 1.45,
             fontSize: 12.5,
+            width: "100%",
           }}
           placeholder="Describe an achievement or responsibility..."
         />
-        {showAi && (
-          <div style={{ position: "absolute", bottom: 7, right: 7, display: "flex", gap: 4, alignItems: "center" }}>
-            {aiError && (
-              <span style={{ fontSize: 9, color: "var(--red, #ef4444)", maxWidth: 110, textAlign: "right", lineHeight: 1.2 }}>{aiError}</span>
-            )}
-            {undoVal !== null && !aiLoading && (
-              <button
-                type="button"
-                onClick={() => { onChange(undoVal); setUndoVal(null); }}
-                style={{
-                  fontSize: 9, color: "var(--muted)", background: "var(--surface2)",
-                  border: "1px solid var(--border)", borderRadius: 4, padding: "2px 5px", cursor: "pointer",
-                }}
-              >↩</button>
-            )}
-            <button
-              type="button"
-              onClick={enhance}
-              disabled={aiLoading}
-              title={signedIn === false ? "Sign in to rewrite this bullet with AI" : "Rewrite this bullet with AI"}
-              style={{
-                fontSize: 10, fontWeight: 600, padding: "3px 7px", borderRadius: 4, border: "none",
-                background: aiLoading ? "var(--surface2)" : "var(--accent)",
-                color: aiLoading ? "var(--muted)" : "#fff",
-                cursor: aiLoading ? "not-allowed" : "pointer",
-                display: "flex", alignItems: "center", gap: 3,
-              }}
-            >
-              {aiLoading
-                ? <span style={{ width: 8, height: 8, border: "1.5px solid var(--border)", borderTopColor: "var(--muted)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
-                : <>✦ AI{signedIn === false && <LockIcon aria-hidden sx={{ fontSize: 12, ml: 0.25, verticalAlign: "-1px" }} />}</>}
-            </button>
-          </div>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 2, marginTop: 2 }}>
+          {showAi && (
+            <>
+              <Button
+                onClick={enhance}
+                disabled={aiLoading}
+                size="small"
+                variant="contained"
+                startIcon={aiLoading
+                  ? <CircularProgress size={12} color="inherit" />
+                  : <AutoAwesomeIcon sx={{ fontSize: 14 }} />}
+                endIcon={signedIn === false ? <LockIcon sx={{ fontSize: 12 }} /> : undefined}
+                sx={{ minHeight: 32, fontSize: 11, px: 1.25 }}
+              >
+                {aiLoading ? "Rewriting…" : "AI"}
+              </Button>
+              {undoVal !== null && !aiLoading && (
+                <Tooltip title="Undo the AI rewrite">
+                  <IconButton size="small" aria-label="Undo the AI rewrite"
+                    onClick={() => { onChange(undoVal); setUndoVal(null); }}
+                    sx={{ minWidth: 32, minHeight: 32 }}>
+                    <UndoIcon sx={{ fontSize: 15 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {aiError && (
+                <span style={{ fontSize: 10, color: "var(--red, #ef4444)", lineHeight: 1.2 }}>{aiError}</span>
+              )}
+            </>
+          )}
+          <Box sx={{ display: "flex", alignItems: "center", ml: "auto" }}>
+            <Tooltip title="Move bullet up">
+              <span>
+                <IconButton size="small" onClick={onMoveUp} disabled={isFirst} aria-label="Move bullet up"
+                  sx={{ minWidth: 32, minHeight: 32 }}>
+                  <ArrowUpwardIcon sx={{ fontSize: 15 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Move bullet down">
+              <span>
+                <IconButton size="small" onClick={onMoveDown} disabled={isLast} aria-label="Move bullet down"
+                  sx={{ minWidth: 32, minHeight: 32 }}>
+                  <ArrowDownwardIcon sx={{ fontSize: 15 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Remove bullet">
+              <IconButton size="small" onClick={onRemove} aria-label="Remove bullet" color="error"
+                sx={{ minWidth: 32, minHeight: 32 }}>
+                <CloseIcon sx={{ fontSize: 15 }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </div>
       </div>
-      {/*
-        Was three ~22px glyph buttons (↑ ↓ ✕) carrying a native `title` and no
-        accessible name. IconButton takes the theme's 44px floor, and `title`
-        on a Tooltip gives a label that shows on keyboard focus and on touch —
-        neither of which the native attribute does.
-      */}
-      <Box sx={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
-        <Tooltip title="Move bullet up">
-          <span>
-            <IconButton size="small" onClick={onMoveUp} disabled={isFirst} aria-label="Move bullet up">
-              <ArrowUpwardIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title="Move bullet down">
-          <span>
-            <IconButton size="small" onClick={onMoveDown} disabled={isLast} aria-label="Move bullet down">
-              <ArrowDownwardIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title="Remove bullet">
-          <IconButton size="small" onClick={onRemove} aria-label="Remove bullet" color="error">
-            <CloseIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
-      </Box>
     </div>
   );
 }
