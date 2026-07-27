@@ -20,6 +20,8 @@ import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
 import { PHONE_BREAKPOINT } from "@/components/mui/theme";
 import TemplateBuilderTopBar from "./TemplateBuilderTopBar";
 import { TBInput, TBTextarea } from "./TBFields";
+import { useCanvasEdit } from "./canvas/useCanvasEdit";
+import { CANVAS_STYLESHEET } from "./canvas/CanvasPrimitives";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -521,6 +523,28 @@ export default function TemplateBuilderClient() {
   const previewPaneRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(0.82);
 
+  // Direct-manipulation editing on the paper. Off on phones: a 390px canvas
+  // scaled to ~0.42 gives a 5px tap target per bullet, so the form is the
+  // honest editor there and the canvas stays read-only.
+  const canvasEdit = useCanvasEdit(store, { aiLocked: signedIn === false });
+
+  // US Letter is 1056px at 96dpi. Content past that silently becomes page 2,
+  // which is the single most consequential thing a résumé editor can hide
+  // from the user, so it is surfaced as a rule on the canvas.
+  const paperContentRef = useRef<HTMLDivElement>(null);
+  const [pageOverflowPx, setPageOverflowPx] = useState(0);
+  useEffect(() => {
+    const el = paperContentRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const PAGE_PX = 1056;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height ?? 0;
+      setPageOverflowPx(h > PAGE_PX ? Math.round(h - PAGE_PX) : 0);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loaded]);
+
   const builderIdFromUrl = (searchParams?.get("builder") ?? "").trim();
   const presetFromUrl = (searchParams?.get("preset") ?? "").trim().toLowerCase();
 
@@ -803,14 +827,16 @@ export default function TemplateBuilderClient() {
 
   const activeModeMeta = MODES.find((m) => m.key === mode);
 
+  // Design is a left-hand MODE only where there is no inspector to hold it.
+  const visibleModes = narrow ? MODES : MODES.filter((m) => m.key !== "design");
   const modeSwitcher = (
     <Tabs
-      value={mode}
+      value={visibleModes.some((m) => m.key === mode) ? mode : "content"}
       onChange={(_, v: EditorMode) => setMode(v)}
       variant="fullWidth"
       sx={{ borderBottom: 1, borderColor: "divider", flexShrink: 0, minHeight: 48 }}
     >
-      {MODES.map((m) => (
+      {visibleModes.map((m) => (
         <Tab key={m.key} value={m.key} label={m.label} icon={<m.Icon fontSize="small" />} iconPosition="start" />
       ))}
     </Tabs>
@@ -844,6 +870,7 @@ export default function TemplateBuilderClient() {
 
   return (
     <MuiThemeRegistry>
+    <style>{CANVAS_STYLESHEET}</style>
     <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       {feedbackToast ? (
         <div
@@ -1028,7 +1055,7 @@ export default function TemplateBuilderClient() {
           </div>
         )}
 
-        {/* ── Right: Preview Panel ──────────────────────────── */}
+        {/* ── Centre: the canvas ────────────────────────────── */}
         <div ref={previewPaneRef} style={{
           flex: 1,
           display: phone && phoneView === "edit" ? "none" : "flex",
@@ -1059,11 +1086,61 @@ export default function TemplateBuilderClient() {
               (the paper element) and the zoom lives on this wrapper, exactly
               as the transform did. Same precedent as ResumeThumbnail.tsx.
             */}
-            <div style={{ zoom: previewScale }}>
-              <ResumePreview ref={previewRef} data={data} />
+            <div style={{ zoom: previewScale, position: "relative" }}>
+              <div ref={paperContentRef}>
+                {/* Editing is enabled on pointer widths only — see canvasEdit. */}
+                <ResumePreview ref={previewRef} data={data} edit={phone ? undefined : canvasEdit} />
+              </div>
+
+              {/*
+                The US-Letter page boundary, drawn on the canvas. Everything
+                below this line is page 2 in the PDF; without the rule the
+                only way to discover that is to download the file.
+                az-pdf-ignore keeps it out of the export.
+              */}
+              {!phone && (
+                <div
+                  className="az-pdf-ignore"
+                  aria-hidden
+                  style={{
+                    position: "absolute", left: 0, right: 0, top: 1056,
+                    borderTop: `1px dashed ${pageOverflowPx ? "#dc2626" : "#cbd5e1"}`,
+                    pointerEvents: "none", zIndex: 4,
+                  }}
+                >
+                  <span style={{
+                    position: "absolute", right: 0, top: 4,
+                    fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+                    color: pageOverflowPx ? "#dc2626" : "#94a3b8",
+                    background: "#fff", padding: "1px 6px", borderRadius: 4,
+                    border: `1px solid ${pageOverflowPx ? "#fecaca" : "#e2e8f0"}`,
+                  }}>
+                    {pageOverflowPx ? `${pageOverflowPx}px past page 1` : "PAGE 1 ENDS"}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* ── Right: Style Inspector ────────────────────────── */}
+        {!narrow && (
+          <aside style={{
+            width: 280, flexShrink: 0, display: "flex", flexDirection: "column",
+            borderLeft: "1px solid var(--border)", background: "var(--surface)", overflow: "hidden",
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "12px 14px",
+              borderBottom: "1px solid var(--border)", flexShrink: 0,
+            }}>
+              <PaletteIcon fontSize="small" style={{ color: "var(--accent)" }} />
+              <span style={{ fontSize: 13, fontWeight: 700 }}>Design</span>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 32px" }}>
+              <CustomizeSection store={store} c={c} />
+            </div>
+          </aside>
+        )}
       </div>
     </div>
     </MuiThemeRegistry>
