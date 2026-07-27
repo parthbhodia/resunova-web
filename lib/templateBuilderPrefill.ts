@@ -19,6 +19,8 @@ import {
   type StructuredResume,
 } from "@/store/resumeAnalyzeStore";
 import type { RoleResumeData } from "@/lib/roleResumeData";
+// One definition of the date split, shared with the document model.
+import { splitDateRange } from "@/lib/resumeDocumentModel";
 
 const TEMPLATE_BUILDER_STRUCTURED_PREFILL_KEY = "rn_template_builder_structured_prefill";
 
@@ -43,22 +45,7 @@ function mapExtraSections(structured: StructuredResume): TBCustomSection[] {
   return out;
 }
 
-function splitDateRange(raw: string): { startDate: string; endDate: string; current: boolean } {
-  const text = (raw ?? "").trim();
-  if (!text) return { startDate: "", endDate: "", current: false };
-  const parts = text
-    .split(/\s(?:-|–|—|to)\s/i)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (!parts.length) return { startDate: text, endDate: "", current: false };
-  if (parts.length === 1) return { startDate: parts[0], endDate: "", current: false };
-  const startDate = parts[0];
-  const endDate = parts[parts.length - 1];
-  const current = /present|current|ongoing|now/i.test(endDate);
-  return { startDate, endDate: current ? "" : endDate, current };
-}
-
-function mapStructuredResumeToTemplateData(structured: StructuredResume): TBResumeData {
+export function mapStructuredResumeToTemplateData(structured: StructuredResume): TBResumeData {
   const featuredSkills = DEFAULT_FEATURED_SKILLS();
   const flatSkills = structured.skills.flatMap((s) => (Array.isArray(s.items) ? s.items : []));
   const uniqueSkills: string[] = [];
