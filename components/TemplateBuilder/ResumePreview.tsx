@@ -3,6 +3,7 @@ import { forwardRef, type CSSProperties } from "react";
 import type { TBResumeData } from "./types";
 import { parseCustomSectionId } from "./types";
 import { renderSectionSlot } from "./renderResumeSections";
+import type { CanvasEdit } from "@/components/canvas/canvasTypes";
 import {
   resolveResumeLayout,
   resumeNameStyle,
@@ -26,7 +27,7 @@ function isSidebarSlot(slot: string): boolean {
   return false;
 }
 
-const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(function ResumePreview({ data }, ref) {
+const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData; edit?: CanvasEdit }>(function ResumePreview({ data, edit }, ref) {
   const { profile, customization, sectionOrder, hiddenSections } = data;
   const layout = customization?.layout ?? "single";
   const ctx = resolveResumeLayout({
@@ -101,7 +102,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
 
         {sectionOrder.map((slot) => {
           if (hidden.has(slot)) return null;
-          return <div key={slot}>{renderSectionSlot(slot, data, ctx)}</div>;
+          return <div key={slot}>{renderSectionSlot(slot, data, ctx, edit)}</div>;
         })}
       </div>
     );
@@ -153,7 +154,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
             {renderContactRowWithIcons("#444")}
           </div>
           {sidebarSlots.map((slot) => (
-            <div key={slot}>{renderSectionSlot(slot, data, ctx)}</div>
+            <div key={slot}>{renderSectionSlot(slot, data, ctx, edit)}</div>
           ))}
         </div>
         <div
@@ -165,7 +166,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
           }}
         >
           {mainSlots.map((slot) => (
-            <div key={slot}>{renderSectionSlot(slot, data, ctx)}</div>
+            <div key={slot}>{renderSectionSlot(slot, data, ctx, edit)}</div>
           ))}
           {mainSlots.length === 0 && (
             <p style={{ color: "#bbb", fontSize: 13, marginTop: 24 }}>
@@ -214,7 +215,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
             {renderContactRowWithIcons(ctx.accent)}
           </div>
           {mainSlots.map((slot) => (
-            <div key={slot}>{renderSectionSlot(slot, data, ctx)}</div>
+            <div key={slot}>{renderSectionSlot(slot, data, ctx, edit)}</div>
           ))}
         </div>
 
@@ -260,7 +261,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
           `}</style>
           
           {sidebarSlots.map((slot) => (
-            <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx)}</div>
+            <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx, edit)}</div>
           ))}
         </div>
       </div>
@@ -334,7 +335,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
           >
             {/* Since summary is usually in the banner partially, we still render main slots here */}
             {mainSlots.map((slot) => (
-              <div key={slot}>{renderSectionSlot(slot, data, ctx)}</div>
+              <div key={slot}>{renderSectionSlot(slot, data, ctx, edit)}</div>
             ))}
           </div>
 
@@ -349,7 +350,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData }>(functio
             }}
           >
             {sidebarSlots.map((slot) => (
-              <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx)}</div>
+              <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx, edit)}</div>
             ))}
           </div>
         </div>
