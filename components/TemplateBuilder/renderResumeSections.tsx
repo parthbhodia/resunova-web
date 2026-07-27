@@ -4,6 +4,7 @@ import type { CanvasEdit, CanvasEntryKind } from "@/components/canvas/canvasType
 import {
   CanvasBlock, EditableText, IcoPlus, IcoTrash, IcoUp, IcoDown, IcoSparkle, IcoDrag,
 } from "@/components/canvas/CanvasPrimitives";
+import { CanvasSortableGroup, SortableCanvasBlock } from "@/components/canvas/SortableCanvasBlock";
 import { isCoreSectionSlot, parseCustomSectionId } from "./types";
 import type { ResumeLayoutContext } from "@/lib/resumeLayout";
 import {
@@ -19,6 +20,21 @@ import {
   resumeSkillsTextStyle,
   resumeSummaryStyle,
 } from "@/lib/resumeLayout";
+
+/**
+ * Wraps children in a sortable group ONLY while editing. With `edit`
+ * undefined — the PDF capture path — it is a bare fragment, so no dnd-kit
+ * wrapper element can appear in the exported markup.
+ */
+function MaybeSortable({ edit, ids, onReorder, children }: {
+  edit?: CanvasEdit;
+  ids: string[];
+  onReorder: (from: number, to: number) => void;
+  children: ReactNode;
+}) {
+  if (!edit) return <>{children}</>;
+  return <CanvasSortableGroup ids={ids} onReorder={onReorder}>{children}</CanvasSortableGroup>;
+}
 
 function parseBullets(raw: string): string[] {
   return raw.split("\n").map((l) => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
@@ -39,6 +55,8 @@ export function renderTbContentSection(
 
   /** Entry-level actions: reorder, hand to AI, delete. */
   const entryActions = (kind: CanvasEntryKind, id: string, idx: number, count: number) => [
+    // onClick is a no-op by design: this button's job is to be grabbed.
+    // SortableCanvasBlock spreads dnd-kit's listeners onto it by key.
     { key: "drag", label: "Drag to reorder", icon: <IcoDrag />, onClick: () => {} },
     { key: "up", label: "Move up", icon: <IcoUp />, disabled: idx === 0,
       onClick: () => edit!.moveEntry(kind, idx, idx - 1) },
@@ -78,6 +96,8 @@ export function renderTbContentSection(
       return (
         <>
           <div style={resumeSectionTitleStyle(ctx)}>Experience</div>
+          <MaybeSortable edit={edit} ids={workExperiences.filter((w) => w.company || w.jobTitle).map((w) => w.id)}
+            onReorder={(f, t) => edit!.moveEntry("experience", f, t)}>
           {workExperiences.filter((w) => w.company || w.jobTitle).map((w, idx, arr) => {
             const dateStr = [w.startDate, w.current ? "Present" : w.endDate].filter(Boolean).join(" – ");
             const bullets = parseBullets(w.bullets);
@@ -108,13 +128,14 @@ export function renderTbContentSection(
               </>
             );
             return edit ? (
-              <CanvasBlock key={w.id} actions={entryActions("experience", w.id, idx, arr.length)}>
+              <SortableCanvasBlock key={w.id} id={w.id} actions={entryActions("experience", w.id, idx, arr.length)}>
                 <div style={resumeEntryBlockStyle(ctx)}>{body}</div>
-              </CanvasBlock>
+              </SortableCanvasBlock>
             ) : (
               <div key={w.id} style={resumeEntryBlockStyle(ctx)}>{body}</div>
             );
           })}
+          </MaybeSortable>
         </>
       );
     case "education":
@@ -122,6 +143,8 @@ export function renderTbContentSection(
       return (
         <>
           <div style={resumeSectionTitleStyle(ctx)}>Education</div>
+          <MaybeSortable edit={edit} ids={educations.filter((e) => e.school || e.degree).map((e) => e.id)}
+            onReorder={(f, t) => edit!.moveEntry("education", f, t)}>
           {educations.filter((e) => e.school || e.degree).map((e, idx, arr) => {
             const dateStr = [e.startDate, e.endDate].filter(Boolean).join(" – ");
             const eduBody = (
@@ -145,9 +168,10 @@ export function renderTbContentSection(
               </div>
             );
             return edit ? (
-              <CanvasBlock key={e.id} actions={entryActions("education", e.id, idx, arr.length)}>{eduBody}</CanvasBlock>
+              <SortableCanvasBlock key={e.id} id={e.id} actions={entryActions("education", e.id, idx, arr.length)}>{eduBody}</SortableCanvasBlock>
             ) : <div key={e.id}>{eduBody}</div>;
           })}
+          </MaybeSortable>
         </>
       );
     case "projects":
@@ -155,6 +179,8 @@ export function renderTbContentSection(
       return (
         <>
           <div style={resumeSectionTitleStyle(ctx)}>Projects</div>
+          <MaybeSortable edit={edit} ids={projects.filter((p) => p.name).map((p) => p.id)}
+            onReorder={(f, t) => edit!.moveEntry("project", f, t)}>
           {projects.filter((p) => p.name).map((p, idx, arr) => {
             const bullets = parseBullets(p.bullets);
             const projBody = (
@@ -181,9 +207,10 @@ export function renderTbContentSection(
               </div>
             );
             return edit ? (
-              <CanvasBlock key={p.id} actions={entryActions("project", p.id, idx, arr.length)}>{projBody}</CanvasBlock>
+              <SortableCanvasBlock key={p.id} id={p.id} actions={entryActions("project", p.id, idx, arr.length)}>{projBody}</SortableCanvasBlock>
             ) : <div key={p.id}>{projBody}</div>;
           })}
+          </MaybeSortable>
         </>
       );
     case "skills": {

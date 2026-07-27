@@ -82,6 +82,12 @@ export interface CanvasAction {
   onClick: () => void;
   tone?: "default" | "danger" | "ai";
   disabled?: boolean;
+  /**
+   * dnd-kit listeners/attributes, when this action IS the drag handle.
+   * Spread onto the button so the handle the user already sees is the one
+   * that drags, rather than adding a second affordance beside it.
+   */
+  dragHandleProps?: Record<string, unknown>;
 }
 
 /**
@@ -105,9 +111,12 @@ export function CanvasBlock({
             title={a.label}
             aria-label={a.label}
             disabled={a.disabled}
-            onMouseDown={(e) => e.preventDefault()}  // keep caret/selection
+            // A drag handle must receive pointerdown; every other action
+            // preventDefaults it so clicking the menu never steals the caret.
+            onMouseDown={a.dragHandleProps ? undefined : (e) => e.preventDefault()}
             onClick={a.onClick}
-            className={`tb-canvas-action tb-canvas-action--${a.tone ?? "default"}`}
+            className={`tb-canvas-action tb-canvas-action--${a.tone ?? "default"}${a.dragHandleProps ? " tb-canvas-action--drag" : ""}`}
+            {...(a.dragHandleProps ?? {})}
           >
             {a.icon}
           </button>
@@ -155,6 +164,8 @@ export const CANVAS_STYLESHEET = `
 .tb-canvas-action--ai { color: #059669; }
 .tb-canvas-action--ai:hover { background: #ecfdf5; color: #047857; }
 .tb-canvas-action:disabled { opacity: 0.35; cursor: not-allowed; }
+.tb-canvas-action--drag { cursor: grab; touch-action: none; }
+.tb-canvas-action--drag:active { cursor: grabbing; }
 /* Belt and braces: if a menu ever escapes cleanForExport, it still cannot print. */
 @media print { .tb-canvas-actions { display: none !important; } }
 `;
