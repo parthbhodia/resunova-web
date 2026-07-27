@@ -15,6 +15,7 @@ import {
   type CategoryAssignmentOptions,
 } from "@/lib/analysisCategoryMatch";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
+import { PageBoundaryRule, usePageOverflow } from "@/components/canvas/PageBoundaryRule";
 import type { ScoreEstimate } from "@/lib/analyzeScoreEstimate";
 import type { StructuredBulletOp } from "@/lib/structuredBulletOps";
 import { useResumeAnalyzeStore, type StructuredResume } from "@/store/resumeAnalyzeStore";
@@ -492,6 +493,10 @@ export default function AnnotatedResumePanel({
   });
   const scrollRef = useRef<HTMLDivElement>(null);
   const paperRef = useRef<HTMLDivElement>(null);
+  // Where does page 1 end? The Analyze canvas is where people iterate on
+  // content, so "will this still fit on one page" is the question being asked
+  // on every edit — and the answer was only discoverable by downloading.
+  const pageOverflowPx = usePageOverflow(paperRef);
 
   // Callback to handle section selection from preview
   const onSectionSelected = useCallback((blockIdx: number) => {
@@ -1448,6 +1453,7 @@ export default function AnnotatedResumePanel({
             margin: "0 auto",
           }}
         >
+          <PageBoundaryRule overflowPx={pageOverflowPx} />
           {presentationOnly && highlightsEnabled && (
             <div
               className="az-pdf-ignore"

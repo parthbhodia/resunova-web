@@ -20,8 +20,9 @@ import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
 import { PHONE_BREAKPOINT } from "@/components/mui/theme";
 import TemplateBuilderTopBar from "./TemplateBuilderTopBar";
 import { TBInput, TBTextarea } from "./TBFields";
-import { useCanvasEdit } from "./canvas/useCanvasEdit";
-import { CANVAS_STYLESHEET } from "./canvas/CanvasPrimitives";
+import { useCanvasEdit } from "@/components/canvas/useCanvasEdit";
+import { CANVAS_STYLESHEET } from "@/components/canvas/CanvasPrimitives";
+import { PageBoundaryRule, usePageOverflow } from "@/components/canvas/PageBoundaryRule";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -532,18 +533,7 @@ export default function TemplateBuilderClient() {
   // which is the single most consequential thing a résumé editor can hide
   // from the user, so it is surfaced as a rule on the canvas.
   const paperContentRef = useRef<HTMLDivElement>(null);
-  const [pageOverflowPx, setPageOverflowPx] = useState(0);
-  useEffect(() => {
-    const el = paperContentRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const PAGE_PX = 1056;
-    const ro = new ResizeObserver((entries) => {
-      const h = entries[0]?.contentRect.height ?? 0;
-      setPageOverflowPx(h > PAGE_PX ? Math.round(h - PAGE_PX) : 0);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [loaded]);
+  const pageOverflowPx = usePageOverflow(paperContentRef, loaded);
 
   const builderIdFromUrl = (searchParams?.get("builder") ?? "").trim();
   const presetFromUrl = (searchParams?.get("preset") ?? "").trim().toLowerCase();
@@ -1098,27 +1088,7 @@ export default function TemplateBuilderClient() {
                 only way to discover that is to download the file.
                 az-pdf-ignore keeps it out of the export.
               */}
-              {!phone && (
-                <div
-                  className="az-pdf-ignore"
-                  aria-hidden
-                  style={{
-                    position: "absolute", left: 0, right: 0, top: 1056,
-                    borderTop: `1px dashed ${pageOverflowPx ? "#dc2626" : "#cbd5e1"}`,
-                    pointerEvents: "none", zIndex: 4,
-                  }}
-                >
-                  <span style={{
-                    position: "absolute", right: 0, top: 4,
-                    fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
-                    color: pageOverflowPx ? "#dc2626" : "#94a3b8",
-                    background: "#fff", padding: "1px 6px", borderRadius: 4,
-                    border: `1px solid ${pageOverflowPx ? "#fecaca" : "#e2e8f0"}`,
-                  }}>
-                    {pageOverflowPx ? `${pageOverflowPx}px past page 1` : "PAGE 1 ENDS"}
-                  </span>
-                </div>
-              )}
+              {!phone && <PageBoundaryRule overflowPx={pageOverflowPx} />}
             </div>
           </div>
         </div>

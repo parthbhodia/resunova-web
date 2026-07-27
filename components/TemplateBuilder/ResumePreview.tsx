@@ -3,7 +3,7 @@ import { forwardRef, type CSSProperties } from "react";
 import type { TBResumeData } from "./types";
 import { parseCustomSectionId } from "./types";
 import { renderSectionSlot } from "./renderResumeSections";
-import type { CanvasEdit } from "./canvas/canvasTypes";
+import type { CanvasEdit } from "@/components/canvas/canvasTypes";
 import {
   resolveResumeLayout,
   resumeNameStyle,

@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import type { TBResumeData, TBContentSection, TBCustomSection } from "./types";
-import type { CanvasEdit, CanvasEntryKind } from "./canvas/canvasTypes";
+import type { CanvasEdit, CanvasEntryKind } from "@/components/canvas/canvasTypes";
 import {
   CanvasBlock, EditableText, IcoPlus, IcoTrash, IcoUp, IcoDown, IcoSparkle, IcoDrag,
-} from "./canvas/CanvasPrimitives";
+} from "@/components/canvas/CanvasPrimitives";
 import { isCoreSectionSlot, parseCustomSectionId } from "./types";
 import type { ResumeLayoutContext } from "@/lib/resumeLayout";
 import {
