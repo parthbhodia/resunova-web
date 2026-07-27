@@ -229,7 +229,12 @@ export function renderTbContentSection(
           {skills.descriptions.trim() && (
             <div style={resumeSkillsTextStyle(ctx)}>
               {skills.descriptions.split("\n").filter(Boolean).map((line, i) => (
-                <div key={i}>{line}</div>
+                edit ? (
+                  <div key={i}>
+                    <EditableText value={line} multiline
+                      onCommit={(v) => edit.setSkillLine(i, v)} />
+                  </div>
+                ) : <div key={i}>{line}</div>
               ))}
             </div>
           )}
@@ -241,15 +246,25 @@ export function renderTbContentSection(
   }
 }
 
-function renderCustomSection(section: TBCustomSection, ctx: ResumeLayoutContext): ReactNode {
+function renderCustomSection(section: TBCustomSection, ctx: ResumeLayoutContext, edit?: CanvasEdit): ReactNode {
   const title = section.title.trim();
   const lines = section.lines.split("\n").map((l) => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
   if (!title && !lines.length) return null;
   return (
     <>
-      <div style={resumeSectionTitleStyle(ctx)}>{title || "Additional"}</div>
+      <div style={resumeSectionTitleStyle(ctx)}>
+        {edit
+          ? <EditableText value={title || "Additional"}
+              onCommit={(v) => edit.setCustomTitle(section.id, v)} />
+          : (title || "Additional")}
+      </div>
       {lines.map((line, i) => (
-        <div key={i} style={resumeBulletStyle(ctx)}>• {line}</div>
+        <div key={i} style={resumeBulletStyle(ctx)}>• {
+          edit
+            ? <EditableText value={line} multiline
+                onCommit={(v) => edit.setCustomLine(section.id, i, v)} />
+            : line
+        }</div>
       ))}
     </>
   );
@@ -264,7 +279,7 @@ export function renderSectionSlot(
   const customId = parseCustomSectionId(slot);
   if (customId) {
     const section = data.customSections.find((c) => c.id === customId);
-    return section ? renderCustomSection(section, ctx) : null;
+    return section ? renderCustomSection(section, ctx, edit) : null;
   }
   if (isCoreSectionSlot(slot)) {
     return renderTbContentSection(slot, data, ctx, edit);

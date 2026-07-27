@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import type { TBResumeData } from "./types";
 import { tbResumeToPlainText, tbResumeSignature } from "@/lib/tbResumeToText";
 import { apiFetch } from "@/lib/apiClient";
+import { tbToStructured } from "@/lib/resumeDocumentModel";
 
 export interface ReviewResult {
   overallScore: number | null;
@@ -96,7 +97,18 @@ export default function TemplateBuilderReviewPanel({ data, result, onResult }: {
       const res = await apiFetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidate_profile: resumeText, job_description: jd.trim(), include_bullet_analysis: true }),
+        // `structured_resume` alongside the flat text, not instead of it.
+        // The builder ALREADY holds the structure the user typed, and without
+        // it the backend re-derives one with an extra _llm_extract call per
+        // review — paying for an extraction, and re-parsing dates and headers
+        // out of flattened text that were unambiguous a moment earlier.
+        // candidate_profile stays for the text-based scorers.
+        body: JSON.stringify({
+          candidate_profile: resumeText,
+          structured_resume: tbToStructured(data),
+          job_description: jd.trim(),
+          include_bullet_analysis: true,
+        }),
       });
       const raw = await res.json().catch(() => ({} as Record<string, unknown>));
       if (res.status === 429) {

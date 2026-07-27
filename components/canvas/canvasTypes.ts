@@ -21,6 +21,11 @@ export interface CanvasEdit {
   onAi?: (kind: CanvasEntryKind, id: string) => void;
   /** Signed-out users get the sign-in prompt instead of an AI call. */
   aiLocked?: boolean;
+  /** One line of the free-text skill categories block. */
+  setSkillLine: (index: number, value: string) => void;
+  /** One line of a custom section (Certifications, Awards, …). */
+  setCustomLine: (sectionId: string, index: number, value: string) => void;
+  setCustomTitle: (sectionId: string, value: string) => void;
 }
 
 export type CanvasEntryKind = "experience" | "education" | "project";

@@ -76,6 +76,22 @@ export function useCanvasEdit(
         else store.moveProject(from, to);
       },
 
+      setSkillLine: (index, value) => {
+        const list = splitBullets(store.data.skills.descriptions);
+        if (!value.trim()) list.splice(index, 1); else list[index] = value;
+        store.setSkillDescriptions(list.join("\n"));
+      },
+
+      setCustomLine: (sectionId, index, value) => {
+        const section = store.data.customSections.find((c) => c.id === sectionId);
+        if (!section) return;
+        const list = splitBullets(section.lines);
+        if (!value.trim()) list.splice(index, 1); else list[index] = value;
+        store.setCustomSection(sectionId, "lines", list.join("\n"));
+      },
+
+      setCustomTitle: (sectionId, value) => store.setCustomSection(sectionId, "title", value),
+
       onAi,
       aiLocked,
     };
