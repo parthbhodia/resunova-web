@@ -54,15 +54,44 @@ reliable").
 
 ## Material Design
 
-New UI follows **Material Design 3**, built on the existing shadcn/base-ui
-primitives. We deliberately did **not** install MUI: running two component
-libraries means two theme systems, two sets of primitives, and a permanent seam
-between old and new screens. Material is a token layer instead, so every
-component keeps its current API.
+New UI follows **Material Design 3**, and **MUI (`@mui/material`) is the
+component library**.
 
-Tokens live in `lib/material.ts` and are mirrored as `--md-*` custom properties
-in `app/globals.css`. One definition, two consumers, pinned by
-`lib/__tests__/material.test.ts` so they cannot drift.
+> **This supersedes the decision recorded in #180.** That change adopted
+> Material as a *token layer* over shadcn/base-ui and stated we deliberately
+> did not install MUI, on the grounds that two component libraries means two
+> theme systems and a permanent seam. That reasoning was sound and the
+> tradeoff was made knowingly in the other direction: MUI ships the Material
+> components rather than reimplementing them, and the seam is accepted as
+> temporary while surfaces migrate. If you are reading git history and find
+> the older rule, this section wins.
+
+**Where each lives today.** Both exist during the migration; that is expected,
+not drift:
+
+| | library | status |
+|---|---|---|
+| Template Builder | MUI | converted |
+| Cover Letter builder | MUI | converted |
+| everything else | shadcn/base-ui + `--md-*` tokens | to migrate |
+
+New chrome goes to MUI. Do not start new work on the token layer.
+
+**The MUI theme is not Material's defaults.** `components/mui/theme.ts` maps
+the palette onto this app's own CSS variables, takes its type scale from
+`lib/typography.ts`, and sets a 44px minimum on Button/IconButton/MenuItem/Tab
+so hit areas are inherited rather than re-decided. `components/mui/__tests__/
+theme.test.ts` reads `globals.css` and fails if the two drift.
+
+**The provider is scoped, not global.** `MuiThemeRegistry` wraps the subtree
+that uses MUI, never the root layout — this is a static export of ~1,076
+prerendered pages and only surfaces that opted in should carry an Emotion
+runtime. `CssBaseline` is deliberately absent: it is a global reset and this
+app already has one.
+
+The legacy token layer still lives in `lib/material.ts`, mirrored as `--md-*`
+in `app/globals.css` and pinned by `lib/__tests__/material.test.ts`. Leave it
+in place until the last consumer is converted.
 
 **Elevation** is six defined levels, not ad-hoc box-shadows:
 
@@ -96,6 +125,15 @@ The résumé paper and everything on the PDF export path — `lib/resumeLayout.t
 metrics that drive Chromium pagination, and Material elevation renders as a grey
 box in an exported PDF. The exemption is asserted in the test; the state layer
 is also stripped from the export via `.az-clean-export`.
+
+**No MUI component may render on the résumé or cover-letter paper**, and this
+one fails silently rather than loudly. `useHtmlPdfExport` clones the paper and
+ships it to headless Chromium with a hand-written, self-contained stylesheet.
+Emotion's generated class names are not in that stylesheet, so an MUI component
+there renders correctly on screen and **vanishes from the download**. Same
+failure mode as referencing `var(--border)` on the paper. Use plain inline SVG
+and literal colours instead — `components/canvas/CanvasPrimitives.tsx` is the
+worked example.
 
 ## Calling the backend
 

@@ -13,6 +13,14 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction, type RefObject } from "react";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
+import CloseIcon from "@mui/icons-material/Close";
+import CheckIcon from "@mui/icons-material/Check";
+import AddIcon from "@mui/icons-material/Add";
 import { useRouter } from "next/navigation";
 import { scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { canBoost } from "@/lib/boostPrefill";
@@ -110,7 +118,7 @@ const SECTION_LABELS: Record<string, string> = {
   projects: "Projects",
 };
 
-export default function BoostPanel({
+function BoostPanelInner({
   job,
   onClose,
   open = true,
@@ -268,7 +276,11 @@ export default function BoostPanel({
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <span style={{ color: "var(--accent)", fontSize: 16 }}>✦</span>
             <span style={{ fontSize: 18, fontWeight: 700, color: "var(--text)" }}>Optimize my résumé</span>
-            <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--muted)" }}>✕</button>
+            <Tooltip title="Close">
+              <IconButton onClick={onClose} size="small" aria-label="Close boost panel" sx={{ ml: "auto" }}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </div>
           {/* stepper */}
           <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
@@ -495,9 +507,9 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <Checkbox on={on} onClick={() => toggleSection(s)} />
                   <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{SECTION_LABELS[s] || s}</span>
-                  <button onClick={() => setNoteFor(noteFor === s ? null : s)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--accent)", fontWeight: 500 }}>
-                    {notes[s] ? "✎ note" : "+ note"}
-                  </button>
+                  <Button onClick={() => setNoteFor(noteFor === s ? null : s)} size="small" variant="text" sx={{ ml: "auto", minHeight: 32, fontSize: 12 }}>
+                    {notes[s] ? "Edit note" : "Add note"}
+                  </Button>
                 </div>
                 {noteFor === s && (
                   <textarea
@@ -533,10 +545,19 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
               {job.injectableKeywords.map((k) => {
                 const on = keywords.has(k);
                 return (
-                  <button key={k} onClick={() => toggleKeyword(k)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, fontSize: 13, cursor: "pointer", border: `1px solid ${on ? "var(--accent)" : "var(--surface2)"}`, background: on ? "var(--accent-bg)" : "var(--surface)", color: on ? "var(--accent)" : "var(--text)", fontWeight: 500 }}>
-                    <span style={{ color: "var(--accent)", fontWeight: 600 }}>{on ? "✓" : "+"}</span>
-                    {k}
-                  </button>
+                  // MUI's icon slot rather than a nested span: the check/plus
+                  // is decorative, and Chip already handles its spacing and
+                  // colour against the selected state.
+                  <Chip
+                    key={k}
+                    label={k}
+                    onClick={() => toggleKeyword(k)}
+                    clickable
+                    variant={on ? "filled" : "outlined"}
+                    color={on ? "primary" : "default"}
+                    icon={on ? <CheckIcon /> : <AddIcon />}
+                    sx={{ height: 36, fontSize: 13, fontWeight: 500 }}
+                  />
                 );
               })}
             </div>
@@ -1060,5 +1081,19 @@ function RadioOpt({ on, onClick, title, sub }: { on: boolean; onClick: () => voi
         <span style={{ fontSize: 12, color: "var(--muted)" }}>{sub}</span>
       </span>
     </button>
+  );
+}
+
+/**
+ * Scoped MUI provider, same reason as the other converted surfaces: this is a
+ * static export and only subtrees that use MUI should carry an Emotion
+ * runtime. Wrapped at the export rather than inside the component because it
+ * has early returns.
+ */
+export default function BoostPanel(props: React.ComponentProps<typeof BoostPanelInner>) {
+  return (
+    <MuiThemeRegistry>
+      <BoostPanelInner {...props} />
+    </MuiThemeRegistry>
   );
 }

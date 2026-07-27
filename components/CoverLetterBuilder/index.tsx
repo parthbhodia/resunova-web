@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useState, useRef } from "react";
+import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
 import { useSearchParams } from "next/navigation";
 import { useCoverLetterStore } from "@/store/coverLetterStore";
 import CoverLetterTemplatePicker from "./CoverLetterTemplatePicker";
@@ -24,7 +25,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "style", label: "Style", icon: "🎨" },
 ];
 
-export default function CoverLetterBuilder() {
+function CoverLetterBuilderInner() {
   const store = useCoverLetterStore();
   const { data, loaded, saveStatus, savedId, label } = store;
   const searchParams = useSearchParams();
@@ -605,4 +606,20 @@ export default function CoverLetterBuilder() {
     </div>
     );
   }
+}
+
+/**
+ * MUI provider for this subtree.
+ *
+ * Scoped rather than global for the same reason the Template Builder's is:
+ * this app is a static export of ~1,076 prerendered pages and only surfaces
+ * that use MUI should carry the Emotion runtime. Wrapping here rather than
+ * inside the component because it has several early returns.
+ */
+export default function CoverLetterBuilder() {
+  return (
+    <MuiThemeRegistry>
+      <CoverLetterBuilderInner />
+    </MuiThemeRegistry>
+  );
 }
