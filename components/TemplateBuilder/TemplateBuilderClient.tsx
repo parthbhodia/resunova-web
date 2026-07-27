@@ -19,12 +19,26 @@ import { apiFetch } from "@/lib/apiClient";
 import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
 import { PHONE_BREAKPOINT } from "@/components/mui/theme";
 import TemplateBuilderTopBar from "./TemplateBuilderTopBar";
+import { TBInput, TBTextarea } from "./TBFields";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditNoteIcon from "@mui/icons-material/EditNote";
+import ReorderIcon from "@mui/icons-material/Reorder";
+import PersonIcon from "@mui/icons-material/Person";
+import WorkIcon from "@mui/icons-material/Work";
+import SchoolIcon from "@mui/icons-material/School";
+import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
+import BoltIcon from "@mui/icons-material/Bolt";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import CloseIcon from "@mui/icons-material/Close";
+import LockIcon from "@mui/icons-material/Lock";
+import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import PaletteIcon from "@mui/icons-material/Palette";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 
@@ -250,7 +264,7 @@ function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AIText
           >
             {loading
               ? <><span style={{ width: 10, height: 10, border: "1.5px solid var(--border)", borderTopColor: "var(--muted)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Enhancing…</>
-              : <>✦ AI Enhance{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.8, fontSize: 10 }}>🔒</span>}</>}
+              : <>✦ AI Enhance{signedIn === false && <LockIcon aria-hidden sx={{ fontSize: 12, ml: 0.25, verticalAlign: "-1px" }} />}</>}
           </button>
         </div>
       )}
@@ -381,7 +395,7 @@ function AIGenerateButton({ kind, buildContext, onGenerated, label = "✦ Genera
         ) : (
           <>
             {label}
-            {signedIn === false && <span aria-hidden="true" style={{ opacity: 0.75, fontSize: 11 }}>🔒</span>}
+            {signedIn === false && <LockIcon aria-hidden sx={{ fontSize: 12, ml: 0.25, verticalAlign: "-1px" }} />}
           </>
         )}
       </button>
@@ -751,7 +765,7 @@ export default function TemplateBuilderClient() {
     <>
       {mode === "content" && (
         <>
-          <ContentBlock id={contentBlockDomId("sections")} title="Arrange sections" icon="☰" first>
+          <ContentBlock id={contentBlockDomId("sections")} title="Arrange sections" Icon={ReorderIcon} first>
             <TemplateBuilderSectionsPanel
               store={store}
               sectionOrder={data.sectionOrder}
@@ -765,19 +779,19 @@ export default function TemplateBuilderClient() {
               }}
             />
           </ContentBlock>
-          <ContentBlock id={contentBlockDomId("profile")} title="Profile" icon="👤">
+          <ContentBlock id={contentBlockDomId("profile")} title="Profile" Icon={PersonIcon}>
             <ProfileSection store={store} data={data} />
           </ContentBlock>
-          <ContentBlock id={contentBlockDomId("experience")} title="Experience" icon="💼">
+          <ContentBlock id={contentBlockDomId("experience")} title="Experience" Icon={WorkIcon}>
             <ExperienceSection store={store} data={data} />
           </ContentBlock>
-          <ContentBlock id={contentBlockDomId("education")} title="Education" icon="🎓">
+          <ContentBlock id={contentBlockDomId("education")} title="Education" Icon={SchoolIcon}>
             <EducationSection store={store} data={data} />
           </ContentBlock>
-          <ContentBlock id={contentBlockDomId("projects")} title="Projects" icon="🚀">
+          <ContentBlock id={contentBlockDomId("projects")} title="Projects" Icon={RocketLaunchIcon}>
             <ProjectsSection store={store} data={data} />
           </ContentBlock>
-          <ContentBlock id={contentBlockDomId("skills")} title="Skills" icon="⚡">
+          <ContentBlock id={contentBlockDomId("skills")} title="Skills" Icon={BoltIcon}>
             <SkillsSection store={store} data={data} />
           </ContentBlock>
         </>
@@ -1153,30 +1167,38 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
             >
               {aiLoading
                 ? <span style={{ width: 8, height: 8, border: "1.5px solid var(--border)", borderTopColor: "var(--muted)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
-                : <>✦ AI{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.85 }}>🔒</span>}</>}
+                : <>✦ AI{signedIn === false && <LockIcon aria-hidden sx={{ fontSize: 12, ml: 0.25, verticalAlign: "-1px" }} />}</>}
             </button>
           </div>
         )}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 3, flexShrink: 0 }}>
-        <button
-          onClick={onMoveUp}
-          disabled={isFirst}
-          style={{ ...orderBtnStyle, opacity: isFirst ? 0.35 : 1, padding: "1px 5px", fontSize: 10 }}
-          title="Move up"
-        >↑</button>
-        <button
-          onClick={onMoveDown}
-          disabled={isLast}
-          style={{ ...orderBtnStyle, opacity: isLast ? 0.35 : 1, padding: "1px 5px", fontSize: 10 }}
-          title="Move down"
-        >↓</button>
-        <button
-          onClick={onRemove}
-          style={{ ...removeBtnStyle, fontSize: 10, padding: "1px 4px" }}
-          title="Remove bullet"
-        >✕</button>
-      </div>
+      {/*
+        Was three ~22px glyph buttons (↑ ↓ ✕) carrying a native `title` and no
+        accessible name. IconButton takes the theme's 44px floor, and `title`
+        on a Tooltip gives a label that shows on keyboard focus and on touch —
+        neither of which the native attribute does.
+      */}
+      <Box sx={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        <Tooltip title="Move bullet up">
+          <span>
+            <IconButton size="small" onClick={onMoveUp} disabled={isFirst} aria-label="Move bullet up">
+              <ArrowUpwardIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Move bullet down">
+          <span>
+            <IconButton size="small" onClick={onMoveDown} disabled={isLast} aria-label="Move bullet down">
+              <ArrowDownwardIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Remove bullet">
+          <IconButton size="small" onClick={onRemove} aria-label="Remove bullet" color="error">
+            <CloseIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
+      </Box>
     </div>
   );
 }
@@ -1231,7 +1253,7 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
               style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: rewriteAllLoading ? "var(--muted)" : "var(--accent)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 5, padding: "3px 8px", cursor: rewriteAllLoading ? "wait" : "pointer", whiteSpace: "nowrap" }}>
               {rewriteAllLoading
                 ? <><span style={{ width: 8, height: 8, border: "1.5px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Rewriting…</>
-                : <>✦ Rewrite all{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.8 }}>🔒</span>}</>}
+                : <>✦ Rewrite all{signedIn === false && <LockIcon aria-hidden sx={{ fontSize: 12, ml: 0.25, verticalAlign: "-1px" }} />}</>}
             </button>
           </div>
         )}
@@ -1292,10 +1314,10 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
 type StoreType = TemplateBuilderStore;
 
 /** One anchored, headed block in the stacked content column. */
-function ContentBlock({ id, title, icon, first, children }: {
+function ContentBlock({ id, title, Icon, first, children }: {
   id: string;
   title: string;
-  icon: string;
+  Icon: typeof EditNoteIcon;
   first?: boolean;
   children: React.ReactNode;
 }) {
@@ -1316,11 +1338,54 @@ function ContentBlock({ id, title, icon, first, children }: {
         fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase",
         color: "var(--muted)",
       }}>
-        <span aria-hidden style={{ fontSize: 13 }}>{icon}</span>
+        <Icon aria-hidden sx={{ fontSize: 15 }} />
         {title}
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * Reorder + remove controls for one entry (a job, a degree, a project).
+ *
+ * Was three copies of the same raw glyph buttons — `↑` `↓` `✕ Remove` at
+ * roughly 22x19, with a native `title` and no accessible name. IconButton
+ * takes the theme's 44px floor and Tooltip gives a label that survives
+ * keyboard focus and touch.
+ */
+function EntryOrderControls({ index, count, onMoveUp, onMoveDown, onRemove, noun }: {
+  index: number;
+  count: number;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+  noun: string;
+}) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center" }}>
+      <Tooltip title={`Move ${noun} up`}>
+        <span>
+          <IconButton size="small" onClick={onMoveUp} disabled={index === 0} aria-label={`Move ${noun} up`}>
+            <ArrowUpwardIcon sx={{ fontSize: 17 }} />
+          </IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title={`Move ${noun} down`}>
+        <span>
+          <IconButton size="small" onClick={onMoveDown} disabled={index === count - 1} aria-label={`Move ${noun} down`}>
+            <ArrowDownwardIcon sx={{ fontSize: 17 }} />
+          </IconButton>
+        </span>
+      </Tooltip>
+      {count > 1 && (
+        <Tooltip title={`Remove this ${noun}`}>
+          <IconButton size="small" color="error" onClick={onRemove} aria-label={`Remove this ${noun}`}>
+            <CloseIcon sx={{ fontSize: 17 }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
   );
 }
 
@@ -1356,37 +1421,37 @@ function ProfileSection({ store, data }: { store: StoreType; data: StoreType["da
       <SectionHeading>Personal Info</SectionHeading>
       <FieldWrap>
         <Field label="Full Name">
-          <input style={inputBase} value={p.name}
+          <TBInput value={p.name}
             onChange={(e) => store.setProfile("name", e.target.value)} placeholder="Jane Smith" />
         </Field>
       </FieldWrap>
       <Row>
         <Field label="Email" half>
-          <input style={inputBase} value={p.email} type="email"
+          <TBInput value={p.email} type="email"
             onChange={(e) => store.setProfile("email", e.target.value)} placeholder="jane@example.com" />
         </Field>
         <Field label="Phone" half>
-          <input style={inputBase} value={p.phone}
+          <TBInput value={p.phone}
             onChange={(e) => store.setProfile("phone", e.target.value)} placeholder="(555) 000-0000" />
         </Field>
       </Row>
       <Row>
         <Field label="Location" half>
-          <input style={inputBase} value={p.location}
+          <TBInput value={p.location}
             onChange={(e) => store.setProfile("location", e.target.value)} placeholder="San Francisco, CA" />
         </Field>
         <Field label="Website" half>
-          <input style={inputBase} value={p.website}
+          <TBInput value={p.website}
             onChange={(e) => store.setProfile("website", e.target.value)} placeholder="yoursite.dev" />
         </Field>
       </Row>
       <Row>
         <Field label="LinkedIn" half>
-          <input style={inputBase} value={p.linkedin}
+          <TBInput value={p.linkedin}
             onChange={(e) => store.setProfile("linkedin", e.target.value)} placeholder="linkedin.com/in/jane" />
         </Field>
         <Field label="GitHub" half>
-          <input style={inputBase} value={p.github}
+          <TBInput value={p.github}
             onChange={(e) => store.setProfile("github", e.target.value)} placeholder="github.com/jane" />
         </Field>
       </Row>
@@ -1422,51 +1487,38 @@ function ExperienceSection({ store, data }: { store: StoreType; data: StoreType[
           {idx > 0 && <hr style={dividerStyle} />}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={ENTRY_LABEL_STYLE}>{w.company || w.jobTitle || `Position ${idx + 1}`}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === 0 ? 0.45 : 1 }}
-                onClick={() => store.moveWork(idx, idx - 1)}
-                disabled={idx === 0}
-                title="Move up"
-              >
-                ↑
-              </button>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === data.workExperiences.length - 1 ? 0.45 : 1 }}
-                onClick={() => store.moveWork(idx, idx + 1)}
-                disabled={idx === data.workExperiences.length - 1}
-                title="Move down"
-              >
-                ↓
-              </button>
-              {data.workExperiences.length > 1 && (
-                <button style={removeBtnStyle} onClick={() => store.removeWork(w.id)}>✕ Remove</button>
-              )}
-            </div>
+            <EntryOrderControls
+                index={idx}
+                count={data.workExperiences.length}
+                onMoveUp={() => store.moveWork(idx, idx - 1)}
+                onMoveDown={() => store.moveWork(idx, idx + 1)}
+                onRemove={() => store.removeWork(w.id)}
+                noun="position"
+              />
           </div>
           <Row>
             <Field label="Job Title" half>
-              <input style={inputBase} value={w.jobTitle}
+              <TBInput value={w.jobTitle}
                 onChange={(e) => store.setWork(w.id, "jobTitle", e.target.value)} placeholder="Software Engineer" />
             </Field>
             <Field label="Company" half>
-              <input style={inputBase} value={w.company}
+              <TBInput value={w.company}
                 onChange={(e) => store.setWork(w.id, "company", e.target.value)} placeholder="Acme Inc." />
             </Field>
           </Row>
           <FieldWrap>
             <Field label="Location">
-              <input style={inputBase} value={w.location}
+              <TBInput value={w.location}
                 onChange={(e) => store.setWork(w.id, "location", e.target.value)} placeholder="New York, NY" />
             </Field>
           </FieldWrap>
           <Row>
             <Field label="Start Date" half>
-              <input style={inputBase} value={w.startDate}
+              <TBInput value={w.startDate}
                 onChange={(e) => store.setWork(w.id, "startDate", e.target.value)} placeholder="Jan 2022" />
             </Field>
             <Field label="End Date" half>
-              <input style={{ ...inputBase, opacity: w.current ? 0.45 : 1 }} value={w.endDate} disabled={w.current}
+              <TBInput sx={{ opacity: w.current ? 0.45 : 1 }} value={w.endDate} disabled={w.current}
                 onChange={(e) => store.setWork(w.id, "endDate", e.target.value)} placeholder="Dec 2023" />
             </Field>
           </Row>
@@ -1499,63 +1551,50 @@ function EducationSection({ store, data }: { store: StoreType; data: StoreType["
           {idx > 0 && <hr style={dividerStyle} />}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={ENTRY_LABEL_STYLE}>{e.school || `School ${idx + 1}`}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === 0 ? 0.45 : 1 }}
-                onClick={() => store.moveEducation(idx, idx - 1)}
-                disabled={idx === 0}
-                title="Move up"
-              >
-                ↑
-              </button>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === data.educations.length - 1 ? 0.45 : 1 }}
-                onClick={() => store.moveEducation(idx, idx + 1)}
-                disabled={idx === data.educations.length - 1}
-                title="Move down"
-              >
-                ↓
-              </button>
-              {data.educations.length > 1 && (
-                <button style={removeBtnStyle} onClick={() => store.removeEducation(e.id)}>✕ Remove</button>
-              )}
-            </div>
+            <EntryOrderControls
+                index={idx}
+                count={data.educations.length}
+                onMoveUp={() => store.moveEducation(idx, idx - 1)}
+                onMoveDown={() => store.moveEducation(idx, idx + 1)}
+                onRemove={() => store.removeEducation(e.id)}
+                noun="school"
+              />
           </div>
           <FieldWrap>
             <Field label="School / University">
-              <input style={inputBase} value={e.school}
+              <TBInput value={e.school}
                 onChange={(ev) => store.setEducation(e.id, "school", ev.target.value)} placeholder="Stanford University" />
             </Field>
           </FieldWrap>
           <FieldWrap>
             <Field label="Degree">
-              <input style={inputBase} value={e.degree}
+              <TBInput value={e.degree}
                 onChange={(ev) => store.setEducation(e.id, "degree", ev.target.value)} placeholder="B.S. Computer Science" />
             </Field>
           </FieldWrap>
           <Row>
             <Field label="Start Date" half>
-              <input style={inputBase} value={e.startDate}
+              <TBInput value={e.startDate}
                 onChange={(ev) => store.setEducation(e.id, "startDate", ev.target.value)} placeholder="Sep 2018" />
             </Field>
             <Field label="End Date" half>
-              <input style={inputBase} value={e.endDate}
+              <TBInput value={e.endDate}
                 onChange={(ev) => store.setEducation(e.id, "endDate", ev.target.value)} placeholder="Jun 2022" />
             </Field>
           </Row>
           <Row>
             <Field label="Location" half>
-              <input style={inputBase} value={e.location}
+              <TBInput value={e.location}
                 onChange={(ev) => store.setEducation(e.id, "location", ev.target.value)} placeholder="Stanford, CA" />
             </Field>
             <Field label="GPA" half>
-              <input style={inputBase} value={e.gpa}
+              <TBInput value={e.gpa}
                 onChange={(ev) => store.setEducation(e.id, "gpa", ev.target.value)} placeholder="3.8" />
             </Field>
           </Row>
           <FieldWrap>
             <Field label="Relevant Coursework">
-              <input style={inputBase} value={e.coursework}
+              <TBInput value={e.coursework}
                 onChange={(ev) => store.setEducation(e.id, "coursework", ev.target.value)}
                 placeholder="Algorithms, Distributed Systems, ML" />
             </Field>
@@ -1576,47 +1615,34 @@ function ProjectsSection({ store, data }: { store: StoreType; data: StoreType["d
           {idx > 0 && <hr style={dividerStyle} />}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={ENTRY_LABEL_STYLE}>{p.name || `Project ${idx + 1}`}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === 0 ? 0.45 : 1 }}
-                onClick={() => store.moveProject(idx, idx - 1)}
-                disabled={idx === 0}
-                title="Move up"
-              >
-                ↑
-              </button>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === data.projects.length - 1 ? 0.45 : 1 }}
-                onClick={() => store.moveProject(idx, idx + 1)}
-                disabled={idx === data.projects.length - 1}
-                title="Move down"
-              >
-                ↓
-              </button>
-              {data.projects.length > 1 && (
-                <button style={removeBtnStyle} onClick={() => store.removeProject(p.id)}>✕ Remove</button>
-              )}
-            </div>
+            <EntryOrderControls
+                index={idx}
+                count={data.projects.length}
+                onMoveUp={() => store.moveProject(idx, idx - 1)}
+                onMoveDown={() => store.moveProject(idx, idx + 1)}
+                onRemove={() => store.removeProject(p.id)}
+                noun="project"
+              />
           </div>
           <Row>
             <Field label="Project Name" half>
-              <input style={inputBase} value={p.name}
+              <TBInput value={p.name}
                 onChange={(e) => store.setProject(p.id, "name", e.target.value)} placeholder="My SaaS Tool" />
             </Field>
             <Field label="Year / Date" half>
-              <input style={inputBase} value={p.date}
+              <TBInput value={p.date}
                 onChange={(e) => store.setProject(p.id, "date", e.target.value)} placeholder="2024" />
             </Field>
           </Row>
           <FieldWrap>
             <Field label="Tech Stack">
-              <input style={inputBase} value={p.tech}
+              <TBInput value={p.tech}
                 onChange={(e) => store.setProject(p.id, "tech", e.target.value)} placeholder="React, Python, PostgreSQL" />
             </Field>
           </FieldWrap>
           <FieldWrap>
             <Field label="Link">
-              <input style={inputBase} value={p.link}
+              <TBInput value={p.link}
                 onChange={(e) => store.setProject(p.id, "link", e.target.value)} placeholder="github.com/you/project" />
             </Field>
           </FieldWrap>
@@ -1662,9 +1688,9 @@ function SkillsSection({ store, data }: { store: StoreType; data: StoreType["dat
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 20 }}>
         {featuredSkills.map((fs, idx) => (
-          <input
+          <TBInput
             key={idx}
-            style={{ ...inputBase, fontSize: 12 }}
+            sx={{ "& .MuiOutlinedInput-root": { fontSize: 12 } }}
             placeholder={`Skill ${idx + 1}`}
             value={fs.skill}
             onChange={(e) => store.setFeaturedSkill(idx, e.target.value, fs.rating)}
@@ -1689,8 +1715,8 @@ function SkillsSection({ store, data }: { store: StoreType; data: StoreType["dat
       <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
         One category per line, e.g. "Languages: Python, Go"
       </p>
-      <textarea
-        style={{ ...textareaBase, minHeight: 120 }}
+      <TBTextarea
+        minRows={5}
         value={descriptions}
         onChange={(e) => store.setSkillDescriptions(e.target.value)}
         placeholder={"Languages: Python, TypeScript, Go\nFrontend: React, Next.js, Tailwind\nBackend: Node.js, FastAPI, PostgreSQL\nCloud: AWS, Docker, Kubernetes"}
