@@ -19,7 +19,7 @@ import { apiFetch } from "@/lib/apiClient";
 import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
 import { PHONE_BREAKPOINT } from "@/components/mui/theme";
 import TemplateBuilderTopBar from "./TemplateBuilderTopBar";
-import { TBInput, TBTextarea } from "./TBFields";
+import { TBInput, TBTextarea } from "@/components/mui/fields";
 import { useCanvasEdit } from "@/components/canvas/useCanvasEdit";
 import { CANVAS_STYLESHEET } from "@/components/canvas/CanvasPrimitives";
 import { PageBoundaryRule, usePageOverflow } from "@/components/canvas/PageBoundaryRule";

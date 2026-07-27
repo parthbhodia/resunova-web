@@ -54,6 +54,26 @@ export function TBInput(props: TextFieldProps) {
   );
 }
 
+/**
+ * Select with the same metrics as TBInput. MUI renders its options as
+ * MenuItem, not <option>, so call sites pass MenuItem children.
+ */
+export function TBSelect(props: TextFieldProps) {
+  return (
+    <TextField
+      fullWidth
+      size="small"
+      select
+      {...props}
+      sx={{
+        ...sharedSx,
+        "& .MuiOutlinedInput-root": { ...sharedSx["& .MuiOutlinedInput-root"], minHeight: TAP_MIN },
+        ...props.sx,
+      }}
+    />
+  );
+}
+
 export function TBTextarea({ minRows = 3, ...props }: TextFieldProps & { minRows?: number }) {
   return (
     <TextField
