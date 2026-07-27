@@ -75,6 +75,30 @@
   --radius-4xl:         calc(var(--radius) * 2.6);
 }
 
+/* ── Stacking order ───────────────────────────────────────────────
+   These four numbers have to be read together, which is exactly why
+   they now live in one place. They were previously scattered as bare
+   literals across six files and had drifted out of order: the sidebar
+   sat at z-10, UNDER page chrome at 1200, while menus that open FROM
+   the sidebar sat at 50.
+
+   The sidebar overlays page content rather than reserving space for
+   itself, so it has to outrank every in-page layer — including the
+   sticky toolbars in Analyze and the Template Builder, which are the
+   highest in-page chrome at 1200.
+
+   Everything that PORTALS to <body> then has to outrank the sidebar in
+   turn. The account menu opens from inside the sidebar; a dialog covers
+   the viewport the sidebar sits on. Raise the sidebar without raising
+   these and both disappear behind it — a working feature swallowed by a
+   z-index. Add new overlay layers here, not inline.                  */
+:root {
+  --z-sidebar:         10000;
+  --z-sidebar-rail:    10001;  /* the drag handle, above its own panel */
+  --z-overlay:         10100;  /* menus, tooltips, popovers, sheets    */
+  --z-modal:           10200;  /* dialogs top everything               */
+}
+
 /* ── Dark theme (default) ────────────────────────────────────── */
 /*    Cool navy-black — removes the muddy warm tint               */
 :root,
@@ -660,8 +684,12 @@ select option { background: var(--surface); }
   display: none !important;
 }
 
+/* The collapsed rail is the same panel, so it belongs on the same layer.
+   This was pinned to a bare 30, which quietly won over the component's own
+   class and dropped the rail below in-page chrome the moment the sidebar
+   started overlaying rather than sitting beside the content. */
 .group[data-collapsible="icon"] [data-slot="sidebar-container"] {
-  z-index: 30;
+  z-index: var(--z-sidebar);
 }
 
 /* Main pane: soft enter when switching top-level views */
