@@ -737,20 +737,37 @@ export default function AnnotatedResumePanel({
   const categoryLabel = activeCategoryLabel.trim() || "this category";
 
   /** Maps `data-bullet-idx` on the preview page to a thick, score-colored frame (split / presentation column). */
+  // Every "nothing to highlight" branch returns the PREVIOUS object when the
+  // box is already hidden. React bails out of a re-render only on Object.is
+  // equality, so `{ ...b, opacity: 0 }` on an already-hidden box is a state
+  // write that changes nothing and re-renders anyway.
+  //
+  // That is an infinite loop, not an inefficiency. This callback is a
+  // dependency of the useLayoutEffect below, and its own deps include array
+  // props; when one of those arrives as a fresh reference each render the
+  // cycle closes: render → layout effect → setMirrorBox → render. The Analyze
+  // workspace died with "Maximum update depth exceeded" and rendered nothing
+  // at all — no error boundary, no partial UI, a blank screen after a scan the
+  // user had already paid a quota for.
+  //
+  // The guard on the first branch was already here. These two were not.
+  const hideMirror = useCallback(
+    () => setMirrorBox((b) => (b.opacity === 0 ? b : { ...b, opacity: 0 })), []);
+
   const updateMirrorPosition = useCallback(() => {
     if (!presentationOnly) {
-      setMirrorBox((b) => (b.opacity === 0 ? b : { ...b, opacity: 0 }));
+      hideMirror();
       return;
     }
     const idx = selectedBulletIndex;
     const paper = paperRef.current;
     if (idx == null || !paper) {
-      setMirrorBox((b) => ({ ...b, opacity: 0 }));
+      hideMirror();
       return;
     }
     const el = paper.querySelector(`[data-bullet-idx="${idx}"]`) as HTMLElement | null;
     if (!el) {
-      setMirrorBox((b) => ({ ...b, opacity: 0 }));
+      hideMirror();
       return;
     }
     const paperRect = paper.getBoundingClientRect();
@@ -766,9 +783,16 @@ export default function AnnotatedResumePanel({
       : gapFixTargetBulletIndices.includes(idx)
         ? mirrorGapFixStyles()
         : mirrorToneStyles(score);
-    setMirrorBox({ top, height, opacity: 1, ...tone });
+    // Same rule on the visible branch: a scroll or resize that lands the box in
+    // the same place must not re-render. Sub-pixel jitter is rounded away
+    // first, so a fractional reflow cannot restart the cycle either.
+    const next = { top: Math.round(top), height: Math.round(height), opacity: 1, ...tone };
+    setMirrorBox((b) =>
+      b.top === next.top && b.height === next.height && b.opacity === 1 && b.bar === next.bar
+        ? b
+        : next);
   }, [presentationOnly, selectedBulletIndex, bulletAnalysis, effectiveExtracted, previewLineOverrides,
-      gapFixTargetBulletIndices]);
+      gapFixTargetBulletIndices, hideMirror]);
 
   useLayoutEffect(() => {
     updateMirrorPosition();
