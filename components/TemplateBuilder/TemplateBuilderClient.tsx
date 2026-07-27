@@ -16,6 +16,17 @@ import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "@/components/CoverLetterBuilder/SignInToUseAi";
 import TemplateBuilderReviewPanel, { reviewScoreColor, type ReviewResult } from "./TemplateBuilderReviewPanel";
 import { apiFetch } from "@/lib/apiClient";
+import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
+import { PHONE_BREAKPOINT } from "@/components/mui/theme";
+import TemplateBuilderTopBar from "./TemplateBuilderTopBar";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import EditNoteIcon from "@mui/icons-material/EditNote";
+import PaletteIcon from "@mui/icons-material/Palette";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 
 /* ── Shared style helpers ──────────────────────────────────────── */
 const inputBase: React.CSSProperties = {
@@ -421,13 +432,18 @@ const FONT_OPTIONS: { label: string; value: TBFont; sub: string }[] = [
  */
 type EditorMode = "content" | "design" | "review";
 
-const MODES: { key: EditorMode; label: string; icon: string }[] = [
-  { key: "content", label: "Content", icon: "📝" },
-  { key: "design",  label: "Design",  icon: "🎨" },
-  // Not "✦" — that glyph is the app's established AI/magic marker (AI Enhance,
-  // AI Generate, etc. throughout this file); Review is a plain checklist mode,
-  // and reusing ✦ here collided with the toolbar's "Check ATS" button.
-  { key: "review",  label: "Review",  icon: "🔍" },
+/**
+ * Icons are components, not emoji. Emoji are a colour font: they cannot take
+ * `currentColor`, so an active tab could never tint its glyph, and they render
+ * differently on every OS — an Apple-emoji screenshot is not what a Windows
+ * user sees. The previous 📝 🎨 🔍 also carried a note about avoiding ✦
+ * because it collided with the toolbar's AI marker; picking from a real icon
+ * set removes that whole class of collision.
+ */
+const MODES: { key: EditorMode; label: string; Icon: typeof EditNoteIcon }[] = [
+  { key: "content", label: "Content", Icon: EditNoteIcon },
+  { key: "design",  label: "Design",  Icon: PaletteIcon },
+  { key: "review",  label: "Review",  Icon: FactCheckIcon },
 ];
 
 /** Anchors for the in-column jump nav. Order matches the stacked blocks. */
@@ -468,16 +484,26 @@ export default function TemplateBuilderClient() {
   const [importError, setImportError] = useState<string | null>(null);
   const { exportPdf: exportHtmlPdf, exporting: isGenerating, error: htmlPdfError } = useHtmlPdfExport();
 
-  // Responsive: on iPad / narrow widths the 340px form panel + preview don't
-  // both fit, so the form collapses to a vertical icon rail and the active
-  // section opens as a flyout drawer over the preview.
+  // Responsive: TWO thresholds, not one.
+  //
+  // `narrow` (<880) was previously the only question asked, and it meant "not
+  // desktop" — so a 390px phone got the tablet treatment: a 56px vertical icon
+  // rail (7% of a tablet, 14% of a phone) with the editor behind a flyout, so
+  // the phone opened on a read-only preview it could not type into.
+  //
+  // `phone` (<640) now gets its own layout: horizontal tabs, and the editor is
+  // the default surface. On a phone the drawer IS the screen, which makes it a
+  // modal — and making a modal the default state of an editor is the bug.
   const rootRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
+  const [phone, setPhone] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Phone only: which surface is showing. Defaults to the editor.
+  const [phoneView, setPhoneView] = useState<"edit" | "preview">("edit");
 
-  // The preview used to be pinned at scale(0.82), which left the résumé looking
-  // small with dead space either side on a wide screen and clipped it on a
-  // narrow one. Scale to fit the pane instead, never enlarging past 1:1.
+  // The preview used to be pinned at scale(0.82), then at a floor of 0.55 —
+  // both tuned on a wide screen. At 390px the computed fit is ~0.40, so the
+  // floor overrode the measurement and clipped the paper. Fit honestly.
   const previewPaneRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(0.82);
 
@@ -508,7 +534,7 @@ export default function TemplateBuilderClient() {
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width ?? 0;
-      if (w > 0) setNarrow(w < 880);
+      if (w > 0) { setNarrow(w < 880); setPhone(w < PHONE_BREAKPOINT); }
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -524,7 +550,11 @@ export default function TemplateBuilderClient() {
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width ?? 0;
       if (w > 0) {
-        setPreviewScale(Math.max(0.55, Math.min(1, (w - GUTTER) / PAPER_PX)));
+        // No floor. A small but WHOLE page beats a large clipped one, and the
+        // user can pinch-zoom or open the PDF if they need to read it. The
+        // old Math.max(0.55, …) measured the pane correctly and then threw
+        // the measurement away on anything under ~500px.
+        setPreviewScale(Math.min(1, (w - GUTTER) / PAPER_PX));
       }
     });
     ro.observe(el);
@@ -760,26 +790,16 @@ export default function TemplateBuilderClient() {
   const activeModeMeta = MODES.find((m) => m.key === mode);
 
   const modeSwitcher = (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${MODES.length}, 1fr)`, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+    <Tabs
+      value={mode}
+      onChange={(_, v: EditorMode) => setMode(v)}
+      variant="fullWidth"
+      sx={{ borderBottom: 1, borderColor: "divider", flexShrink: 0, minHeight: 48 }}
+    >
       {MODES.map((m) => (
-        <button
-          key={m.key}
-          onClick={() => setMode(m.key)}
-          style={{
-            background: mode === m.key ? "var(--bg)" : "transparent",
-            border: "none",
-            borderBottom: mode === m.key ? "2px solid var(--accent)" : "2px solid transparent",
-            borderRight: "1px solid var(--border)",
-            padding: "10px 4px", cursor: "pointer", display: "flex", alignItems: "center",
-            justifyContent: "center", gap: 6, transition: "background 0.12s",
-            color: mode === m.key ? "var(--accent)" : "var(--muted)", fontFamily: "inherit",
-          }}
-        >
-          <span style={{ fontSize: 14 }} aria-hidden>{m.icon}</span>
-          <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.2 }}>{m.label}</span>
-        </button>
+        <Tab key={m.key} value={m.key} label={m.label} icon={<m.Icon fontSize="small" />} iconPosition="start" />
       ))}
-    </div>
+    </Tabs>
   );
 
   // Jump nav — only meaningful for the long stacked content column.
@@ -809,6 +829,7 @@ export default function TemplateBuilderClient() {
   ) : null;
 
   return (
+    <MuiThemeRegistry>
     <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       {feedbackToast ? (
         <div
@@ -844,172 +865,72 @@ export default function TemplateBuilderClient() {
       ) : null}
 
       {/* ── Top Bar ─────────────────────────────────────────── */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 20px",
-        height: 52,
-        borderBottom: "1px solid var(--border)",
-        background: "var(--surface)",
-        flexShrink: 0,
-        gap: 12,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", letterSpacing: -0.3 }}>
-            Template Builder
-          </span>
-          <span style={{ fontSize: 11, color: "var(--muted)", padding: "2px 7px", border: "1px solid var(--border)", borderRadius: 10 }}>
-            Free
-          </span>
-          <button
-            type="button"
-            onClick={() => { setMode("review"); setPanelOpen(true); }}
-            title={reviewResult ? "Open ATS & Job Match review" : "Score your résumé against a job"}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontFamily: "inherit",
-              fontSize: 11, fontWeight: 700,
-              padding: "3px 9px", borderRadius: 10,
-              border: `1px solid ${reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : "var(--border)"}`,
-              background: "transparent",
-              color: reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : "var(--muted)",
-            }}
-          >
-            <span aria-hidden>✦</span>
-            {reviewResult?.overallScore != null ? `ATS ${reviewResult.overallScore}` : "Check ATS"}
-          </button>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {saveFlash ? (
-            <span
-              role="status"
-              style={{
-                fontSize: 12,
-                color: "var(--green-ink, #047857)",
-                fontWeight: 600,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                <path d="M2 6.5 4.5 9 10 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Saved
-            </span>
-          ) : savedLabel && savedBuilderId ? (
-            <span style={{ fontSize: 11, color: "var(--muted)", maxWidth: 160 }} title="Cloud copy in Resume Hub">
-              Hub: {savedLabel}
-            </span>
-          ) : null}
-          <button
-            onClick={store.reset}
-            title="Restore example resume"
-            style={{ fontSize: 12, color: "var(--muted)", background: "none", border: "1px solid var(--border)", borderRadius: 6, padding: "5px 11px", cursor: "pointer" }}
-          >
-            Load Example
-          </button>
-          {/* ── Import resume ─────────────────────────────────── */}
-          {importError && (
-            <span style={{ fontSize: 11, color: "var(--red, #ef4444)", maxWidth: 200 }}>{importError}</span>
-          )}
-          <button
-            onClick={() => { setImportError(null); importFileRef.current?.click(); }}
-            disabled={importing}
-            title="Import an existing PDF or Word résumé to fill the builder"
-            style={{
-              fontSize: 12,
-              color: importing ? "var(--muted)" : "var(--text)",
-              background: "none",
-              border: "1px solid var(--border)",
-              borderRadius: 6,
-              padding: "5px 11px",
-              cursor: importing ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              opacity: importing ? 0.7 : 1,
-            }}
-          >
-            {importing ? (
-              <>
-                <span style={{ width: 10, height: 10, border: "1.5px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
-                Importing…
-              </>
-            ) : (
-              <>
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden style={{ flexShrink: 0 }}>
-                  <path d="M6.5 1v7.5M3 6l3.5 3.5L10 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M1 10.5v1a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5v-1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-                Import Resume
-              </>
-            )}
-          </button>
-          <input
-            ref={importFileRef}
-            type="file"
-            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void handleImportFile(f);
-              e.target.value = "";
-            }}
-          />
-          <button
-            onClick={() => void handleSaveToLibrary()}
-            disabled={saveBusy || signedIn === false}
-            title={signedIn === false ? "Sign in to save to Resume Hub" : savedBuilderId ? "Update saved copy in Resume Hub" : "Save to Resume Hub"}
-            style={{
-              fontSize: 12,
-              color: signedIn === false ? "var(--dim)" : "var(--text)",
-              background: "var(--surface2)",
-              border: "1px solid var(--border)",
-              borderRadius: 6,
-              padding: "5px 11px",
-              cursor: saveBusy || signedIn === false ? "not-allowed" : "pointer",
-              opacity: saveBusy ? 0.7 : 1,
-            }}
-          >
-            {saveBusy ? "Saving…" : saveFlash ? "Saved ✓" : savedBuilderId ? "Update in Hub" : "Save to Hub"}
-          </button>
-          {(downloadError || htmlPdfError) && (
-            <span style={{ fontSize: 11, color: "var(--red, #ef4444)", maxWidth: 200 }}>{downloadError || htmlPdfError}</span>
-          )}
-          <button
-            onClick={handleDownload}
-            disabled={isGenerating}
-            style={{
-              background: isGenerating ? "var(--surface3)" : "var(--accent)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 7,
-              padding: "7px 16px",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: isGenerating ? "not-allowed" : "pointer",
-              opacity: isGenerating ? 0.7 : 1,
-              transition: "opacity 0.15s",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            {isGenerating ? (
-              <>
-                <span style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
-                Generating…
-              </>
-            ) : "↓ Download PDF"}
-          </button>
-        </div>
-      </div>
+      <TemplateBuilderTopBar
+        atsScore={reviewResult?.overallScore ?? null}
+        atsColor={reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : undefined}
+        onOpenReview={() => { setMode("review"); setPanelOpen(true); }}
+        onLoadExample={store.reset}
+        onImport={() => { setImportError(null); importFileRef.current?.click(); }}
+        onSave={() => void handleSaveToLibrary()}
+        onDownload={handleDownload}
+        importing={importing}
+        saveBusy={saveBusy}
+        saveFlash={saveFlash}
+        savedBuilderId={savedBuilderId}
+        signedIn={signedIn}
+        isGenerating={isGenerating}
+        error={importError || downloadError || htmlPdfError}
+      />
+      <input
+        ref={importFileRef}
+        type="file"
+        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleImportFile(f);
+          e.target.value = "";
+        }}
+      />
+
+      {/* Phone only: which surface is showing. A phone cannot usefully hold
+          the editor and the preview at once, and the previous layout resolved
+          that by showing the preview and hiding the editor behind a drawer —
+          i.e. it opened an editor in a state where you could not edit. */}
+      {phone && (
+        <ToggleButtonGroup
+          exclusive
+          fullWidth
+          size="small"
+          value={phoneView}
+          onChange={(_, v: "edit" | "preview" | null) => { if (v) setPhoneView(v); }}
+          sx={{ px: 1.5, py: 0.75, flexShrink: 0, gap: 1,
+                borderBottom: 1, borderColor: "divider",
+                "& .MuiToggleButton-root": { minHeight: 44, border: 1, borderColor: "divider", borderRadius: 1 } }}
+        >
+          <ToggleButton value="edit"><EditNoteIcon fontSize="small" sx={{ mr: 0.75 }} />Edit</ToggleButton>
+          <ToggleButton value="preview"><VisibilityIcon fontSize="small" sx={{ mr: 0.75 }} />Preview</ToggleButton>
+        </ToggleButtonGroup>
+      )}
 
       {/* ── Body ────────────────────────────────────────────── */}
       <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden", position: "relative" }}>
         {/* ── Left: Form Panel ──────────────────────────────── */}
-        {narrow ? (
+        {phone ? (
+          // Full width, no rail, no drawer. The editor IS the screen.
+          phoneView === "edit" ? (
+            <div style={{
+              flex: 1, minWidth: 0, display: "flex", flexDirection: "column",
+              background: "var(--surface)", overflow: "hidden",
+            }}>
+              {modeSwitcher}
+              {jumpNav}
+              <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 40px" }}>
+                {editorBody}
+              </div>
+            </div>
+          ) : null
+        ) : narrow ? (
           <>
             {/* Collapsed icon rail — taps open that mode as a flyout */}
             <div style={{
@@ -1035,8 +956,10 @@ export default function TemplateBuilderClient() {
                       color: isOpen ? "var(--accent)" : "var(--muted)",
                     }}
                   >
-                    <span style={{ fontSize: 17 }} aria-hidden>{m.icon}</span>
-                    <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.1, textAlign: "center" }}>{m.label}</span>
+                    <m.Icon fontSize="small" aria-hidden />
+                    {/* 10px is the floor for chrome text; the old 8px was not
+                        small type, it was unreadable type. */}
+                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.1, textAlign: "center" }}>{m.label}</span>
                   </button>
                 );
               })}
@@ -1060,7 +983,7 @@ export default function TemplateBuilderClient() {
                     padding: "10px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0,
                   }}>
                     <span style={{ fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span aria-hidden style={{ fontSize: 15 }}>{activeModeMeta?.icon}</span>{activeModeMeta?.label}
+                      {activeModeMeta ? <activeModeMeta.Icon fontSize="small" aria-hidden /> : null}{activeModeMeta?.label}
                     </span>
                     <button
                       onClick={() => setPanelOpen(false)}
@@ -1094,7 +1017,7 @@ export default function TemplateBuilderClient() {
         {/* ── Right: Preview Panel ──────────────────────────── */}
         <div ref={previewPaneRef} style={{
           flex: 1,
-          display: "flex",
+          display: phone && phoneView === "edit" ? "none" : "flex",
           flexDirection: "column",
           minWidth: 0,
           background: "var(--surface2)",
@@ -1109,13 +1032,27 @@ export default function TemplateBuilderClient() {
             justifyContent: "center",
             alignItems: "flex-start",
           }}>
-            <div style={{ transform: `scale(${previewScale})`, transformOrigin: "top center", minWidth: "8.5in" }}>
+            {/*
+              `zoom`, not `transform: scale()`. A transform changes what is
+              painted but NOT the layout box: the wrapper kept its full 816px
+              width, so this centred overflow container overflowed in BOTH
+              directions and the left edge of the page could not be scrolled
+              to — while the right edge was simply cut off. `zoom` reflows real
+              layout, so the box shrinks with the content and the containment
+              problem disappears with it.
+
+              Safe for the PDF export: useHtmlPdfExport captures `previewRef`
+              (the paper element) and the zoom lives on this wrapper, exactly
+              as the transform did. Same precedent as ResumeThumbnail.tsx.
+            */}
+            <div style={{ zoom: previewScale }}>
               <ResumePreview ref={previewRef} data={data} />
             </div>
           </div>
         </div>
       </div>
     </div>
+    </MuiThemeRegistry>
   );
 }
 
