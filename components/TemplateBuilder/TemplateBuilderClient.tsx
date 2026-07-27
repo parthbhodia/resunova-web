@@ -35,6 +35,8 @@ import WorkIcon from "@mui/icons-material/Work";
 import SchoolIcon from "@mui/icons-material/School";
 import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
 import BoltIcon from "@mui/icons-material/Bolt";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import CheckIcon from "@mui/icons-material/Check";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import CloseIcon from "@mui/icons-material/Close";
@@ -227,17 +229,23 @@ function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AIText
     <div style={{ position: "relative" }}>
       <textarea
         value={value}
-        style={{ ...textareaBase, ...style as React.CSSProperties, paddingBottom: showBtn ? 36 : undefined }}
+        style={{ ...textareaBase, ...style as React.CSSProperties }}
         {...rest}
       />
+      {/*
+        The button used to be absolutely positioned over the textarea with a
+        36px bottom padding reserving space for it. That fails as soon as the
+        content scrolls: the padding moves with the text, so the last visible
+        line ends up UNDER the button. Same fault the bullet rows had.
+        It sits below the field now, out of the text flow entirely.
+      */}
       {showBtn && (
         <div style={{
-          position: "absolute",
-          bottom: 7,
-          right: 8,
           display: "flex",
           gap: 5,
           alignItems: "center",
+          justifyContent: "flex-end",
+          marginTop: 4,
         }}>
           {error && (
             <span style={{ fontSize: 10, color: "var(--red, #ef4444)", maxWidth: 140, textAlign: "right" }}>{error}</span>
@@ -783,7 +791,7 @@ export default function TemplateBuilderClient() {
     <>
       {mode === "content" && (
         <>
-          <ContentBlock id={contentBlockDomId("sections")} title="Arrange sections" Icon={ReorderIcon} first>
+          <ContentBlock id={contentBlockDomId("sections")} title="Arrange sections" Icon={ReorderIcon} first collapsible>
             <TemplateBuilderSectionsPanel
               store={store}
               sectionOrder={data.sectionOrder}
@@ -843,6 +851,11 @@ export default function TemplateBuilderClient() {
       style={{
         display: "flex", gap: 4, padding: "7px 10px", overflowX: "auto",
         background: "var(--surface2)", borderBottom: "1px solid var(--border)", flexShrink: 0,
+        // The rail clipped its last chip mid-word with nothing to suggest it
+        // scrolled. A fade on the trailing edge is the affordance; the mask is
+        // on the scroller itself so it tracks the real overflow.
+        maskImage: "linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)",
       }}
     >
       {CONTENT_BLOCKS.map((b) => (
@@ -1388,13 +1401,22 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
 type StoreType = TemplateBuilderStore;
 
 /** One anchored, headed block in the stacked content column. */
-function ContentBlock({ id, title, Icon, first, children }: {
+function ContentBlock({ id, title, Icon, first, collapsible, children }: {
   id: string;
   title: string;
   Icon: typeof EditNoteIcon;
   first?: boolean;
+  /**
+   * Starts closed and toggles on the header. Used for Arrange sections: it
+   * cost 653px at the top of the column, which pushed the first field a user
+   * can actually type into to y=944 — below the fold on a 1000px viewport.
+   * Reordering is also no longer the only path, since the canvas has drag
+   * handles, so it does not deserve the opening screen.
+   */
+  collapsible?: boolean;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(!collapsible);
   return (
     <section
       id={id}
@@ -1407,15 +1429,30 @@ function ContentBlock({ id, title, Icon, first, children }: {
         borderTop: first ? "none" : "1px solid var(--border)",
       }}
     >
-      <div style={{
-        display: "flex", alignItems: "center", gap: 7, marginBottom: 12,
-        fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase",
-        color: "var(--muted)",
-      }}>
+      <div
+        onClick={collapsible ? () => setOpen((v) => !v) : undefined}
+        role={collapsible ? "button" : undefined}
+        aria-expanded={collapsible ? open : undefined}
+        tabIndex={collapsible ? 0 : undefined}
+        onKeyDown={collapsible ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((v) => !v); } } : undefined}
+        style={{
+          display: "flex", alignItems: "center", gap: 7, marginBottom: open ? 12 : 0,
+          fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase",
+          color: "var(--muted)",
+          cursor: collapsible ? "pointer" : undefined,
+          minHeight: collapsible ? 44 : undefined,
+        }}
+      >
         <Icon aria-hidden sx={{ fontSize: 15 }} />
         {title}
+        {collapsible && (
+          <ExpandMoreIcon
+            aria-hidden
+            sx={{ fontSize: 18, ml: "auto", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}
+          />
+        )}
       </div>
-      {children}
+      {open && children}
     </section>
   );
 }
@@ -1492,7 +1529,6 @@ function ProfileSection({ store, data }: { store: StoreType; data: StoreType["da
 
   return (
     <>
-      <SectionHeading>Personal Info</SectionHeading>
       <FieldWrap>
         <Field label="Full Name">
           <TBInput value={p.name}
@@ -1555,7 +1591,6 @@ function ProfileSection({ store, data }: { store: StoreType; data: StoreType["da
 function ExperienceSection({ store, data }: { store: StoreType; data: StoreType["data"] }) {
   return (
     <>
-      <SectionHeading>Work Experience</SectionHeading>
       {data.workExperiences.map((w, idx) => (
         <div key={w.id}>
           {idx > 0 && <hr style={dividerStyle} />}
@@ -1619,7 +1654,6 @@ function ExperienceSection({ store, data }: { store: StoreType; data: StoreType[
 function EducationSection({ store, data }: { store: StoreType; data: StoreType["data"] }) {
   return (
     <>
-      <SectionHeading>Education</SectionHeading>
       {data.educations.map((e, idx) => (
         <div key={e.id}>
           {idx > 0 && <hr style={dividerStyle} />}
@@ -1683,7 +1717,6 @@ function EducationSection({ store, data }: { store: StoreType; data: StoreType["
 function ProjectsSection({ store, data }: { store: StoreType; data: StoreType["data"] }) {
   return (
     <>
-      <SectionHeading>Projects</SectionHeading>
       {data.projects.map((p, idx) => (
         <div key={p.id}>
           {idx > 0 && <hr style={dividerStyle} />}
@@ -1753,7 +1786,6 @@ function SkillsSection({ store, data }: { store: StoreType; data: StoreType["dat
 
   return (
     <>
-      <SectionHeading>Skills</SectionHeading>
 
       {/* Featured skills — plain names; proficiency-dot ratings were removed
           (self-assessed dots carry no signal for recruiters or ATS parsers). */}
@@ -1815,7 +1847,6 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
 
   return (
     <>
-      <SectionHeading>Style & Customization</SectionHeading>
 
       {/* Layout */}
       {!isEnforcedLayout && (
@@ -1896,27 +1927,27 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
       {/* Style Presets */}
       <div style={{ marginBottom: 20 }}>
         <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 16px", lineHeight: 1.5 }}>
-          Start with a curated default, then adjust font and color below if needed.
         </p>
 
         {/* Technical Layouts */}
         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
           Technical
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 24 }}>
           {STYLE_PRESETS.filter(p => p.category === "technical").map((preset) => {
             const active = c.stylePreset === preset.id;
             return (
               <button
                 key={preset.id}
+                title={preset.description}
                 onClick={() => applyStylePreset(preset)}
                 aria-pressed={active}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "44px 1fr auto",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "11px 12px",
+                  gridTemplateColumns: "1fr",
+                  justifyItems: "center",
+                  gap: 6,
+                  padding: "8px 6px",
                   borderRadius: 9,
                   border: active ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
                   background: active ? "color-mix(in srgb, var(--accent) 8%, var(--bg))" : "var(--bg)",
@@ -1927,8 +1958,8 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                 }}
               >
                 <div style={{
-                  width: 44,
-                  height: 36,
+                  width: "100%",
+                  height: 46,
                   borderRadius: 7,
                   border: "1px solid var(--border)",
                   background: "var(--surface2)",
@@ -1939,11 +1970,10 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                   <div style={{ width: "100%", height: 2, borderRadius: 2, background: "var(--border)", marginBottom: 4 }} />
                   <div style={{ width: "78%", height: 2, borderRadius: 2, background: "var(--border)" }} />
                 </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{preset.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.35 }}>{preset.description}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: active ? "var(--accent)" : "var(--text)", display: "flex", alignItems: "center", gap: 3 }}>
+                  {preset.label}
+                  {active && <CheckIcon aria-hidden sx={{ fontSize: 13 }} />}
                 </div>
-                {active && <span aria-hidden style={{ fontSize: 13, color: "var(--accent)" }}>✓</span>}
               </button>
             );
           })}
@@ -1953,20 +1983,21 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
           Creative
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           {STYLE_PRESETS.filter(p => p.category === "creative").map((preset) => {
             const active = c.stylePreset === preset.id;
             return (
               <button
                 key={preset.id}
+                title={preset.description}
                 onClick={() => applyStylePreset(preset)}
                 aria-pressed={active}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "44px 1fr auto",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "11px 12px",
+                  gridTemplateColumns: "1fr",
+                  justifyItems: "center",
+                  gap: 6,
+                  padding: "8px 6px",
                   borderRadius: 9,
                   border: active ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
                   background: active ? "color-mix(in srgb, var(--accent) 8%, var(--bg))" : "var(--bg)",
@@ -1977,8 +2008,8 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                 }}
               >
                 <div style={{
-                  width: 44,
-                  height: 36,
+                  width: "100%",
+                  height: 46,
                   borderRadius: 7,
                   border: "1px solid var(--border)",
                   background: "var(--surface2)",
@@ -1989,11 +2020,10 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                   <div style={{ width: "100%", height: 2, borderRadius: 2, background: "var(--border)", marginBottom: 4 }} />
                   <div style={{ width: "78%", height: 2, borderRadius: 2, background: "var(--border)" }} />
                 </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{preset.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.35 }}>{preset.description}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: active ? "var(--accent)" : "var(--text)", display: "flex", alignItems: "center", gap: 3 }}>
+                  {preset.label}
+                  {active && <CheckIcon aria-hidden sx={{ fontSize: 13 }} />}
                 </div>
-                {active && <span aria-hidden style={{ fontSize: 13, color: "var(--accent)" }}>✓</span>}
               </button>
             );
           })}
