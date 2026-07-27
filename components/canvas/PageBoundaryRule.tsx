@@ -18,19 +18,35 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 /** 11in at 96dpi. */
 export const PAGE_HEIGHT_PX = 1056;
 
-export function usePageOverflow(ref: RefObject<HTMLElement | null>, enabled = true): number {
-  const [overflowPx, setOverflowPx] = useState(0);
+export interface PageFit {
+  /** Pixels past the end of page one. 0 when it fits. */
+  overflowPx: number;
+  /** How full page one is, as a percentage. Can exceed 100. */
+  fillPct: number;
+}
+
+/**
+ * The hook measured the content height and then threw it away, keeping only
+ * the overflow. "How full is the page" is the question people actually ask
+ * while writing — the overflow only answers it after it is already too late —
+ * so the fill percentage comes out too.
+ */
+export function usePageOverflow(ref: RefObject<HTMLElement | null>, enabled = true): PageFit {
+  const [fit, setFit] = useState<PageFit>({ overflowPx: 0, fillPct: 0 });
   useEffect(() => {
     const el = ref.current;
     if (!el || !enabled || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       const h = entries[0]?.contentRect.height ?? 0;
-      setOverflowPx(h > PAGE_HEIGHT_PX ? Math.round(h - PAGE_HEIGHT_PX) : 0);
+      setFit({
+        overflowPx: h > PAGE_HEIGHT_PX ? Math.round(h - PAGE_HEIGHT_PX) : 0,
+        fillPct: Math.round((h / PAGE_HEIGHT_PX) * 100),
+      });
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, [ref, enabled]);
-  return overflowPx;
+  return fit;
 }
 
 export function PageBoundaryRule({ overflowPx, top = PAGE_HEIGHT_PX }: { overflowPx: number; top?: number }) {

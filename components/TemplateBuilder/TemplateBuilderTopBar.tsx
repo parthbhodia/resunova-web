@@ -35,6 +35,8 @@ import DownloadIcon from "@mui/icons-material/Download";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import SaveIcon from "@mui/icons-material/Save";
+import PageFitMeter from "@/components/canvas/PageFitMeter";
+import type { PageFit } from "@/components/canvas/PageBoundaryRule";
 
 export interface TopBarAction {
   key: string;
@@ -46,6 +48,7 @@ export interface TopBarAction {
 }
 
 interface Props {
+  pageFit?: PageFit;
   atsScore: number | null;
   atsColor?: string;
   onOpenReview: () => void;
@@ -63,7 +66,7 @@ interface Props {
 }
 
 export default function TemplateBuilderTopBar({
-  atsScore, atsColor, onOpenReview, onLoadExample, onImport, onSave, onDownload,
+  pageFit, atsScore, atsColor, onOpenReview, onLoadExample, onImport, onSave, onDownload,
   importing, saveBusy, saveFlash, savedBuilderId, signedIn, isGenerating, error,
 }: Props) {
   const theme = useTheme();
@@ -150,6 +153,8 @@ export default function TemplateBuilderTopBar({
             />
           </Tooltip>
         </Box>
+
+        {pageFit && !isPhone ? <PageFitMeter fit={pageFit} /> : null}
 
         {error ? (
           <Typography variant="caption" color="error" noWrap sx={{ maxWidth: 180 }}>
