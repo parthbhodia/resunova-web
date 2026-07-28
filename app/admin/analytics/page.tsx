@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import AdminAnalyticsPanel from "@/components/AdminAnalyticsPanel";
 
@@ -12,12 +12,6 @@ export default function AdminAnalyticsPage() {
     getSupabaseClient().auth.getSession().then(() => setReady(true));
   }, []);
 
-  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const { data: s } = await getSupabaseClient().auth.getSession();
-    const token = s.session?.access_token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
-
   return (
     <main style={{ maxWidth: 1180, margin: "0 auto", padding: "28px 16px 60px" }}>
       <div style={{ marginBottom: 22 }}>
@@ -26,7 +20,7 @@ export default function AdminAnalyticsPage() {
           Token consumption, tool usage, and analyst commentary.
         </p>
       </div>
-      {ready && <AdminAnalyticsPanel getAuthHeaders={getAuthHeaders} />}
+      {ready && <AdminAnalyticsPanel />}
     </main>
   );
 }

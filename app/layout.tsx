@@ -3,6 +3,8 @@ import Script from "next/script";
 import "./globals.css";
 import AuthGate from "@/components/AuthGate";
 import AuthHostRedirect from "@/components/AuthHostRedirect";
+import GoogleOneTap from "@/components/GoogleOneTap";
+import { SignInDialogProvider } from "@/components/SignInDialog";
 import { Geist, Inter, DM_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { SITE_URL as BRAND_SITE_URL } from "@/lib/brand";
@@ -23,12 +25,16 @@ const OAUTH_HOST_REDIRECT_SCRIPT = `(function(){try{var site=${JSON.stringify(CA
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default:  "Resunova — AI Resume Tailoring for Every Job Description",
+    default:  "Free AI Resume Builder — Tailor Your Resume to Any Job | Resunova",
     template: "%s · Resunova",
   },
   description:
-    "Completely free AI resume tailoring for students and the job-seeking community. Paste any job description, get a match score, gap analysis, and an ATS-friendly PDF in under a minute.",
+    "Free AI resume builder for students and the job-seeking community. Create your resume, score it across 8 dimensions, tailor it to any job description, and download an ATS-friendly PDF in under a minute. Start free, upgrade anytime.",
   keywords: [
+    "free resume builder",
+    "free AI resume builder",
+    "resume builder free",
+    "create resume",
     "resume builder",
     "AI resume",
     "ATS resume",
@@ -49,17 +55,17 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: "Resunova — AI Resume Tailoring for Every Job Description",
+    title: "Free AI Resume Builder — Tailor Your Resume to Any Job | Resunova",
     description:
-      "Completely free for students and the community. Tailor your resume in 60 seconds — match score, gap analysis, and ATS-friendly PDF included.",
+      "Start free, upgrade anytime. Create, score, and tailor your resume in 60 seconds: match score, gap analysis, and ATS-friendly PDF included.",
     locale: "en_US",
     // OG image auto-served from app/opengraph-image.tsx
   },
   twitter: {
     card: "summary_large_image",
-    title: "Resunova — AI Resume Tailoring for Every Job Description",
+    title: "Free AI Resume Builder — Tailor Your Resume to Any Job | Resunova",
     description:
-      "Completely free for students and the community. Tailor your resume in 60 seconds — match score, gap analysis, and ATS-friendly PDF.",
+      "Start free, upgrade anytime. Create, score, and tailor your resume in 60 seconds (match score, gap analysis, and ATS-friendly PDF).",
     // Twitter image auto-served from app/twitter-image.tsx
   },
   robots: {
@@ -120,7 +126,7 @@ const jsonLd = {
       "operatingSystem": "Web",
       "url": SITE_URL,
       "description":
-        "Completely free AI resume builder for students and the community — tailors your resume to any job description, scores your fit, and exports an ATS-friendly PDF.",
+        "Free AI resume builder for students and the community. Start free, upgrade anytime: it tailors your resume to any job description, scores your fit, and exports an ATS-friendly PDF.",
       "offers": {
         "@type": "Offer",
         "price": "0",
@@ -168,7 +174,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AuthHostRedirect />
-        <AuthGate>{children}</AuthGate>
+        <GoogleOneTap />
+        <SignInDialogProvider>
+          <AuthGate>{children}</AuthGate>
+        </SignInDialogProvider>
       </body>
     </html>
   );

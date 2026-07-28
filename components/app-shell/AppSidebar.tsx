@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { NAV_ICONS } from "./nav-icons";
 import { LogoFull, LogoMark } from "@/components/BrandLogo";
+import { ScansRemainingPill } from "./ScansRemainingPill";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import {
@@ -27,6 +28,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { isPublicAppView } from "@/lib/anonScan";
 import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
 import { AppSidebarUser } from "./AppSidebarUser";
 import { BugReportDialog } from "./BugReportDialog";
@@ -44,6 +46,7 @@ export type AppSidebarProps = {
   active: AppView;
   onTemplateBuilderPage: boolean;
   onInterviewPrepPage: boolean;
+  onCareerProfilePage?: boolean;
   builderActive: boolean;
   builderOpen: boolean;
   onBuilderOpenChange: (open: boolean) => void;
@@ -84,7 +87,7 @@ function NavItem({
     <SidebarMenuItem>
       <SidebarMenuButton
         isActive={isActive}
-        tooltip={locked ? `${VIEW_LABELS[view]} — sign in free to use` : VIEW_LABELS[view]}
+        tooltip={locked ? `${VIEW_LABELS[view]}: sign in free to use` : VIEW_LABELS[view]}
         className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
         onClick={onClick}
       >
@@ -117,6 +120,7 @@ export function AppSidebar({
   active,
   onTemplateBuilderPage,
   onInterviewPrepPage,
+  onCareerProfilePage = false,
   builderActive,
   builderOpen,
   onBuilderOpenChange,
@@ -138,9 +142,14 @@ export function AppSidebar({
   const { state, setOpen } = useSidebar();
   const showLabels = state === "expanded";
   const [bugReportOpen, setBugReportOpen] = React.useState(false);
-  /** Locked views send anonymous visitors to sign-in instead of the view. */
+  /**
+   * Views a signed-out visitor may not use send them to sign-in instead.
+   * Membership comes from the shared PUBLIC_APP_VIEWS so a click and a pasted
+   * URL always agree — they used to be separate lists and disagreed on `jobs`.
+   */
+  const isLocked = (view: AppView) => anonMode && !isPublicAppView(view);
   const gated = (view: AppView) => () => {
-    if (anonMode) onSignIn?.();
+    if (isLocked(view)) onSignIn?.();
     else onSwitchView(view);
   };
   const handleBuilderClick = () => {
@@ -175,8 +184,8 @@ export function AppSidebar({
               <button
                 type="button"
                 className="flex min-w-0 flex-1 cursor-pointer items-center justify-start border-0 bg-transparent p-0 font-inherit"
-                onClick={() => onSwitchView("analyze")}
-                aria-label="Resunova — go to Analyze"
+                onClick={() => onSwitchView("home")}
+                aria-label="Resunova, go to Home"
               >
                 <LogoFull markSize={26} textColor="var(--text)" variant={isUmbc ? "umbc" : "resunova"} />
               </button>
@@ -187,12 +196,20 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent>
+        <ScansRemainingPill collapsed={state === "collapsed"} />
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
             <SidebarMenu className="group-data-[collapsible=icon]:items-center">
               <NavItem
+                view="home"
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "home"}
+                onClick={gated("home")}
+                showLabels={showLabels}
+                locked={anonMode}
+              />
+              <NavItem
                 view="analyze"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "analyze"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "analyze"}
                 onClick={() => onSwitchView("analyze")}
                 showLabels={showLabels}
               />
@@ -264,7 +281,7 @@ export function AppSidebar({
                   isActive={onInterviewPrepPage}
                   tooltip="Interview Prep"
                   className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
-                  onClick={() => router.push("/interview-prep")}
+                  onClick={() => { if (anonMode) onSignIn?.(); else router.push("/interview-prep"); }}
                 >
                   <span className="app-nav-icon" aria-hidden>
                     {NAV_ICONS.interviewPrep}
@@ -275,36 +292,29 @@ export function AppSidebar({
 
               <NavItem
                 view="library"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "library"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "library"}
                 onClick={gated("library")}
                 showLabels={showLabels}
-                locked={anonMode}
+                locked={isLocked("library")}
               />
               <NavItem
                 view="cover-letter"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "cover-letter"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "cover-letter"}
                 onClick={gated("cover-letter")}
                 showLabels={showLabels}
-                locked={anonMode}
+                locked={isLocked("cover-letter")}
               />
               <NavItem
                 view="jobs"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "jobs"}
+                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "jobs"}
                 onClick={gated("jobs")}
                 showLabels={showLabels}
-                locked={anonMode}
-              />
-              <NavItem
-                view="profile"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "profile"}
-                onClick={gated("profile")}
-                showLabels={showLabels}
-                locked={anonMode}
+                locked={isLocked("jobs")}
               />
               {advisorAllowed ? (
                 <NavItem
                   view="advisor"
-                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && active === "advisor"}
+                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "advisor"}
                   onClick={() => onSwitchView("advisor")}
                   showLabels={showLabels}
                 />
@@ -343,44 +353,33 @@ export function AppSidebar({
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="Contact"
-              className={NAV_MENU_BTN_CLASS}
-              render={<Link href="/contact" prefetch={false} />}
-            >
-              <span className="app-nav-icon" aria-hidden>
-                {NAV_ICONS.contact}
-              </span>
-              {showLabels ? <span className="app-nav-label">Contact</span> : null}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Report a bug"
+              tooltip="Feedback"
               className={NAV_MENU_BTN_CLASS}
               onClick={() => setBugReportOpen(true)}
             >
               <span className="app-nav-icon" aria-hidden>
                 {NAV_ICONS.bug}
               </span>
-              {showLabels ? <span className="app-nav-label">Report a bug</span> : null}
+              {showLabels ? <span className="app-nav-label">Feedback</span> : null}
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
             {anonMode ? (
               <SidebarMenuButton
-                tooltip="Sign in free — save reports, unlock all features"
+                tooltip="Sign in free to save reports and unlock all features"
                 className={cn(NAV_MENU_BTN_CLASS, "!text-accent font-semibold")}
                 onClick={() => onSignIn?.()}
               >
                 <span className="app-nav-icon" aria-hidden>
                   {NAV_ICONS.lock}
                 </span>
-                {showLabels ? <span className="app-nav-label">Sign in — free</span> : null}
+                {showLabels ? <span className="app-nav-label">Sign in, free</span> : null}
               </SidebarMenuButton>
             ) : (
               <AppSidebarUser
                 initial={userInitial}
-                onProfile={() => onSwitchView("profile")}
+                onProfile={() => router.push("/profile")}
+                onMyResumes={() => onSwitchView("library")}
                 onAccount={() => onSwitchView("account")}
                 onSignOut={onSignOut}
               />

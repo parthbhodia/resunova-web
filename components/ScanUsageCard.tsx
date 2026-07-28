@@ -6,35 +6,19 @@
  */
 
 import { useEffect, useState } from "react";
-import { getSupabaseClient } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
 import { Card } from "@/components/profileSettingsUi";
-
-type ScanUsageStatus = {
-  enforced: boolean;
-  unlimited: boolean;
-  anonymous?: boolean;
-  limit?: number;
-  used?: number;
-  remaining?: number;
-  resetAt?: string | null;
-};
+import { apiFetch, scanLimitFrom, planLabel, type ScanLimitStatus } from "@/lib/apiClient";
 
 export default function ScanUsageCard() {
-  const [status, setStatus] = useState<ScanUsageStatus | null>(null);
+  const [status, setStatus] = useState<ScanLimitStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const supabase = getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const headers: Record<string, string> = session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : {};
-        const resp = await fetch(apiUrl("/api/scan-limit-status"), { headers });
-        const data = (await resp.json()) as ScanUsageStatus;
+        const resp = await apiFetch("/api/scan-limit-status");
+        const data = scanLimitFrom(await resp.json());
         if (!cancelled) setStatus(data);
       } catch {
         /* non-critical */
@@ -64,10 +48,17 @@ export default function ScanUsageCard() {
   }
 
   if (status.unlimited) {
+    // Say which unlimited plan it is. This branch used to hard-code "UMBC",
+    // so a paying Pro subscriber was told they were a university user.
+    const plan = status.plan;
     return (
-      <Card title="Plan & usage" badge="UMBC">
+      <Card title="Plan & usage" badge={planLabel(status) ?? "Unlimited"}>
         <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
-          Unlimited résumé scans — included with your UMBC account.
+          {plan === "pro"
+            ? "Unlimited résumé scans, included with Pro."
+            : plan === "institution"
+              ? "Unlimited résumé scans, included with your university account."
+              : "Unlimited résumé scans on your current plan."}
         </p>
       </Card>
     );

@@ -2,17 +2,39 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Material Design 3 card.
+ *
+ * `variant` maps to Material's three card styles:
+ *   elevated  — resting elevation 1, lifting to 2 on hover
+ *   filled    — no shadow, a tonal background instead
+ *   outlined  — no shadow, a hairline border (the previous default)
+ *
+ * Defaults to `outlined` so every existing call site renders as it did
+ * before; opt into elevation where depth is meaningful.
+ */
+
 function Card({
   className,
   size = "default",
+  variant = "outlined",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & {
+  size?: "default" | "sm";
+  variant?: "elevated" | "filled" | "outlined";
+}) {
   return (
     <div
       data-slot="card"
       data-size={size}
+      data-variant={variant}
       className={cn(
-        "group/card flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-4 text-sm text-card-foreground ring-1 ring-foreground/10 has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        "group/card flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-4 text-sm text-card-foreground",
+        variant === "outlined" && "ring-1 ring-foreground/10",
+        variant === "filled" && "bg-muted",
+        variant === "elevated"
+          && "shadow-[var(--md-elevation-1)] [transition:box-shadow_var(--md-duration-medium)_var(--md-easing-standard)] hover:shadow-[var(--md-elevation-2)]",
+        " has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         className
       )}
       {...props}

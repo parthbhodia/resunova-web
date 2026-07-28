@@ -11,8 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getSupabaseClient } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 
 const CATEGORIES = [
   { value: "general", label: "General" },
@@ -56,16 +55,9 @@ export function BugReportDialog({ open, onOpenChange }: Props) {
     setErrorMsg("");
 
     try {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
-      }
-
-      const res = await fetch(apiUrl("/api/bug-report"), {
+      const res = await apiFetch("/api/bug-report", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim(),
@@ -90,16 +82,16 @@ export function BugReportDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Report a bug</DialogTitle>
+          <DialogTitle>Feedback</DialogTitle>
           <DialogDescription>
-            Spotted something broken? Tell us what happened and we'll look into it.
+            Have an idea or spotted something broken? Tell us what's on your mind and we'll look into it.
           </DialogDescription>
         </DialogHeader>
 
         {status === "success" ? (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
             <span className="text-2xl">✓</span>
-            <p className="font-medium">Thanks — report received!</p>
+            <p className="font-medium">Thanks! Feedback received.</p>
             <p className="text-sm text-muted-foreground">We'll look into it.</p>
             <DialogClose render={<Button variant="outline" size="sm" className="mt-2" />}>
               Close
@@ -172,7 +164,7 @@ export function BugReportDialog({ open, onOpenChange }: Props) {
                 size="sm"
                 disabled={status === "submitting" || !title.trim() || !description.trim()}
               >
-                {status === "submitting" ? "Sending…" : "Send report"}
+                {status === "submitting" ? "Sending…" : "Send feedback"}
               </Button>
             </DialogFooter>
           </form>

@@ -164,10 +164,69 @@
   --transition:  0.18s cubic-bezier(0.4,0,0.2,1);
 }
 
-/* Typography scale — centralized font sizes, weights, and line-heights */
+/* Typography scale — centralized font sizes, weights, and line-heights.
+ *
+ * `--fs-*` is the canonical ladder and mirrors `FS` in lib/typography.ts —
+ * change one and change the other. New UI picks a step from it; no raw or
+ * half-pixel sizes. The résumé paper is exempt (print metrics own their own
+ * sizes in lib/resumeLayout.ts).
+ *
+ * The `--font-size-*` block below it predates the ladder and does not sit on
+ * it (9/15/26/52). It is kept so existing call sites do not shift; treat it as
+ * legacy and reach for `--fs-*` in anything new. */
 :root,
 [data-theme="dark"],
 [data-theme="light"] {
+  --fs-micro:      10px;  /* dense badges, chips, table meta */
+  --fs-caption:    11px;  /* secondary meta, sidebar labels  */
+  --fs-small:      12px;  /* dense UI text, compact controls */
+  --fs-body:       13px;  /* default app-chrome body         */
+  --fs-body-lg:    14px;  /* comfortable body, inputs        */
+  --fs-subhead:    16px;  /* card titles, section subheads   */
+  --fs-title:      18px;  /* panel titles                    */
+  --fs-h3:         20px;
+  --fs-h2:         24px;
+  --fs-h1:         30px;
+  --fs-display:    36px;
+  --fs-display-lg: 48px;
+
+  /* ── Material Design 3 ────────────────────────────────────────────────
+     Mirrored from lib/material.ts — keep both sides in step (a test pins
+     it, same arrangement as the --fs-* ladder above).
+
+     Elevation is six defined levels rather than ad-hoc box-shadows, and
+     interaction uses a STATE LAYER: a translucent overlay of the element's
+     own foreground colour, so one rule covers every colour instead of a
+     bespoke hover background per variant.
+
+     NOT for the résumé paper or anything on the PDF export path — those
+     shadows and sizes are print metrics and Material elevation renders as
+     grey boxes in an exported PDF. */
+  --md-elevation-0: none;
+  --md-elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.30), 0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --md-elevation-2: 0 1px 2px 0 rgb(0 0 0 / 0.30), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --md-elevation-3: 0 4px 8px 3px rgb(0 0 0 / 0.15), 0 1px 3px 0 rgb(0 0 0 / 0.30);
+  --md-elevation-4: 0 6px 10px 4px rgb(0 0 0 / 0.15), 0 2px 3px 0 rgb(0 0 0 / 0.30);
+  --md-elevation-5: 0 8px 12px 6px rgb(0 0 0 / 0.15), 0 4px 4px 0 rgb(0 0 0 / 0.30);
+
+  --md-state-hover:   0.08;
+  --md-state-focus:   0.10;
+  --md-state-pressed: 0.10;
+
+  --md-shape-xs: 4px;
+  --md-shape-sm: 8px;
+  --md-shape-md: 12px;
+  --md-shape-lg: 16px;
+  --md-shape-xl: 28px;
+
+  --md-easing-standard:   cubic-bezier(0.2, 0, 0, 1);
+  --md-easing-decelerate: cubic-bezier(0, 0, 0, 1);
+  --md-easing-accelerate: cubic-bezier(0.3, 0, 1, 1);
+
+  --md-duration-short:  100ms;
+  --md-duration-medium: 200ms;
+  --md-duration-long:   300ms;
+
   --font-size-xs:        9px;
   --font-size-sm:        11px;
   --font-size-base:      13px;
@@ -264,7 +323,16 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 a { cursor: pointer; }
 
 /* ── Form elements ────────────────────────────────────────── */
-input, textarea, select {
+/*
+ * Bare form controls only.
+ *
+ * MUI renders a real <input> INSIDE its own outlined container, so without
+ * this exclusion the inner element picks up the border, radius, background and
+ * padding below and you get a box drawn inside a box — visible as doubled
+ * chrome on every MUI TextField. The MUI control already carries all of these
+ * from the theme, so it must opt out rather than be overridden.
+ */
+input:not([class*="Mui"]), textarea:not([class*="Mui"]), select:not([class*="Mui"]) {
   font-family: inherit;
   font-size: 14px;
   letter-spacing: -0.1px;
@@ -277,8 +345,8 @@ input, textarea, select {
   width: 100%;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
-input:hover, textarea:hover { border-color: var(--border-h); }
-input:focus, textarea:focus, select:focus {
+input:not([class*="Mui"]):hover, textarea:not([class*="Mui"]):hover { border-color: var(--border-h); }
+input:not([class*="Mui"]):focus, textarea:not([class*="Mui"]):focus, select:not([class*="Mui"]):focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.22);
 }
@@ -324,12 +392,56 @@ select option { background: var(--surface); }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    /* Without this, an `infinite` animation does not stop — it restarts every
+       0.01ms and pins a core repainting. Collapsing the iteration count is
+       what actually ends the animation. */
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
   }
   .rb-suggest-loader-topshine {
     animation: none !important;
     background: var(--accent);
     opacity: 0.35;
   }
+}
+
+/* ── Horizontal rails on small screens ────────────────────────
+   A wrapping row of filter chips turns into four stacked rows on a phone and
+   pushes the actual content below the fold. On narrow viewports these rows
+   become a single swipeable line instead — the pattern every mobile app uses
+   for filters. Desktop keeps wrapping.
+
+   Requires any popup the row opens to be portalled to <body>; an in-flow menu
+   would be clipped by `overflow-x`. */
+.rn-scroll-rail::-webkit-scrollbar { height: 0; width: 0; }
+
+/* The app-shell skeleton's sidebar rail — the real sidebar is off-canvas on
+   phones, so tracing it there would promise a column that never arrives. */
+@media (max-width: 768px) {
+  .rn-shell-skel-rail { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .rn-scroll-rail {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    /* Bleed to the viewport edge so the last chip is visibly cut off — the
+       affordance that tells the user there is more to swipe. */
+    margin-inline: -16px;
+    padding-inline: 16px;
+    scroll-padding-inline: 16px;
+  }
+  .rn-scroll-rail > * {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+  /* `margin-left:auto` would collapse the whole rail in a nowrap scroller. */
+  .rn-scroll-rail > .rn-rail-end { margin-left: 0 !important; }
 }
 
 /* ── Mobile responsive overrides ──────────────────────────── */
@@ -1483,4 +1595,40 @@ select option { background: var(--surface); }
   html {
     @apply font-sans;
   }
+}
+/* ── Material state layer ──────────────────────────────────────────────────
+   Material tints an interactive surface by overlaying its FOREGROUND colour
+   at a fixed opacity, rather than defining a separate hover background for
+   every variant. Applied as a ::after layer so it composites over whatever
+   background the variant already has — including gradients — and so one rule
+   covers colours added later.
+
+   `position: relative` and `isolation` are set on the host so the layer can
+   never escape its own stacking context. */
+.md-state-layer {
+  position: relative;
+  isolation: isolate;
+}
+.md-state-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--md-duration-medium) var(--md-easing-standard);
+}
+.md-state-layer:hover::after        { opacity: var(--md-state-hover); }
+.md-state-layer:focus-visible::after { opacity: var(--md-state-focus); }
+.md-state-layer:active::after       { opacity: var(--md-state-pressed); }
+.md-state-layer:disabled::after,
+.md-state-layer[data-disabled]::after { opacity: 0; }
+
+/* The overlay is review chrome, not document content: strip it from the
+   Chromium PDF capture along with every other animation. */
+.az-clean-export .md-state-layer::after { opacity: 0 !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .md-state-layer::after { transition-duration: 0.01ms; }
 }

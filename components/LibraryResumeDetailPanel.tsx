@@ -6,7 +6,8 @@ import type { User } from "@supabase/supabase-js";
 import type { ResumeRecord } from "@/lib/types";
 import { apiUrl } from "@/lib/utils";
 import { displayPdfUrlForResume } from "@/lib/displayResumePdfUrl";
-import { getSupabaseClient, type LibraryItem } from "@/lib/supabase";
+import { getSupabaseClient } from "@/lib/supabase";
+import { type LibraryFeedItem } from "@/lib/libraryFeed";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,8 +65,12 @@ export default function LibraryResumeDetailPanel({
   onOpenInBuilder,
   onDeleteBuilder,
   onDeleteCoverLetter,
+  onEditVersion,
+  onTailorVersion,
+  onBoostVersion,
+  onUseVersionAsMyResume,
 }: {
-  item: LibraryItem | null;
+  item: LibraryFeedItem | null;
   loading: boolean;
   notFound: boolean;
   onClose: () => void;
@@ -76,6 +81,10 @@ export default function LibraryResumeDetailPanel({
   onOpenInBuilder: () => void;
   onDeleteBuilder: () => void;
   onDeleteCoverLetter?: () => void;
+  onEditVersion?: () => void;
+  onTailorVersion?: () => void;
+  onBoostVersion?: () => void;
+  onUseVersionAsMyResume?: () => void;
 }) {
   const [user, setUser] = useState<User | null>(null);
 
@@ -103,7 +112,7 @@ export default function LibraryResumeDetailPanel({
     ? new Date(createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
     : "—";
 
-  const titleShort = item?.kind === "analyzed" || item?.kind === "builder"
+  const titleShort = item?.kind === "analyzed" || item?.kind === "builder" || item?.kind === "version"
     ? item.title
     : meta
     ? `${meta.company}${meta.role ? ` · ${abbrevRole(meta.role)}` : ""}`
@@ -185,6 +194,44 @@ export default function LibraryResumeDetailPanel({
           </p>
         )}
 
+        {!loading && !notFound && item?.kind === "version" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
+              <span style={{ fontWeight: 600, color: "var(--text)" }}>{item.title}</span>
+              <br />
+              {item.score != null ? <>Score {item.score}/100 · </> : null}
+              Updated {dateShort}
+              {item.versionCount > 1 ? <> · {item.versionCount} saved edits</> : null}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Button type="button" onClick={onEditVersion} style={{ background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8 }}>
+                ✎ Edit résumé
+              </Button>
+              <Button type="button" variant="outline" onClick={onTailorVersion} style={{ fontSize: 12, fontWeight: 600 }}>
+                Tailor to a job
+              </Button>
+              <Button type="button" variant="outline" onClick={onBoostVersion} style={{ fontSize: 12, fontWeight: 600 }}>
+                Boost for jobs
+              </Button>
+            </div>
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                Job matching
+              </div>
+              <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 10px" }}>
+                {item.isDefault
+                  ? "This is the résumé Jobs and Boost currently match against."
+                  : "Make this the résumé Jobs and Boost match against."}
+              </p>
+              {!item.isDefault && (
+                <Button type="button" variant="outline" onClick={onUseVersionAsMyResume} style={{ fontSize: 12, fontWeight: 600 }}>
+                  ★ Use as my résumé
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         {!loading && !notFound && item?.kind === "cover_letter" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
@@ -250,7 +297,7 @@ export default function LibraryResumeDetailPanel({
             >
               {pdfSrc ? (
                 <iframe
-                  title={`Preview — ${meta.company}`}
+                  title={`Preview: ${meta.company}`}
                   src={pdfSrc}
                   style={{
                     width: "100%",
@@ -511,7 +558,7 @@ function AnalyzedDetails({
         <SectionBlock title="Top issues">
           <div style={{ display: "grid", gap: 8 }}>
             {topIssues.map((issue, i) => (
-              <div key={`${issue}-${i}`} style={{ fontSize: 12.5, color: "var(--text)", lineHeight: 1.45, display: "flex", gap: 8 }}>
+              <div key={`${issue}-${i}`} style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.45, display: "flex", gap: 8 }}>
                 <span style={{ color: "var(--amber)", fontWeight: 800 }}>•</span>
                 <span>{issue}</span>
               </div>
@@ -524,7 +571,7 @@ function AnalyzedDetails({
         <SectionBlock title="Strengths">
           <div style={{ display: "grid", gap: 8 }}>
             {topStrengths.map((strength, i) => (
-              <div key={`${strength}-${i}`} style={{ fontSize: 12.5, color: "var(--text)", lineHeight: 1.45, display: "flex", gap: 8 }}>
+              <div key={`${strength}-${i}`} style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.45, display: "flex", gap: 8 }}>
                 <span style={{ color: "var(--green)", fontWeight: 800 }}>•</span>
                 <span>{strength}</span>
               </div>
@@ -536,7 +583,7 @@ function AnalyzedDetails({
       {sourcePdfUrl ? (
         <SectionBlock title="Uploaded PDF">
           {sourceFilename ? (
-            <p style={{ margin: "0 0 8px", fontSize: 11.5, color: "var(--muted)" }}>{sourceFilename}</p>
+            <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted)" }}>{sourceFilename}</p>
           ) : null}
           <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
             <iframe

@@ -1,10 +1,12 @@
 import React, { useState, useCallback } from "react";
+import { TBInput, TBSelect } from "@/components/mui/fields";
+import MenuItem from "@mui/material/MenuItem";
 import { useCoverLetterStore } from "@/store/coverLetterStore";
 import { CL_TEMPLATES } from "./types";
-import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "./SignInToUseAi";
+import { apiFetch } from "@/lib/apiClient";
 
 const inputBase: React.CSSProperties = {
   width: "100%", padding: "8px 11px", borderRadius: 6,
@@ -61,12 +63,9 @@ function AITextarea({ field, context, onEnhanced, value, style, signedIn, signin
       const { data: { session } } = await db.auth.getSession();
       if (!session?.access_token) { setShowSignIn(true); return; }
 
-      const res = await fetch(apiUrl("/api/cl-enhance"), {
+      const res = await apiFetch("/api/cl-enhance", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: String(value ?? ""), field, context }),
       });
       // Session expired / rejected by the backend → prompt to sign in again.
@@ -118,7 +117,7 @@ function AITextarea({ field, context, onEnhanced, value, style, signedIn, signin
             onSignIn={onSignIn}
             onDismiss={() => setShowSignIn(false)}
             title="Sign in to use AI Enhance"
-            subtitle="Polish your wording with AI — free with a Google account."
+            subtitle="Polish your wording with AI, free with a Google account."
           />
         </div>
       )}
@@ -140,16 +139,16 @@ export default function CoverLetterFormPanel({ activeTab }: { activeTab: string 
         <>
           <h3 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 14px" }}>Recipient Details</h3>
           <Field label="Company Name">
-            <input style={inputBase} value={data.recipient.companyName} onChange={e => store.setRecipient("companyName", e.target.value)} placeholder="Stripe" />
+            <TBInput value={data.recipient.companyName} onChange={e => store.setRecipient("companyName", e.target.value)} placeholder="Stripe" />
           </Field>
           <Field label="Hiring Manager Name">
-            <input style={inputBase} value={data.recipient.hiringManagerName} onChange={e => store.setRecipient("hiringManagerName", e.target.value)} placeholder="Jane Doe or Hiring Manager" />
+            <TBInput value={data.recipient.hiringManagerName} onChange={e => store.setRecipient("hiringManagerName", e.target.value)} placeholder="Jane Doe or Hiring Manager" />
           </Field>
           <Field label="Role Title">
-            <input style={inputBase} value={data.recipient.roleTitle} onChange={e => store.setRecipient("roleTitle", e.target.value)} placeholder="Software Engineer" />
+            <TBInput value={data.recipient.roleTitle} onChange={e => store.setRecipient("roleTitle", e.target.value)} placeholder="Software Engineer" />
           </Field>
           <Field label="Company Address">
-            <input style={inputBase} value={data.recipient.companyAddress} onChange={e => store.setRecipient("companyAddress", e.target.value)} placeholder="San Francisco, CA" />
+            <TBInput value={data.recipient.companyAddress} onChange={e => store.setRecipient("companyAddress", e.target.value)} placeholder="San Francisco, CA" />
           </Field>
         </>
       )}
@@ -158,22 +157,22 @@ export default function CoverLetterFormPanel({ activeTab }: { activeTab: string 
         <>
           <h3 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 14px" }}>About You</h3>
           <Field label="Full Name">
-            <input style={inputBase} value={data.author.name} onChange={e => store.setAuthor("name", e.target.value)} placeholder="Alex Johnson" />
+            <TBInput value={data.author.name} onChange={e => store.setAuthor("name", e.target.value)} placeholder="Alex Johnson" />
           </Field>
           <div style={{ display: "flex", gap: 10 }}>
             <Field label="Email" half>
-              <input style={inputBase} value={data.author.email} onChange={e => store.setAuthor("email", e.target.value)} />
+              <TBInput value={data.author.email} onChange={e => store.setAuthor("email", e.target.value)} />
             </Field>
             <Field label="Phone" half>
-              <input style={inputBase} value={data.author.phone} onChange={e => store.setAuthor("phone", e.target.value)} />
+              <TBInput value={data.author.phone} onChange={e => store.setAuthor("phone", e.target.value)} />
             </Field>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <Field label="Location" half>
-              <input style={inputBase} value={data.author.location} onChange={e => store.setAuthor("location", e.target.value)} />
+              <TBInput value={data.author.location} onChange={e => store.setAuthor("location", e.target.value)} />
             </Field>
             <Field label="LinkedIn" half>
-              <input style={inputBase} value={data.author.linkedin} onChange={e => store.setAuthor("linkedin", e.target.value)} />
+              <TBInput value={data.author.linkedin} onChange={e => store.setAuthor("linkedin", e.target.value)} />
             </Field>
           </div>
         </>
@@ -201,34 +200,34 @@ export default function CoverLetterFormPanel({ activeTab }: { activeTab: string 
         <>
           <h3 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 14px" }}>Style Settings</h3>
           <Field label="Template">
-            <select style={inputBase} value={data.customization.templateId} onChange={e => store.setCustomization("templateId", e.target.value as any)}>
-              {CL_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
+            <TBSelect value={data.customization.templateId} onChange={e => store.setCustomization("templateId", e.target.value as any)}>
+              {CL_TEMPLATES.map(t => <MenuItem key={t.id} value={t.id}>{t.label}</MenuItem>)}
+            </TBSelect>
           </Field>
           <Field label="Accent Color">
-            <input type="color" style={{...inputBase, padding: "2px 6px", height: 36}} value={data.customization.accentColor} onChange={e => store.setCustomization("accentColor", e.target.value)} />
+            <input type="color" style={{...inputBase, padding: "2px 6px", height: 44}} value={data.customization.accentColor} onChange={e => store.setCustomization("accentColor", e.target.value)} />
           </Field>
           <div style={{ display: "flex", gap: 10 }}>
             <Field label="Font" half>
-              <select style={inputBase} value={data.customization.font} onChange={e => store.setCustomization("font", e.target.value as any)}>
-                <option value="Helvetica">Helvetica</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Inter">Inter</option>
-              </select>
+              <TBSelect value={data.customization.font} onChange={e => store.setCustomization("font", e.target.value as any)}>
+                <MenuItem value="Helvetica">Helvetica</MenuItem>
+                <MenuItem value="Georgia">Georgia</MenuItem>
+                <MenuItem value="Inter">Inter</MenuItem>
+              </TBSelect>
             </Field>
             <Field label="Size" half>
-              <select style={inputBase} value={data.customization.fontSize} onChange={e => store.setCustomization("fontSize", e.target.value as any)}>
-                <option value="small">Small</option>
-                <option value="medium">Medium</option>
-                <option value="large">Large</option>
-              </select>
+              <TBSelect value={data.customization.fontSize} onChange={e => store.setCustomization("fontSize", e.target.value as any)}>
+                <MenuItem value="small">Small</MenuItem>
+                <MenuItem value="medium">Medium</MenuItem>
+                <MenuItem value="large">Large</MenuItem>
+              </TBSelect>
             </Field>
           </div>
           <Field label="Date Format">
-             <select style={inputBase} value={data.customization.dateFormat} onChange={e => store.setCustomization("dateFormat", e.target.value as any)}>
-                <option value="long">Long (June 9, 2026)</option>
-                <option value="short">Short (06/09/2026)</option>
-              </select>
+             <TBSelect value={data.customization.dateFormat} onChange={e => store.setCustomization("dateFormat", e.target.value as any)}>
+                <MenuItem value="long">Long (June 9, 2026)</MenuItem>
+                <MenuItem value="short">Short (06/09/2026)</MenuItem>
+              </TBSelect>
           </Field>
         </>
       )}

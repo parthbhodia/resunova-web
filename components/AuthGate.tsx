@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -9,27 +10,106 @@ import {
   readForceLandingAfterSignOut,
 } from "@/lib/authSignOut";
 import { urlRequestsPublicAppView } from "@/lib/anonScan";
+import { useSignInDialog } from "./SignInDialog";
 import LandingPage from "./LandingPage";
+import AppShellSkeleton from "./app-shell/AppShellSkeleton";
+
+/** Human name for a gated route, so the prompt says what you were heading to. */
+const GATED_ROUTE_LABELS: Record<string, string> = {
+  "/interview-prep": "Interview Prep",
+  "/my-resumes": "My Résumés",
+  "/account": "your account",
+};
+
+function gatedRouteLabel(pathname: string | null): string | null {
+  if (!pathname) return null;
+  const trimmed = pathname.replace(/\/$/, "");
+  for (const [prefix, label] of Object.entries(GATED_ROUTE_LABELS)) {
+    if (trimmed === prefix || trimmed.startsWith(prefix + "/")) return label;
+  }
+  return null;
+}
+
+/**
+ * Shown when a signed-out visitor opens a route that needs an account.
+ *
+ * The previous behaviour rendered the marketing landing page here while the
+ * URL still read /interview-prep — indistinguishable from being silently
+ * teleported home. Keeping the URL and naming the destination means the
+ * visitor knows what happened and lands where they meant to after signing in.
+ */
+function SignInRequired({ pathname }: { pathname: string | null }) {
+  const { openSignIn } = useSignInDialog();
+  const label = gatedRouteLabel(pathname);
+  return (
+    <div style={{
+      minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 24, background: "var(--bg)",
+    }}>
+      <div style={{
+        width: "min(420px, 100%)", textAlign: "center",
+        background: "var(--surface)", border: "1px solid var(--border)",
+        borderRadius: 14, padding: "30px 26px",
+      }}>
+        <h1 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800, color: "var(--text)" }}>
+          Sign in to continue
+        </h1>
+        <p style={{ margin: "0 0 20px", fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
+          {label
+            ? `${label} needs a free account so your work is saved to it.`
+            : "This page needs a free account so your work is saved to it."}
+        </p>
+        <button
+          type="button"
+          onClick={() => openSignIn()}
+          style={{
+            width: "100%", padding: "11px 18px", borderRadius: 10, border: "none",
+            background: "var(--accent)", color: "#fff",
+            fontSize: 14, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
+          }}
+        >
+          Sign in, it&apos;s free
+        </button>
+        <Link
+          href="/"
+          style={{
+            display: "inline-block", marginTop: 14,
+            fontSize: 13, fontWeight: 600, color: "var(--muted)", textDecoration: "none",
+          }}
+        >
+          Back to home
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 // Routes that intentionally bypass auth — design-system / preview pages.
 const PUBLIC_ROUTES = new Set<string>([
   "/editor-preview",
-  "/profile",
   "/profile-mockup",
   "/landing-preview",
   "/terms",
   "/privacy",
   "/contact",
+  "/pricing",
   "/blog",
-  "/template-builder",
   "/resume-examples",
+  "/jobs",
+  "/ats-resume-checker",
+  "/cover-letter",
+  "/skills-for-resume",
+  "/template-builder",
+  "/profile",
+  "/reset-password",
 ]);
-// Path prefixes that bypass auth — recipient share pages live at /r/<shortid>.
-const PUBLIC_PREFIXES = ["/r/", "/blog/", "/resume-examples/"];
+// Path prefixes that bypass auth — recipient share pages live at /r/<shortid>,
+// programmatic SEO role pages at /resume-examples/<role>, comparisons at /compare/<slug>.
+const PUBLIC_PREFIXES = ["/r/", "/blog/", "/resume-examples/", "/skills-for-resume/", "/compare/", "/jobs/"];
 
 const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true";
 
-function isPublicPath(pathname: string | null): boolean {
+export function isPublicPath(pathname: string | null): boolean {
   if (!pathname) return false;
   const trimmed = pathname.replace(/\/$/, "");
   if (PUBLIC_ROUTES.has(trimmed)) return true;
@@ -72,6 +152,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setForceLanding(readForceLandingAfterSignOut());
+    // Public documents never need auth to render. Avoid initializing Supabase so
+    // SEO/local-preview pages also work when client auth env vars are absent.
+    if (publicRoute) {
+      setChecked(true);
+      return;
+    }
     const supabase = getSupabaseClient();
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -91,7 +177,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       }
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [publicRoute]);
 
   if (publicRoute) return <>{children}</>;
 
@@ -117,15 +203,13 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  if (!checked) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg)" }}>
-        <div style={{ width: 20, height: 20, border: "2px solid var(--surface2)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-      </div>
-    );
-  }
+  // Session still resolving on a non-home route: draw the shell that is about
+  // to appear rather than a spinner on an empty page.
+  if (!checked) return <AppShellSkeleton />;
 
-  if (!session) return <LandingPage />;
+  // A gated route while signed out: say so, keep the URL. Rendering the
+  // marketing page here read as an unexplained bounce to the homepage.
+  if (!session) return <SignInRequired pathname={pathname} />;
 
   return <>{children}</>;
 }

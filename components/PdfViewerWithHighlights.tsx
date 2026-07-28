@@ -207,7 +207,7 @@ export default function PdfViewerWithHighlights({
         <a
           href={pdfBlobUrl}
           download={filename}
-          title="Your uploaded file — same bytes and layout as when you analyzed it."
+          title="Your uploaded file, byte for byte as when you analyzed it."
           style={{
             display: "inline-flex",
             alignItems: "center",

@@ -9,7 +9,6 @@ import {
   buildBulletPrimaryCategories,
   bulletBelongsToCategory,
   bulletMatchesAnalysisCategory,
-  countBulletsInCategory,
   getRewriteForCategory,
   cleanAiArtifacts,
   inferPrimaryCategoryFromBullet,
@@ -17,381 +16,45 @@ import {
   isTrivialRewrite,
   type CategoryAssignmentOptions,
 } from "@/lib/analysisCategoryMatch";
-import { apiUrl, resumeFileClientError } from "@/lib/utils";
+import { patchAppliedEditsIntoResume } from "@/lib/analyzeRescore";
+import { hiddenBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeBody";
+import { estimateScoreAfterFixes } from "@/lib/analyzeScoreEstimate";
+import { resumeFileClientError } from "@/lib/utils";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
 import { useResumeAnalyzeStore } from "@/store/resumeAnalyzeStore";
-import type { StructuredResume, BulletMapEntry } from "@/store/resumeAnalyzeStore";
-import { getSupabaseClient, fetchAnalyses, fetchAnalysisById, insertAnalysis, deleteAnalysis } from "@/lib/supabase";
+import { getSupabaseClient, fetchAnalysisById, insertAnalysis, createAnalysisVersion, deleteAnalysis } from "@/lib/supabase";
+import { groupAnalysesByRoot } from "@/lib/analyzeVersions";
 import type { AnalyzeRecord } from "@/lib/supabase";
 import AnalyzePreviewPane from "@/components/AnalyzePreviewPane";
 import {
   AnalyzeUploadLanding,
   AnalyzeCoachLoader,
-  ANALYZE_LOADER_STEPS,
-  ANALYZE_COACH_TIPS,
 } from "@/components/AnalyzeExperience";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
-import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan } from "@/lib/anonScan";
+import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan, takeAnalyzeJd } from "@/lib/anonScan";
+import { logClientEvent, stashPrewallEvent, flushPrewallEvents } from "@/lib/clientEvents";
+import { upsertEditedVersion, syncVersionAfterRescore, findVersionBySourceRoot } from "@/lib/resumeVersions";
 import { useSignInDialog } from "@/components/SignInDialog";
-import JobSearchActivationWidget, { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
+import { useUpgradeDialog } from "@/components/UpgradeDialog";
+import { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
+import type { AnalysisResult } from "./analyze/analyzeTypes";
+import {
+  SCORE_NEEDS_EXPLANATION, scoreColor, scoreLabel, severityColor, severityBg,
+  CATEGORY_LABELS, flaggedBulletFixChip, CATEGORY_COACH, COACH_BODY_STYLE,
+  CATEGORY_DESCRIPTIONS, issueCategoryOf, getBulletsForCategory,
+  formatExperienceTenureChip,
+} from "./analyze/analyzeViewHelpers";
+import { lsSave, lsPush } from "./analyze/analyzeHistoryStore";
+import { AnalyzeSidebarPinned, AnalyzeHistoryRail } from "./analyze/AnalyzeSidebar";
+import SaveToProfilePrompt from "./analyze/SaveToProfilePrompt";
+import AnalyzeImprovementPlan from "./analyze/AnalyzeImprovementPlan";
+import { useAnalyzeSession } from "./analyze/useAnalyzeSession";
+import { useAnalyzeLoaderProgress } from "./analyze/useAnalyzeLoaderProgress";
+import { Tip } from "@/components/ui/tip";
+import { apiFetch, refusalFrom } from "@/lib/apiClient";
 
-// ── Interfaces ────────────────────────────────────────────────────────────────
-// Full strongly-typed shape of the AI analysis response.
-// AnalyzeRecord is imported from @/lib/supabase (result typed as `any` for
-// JSON column flexibility); we cast result → AnalysisResult when reading.
-
-interface RequirementConceptFE {
-  id: string;
-  canonical: string;
-  aliases: string[];
-  type: string;
-  importance: "required" | "preferred" | "nice_to_have";
-  roleFamily: string;
-  sourceText: string;
-  confidence: number;
-}
-
-interface JdMatchBreakdown {
-  job_title:        { score: number; matched: boolean; evidence: string[] };
-  qualifications:   { total: number; covered: number; missing: number };
-  responsibilities: { total: number; covered: number; missing: number };
-  keywords: {
-    required_total:   number;
-    required_found:   number;
-    preferred_total:  number;
-    preferred_found:  number;
-  };
-  overall_score: number;
-}
-
-interface ScoringMeta {
-  scoring_model:     string;
-  scoring_version:   string;
-  prompt_version:    string;
-  scoring_algorithm: string;
-}
-
-interface AnalysisResult {
-  overallScore: number;
-  categoryScores: {
-    readability: number;
-    atsCompatibility: number;
-    jobMatch: number | null;
-    achievementQuality: number;
-    quantification: number;
-    sectionStructure: number;
-    languageQuality: number;
-    technicalBranding: number;
-  };
-  /** Per-category 1–2 sentence explanation of why that score was assigned. */
-  categoryRationales?: Partial<Record<keyof AnalysisResult["categoryScores"], string>>;
-  summary: string;
-  topStrengths: string[];
-  topIssues: Array<{
-    issue: string;
-    severity: "low" | "medium" | "high";
-    whyItMatters: string;
-    suggestion: string;
-    /** Explicit categoryScores key (backend-authoritative for deterministic checks). */
-    category?: keyof AnalysisResult["categoryScores"];
-    /** Concrete offending items (bullets, words, phrases) to list under the issue. */
-    items?: string[];
-    /** "deterministic" for rule-based recruiter checks surfaced by the backend. */
-    source?: string;
-  }>;
-  atsWarnings: Array<{ warning: string; suggestion: string }>;
-  keywordAnalysis: {
-    matchedKeywords: string[];
-    missingKeywords: string[];
-    keywordScore: number | null;
-    suggestions: string[];
-  };
-  bulletAnalysis: Array<{
-    originalBullet: string;
-    score: number;
-    issues: string[];
-    improvedBullet: string;
-    categoryRewrites?: Partial<Record<string, string>>;
-    /** Backend-authoritative category bucketing (see analysisCategoryMatch). */
-    primaryCategory?: string;
-    issueCategories?: string[];
-  }>;
-  /** Plain text from PDF/LaTeX extraction — drives live preview when present. */
-  extractedText?: string;
-  /** Name + contact lines extracted before the first section heading. */
-  resumeHeader?: string[];
-  /** Faithfully-extracted structured model (no JD tailoring). */
-  structuredResume?: StructuredResume | null;
-  /** Maps flat bulletAnalysis[i] → {experienceIdx, bulletIdx} in structuredResume. */
-  bulletMap?: BulletMapEntry[];
-  sectionFeedback: Array<{ section: string; score: number; feedback: string }>;
-  rewriteSuggestions: Array<{ before: string; after: string; reason: string }>;
-  finalRecommendations: string[];
-  /** Deterministic document-level ATS / structural flags (LinkedIn, open dates, misclassified sections, separators). */
-  structuralFlags?: Array<{ issue: string; risk: string; severity?: "high" | "medium" | "low" }>;
-  /** When analysis used a library folder (TeX on disk), persisted so history restore can reopen Builder with `base=`. */
-  libraryFolder?: string | null;
-  /** Merged professional tenure from structuredResume.experience dates. */
-  experienceSummary?: {
-    totalMonths: number;
-    totalYearsLabel: string;
-    roleCount: number;
-    datedRoleCount: number;
-    roles: Array<{
-      company: string;
-      role: string;
-      dates: string;
-      months: number;
-    }>;
-  };
-  /** Deterministic JD match score (0–100). Present only when a JD was supplied. */
-  jdMatchScore?: number | null;
-  /** Per-bucket breakdown of the deterministic JD match scoring. */
-  jdMatchBreakdown?: JdMatchBreakdown | null;
-  /** Structured JD requirements extracted by the LLM (one entry per concept). */
-  requirementConcepts?: RequirementConceptFE[];
-  /** Provenance/version metadata for the deterministic scorer. */
-  scoringMeta?: ScoringMeta | null;
-  /** Set when backend persisted this run (analyze-upload). */
-  analysisId?: string;
-  /** True when backend wrote resume_analyses; false/absent means client should insert. */
-  analysisPersisted?: boolean;
-  sourcePdfUrl?: string | null;
-  sourceFilename?: string | null;
-  scanLimitStatus?: { limit: number; used: number; remaining: number; resetAt: string } | null;
-  /** LLM analysis of the professional summary section. Present only when a summary section exists. */
-  summaryAnalysis?: {
-    original: string;
-    wordCount: number;
-    issues: string[];
-    improvedSummary?: string;
-  } | null;
-}
-
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-const SCORE_NEEDS_EXPLANATION = 95;
-
-function scoreColor(score: number | null): string {
-  if (score === null) return "var(--border)";
-  if (score >= 80) return "var(--green)";
-  if (score >= 60) return "var(--yellow)";
-  return "var(--red)";
-}
-
-function scoreLabel(score: number): string {
-  if (score >= 85) return "Excellent";
-  if (score >= 70) return "Strong";
-  if (score >= 55) return "Good";
-  return "Needs Work";
-}
-
-function severityColor(severity: "low" | "medium" | "high"): string {
-  if (severity === "high") return "var(--red)";
-  if (severity === "medium") return "#f59e0b";
-  return "var(--accent)";
-}
-
-function severityBg(severity: "low" | "medium" | "high"): string {
-  if (severity === "high") return "rgba(248,113,113,0.12)";
-  if (severity === "medium") return "rgba(245,158,11,0.12)";
-  return "rgba(99,102,241,0.12)";
-}
-
-const CATEGORY_LABELS: Array<{ key: keyof AnalysisResult["categoryScores"]; label: string }> = [
-  { key: "readability", label: "Readability" },
-  { key: "atsCompatibility", label: "ATS Safety" },
-  { key: "jobMatch", label: "Job Match" },
-  { key: "achievementQuality", label: "Achievement" },
-  { key: "quantification", label: "Quantification" },
-  { key: "sectionStructure", label: "Structure" },
-  { key: "languageQuality", label: "Language" },
-  { key: "technicalBranding", label: "Field & depth" },
-];
-
-function flaggedBulletFixChip(
-  activeCategory: keyof AnalysisResult["categoryScores"] | null,
-  isLanguageMicroEdit: boolean,
-): string {
-  if (isLanguageMicroEdit) return "Proofreading";
-  if (!activeCategory) return "Fix";
-  return CATEGORY_LABELS.find(c => c.key === activeCategory)?.label ?? "Fix";
-}
-
-/**
- * Plain-language coaching for a flagged bullet, written for a new grad who has
- * never built a résumé. Each entry answers the three questions a confused
- * student actually has: why is this weak, what do I do, and what does good
- * look like? Keyed by the analysis category the bullet was flagged under.
- */
-type CategoryCoach = { why: string; how: string; example: string };
-
-const CATEGORY_COACH: Partial<Record<keyof AnalysisResult["categoryScores"], CategoryCoach>> = {
-  achievementQuality: {
-    why: "Right now this says what you were responsible for, not what changed because of you. Recruiters skim for results, not duties.",
-    how: "Start with a strong action verb and end with the outcome: what got better, faster, cheaper, or bigger?",
-    example: "“Responsible for onboarding design” → “Redesigned onboarding, cutting setup time ~40% for 500+ new users.”",
-  },
-  quantification: {
-    why: "Numbers make a line believable and easy to skim. “Improved the flow” is vague; “cut it from 3 weeks to 1” sticks.",
-    how: "Add any real figure: people, %, time, money, or scale. No exact number? A rough count or range still helps.",
-    example: "“Grew community engagement” → “Grew engagement 40% across 2 social channels.”",
-  },
-  sectionStructure: {
-    why: "This line tries to do too much at once, or it’s the only bullet for the role. Recruiters scan fast, so each line should carry one clear idea.",
-    how: "Split it into 2–4 short bullets for the job, each leading with an action and ending with a result.",
-    example: "One long line → “Led UX for the AI Automation team.” + “Shipped 3 product flows now used across 4 product teams.”",
-  },
-  languageQuality: {
-    why: "Small wording slips like the wrong tense, passive voice, or filler make a line read less confident than you are.",
-    how: "Use past tense for past roles, start with the action, and cut empty words like “responsible for” or “various.”",
-    example: "“Was responsible for various design tasks” → “Designed and shipped the team’s design system.”",
-  },
-  readability: {
-    why: "Long, dense lines are hard to skim, and a recruiter spends only seconds on each résumé.",
-    how: "Keep every bullet to one or two lines. Put the important part first and trim the rest.",
-    example: "A 3-line run-on → one tight line that leads with the result.",
-  },
-  technicalBranding: {
-    why: "This line doesn’t show the specific tools or methods that prove you can actually do the work in your field.",
-    how: "Name the real tools, methods, or systems you used, the ones a hiring manager in your field looks for.",
-    example: "“Did user research” → “Ran 12 usability tests in Figma + Maze, turning findings into a service blueprint.”",
-  },
-};
-
-const COACH_BODY_STYLE: React.CSSProperties = {
-  fontSize: 12.5,
-  lineHeight: 1.55,
-  color: "var(--muted)",
-  margin: 0,
-};
-
-// Category icons (SVG paths)
-const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  quantification:     <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 12h2v2H2zM6 9h2v5H6zM10 6h2v8h-2zM14 3h-2v11h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  achievementQuality: <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.8 3.6 4 .6-2.9 2.8.7 4L8 11l-3.6 1.9.7-4L2.1 6.2l4-.6z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>,
-  languageQuality:    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
-  readability:        <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 3h12v10H2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M5 7h6M5 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>,
-  atsCompatibility:   <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.4"/><path d="M5.5 8l2 2 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  sectionStructure:   <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="3" rx="1" stroke="currentColor" strokeWidth="1.3"/><rect x="2" y="7" width="7" height="3" rx="1" stroke="currentColor" strokeWidth="1.3"/><rect x="2" y="12" width="9" height="2" rx="1" stroke="currentColor" strokeWidth="1.3"/></svg>,
-  technicalBranding:  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M5 4l-3 4 3 4M11 4l3 4-3 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 3l-2 10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
-  jobMatch:           <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4"/><path d="M10.5 10.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
-};
-
-const CATEGORY_DESCRIPTIONS: Record<string, string> = {
-  quantification:     "Aim for metrics on ~75% of experience bullets, prioritizing your biggest wins.",
-  achievementQuality: "Outcomes and ownership, not duty lists.",
-  languageQuality:    "Active verbs; less passive voice and filler.",
-  readability:        "Short, clear bullets recruiters can skim fast.",
-  atsCompatibility:   "ATS-safe layout and standard section headings.",
-  sectionStructure:   "Right sections, in the order recruiters expect.",
-  technicalBranding:  "Clear tools, credentials, and field signals.",
-  jobMatch:           "Keywords and experience that match the job.",
-};
-
-// Map top-issue text keywords to category keys for smart linking
-const ISSUE_TEXT_TO_CATEGORY: Array<{ patterns: string[]; key: keyof AnalysisResult["categoryScores"] }> = [
-  {
-    patterns: [
-      "weak action", "weak verb", "duty-only", "responsible for", "task-focused",
-      "vague outcome", "no achievement", "duty list",
-    ],
-    key: "achievementQuality",
-  },
-  { patterns: ["quantif", "metric", "no numbers", "measur", "lack of data", "numeric", "no metrics"], key: "quantification" },
-  { patterns: ["language", "verb", "passive", "buzzword", "communication", "word"], key: "languageQuality" },
-  { patterns: ["readab", "length", "format", "clarity", "long", "short"], key: "readability" },
-  { patterns: ["ats", "applicant", "tracking", "keyword", "scan"], key: "atsCompatibility" },
-  { patterns: ["section", "structure", "summary", "objective", "order"], key: "sectionStructure" },
-  {
-    patterns: [
-      "github", "gitlab", "portfolio", "tech stack", "full stack", "technical stack", "stack depth",
-      "technical branding", "writing sample", "work sample", "teaching portfolio", "clinical credential",
-      "licensure", "board certified", "certification gap", "creative reel", "publications section",
-      "domain expertise", "field-specific",
-    ],
-    key: "technicalBranding",
-  },
-  { patterns: ["job match", "fit", "requirement", "relevance"], key: "jobMatch" },
-];
-
-function guessIssueCategory(issueText: string): keyof AnalysisResult["categoryScores"] | null {
-  const lower = issueText.toLowerCase();
-  for (const { patterns, key } of ISSUE_TEXT_TO_CATEGORY) {
-    if (patterns.some(p => lower.includes(p))) return key;
-  }
-  return null;
-}
-
-/** Category for a topIssue: trust the backend's explicit `category` (deterministic
- *  checks set it authoritatively); fall back to the text heuristic for LLM issues. */
-function issueCategoryOf(
-  issue: AnalysisResult["topIssues"][number],
-): keyof AnalysisResult["categoryScores"] | null {
-  if (issue.category) return issue.category;
-  return guessIssueCategory(`${issue.issue} ${issue.whyItMatters} ${issue.suggestion}`);
-}
-
-function getBulletsForCategory(
-  key: string,
-  bulletAnalysis: AnalysisResult["bulletAnalysis"],
-  opts?: CategoryAssignmentOptions,
-): AnalysisResult["bulletAnalysis"] {
-  return bulletAnalysis.filter((b, i) =>
-    bulletBelongsToCategory(b, key, bulletAnalysis, i, opts),
-  );
-}
-
-function formatExperienceTenureChip(summary: AnalysisResult["experienceSummary"]): string | null {
-  if (!summary) return null;
-  const { totalYearsLabel, roleCount, datedRoleCount } = summary;
-  if (datedRoleCount === 0 && roleCount === 0) return null;
-  const rolePart = roleCount === 1 ? "1 role" : `${roleCount} roles`;
-  if (datedRoleCount === 0) return `${rolePart} · dates not parsed`;
-  return `${totalYearsLabel} · ${rolePart}`;
-}
-
-// ── Spinner ───────────────────────────────────────────────────────────────────
-
-function Spinner({ size = 18 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 18 18"
-      fill="none"
-      style={{ animation: "spin 0.8s linear infinite", flexShrink: 0 }}
-    >
-      <circle cx="9" cy="9" r="7" stroke="var(--border)" strokeWidth="2.5" />
-      <path d="M9 2a7 7 0 017 7" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" />
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </svg>
-  );
-}
-
-// ── Analyze history helpers ───────────────────────────────────────────────────
-// Primary store: Supabase `resume_analyses` table (cross-device, permanent).
-// Offline fallback: localStorage `rn_az_history_<userId>` (same AnalyzeRecord[]).
-
-const LS_KEY  = (uid: string) => `rn_az_history_${uid}`;
-const LS_MAX  = 10;
-
-function lsLoad(uid: string): AnalyzeRecord[] {
-  try { const r = localStorage.getItem(LS_KEY(uid)); return r ? JSON.parse(r) : []; }
-  catch { return []; }
-}
-function lsSave(uid: string, recs: AnalyzeRecord[]) {
-  try { localStorage.setItem(LS_KEY(uid), JSON.stringify(recs.slice(0, LS_MAX))); }
-  catch { /* quota */ }
-}
-function lsPush(uid: string, rec: AnalyzeRecord) {
-  lsSave(uid, [rec, ...lsLoad(uid)]);
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -403,11 +66,16 @@ export default function AnalyzeResume() {
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
-  const [scansRemaining, setScansRemaining] = useState<number | null>(null);
   const [result, setResult]             = useState<AnalysisResult | null>(null);
   const [jd, setJd]                     = useState("");
-  const [loadingMsg, setLoadingMsg]     = useState(0);
-  const [loadingTipIdx, setLoadingTipIdx] = useState(0);
+  // A job detail's "Upload your résumé" CTA stashes that role's JD here, so the
+  // first anonymous scan matches the exact job. One-shot: consumed on mount.
+  useEffect(() => {
+    const jd0 = takeAnalyzeJd();
+    if (jd0) setJd(jd0);
+  }, []);
+  // Loader step/tip progression while a scan runs (state + timers in the hook).
+  const { loadingMsg, loadingTipIdx } = useAnalyzeLoaderProgress(loading, jd);
   const [expandedBullets, setExpandedBullets] = useState<Record<number, boolean>>({});
   const [historyOpen, setHistoryOpen]   = useState(false);
   // Mobile/tablet: the score + category header collapses to a slim bar by
@@ -432,19 +100,35 @@ export default function AnalyzeResume() {
   /** Keys local preview-edit drafts (`rn_az_edit_v1_*` in localStorage); set to history row id or optimistic `local_*` id. */
   const [activeEditDraftId, setActiveEditDraftId] = useState<string | null>(null);
   const [editDraftStatus, setEditDraftStatus] = useState<string | null>(null);
+  /** The editable version mirroring the active analyses lineage (re-entry chip). */
+  const [hasEditedVersion, setHasEditedVersion] = useState(false);
+  // Edit-at-score funnel (M2): dedupe report_view/delta_view per draft; detect
+  // edit_bounce (clicked Edit, changed nothing, left).
+  const editClickedRef = useRef(false);
+  const versionSavedRef = useRef(false);
+  const reportViewLoggedForRef = useRef<string | null>(null);
+  const deltaLoggedForRef = useRef<string | null>(null);
   const [aiRewritingIdx, setAiRewritingIdx] = useState<number | null>(null);
-  const [azHistory, setAzHistory]           = useState<AnalyzeRecord[]>([]);
-  const [userId, setUserId]                 = useState<string | null>(null);
-  const [userEmail, setUserEmail]           = useState<string | null>(null);
-  /** Signed-out visitor: first scan is free + fully unlocked; a 2nd asks to sign in. */
-  const [isAnon, setIsAnon]                 = useState(false);
+  // Session + history bootstrap (user identity, analyze history, scan quota) —
+  // state + mount effect live in the hook; scan/restore/delete/save-version
+  // flows below mutate via the returned setters.
+  const {
+    userId, userEmail, isAnon, azHistory, setAzHistory,
+    loadingHistory, scansRemaining, setScansRemaining,
+  } = useAnalyzeSession();
   const { openSignIn } = useSignInDialog();
+  const { openUpgrade } = useUpgradeDialog();
   /** Show job activation widget in sidebar after a successful scan. */
   const [showJobActivation, setShowJobActivation] = useState(false);
-  const [loadingHistory, setLoadingHistory] = useState(true);
   const rewriteEdits = useResumeAnalyzeStore((s) => s.rewriteEdits);
   const patchRewrite = useResumeAnalyzeStore((s) => s.patchRewrite);
   const previewLineOverrides = useResumeAnalyzeStore((s) => s.lineOverrides);
+  // Bullets whose fix has been applied to the preview count as resolved for
+  // the sidebar badges / need-work counts.
+  const resolvedBulletIndices = useMemo(
+    () => new Set(Object.keys(previewLineOverrides).map(Number)),
+    [previewLineOverrides],
+  );
   const persistEdits = useResumeAnalyzeStore((s) => s.persistEdits);
   const restoreEdits = useResumeAnalyzeStore((s) => s.restoreEdits);
   const clearEditsStore = useResumeAnalyzeStore((s) => s.clearEdits);
@@ -465,53 +149,6 @@ export default function AnalyzeResume() {
     [result],
   );
 
-  // Load user + history on mount: Supabase first, localStorage fallback
-  useEffect(() => {
-    const supabase = getSupabaseClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user?.id) {
-        setIsAnon(true);
-        setLoadingHistory(false);
-        // Anonymous quota (per-IP) so the remaining count still shows.
-        fetch(apiUrl("/api/scan-limit-status"))
-          .then(r => r.json())
-          .then((data: Record<string, unknown>) => {
-            if (data.enforced && !data.unlimited && typeof data.remaining === "number") {
-              setScansRemaining(data.remaining as number);
-            }
-          })
-          .catch(() => { /* non-critical */ });
-        return;
-      }
-      setIsAnon(false);
-      setUserId(user.id);
-      setUserEmail(user.email ?? null);
-      // Seed from localStorage immediately so UI isn't empty while fetching
-      setAzHistory(lsLoad(user.id));
-      // Fetch scan quota so remaining count shows before the first scan
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        const authHeader: Record<string, string> = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-        fetch(apiUrl("/api/scan-limit-status"), { headers: authHeader })
-          .then(r => r.json())
-          .then((data: Record<string, unknown>) => {
-            if (data.enforced && !data.unlimited && typeof data.remaining === "number") {
-              setScansRemaining(data.remaining as number);
-            }
-          })
-          .catch(() => { /* non-critical */ });
-      });
-      try {
-        const rows = await fetchAnalyses(10);
-        setAzHistory(rows);
-        lsSave(user.id, rows);          // keep local cache in sync
-      } catch {
-        // Network/auth error — stay on localStorage data
-      } finally {
-        setLoadingHistory(false);
-      }
-    });
-  }, []);
-
   // Anonymous flow: keep the finished scan in localStorage at all times so the
   // OAuth redirect (full page unload) can't lose it. One stash, overwritten on
   // each new anonymous result.
@@ -526,24 +163,6 @@ export default function AnalyzeResume() {
       "Resume";
     stashAnonAnalysis(label, result);
   }, [isAnon, result]);
-
-  // Cycle loader steps and coach tips while analysis runs
-  useEffect(() => {
-    if (!loading) {
-      setLoadingMsg(0);
-      setLoadingTipIdx(0);
-      return;
-    }
-    // Step delays (ms from start): reading fast, ATS medium, AI scoring slow, then hold at last step.
-    // With JD a 5th "keyword matching" step is appended.
-    const stepDelays = jd.trim() ? [5000, 13000, 25000, 38000] : [5000, 13000, 26000];
-    const stepTimers = stepDelays.map((delay, i) => setTimeout(() => setLoadingMsg(i + 1), delay));
-    const tipIv = setInterval(() => setLoadingTipIdx((t) => (t + 1) % ANALYZE_COACH_TIPS.length), 7000);
-    return () => {
-      stepTimers.forEach(clearTimeout);
-      clearInterval(tipIv);
-    };
-  }, [loading, jd]);
 
   useLayoutEffect(() => {
     if (!result) {
@@ -585,6 +204,12 @@ export default function AnalyzeResume() {
       label,
       score:     res.overallScore,
       createdAt: new Date().toISOString(),
+      // Lineage carried from a persisted rescore (a verified child version);
+      // absent for a fresh analysis, which groups as its own root v1.
+      parentId:  res.analysisParentId ?? null,
+      version:   res.analysisVersion,
+      rootId:    res.analysisRootId ?? null,
+      scoreSource: res.analysisScoreSource ?? null,
       result:    res,
     };
     // Optimistic update — show instantly
@@ -610,6 +235,98 @@ export default function AnalyzeResume() {
     } catch { /* DB save failed — localStorage copy is still intact */ }
   }, [userId, azHistory]);
 
+  // ── Update score: re-run the analysis with applied fixes baked in ──────────
+  // Patches the applied bullet rewrites + summary override into the extracted
+  // text AND the structured résumé, re-runs the comprehensive analysis, and
+  // persists the result as a NEW analysis row. That row becomes the latest, so
+  // the Jobs feed / Boost immediately rank against the fixed résumé, and
+  // reopening from the Resume Hub restores the fixed version with fresh scores.
+  const [rescoring, setRescoring] = useState(false);
+  const handleRescore = useCallback(async () => {
+    if (rescoring) return;
+    const st = useResumeAnalyzeStore.getState();
+    // The analysis being rescored is the current head; chain the verified
+    // re-score as its child version (skip a not-yet-persisted local draft).
+    const parentAnalysisId = activeEditDraftId && !activeEditDraftId.startsWith("local_")
+      ? activeEditDraftId
+      : undefined;
+    const patch = patchAppliedEditsIntoResume({
+      extractedText: st.extractedText,
+      structuredResume: st.structuredResume,
+      analysisBullets: st.analysisBullets,
+      lineOverrides: st.lineOverrides,
+      summaryOverride: st.summaryOverride,
+      hiddenBulletTexts: hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths),
+    });
+    if (patch.appliedCount === 0) {
+      setFeedbackToast("Apply at least one fix to the preview first, then update the score.");
+      return;
+    }
+    setRescoring(true);
+    setError(null);
+    try {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setFeedbackToast("Sign in to update your score — the rescored report is saved to your history.");
+        return;
+      }
+      const resp = await apiFetch("/api/analyze-rescore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resume_text: patch.patchedText,
+          structured_resume: patch.patchedStructured ?? undefined,
+          parent_analysis_id: parentAnalysisId,
+        }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) {
+        const refusal = refusalFrom(resp.status, json);
+        if (refusal?.remedy === "sign_in") {
+          setFeedbackToast("Sign in to update your score. The rescored report is saved to your history.");
+          openSignIn({ reason: "Sign in to rescore and keep your report history." });
+          return;
+        }
+        if (refusal) {
+          setFeedbackToast("Daily scan limit reached. Updating the score counts as a scan, so try again tomorrow.");
+          openUpgrade(json);
+          return;
+        }
+        throw new Error(json?.error || "Rescore failed");
+      }
+      const res = mergeAnalyzeApiJson(json as Record<string, unknown>) as unknown as AnalysisResult;
+      const resWithMeta: AnalysisResult = { ...res, libraryFolder: null };
+      const draftId = `local_${Date.now()}`;
+      setExpandedBullets({});
+      setSelectedBulletIndex(null);
+      setHistoryRestoreActive(false);
+      setActiveEditDraftId(draftId);
+      setResult(resWithMeta);
+      if (res.scanLimitStatus) setScansRemaining(res.scanLimitStatus.remaining);
+      setFeedbackToast("Score updated — your fixes are saved and future job matching uses the fixed résumé.");
+      const candidateName = res.resumeHeader?.[0]?.trim() || res.structuredResume?.full_name?.trim();
+      void persistResult(candidateName || "Updated résumé", resWithMeta, draftId);
+      // Reconciliation rule (M2): the verified score also lands on the linked
+      // editable version, so it never holds a stale estimate or stale text.
+      const parentRec = parentAnalysisId ? azHistory.find((r) => r.id === parentAnalysisId) : undefined;
+      const rescoreSourceRoot =
+        (res as { analysisRootId?: string | null }).analysisRootId ?? parentRec?.rootId ?? parentAnalysisId ?? null;
+      if (rescoreSourceRoot) {
+        void syncVersionAfterRescore({
+          sourceRootId: rescoreSourceRoot,
+          score: typeof res.overallScore === "number" ? res.overallScore : null,
+          structured: patch.patchedStructured ?? undefined,
+          extractedText: patch.patchedText,
+        });
+      }
+    } catch (e: unknown) {
+      setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : "Unknown error"));
+    } finally {
+      setRescoring(false);
+    }
+  }, [rescoring, persistResult, activeEditDraftId, azHistory]);
+
   // After sign-in lands (fresh mount post-OAuth), restore the stashed anonymous
   // scan: the user arrives on their already-finished, now-unlocked report and
   // it persists to their history like any signed-in scan.
@@ -630,6 +347,40 @@ export default function AnalyzeResume() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // Pre-wall funnel events (a signed-out edit_click) flush once a session
+  // exists; a stashed edit_click also resumes the edit intent on the restored
+  // report so the user lands back "in the editor" after sign-in.
+  const resumeEditIntentRef = useRef(false);
+  useEffect(() => {
+    if (!userId) return;
+    void flushPrewallEvents().then((events) => {
+      if (events.some((e) => e.event === "edit_click")) resumeEditIntentRef.current = true;
+    });
+  }, [userId]);
+
+  // report_view — the click-through denominator. Signed-in views only (RLS);
+  // logged once per persisted analysis.
+  useEffect(() => {
+    if (!result || !userId || !activeEditDraftId) return;
+    if (activeEditDraftId.startsWith("local_")) return;
+    if (reportViewLoggedForRef.current === activeEditDraftId) return;
+    reportViewLoggedForRef.current = activeEditDraftId;
+    void logClientEvent("report_view", { analysis_id: activeEditDraftId });
+  }, [result, userId, activeEditDraftId]);
+
+  // Re-entry: does the active analyses lineage already have an edited version?
+  useEffect(() => {
+    let cancelled = false;
+    setHasEditedVersion(false);
+    if (!userId || !result || !activeEditDraftId || activeEditDraftId.startsWith("local_")) return;
+    const rec = azHistory.find((r) => r.id === activeEditDraftId);
+    const sourceRootId = rec?.rootId ?? rec?.id ?? activeEditDraftId;
+    void findVersionBySourceRoot(sourceRootId).then((v) => {
+      if (!cancelled && v) setHasEditedVersion(true);
+    });
+    return () => { cancelled = true; };
+  }, [userId, result, activeEditDraftId, azHistory]);
+
   const run = useCallback(async (file: File) => {
     setLoading(true);
     setError(null);
@@ -648,22 +399,28 @@ export default function AnalyzeResume() {
     try {
       const supabase = getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
-      const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined;
       if (session?.user?.id) {
         fd.set("user_id", session.user.id);
         if (session.user.email) fd.set("user_email", session.user.email);
       }
-      const resp = await fetch(apiUrl("/api/analyze-upload"), { method: "POST", body: fd, headers });
+      const resp = await apiFetch("/api/analyze-upload", { method: "POST", body: fd });
       const json = await resp.json();
       if (!resp.ok) {
-        if (resp.status === 429 && json?.code === "daily_scan_limit_reached") {
-          const limit = Number(json?.limit);
-          const freeLimit = Number.isFinite(limit) && limit > 0 ? limit : 3;
-          setFeedbackToast(
-            json?.reason === "anonymous_daily_ip_limit"
-              ? "Free scans used for today — sign in (it's free) for 3 scans/day and saved reports."
-              : `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
-          );
+        // Branch on the refusal's `remedy`, not on its wording: what the user
+        // has to do next is the backend's call, and matching prose meant a copy
+        // edit could quietly start pitching Pro to someone who only needed to
+        // sign in.
+        const refusal = refusalFrom(resp.status, json);
+        if (refusal) {
+          if (refusal.remedy === "sign_in") {
+            setFeedbackToast("Free scans used for today. Sign in (it's free) for 3 scans a day and saved reports.");
+            openSignIn({ reason: "Sign in free for more résumé scans and saved reports." });
+          } else {
+            const freeLimit = refusal.limit && refusal.limit > 0 ? refusal.limit : 3;
+            setFeedbackToast(`Daily limit reached. The free plan includes ${freeLimit} scans a day.`);
+            openUpgrade(json);
+          }
+          return;
         }
         // Content gate (422): not a résumé we can analyze — show a calm,
         // instructive banner instead of the generic "analysis failed" error.
@@ -716,7 +473,7 @@ export default function AnalyzeResume() {
     try {
       const supabase = getSupabaseClient();
       const { data: { user } } = await supabase.auth.getUser();
-      const resp = await fetch(apiUrl(`/api/analyze-folder/${encodeURIComponent(folder)}`), {
+      const resp = await apiFetch(`/api/analyze-folder/${encodeURIComponent(folder)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user?.id ?? "", jd }),
@@ -787,9 +544,14 @@ export default function AnalyzeResume() {
     }
   }, [userId, azHistory]);
 
+  // Collapse very long version chains in the history rail (per-root toggle).
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const azHistoryRows = useMemo(
-    () =>
-      azHistory.map((rec) => (
+    () => {
+      const historyRow = (
+        rec: AnalyzeRecord,
+        opts?: { versionBadge?: string; isHead?: boolean },
+      ) => (
         <div
           key={rec.id}
           style={{
@@ -848,25 +610,67 @@ export default function AnalyzeResume() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontWeight: 600,
                   color: "var(--text)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
                 }}
               >
-                {rec.label}
+                {opts?.versionBadge ? (
+                  <>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: opts.isHead ? "var(--amber)" : "var(--muted)",
+                        background: opts.isHead ? "var(--amber-bg)" : "var(--surface2)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 5,
+                        padding: "1px 6px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {opts.versionBadge}
+                    </span>
+                    {opts.isHead && (
+                      <span style={{ fontSize: 10, color: "var(--dim)", fontWeight: 500 }}>current</span>
+                    )}
+                    {rec.scoreSource === "estimate" && (
+                      <span
+                        title="Estimated score from applied edits (not a fresh LLM re-score)"
+                        style={{ fontSize: 10, color: "var(--dim)", fontWeight: 500, fontStyle: "italic" }}
+                      >
+                        est
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {rec.label}
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 1 }}>
                 {new Date(rec.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
               </div>
             </div>
           </button>
-          <button
+          <Tip label="Remove analysis"><button
             type="button"
             onClick={() => deleteRecord(rec.id)}
-            title="Remove"
             style={{
               width: 22,
               height: 22,
@@ -894,10 +698,96 @@ export default function AnalyzeResume() {
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
               <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
-          </button>
+          </button></Tip>
         </div>
-      )),
-    [azHistory, restoreRecord, deleteRecord],
+      );
+
+      // A résumé with a single version renders exactly as before; multiple
+      // versions collapse into a labelled lineage chain (newest = "current").
+      return groupAnalysesByRoot(azHistory).map((g) => {
+        if (g.recs.length <= 1) return historyRow(g.recs[0]);
+        // Collapse long chains so one heavily-versioned résumé can't flood the
+        // narrow history rail; the head + a few recent versions stay visible.
+        const COLLAPSE_AT = 4;
+        const isExpanded = expandedGroups.has(g.root);
+        const shown =
+          g.recs.length > COLLAPSE_AT && !isExpanded ? g.recs.slice(0, COLLAPSE_AT) : g.recs;
+        const hiddenCount = g.recs.length - shown.length;
+        return (
+          <div key={g.root} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                padding: "1px 4px 3px",
+              }}
+            >
+              <span
+                style={{
+                  flex: 1,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--text)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  minWidth: 0,
+                }}
+              >
+                {g.recs[0].label}
+              </span>
+              <span style={{ fontSize: 10, color: "var(--dim)", fontWeight: 600, flexShrink: 0 }}>
+                {g.recs.length} versions
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                paddingLeft: 8,
+                marginLeft: 4,
+                borderLeft: "2px solid rgba(196,121,58,0.35)",
+              }}
+            >
+              {shown.map((rec, i) =>
+                historyRow(rec, { versionBadge: `v${rec.version ?? 1}`, isHead: i === 0 }),
+              )}
+              {g.recs.length > COLLAPSE_AT && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedGroups((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(g.root)) next.delete(g.root);
+                      else next.add(g.root);
+                      return next;
+                    })
+                  }
+                  style={{
+                    alignSelf: "flex-start",
+                    marginTop: 2,
+                    padding: "2px 6px",
+                    background: "none",
+                    border: "none",
+                    color: "var(--dim)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {isExpanded ? "Show fewer" : `+${hiddenCount} older`}
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      });
+    },
+    [azHistory, restoreRecord, deleteRecord, expandedGroups],
   );
 
   const categoryAssignmentOpts = useMemo((): CategoryAssignmentOptions => {
@@ -910,6 +800,79 @@ export default function AnalyzeResume() {
       .filter((k) => k.length >= 2);
     return { jdKeywords: kw };
   }, [result]);
+
+  // Instant deterministic score estimate as fixes are applied — the real,
+  // persisted number still comes from the "Update score" LLM pass.
+  const scoreEstimate = useMemo(
+    () =>
+      result
+        ? estimateScoreAfterFixes({
+            overallScore: result.overallScore,
+            categoryScores: result.categoryScores,
+            bullets: result.bulletAnalysis ?? [],
+            lineOverrides: previewLineOverrides,
+            categoryAssignmentOpts,
+          })
+        : null,
+    [result, previewLineOverrides, categoryAssignmentOpts],
+  );
+
+  // ── Edit at the moment of score (M2) ───────────────────────────────────────
+  // The edit affordances (inline preview edits + fix cards) predate this button;
+  // it exists to make them DISCOVERABLE right where the score is judged, and to
+  // instrument the funnel. Signed-out clicks stash intent and hit the wall.
+  const startEditFlow = useCallback(() => {
+    if (!result) return;
+    if (!userId) {
+      stashPrewallEvent("edit_click", {});
+      openSignIn({ reason: "Sign in free to edit your résumé here and watch your score improve." });
+      return;
+    }
+    editClickedRef.current = true;
+    void logClientEvent("edit_click", { analysis_id: activeEditDraftId });
+    setImprovementPlanVisible(true);
+    if ((result.bulletAnalysis?.length ?? 0) > 0) setSelectedBulletIndex(0);
+    setFeedbackToast(
+      "Click any line in your résumé preview to edit it — the score estimate updates as you fix things, and Save keeps the edits in your history.",
+    );
+  }, [result, userId, activeEditDraftId, openSignIn]);
+
+  // A stashed pre-wall edit_click resumes automatically once the restored
+  // report is on screen post-sign-in.
+  useEffect(() => {
+    if (!resumeEditIntentRef.current || !result || !userId) return;
+    resumeEditIntentRef.current = false;
+    startEditFlow();
+  }, [result, userId, startEditFlow]);
+
+  // delta_view — the first time a draft shows a projected score movement.
+  useEffect(() => {
+    if (!result || !userId || !activeEditDraftId) return;
+    if (!scoreEstimate || scoreEstimate.resolvedCount === 0) return;
+    if (deltaLoggedForRef.current === activeEditDraftId) return;
+    deltaLoggedForRef.current = activeEditDraftId;
+    void logClientEvent("delta_view", {
+      analysis_id: activeEditDraftId,
+      current: scoreEstimate.current,
+      projected: scoreEstimate.projected,
+    });
+  }, [result, userId, activeEditDraftId, scoreEstimate]);
+
+  // edit_bounce — entered edit mode, changed nothing, left (report/draft
+  // switched away or unmounted). Distinguishes "wrong editor" from "no demand".
+  useEffect(() => {
+    if (!activeEditDraftId) return;
+    const draftAtMount = activeEditDraftId;
+    return () => {
+      if (!editClickedRef.current || versionSavedRef.current) return;
+      const st = useResumeAnalyzeStore.getState();
+      const touched =
+        Object.keys(st.lineOverrides).length > 0 || (st.summaryOverride ?? "").trim().length > 0;
+      if (!touched) void logClientEvent("edit_bounce", { analysis_id: draftAtMount });
+      editClickedRef.current = false;
+      versionSavedRef.current = false;
+    };
+  }, [activeEditDraftId]);
 
   const bulletPrimaryCategories = useMemo(
     () => (result?.bulletAnalysis?.length
@@ -1153,13 +1116,9 @@ export default function AnalyzeResume() {
   const requestAiRewrite = useCallback(async (idx: number, originalBullet: string, category: string) => {
     setAiRewritingIdx(idx);
     try {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
-      const resp = await fetch(apiUrl("/api/rewrite-bullet"), {
+      const resp = await apiFetch("/api/rewrite-bullet", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bullet: originalBullet, rewrite: true, instruction: category }),
       });
       if (!resp.ok) throw new Error("rewrite failed");
@@ -1201,7 +1160,7 @@ export default function AnalyzeResume() {
     explainInflightRef.current.add(category);
     setExplainingCategory(category);
     try {
-      const resp = await fetch(apiUrl("/api/explain-category-score"), {
+      const resp = await apiFetch("/api/explain-category-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1259,15 +1218,134 @@ export default function AnalyzeResume() {
     setImprovementPlanVisible(true);
   }, []);
 
-  const saveLocalPreviewDraft = useCallback(() => {
+  const [savingVersion, setSavingVersion] = useState(false);
+  const saveLocalPreviewDraft = useCallback(async () => {
     if (!activeEditDraftId) {
       setEditDraftStatus("Open an analysis first (upload or history).");
       return;
     }
-    const lineOverrides = useResumeAnalyzeStore.getState().lineOverrides;
+    // Always keep the browser-local draft (instant, offline, and covers the
+    // not-yet-persisted case).
     persistEdits(activeEditDraftId);
-    setEditDraftStatus("Saved preview edits in this browser only.");
-  }, [activeEditDraftId, rewriteEdits]);
+
+    let parent = azHistory.find((r) => r.id === activeEditDraftId);
+    let persisted = !!parent && !activeEditDraftId.startsWith("local_");
+    // A local_ draft with a signed-in session (anon-scanned then signed up, or
+    // the original insert failed): persist the analysis NOW so the save can
+    // dual-write — this cohort must not silently skip the versions experiment.
+    if (!persisted && parent && result && userId) {
+      try {
+        const newId = await insertAnalysis(parent.label || "My résumé", result, {
+          sourcePdfUrl: result.sourcePdfUrl ?? null,
+          sourceFilename: result.sourceFilename ?? null,
+        });
+        if (newId) {
+          migrateEdits(activeEditDraftId, newId);
+          setActiveEditDraftId(newId);
+          setAzHistory((prev) => prev.map((r) => (r.id === activeEditDraftId ? { ...r, id: newId } : r)));
+          parent = { ...parent, id: newId };
+          persisted = true;
+        }
+      } catch { /* fall through to the browser-only save below */ }
+    }
+    if (!persisted || !parent || !result || !userId) {
+      setEditDraftStatus("Saved preview edits in this browser.");
+      return;
+    }
+
+    // Bake the applied edits into an immutable version snapshot. No LLM call —
+    // the score is the deterministic estimate the preview already shows. The
+    // parent row is never mutated (resume_analyses has no UPDATE policy), so
+    // every save is an append-only child version, git-commit style.
+    setSavingVersion(true);
+    try {
+      const st = useResumeAnalyzeStore.getState();
+      const patch = patchAppliedEditsIntoResume({
+        extractedText: st.extractedText,
+        structuredResume: st.structuredResume,
+        analysisBullets: st.analysisBullets,
+        lineOverrides: st.lineOverrides,
+        summaryOverride: st.summaryOverride,
+        hiddenBulletTexts: hiddenBulletTextsFromStructured(st.structuredResume, st.hiddenPaths),
+      });
+      if (patch.appliedCount === 0) {
+        setEditDraftStatus("Make an edit in the preview first, then save a version.");
+        return;
+      }
+      const versionResult: AnalysisResult = {
+        ...result,
+        extractedText: patch.patchedText,
+        ...(patch.patchedStructured ? { structuredResume: patch.patchedStructured } : {}),
+        ...(typeof scoreEstimate?.projected === "number"
+          ? { overallScore: scoreEstimate.projected }
+          : {}),
+      };
+      const created = await createAnalysisVersion(
+        { id: parent.id, version: parent.version, rootId: parent.rootId, label: parent.label },
+        versionResult,
+      );
+      if (!created) {
+        setEditDraftStatus("Saved preview edits in this browser.");
+        return;
+      }
+      // The analyses child is committed — this save counts (bounce guard) even
+      // if the version mirror below fails.
+      versionSavedRef.current = true;
+      // The new version is the head: the just-committed edits are baked into it,
+      // so re-hydrate the working copy from the snapshot and drop the parent's
+      // now-committed draft. Subsequent edits branch a further child from here.
+      clearEditsStore(activeEditDraftId);
+      setAzHistory((prev) => [created, ...prev].slice(0, 40));
+      lsPush(userId, created);
+      setActiveEditDraftId(created.id);
+      setExpandedBullets({});
+      setSelectedBulletIndex(null);
+      setHistoryRestoreActive(false);
+      setResult(versionResult);
+      useResumeAnalyzeStore.getState().hydrateFromAnalysis({
+        extractedText: versionResult.extractedText,
+        bulletAnalysis: versionResult.bulletAnalysis,
+        resumeHeader: versionResult.resumeHeader,
+        structuredResume: versionResult.structuredResume,
+        bulletMap: versionResult.bulletMap,
+      });
+      setEditDraftStatus("Saved — your edits are in this résumé's history.");
+
+      // Dual-write (M2): mirror the save onto the ONE editable version for this
+      // lineage. Isolated on purpose — the analyses child above is already
+      // committed, so a version failure must not turn the save into an error
+      // (it logs, and the next save self-heals via the source_root_id lookup).
+      const sourceRootId = created.rootId ?? parent.rootId ?? parent.id;
+      const structuredForVersion = patch.patchedStructured ?? st.structuredResume;
+      if (structuredForVersion) {
+        try {
+          const up = await upsertEditedVersion({
+            sourceRootId,
+            analysisId: created.id,
+            name: parent.label || "",
+            structured: structuredForVersion,
+            extractedText: patch.patchedText,
+            projectedScore: typeof scoreEstimate?.projected === "number" ? scoreEstimate.projected : null,
+          });
+          if (up) {
+            setHasEditedVersion(true);
+            void logClientEvent("version_save", {
+              version_id: up.version.id,
+              created: up.created,
+              linked: up.linked,
+              analysis_id: created.id,
+            });
+          }
+        } catch {
+          void logClientEvent("version_write_failed", { analysis_id: created.id });
+        }
+      }
+    } catch {
+      setEditDraftStatus("Saved locally; couldn't add a cloud version this time.");
+    } finally {
+      setSavingVersion(false);
+    }
+  }, [activeEditDraftId, result, userId, azHistory, scoreEstimate, persistEdits, clearEditsStore, migrateEdits, setAzHistory]);
 
   const clearLocalPreviewDraft = useCallback(() => {
     if (!activeEditDraftId || !result) return;
@@ -1284,348 +1362,36 @@ export default function AnalyzeResume() {
   }, [activeEditDraftId, result]);
 
   /* ── Shared sidebar: pinned strip (score / recent header) + scrollable body ─── */
-  const sidebarPinned = !result ? (
-    <>
-      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}>
-        Recent Analyses
-      </div>
-      <div style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.45 }}>
-        Saves scores and extracted résumé text to your account (not the original PDF file).
-      </div>
-    </>
-  ) : (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingBottom: 2 }}>
-      <div style={{ fontSize: 10, fontWeight: 800, color: "#78909c", textTransform: "uppercase", letterSpacing: 1.15, marginBottom: 10, fontFamily: "system-ui, -apple-system, sans-serif" }}>
-        Improvement Plan
-      </div>
-      <ScoreRing score={result.overallScore} size={96} label="" />
-      <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: scoreColor(result.overallScore) }}>
-        {scoreLabel(result.overallScore)}
-      </div>
-      {formatExperienceTenureChip(result.experienceSummary) && (
-        <div
-          title="Parsed from experience section date ranges (internships included). Overlapping roles are merged."
-          style={{
-            marginTop: 8,
-            fontSize: 10.5,
-            fontWeight: 600,
-            color: "var(--muted)",
-            textAlign: "center",
-            lineHeight: 1.45,
-            padding: "4px 8px",
-            borderRadius: 8,
-            background: "var(--surface2)",
-            border: "1px solid var(--border)",
-            maxWidth: "100%",
-          }}
-        >
-          {formatExperienceTenureChip(result.experienceSummary)}
-        </div>
-      )}
-    </div>
+  const sidebarPinned = (
+    <AnalyzeSidebarPinned result={result} onEditResume={startEditFlow} hasEditedVersion={hasEditedVersion} />
   );
 
   const sidebarScroll = !result ? (
-    <>
-      {loadingHistory ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {[1, 2, 3].map((i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
-              <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
-                <Skeleton className="h-[11px] rounded w-3/4" />
-                <Skeleton className="h-[10px] rounded w-[55%]" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : azHistory.length === 0 ? (
-        <div style={{ fontSize: 13, color: "var(--dim)", textAlign: "center", paddingTop: 24, lineHeight: 1.7 }}>
-          No analyses yet.<br />
-          <span style={{ fontSize: 12 }}>Upload a PDF above<br />to get started.</span>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>{azHistoryRows}</div>
-      )}
-    </>
+    <AnalyzeHistoryRail loading={loadingHistory} empty={azHistory.length === 0} rows={azHistoryRows} />
   ) : (
-    <>
-          {/* Job search activation — shown once after first scan if roles not set */}
-          {showJobActivation && (
-            <JobSearchActivationWidget
-              onActivated={(_roles, _locs) => {
-                setShowJobActivation(false);
-                setFeedbackToast("Job preferences saved — check the Jobs tab for matching openings.");
-              }}
-              onSkip={() => setShowJobActivation(false)}
-            />
-          )}
-
-          {/* Local preview draft — New Scan lives in the pinned sidebar header */}
-          <div style={{
-            marginBottom: 12,
-            paddingBottom: 12,
-            borderBottom: "1px solid var(--border)",
-          }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
-                Preview edits (local test)
-              </div>
-              <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.45, marginBottom: 10 }}>
-                Saves line tweaks + AI draft text in this browser. Re-open the same run from history to verify restore.
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <button
-                  type="button"
-                  onClick={saveLocalPreviewDraft}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "1px solid var(--border-h)",
-                    background: "var(--surface3)",
-                    color: "var(--text)",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  Save preview edits
-                </button>
-                <button
-                  type="button"
-                  onClick={clearLocalPreviewDraft}
-                  style={{
-                    width: "100%",
-                    padding: "7px 12px",
-                    borderRadius: 8,
-                    border: "1px solid var(--border)",
-                    background: "transparent",
-                    color: "var(--muted)",
-                    fontSize: 11.5,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  Clear saved draft
-                </button>
-              </div>
-              {editDraftStatus ? (
-                <div style={{ marginTop: 10, fontSize: 10.5, color: "var(--green)", lineHeight: 1.4 }}>
-                  {editDraftStatus}
-                </div>
-              ) : null}
-          </div>
-
-          {/* Hint */}
-          <div style={{
-            fontSize: 10.5, color: "var(--dim)", marginBottom: 14,
-            lineHeight: 1.5, display: "flex", alignItems: "flex-start", gap: 6,
-          }}>
-            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
-              <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/>
-              <path d="M6 5.5v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-              <circle cx="6" cy="4" r="0.6" fill="currentColor"/>
-            </svg>
-            Click a category or a bullet; they stay in sync. Copy improved text into your résumé.
-          </div>
-
-          {/* SUMMARY — its own fix entry, visible on any tab so the biggest
-              issue (an 89-word buzzword summary) isn't buried under Readability. */}
-          {summaryFlagged && (
-            <div style={{ marginBottom: 18 }}>
-              <div style={{
-                fontSize: 9, fontWeight: 800, color: "var(--amber-ink, #b45309)",
-                textTransform: "uppercase", letterSpacing: 1, marginBottom: 8,
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} />
-                Summary
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedBulletIndex(null);
-                  setActiveCategory(activeCategory === "summary" ? null : "summary");
-                }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "9px 10px", borderRadius: 8, width: "100%",
-                  border: `1px solid ${activeCategory === "summary" ? "rgba(245,158,11,0.55)" : "var(--border)"}`,
-                  background: activeCategory === "summary" ? "rgba(245,158,11,0.12)" : "var(--surface2)",
-                  cursor: "pointer", textAlign: "left", fontFamily: "inherit",
-                  transition: "background 0.15s, border-color 0.15s",
-                }}
-                onMouseEnter={e => { if (activeCategory !== "summary") { e.currentTarget.style.background = "var(--surface3)"; e.currentTarget.style.borderColor = "var(--border-h)"; } }}
-                onMouseLeave={e => { if (activeCategory !== "summary") { e.currentTarget.style.background = "var(--surface2)"; e.currentTarget.style.borderColor = "var(--border)"; } }}
-              >
-                <span style={{ color: activeCategory === "summary" ? "#b45309" : "var(--dim)", flexShrink: 0 }}>
-                  {CATEGORY_ICONS.readability}
-                </span>
-                <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "var(--text)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  Professional Summary
-                </span>
-                {summaryIssueCount > 0 && (
-                  <Badge className="text-[10px] font-semibold px-1.5 py-0 h-4 border-0 shrink-0" style={{ background: "rgba(245,158,11,0.16)", color: "#b45309" }}>
-                    {summaryIssueCount}
-                  </Badge>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* TOP FIXES */}
-          {topFixCategories.length > 0 && (
-            <div style={{ marginBottom: 18 }}>
-              <div style={{
-                fontSize: 9, fontWeight: 800, color: "var(--red)",
-                textTransform: "uppercase", letterSpacing: 1, marginBottom: 8,
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--red)" }} />
-                Top Fixes
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                {topFixCategories.map(({ key, label }) => {
-                  const score = result.categoryScores[key];
-                  const isActive = activeCategory === key;
-                  const affectedCount = countBulletsInCategory(result.bulletAnalysis, key, categoryAssignmentOpts);
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => {
-                        setSelectedBulletIndex(null);
-                        setActiveCategory(isActive ? null : key);
-                      }}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 8,
-                        padding: "9px 10px", borderRadius: 8, width: "100%",
-                        border: `1px solid ${isActive ? "rgba(33,150,243,0.45)" : "var(--border)"}`,
-                        background: isActive ? "rgba(227,242,253,0.85)" : "var(--surface2)",
-                        cursor: "pointer", textAlign: "left", fontFamily: "inherit",
-                        transition: "background 0.15s, border-color 0.15s",
-                      }}
-                      onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = "var(--surface3)"; e.currentTarget.style.borderColor = "var(--border-h)"; } }}
-                      onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = "var(--surface2)"; e.currentTarget.style.borderColor = "var(--border)"; } }}
-                    >
-                      <span style={{ color: isActive ? "#1565c0" : "var(--dim)", flexShrink: 0 }}>
-                        {CATEGORY_ICONS[key]}
-                      </span>
-                      <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "var(--text)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {label}
-                      </span>
-                      {affectedCount > 0 && (
-                        <Badge className="text-[10px] font-semibold px-1.5 py-0 h-4 bg-red/10 text-red border-0 shrink-0">
-                          {affectedCount}
-                        </Badge>
-                      )}
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, flexShrink: 0,
-                        color: scoreColor(score),
-                        minWidth: 24, textAlign: "right",
-                      }}>
-                        {score ?? "–"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* COMPLETED */}
-          {completedCategories.length > 0 && (
-            <div>
-              <div style={{
-                fontSize: 9, fontWeight: 800, color: "var(--green)",
-                textTransform: "uppercase", letterSpacing: 1, marginBottom: 8,
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--green)" }} />
-                Completed
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                {completedCategories.map(({ key, label }) => {
-                  const score = result.categoryScores[key];
-                  const isActive = activeCategory === key;
-                  // A category can land in COMPLETED with score >= 70 yet
-                  // still have weak bullets attached (e.g. Achievement 82
-                  // with one duty-only line). Surface the bullet count so
-                  // the user knows there's still work available — softer
-                  // amber styling distinguishes it from the red TOP FIXES
-                  // badge so the visual hierarchy stays clear.
-                  const affectedCount = countBulletsInCategory(result.bulletAnalysis, key, categoryAssignmentOpts);
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => {
-                        setSelectedBulletIndex(null);
-                        setActiveCategory(isActive ? null : key);
-                      }}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 8,
-                        padding: "8px 10px", borderRadius: 8, width: "100%",
-                        border: `1px solid ${isActive ? "rgba(33,150,243,0.4)" : "var(--border)"}`,
-                        background: isActive ? "rgba(227,242,253,0.75)" : "transparent",
-                        cursor: "pointer", textAlign: "left", fontFamily: "inherit",
-                        transition: "background 0.15s, border-color 0.15s",
-                        opacity: isActive ? 1 : 0.8,
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.background = "var(--surface2)"; }}
-                      onMouseLeave={e => { e.currentTarget.style.opacity = isActive ? "1" : "0.8"; e.currentTarget.style.background = isActive ? "rgba(227,242,253,0.75)" : "transparent"; }}
-                      title={affectedCount > 0
-                        ? `${affectedCount} bullet${affectedCount === 1 ? "" : "s"} flagged in this category`
-                        : "No flagged bullets in this category"}
-                    >
-                      <span
-                        style={{
-                          color: isActive ? "#1565c0" : "var(--green-ink, var(--green))",
-                          flexShrink: 0,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        {CATEGORY_ICONS[key]}
-                      </span>
-                      <span style={{ flex: 1, fontSize: 11.5, fontWeight: 500, color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {label}
-                      </span>
-                      {affectedCount > 0 && (
-                        <Badge className="text-[10px] font-semibold px-1.5 py-0 h-4 bg-amber/10 text-amber border-0 shrink-0">
-                          {affectedCount}
-                        </Badge>
-                      )}
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--green)", flexShrink: 0 }}>
-                        {score ?? "–"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {azHistory.length > 0 && (
-            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-              <div style={{
-                fontSize: 9,
-                fontWeight: 800,
-                color: "var(--amber)",
-                textTransform: "uppercase",
-                letterSpacing: 0.9,
-                marginBottom: 8,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}>
-                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--amber)" }} aria-hidden />
-                Past runs
-              </div>
-              <div style={{ maxHeight: 220, minHeight: 0, overflowY: "auto" }}>{azHistoryRows}</div>
-            </div>
-          )}
-    </>
+    <AnalyzeImprovementPlan
+      result={result}
+      activeCategory={activeCategory}
+      setActiveCategory={setActiveCategory}
+      setSelectedBulletIndex={setSelectedBulletIndex}
+      showJobActivation={showJobActivation}
+      setShowJobActivation={setShowJobActivation}
+      setFeedbackToast={setFeedbackToast}
+      saveLocalPreviewDraft={saveLocalPreviewDraft}
+      clearLocalPreviewDraft={clearLocalPreviewDraft}
+      savingVersion={savingVersion}
+      editDraftStatus={editDraftStatus}
+      summaryFlagged={summaryFlagged}
+      summaryIssueCount={summaryIssueCount}
+      topFixCategories={topFixCategories}
+      completedCategories={completedCategories}
+      categoryAssignmentOpts={categoryAssignmentOpts}
+      resolvedBulletIndices={resolvedBulletIndices}
+      azHistory={azHistory}
+      azHistoryRows={azHistoryRows}
+    />
   );
+
 
   // Anonymous visitors now see their full first-scan report (no teaser lock).
   // The result is still stashed for the OAuth round-trip; a second scan is
@@ -1672,7 +1438,7 @@ export default function AnalyzeResume() {
             border: "1px solid rgba(148,163,184,0.32)",
             boxShadow: "0 14px 30px rgba(2,6,23,0.35)",
             color: "#f8fafc",
-            fontSize: 12.5,
+            fontSize: 13,
             lineHeight: 1.45,
             letterSpacing: -0.15,
           }}
@@ -1680,6 +1446,10 @@ export default function AnalyzeResume() {
           {feedbackToast}
         </div>
       ) : null}
+
+      {/* After an analysis: one-tap "save this résumé to your Profile" (self-hides
+          when no structured résumé / already saved or dismissed). */}
+      <SaveToProfilePrompt />
 
       {/* ── Mobile backdrop (close history drawer) ─── */}
       {historyOpen && (
@@ -1988,11 +1758,10 @@ export default function AnalyzeResume() {
             Improvement Plan
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button
+            <Tip label="Hide improvement plan for more space"><button
               type="button"
               className="az-desktop-sidebar-toggle"
               onClick={() => setImprovementPlanVisible(false)}
-              title="Hide improvement plan for more space"
               style={{
                 width: 24, height: 24, borderRadius: 6,
                 border: "none", background: "var(--surface2)",
@@ -2005,11 +1774,10 @@ export default function AnalyzeResume() {
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
                 <path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            </button>
+            </button></Tip>
             {/* Mobile: close overlay */}
-            <button
+            <Tip label="Close panel"><button
               onClick={() => setHistoryOpen(false)}
-              title="Close panel"
               className="az-mobile-only"
               style={{
                 width: 24, height: 24, borderRadius: 6,
@@ -2023,7 +1791,7 @@ export default function AnalyzeResume() {
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
-            </button>
+            </button></Tip>
           </div>
         </div>
         <div className="az-sidebar-inner">
@@ -2216,7 +1984,7 @@ export default function AnalyzeResume() {
                 {result.overallScore}
                 <span style={{ fontSize: 11, fontWeight: 500, color: "var(--dim)" }}>/100</span>
               </span>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: scoreColor(result.overallScore) }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: scoreColor(result.overallScore) }}>
                 {scoreLabel(result.overallScore)}
               </span>
               <span style={{ fontSize: 11, color: "var(--muted)" }}>· Resume score</span>
@@ -2247,6 +2015,17 @@ export default function AnalyzeResume() {
                   </div>
                 </div>
                 <div style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  onClick={startEditFlow}
+                  style={{
+                    padding: "8px 14px", borderRadius: 8,
+                    border: "1px solid var(--border)",
+                    background: "var(--accent-bg)", color: "var(--accent)",
+                    fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    whiteSpace: "nowrap", flexShrink: 0, marginRight: 8,
+                  }}
+                >✎ {hasEditedVersion ? "Keep editing" : "Edit"}</button>
                 <button
                   type="button"
                   onClick={() => {
@@ -2430,6 +2209,9 @@ export default function AnalyzeResume() {
               presentationOnly
               restoredResumeNoPdfHint={historyRestoreActive}
               categoryAssignmentOpts={categoryAssignmentOpts}
+              onRescore={handleRescore}
+              rescoring={rescoring}
+              scoreEstimate={scoreEstimate}
             />
             </div>
           </div>
@@ -2465,7 +2247,7 @@ export default function AnalyzeResume() {
                 display: "inline-flex", alignItems: "center", gap: 6,
                 padding: "7px 14px", borderRadius: 8, border: "1px solid var(--border)",
                 background: "var(--surface2)", cursor: "pointer", fontFamily: "inherit",
-                fontSize: 12.5, fontWeight: 500, color: "var(--muted)", width: "fit-content",
+                fontSize: 13, fontWeight: 500, color: "var(--muted)", width: "fit-content",
                 transition: "background var(--transition)",
               }}
               onMouseEnter={e => { e.currentTarget.style.background = "var(--surface3)"; }}
@@ -2527,7 +2309,7 @@ export default function AnalyzeResume() {
                 <div style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>
                   {activeCategoryLabel}
                 </div>
-                <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.7, margin: 0 }}>
+                <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.7, margin: 0 }}>
                   {activeCategory === "summary"
                     ? "Recruiters skim the summary first. Aim for 25-75 words leading with role + years + domain, with specifics instead of filler. Apply the rewrite below or edit it, and it updates the preview and PDF."
                     : CATEGORY_DESCRIPTIONS[activeCategory] ?? ""}
@@ -2541,7 +2323,7 @@ export default function AnalyzeResume() {
                     borderLeft: "3px solid var(--accent)",
                   }}>
                     <div style={{
-                      fontSize: 10.5,
+                      fontSize: 11,
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: 0.45,
@@ -2551,11 +2333,11 @@ export default function AnalyzeResume() {
                       Why this score
                     </div>
                     {explainingCategory === activeCategory ? (
-                      <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.65, margin: 0, fontStyle: "italic" }}>
+                      <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.65, margin: 0, fontStyle: "italic" }}>
                         Generating explanation…
                       </p>
                     ) : activeCategoryRationale ? (
-                      <p style={{ fontSize: 13.5, color: "var(--text)", lineHeight: 1.65, margin: 0 }}>
+                      <p style={{ fontSize: 14, color: "var(--text)", lineHeight: 1.65, margin: 0 }}>
                         {activeCategoryRationale}
                       </p>
                     ) : activeCategory ? (
@@ -2569,7 +2351,7 @@ export default function AnalyzeResume() {
                           border: "1px solid var(--accent)",
                           background: "rgba(99,102,241,0.10)",
                           color: "var(--accent)",
-                          fontSize: 12.5, fontWeight: 600,
+                          fontSize: 13, fontWeight: 600,
                           cursor: "pointer",
                           fontFamily: "inherit",
                         }}
@@ -2634,7 +2416,7 @@ export default function AnalyzeResume() {
                       }}>
                         {issue.severity}
                       </span>
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{issue.issue}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{issue.issue}</span>
                     </div>
                     <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>
                       {issue.suggestion}
@@ -2654,7 +2436,7 @@ export default function AnalyzeResume() {
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                               {issue.items.map((it, k) => (
                                 <span key={k} style={{
-                                  fontSize: 12.5, padding: "3px 9px", borderRadius: 8,
+                                  fontSize: 13, padding: "3px 9px", borderRadius: 8,
                                   background: "var(--red-tint, rgba(248,113,113,0.12))",
                                   color: "var(--red-ink, var(--red))",
                                   border: "1px solid rgba(248,113,113,0.25)",
@@ -2665,7 +2447,7 @@ export default function AnalyzeResume() {
                             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                               {issue.items.map((it, k) => (
                                 <div key={k} style={{
-                                  fontSize: 12.5, lineHeight: 1.5, padding: "7px 10px", borderRadius: 8,
+                                  fontSize: 13, lineHeight: 1.5, padding: "7px 10px", borderRadius: 8,
                                   background: "var(--red-tint, rgba(248,113,113,0.10))",
                                   color: "var(--text)",
                                   border: "1px solid rgba(248,113,113,0.20)",
@@ -2709,7 +2491,7 @@ export default function AnalyzeResume() {
                     Original ({result.summaryAnalysis.wordCount} words)
                   </div>
                   <div style={{
-                    fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55,
+                    fontSize: 13, color: "var(--muted)", lineHeight: 1.55,
                     padding: "8px 12px", background: "var(--surface2)",
                     borderRadius: 8, borderLeft: "3px solid var(--border)",
                   }}>
@@ -2734,7 +2516,7 @@ export default function AnalyzeResume() {
                         <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 8 }}>
                           Suggested rewrite
                           {applied && !editing && (
-                            <span style={{ fontSize: 10.5, color: "var(--green-ink, #047857)", fontWeight: 700 }}>· applied to preview ✓</span>
+                            <span style={{ fontSize: 11, color: "var(--green-ink, #047857)", fontWeight: 700 }}>· applied to preview ✓</span>
                           )}
                         </div>
                         {editing ? (
@@ -2744,7 +2526,7 @@ export default function AnalyzeResume() {
                             rows={4}
                             autoFocus
                             style={{
-                              fontSize: 12.5, color: "var(--text)", lineHeight: 1.55,
+                              fontSize: 13, color: "var(--text)", lineHeight: 1.55,
                               padding: "8px 12px", background: "var(--surface)",
                               borderRadius: 8, border: "1px solid #1565c0",
                               fontFamily: "inherit", resize: "vertical", width: "100%",
@@ -2752,7 +2534,7 @@ export default function AnalyzeResume() {
                           />
                         ) : (
                           <div style={{
-                            fontSize: 12.5, color: "var(--text)", lineHeight: 1.55,
+                            fontSize: 13, color: "var(--text)", lineHeight: 1.55,
                             padding: "8px 12px", background: "rgba(34,197,94,0.06)",
                             borderRadius: 8, borderLeft: "3px solid rgba(34,197,94,0.4)",
                           }}>
@@ -2977,7 +2759,7 @@ export default function AnalyzeResume() {
                           gap: 10,
                           flexWrap: "wrap",
                         }}>
-                          <span style={{ fontSize: 12.5, color: "var(--dim)", lineHeight: 1.45 }}>
+                          <span style={{ fontSize: 13, color: "var(--dim)", lineHeight: 1.45 }}>
                             No auto-rewrite passed quality checks.
                           </span>
                           <button
@@ -3032,9 +2814,9 @@ export default function AnalyzeResume() {
                               padding: "5px 10px", borderRadius: 7,
                               border: `1px solid ${copiedBullet === safeIdx ? "rgba(52,211,153,0.5)" : "rgba(52,211,153,0.3)"}`,
                               background: copiedBullet === safeIdx ? "rgba(52,211,153,0.15)" : "rgba(52,211,153,0.08)",
-                              color: "var(--green)", fontSize: 10.5, fontWeight: 600,
+                              color: "var(--green)", fontSize: 11, fontWeight: 600,
                               cursor: "pointer", fontFamily: "inherit",
-                              transition: "all 0.15s",
+                              transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                             }}
                           >
                             {copiedBullet === safeIdx ? "Copied!" : "Copy"}
@@ -3149,7 +2931,7 @@ export default function AnalyzeResume() {
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
                         Reads a little AI-written
                       </div>
-                      <p style={{ fontSize: 12.5, lineHeight: 1.55, color: "var(--muted)", margin: 0 }}>
+                      <p style={{ fontSize: 13, lineHeight: 1.55, color: "var(--muted)", margin: 0 }}>
                         Your résumé uses the em-dash (—) {emCount} times. It&rsquo;s a common AI-writing
                         tell that many recruiters notice. Swapping most of them for commas or periods
                         makes it read more like you. (The fixes this tool suggests already avoid it.)
@@ -3231,7 +3013,7 @@ export default function AnalyzeResume() {
                           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, marginBottom: 3 }}>
                             {flag.issue}
                           </div>
-                          <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
+                          <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
                             {flag.risk}
                           </div>
                         </div>
@@ -3476,8 +3258,8 @@ export default function AnalyzeResume() {
                                       padding: "3px 9px", borderRadius: 6,
                                       border: `1px solid ${copiedBullet === i ? "rgba(52,211,153,0.5)" : "rgba(52,211,153,0.3)"}`,
                                       background: copiedBullet === i ? "rgba(52,211,153,0.15)" : "rgba(52,211,153,0.08)",
-                                      color: "var(--green)", fontSize: 10.5, fontWeight: 600,
-                                      cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                                      color: "var(--green)", fontSize: 11, fontWeight: 600,
+                                      cursor: "pointer", fontFamily: "inherit", transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                                     }}
                                   >
                                     {copiedBullet === i ? "✓ Copied" : "Copy"}
@@ -3512,8 +3294,8 @@ export default function AnalyzeResume() {
                                       padding: "3px 9px", borderRadius: 6,
                                       border: `1px solid ${copiedBullet === i ? "rgba(251,191,36,0.55)" : "rgba(251,191,36,0.34)"}`,
                                       background: copiedBullet === i ? "rgba(251,191,36,0.16)" : "rgba(251,191,36,0.08)",
-                                      color: "var(--amber)", fontSize: 10.5, fontWeight: 600,
-                                      cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                                      color: "var(--amber)", fontSize: 11, fontWeight: 600,
+                                      cursor: "pointer", fontFamily: "inherit", transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                                     }}
                                   >
                                     {copiedBullet === i ? "✓ Copied" : "Copy draft"}
@@ -3653,7 +3435,7 @@ export default function AnalyzeResume() {
                       display: "flex", alignItems: "center", gap: 8,
                       padding: "11px 22px", borderRadius: 10,
                       background: "var(--amber)", border: "none", color: "#fff",
-                      fontSize: 13.5, fontWeight: 600, cursor: "pointer",
+                      fontSize: 14, fontWeight: 600, cursor: "pointer",
                       transition: "opacity var(--transition)",
                       letterSpacing: -0.2,
                     }}
@@ -3675,7 +3457,7 @@ export default function AnalyzeResume() {
                       display: "flex", alignItems: "center", gap: 8,
                       padding: "11px 20px", borderRadius: 10,
                       background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--muted)",
-                      fontSize: 13.5, fontWeight: 500, cursor: "pointer",
+                      fontSize: 14, fontWeight: 500, cursor: "pointer",
                       transition: "background var(--transition), border-color var(--transition)",
                       letterSpacing: -0.2,
                     }}

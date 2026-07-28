@@ -6,7 +6,7 @@
  *   /                            -> analyze (default)
  *   /?view=builder&flow=tailor -> JD tailor workflow (legacy flow=template redirects to /template-builder)
  *   /?view=library               -> library grid (+ optional right detail panel when resume=<f>)
- *   /?view=profile&prefill=1     -> Profile page + optional session prefill from Analyze / template flow
+ *   /?view=profile               -> redirects to /profile (the Career Profile dashboard)
  *   /?view=jobs                  -> jobs (placeholder for now)
  *   /?view=cover-letter          -> cover letter builder (+ optional ?cl=<id> to reopen saved)
  *   /?view=builder&flow=tailor&base=<folder> -> builder with folder pre-loaded
@@ -24,18 +24,20 @@ import ContentSourcePicker from "@/components/ContentSourcePicker";
 import ManualResumeForm from "@/components/ManualResumeForm";
 import ResumeLibrary from "@/components/ResumeLibrary";
 import AnalyzeResume from "@/components/AnalyzeResume";
-import ProfilePage from "@/components/profile/ProfilePage";
 import AccountSettingsPage from "@/components/AccountSettingsPage";
 import AdvisorDashboard from "@/components/AdvisorDashboard";
 import JobsFeed from "@/components/JobsFeed";
 import JobDetail from "@/components/JobDetail";
+import MoreMatchesPanel from "@/components/MoreMatchesPanel";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import ApplicationTracker from "@/components/ApplicationTracker";
 import CoverLetterBuilder from "@/components/CoverLetterBuilder";
+import HomeDashboard from "@/components/HomeDashboard";
+import AppShellSkeleton from "@/components/app-shell/AppShellSkeleton";
 
 export default function HomePageClient() {
   return (
-    <Suspense fallback={<ShellSkeleton />}>
+    <Suspense fallback={<AppShellSkeleton />}>
       <AppShell>
         <RouterView />
       </AppShell>
@@ -79,7 +81,7 @@ function ScrollPane({ children }: { children: React.ReactNode }) {
 function RouterView() {
   const params = useSearchParams();
   const router = useRouter();
-  const rawView = (params?.get("view") || "analyze").toLowerCase();
+  const rawView = (params?.get("view") || "home").toLowerCase();
   const view = useAppView();
   const base = (params?.get("base") || "").trim();
   const flow = (params?.get("flow") || "tailor").toLowerCase();
@@ -103,6 +105,26 @@ function RouterView() {
     router.replace("/template-builder/");
   }, [view, flow, router]);
 
+  /** Legacy `?view=profile` — the standalone Career Profile dashboard at
+   * /profile replaced the old in-shell Tailor-defaults form. Keep old bookmarks
+   * working by redirecting. */
+  const profileRedirectRef = useRef(false);
+  useEffect(() => {
+    if (view !== "profile") return;
+    if (profileRedirectRef.current) return;
+    profileRedirectRef.current = true;
+    router.replace("/profile");
+  }, [view, router]);
+
+  if (view === "home") {
+    return (
+      <ViewFill>
+        <ScrollPane>
+          <HomeDashboard />
+        </ScrollPane>
+      </ViewFill>
+    );
+  }
   if (view === "library") {
     return (
       <ViewFill>
@@ -111,15 +133,8 @@ function RouterView() {
     );
   }
   if (view === "profile") {
-    const prefill = (params?.get("prefill") || "").trim() === "1";
-    return (
-      <ViewFill>
-        <ScrollPane>
-          {/* @ts-ignore - The ProfilePage component was recently refactored to not require prefill */}
-          <ProfilePage prefill={prefill} />
-        </ScrollPane>
-      </ViewFill>
-    );
+    // Redirecting to /profile (see effect above); render nothing meanwhile.
+    return <ViewFill><ScrollPane>{null}</ScrollPane></ViewFill>;
   }
   if (view === "account") {
     return (
@@ -194,19 +209,6 @@ function RouterView() {
   );
 }
 
-function ShellSkeleton() {
-  return (
-    <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "var(--bg)",
-    }}>
-      <div style={{
-        width: 22, height: 22, border: "2px solid var(--surface2)", borderTopColor: "var(--accent)",
-        borderRadius: "50%", animation: "spin 0.8s linear infinite",
-      }} />
-    </div>
-  );
-}
 
 /**
  * Jobs routing/layout:
@@ -225,8 +227,9 @@ function JobsView({ selectedJobId }: { selectedJobId: string }) {
   return (
     <div
       style={{
-        maxWidth: 1500,
-        margin: "0 auto",
+        // Fill the whole content area — no maxWidth cap (it left a large empty
+        // band on the right on wide monitors). Feed stays a fixed 420px rail;
+        // the detail column flexes to take all remaining width.
         width: "100%",
         padding: "20px 20px 56px",
         display: "flex",
@@ -234,7 +237,9 @@ function JobsView({ selectedJobId }: { selectedJobId: string }) {
         alignItems: "flex-start",
       }}
     >
-      <div style={{ flex: "0 0 420px", minWidth: 0 }}>
+      {/* Google-style wider list rail (~40%, clamped) so more of the feed is in
+          view; the detail still fills the remaining ~60% (2-col, auto-collapses). */}
+      <div style={{ flex: "0 0 clamp(360px, 40%, 560px)", minWidth: 0 }}>
         <JobsFeed selectedJobId={selectedJobId} variant="list" />
       </div>
       <div
@@ -246,9 +251,13 @@ function JobsView({ selectedJobId }: { selectedJobId: string }) {
           alignSelf: "flex-start",
           maxHeight: "calc(100dvh - 88px)",
           overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
         }}
       >
         <JobDetail jobId={selectedJobId} embedded />
+        <MoreMatchesPanel currentJobId={selectedJobId} />
       </div>
     </div>
   );
@@ -296,7 +305,7 @@ function JobsTabShell() {
             type="button"
             onClick={() => setTab(t.key)}
             style={{
-              fontSize: 13.5,
+              fontSize: 14,
               fontWeight: tab === t.key ? 600 : 400,
               padding: "7px 14px",
               borderRadius: "8px 8px 0 0",

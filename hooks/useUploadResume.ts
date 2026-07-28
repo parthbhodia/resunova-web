@@ -7,8 +7,9 @@ import {
   resumeGateErrorFromResponse,
 } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
-import { apiUrl, parseJsonOrThrow, resumeFileClientError } from "@/lib/utils";
+import { parseJsonOrThrow, resumeFileClientError } from "@/lib/utils";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
+import { apiFetch } from "@/lib/apiClient";
 
 export interface UploadResumeResult {
   /** Builder-friendly plain text (prefers vision-synthesized extract when available). */
@@ -52,7 +53,7 @@ export function useUploadResume(): UseUploadResumeReturn {
       fd.append("file", file);
       if (jd.trim()) fd.append("jd", jd.trim());
 
-      const resp = await fetch(apiUrl("/api/upload-resume"), { method: "POST", body: fd });
+      const resp = await apiFetch("/api/upload-resume", { method: "POST", body: fd });
       const raw = await parseJsonOrThrow<Record<string, unknown>>(resp);
       const json = mergeAnalyzeApiJson(raw) as {
         error?: string;

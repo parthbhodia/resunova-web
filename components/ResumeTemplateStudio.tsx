@@ -461,7 +461,7 @@ function Segmented<T extends string>({
                 cursor: "pointer",
                 fontFamily: "inherit",
                 letterSpacing: -0.2,
-                transition: "all 0.12s",
+                transition: "background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s",
                 whiteSpace: "nowrap",
               }}
             >

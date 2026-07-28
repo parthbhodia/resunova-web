@@ -17,6 +17,8 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef, type CSSProperties } from "react";
 import type { ParsedResume, ParsedBullet, ParsedSection, ParsedEntry } from "@/lib/types";
+import { diffWords } from "@/lib/textDiff";
+import { apiFetch } from "@/lib/apiClient";
 
 /** Strip LaTeX markup from a label string so users see plain text. */
 function cleanLatex(raw: string): string {
@@ -490,7 +492,7 @@ export default function ResumeEditor({ initial, saving, saveError, folder, onSav
                 border: "none", borderRadius: 10,
                 cursor: dirty && !saving ? "pointer" : "not-allowed",
                 fontWeight: 700, letterSpacing: -0.2, fontFamily: "inherit",
-                transition: "all 0.15s",
+                transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
               }}
             >
               {saving ? "Re-compiling…" : dirty ? "Save & re-compile PDF" : "No changes"}
@@ -592,7 +594,7 @@ function ContactCard({ contact, onChange, onCustomChange }: {
             fontSize: 9, fontWeight: 600, padding: "2px 6px",
             background: "var(--surface2)", color: "var(--dim)",
             borderRadius: 4, letterSpacing: 0.3,
-          }} title="No marker block found in this resume's .tex — re-generate to gain edit support">
+          }} title="No marker block found in this resume's .tex. Re-generate to gain edit support.">
             READ-ONLY
           </span>
         )}
@@ -979,7 +981,7 @@ function SectionRewritePopover({ onRun, onCancel }: { onRun: (instr: string) => 
         <input
           value={val}
           onChange={e => setVal(e.target.value)}
-          placeholder='Custom instruction — e.g. "emphasize Python and distributed systems"'
+          placeholder='Custom instruction, e.g. "emphasize Python and distributed systems"'
           style={{ fontSize: 12, padding: "6px 10px", flex: 1 }}
         />
         <button
@@ -1411,7 +1413,7 @@ function GenerateSkillsModal({
     setGenerating(true); setError(null); setGenerated(null); setSelected(new Set()); setSuggestions([]);
     try {
       const { apiUrl } = await import("@/lib/utils");
-      const resp = await fetch(apiUrl("/api/generate-skills"), {
+      const resp = await apiFetch("/api/generate-skills", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: roleToUse.trim(), existing_skills: existingSkills }),
@@ -1544,7 +1546,7 @@ function GenerateSkillsModal({
                       color: on ? "#1d4ed8" : "#475569",
                       fontSize: 12.5, fontWeight: on ? 600 : 400,
                       cursor: "pointer", fontFamily: "inherit",
-                      transition: "all 0.12s",
+                      transition: "background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s",
                     }}
                   >
                     {on && <span style={{ marginRight: 4 }}>✓</span>}
@@ -1653,39 +1655,6 @@ function relativeTime(ms: number): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-type DiffTok = { type: "same" | "add" | "del"; text: string };
-
-function diffWords(before: string, after: string): DiffTok[] {
-  // Tokenize keeping whitespace so the rendered diff preserves spacing.
-  const tok = (s: string) => s.match(/\s+|[^\s]+/g) ?? [];
-  const a = tok(before);
-  const b = tok(after);
-  const n = a.length, m = b.length;
-
-  // Standard LCS DP. Bullets are short (rarely >50 tokens) so O(n*m) is fine.
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
-  const out: DiffTok[] = [];
-  let i = 0, j = 0;
-  const push = (type: DiffTok["type"], text: string) => {
-    const last = out[out.length - 1];
-    if (last && last.type === type) last.text += text;
-    else out.push({ type, text });
-  };
-  while (i < n && j < m) {
-    if (a[i] === b[j])              { push("same", a[i]); i++; j++; }
-    else if (dp[i + 1][j] >= dp[i][j + 1]) { push("del", a[i]);  i++; }
-    else                            { push("add", b[j]);  j++; }
-  }
-  while (i < n) { push("del", a[i++]); }
-  while (j < m) { push("add", b[j++]); }
-  return out;
-}
-
 /* ── Preview pane ─────────────────────────────────────────── */
 
 /**
@@ -1760,7 +1729,7 @@ function PreviewSurface({ resume, pdfUrl, dirty }: {
                 cursor: "pointer", fontFamily: "inherit",
                 letterSpacing: -0.1,
               }}
-              title={m === "pdf" && dirty ? "PDF reflects last save — unsaved edits not shown" : ""}
+              title={m === "pdf" && dirty ? "PDF reflects last save. Unsaved edits not shown." : ""}
             >
               {m === "pdf" ? "PDF" : "Live preview"}
               {m === "pdf" && dirty && <span style={{ marginLeft: 4, color: "var(--orange)" }}>•</span>}

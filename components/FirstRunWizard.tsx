@@ -12,7 +12,7 @@
  *
  * It is deliberately conservative about WHEN it appears so it never nags returning
  * users or interrupts the anonymous-scan → sign-in hand-off:
- *   • signed in, not a UMBC user (they get their own welcome)
+ *   • signed in, not an institution user
  *   • account created within the last 24h (genuinely new)
  *   • hasn't already been completed/skipped (per-user localStorage flag)
  *   • the user did NOT arrive via the anonymous free-scan funnel (they're already
@@ -144,7 +144,7 @@ export default function FirstRunWizard({
           <div className="flex flex-col gap-4 px-1">
             <div className="flex flex-col gap-1.5">
               <DialogTitle className="text-lg font-semibold">Welcome to Resunova 👋</DialogTitle>
-              <DialogDescription className="text-[13.5px] leading-relaxed">
+              <DialogDescription className="text-[14px] leading-relaxed">
                 What roles are you targeting? We&apos;ll rank live job matches to the top of your
                 feed. Pick up to {MAX_ROLES} — you can change these any time.
               </DialogDescription>
@@ -160,8 +160,8 @@ export default function FirstRunWizard({
                     aria-pressed={selected}
                     className={
                       selected
-                        ? "rounded-full border border-accent bg-[var(--accent-bg)] px-3 py-1.5 text-[12.5px] font-medium text-accent transition-colors"
-                        : "rounded-full border border-border bg-transparent px-3 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:border-accent/60"
+                        ? "rounded-full border border-accent bg-[var(--accent-bg)] px-3 py-1.5 text-[13px] font-medium text-accent transition-colors"
+                        : "rounded-full border border-border bg-transparent px-3 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:border-accent/60"
                     }
                   >
                     {r.label}
@@ -188,7 +188,7 @@ export default function FirstRunWizard({
           <div className="flex flex-col gap-4 px-1">
             <div className="flex flex-col gap-1.5">
               <DialogTitle className="text-lg font-semibold">Let&apos;s get your first result</DialogTitle>
-              <DialogDescription className="text-[13.5px] leading-relaxed">
+              <DialogDescription className="text-[14px] leading-relaxed">
                 Scan your résumé to see your ATS score and fixes, or jump straight to live job
                 matches{roles.length ? ` for ${roles[0]}` : ""}.
               </DialogDescription>

@@ -227,27 +227,13 @@ export default function ResumePDFTemplate({ data }: Props) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Skills</Text>
 
-            {/* Featured skills — 3-column grid, 2 per column */}
+            {/* Featured skills — plain highlighted list. Proficiency dots were
+                removed: self-assessed ratings carry no signal for recruiters
+                or ATS parsers. Mirrors renderResumeSections.tsx. */}
             {featuredWithSkill.length > 0 && (
-              <View style={{ flexDirection: "row", marginBottom: 5 }}>
-                {[0, 1, 2].map((col) => (
-                  <View key={col} style={{ width: "33.33%" }}>
-                    {[featuredWithSkill[col], featuredWithSkill[col + 3]]
-                      .filter(Boolean)
-                      .map((fs, i) => (
-                        <View key={i} style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                          <Text style={{ fontSize: preset.metaFont, color: "#222", marginRight: 4 }}>{fs.skill}</Text>
-                          {Array.from({ length: 5 }, (_, ci) => (
-                            <View key={ci} style={{
-                              width: 6, height: 6, borderRadius: 3, marginLeft: 2,
-                              backgroundColor: ci < fs.rating ? accent : "#d9d9d9",
-                            }} />
-                          ))}
-                        </View>
-                      ))}
-                  </View>
-                ))}
-              </View>
+              <Text style={{ ...styles.skillsText, fontWeight: 600, color: "#222", marginBottom: 2 }}>
+                {featuredWithSkill.map((fs) => fs.skill).join("  ·  ")}
+              </Text>
             )}
 
             {/* Category description lines */}

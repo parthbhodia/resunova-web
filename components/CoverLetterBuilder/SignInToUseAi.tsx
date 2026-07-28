@@ -69,7 +69,7 @@ export default function SignInToUseAi({
             gap: 7,
             flex: "1 1 auto",
             whiteSpace: "nowrap",
-            fontSize: 12.5,
+            fontSize: 13,
             fontWeight: 600,
             color: "var(--text)",
             background: "var(--bg)",
@@ -87,7 +87,7 @@ export default function SignInToUseAi({
           <button
             type="button"
             onClick={onDismiss}
-            style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", background: "none", border: "none", cursor: "pointer", padding: "6px 6px", whiteSpace: "nowrap", flexShrink: 0 }}
+            style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "none", border: "none", cursor: "pointer", padding: "6px 6px", whiteSpace: "nowrap", flexShrink: 0 }}
           >
             Not now
           </button>

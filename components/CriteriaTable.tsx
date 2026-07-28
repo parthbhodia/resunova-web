@@ -62,7 +62,7 @@ export default function CriteriaTable({ criteria }: Props) {
 
             {/* Importance badge */}
             <div
-              title={`Importance: ${c.weight} — how critical this requirement is in the JD`}
+              title={`Importance: ${c.weight}. How critical this requirement is in the JD.`}
               style={{
                 fontSize: 11, fontWeight: 600, padding: "3px 8px",
                 borderRadius: 4, textAlign: "center",
@@ -75,7 +75,7 @@ export default function CriteriaTable({ criteria }: Props) {
 
             {/* Match score bar */}
             <div
-              title={`Match: ${c.score}/10 — how strongly your resume evidences this`}
+              title={`Match: ${c.score}/10. How strongly your resume evidences this.`}
               style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 2 }}
             >
               <span style={{ fontSize: 13, fontWeight: 600, color: sc, minWidth: 36 }}>

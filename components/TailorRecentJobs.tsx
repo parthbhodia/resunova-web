@@ -179,7 +179,7 @@ export default function TailorRecentJobs({
                 </div>
                 {r.job_description && (
                   <div style={{
-                    fontSize: 10.5, color: "var(--dim)", marginTop: 1,
+                    fontSize: 11, color: "var(--dim)", marginTop: 1,
                     whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                   }}>
                     {r.job_description.trim().slice(0, 80)}

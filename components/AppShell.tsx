@@ -12,8 +12,7 @@ import { UmbcProvider } from "@/contexts/UmbcContext";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
 import { POST_LOGIN_DEST_KEY } from "@/lib/anonScan";
 import { getSupabaseClient } from "@/lib/supabase";
-import { apiUrl } from "@/lib/utils";
-import { isUmbcUser } from "@/lib/userDomainDetection";
+import { isInstitutionUser, isUmbcUser } from "@/lib/userDomainDetection";
 import ResumeSidebar from "./ResumeSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
@@ -25,15 +24,16 @@ import { AppBottomNav } from "./app-shell/AppBottomNav";
 import { BugReportDialog } from "./app-shell/BugReportDialog";
 import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
-import { UmbcWelcomeBanner } from "./UmbcWelcomeBanner";
-import { AppTopBar } from "./app-shell/AppTopBar";
-import { SignInDialogProvider, useSignInDialog } from "./SignInDialog";
+import { useSignInDialog } from "./SignInDialog";
+import { UpgradeDialogProvider } from "./UpgradeDialog";
+import CheckoutReturnNotice from "./CheckoutReturnNotice";
 import FirstRunWizard from "./FirstRunWizard";
 import {
   readSidebarCollapsed,
   writeSidebarCollapsed,
   type AppView,
 } from "./app-shell/nav-config";
+import { apiFetch } from "@/lib/apiClient";
 
 export type { AppView } from "./app-shell/nav-config";
 
@@ -75,8 +75,12 @@ function readBuilderLayoutOnlyFlag(): boolean {
 
 export function useAppView(): AppView {
   const params = useSearchParams();
-  const raw = (params?.get("view") || "analyze").toLowerCase();
+  // Signed-in users land on the Home hub by default; the anonymous free-scan
+  // funnel always arrives with an explicit ?view=analyze (see AuthGate), so
+  // defaulting the bare "/" to home never affects signed-out visitors.
+  const raw = (params?.get("view") || "home").toLowerCase();
   const valid: AppView[] = [
+    "home",
     "builder",
     "library",
     "analyze",
@@ -86,7 +90,7 @@ export function useAppView(): AppView {
     "advisor",
     "account",
   ];
-  return valid.includes(raw as AppView) ? (raw as AppView) : "analyze";
+  return valid.includes(raw as AppView) ? (raw as AppView) : "home";
 }
 
 function AppShellBody({ children }: { children: ReactNode }) {
@@ -99,6 +103,8 @@ function AppShellBody({ children }: { children: ReactNode }) {
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
   const onInterviewPrepPage =
     (pathname ?? "").replace(/\/$/, "") === "/interview-prep";
+  const onCareerProfilePage =
+    (pathname ?? "").replace(/\/$/, "") === "/profile";
   const isMobile = useIsMobile();
   const flowRaw = (searchParams?.get("flow") || "tailor").toLowerCase();
   const builderFlow: "tailor" | "template" =
@@ -111,6 +117,9 @@ function AppShellBody({ children }: { children: ReactNode }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Which path the user last toggled the nav on. Their explicit choice beats
+  // the workspace-route default, but only for the route they made it on.
+  const [sidebarTogglePath, setSidebarTogglePath] = useState<string | null>(null);
   const [advisorAllowed, setAdvisorAllowed] = useState(false);
   const [mobileBugReportOpen, setMobileBugReportOpen] = useState(false);
 
@@ -118,10 +127,25 @@ function AppShellBody({ children }: { children: ReactNode }) {
     setSidebarOpen(!readSidebarCollapsed());
   }, []);
 
+  // Workspace routes open collapsed: these are the surfaces where the canvas
+  // or the editor wants the horizontal room, and the nav has nothing to do
+  // once you are on them.
+  //
+  // DERIVED, not an effect. Pushing this through setState in a pathname effect
+  // is a cascading render (the repo's lint ratchet rejects it) and it also
+  // fights the user: their toggle would be overwritten on the next render.
+  // Instead the collapse applies until they toggle ON THIS path, after which
+  // their choice wins.
+  const WORKSPACE_PATHS = ["/template-builder", "/my-resumes", "/interview-prep", "/profile"];
+  const onWorkspaceRoute = WORKSPACE_PATHS.some((p) => pathname?.startsWith(p));
+  const sidebarOpenEffective =
+    onWorkspaceRoute && sidebarTogglePath !== pathname ? false : sidebarOpen;
+
   const handleSidebarOpenChange = useCallback((open: boolean) => {
     setSidebarOpen(open);
+    setSidebarTogglePath(pathname ?? null);
     writeSidebarCollapsed(!open);
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -132,9 +156,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const resp = await fetch(apiUrl("/api/advisor-access"), {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        const resp = await apiFetch("/api/advisor-access");
         if (!resp.ok) {
           setAdvisorAllowed(false);
           return;
@@ -151,12 +173,9 @@ function AppShellBody({ children }: { children: ReactNode }) {
       accessToken?: string | null,
     ) => {
       if (!accessToken) return;
-      if (!isUmbcUser(email)) return;
+      if (!isInstitutionUser(email)) return;
       try {
-        await fetch(apiUrl("/api/sync-institution-student"), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        await apiFetch("/api/sync-institution-student", { method: "POST" });
       } catch {
         // Best-effort sync only; never block shell render/auth UX.
       }
@@ -231,6 +250,13 @@ function AppShellBody({ children }: { children: ReactNode }) {
     router.push(`/?view=${next}`);
     setHistoryOpen(false);
     setBuilderOpen(false);
+    // Collapse the nav on every switch. You navigate once and then work; the
+    // rail sitting open afterwards costs ~240px of the workspace for a menu
+    // whose job is already done. It reopens on the toggle, and the choice is
+    // NOT written to storage — this is a per-navigation behaviour, not a new
+    // persisted preference, so the user's own collapsed/expanded setting
+    // survives a reload.
+    setSidebarOpen(false);
   };
 
   const goBuilderFlow = (flow: "tailor" | "template") => {
@@ -268,7 +294,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
     <UmbcProvider isUmbc={isUmbc}>
       <TooltipProvider delay={0}>
         <SidebarProvider
-          open={sidebarOpen}
+          open={sidebarOpenEffective}
           onOpenChange={handleSidebarOpenChange}
           defaultOpen={!readSidebarCollapsed()}
           className="app-shell-root min-h-dvh max-h-dvh overflow-hidden bg-background"
@@ -285,6 +311,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
                 active={active}
                 onTemplateBuilderPage={onTemplateBuilderPage}
                 onInterviewPrepPage={onInterviewPrepPage}
+                onCareerProfilePage={onCareerProfilePage}
                 builderActive={builderActive}
                 builderOpen={builderOpen}
                 onBuilderOpenChange={setBuilderOpen}
@@ -308,16 +335,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
               key={active}
               className="app-shell-main app-shell-view-pane min-h-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0"
             >
-              <AppTopBar
-                anonMode={anonMode}
-                isUmbc={isUmbc}
-                userInitial={initial}
-                userEmail={user?.email ?? null}
-                onSwitchView={switchView}
-                onSignOut={onSignOut}
-              />
               <FreeScanWelcomeBanner userId={user?.id ?? null} isUmbc={isUmbc} />
-              <UmbcWelcomeBanner userId={user?.id ?? null} />
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
             </SidebarInset>
 
@@ -370,11 +388,10 @@ function AppShellBody({ children }: { children: ReactNode }) {
 }
 
 export default function AppShell({ children }: { children: ReactNode }) {
-  // The provider wraps the whole shell so the sidebar, top bar, bottom nav, AND
-  // every view rendered as children share one sign-in modal (useSignInDialog).
   return (
-    <SignInDialogProvider>
+    <UpgradeDialogProvider>
       <AppShellBody>{children}</AppShellBody>
-    </SignInDialogProvider>
+      <CheckoutReturnNotice />
+    </UpgradeDialogProvider>
   );
 }

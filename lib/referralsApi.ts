@@ -9,8 +9,7 @@
  *
  * Mirrors lib/jobsApi.ts: Supabase bearer auth, camelCase payloads.
  */
-import { apiUrl } from "@/lib/utils";
-import { authHeaders } from "@/lib/jobsApi";
+import { apiFetch } from "@/lib/apiClient";
 
 export type ReferralStatus =
   | "to_contact"
@@ -74,18 +73,16 @@ async function parseError(resp: Response): Promise<never> {
 
 /** List the caller's referral contacts. Pass postingId to scope to one job. */
 export async function fetchReferrals(postingId?: string): Promise<ReferralListResponse> {
-  const headers = await authHeaders();
   const qs = postingId ? `?postingId=${encodeURIComponent(postingId)}` : "";
-  const resp = await fetch(apiUrl(`/api/referrals${qs}`), { headers });
+  const resp = await apiFetch(`/api/referrals${qs}`);
   if (!resp.ok) return parseError(resp);
   return resp.json();
 }
 
 export async function createReferral(input: ReferralCreateInput): Promise<ReferralContact> {
-  const headers = await authHeaders();
-  const resp = await fetch(apiUrl("/api/referrals"), {
+  const resp = await apiFetch("/api/referrals", {
     method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
   if (!resp.ok) return parseError(resp);
@@ -93,10 +90,9 @@ export async function createReferral(input: ReferralCreateInput): Promise<Referr
 }
 
 export async function updateReferral(id: string, patch: ReferralPatchInput): Promise<ReferralContact> {
-  const headers = await authHeaders();
-  const resp = await fetch(apiUrl(`/api/referrals/${encodeURIComponent(id)}`), {
+  const resp = await apiFetch(`/api/referrals/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
   if (!resp.ok) return parseError(resp);
@@ -104,10 +100,8 @@ export async function updateReferral(id: string, patch: ReferralPatchInput): Pro
 }
 
 export async function deleteReferral(id: string): Promise<void> {
-  const headers = await authHeaders();
-  const resp = await fetch(apiUrl(`/api/referrals/${encodeURIComponent(id)}`), {
+  const resp = await apiFetch(`/api/referrals/${encodeURIComponent(id)}`, {
     method: "DELETE",
-    headers,
   });
   if (!resp.ok) return parseError(resp);
 }

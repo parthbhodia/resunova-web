@@ -120,7 +120,7 @@ export function SignInDialogProvider({ children }: { children: ReactNode }) {
             <DialogTitle className="text-lg font-semibold">
               {opts.title || DEFAULT_TITLE}
             </DialogTitle>
-            <DialogDescription className="max-w-xs text-[13.5px] leading-relaxed text-muted-foreground">
+            <DialogDescription className="max-w-xs text-[14px] leading-relaxed text-muted-foreground">
               {opts.reason || DEFAULT_REASON}
             </DialogDescription>
           </div>

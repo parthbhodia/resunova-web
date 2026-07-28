@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useResumeAnalyzeStore, type StructuredResume } from "@/store/resumeAnalyzeStore";
 import type { CSSProperties, FocusEvent as ReactFocusEvent, HTMLAttributes, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { apiUrl } from "@/lib/utils";
-import { getSupabaseClient } from "@/lib/supabase";
 import BulletImprovedEditor from "@/components/BulletImprovedEditor";
 import { highlightMetricSpans } from "@/lib/highlightResumeMetrics";
 import {
@@ -34,6 +32,7 @@ import {
   paragraphBlockStyle,
   type ResumeSectionRole,
 } from "@/lib/resumeLayout";
+import { apiFetch } from "@/lib/apiClient";
 
 export type { LiveBulletItem } from "@/lib/resumeBulletMatch";
 export { findBulletIndexForLine, normalizeForMatch } from "@/lib/resumeBulletMatch";
@@ -1234,13 +1233,9 @@ export default function AnalyzeLiveResumeBody({
   const requestPopupAiRewrite = useCallback(async (idx: number, originalBullet: string, category: string) => {
     setAiRewritingIdx(idx);
     try {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
-      const resp = await fetch(apiUrl("/api/rewrite-bullet"), {
+      const resp = await apiFetch("/api/rewrite-bullet", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bullet: originalBullet, rewrite: true, instruction: category }),
       });
       if (!resp.ok) throw new Error("rewrite failed");
@@ -1478,7 +1473,7 @@ export default function AnalyzeLiveResumeBody({
                 background: isSelected && sectionEditable ? "rgba(var(--accent-rgb, 200, 121, 58), 0.06)" : "transparent",
                 borderRadius: isSelected ? 4 : 0,
                 cursor: sectionEditable ? "pointer" : "default",
-                transition: "all 0.15s",
+                transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
                 position: "relative",
               }}
             >
@@ -1902,7 +1897,9 @@ export default function AnalyzeLiveResumeBody({
                     background: bgTint,
                     borderLeft: leftBar,
                     boxShadow: isSelected ? "inset 0 0 0 1.5px var(--resume-paper-accent)" : undefined,
-                    cursor: hasActionable ? "pointer" : "default",
+                    // A gap-fix target is clickable even without an analysis rewrite;
+                    // without this it was tinted like a target but showed no pointer.
+                    cursor: hasActionable || isGapFixTarget ? "pointer" : "default",
                     animation: isPulsing ? "az-mirror-pulse 0.85s ease-out 1" : undefined,
                   }}
                 >

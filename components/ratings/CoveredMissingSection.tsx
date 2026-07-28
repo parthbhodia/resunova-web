@@ -87,7 +87,7 @@ export function CoveredMissingSection({
                     {item.analysis && (
                       <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(248,113,113,0.05)", border: "1px solid rgba(248,113,113,0.15)", marginBottom: onFixGap ? 10 : 0 }}>
                         <span style={{ fontSize: 10, fontWeight: 800, color: "#f87171", letterSpacing: 0.5, textTransform: "uppercase", display: "block", marginBottom: 5 }}>⊙ ANALYSIS</span>
-                        <span style={{ fontSize: 12.5, color: "#f87171", lineHeight: 1.55 }}>{item.analysis}</span>
+                        <span style={{ fontSize: 13, color: "#f87171", lineHeight: 1.55 }}>{item.analysis}</span>
                       </div>
                     )}
                     {onFixGap && !isAddressed && (
@@ -135,7 +135,7 @@ export function CoveredMissingSection({
               <span style={{ fontSize: 12, color: "#f59e0b", fontWeight: 700 }}>◐</span>
             </div>
             <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
-              Applied — re-check to confirm ({resolved.length})
+              Applied, re-check to confirm ({resolved.length})
             </span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -153,7 +153,7 @@ export function CoveredMissingSection({
                   {item.text}
                 </div>
                 {item.context && (
-                  <span style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 }}>{item.context}</span>
+                  <span style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>{item.context}</span>
                 )}
               </div>
             ))}
@@ -191,7 +191,7 @@ export function CoveredMissingSection({
                 {item.context && (
                   <div style={{ marginBottom: item.locations ? 8 : 0 }}>
                     <span style={{ fontSize: 10, fontWeight: 800, color: "var(--dim)", letterSpacing: 0.5, textTransform: "uppercase", marginRight: 6 }}>CONTEXT:</span>
-                    <span style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 }}>{item.context}</span>
+                    <span style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>{item.context}</span>
                   </div>
                 )}
                 {item.locations && item.locations > 0 && (

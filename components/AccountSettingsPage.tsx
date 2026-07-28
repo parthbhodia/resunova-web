@@ -11,9 +11,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
-import { apiUrl } from "@/lib/utils";
 import { Card, ToggleSwitch } from "@/components/profileSettingsUi";
-import ScanUsageCard from "@/components/ScanUsageCard";
+import { ScanUsageWidget } from "@/components/ScanUsageWidget";
+import PlanBillingCard from "@/components/PlanBillingCard";
+import { TailoringModeSelector } from "@/components/TailoringModeModal";
+import { TAILORING_MODE_META, fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
+import { apiFetch } from "@/lib/apiClient";
 
 type NotifyPrefs = { accountChanges: boolean; scanLimit: boolean; features: boolean };
 const NOTIFY_DEFAULTS: NotifyPrefs = { accountChanges: true, scanLimit: false, features: false };
@@ -52,9 +55,7 @@ function EmailPreferencesCard() {
         const supabase = getSupabaseClient();
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) return;
-        const resp = await fetch(apiUrl("/api/profile/notify-prefs"), {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
+        const resp = await apiFetch("/api/profile/notify-prefs");
         if (!resp.ok || cancelled) return;
         const prefs = (await resp.json()) as NotifyPrefs;
         const merged = { ...NOTIFY_DEFAULTS, ...prefs };
@@ -80,14 +81,9 @@ function EmailPreferencesCard() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
-        const supabase = getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const resp = await fetch(apiUrl("/api/profile/notify-prefs"), {
+        const resp = await apiFetch("/api/profile/notify-prefs", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(next),
         });
         setSaveStatus(resp.ok ? "saved" : "error");
@@ -251,6 +247,36 @@ function AccountCard() {
   );
 }
 
+/** Résumé tailoring — how aggressively AI rewrites tailor to a JD.
+ * Persisted on user_profiles.tailoring_mode; the same value the Tailor results
+ * header and the first-use modal read/write. */
+function TailoringModeCard() {
+  const [mode, setMode] = useState<TailoringMode | null>(() => getCachedTailoringMode());
+  useEffect(() => {
+    let cancelled = false;
+    void fetchTailoringMode().then((m) => { if (!cancelled && m) setMode(m); });
+    return () => { cancelled = true; };
+  }, []);
+  const effective = mode ?? "honest";
+  return (
+    <Card title="Résumé tailoring">
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0, flex: "1 1 260px" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>AI rewrite style</div>
+          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)", lineHeight: 1.5, maxWidth: 480 }}>
+            {TAILORING_MODE_META[effective].blurb} Applies to Tailor gap fixes and Jobs Boost. Either way, nothing is ever fabricated — rewrites always start from real bullets on your résumé.
+          </p>
+        </div>
+        <TailoringModeSelector
+          value={effective}
+          size="md"
+          onChange={(m) => { setMode(m); void saveTailoringMode(m); }}
+        />
+      </div>
+    </Card>
+  );
+}
+
 export default function AccountSettingsPage() {
   return (
     <div
@@ -267,7 +293,7 @@ export default function AccountSettingsPage() {
           <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6, maxWidth: 540 }}>
             Manage your account, plan, and notifications. Looking for your résumé details, target roles, or
             education? Those live on your{" "}
-            <Link href="/?view=profile" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+            <Link href="/profile" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
               Profile
             </Link>
             .
@@ -275,8 +301,11 @@ export default function AccountSettingsPage() {
         </header>
 
         <AccountCard />
-        <ScanUsageCard />
+        <PlanBillingCard />
+        <ScanUsageWidget />
         <EmailPreferencesCard />
+
+        <TailoringModeCard />
 
         <Card title="Visibility" badge="Soon">
           <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, marginBottom: 12 }}>

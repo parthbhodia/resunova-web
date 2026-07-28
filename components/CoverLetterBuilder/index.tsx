@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useState, useRef } from "react";
+import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
 import { useSearchParams } from "next/navigation";
 import { useCoverLetterStore } from "@/store/coverLetterStore";
 import CoverLetterTemplatePicker from "./CoverLetterTemplatePicker";
@@ -9,9 +10,10 @@ import { CoverLetterEditOverlay } from "./CoverLetterEditOverlay";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import { fetchUserProfile, getSupabaseClient } from "@/lib/supabase";
 import { AlignmentType, Document, Packer, Paragraph, TextRun } from "docx";
-import { apiUrl, parseJsonOrThrow } from "@/lib/utils";
+import { parseJsonOrThrow } from "@/lib/utils";
 import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "./SignInToUseAi";
+import { apiFetch } from "@/lib/apiClient";
 
 type TabKey = "recipient" | "author" | "content" | "style";
 type Step = "mode" | "pick" | "jd" | "build";
@@ -23,7 +25,7 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "style", label: "Style", icon: "🎨" },
 ];
 
-export default function CoverLetterBuilder() {
+function CoverLetterBuilderInner() {
   const store = useCoverLetterStore();
   const { data, loaded, saveStatus, savedId, label } = store;
   const searchParams = useSearchParams();
@@ -124,12 +126,9 @@ export default function CoverLetterBuilder() {
       const { data: { session } } = await db.auth.getSession();
       if (!session?.access_token) { setJdGenerating(false); return; }
 
-      const response = await fetch(apiUrl("/api/cl-generate"), {
+      const response = await apiFetch("/api/cl-generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jd: jdText,
           role: jdRole,
@@ -265,7 +264,7 @@ export default function CoverLetterBuilder() {
                 border: "2px solid var(--border)",
                 background: "var(--bg)",
                 cursor: "pointer",
-                transition: "all 0.2s",
+                transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
                 textAlign: "left",
                 display: "flex",
                 flexDirection: "column",
@@ -293,7 +292,7 @@ export default function CoverLetterBuilder() {
                 border: "2px solid var(--border)",
                 background: "var(--bg)",
                 cursor: "pointer",
-                transition: "all 0.2s",
+                transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
                 textAlign: "left",
                 display: "flex",
                 flexDirection: "column",
@@ -322,7 +321,7 @@ export default function CoverLetterBuilder() {
                   border: "2px solid var(--accent)",
                   background: "var(--bg)",
                   cursor: "pointer",
-                  transition: "all 0.2s",
+                  transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
                   textAlign: "left",
                   display: "flex",
                   flexDirection: "column",
@@ -420,7 +419,7 @@ export default function CoverLetterBuilder() {
                 signingIn={signingIn}
                 onSignIn={signIn}
                 title="Sign in to generate with AI"
-                subtitle="Paste a job description and let AI draft a tailored cover letter — free with a Google account."
+                subtitle="Paste a job description and let AI draft a tailored cover letter, free with a Google account."
               />
             </div>
           )}
@@ -607,4 +606,20 @@ export default function CoverLetterBuilder() {
     </div>
     );
   }
+}
+
+/**
+ * MUI provider for this subtree.
+ *
+ * Scoped rather than global for the same reason the Template Builder's is:
+ * this app is a static export of ~1,076 prerendered pages and only surfaces
+ * that use MUI should carry the Emotion runtime. Wrapping here rather than
+ * inside the component because it has several early returns.
+ */
+export default function CoverLetterBuilder() {
+  return (
+    <MuiThemeRegistry>
+      <CoverLetterBuilderInner />
+    </MuiThemeRegistry>
+  );
 }

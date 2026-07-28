@@ -12,7 +12,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { apiUrl, parseJsonOrThrow } from "@/lib/utils";
+import { parseJsonOrThrow } from "@/lib/utils";
+import { apiFetch } from "@/lib/apiClient";
 
 const POPOVER_W = 320;
 const POPOVER_Z = 10000;
@@ -111,7 +112,7 @@ export default function ShareButton({ folder, pdfUrl, userId, ensureLibraryRow }
     setError(null);
     try {
       const postShare = () =>
-        fetch(apiUrl(`/api/share/${encodeURIComponent(folder)}`), {
+        apiFetch(`/api/share/${encodeURIComponent(folder)}`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({ user_id: userId, pdf_url: pdfUrl ?? "" }),
@@ -163,7 +164,7 @@ export default function ShareButton({ folder, pdfUrl, userId, ensureLibraryRow }
     if (!confirm("Revoke this share link? Anyone with the URL will see a 'link revoked' page.")) return;
     setLoading(true);
     try {
-      const resp = await fetch(apiUrl(`/api/share/${encodeURIComponent(shortid)}`), {
+      const resp = await apiFetch(`/api/share/${encodeURIComponent(shortid)}`, {
         method:  "DELETE",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ user_id: userId }),
@@ -220,7 +221,7 @@ export default function ShareButton({ folder, pdfUrl, userId, ensureLibraryRow }
               readOnly value={shareUrl}
               onFocus={e => e.currentTarget.select()}
               style={{
-                flex: 1, fontSize: 11.5, color: "var(--text)",
+                flex: 1, fontSize: 12, color: "var(--text)",
                 background: "transparent", border: "none", outline: "none",
                 fontFamily: "monospace", letterSpacing: -0.2,
               }}
@@ -228,7 +229,7 @@ export default function ShareButton({ folder, pdfUrl, userId, ensureLibraryRow }
             <button
               onClick={onCopy}
               style={{
-                fontSize: 10.5, padding: "3px 9px",
+                fontSize: 11, padding: "3px 9px",
                 background: copied ? "var(--green)" : "var(--accent)",
                 color: "#fff", border: "none", borderRadius: 5,
                 cursor: "pointer", fontFamily: "inherit",

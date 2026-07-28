@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTemplateBuilderStore } from "@/store/templateBuilderStore";
 import { getSupabaseClient, fetchBuilderResumeById, upsertBuilderResume } from "@/lib/supabase";
@@ -8,13 +8,49 @@ import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import ResumePreview from "./ResumePreview";
 import type { TBFont } from "./types";
 import { PAGE_WIDTH_OPTIONS, STYLE_PRESETS } from "./templateStyles";
-import { apiUrl, resumeFileClientError } from "@/lib/utils";
+import { resumeFileClientError } from "@/lib/utils";
 import { buildNameRoleExportFilename } from "@/lib/resumeFileName";
 import { consumeTemplateBuilderStructuredPrefill, stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/templateBuilderPrefill";
 import TemplateBuilderSectionsPanel from "./TemplateBuilderSectionsPanel";
 import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "@/components/CoverLetterBuilder/SignInToUseAi";
 import TemplateBuilderReviewPanel, { reviewScoreColor, type ReviewResult } from "./TemplateBuilderReviewPanel";
+import { apiFetch } from "@/lib/apiClient";
+import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
+import { PHONE_BREAKPOINT } from "@/components/mui/theme";
+import TemplateBuilderTopBar from "./TemplateBuilderTopBar";
+import { TBInput, TBTextarea } from "@/components/mui/fields";
+import { useCanvasEdit } from "@/components/canvas/useCanvasEdit";
+import { CANVAS_STYLESHEET } from "@/components/canvas/CanvasPrimitives";
+import { PageBoundaryRule, usePageOverflow } from "@/components/canvas/PageBoundaryRule";
+import CommandPalette, { useCommandPalette, type Command } from "@/components/canvas/CommandPalette";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import EditNoteIcon from "@mui/icons-material/EditNote";
+import ReorderIcon from "@mui/icons-material/Reorder";
+import PersonIcon from "@mui/icons-material/Person";
+import WorkIcon from "@mui/icons-material/Work";
+import SchoolIcon from "@mui/icons-material/School";
+import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
+import BoltIcon from "@mui/icons-material/Bolt";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import CheckIcon from "@mui/icons-material/Check";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import CloseIcon from "@mui/icons-material/Close";
+import UndoIcon from "@mui/icons-material/Undo";
+import CircularProgress from "@mui/material/CircularProgress";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import Button from "@mui/material/Button";
+import LockIcon from "@mui/icons-material/Lock";
+import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import PaletteIcon from "@mui/icons-material/Palette";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 
 /* ── Shared style helpers ──────────────────────────────────────── */
 const inputBase: React.CSSProperties = {
@@ -138,9 +174,9 @@ async function tbEnhanceCall(
   } catch { /* treat as signed out */ }
   if (!token) return { ok: false, needSignIn: true };
   try {
-    const res = await fetch(apiUrl("/api/tb-enhance"), {
+    const res = await apiFetch("/api/tb-enhance", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, type, context: context ?? {} }),
     });
     if (res.status === 401 || res.status === 403) return { ok: false, needSignIn: true };
@@ -194,17 +230,23 @@ function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AIText
     <div style={{ position: "relative" }}>
       <textarea
         value={value}
-        style={{ ...textareaBase, ...style as React.CSSProperties, paddingBottom: showBtn ? 36 : undefined }}
+        style={{ ...textareaBase, ...style as React.CSSProperties }}
         {...rest}
       />
+      {/*
+        The button used to be absolutely positioned over the textarea with a
+        36px bottom padding reserving space for it. That fails as soon as the
+        content scrolls: the padding moves with the text, so the last visible
+        line ends up UNDER the button. Same fault the bullet rows had.
+        It sits below the field now, out of the text flow entirely.
+      */}
       {showBtn && (
         <div style={{
-          position: "absolute",
-          bottom: 7,
-          right: 8,
           display: "flex",
           gap: 5,
           alignItems: "center",
+          justifyContent: "flex-end",
+          marginTop: 4,
         }}>
           {error && (
             <span style={{ fontSize: 10, color: "var(--red, #ef4444)", maxWidth: 140, textAlign: "right" }}>{error}</span>
@@ -238,7 +280,7 @@ function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AIText
           >
             {loading
               ? <><span style={{ width: 10, height: 10, border: "1.5px solid var(--border)", borderTopColor: "var(--muted)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Enhancing…</>
-              : <>✦ AI Enhance{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.8, fontSize: 10 }}>🔒</span>}</>}
+              : <>✦ AI Enhance{signedIn === false && <LockIcon aria-hidden sx={{ fontSize: 12, ml: 0.25, verticalAlign: "-1px" }} />}</>}
           </button>
         </div>
       )}
@@ -306,12 +348,9 @@ function AIGenerateButton({ kind, buildContext, onGenerated, label = "✦ Genera
         setLoading(false);
         return;
       }
-      const res = await fetch(apiUrl("/api/tb-generate"), {
+      const res = await apiFetch("/api/tb-generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, context: buildContext }),
       });
       if (res.status === 401 || res.status === 403) {
@@ -372,7 +411,7 @@ function AIGenerateButton({ kind, buildContext, onGenerated, label = "✦ Genera
         ) : (
           <>
             {label}
-            {signedIn === false && <span aria-hidden="true" style={{ opacity: 0.75, fontSize: 11 }}>🔒</span>}
+            {signedIn === false && <LockIcon aria-hidden sx={{ fontSize: 12, ml: 0.25, verticalAlign: "-1px" }} />}
           </>
         )}
       </button>
@@ -413,25 +452,50 @@ const FONT_OPTIONS: { label: string; value: TBFont; sub: string }[] = [
   { label: "Courier", value: "Courier",     sub: "Technical / developer" },
 ];
 
-type SectionKey = "sections" | "profile" | "experience" | "education" | "projects" | "skills" | "customize" | "review";
+/**
+ * The editor has three MODES, not eight tabs. Everything you actually write —
+ * profile, experience, education, projects, skills — lives together in one
+ * continuously scrollable "Content" column (the EnhanceCV/Teal pattern), so
+ * filling out a résumé is one scroll instead of eight round-trips through a
+ * tab bar. Design and Review are genuinely different activities, so they stay
+ * separate modes.
+ */
+type EditorMode = "content" | "design" | "review";
 
-const TABS: { key: SectionKey; label: string; icon: string }[] = [
-  { key: "sections",   label: "Sections",   icon: "☰" },
+/**
+ * Icons are components, not emoji. Emoji are a colour font: they cannot take
+ * `currentColor`, so an active tab could never tint its glyph, and they render
+ * differently on every OS — an Apple-emoji screenshot is not what a Windows
+ * user sees. The previous 📝 🎨 🔍 also carried a note about avoiding ✦
+ * because it collided with the toolbar's AI marker; picking from a real icon
+ * set removes that whole class of collision.
+ */
+const MODES: { key: EditorMode; label: string; Icon: typeof EditNoteIcon }[] = [
+  { key: "content", label: "Content", Icon: EditNoteIcon },
+  { key: "design",  label: "Design",  Icon: PaletteIcon },
+  { key: "review",  label: "Review",  Icon: FactCheckIcon },
+];
+
+/** Anchors for the in-column jump nav. Order matches the stacked blocks. */
+type ContentBlockKey = "sections" | "profile" | "experience" | "education" | "projects" | "skills";
+
+const CONTENT_BLOCKS: { key: ContentBlockKey; label: string; icon: string }[] = [
+  { key: "sections",   label: "Arrange",    icon: "☰" },
   { key: "profile",    label: "Profile",    icon: "👤" },
   { key: "experience", label: "Experience", icon: "💼" },
   { key: "education",  label: "Education",  icon: "🎓" },
   { key: "projects",   label: "Projects",   icon: "🚀" },
   { key: "skills",     label: "Skills",     icon: "⚡" },
-  { key: "customize",  label: "Style",      icon: "🎨" },
-  { key: "review",     label: "Review",     icon: "✦" },
 ];
+
+const contentBlockDomId = (key: ContentBlockKey) => `tb-block-${key}`;
 
 export default function TemplateBuilderClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const store = useTemplateBuilderStore();
   const { data, loaded } = store;
-  const [activeTab, setActiveTab] = useState<SectionKey>("sections");
+  const [mode, setMode] = useState<EditorMode>("content");
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
   const [editingCustomId, setEditingCustomId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -450,12 +514,40 @@ export default function TemplateBuilderClient() {
   const [importError, setImportError] = useState<string | null>(null);
   const { exportPdf: exportHtmlPdf, exporting: isGenerating, error: htmlPdfError } = useHtmlPdfExport();
 
-  // Responsive: on iPad / narrow widths the 340px form panel + preview don't
-  // both fit, so the form collapses to a vertical icon rail and the active
-  // section opens as a flyout drawer over the preview.
+  // Responsive: TWO thresholds, not one.
+  //
+  // `narrow` (<880) was previously the only question asked, and it meant "not
+  // desktop" — so a 390px phone got the tablet treatment: a 56px vertical icon
+  // rail (7% of a tablet, 14% of a phone) with the editor behind a flyout, so
+  // the phone opened on a read-only preview it could not type into.
+  //
+  // `phone` (<640) now gets its own layout: horizontal tabs, and the editor is
+  // the default surface. On a phone the drawer IS the screen, which makes it a
+  // modal — and making a modal the default state of an editor is the bug.
   const rootRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
+  const [phone, setPhone] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Phone only: which surface is showing. Defaults to the editor.
+  const [phoneView, setPhoneView] = useState<"edit" | "preview">("edit");
+  const palette = useCommandPalette();
+
+  // The preview used to be pinned at scale(0.82), then at a floor of 0.55 —
+  // both tuned on a wide screen. At 390px the computed fit is ~0.40, so the
+  // floor overrode the measurement and clipped the paper. Fit honestly.
+  const previewPaneRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(0.82);
+
+  // Direct-manipulation editing on the paper. Off on phones: a 390px canvas
+  // scaled to ~0.42 gives a 5px tap target per bullet, so the form is the
+  // honest editor there and the canvas stays read-only.
+  const canvasEdit = useCanvasEdit(store, { aiLocked: signedIn === false });
+
+  // US Letter is 1056px at 96dpi. Content past that silently becomes page 2,
+  // which is the single most consequential thing a résumé editor can hide
+  // from the user, so it is surfaced as a rule on the canvas.
+  const paperContentRef = useRef<HTMLDivElement>(null);
+  const pageFit = usePageOverflow(paperContentRef, loaded);
 
   const builderIdFromUrl = (searchParams?.get("builder") ?? "").trim();
   const presetFromUrl = (searchParams?.get("preset") ?? "").trim().toLowerCase();
@@ -484,7 +576,28 @@ export default function TemplateBuilderClient() {
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width ?? 0;
-      if (w > 0) setNarrow(w < 880);
+      if (w > 0) { setNarrow(w < 880); setPhone(w < PHONE_BREAKPOINT); }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loaded]);
+
+  // Fit the 8.5in paper to the preview pane. Same `loaded` dependency reason as
+  // above: the pane only mounts once the builder has loaded.
+  useEffect(() => {
+    const el = previewPaneRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const PAPER_PX = 816; // 8.5in at 96dpi
+    const GUTTER = 44;    // horizontal padding of the scroll area
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) {
+        // No floor. A small but WHOLE page beats a large clipped one, and the
+        // user can pinch-zoom or open the PDF if they need to read it. The
+        // old Math.max(0.55, …) measured the pane correctly and then threw
+        // the measurement away on anything under ~500px.
+        setPreviewScale(Math.min(1, (w - GUTTER) / PAPER_PX));
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -535,10 +648,20 @@ export default function TemplateBuilderClient() {
   // résumé (?builder=) so we don't clobber that résumé's saved style.
   useEffect(() => {
     if (!loaded || !presetFromUrl || builderIdFromUrl) return;
-    const VALID_PRESETS = ["executive", "modern", "classic"];
-    if (!VALID_PRESETS.includes(presetFromUrl)) return;
-    if (data.customization.stylePreset === presetFromUrl) return;
-    store.setCustomization("stylePreset", presetFromUrl);
+    const preset = STYLE_PRESETS.find((p) => p.id === presetFromUrl);
+    if (!preset) return;
+    if (data.customization.stylePreset === preset.id) return;
+    // Apply the FULL preset, not just the id — creative presets carry an
+    // enforcedLayout (e.g. rightSidebar) plus their own font/accent, and
+    // setting only stylePreset would leave the layout on "single".
+    store.setCustomization("stylePreset", preset.id);
+    store.setCustomization("font", preset.font);
+    store.setCustomization("accentColor", preset.accentColor);
+    if (preset.enforcedLayout) {
+      store.setCustomization("layout", preset.enforcedLayout);
+    } else if (data.customization.layout === "rightSidebar" || data.customization.layout === "topBannerRightSidebar") {
+      store.setCustomization("layout", "single");
+    }
   }, [loaded, presetFromUrl, builderIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSaveToLibrary = useCallback(async () => {
@@ -614,7 +737,7 @@ export default function TemplateBuilderClient() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const resp = await fetch(apiUrl("/api/upload-resume"), { method: "POST", body: fd });
+      const resp = await apiFetch("/api/upload-resume", { method: "POST", body: fd });
       const json = (await resp.json()) as { error?: string; structuredResume?: unknown };
       if (!resp.ok) {
         throw new Error(json.error ?? `Upload failed (${resp.status})`);
@@ -654,36 +777,132 @@ export default function TemplateBuilderClient() {
         ? "rgba(185, 28, 28, 0.96)"
         : "rgba(30, 41, 59, 0.96)";
 
-  // The active section's editor — rendered in the full side panel (wide) or in
-  // the flyout drawer (narrow / iPad).
-  const sectionContent = (
+  // Scroll a content block into view within the editor column. Used by the
+  // jump nav and by the Arrange panel's per-section edit button — in the
+  // scrolling editor "edit this section" means "take me to it", not "swap tabs".
+  // Plain function, not useCallback: this sits below an early return, so a hook
+  // here would break hook ordering.
+  const jumpToBlock = (key: ContentBlockKey) => {
+    document.getElementById(contentBlockDomId(key))?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // The editor body. In "content" mode every writable section is stacked in one
+  // scrollable column so the whole résumé can be filled top-to-bottom without
+  // hunting through tabs.
+  const editorBody = (
     <>
-      {activeTab === "sections" && (
-        <TemplateBuilderSectionsPanel
-          store={store}
-          sectionOrder={data.sectionOrder}
-          hiddenSections={data.hiddenSections}
-          customSections={data.customSections}
-          editingCustomId={editingCustomId}
-          onEditCustomSection={setEditingCustomId}
-          onEditSection={(tab) => {
-            setEditingCustomId(null);
-            setActiveTab(tab);
-          }}
-        />
+      {mode === "content" && (
+        <>
+          <ContentBlock id={contentBlockDomId("sections")} title="Arrange sections" Icon={ReorderIcon} first collapsible>
+            <TemplateBuilderSectionsPanel
+              store={store}
+              sectionOrder={data.sectionOrder}
+              hiddenSections={data.hiddenSections}
+              customSections={data.customSections}
+              editingCustomId={editingCustomId}
+              onEditCustomSection={setEditingCustomId}
+              onEditSection={(tab) => {
+                setEditingCustomId(null);
+                jumpToBlock(tab);
+              }}
+            />
+          </ContentBlock>
+          <ContentBlock id={contentBlockDomId("profile")} title="Profile" Icon={PersonIcon}>
+            <ProfileSection store={store} data={data} />
+          </ContentBlock>
+          <ContentBlock id={contentBlockDomId("experience")} title="Experience" Icon={WorkIcon}>
+            <ExperienceSection store={store} data={data} />
+          </ContentBlock>
+          <ContentBlock id={contentBlockDomId("education")} title="Education" Icon={SchoolIcon}>
+            <EducationSection store={store} data={data} />
+          </ContentBlock>
+          <ContentBlock id={contentBlockDomId("projects")} title="Projects" Icon={RocketLaunchIcon}>
+            <ProjectsSection store={store} data={data} />
+          </ContentBlock>
+          <ContentBlock id={contentBlockDomId("skills")} title="Skills" Icon={BoltIcon}>
+            <SkillsSection store={store} data={data} />
+          </ContentBlock>
+        </>
       )}
-      {activeTab === "profile" && <ProfileSection store={store} data={data} />}
-      {activeTab === "experience" && <ExperienceSection store={store} data={data} />}
-      {activeTab === "education" && <EducationSection store={store} data={data} />}
-      {activeTab === "projects" && <ProjectsSection store={store} data={data} />}
-      {activeTab === "skills" && <SkillsSection store={store} data={data} />}
-      {activeTab === "customize" && <CustomizeSection store={store} c={c} />}
-      {activeTab === "review" && <TemplateBuilderReviewPanel data={data} result={reviewResult} onResult={setReviewResult} />}
+      {mode === "design" && <CustomizeSection store={store} c={c} />}
+      {mode === "review" && <TemplateBuilderReviewPanel data={data} result={reviewResult} onResult={setReviewResult} />}
     </>
   );
-  const activeTabMeta = TABS.find((t) => t.key === activeTab);
+
+  // A plain array, not useMemo: it sits below the same early return that
+  // forces jumpToBlock to be a plain function, and CommandPalette filters
+  // on render anyway — thirteen items is not worth a hook-ordering hazard.
+  const commands: Command[] = [
+    ...CONTENT_BLOCKS.map((b) => ({
+      id: `go-${b.key}`, group: "go", label: `Go to ${b.label}`,
+      run: () => { setMode("content"); jumpToBlock(b.key); },
+    })),
+    { id: "add-work", group: "add", label: "Add a position", run: () => { setMode("content"); store.addWork(); } },
+    { id: "add-edu", group: "add", label: "Add education", run: () => { setMode("content"); store.addEducation(); } },
+    { id: "add-proj", group: "add", label: "Add a project", run: () => { setMode("content"); store.addProject(); } },
+    { id: "design", group: "design", label: "Change template or layout", keywords: "font colour color style",
+      run: () => setMode(narrow ? "design" : "content") },
+    { id: "ats", group: "review", label: "Check ATS score", keywords: "job match review",
+      run: () => { setMode("review"); setPanelOpen(true); } },
+    { id: "import", group: "file", label: "Import an existing résumé", keywords: "upload pdf word",
+      run: () => { setImportError(null); importFileRef.current?.click(); } },
+    { id: "example", group: "file", label: "Load the example résumé", run: store.reset },
+    { id: "save", group: "file", label: "Save to Resume Hub", run: () => void handleSaveToLibrary() },
+    { id: "download", group: "file", label: "Download PDF", keywords: "export", run: handleDownload },
+  ];
+
+  const activeModeMeta = MODES.find((m) => m.key === mode);
+
+  // Design is a left-hand MODE only where there is no inspector to hold it.
+  const visibleModes = narrow ? MODES : MODES.filter((m) => m.key !== "design");
+  const modeSwitcher = (
+    <Tabs
+      value={visibleModes.some((m) => m.key === mode) ? mode : "content"}
+      onChange={(_, v: EditorMode) => setMode(v)}
+      variant="fullWidth"
+      sx={{ borderBottom: 1, borderColor: "divider", flexShrink: 0, minHeight: 48 }}
+    >
+      {visibleModes.map((m) => (
+        <Tab key={m.key} value={m.key} label={m.label} icon={<m.Icon fontSize="small" />} iconPosition="start" />
+      ))}
+    </Tabs>
+  );
+
+  // Jump nav — only meaningful for the long stacked content column.
+  const jumpNav = mode === "content" ? (
+    <div
+      className="rn-scroll-rail"
+      style={{
+        display: "flex", gap: 4, padding: "7px 10px", overflowX: "auto",
+        background: "var(--surface2)", borderBottom: "1px solid var(--border)", flexShrink: 0,
+        // The rail clipped its last chip mid-word with nothing to suggest it
+        // scrolled. A fade on the trailing edge is the affordance; the mask is
+        // on the scroller itself so it tracks the real overflow.
+        maskImage: "linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)",
+      }}
+    >
+      {CONTENT_BLOCKS.map((b) => (
+        <button
+          key={b.key}
+          onClick={() => jumpToBlock(b.key)}
+          title={`Jump to ${b.label}`}
+          style={{
+            flexShrink: 0, background: "var(--surface)", border: "1px solid var(--border)",
+            borderRadius: 999, padding: "3px 10px", cursor: "pointer", fontFamily: "inherit",
+            fontSize: 11, fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap",
+          }}
+        >
+          {b.label}
+        </button>
+      ))}
+    </div>
+  ) : null;
 
   return (
+    <MuiThemeRegistry>
+    <style>{CANVAS_STYLESHEET}</style>
+    <CommandPalette open={palette.open} onClose={() => palette.setOpen(false)} commands={commands} />
     <div ref={rootRef} style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       {feedbackToast ? (
         <div
@@ -719,187 +938,88 @@ export default function TemplateBuilderClient() {
       ) : null}
 
       {/* ── Top Bar ─────────────────────────────────────────── */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 20px",
-        height: 52,
-        borderBottom: "1px solid var(--border)",
-        background: "var(--surface)",
-        flexShrink: 0,
-        gap: 12,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", letterSpacing: -0.3 }}>
-            Template Builder
-          </span>
-          <span style={{ fontSize: 11, color: "var(--muted)", padding: "2px 7px", border: "1px solid var(--border)", borderRadius: 10 }}>
-            Free
-          </span>
-          <button
-            type="button"
-            onClick={() => setActiveTab("review")}
-            title={reviewResult ? "Open ATS & Job Match review" : "Score your résumé against a job"}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", fontFamily: "inherit",
-              fontSize: 11, fontWeight: 700,
-              padding: "3px 9px", borderRadius: 10,
-              border: `1px solid ${reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : "var(--border)"}`,
-              background: "transparent",
-              color: reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : "var(--muted)",
-            }}
-          >
-            <span aria-hidden>✦</span>
-            {reviewResult?.overallScore != null ? `ATS ${reviewResult.overallScore}` : "Check ATS"}
-          </button>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {saveFlash ? (
-            <span
-              role="status"
-              style={{
-                fontSize: 12,
-                color: "var(--green-ink, #047857)",
-                fontWeight: 600,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                <path d="M2 6.5 4.5 9 10 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Saved
-            </span>
-          ) : savedLabel && savedBuilderId ? (
-            <span style={{ fontSize: 11, color: "var(--muted)", maxWidth: 160 }} title="Cloud copy in Resume Hub">
-              Hub: {savedLabel}
-            </span>
-          ) : null}
-          <button
-            onClick={store.reset}
-            title="Restore example resume"
-            style={{ fontSize: 12, color: "var(--muted)", background: "none", border: "1px solid var(--border)", borderRadius: 6, padding: "5px 11px", cursor: "pointer" }}
-          >
-            Load Example
-          </button>
-          {/* ── Import resume ─────────────────────────────────── */}
-          {importError && (
-            <span style={{ fontSize: 11, color: "var(--red, #ef4444)", maxWidth: 200 }}>{importError}</span>
-          )}
-          <button
-            onClick={() => { setImportError(null); importFileRef.current?.click(); }}
-            disabled={importing}
-            title="Import an existing PDF or Word résumé — extracts content and fills the builder"
-            style={{
-              fontSize: 12,
-              color: importing ? "var(--muted)" : "var(--text)",
-              background: "none",
-              border: "1px solid var(--border)",
-              borderRadius: 6,
-              padding: "5px 11px",
-              cursor: importing ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              opacity: importing ? 0.7 : 1,
-            }}
-          >
-            {importing ? (
-              <>
-                <span style={{ width: 10, height: 10, border: "1.5px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
-                Importing…
-              </>
-            ) : (
-              <>
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden style={{ flexShrink: 0 }}>
-                  <path d="M6.5 1v7.5M3 6l3.5 3.5L10 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M1 10.5v1a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5v-1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-                Import Resume
-              </>
-            )}
-          </button>
-          <input
-            ref={importFileRef}
-            type="file"
-            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void handleImportFile(f);
-              e.target.value = "";
-            }}
-          />
-          <button
-            onClick={() => void handleSaveToLibrary()}
-            disabled={saveBusy || signedIn === false}
-            title={signedIn === false ? "Sign in to save to Resume Hub" : savedBuilderId ? "Update saved copy in Resume Hub" : "Save to Resume Hub"}
-            style={{
-              fontSize: 12,
-              color: signedIn === false ? "var(--dim)" : "var(--text)",
-              background: "var(--surface2)",
-              border: "1px solid var(--border)",
-              borderRadius: 6,
-              padding: "5px 11px",
-              cursor: saveBusy || signedIn === false ? "not-allowed" : "pointer",
-              opacity: saveBusy ? 0.7 : 1,
-            }}
-          >
-            {saveBusy ? "Saving…" : saveFlash ? "Saved ✓" : savedBuilderId ? "Update in Hub" : "Save to Hub"}
-          </button>
-          {(downloadError || htmlPdfError) && (
-            <span style={{ fontSize: 11, color: "var(--red, #ef4444)", maxWidth: 200 }}>{downloadError || htmlPdfError}</span>
-          )}
-          <button
-            onClick={handleDownload}
-            disabled={isGenerating}
-            style={{
-              background: isGenerating ? "var(--surface3)" : "var(--accent)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 7,
-              padding: "7px 16px",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: isGenerating ? "not-allowed" : "pointer",
-              opacity: isGenerating ? 0.7 : 1,
-              transition: "opacity 0.15s",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            {isGenerating ? (
-              <>
-                <span style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
-                Generating…
-              </>
-            ) : "↓ Download PDF"}
-          </button>
-        </div>
-      </div>
+      <TemplateBuilderTopBar
+        pageFit={pageFit}
+        atsScore={reviewResult?.overallScore ?? null}
+        atsColor={reviewResult?.overallScore != null ? reviewScoreColor(reviewResult.overallScore) : undefined}
+        onOpenReview={() => { setMode("review"); setPanelOpen(true); }}
+        onLoadExample={store.reset}
+        onImport={() => { setImportError(null); importFileRef.current?.click(); }}
+        onSave={() => void handleSaveToLibrary()}
+        onDownload={handleDownload}
+        importing={importing}
+        saveBusy={saveBusy}
+        saveFlash={saveFlash}
+        savedBuilderId={savedBuilderId}
+        signedIn={signedIn}
+        isGenerating={isGenerating}
+        error={importError || downloadError || htmlPdfError}
+      />
+      <input
+        ref={importFileRef}
+        type="file"
+        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleImportFile(f);
+          e.target.value = "";
+        }}
+      />
+
+      {/* Phone only: which surface is showing. A phone cannot usefully hold
+          the editor and the preview at once, and the previous layout resolved
+          that by showing the preview and hiding the editor behind a drawer —
+          i.e. it opened an editor in a state where you could not edit. */}
+      {phone && (
+        <ToggleButtonGroup
+          exclusive
+          fullWidth
+          size="small"
+          value={phoneView}
+          onChange={(_, v: "edit" | "preview" | null) => { if (v) setPhoneView(v); }}
+          sx={{ px: 1.5, py: 0.75, flexShrink: 0, gap: 1,
+                borderBottom: 1, borderColor: "divider",
+                "& .MuiToggleButton-root": { minHeight: 44, border: 1, borderColor: "divider", borderRadius: 1 } }}
+        >
+          <ToggleButton value="edit"><EditNoteIcon fontSize="small" sx={{ mr: 0.75 }} />Edit</ToggleButton>
+          <ToggleButton value="preview"><VisibilityIcon fontSize="small" sx={{ mr: 0.75 }} />Preview</ToggleButton>
+        </ToggleButtonGroup>
+      )}
 
       {/* ── Body ────────────────────────────────────────────── */}
       <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden", position: "relative" }}>
         {/* ── Left: Form Panel ──────────────────────────────── */}
-        {narrow ? (
+        {phone ? (
+          // Full width, no rail, no drawer. The editor IS the screen.
+          phoneView === "edit" ? (
+            <div style={{
+              flex: 1, minWidth: 0, display: "flex", flexDirection: "column",
+              background: "var(--surface)", overflow: "hidden",
+            }}>
+              {modeSwitcher}
+              {jumpNav}
+              <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 40px" }}>
+                {editorBody}
+              </div>
+            </div>
+          ) : null
+        ) : narrow ? (
           <>
-            {/* Collapsed icon rail — taps open the section as a flyout */}
+            {/* Collapsed icon rail — taps open that mode as a flyout */}
             <div style={{
               width: 56, flexShrink: 0, display: "flex", flexDirection: "column",
               borderRight: "1px solid var(--border)", background: "var(--surface)", overflowY: "auto", zIndex: 27,
             }}>
-              {TABS.map((tab) => {
-                const isOpen = panelOpen && activeTab === tab.key;
+              {MODES.map((m) => {
+                const isOpen = panelOpen && mode === m.key;
                 return (
                   <button
-                    key={tab.key}
-                    title={tab.label}
+                    key={m.key}
+                    title={m.label}
                     onClick={() => {
-                      if (panelOpen && activeTab === tab.key) setPanelOpen(false);
-                      else { setActiveTab(tab.key); setPanelOpen(true); }
+                      if (panelOpen && mode === m.key) setPanelOpen(false);
+                      else { setMode(m.key); setPanelOpen(true); }
                     }}
                     style={{
                       border: "none",
@@ -910,8 +1030,10 @@ export default function TemplateBuilderClient() {
                       color: isOpen ? "var(--accent)" : "var(--muted)",
                     }}
                   >
-                    <span style={{ fontSize: 17 }}>{tab.icon}</span>
-                    <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.1, textAlign: "center" }}>{tab.label}</span>
+                    <m.Icon fontSize="small" aria-hidden />
+                    {/* 10px is the floor for chrome text; the old 8px was not
+                        small type, it was unreadable type. */}
+                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.1, textAlign: "center" }}>{m.label}</span>
                   </button>
                 );
               })}
@@ -935,7 +1057,7 @@ export default function TemplateBuilderClient() {
                     padding: "10px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0,
                   }}>
                     <span style={{ fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span aria-hidden style={{ fontSize: 15 }}>{activeTabMeta?.icon}</span>{activeTabMeta?.label}
+                      {activeModeMeta ? <activeModeMeta.Icon fontSize="small" aria-hidden /> : null}{activeModeMeta?.label}
                     </span>
                     <button
                       onClick={() => setPanelOpen(false)}
@@ -943,8 +1065,9 @@ export default function TemplateBuilderClient() {
                       style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit" }}
                     >‹ Hide</button>
                   </div>
+                  {jumpNav}
                   <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 36px" }}>
-                    {sectionContent}
+                    {editorBody}
                   </div>
                 </div>
               </>
@@ -955,39 +1078,20 @@ export default function TemplateBuilderClient() {
             width: 340, minWidth: 300, flexShrink: 0, display: "flex", flexDirection: "column",
             borderRight: "1px solid var(--border)", background: "var(--surface)", overflow: "hidden",
           }}>
-            {/* Section Tabs */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-              {TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  style={{
-                    background: activeTab === tab.key ? "var(--bg)" : "transparent",
-                    border: "none",
-                    borderBottom: activeTab === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
-                    borderRight: "1px solid var(--border)",
-                    padding: "10px 4px", cursor: "pointer", display: "flex", flexDirection: "column",
-                    alignItems: "center", gap: 3, transition: "background 0.12s",
-                    color: activeTab === tab.key ? "var(--accent)" : "var(--muted)", fontFamily: "inherit",
-                  }}
-                >
-                  <span style={{ fontSize: 15 }}>{tab.icon}</span>
-                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{tab.label}</span>
-                </button>
-              ))}
-            </div>
+            {modeSwitcher}
+            {jumpNav}
 
-            {/* Section Content */}
+            {/* One continuous scroll — all content sections stacked */}
             <div style={{ flex: 1, overflowY: "auto", padding: "18px 16px 32px" }}>
-              {sectionContent}
+              {editorBody}
             </div>
           </div>
         )}
 
-        {/* ── Right: Preview Panel ──────────────────────────── */}
-        <div style={{
+        {/* ── Centre: the canvas ────────────────────────────── */}
+        <div ref={previewPaneRef} style={{
           flex: 1,
-          display: "flex",
+          display: phone && phoneView === "edit" ? "none" : "flex",
           flexDirection: "column",
           minWidth: 0,
           background: "var(--surface2)",
@@ -1002,13 +1106,57 @@ export default function TemplateBuilderClient() {
             justifyContent: "center",
             alignItems: "flex-start",
           }}>
-            <div style={{ transform: "scale(0.82)", transformOrigin: "top center", minWidth: "8.5in" }}>
-              <ResumePreview ref={previewRef} data={data} />
+            {/*
+              `zoom`, not `transform: scale()`. A transform changes what is
+              painted but NOT the layout box: the wrapper kept its full 816px
+              width, so this centred overflow container overflowed in BOTH
+              directions and the left edge of the page could not be scrolled
+              to — while the right edge was simply cut off. `zoom` reflows real
+              layout, so the box shrinks with the content and the containment
+              problem disappears with it.
+
+              Safe for the PDF export: useHtmlPdfExport captures `previewRef`
+              (the paper element) and the zoom lives on this wrapper, exactly
+              as the transform did. Same precedent as ResumeThumbnail.tsx.
+            */}
+            <div style={{ zoom: previewScale, position: "relative" }}>
+              <div ref={paperContentRef}>
+                {/* Editing is enabled on pointer widths only — see canvasEdit. */}
+                <ResumePreview ref={previewRef} data={data} edit={phone ? undefined : canvasEdit} />
+              </div>
+
+              {/*
+                The US-Letter page boundary, drawn on the canvas. Everything
+                below this line is page 2 in the PDF; without the rule the
+                only way to discover that is to download the file.
+                az-pdf-ignore keeps it out of the export.
+              */}
+              {!phone && <PageBoundaryRule overflowPx={pageFit.overflowPx} />}
             </div>
           </div>
         </div>
+
+        {/* ── Right: Style Inspector ────────────────────────── */}
+        {!narrow && (
+          <aside style={{
+            width: 280, flexShrink: 0, display: "flex", flexDirection: "column",
+            borderLeft: "1px solid var(--border)", background: "var(--surface)", overflow: "hidden",
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "12px 14px",
+              borderBottom: "1px solid var(--border)", flexShrink: 0,
+            }}>
+              <PaletteIcon fontSize="small" style={{ color: "var(--accent)" }} />
+              <span style={{ fontSize: 13, fontWeight: 700 }}>Design</span>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 32px" }}>
+              <CustomizeSection store={store} c={c} />
+            </div>
+          </aside>
+        )}
       </div>
     </div>
+    </MuiThemeRegistry>
   );
 }
 
@@ -1042,6 +1190,16 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
   const [aiLoading, setAiLoading] = useState(false);
   const [undoVal, setUndoVal] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  // Grow the field to fit its content. This writes to the DOM rather than to
+  // state on purpose — an external-system update is what effects are for, and
+  // a setState here would be the cascading render the ratchet rejects.
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(44, el.scrollHeight)}px`;
+  }, [value]);
   const wordCount = value.trim().split(/\s+/).filter(Boolean).length;
   const showAi = wordCount >= 3;
 
@@ -1062,76 +1220,97 @@ function BulletRow({ value, isFirst, isLast, context, onChange, onMoveUp, onMove
   }, [value, context, onChange, signedIn, onRequireSignIn]);
 
   return (
-    <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 6 }}>
+    /*
+      Was: textarea and a VERTICAL stack of icon buttons side by side, with the
+      AI button absolutely positioned over the text.
+
+      Three things broke at once in a narrow panel. The 44px tap floor made the
+      button column ~132px tall next to a ~38px textarea, so every bullet grew a
+      huge blank gutter. `rows={2}` clipped any bullet longer than two lines.
+      And the AI button sat bottom-right INSIDE the text box, so it covered the
+      last line rather than sitting beside it.
+
+      Now: the text gets the full width and grows with its content, and the
+      controls sit in one horizontal row underneath. Same 44px targets, no
+      overlap, no dead vertical space.
+    */
+    <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 10 }}>
       <span style={{ color: "var(--muted)", fontSize: 14, marginTop: 9, flexShrink: 0, userSelect: "none" }}>•</span>
-      <div style={{ flex: 1, position: "relative" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <textarea
+          ref={taRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          rows={2}
+          // Height is MEASURED, not estimated. A character-count guess was the
+          // first attempt and it still clipped: how many lines a bullet wraps
+          // to depends on the column width and the glyphs, which the component
+          // cannot know. scrollHeight is the browser's own answer.
+          rows={1}
           style={{
             ...textareaBase,
-            minHeight: 38,
+            minHeight: 44,
             resize: "vertical",
-            paddingRight: showAi ? 82 : undefined,
             lineHeight: 1.45,
             fontSize: 12.5,
+            width: "100%",
           }}
           placeholder="Describe an achievement or responsibility..."
         />
-        {showAi && (
-          <div style={{ position: "absolute", bottom: 7, right: 7, display: "flex", gap: 4, alignItems: "center" }}>
-            {aiError && (
-              <span style={{ fontSize: 9, color: "var(--red, #ef4444)", maxWidth: 110, textAlign: "right", lineHeight: 1.2 }}>{aiError}</span>
-            )}
-            {undoVal !== null && !aiLoading && (
-              <button
-                type="button"
-                onClick={() => { onChange(undoVal); setUndoVal(null); }}
-                style={{
-                  fontSize: 9, color: "var(--muted)", background: "var(--surface2)",
-                  border: "1px solid var(--border)", borderRadius: 4, padding: "2px 5px", cursor: "pointer",
-                }}
-              >↩</button>
-            )}
-            <button
-              type="button"
-              onClick={enhance}
-              disabled={aiLoading}
-              title={signedIn === false ? "Sign in to rewrite this bullet with AI" : "Rewrite this bullet with AI"}
-              style={{
-                fontSize: 10, fontWeight: 600, padding: "3px 7px", borderRadius: 4, border: "none",
-                background: aiLoading ? "var(--surface2)" : "var(--accent)",
-                color: aiLoading ? "var(--muted)" : "#fff",
-                cursor: aiLoading ? "not-allowed" : "pointer",
-                display: "flex", alignItems: "center", gap: 3,
-              }}
-            >
-              {aiLoading
-                ? <span style={{ width: 8, height: 8, border: "1.5px solid var(--border)", borderTopColor: "var(--muted)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
-                : <>✦ AI{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.85 }}>🔒</span>}</>}
-            </button>
-          </div>
-        )}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 3, flexShrink: 0 }}>
-        <button
-          onClick={onMoveUp}
-          disabled={isFirst}
-          style={{ ...orderBtnStyle, opacity: isFirst ? 0.35 : 1, padding: "1px 5px", fontSize: 10 }}
-          title="Move up"
-        >↑</button>
-        <button
-          onClick={onMoveDown}
-          disabled={isLast}
-          style={{ ...orderBtnStyle, opacity: isLast ? 0.35 : 1, padding: "1px 5px", fontSize: 10 }}
-          title="Move down"
-        >↓</button>
-        <button
-          onClick={onRemove}
-          style={{ ...removeBtnStyle, fontSize: 10, padding: "1px 4px" }}
-          title="Remove bullet"
-        >✕</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 2, marginTop: 2 }}>
+          {showAi && (
+            <>
+              <Button
+                onClick={enhance}
+                disabled={aiLoading}
+                size="small"
+                variant="contained"
+                startIcon={aiLoading
+                  ? <CircularProgress size={12} color="inherit" />
+                  : <AutoAwesomeIcon sx={{ fontSize: 14 }} />}
+                endIcon={signedIn === false ? <LockIcon sx={{ fontSize: 12 }} /> : undefined}
+                sx={{ minHeight: 32, fontSize: 11, px: 1.25 }}
+              >
+                {aiLoading ? "Rewriting…" : "AI"}
+              </Button>
+              {undoVal !== null && !aiLoading && (
+                <Tooltip title="Undo the AI rewrite">
+                  <IconButton size="small" aria-label="Undo the AI rewrite"
+                    onClick={() => { onChange(undoVal); setUndoVal(null); }}
+                    sx={{ minWidth: 32, minHeight: 32 }}>
+                    <UndoIcon sx={{ fontSize: 15 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {aiError && (
+                <span style={{ fontSize: 10, color: "var(--red, #ef4444)", lineHeight: 1.2 }}>{aiError}</span>
+              )}
+            </>
+          )}
+          <Box sx={{ display: "flex", alignItems: "center", ml: "auto" }}>
+            <Tooltip title="Move bullet up">
+              <span>
+                <IconButton size="small" onClick={onMoveUp} disabled={isFirst} aria-label="Move bullet up"
+                  sx={{ minWidth: 32, minHeight: 32 }}>
+                  <ArrowUpwardIcon sx={{ fontSize: 15 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Move bullet down">
+              <span>
+                <IconButton size="small" onClick={onMoveDown} disabled={isLast} aria-label="Move bullet down"
+                  sx={{ minWidth: 32, minHeight: 32 }}>
+                  <ArrowDownwardIcon sx={{ fontSize: 15 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Remove bullet">
+              <IconButton size="small" onClick={onRemove} aria-label="Remove bullet" color="error"
+                sx={{ minWidth: 32, minHeight: 32 }}>
+                <CloseIcon sx={{ fontSize: 15 }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </div>
       </div>
     </div>
   );
@@ -1187,7 +1366,7 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
               style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: rewriteAllLoading ? "var(--muted)" : "var(--accent)", background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 5, padding: "3px 8px", cursor: rewriteAllLoading ? "wait" : "pointer", whiteSpace: "nowrap" }}>
               {rewriteAllLoading
                 ? <><span style={{ width: 8, height: 8, border: "1.5px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Rewriting…</>
-                : <>✦ Rewrite all{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.8 }}>🔒</span>}</>}
+                : <>✦ Rewrite all{signedIn === false && <LockIcon aria-hidden sx={{ fontSize: 12, ml: 0.25, verticalAlign: "-1px" }} />}</>}
             </button>
           </div>
         )}
@@ -1247,6 +1426,106 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
 
 type StoreType = TemplateBuilderStore;
 
+/** One anchored, headed block in the stacked content column. */
+function ContentBlock({ id, title, Icon, first, collapsible, children }: {
+  id: string;
+  title: string;
+  Icon: typeof EditNoteIcon;
+  first?: boolean;
+  /**
+   * Starts closed and toggles on the header. Used for Arrange sections: it
+   * cost 653px at the top of the column, which pushed the first field a user
+   * can actually type into to y=944 — below the fold on a 1000px viewport.
+   * Reordering is also no longer the only path, since the canvas has drag
+   * handles, so it does not deserve the opening screen.
+   */
+  collapsible?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(!collapsible);
+  return (
+    <section
+      id={id}
+      style={{
+        // scroll-margin keeps the heading clear of the sticky nav above the
+        // scroll container when jumpToBlock scrolls this into view.
+        scrollMarginTop: 8,
+        paddingTop: first ? 0 : 22,
+        marginTop: first ? 0 : 22,
+        borderTop: first ? "none" : "1px solid var(--border)",
+      }}
+    >
+      <div
+        onClick={collapsible ? () => setOpen((v) => !v) : undefined}
+        role={collapsible ? "button" : undefined}
+        aria-expanded={collapsible ? open : undefined}
+        tabIndex={collapsible ? 0 : undefined}
+        onKeyDown={collapsible ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((v) => !v); } } : undefined}
+        style={{
+          display: "flex", alignItems: "center", gap: 7, marginBottom: open ? 12 : 0,
+          fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase",
+          color: "var(--muted)",
+          cursor: collapsible ? "pointer" : undefined,
+          minHeight: collapsible ? 44 : undefined,
+        }}
+      >
+        <Icon aria-hidden sx={{ fontSize: 15 }} />
+        {title}
+        {collapsible && (
+          <ExpandMoreIcon
+            aria-hidden
+            sx={{ fontSize: 18, ml: "auto", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}
+          />
+        )}
+      </div>
+      {open && children}
+    </section>
+  );
+}
+
+/**
+ * Reorder + remove controls for one entry (a job, a degree, a project).
+ *
+ * Was three copies of the same raw glyph buttons — `↑` `↓` `✕ Remove` at
+ * roughly 22x19, with a native `title` and no accessible name. IconButton
+ * takes the theme's 44px floor and Tooltip gives a label that survives
+ * keyboard focus and touch.
+ */
+function EntryOrderControls({ index, count, onMoveUp, onMoveDown, onRemove, noun }: {
+  index: number;
+  count: number;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+  noun: string;
+}) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center" }}>
+      <Tooltip title={`Move ${noun} up`}>
+        <span>
+          <IconButton size="small" onClick={onMoveUp} disabled={index === 0} aria-label={`Move ${noun} up`}>
+            <ArrowUpwardIcon sx={{ fontSize: 17 }} />
+          </IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title={`Move ${noun} down`}>
+        <span>
+          <IconButton size="small" onClick={onMoveDown} disabled={index === count - 1} aria-label={`Move ${noun} down`}>
+            <ArrowDownwardIcon sx={{ fontSize: 17 }} />
+          </IconButton>
+        </span>
+      </Tooltip>
+      {count > 1 && (
+        <Tooltip title={`Remove this ${noun}`}>
+          <IconButton size="small" color="error" onClick={onRemove} aria-label={`Remove this ${noun}`}>
+            <CloseIcon sx={{ fontSize: 17 }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
+
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
     <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", margin: "0 0 14px", letterSpacing: -0.1 }}>
@@ -1276,40 +1555,39 @@ function ProfileSection({ store, data }: { store: StoreType; data: StoreType["da
 
   return (
     <>
-      <SectionHeading>Personal Info</SectionHeading>
       <FieldWrap>
         <Field label="Full Name">
-          <input style={inputBase} value={p.name}
+          <TBInput value={p.name}
             onChange={(e) => store.setProfile("name", e.target.value)} placeholder="Jane Smith" />
         </Field>
       </FieldWrap>
       <Row>
         <Field label="Email" half>
-          <input style={inputBase} value={p.email} type="email"
+          <TBInput value={p.email} type="email"
             onChange={(e) => store.setProfile("email", e.target.value)} placeholder="jane@example.com" />
         </Field>
         <Field label="Phone" half>
-          <input style={inputBase} value={p.phone}
+          <TBInput value={p.phone}
             onChange={(e) => store.setProfile("phone", e.target.value)} placeholder="(555) 000-0000" />
         </Field>
       </Row>
       <Row>
         <Field label="Location" half>
-          <input style={inputBase} value={p.location}
+          <TBInput value={p.location}
             onChange={(e) => store.setProfile("location", e.target.value)} placeholder="San Francisco, CA" />
         </Field>
         <Field label="Website" half>
-          <input style={inputBase} value={p.website}
+          <TBInput value={p.website}
             onChange={(e) => store.setProfile("website", e.target.value)} placeholder="yoursite.dev" />
         </Field>
       </Row>
       <Row>
         <Field label="LinkedIn" half>
-          <input style={inputBase} value={p.linkedin}
+          <TBInput value={p.linkedin}
             onChange={(e) => store.setProfile("linkedin", e.target.value)} placeholder="linkedin.com/in/jane" />
         </Field>
         <Field label="GitHub" half>
-          <input style={inputBase} value={p.github}
+          <TBInput value={p.github}
             onChange={(e) => store.setProfile("github", e.target.value)} placeholder="github.com/jane" />
         </Field>
       </Row>
@@ -1339,57 +1617,43 @@ function ProfileSection({ store, data }: { store: StoreType; data: StoreType["da
 function ExperienceSection({ store, data }: { store: StoreType; data: StoreType["data"] }) {
   return (
     <>
-      <SectionHeading>Work Experience</SectionHeading>
       {data.workExperiences.map((w, idx) => (
         <div key={w.id}>
           {idx > 0 && <hr style={dividerStyle} />}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={ENTRY_LABEL_STYLE}>{w.company || w.jobTitle || `Position ${idx + 1}`}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === 0 ? 0.45 : 1 }}
-                onClick={() => store.moveWork(idx, idx - 1)}
-                disabled={idx === 0}
-                title="Move up"
-              >
-                ↑
-              </button>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === data.workExperiences.length - 1 ? 0.45 : 1 }}
-                onClick={() => store.moveWork(idx, idx + 1)}
-                disabled={idx === data.workExperiences.length - 1}
-                title="Move down"
-              >
-                ↓
-              </button>
-              {data.workExperiences.length > 1 && (
-                <button style={removeBtnStyle} onClick={() => store.removeWork(w.id)}>✕ Remove</button>
-              )}
-            </div>
+            <EntryOrderControls
+                index={idx}
+                count={data.workExperiences.length}
+                onMoveUp={() => store.moveWork(idx, idx - 1)}
+                onMoveDown={() => store.moveWork(idx, idx + 1)}
+                onRemove={() => store.removeWork(w.id)}
+                noun="position"
+              />
           </div>
           <Row>
             <Field label="Job Title" half>
-              <input style={inputBase} value={w.jobTitle}
+              <TBInput value={w.jobTitle}
                 onChange={(e) => store.setWork(w.id, "jobTitle", e.target.value)} placeholder="Software Engineer" />
             </Field>
             <Field label="Company" half>
-              <input style={inputBase} value={w.company}
+              <TBInput value={w.company}
                 onChange={(e) => store.setWork(w.id, "company", e.target.value)} placeholder="Acme Inc." />
             </Field>
           </Row>
           <FieldWrap>
             <Field label="Location">
-              <input style={inputBase} value={w.location}
+              <TBInput value={w.location}
                 onChange={(e) => store.setWork(w.id, "location", e.target.value)} placeholder="New York, NY" />
             </Field>
           </FieldWrap>
           <Row>
             <Field label="Start Date" half>
-              <input style={inputBase} value={w.startDate}
+              <TBInput value={w.startDate}
                 onChange={(e) => store.setWork(w.id, "startDate", e.target.value)} placeholder="Jan 2022" />
             </Field>
             <Field label="End Date" half>
-              <input style={{ ...inputBase, opacity: w.current ? 0.45 : 1 }} value={w.endDate} disabled={w.current}
+              <TBInput sx={{ opacity: w.current ? 0.45 : 1 }} value={w.endDate} disabled={w.current}
                 onChange={(e) => store.setWork(w.id, "endDate", e.target.value)} placeholder="Dec 2023" />
             </Field>
           </Row>
@@ -1416,69 +1680,55 @@ function ExperienceSection({ store, data }: { store: StoreType; data: StoreType[
 function EducationSection({ store, data }: { store: StoreType; data: StoreType["data"] }) {
   return (
     <>
-      <SectionHeading>Education</SectionHeading>
       {data.educations.map((e, idx) => (
         <div key={e.id}>
           {idx > 0 && <hr style={dividerStyle} />}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={ENTRY_LABEL_STYLE}>{e.school || `School ${idx + 1}`}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === 0 ? 0.45 : 1 }}
-                onClick={() => store.moveEducation(idx, idx - 1)}
-                disabled={idx === 0}
-                title="Move up"
-              >
-                ↑
-              </button>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === data.educations.length - 1 ? 0.45 : 1 }}
-                onClick={() => store.moveEducation(idx, idx + 1)}
-                disabled={idx === data.educations.length - 1}
-                title="Move down"
-              >
-                ↓
-              </button>
-              {data.educations.length > 1 && (
-                <button style={removeBtnStyle} onClick={() => store.removeEducation(e.id)}>✕ Remove</button>
-              )}
-            </div>
+            <EntryOrderControls
+                index={idx}
+                count={data.educations.length}
+                onMoveUp={() => store.moveEducation(idx, idx - 1)}
+                onMoveDown={() => store.moveEducation(idx, idx + 1)}
+                onRemove={() => store.removeEducation(e.id)}
+                noun="school"
+              />
           </div>
           <FieldWrap>
             <Field label="School / University">
-              <input style={inputBase} value={e.school}
+              <TBInput value={e.school}
                 onChange={(ev) => store.setEducation(e.id, "school", ev.target.value)} placeholder="Stanford University" />
             </Field>
           </FieldWrap>
           <FieldWrap>
             <Field label="Degree">
-              <input style={inputBase} value={e.degree}
+              <TBInput value={e.degree}
                 onChange={(ev) => store.setEducation(e.id, "degree", ev.target.value)} placeholder="B.S. Computer Science" />
             </Field>
           </FieldWrap>
           <Row>
             <Field label="Start Date" half>
-              <input style={inputBase} value={e.startDate}
+              <TBInput value={e.startDate}
                 onChange={(ev) => store.setEducation(e.id, "startDate", ev.target.value)} placeholder="Sep 2018" />
             </Field>
             <Field label="End Date" half>
-              <input style={inputBase} value={e.endDate}
+              <TBInput value={e.endDate}
                 onChange={(ev) => store.setEducation(e.id, "endDate", ev.target.value)} placeholder="Jun 2022" />
             </Field>
           </Row>
           <Row>
             <Field label="Location" half>
-              <input style={inputBase} value={e.location}
+              <TBInput value={e.location}
                 onChange={(ev) => store.setEducation(e.id, "location", ev.target.value)} placeholder="Stanford, CA" />
             </Field>
             <Field label="GPA" half>
-              <input style={inputBase} value={e.gpa}
+              <TBInput value={e.gpa}
                 onChange={(ev) => store.setEducation(e.id, "gpa", ev.target.value)} placeholder="3.8" />
             </Field>
           </Row>
           <FieldWrap>
             <Field label="Relevant Coursework">
-              <input style={inputBase} value={e.coursework}
+              <TBInput value={e.coursework}
                 onChange={(ev) => store.setEducation(e.id, "coursework", ev.target.value)}
                 placeholder="Algorithms, Distributed Systems, ML" />
             </Field>
@@ -1493,53 +1743,39 @@ function EducationSection({ store, data }: { store: StoreType; data: StoreType["
 function ProjectsSection({ store, data }: { store: StoreType; data: StoreType["data"] }) {
   return (
     <>
-      <SectionHeading>Projects</SectionHeading>
       {data.projects.map((p, idx) => (
         <div key={p.id}>
           {idx > 0 && <hr style={dividerStyle} />}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={ENTRY_LABEL_STYLE}>{p.name || `Project ${idx + 1}`}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === 0 ? 0.45 : 1 }}
-                onClick={() => store.moveProject(idx, idx - 1)}
-                disabled={idx === 0}
-                title="Move up"
-              >
-                ↑
-              </button>
-              <button
-                style={{ ...orderBtnStyle, opacity: idx === data.projects.length - 1 ? 0.45 : 1 }}
-                onClick={() => store.moveProject(idx, idx + 1)}
-                disabled={idx === data.projects.length - 1}
-                title="Move down"
-              >
-                ↓
-              </button>
-              {data.projects.length > 1 && (
-                <button style={removeBtnStyle} onClick={() => store.removeProject(p.id)}>✕ Remove</button>
-              )}
-            </div>
+            <EntryOrderControls
+                index={idx}
+                count={data.projects.length}
+                onMoveUp={() => store.moveProject(idx, idx - 1)}
+                onMoveDown={() => store.moveProject(idx, idx + 1)}
+                onRemove={() => store.removeProject(p.id)}
+                noun="project"
+              />
           </div>
           <Row>
             <Field label="Project Name" half>
-              <input style={inputBase} value={p.name}
+              <TBInput value={p.name}
                 onChange={(e) => store.setProject(p.id, "name", e.target.value)} placeholder="My SaaS Tool" />
             </Field>
             <Field label="Year / Date" half>
-              <input style={inputBase} value={p.date}
+              <TBInput value={p.date}
                 onChange={(e) => store.setProject(p.id, "date", e.target.value)} placeholder="2024" />
             </Field>
           </Row>
           <FieldWrap>
             <Field label="Tech Stack">
-              <input style={inputBase} value={p.tech}
+              <TBInput value={p.tech}
                 onChange={(e) => store.setProject(p.id, "tech", e.target.value)} placeholder="React, Python, PostgreSQL" />
             </Field>
           </FieldWrap>
           <FieldWrap>
             <Field label="Link">
-              <input style={inputBase} value={p.link}
+              <TBInput value={p.link}
                 onChange={(e) => store.setProject(p.id, "link", e.target.value)} placeholder="github.com/you/project" />
             </Field>
           </FieldWrap>
@@ -1576,42 +1812,21 @@ function SkillsSection({ store, data }: { store: StoreType; data: StoreType["dat
 
   return (
     <>
-      <SectionHeading>Skills</SectionHeading>
 
-      {/* Featured skills with proficiency circles */}
+      {/* Featured skills — plain names; proficiency-dot ratings were removed
+          (self-assessed dots carry no signal for recruiters or ATS parsers). */}
       <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px", lineHeight: 1.5 }}>
-        Featured skills — shown with proficiency dots in the résumé.
+        Featured skills — shown as a highlighted list at the top of the Skills section.
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 20 }}>
         {featuredSkills.map((fs, idx) => (
-          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input
-              style={{ ...inputBase, flex: 1, fontSize: 12 }}
-              placeholder={`Skill ${idx + 1}`}
-              value={fs.skill}
-              onChange={(e) => store.setFeaturedSkill(idx, e.target.value, fs.rating)}
-            />
-            <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-              {Array.from({ length: 5 }, (_, ci) => (
-                <button
-                  key={ci}
-                  title={`${ci + 1} / 5`}
-                  onClick={() => store.setFeaturedSkill(idx, fs.skill, ci + 1 === fs.rating ? 0 : ci + 1)}
-                  style={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: "50%",
-                    border: "none",
-                    padding: 0,
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    background: ci < fs.rating ? "var(--accent)" : "var(--border)",
-                    transition: "background 0.1s",
-                  }}
-                />
-              ))}
-            </div>
-          </div>
+          <TBInput
+            key={idx}
+            sx={{ "& .MuiOutlinedInput-root": { fontSize: 12 } }}
+            placeholder={`Skill ${idx + 1}`}
+            value={fs.skill}
+            onChange={(e) => store.setFeaturedSkill(idx, e.target.value, fs.rating)}
+          />
         ))}
       </div>
 
@@ -1632,8 +1847,8 @@ function SkillsSection({ store, data }: { store: StoreType; data: StoreType["dat
       <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
         One category per line, e.g. "Languages: Python, Go"
       </p>
-      <textarea
-        style={{ ...textareaBase, minHeight: 120 }}
+      <TBTextarea
+        minRows={5}
         value={descriptions}
         onChange={(e) => store.setSkillDescriptions(e.target.value)}
         placeholder={"Languages: Python, TypeScript, Go\nFrontend: React, Next.js, Tailwind\nBackend: Node.js, FastAPI, PostgreSQL\nCloud: AWS, Docker, Kubernetes"}
@@ -1647,14 +1862,21 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
     store.setCustomization("stylePreset", preset.id);
     store.setCustomization("font", preset.font);
     store.setCustomization("accentColor", preset.accentColor);
+    if (preset.enforcedLayout) {
+      store.setCustomization("layout", preset.enforcedLayout);
+    } else if (c.layout === "rightSidebar" || c.layout === "topBannerRightSidebar") {
+      store.setCustomization("layout", "single");
+    }
   };
+
+  const isEnforcedLayout = c.layout === "rightSidebar" || c.layout === "topBannerRightSidebar";
 
   return (
     <>
-      <SectionHeading>Style & Customization</SectionHeading>
 
       {/* Layout */}
-      <div style={{ marginBottom: 20 }}>
+      {!isEnforcedLayout && (
+        <div style={{ marginBottom: 20 }}>
         <label style={labelStyle}>Layout</label>
         <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
           Two-column places contact, education, and skills in a sidebar.
@@ -1726,26 +1948,32 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
           })}
         </div>
       </div>
+      )}
 
       {/* Style Presets */}
       <div style={{ marginBottom: 20 }}>
-        <label style={labelStyle}>Template style</label>
-        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px", lineHeight: 1.5 }}>
-          Start with a curated default, then adjust font and color below if needed.
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 16px", lineHeight: 1.5 }}>
         </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 350, overflowY: "auto", paddingRight: 4 }}>
-          {STYLE_PRESETS.map((preset) => {
+
+        {/* Technical Layouts */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+          Technical
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 24 }}>
+          {STYLE_PRESETS.filter(p => p.category === "technical").map((preset) => {
             const active = c.stylePreset === preset.id;
             return (
               <button
                 key={preset.id}
+                title={preset.description}
                 onClick={() => applyStylePreset(preset)}
+                aria-pressed={active}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "44px 1fr auto",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "11px 12px",
+                  gridTemplateColumns: "1fr",
+                  justifyItems: "center",
+                  gap: 6,
+                  padding: "8px 6px",
                   borderRadius: 9,
                   border: active ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
                   background: active ? "color-mix(in srgb, var(--accent) 8%, var(--bg))" : "var(--bg)",
@@ -1756,23 +1984,72 @@ function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]
                 }}
               >
                 <div style={{
-                  width: 44,
-                  height: 36,
+                  width: "100%",
+                  height: 46,
                   borderRadius: 7,
                   border: "1px solid var(--border)",
                   background: "var(--surface2)",
                   padding: "6px 7px",
                   boxSizing: "border-box",
-                }}>
+                }} aria-hidden>
                   <div style={{ width: "68%", height: 4, borderRadius: 2, background: preset.accentColor, marginBottom: 5 }} />
                   <div style={{ width: "100%", height: 2, borderRadius: 2, background: "var(--border)", marginBottom: 4 }} />
                   <div style={{ width: "78%", height: 2, borderRadius: 2, background: "var(--border)" }} />
                 </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{preset.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.35 }}>{preset.description}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: active ? "var(--accent)" : "var(--text)", display: "flex", alignItems: "center", gap: 3 }}>
+                  {preset.label}
+                  {active && <CheckIcon aria-hidden sx={{ fontSize: 13 }} />}
                 </div>
-                {active && <span style={{ fontSize: 13, color: "var(--accent)" }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Creative Layouts */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+          Creative
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {STYLE_PRESETS.filter(p => p.category === "creative").map((preset) => {
+            const active = c.stylePreset === preset.id;
+            return (
+              <button
+                key={preset.id}
+                title={preset.description}
+                onClick={() => applyStylePreset(preset)}
+                aria-pressed={active}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr",
+                  justifyItems: "center",
+                  gap: 6,
+                  padding: "8px 6px",
+                  borderRadius: 9,
+                  border: active ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
+                  background: active ? "color-mix(in srgb, var(--accent) 8%, var(--bg))" : "var(--bg)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                  transition: "border-color 0.15s, background 0.15s",
+                }}
+              >
+                <div style={{
+                  width: "100%",
+                  height: 46,
+                  borderRadius: 7,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface2)",
+                  padding: "6px 7px",
+                  boxSizing: "border-box",
+                }} aria-hidden>
+                  <div style={{ width: "68%", height: 4, borderRadius: 2, background: preset.accentColor, marginBottom: 5 }} />
+                  <div style={{ width: "100%", height: 2, borderRadius: 2, background: "var(--border)", marginBottom: 4 }} />
+                  <div style={{ width: "78%", height: 2, borderRadius: 2, background: "var(--border)" }} />
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: active ? "var(--accent)" : "var(--text)", display: "flex", alignItems: "center", gap: 3 }}>
+                  {preset.label}
+                  {active && <CheckIcon aria-hidden sx={{ fontSize: 13 }} />}
+                </div>
               </button>
             );
           })}

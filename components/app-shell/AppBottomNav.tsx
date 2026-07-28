@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { isPublicAppView } from "@/lib/anonScan";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { NAV_ICONS } from "./nav-icons";
 import {
@@ -49,8 +50,13 @@ export function AppBottomNav({
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
 
+  // Membership comes from the shared PUBLIC_APP_VIEWS so a tap and a pasted URL
+  // always agree. This used to allow only "analyze", which meant Jobs and the
+  // builder were reachable by URL but blocked from the nav.
+  const isLocked = (v: AppView) => anonMode && !isPublicAppView(v);
+
   const handleTab = (v: AppView) => {
-    if (anonMode && v !== "analyze") {
+    if (isLocked(v)) {
       onSignIn?.();
       return;
     }
@@ -62,7 +68,7 @@ export function AppBottomNav({
   // shared sign-in modal instead.
   const gotoGated = (v: AppView) => {
     setMoreOpen(false);
-    if (anonMode) onSignIn?.();
+    if (isLocked(v)) onSignIn?.();
     else onSelect(v);
   };
 
@@ -126,7 +132,7 @@ export function AppBottomNav({
               <span className="flex size-9 items-center justify-center rounded-full bg-accent text-white">
                 {NAV_ICONS.lock}
               </span>
-              <span className="text-sm font-semibold text-accent">Sign in — free</span>
+              <span className="text-sm font-semibold text-accent">Sign in, free</span>
             </button>
           ) : (
             <button

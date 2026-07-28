@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { AddressedGapAction, RatingsData, DetailedRatingItem } from "@/lib/types";
 import { isDetailedRatings } from "@/lib/types";
@@ -12,6 +12,7 @@ import { KeywordsSection } from "./ratings/KeywordsSection";
 import { InterviewSection } from "./ratings/InterviewSection";
 import CategoryFixPanel from "./CategoryFixPanel";
 import GapFixTabPanel from "./ratings/GapFixTabPanel";
+import { fixAllButtonLabel } from "@/lib/fixEverythingPrefs";
 
 export type Tab = "overall" | "job_title" | "qualifications" | "responsibilities" | "keywords" | "interview" | "gapfix" | "fixes";
 
@@ -107,6 +108,26 @@ type SharedProps = {
   ratings: RatingsData;
   onFixGap?: (item: DetailedRatingItem, gapType: AddressedGapAction["type"]) => void;
   onFixKeyword?: (keyword: string) => void;
+  /** One pass over every remaining gap, reviewed before anything is applied. */
+  onFixEverything?: () => void;
+  openGapCount?: number;
+  fixEverythingBusy?: boolean;
+  /** Opt-in: skip the review and write the rewrites straight in. Off by default. */
+  fixEverythingAutoApply?: boolean;
+  onFixEverythingAutoApplyChange?: (on: boolean) => void;
+  /** Bulk: write selected bare skills into the résumé's Skills section. */
+  onAddSkills?: (keywords: string[], category: string) => void;
+  skillCategories?: string[];
+  addSkillsBusy?: boolean;
+  /** Bulk: one batched rewrite pass covering several contextual gaps. */
+  onFixKeywords?: (keywords: string[]) => void;
+  /** Open the full prep workspace carrying this run's résumé, JD, company and role. */
+  onOpenInterviewPrep?: () => void;
+  /** Gap-fix cards sitting on the selected bullet. A bullet can carry several. */
+  activeGapFixIds?: ReadonlySet<string>;
+  onGapFixActivate?: (id: string) => void;
+  /** Current preview text per bullet index, so a card shows what it is really editing. */
+  gapFixBulletText?: (suggestionId: string) => string | undefined;
   fixingGapName?: string | null;
   gapFixPanel?: GapFixPanel | null;
   gapFixError?: string | null;
@@ -127,7 +148,27 @@ type SharedProps = {
   applyBusy?: boolean;
   activeTab?: Tab;
   onActiveTabChange?: (tab: Tab) => void;
+  /** Résumé headline draft for the Job Title panel's editor — distinct from any
+   *  specific employer's title under Experience, which stays untouched. Empty
+   *  string = no override, show the extracted headline / LLM's resume_title. */
+  headlineDraft?: string;
+  onHeadlineDraftChange?: (text: string) => void;
+  /** Re-runs /api/analyze with the current headline draft applied. Undefined
+   *  when there's no structured résumé to attach the override to. */
+  onRescoreTitle?: () => void;
+  titleRescoring?: boolean;
 };
+
+/** Sidebar grouping: ATS-facing dimensions vs the human-recruiter read. */
+const ATS_TAB_IDS = new Set<Tab>(["overall", "job_title", "qualifications", "responsibilities", "keywords"]);
+
+/** Honest qualitative label for the match score — thresholds mirror
+ *  scoreColor (>=75 green, >=50 amber, else red) so word and colour agree. */
+function scoreLabel(s: number): string {
+  if (s >= 75) return "Strong";
+  if (s >= 50) return "Fair";
+  return "Needs work";
+}
 
 function useTailorRatingsState({
   ratings,
@@ -205,7 +246,7 @@ function useTailorRatingsState({
     ...(gapFixPanel
       ? [{ id: "gapfix" as Tab, label: "Gap fix", score: `${gapFixPanel.suggestions.length}`, color: "#818cf8" }]
       : []),
-    ...(hasSuggestions ? [{ id: "fixes" as Tab, label: "Fixes", score: "Review", color: "#818cf8" }] : []),
+    ...(hasSuggestions ? [{ id: "fixes" as Tab, label: "Polish", score: "Review", color: "#818cf8" }] : []),
   ];
 
   const tabIdx = tabOrder.indexOf(activeTab);
@@ -244,9 +285,19 @@ export function TailorMatchSidebar({
   onActiveTabChange,
   collapsed = false,
   onCollapsedChange,
+  onFixEverything,
+  openGapCount = 0,
+  fixEverythingBusy = false,
+  fixEverythingAutoApply = false,
+  onFixEverythingAutoApplyChange,
 }: Pick<SharedProps, "ratings" | "hasSuggestions" | "gapFixPanel" | "strategicTips" | "interviewQuestions" | "activeTab" | "onActiveTabChange"> & {
   collapsed?: boolean;
   onCollapsedChange?: (c: boolean) => void;
+  onFixEverything?: () => void;
+  openGapCount?: number;
+  fixEverythingBusy?: boolean;
+  fixEverythingAutoApply?: boolean;
+  onFixEverythingAutoApplyChange?: (on: boolean) => void;
 }) {
   const state = useTailorRatingsState({ ratings, hasSuggestions, gapFixPanel, strategicTips, interviewQuestions, activeTab: activeTabProp, onActiveTabChange });
   if (!state) return null;
@@ -295,80 +346,160 @@ export function TailorMatchSidebar({
             {sidebarCollapsed ? "›" : "‹"}
           </button>
         </div>
-        {!sidebarCollapsed && (
-          <div style={{ marginTop: 12, textAlign: "center" }}>
-            <div style={{ fontSize: 36, fontWeight: 900, color: scoreColor(overall_score), letterSpacing: -1.5, lineHeight: 1 }}>
-              {overall_score}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Overall match</div>
-          </div>
-        )}
       </div>
 
-      {/* Nav tabs — hidden when collapsed; just the toggle button is enough */}
-      {!sidebarCollapsed && (
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 0 16px" }}>
-          {navTabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            const isLow = tab.color === "#ef4444" || tab.color === "#f59e0b";
-            return (
+      {/* Score card + grouped nav — hidden when collapsed */}
+      {!sidebarCollapsed && (() => {
+        const fixAllLabel = fixAllButtonLabel(openGapCount, fixEverythingAutoApply, fixEverythingBusy);
+        const renderRow = (tab: (typeof navTabs)[number]) => {
+          const isActive = activeTab === tab.id;
+          const isLow = tab.color === "#ef4444" || tab.color === "#f59e0b";
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              title={tab.label}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                width: "100%",
+                flexShrink: 0,
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "9px 12px",
+                gap: 0,
+                border: "none",
+                borderRadius: 10,
+                borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
+                background: isActive ? "var(--accent-bg)" : "transparent",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                color: isActive ? "var(--accent)" : "var(--muted)",
+                transition: "background 0.15s, color 0.15s",
+                position: "relative",
+              }}
+            >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: (tab.id === "fixes" || tab.id === "gapfix") ? "#818cf8" : (isActive ? "var(--text)" : "var(--dim)"),
+                    flexShrink: 0,
+                  }}
+                >
+                  {SECTION_ICON[tab.id]}
+                </span>
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: isActive ? 600 : 500,
+                  color: (tab.id === "fixes" || tab.id === "gapfix") ? "#818cf8" : (isActive ? "var(--text)" : "var(--muted)"),
+                  textAlign: "left",
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}>
+                  {tab.label}
+                </span>
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: isLow ? tab.color : "var(--muted)", flexShrink: 0, marginLeft: 8 }}>
+                {tab.score}
+              </span>
+            </button>
+          );
+        };
+        const groupLabel = (text: string) => (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 6px 7px", marginTop: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.7 }}>{text}</span>
+            <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+          </div>
+        );
+        const atsRows = navTabs.filter((t) => ATS_TAB_IDS.has(t.id));
+        const humanRows = navTabs.filter((t) => !ATS_TAB_IDS.has(t.id));
+        const col = scoreColor(overall_score);
+        const R = 26, CIRC = 2 * Math.PI * R;
+        const clamped = Math.max(0, Math.min(100, overall_score));
+        return (
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 12px 18px", display: "flex", flexDirection: "column", gap: 3 }}>
+            {/* Persistent score card */}
+            <div style={{ display: "flex", alignItems: "center", gap: 13, border: "1px solid var(--border)", borderRadius: 12, padding: 13, marginBottom: 6 }}>
+              <div style={{ position: "relative", width: 62, height: 62, flexShrink: 0 }}>
+                <svg width="62" height="62" viewBox="0 0 62 62" style={{ transform: "rotate(-90deg)" }} aria-hidden="true">
+                  <circle cx="31" cy="31" r={R} fill="none" stroke="var(--surface2)" strokeWidth="6" />
+                  <circle cx="31" cy="31" r={R} fill="none" stroke={col} strokeWidth="6" strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - clamped / 100)} />
+                </svg>
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, fontWeight: 800, color: col, letterSpacing: -0.5 }}>
+                  {overall_score}
+                </div>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6 }}>Match score</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: col, letterSpacing: -0.2, marginTop: 2 }}>{scoreLabel(overall_score)}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1, lineHeight: 1.35 }}>How well this résumé covers the job</div>
+              </div>
+            </div>
+
+            {/* One pass over every open gap. Working them one at a time is a
+                round trip, a panel and an apply each; this batches by gap type
+                and lands the whole set in one review. Nothing is written until
+                the user confirms in that panel. */}
+            {onFixEverything && openGapCount > 0 && (
               <button
-                key={tab.id}
                 type="button"
-                title={tab.label}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={onFixEverything}
+                disabled={fixEverythingBusy}
+                className="md-state-layer"
                 style={{
-                  width: "100%",
-                  flexShrink: 0,
-                  display: "flex",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 16px",
-                  gap: 0,
-                  border: "none",
-                  borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
-                  background: isActive ? "var(--accent-bg)" : "transparent",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  color: isActive ? "var(--accent)" : "var(--muted)",
-                  transition: "background 0.15s, color 0.15s",
-                  position: "relative",
+                  width: "100%", marginBottom: 12,
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                  padding: "10px 12px", borderRadius: 10, border: "none",
+                  background: "var(--accent)", color: "#fff",
+                  fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+                  cursor: fixEverythingBusy ? "wait" : "pointer",
+                  opacity: fixEverythingBusy ? 0.75 : 1,
+                  boxShadow: "var(--md-elevation-1)",
+                  transition: "box-shadow var(--md-duration-medium) var(--md-easing-standard)",
                 }}
               >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: (tab.id === "fixes" || tab.id === "gapfix") ? "#818cf8" : (isActive ? "var(--text)" : "var(--dim)"),
-                      flexShrink: 0,
-                    }}
-                  >
-                    {SECTION_ICON[tab.id]}
-                  </span>
-                  <span style={{
-                    fontSize: 13,
-                    fontWeight: isActive ? 600 : 500,
-                    color: (tab.id === "fixes" || tab.id === "gapfix") ? "#818cf8" : (isActive ? "var(--text)" : "var(--muted)"),
-                    textAlign: "left",
-                    minWidth: 0,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}>
-                    {tab.label}
-                  </span>
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: isLow ? tab.color : "var(--muted)", flexShrink: 0, marginLeft: 8 }}>
-                  {tab.score}
+                <span>{fixAllLabel.title}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.85 }}>
+                  {fixAllLabel.subtitle}
                 </span>
               </button>
-            );
-          })}
-        </div>
-      )}
+            )}
+
+            {/* Opt-in, off by default. Rewrites go into the user's résumé, so
+                the default has to be "show me first" — but someone who has done
+                this twenty times shouldn't re-review every pass. The button
+                label above changes with it, so the click never surprises. */}
+            {onFixEverything && openGapCount > 0 && onFixEverythingAutoApplyChange && (
+              <label
+                style={{
+                  display: "flex", alignItems: "center", gap: 7, marginBottom: 12,
+                  padding: "0 2px", cursor: "pointer",
+                  fontSize: 11, color: "var(--muted)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={fixEverythingAutoApply}
+                  onChange={(e) => onFixEverythingAutoApplyChange(e.target.checked)}
+                  style={{ accentColor: "var(--accent)", cursor: "pointer" }}
+                />
+                Apply automatically, without reviewing
+              </label>
+            )}
+
+            {atsRows.length > 0 && groupLabel("Beat the ATS")}
+            {atsRows.map(renderRow)}
+            {humanRows.length > 0 && groupLabel("Beat the human")}
+            {humanRows.map(renderRow)}
+          </div>
+        );
+      })()}
     </aside>
   );
 }
@@ -392,6 +523,17 @@ export function TailorMatchDetail(props: SharedProps) {
       props.onActiveTabChange?.("overall");
     }
   }, [props.activeTab, props.gapFixPanel, props.onActiveTabChange]);
+
+  // A step change swaps the entire panel body. Without this the reader lands
+  // in the middle of the new step at whatever offset the previous one happened
+  // to be scrolled to — and the Next button sits at the bottom, so that offset
+  // is almost always "the end". Instant, not smooth: this is an arrival at a
+  // new step, not a move to a target on the current one.
+  const detailScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    detailScrollRef.current?.scrollTo({ top: 0 });
+  }, [props.activeTab]);
+
   if (!state) return null;
 
   const {
@@ -406,8 +548,6 @@ export function TailorMatchDetail(props: SharedProps) {
     gaps,
     verdict,
     navTabs,
-    prevTab,
-    nextTab,
     impact,
     impactStyle,
   } = state;
@@ -470,22 +610,22 @@ export function TailorMatchDetail(props: SharedProps) {
               </div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-            <button type="button" disabled={!prevTab} onClick={() => prevTab && setActiveTab(prevTab)}
-              style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", cursor: prevTab ? "pointer" : "not-allowed", opacity: prevTab ? 1 : 0.4, fontSize: 14, color: "var(--muted)" }}
-            >‹</button>
-            <button type="button" disabled={!nextTab} onClick={() => nextTab && setActiveTab(nextTab)}
-              style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", cursor: nextTab ? "pointer" : "not-allowed", opacity: nextTab ? 1 : 0.4, fontSize: 14, color: "var(--muted)" }}
-            >›</button>
-          </div>
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: (activeTab === "fixes" || activeTab === "gapfix") ? 0 : "24px 28px" }}>
+      <div ref={detailScrollRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: (activeTab === "fixes" || activeTab === "gapfix") ? 0 : "24px 28px" }}>
         {activeTab === "overall" && (
           <OverallSection overallScore={overall_score} jobTitleScore={job_title?.score} verdict={verdict} whats_working={whats_working} gaps={gaps} keywords={keywords} qualifications={qualifications} responsibilities={responsibilities} roleContext={props.ratings?.role_context ?? []} onNavigate={setActiveTab} />
         )}
-        {activeTab === "job_title" && <JobTitleSection jobTitle={job_title} />}
+        {activeTab === "job_title" && (
+          <JobTitleSection
+            jobTitle={job_title}
+            headlineDraft={props.headlineDraft}
+            onHeadlineDraftChange={props.onHeadlineDraftChange}
+            onRescoreTitle={props.onRescoreTitle}
+            rescoring={props.titleRescoring}
+          />
+        )}
         {activeTab === "qualifications" && (
           <CoveredMissingSection category={qualifications} label="Qualifications" onFixGap={onFixGap} fixingGapName={fixingGapName} addressedGaps={addressedGaps} addressedGapActions={addressedGapActions} />
         )}
@@ -493,10 +633,20 @@ export function TailorMatchDetail(props: SharedProps) {
           <CoveredMissingSection category={responsibilities} label="Responsibilities" onFixGap={onFixGap} fixingGapName={fixingGapName} addressedGaps={addressedGaps} addressedGapActions={addressedGapActions} />
         )}
         {activeTab === "keywords" && (
-          <KeywordsSection keywords={keywords} onFixKeyword={onFixKeyword} fixingKeyword={fixingGapName} addressedGaps={addressedGaps} addressedGapActions={addressedGapActions} />
+          <KeywordsSection
+            keywords={keywords}
+            onFixKeyword={onFixKeyword}
+            fixingKeyword={fixingGapName}
+            addressedGaps={addressedGaps}
+            addressedGapActions={addressedGapActions}
+            onAddSkills={props.onAddSkills}
+            skillCategories={props.skillCategories}
+            addSkillsBusy={props.addSkillsBusy}
+            onFixKeywords={props.onFixKeywords}
+          />
         )}
         {activeTab === "interview" && (
-          <InterviewSection keyGap={keyGap} tips={strategicTips} questions={interviewQuestions} onGetSuggestions={onGetSuggestions} suggestionsLoading={suggestionsLoading} />
+          <InterviewSection keyGap={keyGap} tips={strategicTips} questions={interviewQuestions} onGetSuggestions={onGetSuggestions} suggestionsLoading={suggestionsLoading} onOpenInterviewPrep={props.onOpenInterviewPrep} />
         )}
         {activeTab === "gapfix" && gapFixPanel && (
           <GapFixTabPanel
@@ -508,12 +658,53 @@ export function TailorMatchDetail(props: SharedProps) {
             gapFixDrafts={gapFixDrafts}
             onGapFixDraftChange={onGapFixDraftChange}
             applyBusy={applyBusy}
+            activeGapFixIds={props.activeGapFixIds}
+            onGapFixActivate={props.onGapFixActivate}
+            gapFixBulletText={props.gapFixBulletText}
           />
         )}
         {activeTab === "fixes" && (
           <CategoryFixPanel onApplyAll={onApplyAllSuggestions ?? (() => {})} applyBusy={applyBusy ?? false} />
         )}
       </div>
+
+      {/* Guided stepper — walk the match one dimension at a time. Shown for the
+          walkthrough dimensions (not the full-bleed fix/gap-fix drill-ins). */}
+      {activeTab !== "fixes" && activeTab !== "gapfix" && (() => {
+        const idx = navTabs.findIndex((t) => t.id === activeTab);
+        const prev = idx > 0 ? navTabs[idx - 1] : null;
+        const next = idx >= 0 && idx < navTabs.length - 1 ? navTabs[idx + 1] : null;
+        const navBtn = (extra: React.CSSProperties): React.CSSProperties => ({
+          display: "inline-flex", alignItems: "center", gap: 7, borderRadius: 9,
+          fontWeight: 700, fontSize: 13, padding: "9px 15px", fontFamily: "inherit",
+          border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)",
+          cursor: "pointer", ...extra,
+        });
+        return (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+            padding: "13px 24px", borderTop: "1px solid var(--border)", background: "var(--surface)", flexShrink: 0,
+          }}>
+            <button type="button" onClick={() => prev && setActiveTab(prev.id)}
+              style={navBtn({ visibility: prev ? "visible" : "hidden" })}>
+              ‹ Back
+            </button>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6 }}>
+              Step {idx + 1} of {navTabs.length}
+            </div>
+            {next ? (
+              <button type="button" onClick={() => setActiveTab(next.id)}
+                style={navBtn({ border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff" })}>
+                Next: {next.label} ›
+              </button>
+            ) : (
+              <button type="button" onClick={() => setActiveTab(navTabs[0].id)} style={navBtn({})}>
+                Back to Overview
+              </button>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -536,6 +727,11 @@ export default function DetailedRatingsView(props: SharedProps) {
       }}
     >
       <TailorMatchSidebar
+        onFixEverything={props.onFixEverything}
+        openGapCount={props.openGapCount}
+        fixEverythingBusy={props.fixEverythingBusy}
+        fixEverythingAutoApply={props.fixEverythingAutoApply}
+        onFixEverythingAutoApplyChange={props.onFixEverythingAutoApplyChange}
         {...props}
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}

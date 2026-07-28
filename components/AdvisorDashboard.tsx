@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import type { ReactNode } from "react";
 import { apiUrl } from "@/lib/utils";
 import { getSupabaseClient } from "@/lib/supabase";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -22,6 +21,9 @@ import {
   type CategoryHistoryPoint,
 } from "@/components/advisor/AdvisorCharts";
 import AdminAnalyticsPanel from "@/components/AdminAnalyticsPanel";
+import SendTestEmailCard from "@/components/admin/SendTestEmailCard";
+import { AdminKpiCard, AdminBarRows, AdminScoreBars, AdminStackedBar } from "@/components/admin/charts";
+import { apiFetch } from "@/lib/apiClient";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -96,6 +98,23 @@ interface StudentDetail {
   latest_resume_text: string;
   latest_source_pdf_url?: string | null;
   latest_source_filename?: string | null;
+}
+
+interface JobMatch {
+  id: string;
+  title: string;
+  company: string;
+  url: string;
+  location: string;
+  matchScore: number | null;
+  matchedCount: number;
+  totalRequirements: number;
+}
+
+interface JobMatchesResponse {
+  jobs: JobMatch[];
+  ranked: boolean;
+  needsResume?: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -204,6 +223,44 @@ function studentPriority(student: Student): number {
   return 4;
 }
 
+// ── roster column sorting ────────────────────────────────────────────────────
+
+type RosterSortKey = "email" | "score" | "status" | "latest_at" | "analyses";
+type RosterSort = { key: RosterSortKey; dir: 1 | -1 };
+
+/** Per-column comparable value. Nulls sort to the bottom regardless of
+ *  direction via the fallback sentinels; status uses the review-priority order
+ *  (Needs Work first when ascending), not alphabetical. */
+function rosterSortValue(s: Student, key: RosterSortKey): number | string {
+  switch (key) {
+    case "email": return (s.user_email ?? "￿").toLowerCase();
+    case "score": return s.latest_score ?? -1;
+    case "status": return studentPriority(s);
+    case "latest_at": return s.latest_at ? Date.parse(s.latest_at) || 0 : 0;
+    case "analyses": return s.analysis_count ?? 0;
+  }
+}
+
+function SortableHead({ label, k, sort, onSort }: {
+  label: string; k: RosterSortKey; sort: RosterSort; onSort: (k: RosterSortKey) => void;
+}) {
+  const active = sort.key === k;
+  return (
+    <TableHead aria-sort={active ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        className="inline-flex cursor-pointer select-none items-center gap-1 font-medium hover:text-foreground"
+      >
+        {label}
+        <span aria-hidden className={active ? "text-foreground" : "opacity-25"}>
+          {active && sort.dir === 1 ? "▲" : "▼"}
+        </span>
+      </button>
+    </TableHead>
+  );
+}
+
 function reviewReason(student: Student): string {
   const status = studentStatus(student);
   const delta = student.score_delta;
@@ -223,9 +280,17 @@ function reviewReason(student: Student): string {
   return "Strong profile, periodic check only";
 }
 
-async function advisorAuthHeaders(): Promise<Record<string, string>> {
-  const { data: { session } } = await getSupabaseClient().auth.getSession();
-  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+// ── Module-level cache ────────────────────────────────────────────────────────
+// The root RouterView unmounts this dashboard on every page switch (?view=…),
+// so component state dies with it. Keep the loaded cohort payload + active tab
+// here so returning to the page restores instantly (with a silent background
+// refresh) instead of replaying the full skeleton + refetch cycle.
+let cohortCache: { uid: string; data: CohortStats; globalAdmin: boolean } | null = null;
+let advisorTabCache: "cohort" | "analytics" = "cohort";
+
+function clearCohortCache() {
+  cohortCache = null;
+  advisorTabCache = "cohort";
 }
 
 // ── Shared UI pieces ──────────────────────────────────────────────────────────
@@ -238,28 +303,10 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function TierRow({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
-  const pct = total > 0 ? (count / total) * 100 : 0;
-  return (
-    <div className="flex items-center gap-3 border-b border-border py-2 last:border-b-0">
-      <div className="w-24 shrink-0 text-xs text-muted-foreground">{label}</div>
-      <Progress value={pct} className="flex-1 gap-0" style={{ "--primary": color } as CSSProperties} />
-      <div className="w-7 shrink-0 text-right text-xs text-foreground">{count}</div>
-      <div className="w-9 shrink-0 text-right text-[11px] text-muted-foreground">{Math.round(pct)}%</div>
-    </div>
-  );
-}
-
+// Delegates to the shared admin KPI card so the cohort strip and student-detail
+// KPIs match the analytics / job-market tabs exactly (label/figure/sub scale).
 function KpiCard({ value, label, note }: { value: string | number; label: string; note?: string }) {
-  return (
-    <Card size="sm" className="bg-card/95">
-      <CardContent>
-        <div className="text-3xl font-light leading-none tracking-[-0.04em] text-foreground">{value}</div>
-        <div className="mt-2 text-xs font-medium text-foreground">{label}</div>
-        {note && <div className="mt-1 text-[11px] text-muted-foreground">{note}</div>}
-      </CardContent>
-    </Card>
-  );
+  return <AdminKpiCard title={label} value={value} sub={note} />;
 }
 
 function AdvisorCard({
@@ -295,23 +342,94 @@ function ScoreBadge({ score }: { score: number | null }) {
 
 // ── Student Detail Panel ──────────────────────────────────────────────────────
 
+function matchTier(score: number): { label: string; color: string } {
+  if (score >= 85) return { label: "Strong", color: "var(--green, #15803d)" };
+  if (score >= 70) return { label: "Good",   color: "var(--green, #15803d)" };
+  if (score >= 50) return { label: "Fair",   color: "var(--amber, #b45309)" };
+  return { label: "Weak", color: "var(--dim, #6b7280)" };
+}
+
+function StudentJobMatches({ loading, data }: { loading: boolean; data: JobMatchesResponse | null }) {
+  if (loading) {
+    return (
+      <div className="grid gap-2">
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
+      </div>
+    );
+  }
+  if (!data || data.needsResume) {
+    return <p style={{ fontSize: 13, color: "var(--dim)" }}>No analyzed résumé yet — ranking needs at least one résumé analysis.</p>;
+  }
+  if (!data.jobs.length) {
+    return <p style={{ fontSize: 13, color: "var(--dim)" }}>No matching postings found in the current job corpus.</p>;
+  }
+  return (
+    <div className="flex flex-col">
+      {data.jobs.map((j, i) => {
+        const score = j.matchScore ?? 0;
+        const tier = matchTier(score);
+        return (
+          <div key={j.id ?? i} className="flex items-center gap-3 border-b border-border py-2.5 last:border-b-0">
+            <div className="w-10 shrink-0 text-center">
+              <div className="text-sm font-semibold text-foreground">{score}</div>
+              <div className="text-[10px] font-medium" style={{ color: tier.color }}>{tier.label}</div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm text-foreground">{j.title || "—"}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {j.company || "—"}{j.location ? ` · ${j.location}` : ""}
+                {j.totalRequirements > 0 ? ` · ${j.matchedCount}/${j.totalRequirements} reqs` : ""}
+              </div>
+            </div>
+            {j.url ? (
+              <a
+                href={j.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                View
+              </a>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StudentDetailPanel({
   studentId, onBack,
 }: { studentId: string; onBack: () => void }) {
   const [detail, setDetail]   = useState<StudentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
+  const [matches, setMatches] = useState<JobMatchesResponse | null>(null);
+  const [matchesLoading, setMatchesLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    advisorAuthHeaders()
-      .then(headers => fetch(`${apiUrl("/api/student-detail")}?student_id=${encodeURIComponent(studentId)}`, { headers }))
+    apiFetch(`/api/student-detail?student_id=${encodeURIComponent(studentId)}`)
       .then(r => r.ok ? r.json() : r.json().then((e: { error?: string }) => Promise.reject(e.error ?? `HTTP ${r.status}`)))
       .then(d => { if (!cancelled) setDetail(d as StudentDetail); })
       .catch(e => { if (!cancelled) setError(typeof e === "string" ? e : "Failed to load."); })
       .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [studentId]);
+
+  // Top matched jobs — separate lazy fetch so the detail panel never blocks on
+  // the (deterministic, zero-LLM) résumé→jobs scoring.
+  useEffect(() => {
+    let cancelled = false;
+    setMatchesLoading(true);
+    setMatches(null);
+    apiFetch(`/api/student-job-matches?student_id=${encodeURIComponent(studentId)}&limit=10`)
+      .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
+      .then(d => { if (!cancelled) setMatches(d as JobMatchesResponse); })
+      .catch(() => { if (!cancelled) setMatches({ jobs: [], ranked: false }); })
+      .finally(() => { if (!cancelled) setMatchesLoading(false); });
     return () => { cancelled = true; };
   }, [studentId]);
 
@@ -440,6 +558,15 @@ function StudentDetailPanel({
               </AdvisorCard>
             </div>
 
+            {/* Top matched jobs — résumé ranked against the live posting corpus */}
+            <AdvisorCard
+              title="Top matched jobs"
+              description="Active postings ranked against this student's latest résumé (deterministic, no LLM)."
+              className="mb-4"
+            >
+              <StudentJobMatches loading={matchesLoading} data={matches} />
+            </AdvisorCard>
+
             {/* Uploaded résumé — PDF when stored (Analyze uploads), else extracted text */}
             {(d.latest_source_pdf_url || d.latest_resume_text) && (
               <AdvisorCard
@@ -449,7 +576,7 @@ function StudentDetailPanel({
                 {d.latest_source_pdf_url ? (
                   <>
                     {d.latest_source_filename ? (
-                      <p style={{ margin: "0 0 10px", fontSize: 11.5, color: "var(--muted)" }}>
+                      <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--muted)" }}>
                         {d.latest_source_filename}
                       </p>
                     ) : null}
@@ -466,7 +593,7 @@ function StudentDetailPanel({
                 ) : (
                   <pre style={{
                     margin: 0,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     lineHeight: 1.7,
                     color: "var(--text)",
                     whiteSpace: "pre-wrap",
@@ -655,7 +782,12 @@ function CohortOverview({
   onSelectStudent: (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"cohort" | "analytics">("cohort");
+  // Restore the last-open tab across remounts (page switches unmount us).
+  // Non-admins never render the analytics tab, so force them onto cohort.
+  const [activeTab, setActiveTab] = useState<"cohort" | "analytics">(
+    globalAdmin ? advisorTabCache : "cohort",
+  );
+  useEffect(() => { advisorTabCache = activeTab; }, [activeTab]);
   const { score_tiers: tiers } = data;
   const tierTotal = tiers.low + tiers.mid + tiers.good + tiers.strong;
   const needAttentionCount = data.student_roster.filter(s => {
@@ -677,9 +809,31 @@ function CohortOverview({
       return status === "Needs Work" || status === "No Analysis Yet" || status === "Improving" || status === "On Track";
     })
     .slice(0, 6);
-  const filtered = data.student_roster.filter(s =>
-    !search || (s.user_email ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  // Roster sort: default = most recent activity first. Clicking a header
+  // toggles direction; switching columns starts with that column's natural
+  // direction (text/status ascending, numbers/dates descending).
+  const [rosterSort, setRosterSort] = useState<RosterSort>({ key: "latest_at", dir: -1 });
+  const onRosterSort = useCallback((k: RosterSortKey) => {
+    setRosterSort(prev => prev.key === k
+      ? { key: k, dir: prev.dir === 1 ? -1 : 1 }
+      : { key: k, dir: k === "email" || k === "status" ? 1 : -1 });
+  }, []);
+  const filtered = useMemo(() => {
+    const rows = data.student_roster.filter(s =>
+      !search || (s.user_email ?? "").toLowerCase().includes(search.toLowerCase())
+    );
+    const { key, dir } = rosterSort;
+    return rows.sort((a, b) => {
+      const av = rosterSortValue(a, key);
+      const bv = rosterSortValue(b, key);
+      const cmp = typeof av === "string"
+        ? av.localeCompare(bv as string)
+        : (av as number) - (bv as number);
+      if (cmp !== 0) return cmp * dir;
+      // Stable tiebreak: email A→Z so equal rows don't jump between clicks.
+      return (a.user_email ?? "").localeCompare(b.user_email ?? "");
+    });
+  }, [data.student_roster, search, rosterSort]);
   const isEmpty = data.student_count === 0 && data.analysis_count === 0;
 
   return (
@@ -710,7 +864,7 @@ function CohortOverview({
                 onClick={() => setActiveTab("analytics")}
                 className={`px-4 py-1.5 transition-colors ${activeTab === "analytics" ? "bg-foreground text-background" : "bg-background text-muted-foreground hover:text-foreground"}`}
               >
-                Token Usage
+                Platform analytics
               </button>
             </div>
           )}
@@ -722,7 +876,18 @@ function CohortOverview({
 
       {/* ── Platform Analytics tab (global admins only) ── */}
       {globalAdmin && activeTab === "analytics" && (
-        <AdminAnalyticsPanel getAuthHeaders={advisorAuthHeaders} />
+        <div className="flex flex-col gap-6">
+          <AdminAnalyticsPanel />
+          <SendTestEmailCard />
+          {/* Bug reports are a platform-support inbox, not cohort data — they
+              belong here under Platform analytics, not the Cohort tab. */}
+          <BugReportsPanel
+            reports={bugReports}
+            loading={bugReportsLoading}
+            error={bugReportsError}
+            onRefresh={onRefreshBugReports}
+          />
+        </div>
       )}
 
       {/* ── Cohort tab ── */}
@@ -743,15 +908,6 @@ function CohortOverview({
         <KpiCard value={data.tailored_resume_count ?? 0} label="Tailored Resumes Created" />
       </div>
 
-      {globalAdmin ? (
-        <BugReportsPanel
-          reports={bugReports}
-          loading={bugReportsLoading}
-          error={bugReportsError}
-          onRefresh={onRefreshBugReports}
-        />
-      ) : null}
-
       {isEmpty && (
         <Card className="mb-4 border-dashed">
           <CardHeader>
@@ -767,37 +923,31 @@ function CohortOverview({
       )}
 
       <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <AdvisorCard title="Resume readiness" description="Strong visual distribution across score tiers.">
-          <TierRow label="Strong (85-100)" count={tiers.strong} total={tierTotal} color="var(--green)" />
-          <TierRow label="Good (70-84)" count={tiers.good} total={tierTotal} color="var(--accent)" />
-          <TierRow label="Mid (50-69)" count={tiers.mid} total={tierTotal} color="var(--amber)" />
-          <TierRow label="Needs work (<50)" count={tiers.low} total={tierTotal} color="var(--red)" />
+        <AdvisorCard title="Resume readiness" description="How the cohort's latest scores split across tiers.">
           {tierTotal === 0 ? (
-            <p className="pt-3 text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               No student data yet. Invite students or wait for their first resume analysis.
             </p>
-          ) : null}
+          ) : (
+            <AdminStackedBar
+              segments={[
+                { label: "Strong (85-100)", value: tiers.strong, color: "var(--green)" },
+                { label: "Good (70-84)", value: tiers.good, color: "var(--accent)" },
+                { label: "Mid (50-69)", value: tiers.mid, color: "var(--amber)" },
+                { label: "Needs work (<50)", value: tiers.low, color: "var(--red)" },
+              ]}
+            />
+          )}
         </AdvisorCard>
 
         <AdvisorCard title="Top improvement areas" description="Most frequent weaknesses across students.">
           {topImprovementAreas.length === 0 ? (
             <p className="text-sm text-muted-foreground">Not enough data yet.</p>
           ) : (
-            topImprovementAreas.map((item, idx) => {
-              const max = topImprovementAreas[0]?.count || 1;
-              const width = Math.max(8, Math.round((item.count / max) * 100));
-              return (
-                <div key={idx} className="border-b border-border py-2 last:border-b-0">
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-foreground">{item.issue}</span>
-                    <Badge variant="outline">{item.count} {pluralStudents(item.count)}</Badge>
-                  </div>
-                  <div className="h-1.5 rounded bg-muted">
-                    <div className="h-full rounded bg-foreground/70" style={{ width: `${width}%` }} />
-                  </div>
-                </div>
-              );
-            })
+            <AdminBarRows
+              data={topImprovementAreas.map(item => [item.issue, item.count] as [string, number])}
+              labelWidth={150}
+            />
           )}
         </AdvisorCard>
       </div>
@@ -836,15 +986,14 @@ function CohortOverview({
         )}
       </AdvisorCard>
 
-      <AdvisorCard title="Dimension averages" description="Cohort-level category health snapshot." className="mb-4">
-        {Object.entries(DIM_LABELS).map(([k, label]) => (
-          <div key={k} className="flex items-center justify-between border-b border-border py-2 text-sm last:border-b-0">
-            <span className="text-muted-foreground">{label}</span>
-            <Badge variant="outline" style={{ color: scoreColor(data.dimension_avgs[k as keyof DimAvgs]) }}>
-              {data.dimension_avgs[k as keyof DimAvgs] !== null ? Math.round(data.dimension_avgs[k as keyof DimAvgs] as number) : "—"}
-            </Badge>
-          </div>
-        ))}
+      <AdvisorCard title="Dimension averages" description="Cohort-level category health, scored 0-100." className="mb-4">
+        <AdminScoreBars
+          data={Object.entries(DIM_LABELS).map(([k, label]) => ({
+            label,
+            score: data.dimension_avgs[k as keyof DimAvgs],
+          }))}
+          colorFn={scoreColor}
+        />
       </AdvisorCard>
 
       <Card>
@@ -871,11 +1020,11 @@ function CohortOverview({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Latest Score</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Activity</TableHead>
-                  <TableHead>Analyses</TableHead>
+                  <SortableHead label="Student" k="email" sort={rosterSort} onSort={onRosterSort} />
+                  <SortableHead label="Latest Score" k="score" sort={rosterSort} onSort={onRosterSort} />
+                  <SortableHead label="Status" k="status" sort={rosterSort} onSort={onRosterSort} />
+                  <SortableHead label="Last Activity" k="latest_at" sort={rosterSort} onSort={onRosterSort} />
+                  <SortableHead label="Analyses" k="analyses" sort={rosterSort} onSort={onRosterSort} />
                   <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -924,11 +1073,14 @@ function CohortOverview({
 export default function AdvisorDashboard() {
   const [userEmail,  setUserEmail]  = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [data,       setData]       = useState<CohortStats | null>(null);
-  const [loading,    setLoading]    = useState(true);
+  // Seed from the module cache so a remount (page switch away and back) shows
+  // the dashboard immediately instead of a skeleton; a background refresh
+  // still runs once the session resolves.
+  const [data,       setData]       = useState<CohortStats | null>(() => cohortCache?.data ?? null);
+  const [loading,    setLoading]    = useState(!cohortCache);
   const [error,      setError]      = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [globalAdmin, setGlobalAdmin] = useState(false);
+  const [globalAdmin, setGlobalAdmin] = useState(cohortCache?.globalAdmin ?? false);
   const [bugReports, setBugReports] = useState<BugReportRow[]>([]);
   const [bugReportsLoading, setBugReportsLoading] = useState(false);
   const [bugReportsError, setBugReportsError] = useState<string | null>(null);
@@ -939,9 +1091,7 @@ export default function AdvisorDashboard() {
     setBugReportsLoading(true);
     setBugReportsError(null);
     try {
-      const resp = await fetch(apiUrl("/api/admin/bug-reports?limit=50"), {
-        headers: await advisorAuthHeaders(),
-      });
+      const resp = await apiFetch("/api/admin/bug-reports?limit=50");
       if (resp.status === 403) {
         setBugReports([]);
         return;
@@ -963,21 +1113,26 @@ export default function AdvisorDashboard() {
     }
     setError(null);
     try {
-      const resp = await fetch(apiUrl("/api/cohort-stats"), { headers: await advisorAuthHeaders() });
-      if (resp.status === 401) { setError("not_signed_in"); setData(null); return; }
-      if (resp.status === 403) { setError("not_authorized"); setData(null); return; }
+      const resp = await apiFetch("/api/cohort-stats");
+      if (resp.status === 401) { setError("not_signed_in"); setData(null); clearCohortCache(); return; }
+      if (resp.status === 403) { setError("not_authorized"); setData(null); clearCohortCache(); return; }
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const stats = await resp.json() as CohortStats;
       setData(stats);
       const isAdmin = !!stats.global_admin;
       setGlobalAdmin(isAdmin);
+      if (authUserIdRef.current) {
+        cohortCache = { uid: authUserIdRef.current, data: stats, globalAdmin: isAdmin };
+      }
       if (isAdmin) void loadBugReports();
       else {
         setBugReports([]);
         setBugReportsError(null);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load.");
+      // A failed *background* refresh must not replace already-rendered data
+      // with an error card — keep showing the stale payload.
+      if (!opts?.keepStale) setError(e instanceof Error ? e.message : "Failed to load.");
     } finally {
       setLoading(false);
     }
@@ -994,6 +1149,7 @@ export default function AdvisorDashboard() {
       setAuthChecked(true);
       if (!uid) {
         authUserIdRef.current = null;
+        clearCohortCache();
         setData(null);
         setSelectedId(null);
         setLoading(false);
@@ -1002,7 +1158,9 @@ export default function AdvisorDashboard() {
       const userChanged = authUserIdRef.current !== null && authUserIdRef.current !== uid;
       authUserIdRef.current = uid;
       if (userChanged) {
+        clearCohortCache();
         setData(null);
+        setGlobalAdmin(false);
         setSelectedId(null);
         void load();
       }
@@ -1012,7 +1170,19 @@ export default function AdvisorDashboard() {
       .then(({ data: d }) => {
         if (cancelled) return;
         applySession(d.session);
-        if (d.session?.user?.id) void load();
+        const uid = d.session?.user?.id;
+        if (!uid) return;
+        if (cohortCache && cohortCache.uid !== uid) {
+          // Cache belongs to a different account — wipe and load fresh.
+          clearCohortCache();
+          setData(null);
+          setGlobalAdmin(false);
+          void load();
+        } else {
+          // Cache hit → refresh silently behind the rendered data;
+          // cold start → normal skeleton load.
+          void load({ keepStale: !!cohortCache });
+        }
       })
       .catch(() => {
         if (cancelled) return;
@@ -1026,10 +1196,13 @@ export default function AdvisorDashboard() {
         return;
       }
       const prevUid = authUserIdRef.current;
-      applySession(session);
-      // Token refresh / tab focus must not wipe loaded cohort data.
-      if (event === "SIGNED_IN" || (prevUid && prevUid !== session?.user?.id)) {
-        void load();
+      applySession(session); // handles the user-switch reload itself
+      // supabase-js re-emits SIGNED_IN on tab refocus / session recovery for
+      // the SAME user. Reloading there blanked the dashboard to a skeleton and
+      // reset the active tab — only load on a genuinely new sign-in.
+      const uid = session?.user?.id ?? null;
+      if (event === "SIGNED_IN" && uid && prevUid === null) {
+        void load({ keepStale: cohortCache?.uid === uid });
       }
     });
 

@@ -12,19 +12,21 @@
  * submits applications on the user's behalf.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { useRouter } from "next/navigation";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiUrl } from "@/lib/utils";
-import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, type JobPrepStatus } from "@/lib/supabase";
+import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, fetchAnalyses, type JobPrepStatus, type AnalyzeRecord } from "@/lib/supabase";
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
-import { fetchJobDetail, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { fetchJobDetail, prefetchJobDetail, invalidateJobDetail, fetchCompanyOptions, fetchTitleOptions, type JobDetail as JobDetailData, type CompanyOption, type TitleOption } from "@/lib/jobsApi";
+import SearchableSelect, { type SelectItem } from "@/components/SearchableSelect";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { useSignInDialog } from "@/components/SignInDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   fetchJobFilters,
@@ -34,11 +36,18 @@ import {
   type FilterSnapshot,
 } from "@/lib/jobFiltersApi";
 import CompanyLogo from "@/components/CompanyLogo";
+import FeaturedCompaniesRail from "@/components/FeaturedCompaniesRail";
 import BoostPanel from "@/components/BoostPanel";
 import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
+import { JobTopMatchesCard } from "@/components/jobs/JobTopMatchesCard";
+import { useJobTopMatches, type JobTopMatch } from "@/lib/useJobTopMatches";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
+import { SENIORITY_BUCKET_VALS, NATIONWIDE_LOCATION, matchRoleSuggestions } from "@/lib/jobsTaxonomy";
+import { Tip } from "@/components/ui/tip";
+import { usePrefetchOnIntent } from "@/hooks/usePrefetchOnIntent";
+import { apiFetch } from "@/lib/apiClient";
 
-type FeedJob = {
+export type FeedJob = {
   id: string;
   title: string;
   company: string;
@@ -68,19 +77,31 @@ type FeedJob = {
   locationMatch: boolean;
 };
 
+/** Project a full JobDetail down to the FeedJob card shape — used to PIN a deep-
+ *  linked / selected job onto the board when it isn't in the current feed, so it's
+ *  always highlighted without re-scoping the feed. Fields the detail lacks
+ *  (employmentType/industry/minYears, title/location match) default to null/false. */
+function detailToFeedJob(d: JobDetailData): FeedJob {
+  return {
+    id: d.id, title: d.title, company: d.company, companySlug: d.companySlug, companyDomain: d.companyDomain,
+    url: d.url, location: d.location,
+    salaryMin: d.salaryMin, salaryMax: d.salaryMax, salaryCurrency: d.salaryCurrency,
+    salaryPeriod: d.salaryPeriod, salarySource: d.salarySource,
+    workModel: d.workModel, seniority: d.seniority, visaSponsorship: d.visaSponsorship,
+    employmentType: null, industry: null, minYears: null,
+    h1bSponsor: d.h1bSponsor, h1bCertifiedCount: d.h1bCertifiedCount, h1bMedianWage: d.h1bMedianWage,
+    postedAt: d.postedAt, matchScore: d.matchScore, matchedCount: d.matchedCount,
+    totalRequirements: d.totalRequirements, titleMatch: false, locationMatch: false,
+  };
+}
+
 type FeedState =
   | { status: "loading" }
   | { status: "no-resume" }
   | { status: "needs-role" }
   | { status: "signin" }
   | { status: "error"; message: string }
-  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileRoles: string[]; profileLocations: string[]; ranked: boolean; role?: string };
-
-const ROLE_CHIPS = [
-  "Software Engineer", "Backend Engineer", "Frontend Engineer", "Full-Stack Engineer",
-  "Data Engineer", "Data Scientist", "ML Engineer", "DevOps / SRE",
-  "Product Manager", "Platform Engineer", "iOS / Android Engineer", "QA Engineer",
-];
+  | { status: "ready"; jobs: FeedJob[]; generatedAt: string; profileLocations: string[]; ranked: boolean; role?: string; hasMore?: boolean; nextOffset?: number; feedFamily?: string; totalMatching?: number };
 
 const SCORE_FILTERS = [
   { key: "all", label: "All matches", min: 0 },
@@ -98,6 +119,7 @@ const AGE_FILTERS = [
 ] as const;
 
 type AgeFilterKey = (typeof AGE_FILTERS)[number]["key"];
+const DEFAULT_AGE_FILTER: AgeFilterKey = "7";
 
 const WORK_MODELS = [
   { key: "remote", label: "Remote" },
@@ -112,6 +134,78 @@ const SENIORITY_BUCKETS = [
   { key: "senior", label: "Senior", vals: ["senior"] },
   { key: "lead", label: "Lead+", vals: ["lead", "principal", "director", "executive"] },
 ] as const;
+
+// Country scope for the feed. Sent as ?country= to the backend, which filters on
+// the accurate non_us flag ("US") or the `country` column (ISO codes) — NOT a
+// literal location match. Ordered by corpus volume; "ALL"/"INTL" are meta-scopes.
+const COUNTRIES = [
+  { key: "US", label: "🇺🇸 United States" },
+  { key: "GB", label: "🇬🇧 United Kingdom" },
+  { key: "IN", label: "🇮🇳 India" },
+  { key: "CA", label: "🇨🇦 Canada" },
+  { key: "DE", label: "🇩🇪 Germany" },
+  { key: "FR", label: "🇫🇷 France" },
+  { key: "NL", label: "🇳🇱 Netherlands" },
+  { key: "IE", label: "🇮🇪 Ireland" },
+  { key: "ES", label: "🇪🇸 Spain" },
+  { key: "PL", label: "🇵🇱 Poland" },
+  { key: "AU", label: "🇦🇺 Australia" },
+  { key: "SG", label: "🇸🇬 Singapore" },
+  { key: "BR", label: "🇧🇷 Brazil" },
+  { key: "MX", label: "🇲🇽 Mexico" },
+  { key: "JP", label: "🇯🇵 Japan" },
+  { key: "PH", label: "🇵🇭 Philippines" },
+  { key: "IL", label: "🇮🇱 Israel" },
+  { key: "INTL", label: "🌍 All international" },
+  { key: "ALL", label: "🌐 Worldwide" },
+] as const;
+const COUNTRY_LABEL = (k: string) => COUNTRIES.find((c) => c.key === k)?.label ?? "🇺🇸 United States";
+const JOBS_COUNTRY_KEY = "rn_jobs_country_v1";
+const JOBS_RECENT_SEARCH_KEY = "rn_jobs_recent_searches_v1";
+
+// Suggestion-group icons — SVG (never emoji), one consistent 2px-stroke set, so the
+// dropdown reads role vs company vs recent at a glance (icon-style-consistent).
+const SUGGEST_ICON: Record<"role" | "company" | "recent", React.ReactNode> = {
+  role: (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>),
+  company: (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 22V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v18" /><path d="M15 9h4a1 1 0 0 1 1 1v12M8 7h.01M8 11h.01M8 15h.01M12 7h.01M12 11h.01" /></svg>),
+  recent: (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>),
+};
+
+// Strip the leading flag emoji from a COUNTRIES label → "United Kingdom".
+function cleanCountryLabel(scope?: string): string {
+  const c = COUNTRIES.find((x) => x.key === scope);
+  return c ? c.label.replace(/^[^A-Za-z]+/, "").trim() : "";
+}
+const titleCaseWords = (s: string) => s.replace(/\b\w/g, (m) => m.toUpperCase());
+
+/** Auto-generate a saved-filter name from the active filters, LEADING with the
+ *  title/search — e.g. "Business Analyst · Entry · Remote · United Kingdom · Past week".
+ *  The user can still edit it before saving. */
+function filterSnapshotToName(s: FilterSnapshot): string {
+  const parts: string[] = [];
+  const title = (s.search || "").trim();
+  if (title) parts.push(titleCaseWords(title));
+  const sen = (s.seniorities || [])
+    .map((k) => SENIORITY_BUCKETS.find((b) => b.key === k)?.label)
+    .filter(Boolean) as string[];
+  if (sen.length) parts.push(sen.join("/"));
+  const wm = (s.workModels || [])
+    .map((k) => WORK_MODELS.find((w) => w.key === k)?.label)
+    .filter(Boolean) as string[];
+  if (wm.length) parts.push(wm.join("/"));
+  const loc = (s.locationText || "").trim();
+  if (loc) parts.push(titleCaseWords(loc));
+  const cty = cleanCountryLabel(s.countryScope);
+  if (cty && s.countryScope !== "US") parts.push(cty); // US is the default scope → omit for brevity
+  if (s.ageFilter && s.ageFilter !== DEFAULT_AGE_FILTER) {
+    const age = AGE_FILTERS.find((a) => a.key === s.ageFilter)?.label;
+    if (age) parts.push(age);
+  }
+  const co = (s.companyFilter || "").trim();
+  if (co) parts.push(title ? `at ${co}` : co);
+  if (parts.length === 0) return cleanCountryLabel(s.countryScope) || "All jobs";
+  return parts.join(" · ").slice(0, 80);
+}
 
 const SORT_OPTIONS = [
   { key: "match", label: "Best match" },
@@ -142,6 +236,27 @@ function seniorityBucketKey(seniority: string | null): string | null {
   return null;
 }
 
+const SENIOR_TITLE_RE = /\b(senior|sr|lead|principal|staff|director|head|vp|chief|ii|iii|iv)\b/i;
+
+function jobMatchesSeniorityFilters(job: FeedJob, selected: Set<string>): boolean {
+  if (selected.size === 0) return true;
+
+  // Mirror the backend's NULL-inclusive Entry predicate. Otherwise the API can
+  // correctly return entry-eligible unlabeled / 0-2 year jobs that this client
+  // immediately hides again.
+  if (selected.size === 1 && selected.has("entry")) {
+    if (SENIOR_TITLE_RE.test(job.title || "")) return false;
+    const seniority = (job.seniority || "").toLowerCase();
+    return seniority === "intern"
+      || seniority === "entry"
+      || (typeof job.minYears === "number" && job.minYears <= 2)
+      || (!seniority && job.minYears == null);
+  }
+
+  const bucket = seniorityBucketKey(job.seniority);
+  return Boolean(bucket && selected.has(bucket));
+}
+
 /** Short match-strength tier shown under each card's score (jobright-style). */
 function matchTierLabel(score: number): string {
   if (score >= 85) return "Strong";
@@ -150,40 +265,15 @@ function matchTierLabel(score: number): string {
   return "Low";
 }
 
-/** US states + DC for the Location filter (jobs carry free-text location only). */
-const US_STATES: { code: string; name: string }[] = [
-  { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" }, { code: "AZ", name: "Arizona" },
-  { code: "AR", name: "Arkansas" }, { code: "CA", name: "California" }, { code: "CO", name: "Colorado" },
-  { code: "CT", name: "Connecticut" }, { code: "DE", name: "Delaware" }, { code: "DC", name: "District of Columbia" },
-  { code: "FL", name: "Florida" }, { code: "GA", name: "Georgia" }, { code: "HI", name: "Hawaii" },
-  { code: "ID", name: "Idaho" }, { code: "IL", name: "Illinois" }, { code: "IN", name: "Indiana" },
-  { code: "IA", name: "Iowa" }, { code: "KS", name: "Kansas" }, { code: "KY", name: "Kentucky" },
-  { code: "LA", name: "Louisiana" }, { code: "ME", name: "Maine" }, { code: "MD", name: "Maryland" },
-  { code: "MA", name: "Massachusetts" }, { code: "MI", name: "Michigan" }, { code: "MN", name: "Minnesota" },
-  { code: "MS", name: "Mississippi" }, { code: "MO", name: "Missouri" }, { code: "MT", name: "Montana" },
-  { code: "NE", name: "Nebraska" }, { code: "NV", name: "Nevada" }, { code: "NH", name: "New Hampshire" },
-  { code: "NJ", name: "New Jersey" }, { code: "NM", name: "New Mexico" }, { code: "NY", name: "New York" },
-  { code: "NC", name: "North Carolina" }, { code: "ND", name: "North Dakota" }, { code: "OH", name: "Ohio" },
-  { code: "OK", name: "Oklahoma" }, { code: "OR", name: "Oregon" }, { code: "PA", name: "Pennsylvania" },
-  { code: "RI", name: "Rhode Island" }, { code: "SC", name: "South Carolina" }, { code: "SD", name: "South Dakota" },
-  { code: "TN", name: "Tennessee" }, { code: "TX", name: "Texas" }, { code: "UT", name: "Utah" },
-  { code: "VT", name: "Vermont" }, { code: "VA", name: "Virginia" }, { code: "WA", name: "Washington" },
-  { code: "WV", name: "West Virginia" }, { code: "WI", name: "Wisconsin" }, { code: "WY", name: "Wyoming" },
-];
-const US_STATE_BY_CODE: Record<string, string> = Object.fromEntries(US_STATES.map((s) => [s.code, s.name]));
-
-/** A job's free-text location matches a state by full name or boundary-delimited abbr (", CA"). */
-function locationMatchesState(location: string, code: string): boolean {
-  const raw = location || "";
-  const name = US_STATE_BY_CODE[code];
-  if (!name) return false;
-  if (raw.toLowerCase().includes(name.toLowerCase())) return true;
-  // Abbreviations are uppercase by convention ("Austin, TX") — match case-sensitively
-  // so prose like "Remote in US" doesn't false-match IN / OR / etc.
-  return new RegExp(`(^|[\\s,(/])${code}([\\s,)/.]|$)`).test(raw);
-}
 
 /** Compact dropdown-trigger button style for the filter bar. */
+const FEED_FAMILY_LABELS: Record<string, string> = {
+  software: "Software Engineering", data: "Data & Analytics", product: "Product Management",
+  design: "Design", marketing: "Marketing", operations: "Operations", recruiting: "Recruiting",
+  finance: "Finance", legal: "Legal", healthcare: "Healthcare", sales: "Sales",
+  education: "Education", hospitality: "Hospitality", general: "General",
+};
+
 function filterButtonStyle(active: boolean): CSSProperties {
   return {
     display: "inline-flex", alignItems: "center", gap: 6,
@@ -197,7 +287,7 @@ function filterButtonStyle(active: boolean): CSSProperties {
 const COUNT_BADGE: CSSProperties = {
   display: "inline-flex", alignItems: "center", justifyContent: "center",
   minWidth: 16, height: 16, padding: "0 4px", borderRadius: 8,
-  fontSize: 10.5, fontWeight: 700, background: "var(--accent)", color: "#fff",
+  fontSize: 11, fontWeight: 700, background: "var(--accent)", color: "#fff",
 };
 
 /** Toggle a key in a Set-valued filter state. */
@@ -210,35 +300,76 @@ function toggleInSet(setter: React.Dispatch<React.SetStateAction<Set<string>>>, 
 }
 
 /** Dropdown filter trigger + popover (closes on outside-click / Escape). */
-function FilterMenu({ label, count = 0, active = false, align = "left", width = 220, children }: {
-  label: string; count?: number; active?: boolean; align?: "left" | "right"; width?: number; children: React.ReactNode;
+function FilterMenu({ label, count = 0, active = false, align = "left", width = 220, onClear, children }: {
+  label: string; count?: number; active?: boolean; align?: "left" | "right"; width?: number; onClear?: () => void; children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Viewport-clamped fixed position for the portaled menu. The old inline
+  // `position:absolute; width:<fixed px>` overflowed narrow phones (a 260px
+  // menu from a right-wrapped chip ran off-screen → horizontal jitter).
+  const [pos, setPos] = useState<{ left: number; top: number; width: number; maxH: number } | null>(null);
+  const isActive = active || count > 0;
+  useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const el = ref.current;
+      if (!el || typeof window === "undefined") return;
+      const r = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const w = Math.min(width, vw - 16);
+      let left = align === "right" ? r.right - w : r.left;
+      left = Math.max(8, Math.min(left, vw - w - 8));
+      setPos({ left, top: r.bottom + 6, width: w, maxH: Math.max(160, vh - r.bottom - 24) });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true); // capture: any scrolling ancestor
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [open, width, align]);
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
   }, [open]);
+  const menu = open && pos ? (
+    <div ref={menuRef} style={{
+      position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 1000,
+      maxHeight: pos.maxH, overflowY: "auto",
+      background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
+      boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: 6,
+    }}>
+      {children}
+    </div>
+  ) : null;
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button type="button" onClick={() => setOpen((o) => !o)} style={filterButtonStyle(active || count > 0 || open)}>
+      <button type="button" onClick={() => setOpen((o) => !o)} style={filterButtonStyle(isActive || open)}>
         {label}
         {count > 0 && <span style={COUNT_BADGE}>{count}</span>}
         <span style={{ fontSize: 9, opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
+        {isActive && onClear && (
+          <span
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            title="Clear filter"
+            style={{ fontSize: 14, lineHeight: 1, opacity: 0.65, marginLeft: 1, cursor: "pointer", padding: "0 1px" }}
+          >×</span>
+        )}
       </button>
-      {open && (
-        <div style={{
-          position: "absolute", top: "calc(100% + 6px)", [align]: 0, zIndex: 50, width,
-          background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
-          boxShadow: "0 12px 32px rgba(0,0,0,0.16)", padding: 6,
-        } as CSSProperties}>
-          {children}
-        </div>
-      )}
+      {menu && typeof document !== "undefined" ? createPortal(menu, document.body) : null}
     </div>
   );
 }
@@ -263,26 +394,30 @@ function MenuOption({ label, selected, multi = false, onClick }: { label: string
   );
 }
 
-/** Searchable multi-select list of US states for the Location filter. */
-function StatesPicker({ selected, onToggle, onClear }: { selected: Set<string>; onToggle: (code: string) => void; onClear: () => void }) {
-  const [q, setQ] = useState("");
-  const ql = q.trim().toLowerCase();
-  const list = ql ? US_STATES.filter((s) => s.name.toLowerCase().includes(ql) || s.code.toLowerCase().includes(ql)) : US_STATES;
+const LOCATION_SUGGESTIONS = ["Remote", "New York", "San Francisco", "Los Angeles", "Chicago", "Austin", "Boston", "Seattle", "London", "Toronto"];
+
+/** Free-text location search — any city, country, or "Remote". */
+function LocationPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div>
+    <div style={{ padding: "2px 0" }}>
       <input
-        autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search states…"
-        style={{ width: "100%", fontSize: 13, padding: "7px 9px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--bg)", color: "var(--text)", marginBottom: 6, boxSizing: "border-box" }}
+        autoFocus value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder="City, state, country, or Remote…"
+        style={{ width: "100%", fontSize: 13, padding: "7px 9px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--bg)", color: "var(--text)", marginBottom: 8, boxSizing: "border-box" }}
       />
-      <div style={{ maxHeight: 220, overflowY: "auto" }}>
-        {list.map((s) => (
-          <MenuOption key={s.code} label={s.name} multi selected={selected.has(s.code)} onClick={() => onToggle(s.code)} />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+        {LOCATION_SUGGESTIONS.map((s) => (
+          <button key={s} type="button" onClick={() => onChange(s)} style={{
+            fontSize: 12, padding: "4px 9px", borderRadius: 20, cursor: "pointer", fontFamily: "inherit",
+            border: `1px solid ${value === s ? "var(--accent)" : "var(--surface2)"}`,
+            background: value === s ? "var(--accent-bg)" : "transparent",
+            color: value === s ? "var(--accent)" : "var(--muted)",
+          }}>{s}</button>
         ))}
-        {list.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 9px" }}>No match</div>}
       </div>
-      {selected.size > 0 && (
-        <button type="button" onClick={onClear} style={{ width: "100%", marginTop: 6, fontSize: 12, padding: "6px 0", borderRadius: 8, border: "1px solid var(--surface2)", background: "transparent", color: "var(--muted)", cursor: "pointer" }}>
-          Clear {selected.size} selected
+      {value && (
+        <button type="button" onClick={() => onChange("")} style={{ width: "100%", marginTop: 8, fontSize: 12, padding: "6px 0", borderRadius: 8, border: "1px solid var(--surface2)", background: "transparent", color: "var(--muted)", cursor: "pointer" }}>
+          Clear
         </button>
       )}
     </div>
@@ -290,7 +425,8 @@ function StatesPicker({ selected, onToggle, onClear }: { selected: Set<string>; 
 }
 
 /** How many job cards to render per lazy-load page. */
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 20; // jobs shown per page (grows by this on "Load more")
+const FALLBACK_LIMIT = 12; // "outside your filters" section cap
 
 /** localStorage key for a no-résumé visitor's chosen target role — drives the
  *  role-scoped browse feed until they scan a résumé. */
@@ -300,22 +436,64 @@ const JOBS_ROLE_KEY = "rn_jobs_role_v1";
  *  title/location alias terms + work model) collected by the onboarding wizard. */
 const JOBS_BROWSE_KEY = "rn_jobs_browse_v1";
 
-/** Feed cache key — identical in loadFeed and prefetchJobsFeed so a warmed
- *  prefetch entry is actually reused by the on-mount fetch. */
-function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null): string {
-  const f = sel
-    ? `${(sel.titleTerms || []).join(",")}~${(sel.locationTerms || []).join(",")}~${sel.location || ""}~${sel.workModel || ""}`
-    : "";
-  return `${days}|${roleQuery}|${f}`;
+/** localStorage key for the chosen past scan to rank the feed against
+ *  ("Update résumé" → recent-scans picker). Empty/absent → rank against latest. */
+const JOBS_RANK_ANALYSIS_KEY = "rn_jobs_rank_analysis_v1";
+
+/** Compact relative time for the recent-scans picker rows. */
+function scanTimeAgo(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!t) return "";
+  const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (s < 3600) return `${Math.max(1, Math.floor(s / 60))} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} hr ago`;
+  if (s < 7 * 86400) return `${Math.floor(s / 86400)} d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** Append the wizard's title/location/work-model filters to a feed request. */
-function appendBrowseParams(params: URLSearchParams, sel: JobsBrowseSelection | null): void {
+/** Score badge tint for a scan row (green strong / amber mid / neutral low). */
+function scanScoreStyle(score: number | null | undefined): { bg: string; color: string } {
+  if (score != null && score >= 70) return { bg: "color-mix(in srgb, var(--green-ink, #16a34a) 14%, transparent)", color: "var(--green-ink, #16a34a)" };
+  if (score != null && score >= 50) return { bg: "color-mix(in srgb, #c4793a 14%, transparent)", color: "#9a5a23" };
+  return { bg: "var(--surface2)", color: "var(--muted)" };
+}
+
+/** Feed cache key — identical in loadFeed and prefetchJobsFeed so a warmed
+ *  prefetch entry is actually reused by the on-mount fetch. `rankAnalysisId`
+ *  keeps a feed ranked against a specific past scan cached separately from the
+ *  latest-scan feed (and correct on remount). */
+function browseFeedCacheKey(days: number, roleQuery: string, sel: JobsBrowseSelection | null, rankAnalysisId = "", searchTerm = "", filterSig = ""): string {
+  const f = sel
+    ? `${(sel.titleTerms || []).join(",")}~${(sel.locationTerms || []).join(",")}~${sel.location || ""}~${sel.workModel || ""}~${sel.seniority || ""}`
+    : "";
+  return `${days}|${roleQuery}|${f}|a:${rankAnalysisId}|q:${searchTerm}|f:${filterSig}`;
+}
+
+/** Append the wizard's title/location/work-model filters to a feed request.
+ *
+ * `hardScope` (default true) is for the NO-résumé browse path, where the
+ * wizard's title aliases + work-model are how the feed is scoped. On the
+ * RÉSUMÉ-RANKED feed it must be false: the role drives role_family scoping and
+ * the résumé ranks the whole family — applying the narrow title-alias list
+ * (e.g. "software engineer|software developer|swe") + a hidden work-model as
+ * HARD filters silently collapses the feed (e.g. 12k software jobs → ~280),
+ * dropping "Backend Engineer"/"Full Stack Engineer"/hybrid+onsite roles the
+ * user would want. Visible UI filters still apply via serverFilterEntries. */
+function appendBrowseParams(
+  params: URLSearchParams,
+  sel: JobsBrowseSelection | null,
+  hardScope = true,
+): void {
   if (!sel) return;
-  if (sel.titleTerms?.length) params.set("title_any", sel.titleTerms.join("|"));
+  if (hardScope && sel.titleTerms?.length) params.set("title_any", sel.titleTerms.join("|"));
   if (sel.locationTerms?.length) params.set("location_any", sel.locationTerms.join("|"));
-  else if (sel.location?.trim() && !sel.workModel) params.set("location", sel.location.trim());
-  if (sel.workModel) params.set("work_model", sel.workModel);
+  else if (sel.location?.trim() && sel.location.trim() !== NATIONWIDE_LOCATION && !sel.workModel) params.set("location", sel.location.trim());
+  if (hardScope && sel.workModel) params.set("work_model", sel.workModel);
+  // Experience level carries on BOTH paths (it's a user choice, not a scope-
+  // collapsing alias). On the ranked feed, serverFilterEntries re-sets this same
+  // key from the live filter chip after this call, so they never conflict.
+  const senVals = sel.seniority ? SENIORITY_BUCKET_VALS[sel.seniority] : undefined;
+  if (senVals?.length) params.set("seniority_any", senVals.join("|"));
 }
 
 /** Module-level feed cache so switching away from and back to the Jobs tab
@@ -325,12 +503,16 @@ function appendBrowseParams(params: URLSearchParams, sel: JobsBrowseSelection | 
 type FeedReady = Extract<FeedState, { status: "ready" }>;
 const FEED_TTL_MS = 5 * 60 * 1000;
 let feedCache: { key: string; at: number; data: FeedReady } | null = null;
+// Current page index, persisted at module scope so selecting a job (which remounts
+// JobsFeed as JobsView swaps to the split layout) restores the page instead of
+// snapping back to page 1. Reset to 0 on a genuine filter/search change.
+let feedPage = 0;
 
 /**
  * Warm the module-level feed cache so opening the Jobs tab is instant. Called
  * (best-effort) from the app shell once a signed-in session resolves — "start
  * the call when the user lands". Mirrors loadFeed's DEFAULT request: the
- * 30-day window + any role the no-résumé visitor previously picked. Anything
+ * default date window + any role the no-résumé visitor previously picked. Anything
  * that doesn't map cleanly (no session, needsRole, error) is a silent no-op —
  * JobsFeed then just fetches on mount as before. The dynamic import that calls
  * this also warms the Jobs view's JS chunk, so both data and code are ready.
@@ -338,7 +520,7 @@ let feedCache: { key: string; at: number; data: FeedReady } | null = null;
 export async function prefetchJobsFeed(): Promise<void> {
   if (typeof window === "undefined") return;
   try {
-    const days = AGE_FILTERS.find((f) => f.key === "30")?.days ?? 0;
+    const days = AGE_FILTERS.find((f) => f.key === DEFAULT_AGE_FILTER)?.days ?? 0;
     let roleQuery = "";
     let browseSel: JobsBrowseSelection | null = null;
     try { roleQuery = localStorage.getItem(JOBS_ROLE_KEY) || ""; } catch { /* ignore */ }
@@ -347,16 +529,12 @@ export async function prefetchJobsFeed(): Promise<void> {
     // Already warm → nothing to do.
     if (feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) return;
 
-    const { data: { session } } = await getSupabaseClient().auth.getSession();
-    if (!session?.access_token) return; // feed requires sign-in
     const params = new URLSearchParams();
     if (days) params.set("max_age_days", String(days));
     if (roleQuery) params.set("role", roleQuery);
     appendBrowseParams(params, browseSel);
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    const resp = await apiFetch(`/api/jobs/feed${qs}`);
     if (!resp.ok) return;
     const data = await resp.json();
     if (data?.needsRole) return; // no rows to cache; the tab renders the role prompt
@@ -367,10 +545,13 @@ export async function prefetchJobsFeed(): Promise<void> {
         status: "ready",
         jobs: Array.isArray(data?.jobs) ? data.jobs : [],
         generatedAt: data?.generatedAt || "",
-        profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
         profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
         ranked: data?.ranked !== false,
         role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+        hasMore: data?.hasMore === true,
+        nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+        feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
+        totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : undefined,
       },
     };
   } catch {
@@ -378,10 +559,84 @@ export async function prefetchJobsFeed(): Promise<void> {
   }
 }
 
-function scoreColors(score: number): { fg: string; bg: string } {
-  if (score >= 70) return { fg: "var(--green-ink)", bg: "color-mix(in srgb, var(--green-ink) 12%, transparent)" };
-  if (score >= 50) return { fg: "var(--amber-ink)", bg: "color-mix(in srgb, var(--amber-ink) 12%, transparent)" };
-  return { fg: "var(--muted)", bg: "var(--surface2)" };
+/** Warm the feed cache for a SPECIFIC browse selection (role + title/location
+ *  terms), used by the onboarding wizard to prefetch matches while the user is
+ *  still picking role/location — so the feed is instant the moment they upload a
+ *  résumé. Same cache + key as loadFeed, so the warmed entry is reused. Writes an
+ *  unranked (or prior-résumé-ranked) entry; the post-upload ranked refetch
+ *  overwrites it in place. Best-effort: any miss just falls back to a fetch. */
+async function warmFeed(sel: JobsBrowseSelection, days: number): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const roleQuery = sel.role.trim();
+    const cacheKey = browseFeedCacheKey(days, roleQuery, sel);
+    if (feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) return;
+    const params = new URLSearchParams();
+    if (days) params.set("max_age_days", String(days));
+    if (roleQuery) params.set("role", roleQuery);
+    appendBrowseParams(params, sel);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const resp = await apiFetch(`/api/jobs/feed${qs}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data?.needsRole) return;
+    feedCache = {
+      key: cacheKey,
+      at: Date.now(),
+      data: {
+        status: "ready",
+        jobs: Array.isArray(data?.jobs) ? data.jobs : [],
+        generatedAt: data?.generatedAt || "",
+        profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
+        ranked: data?.ranked !== false,
+        role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+        hasMore: data?.hasMore === true,
+        nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+        feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
+        totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : undefined,
+      },
+    };
+  } catch { /* best-effort */ }
+}
+
+/** Upload a résumé for analysis. Persists the analysis server-side (keyed by the
+ *  signed-in user), which is what unlocks ranked feeds. Resolves on success;
+ *  throws an Error with a user-facing message on 429 / parse failure. Moved out
+ *  of the wizard so the parent feed can run it in the background while showing
+ *  jobs. */
+async function analyzeResumeUpload(file: File): Promise<{ seniorityGuess?: string }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  // Two-phase opt-in (resunova-api): the backend persists the rankable profile
+  // (extractedText + structuredResume) and returns in ~1–2s with
+  // `analysisPending: true`, then finishes the comprehensive analysis in the
+  // background. That's all the ranked feed refetch below needs — so the
+  // ranked upgrade lands in ~1–2s instead of ~15s. The Analyze view does NOT
+  // set this (it renders the full result synchronously).
+  fd.append("defer_analysis", "1");
+  const { data: { session } } = await getSupabaseClient().auth.getSession();
+  if (session?.user?.id) {
+    fd.set("user_id", session.user.id);
+    if (session.user.email) fd.set("user_email", session.user.email);
+  }
+  const resp = await apiFetch("/api/analyze-upload", { method: "POST", body: fd });
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    if (resp.status === 429) throw new Error("Daily scan limit reached. Try tomorrow, or browse without ranking below.");
+    throw new Error(json?.error || json?.message || "Couldn't read that file. Use a text-based PDF résumé.");
+  }
+  // Optional: the backend may return an inferred experience-level bucket
+  // (entry|mid|senior|lead) from the résumé's tenure, used to auto-default the
+  // feed's seniority filter when the user didn't pick a level. Absent → no-op.
+  const guess = typeof json?.seniorityGuess === "string" ? json.seniorityGuess : undefined;
+  return { seniorityGuess: guess };
+}
+
+/** Read the most-recently cached feed jobs (the exact list the rail is showing),
+ *  so side panels like "More matches" can reuse it without a second fetch.
+ *  Returns null until the feed has loaded once. */
+export function getCachedFeedJobs(): FeedJob[] | null {
+  return feedCache?.data.jobs ?? null;
 }
 
 function formatSalary(job: FeedJob): string | null {
@@ -438,16 +693,29 @@ export default function JobsFeed({
   variant?: "full" | "list";
 } = {}) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Shareable-link hydration: read a filter from the URL on mount. URL wins over
+  // localStorage / defaults so a shared link reproduces the sender's board. Empty →
+  // null so the caller falls through to its existing localStorage/default logic.
+  const urlInit = (k: string): string | null => {
+    const v = searchParams?.get(k);
+    return v && v.length ? v : null;
+  };
   const { openSignIn } = useSignInDialog();
   const isMobile = useIsMobile();
   const listMode = variant === "list";
-  const [state, setState] = useState<FeedState>({ status: "loading" });
+  // Seed from the module-level cache so returning to Jobs (app-tab switch /
+  // remount) shows the last feed INSTANTLY instead of a skeleton; loadFeed
+  // revalidates below. (Cross-key edge self-corrects on the first loadFeed.)
+  const [state, setState] = useState<FeedState>(() => feedCache?.data ?? { status: "loading" });
   // Coarse public count for the signed-out hero's proof chip (no auth). Best
   // effort — stays null on failure so the chip simply doesn't render.
   const [publicCount, setPublicCount] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
-    fetch(apiUrl("/api/jobs/public-count?max_age_days=30"))
+    const days = AGE_FILTERS.find((f) => f.key === DEFAULT_AGE_FILTER)?.days ?? 0;
+    const qs = days ? `?max_age_days=${days}` : "";
+    apiFetch(`/api/jobs/public-count${qs}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (!cancelled && d && typeof d.count === "number") setPublicCount(d.count); })
       .catch(() => {});
@@ -456,6 +724,7 @@ export default function JobsFeed({
   // A no-résumé visitor's chosen target role (free text or a suggested chip).
   // Restored from localStorage so it sticks across reloads until they scan.
   const [roleQuery, setRoleQuery] = useState<string>(() => {
+    const u = urlInit("role"); if (u) return u;
     if (typeof window === "undefined") return "";
     try { return localStorage.getItem(JOBS_ROLE_KEY) || ""; } catch { return ""; }
   });
@@ -463,24 +732,266 @@ export default function JobsFeed({
     if (typeof window === "undefined") return null;
     try { const raw = localStorage.getItem(JOBS_BROWSE_KEY); return raw ? (JSON.parse(raw) as JobsBrowseSelection) : null; } catch { return null; }
   });
-  const [search, setSearch] = useState("");
-  const [locationStates, setLocationStates] = useState<Set<string>>(new Set());
-  const [workModels, setWorkModels] = useState<Set<string>>(new Set());
-  const [seniorities, setSeniorities] = useState<Set<string>>(new Set());
-  const [empType, setEmpType] = useState<string>("");
-  const [industry, setIndustry] = useState<string>("");
-  const [yearsBucket, setYearsBucket] = useState<string>("any");
-  const [sortBy, setSortBy] = useState<SortKey>("match");
+  const [search, setSearch] = useState(() => urlInit("q") ?? "");
+  // Debounced search → server query. The search box now hits the DB (title across
+  // the WHOLE corpus, ranked), not just a client-side filter on the loaded page —
+  // so searching a role outside your saved family (e.g. "business analyst") works.
+  // Debounced so we don't refetch on every keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState(() => urlInit("q") ?? "");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+  // "Update résumé" popup on the ranked feed — re-scan a newer résumé and re-rank
+  // in place. A non-trapping replacement for the reverted "change role": upload or
+  // cancel, nothing else changes.
+  const [updateResumeOpen, setUpdateResumeOpen] = useState(false);
+  // Chosen past scan to rank against (empty = latest). Persisted so it sticks
+  // across remounts until the user picks another or scans a new résumé.
+  const [rankAnalysisId, setRankAnalysisId] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    try { return localStorage.getItem(JOBS_RANK_ANALYSIS_KEY) || ""; } catch { return ""; }
+  });
+  // Recent scans for the "Update résumé" picker — fetched lazily when it opens.
+  const [recentScans, setRecentScans] = useState<AnalyzeRecord[] | null>(null);
+  useEffect(() => {
+    if (!updateResumeOpen) return;
+    let cancelled = false;
+    fetchAnalyses(5)
+      .then((r) => { if (!cancelled) setRecentScans(r); })
+      .catch(() => { if (!cancelled) setRecentScans([]); });
+    return () => { cancelled = true; };
+  }, [updateResumeOpen]);
+  // Country scope. Defaults to "us" so the feed isn't flooded with international
+  const [locationText, setLocationText] = useState<string>(() => urlInit("location") ?? "");
+  const [debouncedLocation, setDebouncedLocation] = useState(() => urlInit("location") ?? "");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedLocation(locationText.trim()), 400);
+    return () => clearTimeout(t);
+  }, [locationText]);
+  const [workModels, setWorkModels] = useState<Set<string>>(() => {
+    const u = urlInit("work_model"); return u ? new Set(u.split("|")) : new Set();
+  });
+  // Seed from the onboarding wizard's experience-level pick (persisted in the
+  // browse selection) so an "Entry" choice carries into the feed instead of
+  // defaulting to the corpus, which is ~68% mid/senior.
+  const [seniorities, setSeniorities] = useState<Set<string>>(() => {
+    const u = urlInit("experience"); if (u) return new Set(u.split("|"));
+    try {
+      const raw = localStorage.getItem(JOBS_BROWSE_KEY);
+      const sel = raw ? (JSON.parse(raw) as JobsBrowseSelection) : null;
+      return sel?.seniority ? new Set([sel.seniority]) : new Set();
+    } catch { return new Set(); }
+  });
+  // Country scope (default US). Persisted so it survives reloads. Replaces the old
+  // literal-location US match with the backend's accurate non_us/country filter.
+  const [countryScope, setCountryScope] = useState<string>(() => {
+    const u = urlInit("country"); if (u) return u;
+    try { return localStorage.getItem(JOBS_COUNTRY_KEY) || "US"; } catch { return "US"; }
+  });
+  useEffect(() => { try { localStorage.setItem(JOBS_COUNTRY_KEY, countryScope); } catch { /* ignore */ } }, [countryScope]);
+  const [empType, setEmpType] = useState<string>(() => urlInit("employment_type") ?? "");
+  const [industry, setIndustry] = useState<string>(() => urlInit("industry") ?? "");
+  const [yearsBucket, setYearsBucket] = useState<string>(() => urlInit("years") ?? "any");
+  // 3-state eligibility filters: "any" | "required" | "exclude".
+  const [clearance, setClearance] = useState<string>(() => urlInit("clearance") ?? "any");
+  const [citizenship, setCitizenship] = useState<string>(() => urlInit("citizenship") ?? "any");
+  // Role-family override for the ranked feed's role chip. null = use the résumé's
+  // inferred family (default); "" = broaden to ALL roles; "data"/etc = scope to a
+  // chosen family. Sent as ?feed_family= on page 0 (backend honors it there).
+  const [familyOverride, setFamilyOverride] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortKey>(() => (urlInit("sort") as SortKey) ?? "match");
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
-  const [rolesOnly, setRolesOnly] = useState(false);
-  const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>("all");
-  const [ageFilter, setAgeFilter] = useState<AgeFilterKey>("30");
+  const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>(() => (urlInit("score") as ScoreFilterKey) ?? "all");
+  const [ageFilter, setAgeFilter] = useState<AgeFilterKey>(() => (urlInit("date") as AgeFilterKey) ?? DEFAULT_AGE_FILTER);
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
-  const [nudgeDismissed, setNudgeDismissed] = useState(false);
-  const [nudgeRoles, setNudgeRoles] = useState<string[]>([]);
-  const [nudgeSaving, setNudgeSaving] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [appliedRefreshKey, setAppliedRefreshKey] = useState(0);
+  // Featured-rail company scope (case-insensitive company name). Empty = no scope;
+  // set → the feed shows only that company's roles (ranked if a résumé exists).
+  const [companyFilter, setCompanyFilter] = useState<string>(() => urlInit("company") ?? "");
+  // Structured facet + location filters → server query params. `filterSig` keys
+  // the cache + re-fetch; score stays client-side (computed field, no DB column).
+  const { serverFilterEntries, filterSig } = useMemo(() => {
+    const entries: [string, string][] = [];
+    // Country scope → the backend's non_us/country filter (not a literal location).
+    entries.push(["country", countryScope]);
+    if (debouncedLocation) entries.push(["location", debouncedLocation]);
+    if (workModels.size) entries.push(["work_model_any", [...workModels].join("|")]);
+    // A single experience bucket uses the backend's NULL-inclusive `experience`
+    // predicate so unlabeled entry jobs aren't hidden; multi-select falls back to
+    // the legacy strict seniority_any.
+    if (seniorities.size === 1) {
+      const k = [...seniorities][0];
+      entries.push(["experience", k]);
+      // Also send legacy seniority_any so a not-yet-deployed backend still filters
+      // (the new backend prefers `experience` and ignores this).
+      const vals = SENIORITY_BUCKETS.find((b) => b.key === k)?.vals as readonly string[] | undefined;
+      if (vals?.length) entries.push(["seniority_any", vals.join("|")]);
+    } else if (seniorities.size > 1) {
+      const senVals = [...seniorities].flatMap(
+        (k) => (SENIORITY_BUCKETS.find((b) => b.key === k)?.vals as readonly string[] | undefined) ?? [],
+      );
+      if (senVals.length) entries.push(["seniority_any", senVals.join("|")]);
+    }
+    if (empType) entries.push(["employment_type", empType]);
+    if (industry) entries.push(["industry", industry]);
+    if (yearsBucket !== "any") {
+      const yb = YEARS_OPTIONS.find((y) => y.key === yearsBucket);
+      if (yb) {
+        entries.push(["min_years", String(yb.min)]);
+        if (yb.max < 99) entries.push(["max_years", String(yb.max)]);
+      }
+    }
+    if (clearance !== "any") entries.push(["clearance", clearance]);
+    if (citizenship !== "any") entries.push(["citizenship", citizenship]);
+    // Featured-rail company scope. Sent as a server param like any other facet, so
+    // it flows into the cache key (filterSig), the refetch, and pagination at once.
+    // The backend treats it specially — overrides role-family scoping.
+    if (companyFilter) entries.push(["company", companyFilter]);
+    return { serverFilterEntries: entries, filterSig: entries.map(([k, v]) => `${k}=${v}`).join("&") };
+  }, [countryScope, debouncedLocation, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, companyFilter]);
+  // Sync active filters INTO the URL so the board is shareable — a copied link
+  // reproduces the exact filters for whoever opens it. Debounced; skips the first
+  // mount (that would rewrite the URL we just hydrated from); reads the LIVE
+  // window.location (not the reactive searchParams) so writing doesn't feed back
+  // and loop. Preserves ?view and ?job; `replace` so filter tweaks don't spam history.
+  const urlWriteRef = useRef(false);
+  useEffect(() => {
+    if (!urlWriteRef.current) { urlWriteRef.current = true; return; }
+    const t = setTimeout(() => {
+      if (typeof window === "undefined") return;
+      const p = new URLSearchParams(window.location.search);
+      const put = (k: string, v: string, keep: boolean) => { if (keep && v) p.set(k, v); else p.delete(k); };
+      p.set("country", countryScope); // primary scope — always explicit in the link
+      put("q", debouncedSearch, !!debouncedSearch);
+      put("location", debouncedLocation, !!debouncedLocation);
+      put("work_model", [...workModels].join("|"), workModels.size > 0);
+      put("experience", [...seniorities].join("|"), seniorities.size > 0);
+      put("employment_type", empType, !!empType);
+      put("industry", industry, !!industry);
+      put("years", yearsBucket, yearsBucket !== "any");
+      put("clearance", clearance, clearance !== "any");
+      put("citizenship", citizenship, citizenship !== "any");
+      put("date", ageFilter, ageFilter !== DEFAULT_AGE_FILTER);
+      put("sort", sortBy, sortBy !== "match");
+      put("score", scoreFilter, scoreFilter !== "all");
+      put("role", roleQuery, !!roleQuery);
+      put("company", companyFilter, !!companyFilter);
+      router.replace(`/?${p.toString()}`, { scroll: false });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [countryScope, debouncedSearch, debouncedLocation, workModels, seniorities, empType, industry,
+      yearsBucket, clearance, citizenship, ageFilter, sortBy, scoreFilter, roleQuery, companyFilter, router]);
+  // Open a job WITHOUT dropping the filter params — preserve the current URL query
+  // (which carries the filters) and just set view/job, so the link stays shareable
+  // and the board keeps its filters when you click a card.
+  const openJobUrl = useCallback((id: string) => {
+    const p = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    p.set("view", "jobs");
+    p.set("job", id);
+    router.push(`/?${p.toString()}`);
+  }, [router]);
+  const [currentPage, setCurrentPage] = useState(feedPage);
+  useEffect(() => { feedPage = currentPage; }, [currentPage]);
+
+  // ── Unified search suggestions: one box surfaces roles/titles + companies +
+  // recent searches. A ROLE pick sets the title search; a COMPANY pick sets the
+  // company AND-filter (composable, not a title match). LinkedIn/Indeed style.
+  const [searchCompanyOpts, setSearchCompanyOpts] = useState<CompanyOption[]>([]);
+  const [searchTitleOpts, setSearchTitleOpts] = useState<TitleOption[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem(JOBS_RECENT_SEARCH_KEY) || "[]"); } catch { return []; }
+  });
+  const pushRecent = useCallback((q: string) => {
+    const v = q.trim(); if (!v) return;
+    setRecentSearches((prev) => {
+      const next = [v, ...prev.filter((s) => s.toLowerCase() !== v.toLowerCase())].slice(0, 8);
+      try { localStorage.setItem(JOBS_RECENT_SEARCH_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+  // Debounced company + live-title typeahead as the user types (>=2 chars).
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) { setSearchCompanyOpts([]); setSearchTitleOpts([]); return; }
+    let ignore = false;
+    const t = setTimeout(() => {
+      fetchCompanyOptions(q).then((o) => { if (!ignore) setSearchCompanyOpts(o); });
+      fetchTitleOptions(q).then((o) => { if (!ignore) setSearchTitleOpts(o); });
+    }, 300);
+    return () => { ignore = true; clearTimeout(t); };
+  }, [search]);
+  // Remember a committed free-text search (typed + settled via the 400ms debounce).
+  useEffect(() => { if (debouncedSearch.trim()) pushRecent(debouncedSearch); }, [debouncedSearch, pushRecent]);
+  const searchItems = useMemo<SelectItem[]>(() => {
+    const q = search.trim();
+    const items: SelectItem[] = [];
+    const seen = new Set<string>();
+    if (!q) {
+      for (const s of recentSearches.slice(0, 4)) items.push({ key: `recent:${s}`, label: s, sub: "Recent search", icon: SUGGEST_ICON.recent });
+    }
+    const roles = (n: number) => `${n.toLocaleString()} open ${n === 1 ? "role" : "roles"}`;
+    const companyItem = (c: CompanyOption): SelectItem => (
+      { key: `company:${c.company}`, label: c.company, sub: `Company · ${roles(c.activeCount)}`, icon: SUGGEST_ICON.company }
+    );
+    // A query that IS (most of) the company's name means the user is searching
+    // for the COMPANY — its row must beat the long tail of titles that merely
+    // contain the word. Field case: "Nvidia" showed four 1-opening contractor
+    // titles ("AI Safety Engineer supporting Nvidia") above NVIDIA's 256-role
+    // company row, which sat below the fold.
+    const ql = q.toLowerCase();
+    const isStrongCompanyMatch = (c: CompanyOption) =>
+      !!ql
+      && c.company.toLowerCase().startsWith(ql)
+      && ql.length >= Math.max(3, Math.floor(c.company.length * 0.6));
+    const companyOpts = searchCompanyOpts.slice(0, 3);
+    const promotedCompanies = companyOpts.filter(isStrongCompanyMatch);
+    const tailCompanies = companyOpts.filter((c) => !promotedCompanies.includes(c));
+    // Canonical roles first (map to good title-search terms)…
+    for (const r of matchRoleSuggestions(q, 3)) {
+      seen.add(r.label.toLowerCase());
+      items.push({ key: `role:${r.label}`, label: r.label, sub: r.titleTerms.slice(0, 3).join(" · ") || "Role", icon: SUGGEST_ICON.role });
+    }
+    // …then companies the query names outright…
+    for (const c of promotedCompanies) items.push(companyItem(c));
+    // …then LIVE corpus titles (deduped against the canonical roles)…
+    for (const t of searchTitleOpts.slice(0, 4)) {
+      if (seen.has(t.title.toLowerCase())) continue;
+      seen.add(t.title.toLowerCase());
+      items.push({ key: `title:${t.title}`, label: t.title, sub: `Title · ${roles(t.activeCount)}`, icon: SUGGEST_ICON.role });
+    }
+    // …then weaker company matches (route to the AND company filter on select).
+    for (const c of tailCompanies) items.push(companyItem(c));
+    return items.slice(0, 12);
+  }, [search, recentSearches, searchTitleOpts, searchCompanyOpts]);
+  const onSearchSelect = useCallback((item: SelectItem) => {
+    const kind = item.key.slice(0, item.key.indexOf(":"));
+    if (kind === "company") {
+      setSearch(""); setDebouncedSearch("");        // clear free-text
+      setCompanyFilter(item.label); setCurrentPage(0); // route to the AND company filter
+    } else {                                          // role | recent → title search
+      setSearch(item.label); setDebouncedSearch(item.label); pushRecent(item.label);
+    }
+  }, [pushRecent]);
+
+  const [loadingMore, setLoadingMore] = useState(false);
+  // True while a feed fetch is in flight over an already-visible feed (search /
+  // filter refine / background revalidate) — drives the small spinner in the
+  // search box so a search never looks like "nothing happened" (we deliberately
+  // don't blink to a skeleton when refining; see loadFeed).
+  const [revalidating, setRevalidating] = useState(false);
+
+  // ── Background résumé scan (progressive ranking) ──
+  // `scanning` drives the slim "ranking…" strip over an already-visible feed;
+  // `scanError` drives a non-blocking banner + retry. Both are orthogonal to the
+  // FeedState union so the existing feed states are untouched.
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const uploadInFlightRef = useRef<Promise<void> | null>(null);
+  const lastUploadFileRef = useRef<File | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   // Boost slide-over: feed cards only carry summary fields, so fetch the full
   // job detail on demand before mounting the shared BoostPanel in place.
@@ -489,6 +1000,11 @@ export default function JobsFeed({
   const [boostError, setBoostError] = useState<string | null>(null);
 
   const openBoost = useCallback(async (id: string) => {
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
+    if (!session) {
+      openSignIn({ title: "Sign in to optimize your résumé", reason: "Create a free account to tailor your résumé to this job and save the result." });
+      return;
+    }
     setBoostLoadingId(id);
     setBoostError(null);
     try {
@@ -499,7 +1015,7 @@ export default function JobsFeed({
     } finally {
       setBoostLoadingId(null);
     }
-  }, []);
+  }, [openSignIn]);
 
   // Interview Prep: which jobs the user already has a prep kit for ("Prep ready"),
   // and launching prep prefilled from a job (fetch detail → seed store → navigate).
@@ -507,6 +1023,11 @@ export default function JobsFeed({
   const [prepLoadingId, setPrepLoadingId] = useState<string | null>(null);
 
   const openPrep = useCallback(async (id: string) => {
+    const { data: { session } } = await getSupabaseClient().auth.getSession();
+    if (!session) {
+      openSignIn({ title: "Sign in for interview prep", reason: "Create a free account to save a role-specific interview kit." });
+      return;
+    }
     setPrepLoadingId(id);
     setBoostError(null);
     try {
@@ -517,7 +1038,7 @@ export default function JobsFeed({
       setBoostError(err instanceof Error ? err.message : "Couldn't load this job to prep");
       setPrepLoadingId(null);
     }
-  }, [router]);
+  }, [router, openSignIn]);
 
   // Load "Prep ready" status for the jobs in the current feed (signed-in only).
   useEffect(() => {
@@ -528,10 +1049,6 @@ export default function JobsFeed({
     return () => { cancelled = true; };
   }, [state]);
 
-  const toggleNudgeRole = useCallback((r: string) => {
-    setNudgeRoles((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
-  }, []);
-
   // No-résumé visitor picks/changes their target role. Persist it and let the
   // loadFeed effect (keyed on roleQuery) refetch the role-scoped browse feed.
   const submitBrowse = useCallback((sel: JobsBrowseSelection) => {
@@ -541,7 +1058,9 @@ export default function JobsFeed({
     } catch { /* quota */ }
     feedCache = null;
     setBrowseSel(sel);
-    setState({ status: "loading" });
+    setSeniorities(sel.seniority ? new Set([sel.seniority]) : new Set());
+    // Keep the wizard mounted while the feed loads — loadFeed swaps to "ready"
+    // when results land instead of flashing a skeleton here.
     setRoleQuery(sel.role.trim());
   }, []);
 
@@ -549,54 +1068,111 @@ export default function JobsFeed({
     try { localStorage.removeItem(JOBS_ROLE_KEY); localStorage.removeItem(JOBS_BROWSE_KEY); } catch { /* ignore */ }
     feedCache = null;
     setBrowseSel(null);
-    setState({ status: "loading" });
+    setFamilyOverride(null);
     setRoleQuery("");
+    setState({ status: "needs-role" });
   }, []);
 
-  const loadFeed = useCallback(async (force = false) => {
+  // Featured-rail tile click: toggle the company scope. Clicking the active tile
+  // (or the rail's Clear control) passes the selected company again → clears it.
+  // companyFilter is part of serverFilterEntries/filterSig, so the loadFeed effect
+  // refetches the company-scoped feed (ranked if a résumé exists, else browsed).
+  const handleCompanySelect = useCallback((company: string) => {
+    setCompanyFilter((prev) => (prev.trim().toLowerCase() === company.trim().toLowerCase() ? "" : company));
+    setCurrentPage(0);
+  }, []);
+
+  // Picking a specific company shows its FULL open board: a company's older-but-
+  // still-open roles shouldn't read as "0" just because none landed in the default
+  // "Past week" window (SpaceX has 5 active Business Analyst roles, all >1wk old).
+  // So an explicit company pick widens the date to "Any age" (visible in the Date
+  // dropdown); clearing it restores the default. Only overrides a DEFAULT date, so a
+  // manually-chosen or shared-link ?date= is respected — and mount is skipped for the
+  // same reason. Covers every company-set path (rail, search, saved filter, URL).
+  const prevCompanyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevCompanyRef.current;
+    prevCompanyRef.current = companyFilter;
+    if (prev === null) return; // initial mount: respect a URL-restored date window
+    const had = !!prev.trim();
+    const has = !!companyFilter.trim();
+    if (has && !had) setAgeFilter((cur) => (cur === DEFAULT_AGE_FILTER ? "all" : cur));
+    else if (!has && had) setAgeFilter((cur) => (cur === "all" ? DEFAULT_AGE_FILTER : cur));
+  }, [companyFilter]);
+
+  // `quiet`: skip the skeleton and merge the result in place (keeps status
+  // "ready" so scroll/lazy-window aren't reset) — used for the post-upload ranked
+  // upgrade. In quiet mode any failure rethrows instead of wiping the feed.
+  const loadFeed = useCallback(async (force = false, quiet = false) => {
     const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
-    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel);
-    // Serve a fresh-enough cached feed on tab remount instead of refetching.
-    if (!force && feedCache && feedCache.key === cacheKey && Date.now() - feedCache.at < FEED_TTL_MS) {
-      setState(feedCache.data);
-      return;
+    const cacheKey = browseFeedCacheKey(days, roleQuery, browseSel, rankAnalysisId, debouncedSearch, filterSig + (familyOverride !== null ? `|ff:${familyOverride}` : ""));
+    // Stale-while-revalidate: show the cached feed INSTANTLY on remount/return
+    // (no skeleton), and only refetch in the background when it has gone stale.
+    // The skeleton path is reserved for a genuine cold load with nothing to show.
+    const cached = feedCache && feedCache.key === cacheKey ? feedCache : null;
+    if (!force && cached) {
+      setState(cached.data);
+      if (Date.now() - cached.at < FEED_TTL_MS) return; // fresh enough — done
+      // stale → keep it on screen and revalidate quietly below
     }
-    setState({ status: "loading" });
+    // Don't blink to a skeleton when refining a search/filter over a feed that's
+    // already on screen — keep it visible and swap in the new results when they
+    // land (the final setState applies them). Skeleton only on a true cold load.
+    // Keep the onboarding wizard (needs-role / no-resume) on screen while the
+    // first browse feed loads — only skeleton on a true cold load with nothing
+    // to show yet.
+    if (!quiet && !cached) {
+      setState((prev) =>
+        prev.status === "ready" || prev.status === "needs-role" || prev.status === "no-resume"
+          ? prev
+          : { status: "loading" },
+      );
+    }
+    setRevalidating(true);
     try {
       const supabase = getSupabaseClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      const headers: Record<string, string> = session?.access_token
-        ? { Authorization: `Bearer ${session.access_token}` }
-        : {};
       const params = new URLSearchParams();
       if (days) params.set("max_age_days", String(days));
       if (roleQuery) params.set("role", roleQuery);
-      appendBrowseParams(params, browseSel);
+      if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // rank against a chosen past scan
+      appendBrowseParams(params, browseSel, !session); // anonymous browse uses the selected title/work-model scope; signed-in ranking uses the résumé family
+      if (familyOverride !== null) params.set("feed_family", familyOverride); // role-chip pick: "" broadens to all roles, else scope to it
+      if (debouncedSearch) params.set("title_any", debouncedSearch); // search the DB by title across all roles
+      serverFilterEntries.forEach(([k, v]) => params.set(k, v)); // facet filters → server (DB-wide)
       const qs = params.toString() ? `?${params.toString()}` : "";
-      const resp = await fetch(apiUrl(`/api/jobs/feed${qs}`), { headers });
+      const resp = await apiFetch(`/api/jobs/feed${qs}`);
       if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
-        // Only the backend's explicit "no saved analysis" codes mean the user
-        // needs a scan — a bare 404 can be an API deploy that predates the route.
-        if (resp.status === 404 && (body?.error === "no_resume_analysis" || body?.error === "no_resume_text")) {
-          feedCache = null;
-          setState({ status: "no-resume" });
-          return;
-        }
-        // Jobs require sign-in (backend 401s anonymous feed requests). Show an
-        // in-view sign-in prompt rather than bouncing to the marketing landing.
-        if (resp.status === 401) {
-          feedCache = null;
-          setState({ status: "signin" });
-          return;
+        // In quiet mode never swap the visible feed for an empty/state screen —
+        // surface the failure to the caller instead so it can show a banner.
+        if (!quiet) {
+          // Only the backend's explicit "no saved analysis" codes mean the user
+          // needs a scan — a bare 404 can be an API deploy that predates the route.
+          if (resp.status === 404 && (body?.error === "no_resume_analysis" || body?.error === "no_resume_text")) {
+            feedCache = null;
+            setState({ status: "no-resume" });
+            return;
+          }
+          // Jobs require sign-in (backend 401s anonymous feed requests). Show an
+          // in-view sign-in prompt rather than bouncing to the marketing landing.
+          // Don't bounce to sign-in on a transient 401 during a background
+          // revalidation when we already have a feed shown (Supabase token-refresh
+          // races) — keep the stale feed; the auth effect re-loads on real changes.
+          if (resp.status === 401 && !cached) {
+            feedCache = null;
+            setState({ status: "signin" });
+            return;
+          }
         }
         throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
       }
       const data = await resp.json();
       // Signed-in, no résumé, no role chosen yet → ask which role to search first.
       if (data?.needsRole) {
+        if (quiet) throw new Error("needs_role");
         feedCache = null;
         setState({ status: "needs-role" });
         return;
@@ -605,21 +1181,74 @@ export default function JobsFeed({
         status: "ready",
         jobs: Array.isArray(data?.jobs) ? data.jobs : [],
         generatedAt: data?.generatedAt || "",
-        profileRoles: Array.isArray(data?.profileRoles) ? data.profileRoles : [],
         profileLocations: Array.isArray(data?.profileLocations) ? data.profileLocations : [],
         // Backend omits/false `ranked` for the no-résumé role-browse feed
         // (no match scores). Default true so the ranked path is unaffected.
         ranked: data?.ranked !== false,
         role: typeof data?.role === "string" && data.role ? data.role : (roleQuery || undefined),
+        hasMore: data?.hasMore === true,
+        nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+        feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : "",
+        totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : undefined,
       };
       feedCache = { key: cacheKey, at: Date.now(), data: ready };
-      setState(ready);
+      // Quiet upgrade: apply over the visible feed (status stays "ready" so the
+      // lazy-load window + scroll survive) or over a skeleton if no warm feed
+      // landed first; but if the user navigated elsewhere, leave that alone.
+      setState((prev) =>
+        !quiet || prev.status === "ready" || prev.status === "loading" ? ready : prev,
+      );
     } catch (err) {
+      if (quiet) throw err; // caller (résumé scan) keeps the feed + shows a banner
+      if (cached) return;   // background revalidation failed → keep the stale feed
       setState({ status: "error", message: err instanceof Error ? err.message : "Failed to load jobs" });
+    } finally {
+      setRevalidating(false);
     }
-  }, [ageFilter, roleQuery, browseSel]);
+  }, [ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, filterSig, serverFilterEntries, familyOverride]);
+
+  // "Outside your filters" fallback. When the current search + filters yield an
+  // empty list, fetch a RELAXED set — same search intent + résumé ranking, but
+  // NO facet filters and NO posting-age cap — and show it in a separate section
+  // so the user never hits a dead-end empty state. Country/state/score/etc. are
+  // deliberately NOT applied to this set (it IS the out-of-filters bucket).
+  const [fallback, setFallback] = useState<{ jobs: FeedJob[]; loading: boolean; key: string }>(
+    { jobs: [], loading: false, key: "" },
+  );
+  const loadFallback = useCallback(async () => {
+    const fkey = `${debouncedSearch}|${roleQuery}|${rankAnalysisId}|${countryScope}`;
+    setFallback((f) => (f.key === fkey && (f.loading || f.jobs.length) ? f : { jobs: [], loading: true, key: fkey }));
+    try {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const params = new URLSearchParams();
+      // No max_age_days → widest posting window; keep search + role + ranking.
+      if (roleQuery) params.set("role", roleQuery);
+      if (rankAnalysisId) params.set("analysis_id", rankAnalysisId);
+      appendBrowseParams(params, browseSel, false); // relaxed fallback: no hard title/work-model scope
+      if (debouncedSearch) params.set("title_any", debouncedSearch);
+      if (companyFilter) params.set("company", companyFilter); // keep the fallback inside the company scope
+      // Country scope IS applied even in the relaxed set — a US user shouldn't see
+      // foreign postings in "outside your filters" (that was the Malta-under-US leak).
+      params.set("country", countryScope);
+      const resp = await apiFetch(`/api/jobs/feed?${params.toString()}`);
+      if (!resp.ok) { setFallback({ jobs: [], loading: false, key: fkey }); return; }
+      const data = await resp.json();
+      const jobs: FeedJob[] = Array.isArray(data?.jobs) ? data.jobs : [];
+      setFallback({ jobs, loading: false, key: fkey });
+    } catch {
+      setFallback({ jobs: [], loading: false, key: fkey });
+    }
+  }, [debouncedSearch, roleQuery, rankAnalysisId, browseSel, companyFilter, countryScope]);
 
   useEffect(() => {
+    // Refetch whenever loadFeed's inputs change (search, filters, role, age…).
+    // NOTE: previously guarded by `if (uploadInFlightRef.current) return` to keep
+    // a background scan from re-entering the skeleton path — but loadFeed no
+    // longer skeleton-flashes when a feed is already shown, and that guard
+    // silently swallowed EVERY search/filter refetch whenever a scan ref lingered
+    // (e.g. a hung "Update résumé"), making the search box appear dead. The scan
+    // path still drives its own unranked→ranked load explicitly via loadFeedRef.
     void loadFeed();
   }, [loadFeed]);
 
@@ -632,6 +1261,79 @@ export default function JobsFeed({
   // double-fetch the common already-signed-in case.
   const loadFeedRef = useRef(loadFeed);
   useEffect(() => { loadFeedRef.current = loadFeed; }, [loadFeed]);
+
+  // Latest roleQuery, so a background scan can detect the user changing role
+  // mid-flight and abandon its stale result.
+  const roleQueryRef = useRef(roleQuery);
+  useEffect(() => { roleQueryRef.current = roleQuery; }, [roleQuery]);
+
+  // Wizard prefetch: warm the feed for the in-progress selection while the user
+  // is still on the role/location steps, so the feed is instant on upload.
+  const prefetchBrowse = useCallback((sel: JobsBrowseSelection) => {
+    if (!sel.role.trim()) return;
+    const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+    void warmFeed(sel, days);
+  }, [ageFilter]);
+
+  // Progressive ranking: on résumé upload, show the (prefetched) role/location
+  // feed IMMEDIATELY with a "ranking…" strip, run analyze-upload in the
+  // background, then upgrade to the ranked feed in place — no skeleton, no scroll
+  // reset. Failures keep the unranked feed + show a retry banner.
+  const startResumeRanking = useCallback((sel: JobsBrowseSelection, file: File) => {
+    try {
+      localStorage.setItem(JOBS_BROWSE_KEY, JSON.stringify(sel));
+      if (sel.role.trim()) localStorage.setItem(JOBS_ROLE_KEY, sel.role.trim());
+      localStorage.removeItem(JOBS_RANK_ANALYSIS_KEY); // fresh scan = new latest; clear any chosen-scan override
+    } catch { /* quota */ }
+    setRankAnalysisId("");
+    lastUploadFileRef.current = file;
+    setScanError(null);
+    setScanning(true);
+    setBrowseSel(sel);
+    setSeniorities(sel.seniority ? new Set([sel.seniority]) : new Set());
+    setFamilyOverride(null); // a new résumé re-derives its own family
+    setRoleQuery(sel.role.trim());
+
+    // 1) Show matches now: warm cache if present, else a quick unranked fetch.
+    const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+    const key = browseFeedCacheKey(days, sel.role.trim(), sel);
+    if (feedCache && feedCache.key === key) {
+      setState(feedCache.data);
+    } else {
+      setState({ status: "loading" });
+      void warmFeed(sel, days).then(() => {
+        if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
+        if (feedCache && feedCache.key === key) setState((prev) => (prev.status === "loading" ? feedCache!.data : prev));
+      });
+    }
+
+    // 2) Background: persist the analysis, then ranked upgrade in place.
+    const p = (async () => {
+      try {
+        const { seniorityGuess } = await analyzeResumeUpload(file);
+        if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
+        // Auto-default the experience-level filter from the résumé when the user
+        // skipped the wizard's level step ("Any") — so a new-grad isn't buried
+        // under senior roles even without an explicit pick. Persist it onto the
+        // selection so it survives remounts.
+        if (!sel.seniority && seniorityGuess && SENIORITY_BUCKET_VALS[seniorityGuess]) {
+          setSeniorities(new Set([seniorityGuess]));
+          const next = { ...sel, seniority: seniorityGuess };
+          try { localStorage.setItem(JOBS_BROWSE_KEY, JSON.stringify(next)); } catch { /* quota */ }
+          setBrowseSel(next);
+        }
+        feedCache = null; // cache key has no ranked dimension — force the ranked refetch
+        await loadFeedRef.current(true, true); // force + quiet (merge in place)
+      } catch (err) {
+        if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
+        setScanError(err instanceof Error ? err.message : "Couldn't rank against your résumé.");
+      } finally {
+        if (mountedRef.current && roleQueryRef.current === sel.role.trim()) setScanning(false);
+        uploadInFlightRef.current = null;
+      }
+    })();
+    uploadInFlightRef.current = p;
+  }, [ageFilter]);
   useEffect(() => {
     const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
@@ -642,51 +1344,72 @@ export default function JobsFeed({
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleNudgeSave = useCallback(async () => {
-    if (!nudgeRoles.length) return;
-    setNudgeSaving(true);
-    try {
-      const current = loadProfile();
-      const next = { ...current, roles: nudgeRoles.join(", ") };
-      saveProfile(next);
-      await upsertUserProfile(next);
-      setNudgeDismissed(true);
-      void loadFeed(true);
-    } finally {
-      setNudgeSaving(false);
+  const updateJobMatchScore = useCallback((postingId: string, score: number) => {
+    const patchFeed = (feed: FeedReady): FeedReady => ({
+      ...feed,
+      jobs: feed.jobs.map((job) => (job.id === postingId ? { ...job, matchScore: score } : job)),
+    });
+    setState((prev) => (prev.status === "ready" ? patchFeed(prev) : prev));
+    setBoostJob((prev) => (prev?.id === postingId ? { ...prev, matchScore: score } : prev));
+    if (feedCache?.data.status === "ready") {
+      feedCache = { ...feedCache, data: patchFeed(feedCache.data) };
     }
-  }, [nudgeRoles, loadFeed]);
+    // The cached detail payload carries the OLD match score — drop it so the
+    // next open re-reads the score the user just moved.
+    invalidateJobDetail(postingId);
+  }, []);
+
+  const hideAppliedJob = useCallback((postingId: string) => {
+    const patchFeed = (feed: FeedReady): FeedReady => ({
+      ...feed,
+      jobs: feed.jobs.filter((job) => job.id !== postingId),
+      totalMatching: typeof feed.totalMatching === "number" ? Math.max(0, feed.totalMatching - 1) : feed.totalMatching,
+    });
+    setState((prev) => (prev.status === "ready" ? patchFeed(prev) : prev));
+    if (feedCache?.data.status === "ready") {
+      feedCache = { ...feedCache, data: patchFeed(feedCache.data) };
+    }
+    setAppliedRefreshKey((n) => n + 1);
+  }, []);
 
   const trackApplyClick = useCallback(async (postingId: string) => {
-    // Optimistically mark as applied immediately
-    setAppliedIds((prev) => new Set(prev).add(postingId));
     try {
       const supabase = getSupabaseClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-      await fetch(apiUrl("/api/jobs/event"), {
+      // Applying is public. Account-owned tracking only starts for signed-in users.
+      if (!session?.access_token) return;
+      setAppliedIds((prev) => new Set(prev).add(postingId));
+      hideAppliedJob(postingId);
+      await apiFetch("/api/jobs/event", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ posting_id: postingId, event: "apply_click" }),
         keepalive: true,
       });
     } catch {
       // tracking must never break the UX; keep the applied mark
     }
+  }, [hideAppliedJob]);
+
+  const handleBoostApplied = useCallback((postingId: string, score: number | null) => {
+    if (typeof score === "number") updateJobMatchScore(postingId, score);
+    void trackApplyClick(postingId);
+  }, [trackApplyClick, updateJobMatchScore]);
+
+  const handleBoostResumePromoted = useCallback((_analysisId: string) => {
+    feedCache = null;
+    setRankAnalysisId("");
+    setAppliedRefreshKey((n) => n + 1);
+    window.setTimeout(() => void loadFeedRef.current(true, true), 0);
   }, []);
 
   const visibleJobs = useMemo(() => {
     if (state.status !== "ready") return [];
-    const q = search.trim().toLowerCase();
     const minScore = SCORE_FILTERS.find((f) => f.key === scoreFilter)?.min ?? 0;
     const filtered = state.jobs.filter((job) => {
       if (job.matchScore != null && job.matchScore < minScore) return false;
-      if (locationStates.size > 0) {
-        if (![...locationStates].some((code) => locationMatchesState(job.location, code))) return false;
-      }
       if (workModels.size > 0) {
         // Fall back to a text heuristic when the posting has no structured work_model.
         const wm = job.workModel
@@ -694,8 +1417,7 @@ export default function JobsFeed({
         if (!wm || !workModels.has(wm)) return false;
       }
       if (seniorities.size > 0) {
-        const b = seniorityBucketKey(job.seniority);
-        if (!b || !seniorities.has(b)) return false;
+        if (!jobMatchesSeniorityFilters(job, seniorities)) return false;
       }
       if (empType && job.employmentType !== empType) return false;
       if (industry && job.industry !== industry) return false;
@@ -703,11 +1425,9 @@ export default function JobsFeed({
         const yb = YEARS_OPTIONS.find((y) => y.key === yearsBucket);
         if (yb && (job.minYears == null || job.minYears < yb.min || job.minYears > yb.max)) return false;
       }
-      // titleMatch is only computed for the résumé-ranked feed; in the unranked
-      // browse feed it's always false, so a restored rolesOnly filter would empty
-      // the list with no visible toggle to undo it. Only apply it when ranked.
-      if (rolesOnly && state.ranked && !job.titleMatch) return false;
-      if (q && !`${job.title} ${job.company} ${job.location}`.toLowerCase().includes(q)) return false;
+      // NO client-side literal `includes(search)` filter — the SERVER does the
+      // title search WITH synonym/semantic expansion, so a substring match here
+      // would wrongly drop "Physical Therapist" when the user typed "physio".
       return true;
     });
     if (sortBy === "newest") {
@@ -718,7 +1438,22 @@ export default function JobsFeed({
       return [...filtered].sort((a, b) => sal(b) - sal(a));
     }
     return filtered; // "match" — the backend already ranks by match score
-  }, [state, search, locationStates, workModels, seniorities, empType, industry, yearsBucket, rolesOnly, scoreFilter, sortBy]);
+  }, [state, debouncedSearch, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, sortBy]);
+
+  const topMatchDays = useMemo(() => AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0, [ageFilter]);
+  const topMatchWorkModels = useMemo(() => [...workModels], [workModels]);
+  const topMatches = useJobTopMatches({
+    enabled: state.status === "ready" && state.ranked && !listMode,
+    days: topMatchDays,
+    countryScope,
+    roleQuery,
+    search: debouncedSearch,
+    companyFilter,
+    workModels: topMatchWorkModels,
+    analysisId: rankAnalysisId,
+    limit: 5,
+    refreshKey: appliedRefreshKey,
+  });
 
   // Distinct industries present in the current feed, for the Industry dropdown.
   const industryOptions = useMemo(() => {
@@ -734,71 +1469,234 @@ export default function JobsFeed({
   }, []);
 
   const currentSnapshot = useMemo<FilterSnapshot>(() => ({
-    locationStates: [...locationStates],
-    workModels: [...workModels],
+    countryScope, companyFilter, familyOverride,
+    locationText, workModels: [...workModels],
     seniorities: [...seniorities],
-    empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly,
-  }), [locationStates, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, rolesOnly]);
+    empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy,
+    clearance, citizenship,
+  }), [countryScope, companyFilter, familyOverride, locationText, workModels, seniorities, empType, industry, yearsBucket, scoreFilter, ageFilter, search, sortBy, clearance, citizenship]);
 
   const applySnapshot = useCallback((f: Partial<FilterSnapshot>) => {
-    setLocationStates(new Set(f.locationStates ?? []));
+    setCountryScope(f.countryScope ?? "US");
+    setCompanyFilter(f.companyFilter ?? "");
+    setFamilyOverride(f.familyOverride === undefined ? null : f.familyOverride);
+    setLocationText(f.locationText ?? "");
     setWorkModels(new Set(f.workModels ?? []));
     setSeniorities(new Set(f.seniorities ?? []));
     setEmpType(f.empType ?? "");
     setIndustry(f.industry ?? "");
     setYearsBucket(f.yearsBucket ?? "any");
     setScoreFilter((f.scoreFilter as ScoreFilterKey) ?? "all");
-    setAgeFilter((f.ageFilter as AgeFilterKey) ?? "30");
+    setAgeFilter((f.ageFilter as AgeFilterKey) ?? DEFAULT_AGE_FILTER);
     setSearch(f.search ?? "");
     setSortBy((f.sortBy as SortKey) ?? "match");
-    setRolesOnly(!!f.rolesOnly);
+    setClearance(f.clearance ?? "any");
+    setCitizenship(f.citizenship ?? "any");
   }, []);
 
   const anyFilterActive =
-    !!search || locationStates.size > 0 || workModels.size > 0 || seniorities.size > 0 ||
-    !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || rolesOnly || ageFilter !== "30";
+    !!search || !!companyFilter || !!locationText || workModels.size > 0 || seniorities.size > 0 ||
+    !!empType || !!industry || yearsBucket !== "any" || scoreFilter !== "all" || ageFilter !== DEFAULT_AGE_FILTER ||
+    clearance !== "any" || citizenship !== "any";
 
   const clearAllFilters = useCallback(() => {
-    setSearch(""); setLocationStates(new Set()); setWorkModels(new Set()); setSeniorities(new Set());
-    setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setRolesOnly(false); setAgeFilter("30");
+    setSearch(""); setLocationText(""); setWorkModels(new Set()); setSeniorities(new Set());
+    setEmpType(""); setIndustry(""); setYearsBucket("any"); setScoreFilter("all"); setAgeFilter(DEFAULT_AGE_FILTER);
+    setClearance("any"); setCitizenship("any"); setCompanyFilter("");
   }, []);
 
-  // Reset the lazy-load window whenever the filtered result set changes, so a
-  // new filter/search starts from the top instead of keeping a stale offset.
+  // Reset to the first page whenever the filtered result set changes — but NOT on
+  // the initial mount, so selecting a job (which remounts this component) restores
+  // the persisted page instead of snapping back to page 1.
+  const filterMountRef = useRef(false);
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [search, locationStates, workModels, seniorities, empType, industry, yearsBucket, sortBy, rolesOnly, scoreFilter, ageFilter, state.status]);
+    if (!filterMountRef.current) { filterMountRef.current = true; return; }
+    setCurrentPage(0);
+  }, [search, companyFilter, locationText, workModels, seniorities, empType, industry, yearsBucket, clearance, citizenship, sortBy, scoreFilter, ageFilter]);
 
-  const pagedJobs = useMemo(() => visibleJobs.slice(0, visibleCount), [visibleJobs, visibleCount]);
-  const hasMore = visibleCount < visibleJobs.length;
-
-  // Infinite scroll: reveal the next page when the sentinel enters the viewport.
+  // Numbered pagination over the loaded set (PAGE_SIZE per page). `serverHasMore`
+  // means the backend has further pages past what we've fetched (the 600-cap is
+  // per-page — see api_jobs_feed offset pagination); crossing into them fetches on
+  // demand. Clamp the page if the loaded set shrank under it (filter/revalidate).
+  const serverHasMore = state.status === "ready" && !!state.hasMore && typeof state.nextOffset === "number";
+  const loadedPages = Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
   useEffect(() => {
-    if (!hasMore) return;
-    const node = sentinelRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setVisibleCount((c) => c + PAGE_SIZE);
-        }
-      },
-      { rootMargin: "400px 0px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasMore, pagedJobs.length]);
+    if (currentPage > loadedPages - 1) setCurrentPage(Math.max(0, loadedPages - 1));
+  }, [loadedPages, currentPage]);
+  const pagedJobs = useMemo(
+    () => visibleJobs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE),
+    [visibleJobs, currentPage],
+  );
+  const canPrev = currentPage > 0;
+  const canNext = (currentPage + 1) * PAGE_SIZE < visibleJobs.length || serverHasMore;
 
-  // Signed-out visitors get one focused sign-in moment — no dashboard header,
-  // tabs, Refresh, or résumé-ranking copy (which assumes a résumé they lack).
+  // Ensure the selected / deep-linked job is ALWAYS shown + highlighted on the
+  // board — even when it's not in the current filtered feed (e.g. opening a shared
+  // link to a job outside your role family, the exact bug). Fetch its summary once
+  // and PIN it to the top. This is additive: it never changes the user's filters
+  // or re-scopes the feed. Cleared automatically once the job is in the feed.
+  const [pinnedJob, setPinnedJob] = useState<FeedJob | null>(null);
+  const selectedInFeed =
+    state.status === "ready" && !!selectedJobId && state.jobs.some((j) => j.id === selectedJobId);
+  useEffect(() => {
+    if (!selectedJobId || selectedInFeed) { setPinnedJob(null); return; }
+    let ignore = false;
+    fetchJobDetail(selectedJobId)
+      .then((d) => { if (!ignore && d) setPinnedJob(detailToFeedJob(d)); })
+      .catch(() => { if (!ignore) setPinnedJob(null); });
+    return () => { ignore = true; };
+  }, [selectedJobId, selectedInFeed]);
+
+  // Drive the "outside your filters" fallback: when the visible result is empty
+  // AND a filter/search is narrowing things, fetch the relaxed set; otherwise
+  // clear it so it never lingers under a populated feed.
+  useEffect(() => {
+    // Fire whenever the visible list is empty — the default US + past-month are
+    // themselves filters that can empty the feed (the common case), so don't gate
+    // on an *explicit* filter. loadFallback returns [] when even the relaxed set
+    // is empty, so the section simply won't render then.
+    if (state.status === "ready" && pagedJobs.length === 0) {
+      void loadFallback();
+    } else {
+      setFallback((f) => (f.jobs.length || f.loading ? { jobs: [], loading: false, key: "" } : f));
+    }
+  }, [state.status, pagedJobs.length, debouncedSearch, filterSig, ageFilter, loadFallback]);
+
+  // Why a fallback job is outside the current filters (cheap, best-effort tag).
+  const outsideReason = useCallback((job: FeedJob): string => {
+    const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+    if (days && job.postedAt) {
+      const ageDays = (Date.now() - Date.parse(job.postedAt)) / 86_400_000;
+      if (ageDays > days) return "📅 Older posting";
+    }
+    if (workModels.size > 0 && job.workModel && !workModels.has(job.workModel)) return "🏢 Other work model";
+    return "Outside your filters";
+  }, [ageFilter, workModels]);
+
+  // Shared card renderer — used by the main list and the "outside your filters"
+  // fallback section. `reasonChip` adds a muted tag explaining why a fallback
+  // job didn't match the active filters.
+  const jobIntent = usePrefetchOnIntent();
+
+  const renderJobCard = (job: FeedJob, reasonChip?: string) => (
+    <JobCard
+      key={job.id}
+      job={job}
+      reasonChip={reasonChip}
+      selected={job.id === selectedJobId}
+      applied={appliedIds.has(job.id)}
+      prepReady={Boolean(prepStatuses[job.id])}
+      boostLoading={boostLoadingId === job.id}
+      prepLoading={prepLoadingId === job.id}
+      isMobile={isMobile}
+      listMode={listMode}
+      onOpen={openJobUrl}
+      onBoost={openBoost}
+      onPrep={openPrep}
+      onApply={trackApplyClick}
+      onIntent={jobIntent(job.id, () => prefetchJobDetail(job.id))}
+    />
+  );
+
+  // Count label: "342 of 9,338 jobs" when the backend reports the feed-scope
+  // total (server count over the same family/location/recency) and the visible
+  // set is a subset — i.e. the page cap and/or an active client filter (country,
+  // search, …) is hiding some. Falls back to "342+ jobs" / "342 jobs" when the
+  // backend sent no total (older API, or the count query failed). visibleJobs is
+  // a subset of the loaded page, which is a subset of the total, so total is
+  // always ≥ visible.
+  const totalMatching = state.status === "ready" ? state.totalMatching : undefined;
+  // Show the count of cards actually RENDERED (the page), not the full loaded-
+  // and-client-filtered window (which produced a confusing middle number like
+  // "427"). Reads "Showing 20 of 12,374 jobs" and grows as you Load more.
+  const shownCount = pagedJobs.length;
+  const rangeStart = shownCount === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const rangeEnd = currentPage * PAGE_SIZE + shownCount;
+  const totalLabel =
+    typeof totalMatching === "number"
+      ? totalMatching.toLocaleString()
+      : `${visibleJobs.length.toLocaleString()}${serverHasMore ? "+" : ""}`;
+  const jobWord = `job${(totalMatching ?? shownCount) === 1 ? "" : "s"}`;
+  // "Showing 21–40 of 12,374 jobs" — the current page's range, not a cumulative count.
+  const feedCountLabel = `Showing ${rangeStart.toLocaleString()}–${rangeEnd.toLocaleString()} of ${totalLabel} ${jobWord}`;
+
+  // Flicker guard: when a search/filter empties the main feed, the "outside your
+  // filters" fallback fetches in the background. Show a loading skeleton (NOT the
+  // "No openings" card) until that fallback settles, so the feed never flashes an
+  // empty "no results" state mid-search.
+  const fallbackFkey = `${debouncedSearch}|${roleQuery}|${rankAnalysisId}|${countryScope}`;
+  const fallbackSettled = fallback.key === fallbackFkey && !fallback.loading;
+  const mainEmpty = state.status === "ready" && state.jobs.length === 0;
+  const showEmptyCard = mainEmpty && fallbackSettled && fallback.jobs.length === 0;
+  const showFeedLoading = mainEmpty && !fallbackSettled && fallback.jobs.length === 0;
+
+  // Fetch the next backend page and append (dedup by id). Mirrors loadFeed's
+  // params + offset + the echoed feed_family so the page scopes the same set.
+  const loadMoreFromServer = useCallback(async () => {
+    if (state.status !== "ready" || !state.hasMore || typeof state.nextOffset !== "number" || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const days = AGE_FILTERS.find((f) => f.key === ageFilter)?.days ?? 0;
+      const params = new URLSearchParams();
+      if (days) params.set("max_age_days", String(days));
+      if (roleQuery) params.set("role", roleQuery);
+      if (rankAnalysisId) params.set("analysis_id", rankAnalysisId); // keep paging ranked against the same scan
+      appendBrowseParams(params, browseSel, false); // ranked paging: match loadFeed's scope (no wizard hard filters)
+      if (debouncedSearch) params.set("title_any", debouncedSearch); // page the same DB search
+      serverFilterEntries.forEach(([k, v]) => params.set(k, v)); // page the same facet filters
+      params.set("offset", String(state.nextOffset));
+      params.set("feed_family", state.feedFamily ?? "");
+      const resp = await apiFetch(`/api/jobs/feed?${params.toString()}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const more: FeedJob[] = Array.isArray(data?.jobs) ? data.jobs : [];
+      const cacheKey = browseFeedCacheKey(
+        days, roleQuery, browseSel, rankAnalysisId, debouncedSearch,
+        filterSig + (familyOverride !== null ? `|ff:${familyOverride}` : ""),
+      );
+      setState((prev) => {
+        if (prev.status !== "ready") return prev;
+        const seen = new Set(prev.jobs.map((j) => j.id));
+        const fresh = more.filter((j) => j && !seen.has(j.id));
+        const next: FeedReady = {
+          ...prev,
+          jobs: [...prev.jobs, ...fresh],
+          hasMore: data?.hasMore === true,
+          nextOffset: typeof data?.nextOffset === "number" ? data.nextOffset : undefined,
+          feedFamily: typeof data?.feedFamily === "string" ? data.feedFamily : prev.feedFamily,
+          // Total is the same across pages — keep page-0's if a later page omits it.
+          totalMatching: typeof data?.totalMatching === "number" ? data.totalMatching : prev.totalMatching,
+        };
+        // Persist appended pages in the module cache so a tab switch / remount
+        // doesn't rewind to page 0 only.
+        if (feedCache?.key === cacheKey) feedCache = { key: cacheKey, at: Date.now(), data: next };
+        return next;
+      });
+    } catch {
+      /* keep the current feed on failure */
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [state, loadingMore, ageFilter, roleQuery, browseSel, rankAnalysisId, debouncedSearch, serverFilterEntries, filterSig, familyOverride]);
+
+  // Page controls: within the loaded set we just move the window; stepping past the
+  // last loaded page fetches the next server page first, then advances.
+  const goToPage = useCallback(async (p: number) => {
+    const target = Math.max(0, p);
+    if (target * PAGE_SIZE >= visibleJobs.length && serverHasMore) await loadMoreFromServer();
+    setCurrentPage(target);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [visibleJobs.length, serverHasMore, loadMoreFromServer]);
+
+  // Compatibility fallback for an older API deployment that still gates browsing.
   if (state.status === "signin") {
     return (
       <SignedOutJobsHero
         count={publicCount}
         onSignIn={() =>
           openSignIn({
-            title: "Sign in to browse jobs",
-            reason: "See live openings from company career boards and rank them against your résumé. Free — no credit card.",
+            title: "Sign in to personalize jobs",
+            reason: "Browse is public. Sign in free to rank openings against your résumé and save your progress.",
           })
         }
       />
@@ -811,14 +1709,16 @@ export default function JobsFeed({
   const hasBrowseRole = !!browseSel?.role?.trim();
   const onboardingWizard = (
     <JobsOnboardingWizard
-      initialStep={hasBrowseRole ? 3 : 1}
+      initialStep={hasBrowseRole ? 4 : 1}
       initialRole={browseSel?.role ?? ""}
       initialRoleTerms={browseSel?.titleTerms ?? null}
       initialLocation={browseSel?.location ?? ""}
       initialMetroTerms={browseSel?.locationTerms ?? null}
       initialWorkModel={browseSel?.workModel ?? ""}
+      initialSeniority={browseSel?.seniority ?? ""}
       onBrowse={submitBrowse}
-      onResumeReady={submitBrowse}
+      onResumeUploadStart={startResumeRanking}
+      onPrefetch={prefetchBrowse}
     />
   );
 
@@ -833,74 +1733,214 @@ export default function JobsFeed({
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", margin: 0 }}>Jobs for you</h1>
           <p style={{ fontSize: 13, color: "var(--muted)", margin: "6px 0 0" }}>
             {state.status === "needs-role"
-              ? "Pick a role to see live openings — or scan your résumé to auto-match and rank by fit."
+              ? "Pick a role to see live openings, or scan your résumé to auto-match and rank by fit."
               : state.status === "ready" && state.ranked === false
               ? "Live openings from company career boards. Scan your résumé to rank them by fit and unlock match scores."
-              : "Live openings ranked against your latest analyzed résumé. Apply on the company's site — we hand you the match, you make the call."}
+              : "Live openings ranked against your latest analyzed résumé. Apply on the company's site: we hand you the match, you make the call."}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
-          Refresh
-        </Button>
-      </div>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)" }}>
-            {state.status === "ready" ? `${visibleJobs.length} job${visibleJobs.length === 1 ? "" : "s"}` : "Jobs"}
-          </span>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          {state.status === "ready" && state.ranked && (
+            <Button variant="outline" size="sm" onClick={() => setUpdateResumeOpen(true)} disabled={scanning}>
+              Update résumé
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
             Refresh
           </Button>
         </div>
+      </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>
+            {state.status === "ready" ? feedCountLabel : "Jobs"}
+          </span>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            {state.status === "ready" && state.ranked && (
+              <Button variant="outline" size="sm" onClick={() => setUpdateResumeOpen(true)} disabled={scanning}>
+                Update résumé
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => void loadFeed(true)} disabled={state.status === "loading"}>
+              Refresh
+            </Button>
+          </div>
+        </div>
       )}
+
+      {/* "Top companies hiring" rail — recognizable companies with live roles,
+          shown on landing in every signed-in state (ranked, browse, needs-role).
+          Clicking a tile scopes the feed to that company. */}
+      {!listMode && (
+        <FeaturedCompaniesRail selected={companyFilter} onSelect={handleCompanySelect} />
+      )}
+
+      <Dialog open={updateResumeOpen} onOpenChange={setUpdateResumeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update your résumé</DialogTitle>
+            <DialogDescription>
+              Rank these jobs against a different scan, or upload a new one. Your role and filters stay the same.
+            </DialogDescription>
+          </DialogHeader>
+          {recentScans && recentScans.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>Recent scans</span>
+              <div style={{ maxHeight: 236, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
+                {recentScans.map((scan) => {
+                  const isActive = scan.id === (rankAnalysisId || recentScans[0]?.id);
+                  const sc = scanScoreStyle(scan.score);
+                  // Labels are usually the résumé's full contact header
+                  // ("NAME | phone | email | linkedin…") — show just the name
+                  // (first segment) so the row isn't a wall of contact text.
+                  const rawLabel = (scan.label || scan.sourceFilename || "Résumé scan").trim();
+                  const label = rawLabel.split("|")[0].trim() || rawLabel;
+                  return (
+                    <button
+                      key={scan.id}
+                      type="button"
+                      onClick={() => {
+                        if (!isActive) {
+                          try { localStorage.setItem(JOBS_RANK_ANALYSIS_KEY, scan.id); } catch { /* quota */ }
+                          setRankAnalysisId(scan.id);
+                        }
+                        setUpdateResumeOpen(false);
+                      }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
+                        padding: "10px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "inherit",
+                        border: isActive ? "2px solid var(--accent)" : "1px solid var(--surface2)",
+                        background: isActive ? "var(--accent-bg, color-mix(in srgb, var(--accent) 7%, transparent))" : "var(--surface)",
+                      }}
+                    >
+                      <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, background: sc.bg, color: sc.color }}>
+                        {scan.score != null ? scan.score : "—"}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
+                        <span style={{ display: "block", fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{scanTimeAgo(scan.createdAt)}</span>
+                      </span>
+                      {isActive
+                        ? <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, color: "var(--accent)" }}>✓ Now ranking</span>
+                        : <span style={{ flexShrink: 0, fontSize: 12, color: "var(--muted)" }}>Use →</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
+                <div style={{ flex: 1, height: 1, background: "var(--surface2)" }} />
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>or upload a new one</span>
+                <div style={{ flex: 1, height: 1, background: "var(--surface2)" }} />
+              </div>
+            </div>
+          )}
+          <label
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+              padding: "22px 16px", border: "1.5px dashed var(--accent)",
+              background: "var(--accent-bg, color-mix(in srgb, var(--accent) 6%, transparent))",
+              borderRadius: 12, cursor: "pointer", textAlign: "center",
+            }}
+          >
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.currentTarget.value = "";
+                if (!f) return;
+                setUpdateResumeOpen(false);
+                const sel: JobsBrowseSelection = browseSel ?? { role: "", titleTerms: [], location: "", locationTerms: [], workModel: "", seniority: "" };
+                startResumeRanking(sel, f);
+              }}
+            />
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Choose résumé (PDF)</span>
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>We&apos;ll re-score every job against the new résumé.</span>
+          </label>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUpdateResumeOpen(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {state.status === "ready" && (
         <div style={{ margin: listMode ? "10px 0 12px" : "18px 0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Row 1 — keyword + location (LinkedIn/Indeed style) */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search title or company…"
-              style={{ flex: "1 1 240px", maxWidth: listMode ? undefined : 340 }}
-            />
-            <FilterMenu label="📍 Location" count={locationStates.size} width={250}>
-              <StatesPicker
-                selected={locationStates}
-                onToggle={(c) => toggleInSet(setLocationStates, c)}
-                onClear={() => setLocationStates(new Set())}
+            <div style={{ position: "relative", flex: "1 1 240px", maxWidth: listMode ? undefined : 340, minWidth: 0 }}>
+              <SearchableSelect
+                value={search}
+                onChange={setSearch}
+                onSelect={onSearchSelect}
+                items={searchItems}
+                placeholder="Search role, title, or company…"
+                emptyHint="Keep typing to search this text"
               />
+              {revalidating && (
+                <span aria-hidden style={{
+                  position: "absolute", right: 10, top: "calc(50% - 8px)", width: 15, height: 15,
+                  borderRadius: "50%", border: "2px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+                  borderTopColor: "var(--accent)", animation: "spin 0.7s linear infinite", pointerEvents: "none",
+                }} />
+              )}
+            </div>
+            <FilterMenu label={COUNTRY_LABEL(countryScope)} active={countryScope !== "US"} onClear={() => setCountryScope("US")} width={220}>
+              {COUNTRIES.map((c) => (
+                <MenuOption key={c.key} label={c.label} selected={countryScope === c.key} onClick={() => setCountryScope(c.key)} />
+              ))}
+            </FilterMenu>
+            <FilterMenu
+              label={locationText ? `📍 ${locationText}` : "📍 City"}
+              active={!!locationText}
+              onClear={() => setLocationText("")}
+              width={260}
+            >
+              <LocationPicker value={locationText} onChange={setLocationText} />
             </FilterMenu>
           </div>
 
-          {/* Row 2 — filter dropdowns */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <FilterMenu label={`Date: ${AGE_FILTERS.find((f) => f.key === ageFilter)?.label ?? "Any"}`} active={ageFilter !== "30"} width={180}>
+          {/* Row 2 — filter dropdowns. One swipeable line on phones (see
+              .rn-scroll-rail); wraps as before on desktop. */}
+          <div className="rn-scroll-rail" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <FilterMenu label={`Date: ${AGE_FILTERS.find((f) => f.key === ageFilter)?.label ?? "Any"}`} active={ageFilter !== DEFAULT_AGE_FILTER} onClear={() => setAgeFilter(DEFAULT_AGE_FILTER)} width={180}>
               {AGE_FILTERS.map((f) => (
                 <MenuOption key={f.key} label={f.label} selected={ageFilter === f.key} onClick={() => setAgeFilter(f.key)} />
               ))}
             </FilterMenu>
 
-            <FilterMenu label="Work model" count={workModels.size} width={180}>
+            <FilterMenu label="Work model" count={workModels.size} onClear={() => setWorkModels(new Set())} width={180}>
               {WORK_MODELS.map((w) => (
                 <MenuOption key={w.key} label={w.label} multi selected={workModels.has(w.key)} onClick={() => toggleInSet(setWorkModels, w.key)} />
               ))}
             </FilterMenu>
 
-            <FilterMenu label="Experience" count={seniorities.size} width={180}>
+            <FilterMenu label="Experience" count={seniorities.size} onClear={() => setSeniorities(new Set())} width={180}>
               {SENIORITY_BUCKETS.map((b) => (
                 <MenuOption key={b.key} label={b.label} multi selected={seniorities.has(b.key)} onClick={() => toggleInSet(setSeniorities, b.key)} />
               ))}
             </FilterMenu>
 
-            <FilterMenu label={empType ? (EMPLOYMENT_OPTIONS.find((o) => o.key === empType)?.label ?? "Job type") : "Job type"} active={!!empType} width={190}>
+            <FilterMenu label={empType ? (EMPLOYMENT_OPTIONS.find((o) => o.key === empType)?.label ?? "Job type") : "Job type"} active={!!empType} onClear={() => setEmpType("")} width={190}>
               {EMPLOYMENT_OPTIONS.map((o) => (
                 <MenuOption key={o.key || "any"} label={o.label} selected={empType === o.key} onClick={() => setEmpType(o.key)} />
               ))}
             </FilterMenu>
 
-            <FilterMenu label="More" count={(yearsBucket !== "any" ? 1 : 0) + (industry ? 1 : 0) + (state.ranked && scoreFilter !== "all" ? 1 : 0)} width={210}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "2px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Experience years</div>
+            <FilterMenu
+              label="More"
+              count={(yearsBucket !== "any" ? 1 : 0) + (industry ? 1 : 0) + (state.ranked && scoreFilter !== "all" ? 1 : 0) + (clearance !== "any" ? 1 : 0) + (citizenship !== "any" ? 1 : 0)}
+              onClear={() => { setYearsBucket("any"); setIndustry(""); setScoreFilter("all"); setClearance("any"); setCitizenship("any"); }}
+              width={210}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "2px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>🔒 Security clearance</div>
+              <MenuOption label="Any" selected={clearance === "any"} onClick={() => setClearance("any")} />
+              <MenuOption label="Required only" selected={clearance === "required"} onClick={() => setClearance("required")} />
+              <MenuOption label="Exclude (no clearance)" selected={clearance === "exclude"} onClick={() => setClearance("exclude")} />
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "8px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>🇺🇸 US citizenship</div>
+              <MenuOption label="Any" selected={citizenship === "any"} onClick={() => setCitizenship("any")} />
+              <MenuOption label="Required only" selected={citizenship === "required"} onClick={() => setCitizenship("required")} />
+              <MenuOption label="Exclude (not required)" selected={citizenship === "exclude"} onClick={() => setCitizenship("exclude")} />
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", padding: "8px 9px 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Experience years</div>
               {YEARS_OPTIONS.map((o) => (
                 <MenuOption key={o.key} label={o.label} selected={yearsBucket === o.key} onClick={() => setYearsBucket(o.key)} />
               ))}
@@ -923,28 +1963,34 @@ export default function JobsFeed({
               )}
             </FilterMenu>
 
-            {state.profileRoles.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setRolesOnly((v) => !v)}
-                title={`Jobs matching: ${state.profileRoles.join(", ")}`}
-                style={filterButtonStyle(rolesOnly)}
-              >
-                🎯 Your roles
-              </button>
-            )}
-
             {anyFilterActive && (
               <button
                 type="button"
                 onClick={clearAllFilters}
-                style={{ fontSize: 12.5, padding: "7px 8px", borderRadius: 8, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}
+                style={{ fontSize: 13, padding: "7px 8px", borderRadius: 8, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}
               >
                 Clear all
               </button>
             )}
 
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+            {state.status === "ready" && state.ranked && (
+              <FilterMenu
+                label={`📋 ${state.feedFamily ? (FEED_FAMILY_LABELS[state.feedFamily] ?? state.feedFamily) : "All roles"}`}
+                width={220}
+                active={familyOverride !== null}
+                onClear={familyOverride !== null ? () => setFamilyOverride(null) : undefined}
+              >
+                <MenuOption label="Match my résumé" selected={familyOverride === null} onClick={() => setFamilyOverride(null)} />
+                <MenuOption label="All roles" selected={familyOverride === ""} onClick={() => setFamilyOverride("")} />
+                {Object.entries(FEED_FAMILY_LABELS)
+                  .filter(([k]) => k !== "general")
+                  .map(([k, lbl]) => (
+                    <MenuOption key={k} label={lbl} selected={familyOverride === k} onClick={() => setFamilyOverride(k)} />
+                  ))}
+              </FilterMenu>
+            )}
+
+            <div className="rn-rail-end" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
               <FilterMenu label={`Sort: ${SORT_OPTIONS.find((s) => s.key === sortBy)?.label ?? "Best match"}`} align="right" width={170}>
                 {SORT_OPTIONS.map((s) => (
                   <MenuOption key={s.key} label={s.label} selected={sortBy === s.key} onClick={() => setSortBy(s.key)} />
@@ -952,7 +1998,7 @@ export default function JobsFeed({
               </FilterMenu>
               {!listMode && (
                 <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  {visibleJobs.length} of {state.jobs.length}
+                  {feedCountLabel}
                 </span>
               )}
             </div>
@@ -969,13 +2015,39 @@ export default function JobsFeed({
           </div>
         )}
 
-        {state.status === "ready" && state.ranked === false && (
+        {/* Progressive ranking: slim strip while the résumé scan runs in the
+            background over the already-visible feed. */}
+        {state.status === "ready" && scanning && (
+          <div style={{ marginBottom: 16, borderRadius: 12, border: "1px solid color-mix(in srgb, var(--accent) 22%, transparent)", background: "color-mix(in srgb, var(--accent) 5%, var(--surface))", padding: "11px 16px", display: "flex", alignItems: "center", gap: 11 }}>
+            <span aria-hidden style={{ display: "inline-block", width: 15, height: 15, flexShrink: 0, borderRadius: "50%", border: "2px solid color-mix(in srgb, var(--accent) 25%, transparent)", borderTopColor: "var(--accent)", animation: "rn-spin 0.7s linear infinite" }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+              {state.ranked ? "Re-ranking against your new résumé…" : "Ranking these against your résumé…"}
+            </span>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>scores appear in a moment</span>
+            <style>{"@keyframes rn-spin{to{transform:rotate(360deg)}}"}</style>
+          </div>
+        )}
+
+        {/* Scan failed: keep the (unranked) feed; offer a retry. */}
+        {state.status === "ready" && scanError && !scanning && (
+          <div style={{ marginBottom: 16, borderRadius: 12, border: "1px solid color-mix(in srgb, var(--red, #f87171) 35%, transparent)", background: "color-mix(in srgb, var(--red, #f87171) 6%, var(--surface))", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, color: "var(--text)", minWidth: 0 }}>{scanError}</span>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <Button variant="outline" size="sm" onClick={() => setScanError(null)}>Dismiss</Button>
+              {lastUploadFileRef.current && browseSel && (
+                <Button size="sm" onClick={() => { const f = lastUploadFileRef.current; if (f && browseSel) startResumeRanking(browseSel, f); }}>Retry</Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {state.status === "ready" && state.ranked === false && !scanning && (
           <div style={{ marginBottom: 16, borderRadius: 14, border: "1.5px solid color-mix(in srgb, var(--accent) 22%, transparent)", background: "var(--surface)", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
                 {state.role ? <>Showing <span style={{ color: "var(--accent)" }}>{state.role}</span> roles</> : "Browsing live jobs"}
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+              <div style={{ fontSize: 13, color: "var(--muted)" }}>
                 Scan your résumé to rank these by fit and unlock per-job match scores.
               </div>
             </div>
@@ -994,7 +2066,7 @@ export default function JobsFeed({
         {state.status === "error" && (
           <Card>
             <CardContent style={{ padding: "32px 28px", textAlign: "center" }}>
-              <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "0 0 14px" }}>
+              <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 0 14px" }}>
                 Couldn&apos;t load the job feed: {state.message}
               </p>
               <Button variant="outline" onClick={() => void loadFeed(true)}>
@@ -1004,312 +2076,105 @@ export default function JobsFeed({
           </Card>
         )}
 
-        {state.status === "ready" && state.jobs.length === 0 && (
+        {state.status === "ready" && companyFilter && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 14px", marginBottom: 12, borderRadius: 10, border: "1px solid var(--border)", background: "color-mix(in srgb, var(--accent) 9%, transparent)" }}>
+            <span style={{ fontSize: 13, color: "var(--text)" }}>
+              Showing jobs at <strong style={{ fontWeight: 700 }}>{companyFilter}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => handleCompanySelect(companyFilter)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Clear ✕
+            </button>
+          </div>
+        )}
+
+        {showFeedLoading && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }} aria-busy="true" aria-label="Loading jobs">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-[96px] w-full rounded-2xl" />
+            ))}
+          </div>
+        )}
+
+        {showEmptyCard && (
           <Card>
             <CardContent style={{ padding: "40px 28px", textAlign: "center" }}>
               <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", margin: 0 }}>No openings in this window</h2>
-              <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "10px auto 0", maxWidth: 440 }}>
-                Try a wider posting-age filter above — the feed is restocked by daily scans of company career boards.
+              <p style={{ fontSize: 14, color: "var(--muted)", margin: "10px auto 0", maxWidth: 440 }}>
+                Try a wider posting-age filter above; the feed is restocked by daily scans of company career boards.
               </p>
             </CardContent>
           </Card>
         )}
 
-        {state.status === "ready" && state.profileRoles.length === 0 && !nudgeDismissed && (
-          <div
-            style={{
-              marginBottom: 16,
-              borderRadius: 14,
-              border: "1.5px solid color-mix(in srgb, var(--accent) 22%, transparent)",
-              background: "var(--surface)",
-              padding: "18px 20px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
-                  Tell us what you&apos;re targeting
-                </div>
-                <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-                  We&apos;ll sort matching jobs to the top of your feed.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setNudgeDismissed(true)}
-                aria-label="Dismiss"
-                style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 18, cursor: "pointer", lineHeight: 1, padding: "0 2px", flexShrink: 0 }}
-              >
-                ×
-              </button>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-              {ROLE_CHIPS.map((r) => {
-                const active = nudgeRoles.includes(r);
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => toggleNudgeRole(r)}
-                    style={{
-                      padding: "5px 11px",
-                      borderRadius: 20,
-                      border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                      background: active ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "var(--surface2)",
-                      color: active ? "var(--accent)" : "var(--text)",
-                      fontSize: 12,
-                      fontWeight: active ? 700 : 500,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      transition: "all 0.1s",
-                    }}
-                  >
-                    {active ? "✓ " : ""}{r}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              onClick={() => { void handleNudgeSave(); }}
-              disabled={!nudgeRoles.length || nudgeSaving}
-              style={{
-                padding: "9px 20px",
-                borderRadius: 10,
-                border: "none",
-                background: nudgeRoles.length ? "var(--accent)" : "var(--surface2)",
-                color: nudgeRoles.length ? "#fff" : "var(--dim)",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: nudgeRoles.length && !nudgeSaving ? "pointer" : "default",
-                fontFamily: "inherit",
-                boxShadow: nudgeRoles.length ? "0 2px 10px color-mix(in srgb, var(--accent) 28%, transparent)" : "none",
-              }}
-            >
-              {nudgeSaving ? "Saving…" : "Save preferences →"}
-            </button>
-          </div>
-        )}
-
         {state.status === "ready" && state.jobs.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {pagedJobs.map((job) => {
-              const colors = job.matchScore != null ? scoreColors(job.matchScore) : null;
-              const salary = formatSalary(job);
-              const posted = formatPostedAt(job.postedAt);
-              const reqPct = job.totalRequirements > 0 ? Math.round((job.matchedCount / job.totalRequirements) * 100) : 0;
-              return (
-                <Card
-                  key={job.id}
-                  onClick={() => router.push(`/?view=jobs&job=${encodeURIComponent(job.id)}`)}
-                  style={{
-                    cursor: "pointer",
-                    ...(job.id === selectedJobId
-                      ? { outline: "2px solid var(--accent)", outlineOffset: -1, background: "var(--accent-bg)" }
-                      : null),
-                  }}
-                >
-                  <CardContent
-                    style={{
-                      padding: "16px 18px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 16,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {job.matchScore != null && colors && (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flexShrink: 0, width: 56 }}>
-                      <div
-                        title={`Matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
-                        style={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: 12,
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: colors.bg,
-                          color: colors.fg,
-                        }}
-                      >
-                        <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1 }}>{job.matchScore}</span>
-                        <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.85 }}>MATCH</span>
-                      </div>
-                      <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.03em", textTransform: "uppercase", color: colors.fg, textAlign: "center", lineHeight: 1.1 }}>
-                        {matchTierLabel(job.matchScore)}
-                      </span>
-                    </div>
-                    )}
-                    <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
-                    <div style={{ flex: isMobile ? "1 1 140px" : "1 1 240px", minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
-                      <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontWeight: 500 }}>{job.company}</span>
-                        {job.location && <span>· {job.location}</span>}
-                        {posted && <span>· {posted}</span>}
-                      </div>
-                      <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
-                        {job.matchScore != null && (
-                          <span
-                            title={`Matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
-                            style={{
-                              display: "inline-flex", alignItems: "center", gap: 7,
-                              padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 500,
-                              background: "var(--surface2)", color: "var(--muted)",
-                            }}
-                          >
-                            <span style={{ position: "relative", display: "inline-block", width: 42, height: 5, borderRadius: 999, background: "color-mix(in srgb, var(--muted) 22%, transparent)", overflow: "hidden" }}>
-                              <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${reqPct}%`, background: "#c4793a", borderRadius: 999 }} />
-                            </span>
-                            {job.matchedCount}/{job.totalRequirements} matched
-                          </span>
-                        )}
-                        {salary && (
-                          <Badge variant="secondary" style={{ fontSize: 11 }}>
-                            {salary}
-                          </Badge>
-                        )}
-                        {job.workModel && WORK_MODEL_LABEL[job.workModel] && (
-                          <Badge variant="secondary" style={{ fontSize: 11 }}>
-                            {WORK_MODEL_LABEL[job.workModel]}
-                          </Badge>
-                        )}
-                        {job.seniority && SENIORITY_LABEL[job.seniority] && (
-                          <Badge variant="secondary" style={{ fontSize: 11 }}>
-                            {SENIORITY_LABEL[job.seniority]}
-                          </Badge>
-                        )}
-                        {(job.h1bSponsor || job.visaSponsorship === "yes") && (
-                          <Badge
-                            style={{
-                              fontSize: 11,
-                              background: "color-mix(in srgb, #16a34a 14%, transparent)",
-                              color: "#16a34a",
-                              border: "1px solid color-mix(in srgb, #16a34a 32%, transparent)",
-                            }}
-                          >
-                            {job.h1bSponsor && job.h1bCertifiedCount
-                              ? `H-1B sponsor · ${job.h1bCertifiedCount.toLocaleString()}`
-                              : "H-1B sponsor"}
-                          </Badge>
-                        )}
-                        {job.titleMatch && (
-                          <Badge
-                            style={{
-                              fontSize: 11,
-                              background: "color-mix(in srgb, var(--accent) 12%, transparent)",
-                              color: "var(--accent)",
-                              border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-                            }}
-                          >
-                            🎯 Target role
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    {!listMode && (
-                    <div style={{ flexShrink: 0, display: "flex", flexDirection: isMobile ? "row" : "column", gap: 7, alignItems: "stretch", flexWrap: isMobile ? "wrap" : "nowrap", width: isMobile ? "100%" : "auto" }}>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); void openBoost(job.id); }}
-                        disabled={boostLoadingId === job.id}
-                        style={{
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          padding: "7px 14px",
-                          borderRadius: 8,
-                          border: "none",
-                          background: "#c4793a",
-                          color: "#fff",
-                          cursor: boostLoadingId === job.id ? "wait" : "pointer",
-                          whiteSpace: "nowrap",
-                          opacity: boostLoadingId === job.id ? 0.7 : 1,
-                          fontFamily: "inherit",
-                          flex: isMobile ? "1 1 auto" : undefined,
-                        }}
-                      >
-                        {boostLoadingId === job.id ? "Loading…" : "✦ Optimize"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); void openPrep(job.id); }}
-                        disabled={prepLoadingId === job.id}
-                        style={{
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          padding: "7px 14px",
-                          borderRadius: 8,
-                          border: prepStatuses[job.id]
-                            ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
-                            : "1px solid var(--surface2)",
-                          background: prepStatuses[job.id]
-                            ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
-                            : "transparent",
-                          color: prepStatuses[job.id] ? "var(--green-ink)" : "var(--text)",
-                          cursor: prepLoadingId === job.id ? "wait" : "pointer",
-                          whiteSpace: "nowrap",
-                          opacity: prepLoadingId === job.id ? 0.7 : 1,
-                          fontFamily: "inherit",
-                          flex: isMobile ? "1 1 auto" : undefined,
-                        }}
-                      >
-                        {prepLoadingId === job.id
-                          ? "Loading…"
-                          : prepStatuses[job.id]
-                            ? "🎤 Prep ready"
-                            : "🎤 Prep interview"}
-                      </button>
-                      <a
-                        href={job.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => { e.stopPropagation(); void trackApplyClick(job.id); }}
-                        style={{
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          padding: "7px 14px",
-                          borderRadius: 8,
-                          textAlign: "center",
-                          flex: isMobile ? "1 1 100%" : undefined,
-                          border: appliedIds.has(job.id)
-                            ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
-                            : "1px solid var(--surface2)",
-                          color: appliedIds.has(job.id) ? "var(--green-ink)" : "var(--text)",
-                          background: appliedIds.has(job.id)
-                            ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
-                            : "transparent",
-                          textDecoration: "none",
-                          whiteSpace: "nowrap",
-                          transition: "color 0.15s, border-color 0.15s, background 0.15s",
-                        }}
-                      >
-                        {appliedIds.has(job.id) ? "Applied ✓" : "View & apply ↗"}
-                      </a>
-                    </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {/* The opened/deep-linked job, pinned + highlighted when it isn't in the
+                current filtered feed — so a shared link always shows its job selected
+                without disturbing the filters. */}
+            {pinnedJob && !pagedJobs.some((j) => j.id === pinnedJob.id) &&
+              renderJobCard(pinnedJob, "Selected job")}
+            {pagedJobs.map((job) => renderJobCard(job))}
             {visibleJobs.length === 0 && (
               <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: "28px 0" }}>
                 No openings match the current filters.
               </p>
             )}
 
-            {hasMore && (
-              <div ref={sentinelRef} style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
-                <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
-                  Load more ({visibleJobs.length - pagedJobs.length} more)
+            {(canPrev || canNext) && (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, padding: "14px 0 4px" }}>
+                <Button variant="outline" size="sm" disabled={!canPrev || loadingMore} onClick={() => void goToPage(currentPage - 1)}>
+                  ← Prev
+                </Button>
+                <span style={{ fontSize: 13, color: "var(--muted)", minWidth: 96, textAlign: "center" }}>
+                  {loadingMore
+                    ? "Loading…"
+                    : `Page ${(currentPage + 1).toLocaleString()}${
+                        typeof totalMatching === "number"
+                          ? ` of ${Math.max(1, Math.ceil(totalMatching / PAGE_SIZE)).toLocaleString()}`
+                          : serverHasMore
+                          ? ""
+                          : ` of ${loadedPages.toLocaleString()}`
+                      }`}
+                </span>
+                <Button variant="outline" size="sm" disabled={!canNext || loadingMore} onClick={() => void goToPage(currentPage + 1)}>
+                  Next →
                 </Button>
               </div>
             )}
 
-            {!hasMore && visibleJobs.length > PAGE_SIZE && (
-              <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "16px 0 4px" }}>
-                You&apos;ve reached the end · {visibleJobs.length} openings
+            {!canNext && visibleJobs.length > PAGE_SIZE && (
+              <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "12px 0 4px" }}>
+                End · {(typeof totalMatching === "number" ? totalMatching : visibleJobs.length).toLocaleString()} openings
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Outside-your-filters fallback: never dead-end on an empty result —
+            show the relaxed set (same search, no facet/age/country limits) in a
+            clearly separate section so the user can still see what's out there. */}
+        {state.status === "ready" && pagedJobs.length === 0 && fallback.jobs.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "0 0 10px", flexWrap: "wrap" }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", margin: 0, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                Outside your filters
+              </h3>
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                {debouncedSearch
+                  ? `Matches for “${debouncedSearch}” beyond your current date / location / filters`
+                  : "Roles beyond your current date / location / filters"}
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {fallback.jobs.slice(0, FALLBACK_LIMIT).map((job) => renderJobCard(job, outsideReason(job)))}
+            </div>
+            {!fallback.loading && fallback.jobs.length > FALLBACK_LIMIT && (
+              <p style={{ fontSize: 12, color: "var(--dim)", textAlign: "center", padding: "12px 0 0" }}>
+                Showing {FALLBACK_LIMIT} of {fallback.jobs.length}. Widen a filter above to see more in your main feed.
               </p>
             )}
           </div>
@@ -1322,14 +2187,25 @@ export default function JobsFeed({
           isMobile={isMobile}
           savedFilters={savedFilters}
           currentSnapshot={currentSnapshot}
+          topMatches={topMatches.jobs}
+          topMatchesLoading={topMatches.loading}
           onApply={applySnapshot}
           onSaved={(f) => setSavedFilters((prev) => [f, ...prev])}
           onDeleted={(id) => setSavedFilters((prev) => prev.filter((x) => x.id !== id))}
           onNavigate={(v) => router.push(`/?view=${v}`)}
+          onOpenJob={openJobUrl}
         />
       )}
 
-      {boostJob && <BoostPanel job={boostJob} onClose={() => setBoostJob(null)} />}
+      {boostJob && (
+        <BoostPanel
+          job={boostJob}
+          onClose={() => setBoostJob(null)}
+          onApplied={handleBoostApplied}
+          onScoreChange={updateJobMatchScore}
+          onResumePromoted={handleBoostResumePromoted}
+        />
+      )}
 
       {boostError && (
         <div
@@ -1369,7 +2245,7 @@ const SIDEBAR_CARD: CSSProperties = {
 const SIDEBAR_INPUT: CSSProperties = {
   flex: 1,
   minWidth: 0,
-  fontSize: 12.5,
+  fontSize: 13,
   padding: "7px 10px",
   borderRadius: 8,
   border: "1px solid var(--surface2)",
@@ -1377,26 +2253,209 @@ const SIDEBAR_INPUT: CSSProperties = {
   color: "var(--text)",
 };
 
+
+/**
+ * One row in the feed.
+ *
+ * Memoized and lifted out of `JobsFeed` on purpose: the feed re-renders on
+ * every keystroke in the search box and on every filter toggle, and each card
+ * mounts a `CompanyLogo`. As an inline closure, all ~50 visible cards
+ * re-rendered on each of those; as a memo with primitive props they only
+ * re-render when their own data changes. Every callback below is `useCallback`
+ * -stable in the parent, which is what makes the memo actually hold.
+ *
+ * `onIntent` warms this posting's detail on hover/focus, so Optimize, Prep and
+ * the detail pane usually open against an already-fetched payload.
+ */
+type JobCardProps = {
+  job: FeedJob;
+  reasonChip?: string;
+  selected: boolean;
+  applied: boolean;
+  prepReady: boolean;
+  boostLoading: boolean;
+  prepLoading: boolean;
+  isMobile: boolean;
+  listMode: boolean;
+  onOpen: (id: string) => void;
+  onBoost: (id: string) => void;
+  onPrep: (id: string) => void;
+  onApply: (id: string) => void;
+  onIntent: React.HTMLAttributes<HTMLElement>;
+};
+
+const JobCard = memo(function JobCard({
+  job,
+  reasonChip,
+  selected,
+  applied,
+  prepReady,
+  boostLoading,
+  prepLoading,
+  isMobile,
+  listMode,
+  onOpen,
+  onBoost,
+  onPrep,
+  onApply,
+  onIntent,
+}: JobCardProps) {
+  const salary = formatSalary(job);
+  const posted = formatPostedAt(job.postedAt);
+  return (
+    <Card
+              onClick={() => onOpen(job.id)}
+      {...onIntent}
+      style={{
+        cursor: "pointer",
+        ...(selected
+          ? { outline: "2px solid var(--accent)", outlineOffset: -1, background: "var(--accent-bg)" }
+          : null),
+      }}
+    >
+      <CardContent
+        style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}
+      >
+        <CompanyLogo company={job.company} companyDomain={job.companyDomain || ""} slug={job.companySlug || ""} size={44} radius={10} />
+        <div style={{ flex: isMobile ? "1 1 140px" : "1 1 240px", minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{job.title}</div>
+          <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 500 }}>{job.company}</span>
+            {job.location && <span>· {job.location}</span>}
+            {posted && <span>· {posted}</span>}
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
+            {reasonChip && (
+              <Badge style={{ fontSize: 11, background: "var(--surface2)", color: "var(--muted)", border: "1px solid var(--surface2)" }}>
+                {reasonChip}
+              </Badge>
+            )}
+            {salary && <Badge variant="secondary" style={{ fontSize: 11 }}>{salary}</Badge>}
+            {job.workModel && WORK_MODEL_LABEL[job.workModel] && (
+              <Badge variant="secondary" style={{ fontSize: 11 }}>{WORK_MODEL_LABEL[job.workModel]}</Badge>
+            )}
+            {job.seniority && SENIORITY_LABEL[job.seniority] && (
+              <Badge variant="secondary" style={{ fontSize: 11 }}>{SENIORITY_LABEL[job.seniority]}</Badge>
+            )}
+            {(job.h1bSponsor || job.visaSponsorship === "yes") && (
+              <Badge
+                style={{
+                  fontSize: 11,
+                  background: "color-mix(in srgb, #16a34a 14%, transparent)",
+                  color: "#16a34a",
+                  border: "1px solid color-mix(in srgb, #16a34a 32%, transparent)",
+                }}
+              >
+                {job.h1bSponsor && job.h1bCertifiedCount
+                  ? `H-1B sponsor · ${job.h1bCertifiedCount.toLocaleString()}`
+                  : "H-1B sponsor"}
+              </Badge>
+            )}
+            {job.titleMatch && (
+              <Badge
+                style={{
+                  fontSize: 11,
+                  background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                  color: "var(--accent)",
+                  border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+                }}
+              >
+                🎯 Target role
+              </Badge>
+            )}
+          </div>
+        </div>
+        {!listMode && (
+          <div style={{ flexShrink: 0, display: "flex", flexDirection: isMobile ? "row" : "column", gap: 7, alignItems: "stretch", flexWrap: isMobile ? "wrap" : "nowrap", width: isMobile ? "100%" : "auto" }}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onBoost(job.id); }}
+              disabled={boostLoading}
+              style={{
+                fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: "none",
+                background: "#c4793a", color: "#fff",
+                cursor: boostLoading ? "wait" : "pointer", whiteSpace: "nowrap",
+                opacity: boostLoading ? 0.7 : 1, fontFamily: "inherit",
+                flex: isMobile ? "1 1 auto" : undefined,
+              }}
+            >
+              {boostLoading ? "Loading…" : "✦ Optimize"}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onPrep(job.id); }}
+              disabled={prepLoading}
+              style={{
+                fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 8,
+                border: prepReady
+                  ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
+                  : "1px solid var(--surface2)",
+                background: prepReady
+                  ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
+                  : "transparent",
+                color: prepReady ? "var(--green-ink)" : "var(--text)",
+                cursor: prepLoading ? "wait" : "pointer", whiteSpace: "nowrap",
+                opacity: prepLoading ? 0.7 : 1, fontFamily: "inherit",
+                flex: isMobile ? "1 1 auto" : undefined,
+              }}
+            >
+              {prepLoading ? "Loading…" : prepReady ? "🎤 Prep ready" : "🎤 Prep interview"}
+            </button>
+            <a
+              href={job.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => { e.stopPropagation(); onApply(job.id); }}
+              style={{
+                fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 8, textAlign: "center",
+                flex: isMobile ? "1 1 100%" : undefined,
+                border: applied
+                  ? "1px solid color-mix(in srgb, var(--green-ink) 35%, transparent)"
+                  : "1px solid var(--surface2)",
+                color: applied ? "var(--green-ink)" : "var(--text)",
+                background: applied
+                  ? "color-mix(in srgb, var(--green-ink) 10%, transparent)"
+                  : "transparent",
+                textDecoration: "none", whiteSpace: "nowrap",
+                transition: "color 0.15s, border-color 0.15s, background 0.15s",
+              }}
+            >
+              {applied ? "Applied ✓" : "View & apply ↗"}
+            </a>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+});
+
 function JobsSidebar({
   isMobile,
   savedFilters,
   currentSnapshot,
+  topMatches,
+  topMatchesLoading,
   onApply,
   onSaved,
   onDeleted,
   onNavigate,
+  onOpenJob,
 }: {
   isMobile: boolean;
   savedFilters: SavedFilter[];
   currentSnapshot: FilterSnapshot;
+  topMatches: JobTopMatch[];
+  topMatchesLoading: boolean;
   onApply: (f: Partial<FilterSnapshot>) => void;
   onSaved: (f: SavedFilter) => void;
   onDeleted: (id: string) => void;
   onNavigate: (view: string) => void;
+  onOpenJob: (id: string) => void;
 }) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   // On mobile the sidebar is a collapsed disclosure (closed by default) so the
   // job feed stays the sole focus, LinkedIn-style. Desktop renders it expanded.
   const [expanded, setExpanded] = useState(false);
@@ -1406,13 +2465,14 @@ function JobsSidebar({
     const n = name.trim();
     if (!n || saving) return;
     setSaving(true);
+    setSaveError("");
     try {
       const created = await createJobFilter(n, currentSnapshot);
       onSaved(created);
       setName("");
       setNaming(false);
-    } catch {
-      /* ignore — sidebar is best-effort */
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Couldn't save this filter");
     } finally {
       setSaving(false);
     }
@@ -1434,7 +2494,7 @@ function JobsSidebar({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", fontSize: 13.5, fontWeight: 600, color: "var(--text)", padding: "11px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", fontFamily: "inherit" }}
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", fontSize: 14, fontWeight: 600, color: "var(--text)", padding: "11px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", fontFamily: "inherit" }}
         >
           Saved filters &amp; tools
           <span style={{ fontSize: 10, opacity: 0.6, transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
@@ -1442,12 +2502,13 @@ function JobsSidebar({
       )}
       {showCards && (
       <>
+      <JobTopMatchesCard jobs={topMatches} loading={topMatchesLoading} onOpenJob={onOpenJob} />
       <div style={SIDEBAR_CARD}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Your saved filters</span>
           {!naming && (
             <button
-              onClick={() => setNaming(true)}
+              onClick={() => { setName(filterSnapshotToName(currentSnapshot)); setNaming(true); }}
               style={{ fontSize: 12, fontWeight: 600, padding: "4px 9px", borderRadius: 7, border: "1px solid var(--surface2)", background: "transparent", color: "var(--accent)", cursor: "pointer" }}
             >
               + Save
@@ -1456,23 +2517,30 @@ function JobsSidebar({
         </div>
 
         {naming && (
-          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") void save(); }}
-              placeholder="Name this filter set"
-              style={SIDEBAR_INPUT}
-            />
-            <button
-              onClick={() => void save()}
-              disabled={!name.trim() || saving}
-              style={{ fontSize: 12, fontWeight: 600, padding: "0 12px", borderRadius: 8, border: "none", background: "#c4793a", color: "#fff", cursor: name.trim() && !saving ? "pointer" : "not-allowed", opacity: name.trim() && !saving ? 1 : 0.6 }}
-            >
-              {saving ? "…" : "Save"}
-            </button>
-          </div>
+          <>
+            <div style={{ display: "flex", gap: 6, marginBottom: saveError ? 6 : 10 }}>
+              <input
+                autoFocus
+                value={name}
+                onChange={(e) => { setName(e.target.value); if (saveError) setSaveError(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") void save(); }}
+                placeholder="Name this filter set"
+                style={SIDEBAR_INPUT}
+              />
+              <button
+                onClick={() => void save()}
+                disabled={!name.trim() || saving}
+                style={{ fontSize: 12, fontWeight: 600, padding: "0 12px", borderRadius: 8, border: "none", background: "#c4793a", color: "#fff", cursor: name.trim() && !saving ? "pointer" : "not-allowed", opacity: name.trim() && !saving ? 1 : 0.6 }}
+              >
+                {saving ? "…" : "Save"}
+              </button>
+            </div>
+            {saveError && (
+              <p style={{ fontSize: 12, color: "var(--red, #b91c1c)", margin: "0 0 10px", lineHeight: 1.4 }}>
+                {saveError}
+              </p>
+            )}
+          </>
         )}
 
         {savedFilters.length === 0 ? (
@@ -1485,14 +2553,18 @@ function JobsSidebar({
               <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button
                   onClick={() => onApply(f.filters)}
-                  title="Apply this filter set"
-                  style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 12.5, fontWeight: 500, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--surface2)", color: "var(--text)", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  // The chip is truncated with an ellipsis — hovering shows the full
+                  // name (the whole "title · experience · … · date" tagline) + action.
+                  title={`${f.name}\n(click to apply)`}
+                  style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 13, fontWeight: 500, padding: "7px 10px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--surface2)", color: "var(--text)", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                 >
                   {f.name}
                 </button>
-                <button onClick={() => void remove(f.id)} aria-label={`Delete ${f.name}`} style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 15, cursor: "pointer", padding: 2, flexShrink: 0 }}>
-                  ×
-                </button>
+                <Tip label={`Delete ${f.name}`}>
+                  <button onClick={() => void remove(f.id)} style={{ background: "none", border: "none", color: "var(--dim)", fontSize: 15, cursor: "pointer", padding: 2, flexShrink: 0 }}>
+                    ×
+                  </button>
+                </Tip>
               </div>
             ))}
           </div>
@@ -1501,7 +2573,7 @@ function JobsSidebar({
 
       {/* Resunova-native widget — replaces jobright's "Career Coach" upsell. */}
       <div style={SIDEBAR_CARD}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>Sharpen your matches</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>Sharpen your matches</div>
         <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 12px" }}>
           Your résumé is the match profile. Re-scan after edits to refresh every score across the feed.
         </p>
@@ -1559,14 +2631,14 @@ function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 20px 72px", width: "100%" }}>
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 22 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg, color-mix(in srgb, var(--accent) 10%, transparent))", padding: "5px 12px", borderRadius: 999, marginBottom: 14 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 600, color: "var(--accent)", background: "var(--accent-bg, color-mix(in srgb, var(--accent) 10%, transparent))", padding: "5px 12px", borderRadius: 999, marginBottom: 14 }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)" }} />
           {proofText}
         </div>
         <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: -0.6, color: "var(--text)", margin: "0 0 8px", lineHeight: 1.15 }}>
           Find jobs that match your résumé
         </h1>
-        <p style={{ fontSize: 14.5, color: "var(--muted)", margin: "0 auto", maxWidth: 420, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 auto", maxWidth: 420, lineHeight: 1.5 }}>
           Live openings from company career boards, ranked by fit.
         </p>
       </div>
@@ -1587,7 +2659,7 @@ function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn
       {/* Category quick-picks (gated) */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 26 }}>
         {categories.map((c) => (
-          <button key={c} type="button" onClick={onSignIn} style={{ fontSize: 12.5, fontWeight: 500, color: "var(--muted)", background: "transparent", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 13px", cursor: "pointer", fontFamily: "inherit" }}>
+          <button key={c} type="button" onClick={onSignIn} style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)", background: "transparent", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 13px", cursor: "pointer", fontFamily: "inherit" }}>
             {c}
           </button>
         ))}
@@ -1602,8 +2674,8 @@ function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--surface2)", flexShrink: 0 }} />
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{j.title}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--muted)" }}>{j.co} · {j.loc}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{j.title}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>{j.co} · {j.loc}</div>
                 </div>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1618,7 +2690,7 @@ function SignedOutJobsHero({ count, onSignIn }: { count: number | null; onSignIn
           <div style={{ textAlign: "center", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, boxShadow: "0 16px 48px rgba(0,0,0,0.18)", padding: "24px 28px", maxWidth: 360 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 12 }}>Sign in to see your matches</div>
             <Button size="lg" onClick={onSignIn} style={{ minWidth: 230 }}>Sign in to browse</Button>
-            <div style={{ fontSize: 11.5, color: "var(--dim)", marginTop: 11 }}>Free · no credit card</div>
+            <div style={{ fontSize: 12, color: "var(--dim)", marginTop: 11 }}>Free · no credit card</div>
           </div>
         </div>
       </div>

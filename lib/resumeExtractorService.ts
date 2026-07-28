@@ -1,4 +1,5 @@
 import { apiUrl } from "./utils";
+import { apiFetch } from "@/lib/apiClient";
 
 export type ExtractedExperience = {
   company: string;
@@ -58,7 +59,7 @@ export async function extractResumeData(file: File): Promise<ExtractedProfileSta
   // Optional: add defer_analysis=1 to get faster response if available
   formData.append("defer_analysis", "1");
 
-  const resp = await fetch(apiUrl("/api/upload-resume"), {
+  const resp = await apiFetch("/api/upload-resume", {
     method: "POST",
     body: formData,
   });

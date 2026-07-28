@@ -36,7 +36,9 @@ import {
 } from "@/lib/suggestionResumeMatch";
 import {
   gapFixTargetBulletIndices,
+  gapFixTargetBulletMap,
   matchOriginalToBulletIndex,
+  applyFieldOverridesToStructured,
   patchStructuredWithOverrides,
   resolveBulletIndexForGapFix,
   synthesizeProfileWithBulletOverrides,
@@ -51,6 +53,11 @@ import {
   remapLineOverrides,
   suggestionsWithDrafts,
 } from "@/lib/tailorGapFix";
+import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToStructured";
+import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
+import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes } from "@/lib/fixEverything";
+import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
+import { prefillPrepFromTailor } from "@/lib/interviewPrepLaunch";
 import type { AddressedGapAction } from "@/lib/types";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
@@ -80,6 +87,7 @@ import MatchBreakdownCards from "./MatchBreakdownCards";
 import { TailorMatchSidebar, TailorMatchDetail } from "./DetailedRatingsView";
 import TailorRecentJobs from "./TailorRecentJobs";
 import TailorPreviewPane from "./TailorPreviewPane";
+import TailorAnalyzingLoader from "./TailorAnalyzingLoader";
 import CategoryFixPanel from "./CategoryFixPanel";
 import { isDetailedRatings } from "@/lib/types";
 import type { DetailedRatingItem } from "@/lib/types";
@@ -93,6 +101,19 @@ import {
   VariantC,
 } from "@/components/LandingFeatureShowcase";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
+import { ScanFeedbackToast, useScanToast } from "@/components/ScanFeedbackToast";
+import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/components/TailorSaveStatus";
+import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
+import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
+import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { apiFetch } from "@/lib/apiClient";
 
 const TailoredPdfPreview = dynamic(
   () => import("@/components/TailoredPdfPreview"),
@@ -440,6 +461,39 @@ export default function ResumeBuilder({
   const [statusMsg,  setStatusMsg]  = useState("");
   const [result,     setResult]     = useState<GenerationResult | null>(() => builderSession0?.result ?? null);
   const appShellSidebar = useAppShellSidebar();
+  const { scanMeta, handleScanResponse, handleScanError, clearScanMeta } = useScanToast();
+  const saveStatus = useTailorSaveStatus();
+  // Tailoring intensity (honest | aggressive). null = user never chose — the
+  // one-time explainer modal fires on the first analyze, then persists to
+  // user_profiles.tailoring_mode (migration 036) + localStorage cache.
+  const [tailoringMode, setTailoringMode] = useState<TailoringMode | null>(() => getCachedTailoringMode());
+  const [showTailoringModal, setShowTailoringModal] = useState(false);
+  const pendingAnalyzeAfterModeRef = useRef(false);
+  const handleAnalyzeRef = useRef<(() => void) | null>(null);
+  const commitTailoringMode = useCallback((mode: TailoringMode) => {
+    setTailoringMode(mode);
+    void saveTailoringMode(mode);
+    setShowTailoringModal(false);
+    if (pendingAnalyzeAfterModeRef.current) {
+      pendingAnalyzeAfterModeRef.current = false;
+      setTimeout(() => handleAnalyzeRef.current?.(), 0);
+    }
+  }, []);
+  const lastSaveArgsRef = useRef<Parameters<typeof saveTailorMatchToLibrary>[0] | null>(null);
+  const persistTailorMatch = useCallback(async (args: Parameters<typeof saveTailorMatchToLibrary>[0]) => {
+    lastSaveArgsRef.current = args;
+    saveStatus.beginSave();
+    try {
+      await saveTailorMatchToLibrary(args);
+      saveStatus.saveSucceeded();
+    } catch (e) {
+      console.warn("saveTailorMatchToLibrary failed", e);
+      saveStatus.saveFailed();
+    }
+  }, [saveStatus]);
+  const retryTailorSave = useCallback(() => {
+    if (lastSaveArgsRef.current) void persistTailorMatch(lastSaveArgsRef.current);
+  }, [persistTailorMatch]);
   const [error,      setError]      = useState<string | null>(null);
   const [preview,    setPreview]    = useState(() => builderSession0?.result?.latexPreview ?? "");
   const [jdKeywords, setJdKeywords] = useState<string[]>([]);
@@ -461,7 +515,6 @@ export default function ResumeBuilder({
   const [storageFailures, setStorageFailures] = useState<{ artifact: "pdf" | "tex"; reason: string }[]>([]);
   /** Right-panel "Save to library" re-upsert (compile already upserts; this is explicit retry). */
   const [libraryReSaveBusy, setLibraryReSaveBusy] = useState(false);
-  const [docxExportBusy, setDocxExportBusy] = useState(false);
   const [libraryToast, setLibraryToast] = useState<string | null>(null);
   /** Toast for template customize flow (Save / Download with fresh compile). */
   const [customizeExportToast, setCustomizeExportToast] = useState<string | null>(null);
@@ -485,6 +538,63 @@ export default function ResumeBuilder({
   const [tailorBulletAnalysis, setTailorBulletAnalysis] = useState<LiveBulletItem[]>([]);
   const [tailorLineOverrides, setTailorLineOverrides] = useState<Record<number, string>>({});
   const [tailorAppliedBulletIndices, setTailorAppliedBulletIndices] = useState<ReadonlySet<number>>(() => new Set());
+  // Inline preview edits (Analyze parity). PATH-keyed (`exp.0.bullets.2`) for
+  // neutral bullets + generic fields; ORTHOGONAL to the index-keyed
+  // tailorLineOverrides used by gap-fix, so the two never collide. Path-based
+  // bullet edits are baked into the structured doc at every rescore send site
+  // (via applyFieldOverridesToStructured) so they actually move the score.
+  const [tailorFieldOverrides, setTailorFieldOverrides] = useState<Record<string, string>>({});
+  const setTailorFieldOverride = useCallback((path: string, text: string) => {
+    setTailorFieldOverrides((prev) => {
+      if (!text || text.trim() === "") {
+        if (prev[path] === undefined) return prev;
+        const { [path]: _omit, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [path]: text };
+    });
+    setScoreStale(true);
+  }, []);
+  // The résumé's self-authored headline (e.g. "Software Engineer"), distinct
+  // from any specific employer's job title under Experience — those never
+  // change here. Editing this is the honest lever for the Job Title match:
+  // the backend already includes `headline` in what it sends the rating LLM
+  // (_resume_json_for_rating), so this genuinely moves that score instead of
+  // faking it. Empty string = no override, use the extracted headline as-is.
+  const [tailorHeadlineOverride, setTailorHeadlineOverride] = useState("");
+  const handleHeadlineOverrideChange = useCallback((text: string) => {
+    setTailorHeadlineOverride(text);
+    setScoreStale(true);
+  }, []);
+  /** Bullet-level structural op (drag-reorder / add / delete) from the Tailor
+   *  preview. Mutates the uploaded structured doc (the authoritative scored
+   *  input on rescore) and remaps path-keyed field overrides to follow. */
+  const applyTailorBulletOp = useCallback((op: StructuredBulletOp) => {
+    setStructuredUpload((prev) => {
+      if (!prev) return prev;
+      const next = applyBulletOpToStructured(prev.structured, op);
+      return next ? { ...prev, structured: next } : prev;
+    });
+    setTailorFieldOverrides((prev) => remapOverlayPaths(prev, op.pathRemap));
+    setScoreStale(true);
+  }, []);
+  // Popup rewrite drafts for ANALYZED bullets (index >= 0). Applying writes into
+  // tailorLineOverrides so the change flows through the existing
+  // synthesize/patch → rescore index pipeline (no new desync surface).
+  const [tailorRewriteEdits, setTailorRewriteEdits] = useState<Record<number, string>>({});
+  const patchTailorBulletRewrite = useCallback((index: number, value: string | null) => {
+    setTailorRewriteEdits((prev) => {
+      if (value === null) { const { [index]: _o, ...rest } = prev; return rest; }
+      return { ...prev, [index]: value };
+    });
+  }, []);
+  const patchTailorPreviewLine = useCallback((index: number, value: string | null) => {
+    setTailorLineOverrides((prev) => {
+      if (value === null) { const { [index]: _o, ...rest } = prev; return rest; }
+      return { ...prev, [index]: value };
+    });
+    setScoreStale(true);
+  }, []);
 
   useEffect(() => {
     if (!feedbackToast) return;
@@ -549,8 +659,26 @@ export default function ResumeBuilder({
     setAtsError(null);
     setTailorSidebarVisible(true);
     setMatchSidebarCollapsed(false);
+    saveStatus.resetForNewRun();
     clearDraft();
-  }, [clearSuggestionsState, resetActiveTailorWork]);
+  }, [clearSuggestionsState, resetActiveTailorWork, saveStatus]);
+
+  /** "Start over" — same as tryAnotherJob, plus clears the loaded résumé so
+   *  the user lands back on the upload step instead of keeping it prefilled. */
+  const startOverTailor = useCallback(() => {
+    tryAnotherJob();
+    if (sourcePdfBlobUrlRef.current) {
+      URL.revokeObjectURL(sourcePdfBlobUrlRef.current);
+      sourcePdfBlobUrlRef.current = null;
+    }
+    setSourcePdfBlobUrl(null);
+    setUploadedPdfDataUrl(null);
+    setCandidateProfile(null);
+    setUploadedFileName(null);
+    setStructuredUpload(null);
+    lastResumeExtractRef.current = "";
+    setProfileSyncUpsell(null);
+  }, [tryAnotherJob]);
 
   useEffect(() => {
     return () => {
@@ -929,7 +1057,7 @@ export default function ResumeBuilder({
     setExtractingJd(true);
     setExtractError(null);
     try {
-      const resp = await fetch(apiUrl("/api/extract-jd"), {
+      const resp = await apiFetch("/api/extract-jd", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
@@ -953,6 +1081,12 @@ export default function ResumeBuilder({
   }, [jobUrl]);
 
   const [user, setUser] = useState<User | null>(null);
+  // Refresh the stored tailoring mode whenever the signed-in user changes.
+  useEffect(() => {
+    let alive = true;
+    void fetchTailoringMode().then((m) => { if (alive && m) setTailoringMode(m); });
+    return () => { alive = false; };
+  }, [user?.id]);
   /** After first getSession completes — avoids auto-ATS racing before user is known. */
   const [authReady, setAuthReady] = useState(false);
   const [styleReferenceFolder, setStyleReferenceFolderState] = useState(DEFAULT_REFERENCE_FOLDER);
@@ -1038,7 +1172,7 @@ export default function ResumeBuilder({
 
       let lastErr: Error | null = null;
       for (let attempt = 0; attempt < 2; attempt++) {
-        const resp = await fetch(apiUrl(`/api/ats-check/${encodeURIComponent(folder)}`), {
+        const resp = await apiFetch(`/api/ats-check/${encodeURIComponent(folder)}`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({
@@ -1133,16 +1267,26 @@ export default function ResumeBuilder({
     const profile = (candidateProfile ?? "").trim();
     if (!effJd) { setAnalyzeError("Please paste a job description first."); return; }
     if (!profile) { setAnalyzeError("Please upload your résumé first."); return; }
+    // First-use: ask how the AI should tailor before the first analyze; the
+    // modal re-invokes this via handleAnalyzeRef after the choice is saved.
+    // Anonymous users get asked too — saveTailoringMode() already persists to
+    // localStorage regardless of session, only the Supabase write is skipped.
+    if (tailoringMode === null) {
+      pendingAnalyzeAfterModeRef.current = true;
+      setShowTailoringModal(true);
+      return;
+    }
     // On the initial analyze, no overrides exist yet — send the structured doc
     // directly when the profile text still matches the upload (no manual edits).
     const initialStructured = tailorStructuredResume && profile === (structuredUpload?.profile ?? "").trim()
-      ? tailorStructuredResume : null;
+      ? applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides) : null;
     setAnalyzing(true);
     appShellSidebar?.collapseSidebar();
     setAnalyzeError(null);
     setError(null);
+    saveStatus.resetForNewRun();
     try {
-      const resp = await fetch(apiUrl("/api/analyze"), {
+      const resp = await apiFetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1159,11 +1303,8 @@ export default function ResumeBuilder({
         try {
           const j = JSON.parse(body) as { error?: string; code?: string; limit?: number };
           if (j?.error) msg = j.error;
-          if (resp.status === 429 && j?.code === "daily_scan_limit_reached") {
-            const freeLimit = Number.isFinite(Number(j?.limit)) && Number(j.limit) > 0 ? Number(j.limit) : 5;
-            setFeedbackToast(
-              `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
-            );
+          if (resp.status === 429) {
+            handleScanError(j);
           }
         } catch {
           /* */
@@ -1171,6 +1312,7 @@ export default function ResumeBuilder({
         throw new Error(toUserFriendlyErrorMessage(msg));
       }
       const raw = await resp.json() as Record<string, unknown>;
+      handleScanResponse(raw);
       const data = mergeAnalyzeApiJson(raw) as { ratings?: RatingsData; error?: string; bulletAnalysis?: LiveBulletItem[] };
       if (data.error || !data.ratings) throw new Error(data.error ?? "Analysis returned no ratings");
       applyStructuredFromAnalyze(raw, candidateProfile ?? undefined);
@@ -1191,22 +1333,18 @@ export default function ResumeBuilder({
       };
 
       if (user?.id) {
-        try {
-          await saveTailorMatchToLibrary({
-            folder: matchFolder,
-            company: effCompany,
-            role: effRole,
-            model,
-            ratings: data.ratings,
-            jobDescription: effJd,
-            candidateProfile,
-            structuredResume: normalizeStructuredResume(
-              (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,
-            ),
-          });
-        } catch (e) {
-          console.warn("saveTailorMatchToLibrary failed", e);
-        }
+        await persistTailorMatch({
+          folder: matchFolder,
+          company: effCompany,
+          role: effRole,
+          model,
+          ratings: data.ratings,
+          jobDescription: effJd,
+          candidateProfile,
+          structuredResume: normalizeStructuredResume(
+            (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,
+          ),
+        });
       }
 
       setResult(nextResult);
@@ -1216,7 +1354,8 @@ export default function ResumeBuilder({
     } finally {
       setAnalyzing(false);
     }
-  }, [jd, candidateProfile, company, role, model, user?.id, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar]);
+  }, [jd, candidateProfile, company, role, model, user?.id, tailoringMode, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar, saveStatus, persistTailorMatch]);
+  useEffect(() => { handleAnalyzeRef.current = () => { void handleAnalyze(); }; }, [handleAnalyze]);
 
   /** Re-run JD match ratings on updated plain text (no LaTeX / no ATS folder).
    * Pass bulletsAtApply/overridesAtApply/appliedAtApply when calling from applyGapFixes
@@ -1242,12 +1381,22 @@ export default function ResumeBuilder({
     // Always send the structured doc with overrides patched in — even after
     // gap fixes change bullets. This skips a backend re-extraction round-trip
     // and ensures the scorer sees exactly the content the user edited.
-    const patchedStructured = tailorStructuredResume
-      ? patchStructuredWithOverrides(tailorStructuredResume, effectiveBullets, effectiveOverrides)
+    const structuredWithFieldOverrides = tailorStructuredResume
+      ? applyFieldOverridesToStructured(
+          patchStructuredWithOverrides(tailorStructuredResume, effectiveBullets, effectiveOverrides),
+          tailorFieldOverrides,
+        )
       : null;
+    // applyFieldOverridesToStructured only understands bullet paths (exp.N.bullets.M),
+    // so the headline override is applied separately, directly onto the field the
+    // rating LLM actually reads (_resume_json_for_rating includes `headline`).
+    const headlineOverride = tailorHeadlineOverride.trim();
+    const patchedStructured = structuredWithFieldOverrides && headlineOverride
+      ? { ...structuredWithFieldOverrides, headline: headlineOverride }
+      : structuredWithFieldOverrides;
     setTailorRescoring(true);
     try {
-      const resp = await fetch(apiUrl("/api/analyze"), {
+      const resp = await apiFetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1263,11 +1412,8 @@ export default function ResumeBuilder({
         const body = await resp.text().catch(() => "");
         try {
           const j = JSON.parse(body) as { code?: string; limit?: number };
-          if (resp.status === 429 && j?.code === "daily_scan_limit_reached") {
-            const freeLimit = Number.isFinite(Number(j?.limit)) && Number(j.limit) > 0 ? Number(j.limit) : 5;
-            setFeedbackToast(
-              `Daily limit reached. UMBC students get unlimited scans. Other users get ${freeLimit} scans/day for free.`,
-            );
+          if (resp.status === 429) {
+            handleScanError(j);
           }
         } catch {
           /* */
@@ -1275,6 +1421,7 @@ export default function ResumeBuilder({
         return false;
       }
       const raw = await resp.json() as Record<string, unknown>;
+      handleScanResponse(raw);
       const data = mergeAnalyzeApiJson(raw) as {
         ratings?: RatingsData;
         error?: string;
@@ -1293,23 +1440,19 @@ export default function ResumeBuilder({
       const matchFolder =
         result?.folder ?? tailorMatchFolder(company.trim() || "—", role.trim() || "—");
       if (user?.id && matchFolder) {
-        try {
-          const sr = normalizeStructuredResume(
-            (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,
-          );
-          await saveTailorMatchToLibrary({
-            folder: matchFolder,
-            company: company.trim() || "—",
-            role: role.trim() || "—",
-            model,
-            ratings: mergedRatings,
-            jobDescription: jd.trim(),
-            candidateProfile: prof,
-            structuredResume: sr,
-          });
-        } catch (e) {
-          console.warn("saveTailorMatchToLibrary (rescore) failed", e);
-        }
+        const sr = normalizeStructuredResume(
+          (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,
+        );
+        await persistTailorMatch({
+          folder: matchFolder,
+          company: company.trim() || "—",
+          role: role.trim() || "—",
+          model,
+          ratings: mergedRatings,
+          jobDescription: jd.trim(),
+          candidateProfile: prof,
+          structuredResume: sr,
+        });
       }
 
       setResult((prev) => (
@@ -1350,6 +1493,7 @@ export default function ResumeBuilder({
     candidateProfile, jd, company, role, model, user?.id, result?.folder,
     tailorBulletAnalysis, tailorLineOverrides, addressedGaps, addressedGapActions,
     tailorAppliedBulletIndices, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze,
+    persistTailorMatch, tailorFieldOverrides, tailorHeadlineOverride,
   ]);
 
   /** Plain text with tailor bullet overrides applied (for gap-fix API + rescoring). */
@@ -1377,6 +1521,77 @@ export default function ResumeBuilder({
       effectiveCandidateProfile,
     );
   }, [gapFixPanel, tailorBulletAnalysis, effectiveCandidateProfile]);
+
+  /** suggestion id → bullet index, for linking a card to the line it edits. */
+  const gapFixBulletMap = useMemo(() => {
+    if (!gapFixPanel?.suggestions.length) return new Map<string, number>();
+    return gapFixTargetBulletMap(
+      gapFixPanel.suggestions,
+      tailorBulletAnalysis,
+      effectiveCandidateProfile,
+    );
+  }, [gapFixPanel, tailorBulletAnalysis, effectiveCandidateProfile]);
+
+  /**
+   * What the user is currently working on, as ONE value.
+   *
+   * Deliberately not two synced fields. Two suggestions can target the same
+   * bullet, so index → id is not a function: a pair of effects writing each
+   * other settles on the FIRST suggestion for that bullet, meaning clicking
+   * card B reliably lights up card A. Modelling the event instead and deriving
+   * both projections keeps the ambiguous case honest and removes the loop.
+   */
+  const [rawTailorSelection, setRawTailorSelection] = useState<
+    ({ kind: "gapfix"; id: string } | { kind: "bullet"; idx: number }) & { forPanel: unknown } | null
+  >(null);
+
+  /**
+   * Stale selections are DERIVED away rather than cleared in an effect.
+   *
+   * A held bullet index points at a different line once registerGapFixBullet
+   * appends synthetic bullets during an apply, so the mirror frame would frame
+   * the wrong row. Tagging the selection with the panel + analysis it belongs
+   * to and ignoring it when either changes gets that for free, with no
+   * setState-in-effect and no extra render.
+   */
+  const selectionOwner = gapFixPanel ?? tailorBulletAnalysis;
+  const tailorSelection = rawTailorSelection?.forPanel === selectionOwner ? rawTailorSelection : null;
+  const setTailorSelection = useCallback(
+    (next: { kind: "gapfix"; id: string } | { kind: "bullet"; idx: number } | null) => {
+      setRawTailorSelection(next ? { ...next, forPanel: selectionOwner } : null);
+    },
+    [selectionOwner],
+  );
+
+  const tailorSelectedBulletIdx = useMemo(() => {
+    if (!tailorSelection) return null;
+    if (tailorSelection.kind === "bullet") return tailorSelection.idx;
+    return gapFixBulletMap.get(tailorSelection.id) ?? null;
+  }, [tailorSelection, gapFixBulletMap]);
+
+  /** Every card sitting on the selected bullet, so a 1:N target rings them all. */
+  const activeGapFixIds = useMemo(() => {
+    if (!tailorSelection) return new Set<string>();
+    if (tailorSelection.kind === "gapfix") return new Set([tailorSelection.id]);
+    const ids = new Set<string>();
+    for (const [id, idx] of gapFixBulletMap) {
+      if (idx === tailorSelection.idx) ids.add(id);
+    }
+    return ids;
+  }, [tailorSelection, gapFixBulletMap]);
+
+  /**
+   * The bullet text a card is really editing right now.
+   *
+   * Prefers the applied preview override over the suggestion's quoted
+   * `original`, which was captured against the pristine résumé and goes stale
+   * the moment another fix lands on the same line.
+   */
+  const gapFixBulletText = useCallback((suggestionId: string): string | undefined => {
+    const idx = gapFixBulletMap.get(suggestionId);
+    if (idx === undefined) return undefined;
+    return tailorLineOverrides[idx] ?? tailorBulletAnalysis[idx]?.originalBullet;
+  }, [gapFixBulletMap, tailorLineOverrides, tailorBulletAnalysis]);
 
   const getSuggestions = useCallback(async (
     focusGaps?: Array<{ name: string; score: number }>,
@@ -1418,7 +1633,7 @@ export default function ResumeBuilder({
     setSuggestResearchDigest("");
 
     try {
-      const resp = await fetch(apiUrl("/api/suggest-changes-stream"), {
+      const resp = await apiFetch("/api/suggest-changes-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1566,7 +1781,7 @@ export default function ResumeBuilder({
     const { next } = mergeProfilePreferEmpty(cur, hints);
     saveProfile(next);
     void upsertUserProfile(next);
-    router.push("/?view=profile");
+    router.push("/profile");
   }, [router]);
 
   const handlePdfUpload = useCallback(async (file: File) => {
@@ -1746,7 +1961,7 @@ export default function ResumeBuilder({
         : { ...EMPTY_RESULT, baseFolder, baseLoaded: baseFolder ? null : false };
 
     try {
-      const resp = await fetch(apiUrl("/api/generate-stream"), {
+      const resp = await apiFetch("/api/generate-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: ac.signal,
@@ -1766,7 +1981,7 @@ export default function ResumeBuilder({
           user_email: user?.email ?? null,
           // Pass the pre-parsed structured resume from the upload step so the backend
           // can skip redundant LLM re-extraction when the profile text is the same.
-          ...(tailorStructuredResume ? { structured_resume: tailorStructuredResume } : {}),
+          ...(tailorStructuredResume ? { structured_resume: applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides) } : {}),
         }),
       });
 
@@ -2008,14 +2223,24 @@ export default function ResumeBuilder({
     setGapFixError(null);
     setGapFixPanel(null);
     try {
-      const resp = await fetch(apiUrl("/api/suggest-gap-fix"), {
+      const resp = await apiFetch("/api/suggest-gap-fix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          tailoring_mode: tailoringMode ?? "honest",
           gap_name: gap.name,
           gap_notes: gap.notes,
           job_description: jd.trim(),
-          ...(tailorStructuredResume ? { structured_resume: tailorStructuredResume } : {}),
+          // Patch applied gap fixes in FIRST. The backend builds its
+          // eligible-bullets whitelist from structured_resume, so sending the
+          // pristine doc made every later round rewrite from the original text
+          // — and applying that result overwrote the earlier round's clause.
+          ...(tailorStructuredResume ? {
+            structured_resume: applyFieldOverridesToStructured(
+              patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
+              tailorFieldOverrides,
+            ),
+          } : {}),
           ...(prof ? { candidate_profile: prof } : {}),
         }),
       });
@@ -2045,7 +2270,8 @@ export default function ResumeBuilder({
     } finally {
       setGapFixLoading(null);
     }
-  }, [jd, addressedGaps, addressedGapActions, tailorStructuredResume, effectiveCandidateProfile]);
+  }, [jd, addressedGaps, addressedGapActions, tailorStructuredResume, tailorFieldOverrides,
+      tailorBulletAnalysis, tailorLineOverrides, effectiveCandidateProfile, tailoringMode]);
 
   /**
    * Apply one or more gap-fix suggestions to the HTML preview (Chromium export path — no LaTeX).
@@ -2097,6 +2323,11 @@ export default function ResumeBuilder({
         category: "strengthen_impact";
       }> = [];
 
+      // Which suggestions landed on which bullet, so a second one targeting an
+      // already-edited bullet can be MERGED rather than overwriting it.
+      const perBullet = new Map<number, { original: string; suggestions: string[] }>();
+      const unmergeable: string[] = [];
+
       for (const s of draftedItems) {
         if (!s.original?.trim() || !s.suggested?.trim()) continue;
         const fixId = `gf_${Date.now()}_${s.id}`;
@@ -2119,10 +2350,42 @@ export default function ResumeBuilder({
           profileForMatch,
         );
         bullets = resolved.bullets;
-        if (resolved.index >= 0) {
-          nextOverrides[resolved.index] = s.suggested.trim();
-          appliedIndices.add(resolved.index);
+        if (resolved.index < 0) continue;
+
+        const slot = perBullet.get(resolved.index);
+        if (slot) slot.suggestions.push(s.suggested.trim());
+        else perBullet.set(resolved.index, { original: s.original.trim(), suggestions: [s.suggested.trim()] });
+      }
+
+      // Each `suggested` was written against the PRISTINE bullet, so applying
+      // several to one bullet in sequence means the last writer wins and every
+      // earlier addition is silently lost — while every gap still gets marked
+      // addressed. Merge the additions instead. When they cannot be merged
+      // honestly (one is a real rewrite, not an addition) keep only the first
+      // and report the rest, rather than quietly dropping them.
+      for (const [index, { original, suggestions: variants }] of perBullet) {
+        const priorOverride = nextOverrides[index];
+        const base = priorOverride?.trim() || original;
+        const all = priorOverride?.trim() && !variants.includes(priorOverride.trim())
+          ? [priorOverride.trim(), ...variants]
+          : variants;
+
+        const merged = all.length > 1 ? mergeGapFixSuggestions(original, all) : all[0];
+        if (merged) {
+          nextOverrides[index] = merged;
+        } else {
+          nextOverrides[index] = all[0];
+          if (all.length > 1) unmergeable.push(base);
         }
+        appliedIndices.add(index);
+      }
+
+      if (unmergeable.length > 0) {
+        setError(
+          `${unmergeable.length} fix${unmergeable.length === 1 ? "" : "es"} targeted a bullet another fix `
+          + "already rewrote, and the two could not be combined. The first was applied; "
+          + "re-check the match and re-run the remaining gap to fix it against the updated bullet.",
+        );
       }
 
       setTailorBulletAnalysis(bullets);
@@ -2131,16 +2394,11 @@ export default function ResumeBuilder({
         setTailorAppliedBulletIndices(appliedIndices);
       }
 
-      if (newSuggestions.length > 0) {
-        const existing = suggestions ?? [];
-        hydrateSuggestions(
-          [...newSuggestions, ...existing],
-          suggestSummary,
-          strategicTips,
-          interviewQuestions,
-        );
-        for (const s of newSuggestions) acceptSuggestion(s.id);
-      }
+      // Applied gap fixes are NOT pushed into the suggestions store any more.
+      // They used to be re-injected as `strengthen_impact`, so a fix the user
+      // had just applied reappeared as a card in the Polish tab — the same work
+      // offered twice, writing the same override map. The gap chip moving to
+      // "applied" is the record now.
 
       // Apply is now LOCAL ONLY — mirror the Analyze flow. The override paints
       // the suggested text into the preview instantly and the gap moves
@@ -2181,6 +2439,214 @@ export default function ResumeBuilder({
     await applyGapFixes(items);
   }, [applyGapFixes]);
 
+  const skillCategories = useMemo(
+    () => skillCategoryOptions(tailorStructuredResume),
+    [tailorStructuredResume],
+  );
+
+  /**
+   * Bulk-add bare skills to the Skills section.
+   *
+   * Deterministic and local: no LLM call, and it edits the skills array rather
+   * than a bullet, so it cannot collide with a gap fix the way a bullet rewrite
+   * can. Keywords the résumé already lists are reported back as skipped and
+   * still marked addressed — the résumé does cover them, which is why nothing
+   * was written.
+   */
+  // Plain function, not useCallback: the React Compiler could not preserve the
+  // manual memoization here (it bails on the multi-setState body) and reported
+  // it as a lint error. The compiler memoizes this automatically, and the
+  // consumer is not React.memo'd, so a fresh identity costs nothing.
+  const addSkillsToResume = (keywords: string[], category: string) => {
+    if (!tailorStructuredResume || keywords.length === 0) return;
+    const { structured, added, skipped } = addSkillsToStructured(
+      tailorStructuredResume,
+      keywords,
+      category,
+    );
+    const covered = [...added, ...skipped];
+    if (covered.length === 0) return;
+
+    if (added.length > 0) {
+      setStructuredUpload((prev) => (prev ? { ...prev, structured } : prev));
+    }
+    setAddressedGaps((prev) => new Set([...prev, ...covered]));
+    setAddressedGapActions((prev) => {
+      const next = [...prev];
+      for (const label of covered) {
+        const id = makeStableGapId(label, "keyword");
+        if (!next.some((a) => a.id === id)) {
+          next.push({ id, label, type: "keyword", appliedText: label });
+        }
+      }
+      return next;
+    });
+    setResult((prevResult) => {
+      if (!prevResult?.ratings) return prevResult;
+      let ratings = prevResult.ratings;
+      for (const label of covered) {
+        ratings = applyOptimisticGapAddressed(ratings, label, "keyword");
+      }
+      return { ...prevResult, ratings };
+    });
+    setScoreStale(true);
+  };
+
+  const openInterviewPrep = useCallback(() => {
+    // /interview-prep is not a public route, so pushing it while signed out
+    // lands the visitor on the landing page with no explanation. Ask first.
+    if (!user) { openSignIn(); return; }
+    prefillPrepFromTailor({
+      resumeText: effectiveCandidateProfile,
+      structured: tailorStructuredResume
+        ? applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides)
+        : null,
+      jobDescription: jd,
+      company,
+      role,
+    });
+    router.push("/interview-prep/dashboard");
+  }, [user, openSignIn, effectiveCandidateProfile, tailorStructuredResume, tailorFieldOverrides, jd, company, role, router]);
+
+  const [fixAllBusy, setFixAllBusy] = useState(false);
+  // Read once on mount rather than at render: localStorage is unavailable
+  // during SSR of the static export, and a lazy initialiser keeps this out of
+  // an effect.
+  const [fixAllAutoApply, setFixAllAutoApplyState] = useState(() => getFixAllAutoApply());
+  const toggleFixAllAutoApply = (on: boolean) => {
+    setFixAllAutoApplyState(on);
+    setFixAllAutoApply(on);
+  };
+
+  const openGapBatches = useMemo(
+    // Raw ratings, not displayRatings: that memo is declared further down, and
+    // collectUnaddressedGaps filters by the same addressed set anyway.
+    () => collectUnaddressedGaps(result?.ratings, addressedGaps, addressedGapActions),
+    [result?.ratings, addressedGaps, addressedGapActions],
+  );
+  const openGapCount = countGaps(openGapBatches);
+
+  /**
+   * Fix everything in one pass.
+   *
+   * Batches by gap TYPE rather than firing one request per gap: three focused
+   * prompts instead of a dozen, and — more importantly — no sequence of rounds
+   * each re-reading a résumé the previous round already changed. The results
+   * land in the normal gap-fix panel, so the user still reviews before anything
+   * is written. Nothing is auto-applied; the validators reject fabrication, but
+   * a rewrite the candidate can't stand behind is theirs to catch.
+   */
+  const fixEverything = useCallback(async () => {
+    if (!jd.trim() || openGapBatches.length === 0 || fixAllBusy) return;
+    const prof = effectiveCandidateProfile.trim();
+    if (!tailorStructuredResume && !prof) {
+      setGapFixError("Fix everything needs résumé text. Upload a PDF or paste your profile, then try again.");
+      return;
+    }
+    if (tailoringMode === null) { setShowTailoringModal(true); return; }
+
+    setFixAllBusy(true);
+    setGapFixError(null);
+    setGapFixPanel(null);
+    try {
+      const structured = tailorStructuredResume
+        ? applyFieldOverridesToStructured(
+            patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
+            tailorFieldOverrides,
+          )
+        : null;
+
+      // Parallel, not sequential: each batch is generated against the same
+      // résumé snapshot, and collisions between their results are merged at
+      // apply time rather than letting a later batch overwrite an earlier one.
+      const responses = await Promise.all(openGapBatches.map(async (batch) => {
+        const resp = await apiFetch("/api/suggest-gap-fix", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tailoring_mode: tailoringMode ?? "honest",
+            gap_name: batchGapName(batch),
+            gap_notes: batchGapNotes(batch),
+            job_description: jd.trim(),
+            ...(structured ? { structured_resume: structured } : {}),
+            ...(prof ? { candidate_profile: prof } : {}),
+          }),
+        });
+        if (!resp.ok) return [];
+        const data = await resp.json() as { suggestions?: unknown[] };
+        return (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[];
+      }));
+
+      // Namespace ids per batch: the API numbers them from 1 each time, so
+      // merging raw would collide and the review panel would key two different
+      // cards the same.
+      const all = responses.flatMap((list, i) =>
+        list
+          .filter((s) => s.original?.trim() && s.suggested?.trim())
+          .map((s) => ({ ...s, id: `b${i}_${s.id}` })));
+
+      if (all.length === 0) {
+        setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
+        return;
+      }
+
+      // Explicit opt-in only. The switch is off by default and the button says
+      // which of the two it will do, so the résumé never changes unprompted —
+      // but a user who has done this twenty times should not have to click
+      // through a review every time. Applied edits stay reversible: they are
+      // preview overrides, and every bullet keeps its revert control.
+      if (fixAllAutoApply) {
+        await applyGapFixes(
+          all.map((s) => ({
+            id: s.id, section: s.section, original: s.original,
+            suggested: s.suggested, reason: s.reason, priority: s.priority,
+          })),
+          openGapBatches.map((b) => batchGapName(b)).join(", "),
+        );
+        return;
+      }
+
+      setGapFixPanel({
+        gapName: openGapBatches.map((b) => batchGapName(b)).join(", "),
+        gapNotes: `${all.length} rewrite${all.length === 1 ? "" : "s"} across ${openGapCount} gaps.`,
+        suggestions: all,
+        gapType: "qualification",
+      });
+      setResultsActiveTab("gapfix");
+    } catch {
+      setGapFixError("Could not generate fixes. Please try again.");
+    } finally {
+      setFixAllBusy(false);
+    }
+  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, applyGapFixes, effectiveCandidateProfile,
+      tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
+
+  /** One batched rewrite pass for several contextual gaps, instead of one call each. */
+  const fixKeywordsBatched = useCallback((keywords: string[]) => {
+    const list = keywords.filter(Boolean);
+    if (list.length === 0) return;
+    if (list.length === 1) {
+      void handleFixGap({
+        name: list[0],
+        notes: `This keyword is missing from the resume. Rewrite one of the most relevant existing bullets to naturally incorporate "${list[0]}" without fabricating experience.`,
+        type: "keyword",
+      });
+      return;
+    }
+    // The gap panel is keyed by a single label, so the batch is named for the
+    // set and the whole list goes into the notes. The backend prompt already
+    // knows how to weave several requirements into one rewrite.
+    void handleFixGap({
+      name: list.join(", "),
+      notes:
+        `These keywords are all missing from the resume: ${list.join(", ")}. `
+        + "Rewrite the most relevant existing bullets to cover as many of them as can be "
+        + "supported honestly, preferring one rewrite that carries several over several "
+        + "separate rewrites. Never fabricate experience to fit a keyword.",
+      type: "keyword",
+    });
+  }, [handleFixGap]);
+
   const ratings = result?.ratings;
   const displayRatings = useMemo(() => {
     if (!ratings) return ratings;
@@ -2216,59 +2682,6 @@ export default function ResumeBuilder({
   // Download filename should ALWAYS be built from the user's actual data
   // (candidate name + company + role) — not from result.folder, which is the
   // backend's template-named storage folder (e.g. "Harshibar_Template1_structured_xxx").
-  // result.folder is a server-side ID, not a display name; users were getting PDFs
-  // named after a LaTeX template instead of themselves.
-  const resumeDownloadStem = useMemo(
-    () => buildResumeFileStem(company, role, candidateProfile),
-    [company, role, candidateProfile],
-  );
-
-  const downloadResultPdf = useCallback(async () => {
-    if (!result?.pdfUrl) return;
-    try {
-      await fetchPdfAsDownload(result.pdfUrl, resumeDownloadStem);
-    } catch {
-      window.open(result.pdfUrl, "_blank", "noopener,noreferrer");
-    }
-  }, [result?.pdfUrl, resumeDownloadStem]);
-
-  const downloadResultDocx = useCallback(async () => {
-    if (!result?.folder) return;
-    const acceptedList = (suggestions ?? [])
-      .filter((s) => acceptedIds.has(s.id))
-      .map((s) => ({
-        id: s.id,
-        section: s.section,
-        original: s.original,
-        suggested: s.suggested,
-        reason: s.reason,
-      }));
-    setDocxExportBusy(true);
-    setError(null);
-    try {
-      const resp = await fetch(apiUrl("/api/builder-export-docx"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          folder: result.folder,
-          user_id: user?.id ?? null,
-          accepted_suggestions: acceptedList.length > 0 ? acceptedList : undefined,
-          download_name: resumeDownloadStem,
-        }),
-      });
-      if (!resp.ok) {
-        const json = await resp.json().catch(() => ({})) as { error?: string };
-        throw new Error(json.error ?? "DOCX export failed");
-      }
-      const safe = (resumeDownloadStem || "resume").replace(/[^\w.-]+/g, "_").slice(0, 80) || "resume";
-      await downloadBlobFromApiResponse(resp, `${safe}.docx`);
-    } catch (e: unknown) {
-      setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e)));
-    } finally {
-      setDocxExportBusy(false);
-    }
-  }, [result?.folder, suggestions, acceptedIds, user?.id, resumeDownloadStem]);
-
   /**
    * Apply accepted suggestions to the HTML preview (Chromium export path — no LaTeX).
    */
@@ -2427,7 +2840,7 @@ export default function ResumeBuilder({
             border: "1px solid rgba(148,163,184,0.32)",
             boxShadow: "0 14px 30px rgba(2,6,23,0.35)",
             color: "#f8fafc",
-            fontSize: 12.5,
+            fontSize: 13,
             lineHeight: 1.45,
             letterSpacing: -0.15,
           }}
@@ -2435,6 +2848,37 @@ export default function ResumeBuilder({
           {feedbackToast}
         </div>
       ) : null}
+
+      {scanMeta && (
+        <ScanFeedbackToast
+          meta={scanMeta}
+          onDismiss={clearScanMeta}
+        />
+      )}
+
+      <TailorSaveToast
+        toast={saveStatus.toast}
+        company={company}
+        role={role}
+        onDismiss={saveStatus.dismissToast}
+        onRetry={retryTailorSave}
+      />
+
+      <TailoringModeModal
+        open={showTailoringModal}
+        initialMode={tailoringMode ?? "honest"}
+        onSave={commitTailoringMode}
+        onCancel={() => {
+          // "Not now" = keep the honest default for this run and stop asking
+          // this session; the setting stays changeable from the header/settings.
+          setShowTailoringModal(false);
+          if (pendingAnalyzeAfterModeRef.current) {
+            pendingAnalyzeAfterModeRef.current = false;
+            setTailoringMode("honest");
+            setTimeout(() => handleAnalyzeRef.current?.(), 0);
+          }
+        }}
+      />
 
       {/* ── Main — landmark + busy state for assistive tech (WCAG 4.1.3) */}
       <main
@@ -2612,7 +3056,7 @@ export default function ResumeBuilder({
                       <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>
                         Recent jobs
                       </div>
-                      <div style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.45 }}>
+                      <div style={{ fontSize: 11, color: "var(--dim)", lineHeight: 1.45 }}>
                         Pick up where you left off — company, role, and JD restore automatically.
                       </div>
                     </div>
@@ -2624,16 +3068,11 @@ export default function ResumeBuilder({
                         embedded
                       />
                       {analyzing && (
-                        <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                            <Spinner size={14} />
-                            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
-                              Analysing match…
-                            </span>
-                          </div>
-                          <p style={{ margin: 0, fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>
-                            Scoring fit, extracting gaps, and identifying missing keywords (~20s).
-                          </p>
+                        <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+                          <Spinner size={14} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>
+                            Analysing match…
+                          </span>
                         </div>
                       )}
                     </div>
@@ -2642,7 +3081,7 @@ export default function ResumeBuilder({
                     type="button"
                     className="rb-tailor-sidebar-hide"
                     onClick={() => setTailorSidebarVisible(false)}
-                    title="Hide recent jobs — more space for the form"
+                    title="Hide recent jobs for more space"
                     style={{
                       position: "absolute",
                       top: 16,
@@ -2672,25 +3111,8 @@ export default function ResumeBuilder({
 
           {/* ── Analyze loader ── */}
           {analyzing && !studioHandoff && (
-            <div
-              className="fade-in"
-              role="status"
-              aria-live="polite"
-              style={{
-                marginBottom: 24, borderRadius: 16, border: "1px solid var(--border)",
-                background: "var(--surface)", boxShadow: "var(--shadow-card)", padding: "24px 24px 20px",
-                display: "flex", flexDirection: "column", gap: 10,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Spinner size={16} />
-                <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.4, color: "var(--text)" }}>
-                  Analysing your résumé…
-                </span>
-              </div>
-              <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
-                Scoring your match, extracting gaps, and identifying missing keywords. This takes about 20 seconds.
-              </p>
+            <div style={{ marginBottom: 24, paddingTop: 8 }}>
+              <TailorAnalyzingLoader />
             </div>
           )}
 
@@ -2710,7 +3132,7 @@ export default function ResumeBuilder({
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 6, letterSpacing: -0.2 }}>
                     Template &amp; PDF — layout only
                   </div>
-                  <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 }}>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>
                     Choose the <strong style={{ color: "var(--text)" }}>output layout</strong> (LaTeX style: sections, typography, spacing on the server).
                     This path is <strong style={{ color: "var(--text)" }}>not</strong> for job-description tailoring — no JD analysis here.
                     Upload or confirm your content, then compile. For fonts/header fine-tuning beyond these presets, use the gallery editor, then return here.
@@ -2729,7 +3151,7 @@ export default function ResumeBuilder({
           <StepCard
             step={1}
             title="Output layout"
-            subtitle="Sections, typography, and spacing for your PDF (pdflatex). Layout only — not job-description tailoring."
+            subtitle="Sections, typography, and spacing for your PDF (pdflatex). Layout only, not job-description tailoring."
           >
             <ResumeStyleTemplateGrid
               styleReferenceFolder={styleReferenceFolder}
@@ -2824,7 +3246,7 @@ export default function ResumeBuilder({
                         Profile page. Everything stays on this device until we add cloud sync.
                       </InfoTip>
                     </div>
-                    <p style={{ margin: 0, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55, letterSpacing: -0.1 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.55, letterSpacing: -0.1 }}>
                       Fill empty Profile fields from this resume — nothing gets overwritten.
                     </p>
                     {profileSyncUpsell.autoFilled && profileSyncUpsell.filledLabels.length > 0 ? (
@@ -3280,15 +3702,65 @@ export default function ResumeBuilder({
                   <h2 id="rb-results-heading" style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.5, color: "var(--text)", margin: 0, lineHeight: 1.2 }}>
                     {generating ? "Building your PDF…" : result?.folder ? "Your tailored résumé is ready" : "Analysis ready — review gaps & download PDF"}
                   </h2>
-                  <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "2px 0 0", letterSpacing: -0.1 }}>
-                    {[role, company].map((s) => s.trim()).filter(Boolean).join(" · ") || "Match results"}
+                  <p style={{ fontSize: 13, color: "var(--muted)", margin: "2px 0 0", letterSpacing: -0.1, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span>{[role, company].map((s) => s.trim()).filter(Boolean).join(" · ") || "Match results"}</span>
+                    {user?.id && (
+                      <TailorSaveStatusPill state={saveStatus.state} onRetry={retryTailorSave} />
+                    )}
                   </p>
                 </div>
                 {/* Header action buttons */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
-                  <Button variant="outline" size="sm" onClick={tryAnotherJob} style={{ color: "var(--muted)" }}>
-                    Try another job
-                  </Button>
+                  {/* Anonymous users get this too — the choice persists to localStorage
+                      either way; only the Supabase mirror needs a session (see
+                      lib/tailoringMode.ts saveTailoringMode). */}
+                  <span title="How AI rewrites tailor to the JD. Applies to gap fixes and Boost." style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>AI style</span>
+                    <TailoringModeSelector
+                      value={tailoringMode ?? "honest"}
+                      onChange={commitTailoringMode}
+                    />
+                  </span>
+                  <div style={{ display: "inline-flex", border: "1px solid var(--border-strong, var(--border))", borderRadius: 7, overflow: "hidden" }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={tryAnotherJob}
+                      style={{ color: "var(--muted)", border: "none", borderRadius: 0 }}
+                    >
+                      Try a different JD
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label="More résumé options"
+                            title="More options"
+                            style={{ color: "var(--muted)", border: "none", borderRadius: 0, borderLeft: "1px solid var(--border)", padding: "0 8px" }}
+                          >
+                            ▾
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end" sideOffset={6} className="w-64">
+                        <DropdownMenuItem onClick={tryAnotherJob}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "1px 0" }}>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>Try a different JD</span>
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>Keeps this résumé, clears the job details</span>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={startOverTailor}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "1px 0" }}>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>Start over</span>
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>Clears the résumé too — upload a new one</span>
+                          </div>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </header>
 
@@ -3436,25 +3908,7 @@ export default function ResumeBuilder({
                           <circle cx="9" cy="9" r="7" stroke="rgba(52,211,153,0.3)" strokeWidth="2.5"/>
                           <path d="M9 2a7 7 0 017 7" stroke="var(--green,#34d399)" strokeWidth="2.5" strokeLinecap="round"/>
                         </svg>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => { setApplyFeedback(null); void rescoreTailorRatings(); }}
-                          title="Re-run match analysis on your updated preview text"
-                          style={{
-                            display: "inline-flex", alignItems: "center", gap: 5,
-                            padding: "5px 12px", borderRadius: 7,
-                            border: "1px solid rgba(52,211,153,0.4)",
-                            background: "rgba(52,211,153,0.08)",
-                            color: "var(--green, #34d399)",
-                            fontSize: 11.5, fontWeight: 600, fontFamily: "inherit",
-                            cursor: "pointer",
-                            whiteSpace: "nowrap", flexShrink: 0,
-                          }}
-                        >
-                          ↺ Re-analyze
-                        </button>
-                      )}
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => setApplyFeedback(null)}
@@ -3482,6 +3936,10 @@ export default function ResumeBuilder({
                   <div className="tb-split-work-slot">
                     <TailorMatchDetail
                       ratings={displayRatings}
+                      headlineDraft={tailorHeadlineOverride}
+                      onHeadlineDraftChange={handleHeadlineOverrideChange}
+                      onRescoreTitle={tailorStructuredResume ? () => { void rescoreTailorRatings(); } : undefined}
+                      titleRescoring={tailorRescoring}
                       onFixGap={(item: DetailedRatingItem, gapType) => {
                         void handleFixGap({
                           name: item.text,
@@ -3496,6 +3954,18 @@ export default function ResumeBuilder({
                           type: "keyword",
                         });
                       }}
+                      onAddSkills={tailorStructuredResume ? addSkillsToResume : undefined}
+                      skillCategories={skillCategories}
+                      onFixKeywords={fixKeywordsBatched}
+                      onFixEverything={() => { void fixEverything(); }}
+                      openGapCount={openGapCount}
+                      fixEverythingBusy={fixAllBusy}
+                      fixEverythingAutoApply={fixAllAutoApply}
+                      onFixEverythingAutoApplyChange={toggleFixAllAutoApply}
+                      onOpenInterviewPrep={openInterviewPrep}
+                      activeGapFixIds={activeGapFixIds}
+                      onGapFixActivate={(id) => setTailorSelection({ kind: "gapfix", id })}
+                      gapFixBulletText={gapFixBulletText}
                       fixingGapName={gapFixLoading}
                       gapFixPanel={gapFixPanel}
                       gapFixError={gapFixError}
@@ -3626,6 +4096,26 @@ export default function ResumeBuilder({
                     gapFixTargetBulletIndices={gapFixTargetIndices}
                     tailorGapFixHighlights={tailorGapFixHighlights}
                     tailorAppliedBulletIndices={tailorAppliedBulletIndices}
+                    fieldOverrides={tailorFieldOverrides}
+                    onFieldEdit={setTailorFieldOverride}
+                    onBulletOp={applyTailorBulletOp}
+                    rewriteEdits={tailorRewriteEdits}
+                    patchBulletRewrite={patchTailorBulletRewrite}
+                    patchPreviewLine={patchTailorPreviewLine}
+                    selectedBulletIndex={tailorSelectedBulletIdx}
+                    onBulletLinkedSelect={(bulletIdx) => {
+                      // ALWAYS record the click. Previously bulletIdx was used
+                      // only as a boolean test before a tab switch, so clicking a
+                      // highlighted bullet while the gapfix tab was already open
+                      // did nothing at all — the reported "clicking the
+                      // highlighted text doesn't open the suggestion box".
+                      setTailorSelection({ kind: "bullet", idx: bulletIdx });
+                      if (gapFixPanel?.suggestions?.length && gapFixTargetIndices.includes(bulletIdx)) {
+                        setResultsActiveTab("gapfix");
+                      } else if (suggestions.length > 0 && !generating) {
+                        setResultsActiveTab("fixes");
+                      }
+                    }}
                   />
                 </div>
               </section>
@@ -4367,7 +4857,7 @@ function TemplateCustomizePostResult({
                 Add content only through structured résumé fields (profile, upload, or manual form) — not free-form canvas edits.
               </p>
               <Link
-                href="/?view=profile"
+                href="/profile"
                 style={{
                   display: "inline-block",
                   padding: "10px 16px",
@@ -4776,7 +5266,7 @@ function ResumePaperView({
           if (subtitleLineIndex >= 0 && i === subtitleLineIndex && !isAllCaps(t)) {
             if (isBareLocationLabelLine(t)) return null;
             return (
-              <div key={i} style={{ fontSize: 9.5, color: "#64748b", textAlign: nameCenteredCaps ? "center" : "left", marginBottom: harshibarCompactPreview ? 5 : 8 }}>
+              <div key={i} style={{ fontSize: 10, color: "#64748b", textAlign: nameCenteredCaps ? "center" : "left", marginBottom: harshibarCompactPreview ? 5 : 8 }}>
                 {paperLineDisplayContent(t)}
               </div>
             );
@@ -5087,10 +5577,10 @@ function StepCard({ step, title, subtitle, children }: {
           fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0,
         }}>{step}</div>
         <div>
-          <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: -0.3, color: "var(--text)", lineHeight: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: -0.3, color: "var(--text)", lineHeight: 1 }}>
             {title}
           </div>
-          <div style={{ fontSize: 11.5, color: "var(--dim)", marginTop: 3, letterSpacing: -0.1 }}>
+          <div style={{ fontSize: 12, color: "var(--dim)", marginTop: 3, letterSpacing: -0.1 }}>
             {subtitle}
           </div>
         </div>
@@ -5164,7 +5654,7 @@ function InfoTip({ children, label }: { children: React.ReactNode; label?: strin
             border: "1px solid var(--border)",
             borderRadius: 8,
             boxShadow: "var(--shadow-card)",
-            fontSize: 11.5,
+            fontSize: 12,
             lineHeight: 1.5,
             letterSpacing: -0.1,
             fontWeight: 400,
@@ -5243,7 +5733,7 @@ function RescanOverlay() {
           <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", letterSpacing: -0.4, marginBottom: 6 }}>
             Refining Your Match
           </div>
-          <div style={{ fontSize: 12.5, color: "#64748b", lineHeight: 1.5 }}>
+          <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>
             Analyzing your updated résumé against the job description…
           </div>
         </div>
@@ -5280,7 +5770,7 @@ function RescanOverlay() {
           ))}
         </div>
 
-        <div style={{ fontSize: 10.5, color: "#94a3b8", letterSpacing: 0.3, fontWeight: 600 }}>
+        <div style={{ fontSize: 11, color: "#94a3b8", letterSpacing: 0.3, fontWeight: 600 }}>
           USUALLY TAKES 3–8 SECONDS
         </div>
       </div>
@@ -5519,7 +6009,7 @@ function BuilderUploadExtractLoader({
             }} aria-hidden />
           )}
         </span>
-        <span style={{ fontSize: 12.5, fontWeight: active || done ? 600 : 500, letterSpacing: -0.2, flex: 1 }}>
+        <span style={{ fontSize: 13, fontWeight: active || done ? 600 : 500, letterSpacing: -0.2, flex: 1 }}>
           {label}
         </span>
       </div>
@@ -5687,7 +6177,7 @@ function BuilderGeneratePdfLoader({
         <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.45, color: "var(--text)", marginBottom: 4 }}>
           {title}
         </div>
-        <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, letterSpacing: -0.1 }}>
+        <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--muted)", lineHeight: 1.5, letterSpacing: -0.1 }}>
           {subtitle}
         </p>
         <div style={{ marginBottom: 14 }}>
@@ -5718,7 +6208,7 @@ function BuilderGeneratePdfLoader({
           key={tipIdx}
           className="fade-in"
           style={{
-            fontSize: 12.5,
+            fontSize: 13,
             color: "var(--accent)",
             fontWeight: 500,
             lineHeight: 1.5,
@@ -5811,7 +6301,7 @@ function BuilderSuggestAnalysisLoader({
         <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.45, color: "var(--text)", marginBottom: 4 }}>
           Comparing your résumé to this role
         </div>
-        <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, letterSpacing: -0.1 }}>
+        <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--muted)", lineHeight: 1.5, letterSpacing: -0.1 }}>
           Reading your résumé and the job posting.
         </p>
         <div style={{ marginBottom: 14 }}>
@@ -5824,7 +6314,7 @@ function BuilderSuggestAnalysisLoader({
           key={tipIdx}
           className="fade-in"
           style={{
-            fontSize: 12.5,
+            fontSize: 13,
             color: "var(--accent)",
             fontWeight: 500,
             lineHeight: 1.5,
@@ -5996,7 +6486,7 @@ function GenerateOverlay({ mode = "generate" }: { mode?: "generate" | "suggest" 
         <div
           key={tipIdx}
           style={{
-            fontSize: 12.5,
+            fontSize: 13,
             color: "var(--muted)",
             lineHeight: 1.55,
             minHeight: 40,

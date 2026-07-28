@@ -143,7 +143,7 @@ export function AnalyzeUploadLanding({
           id="az-jd-input"
           value={jd}
           onChange={(e) => onJdChange(e.target.value)}
-          placeholder="Paste the role you care about — we'll flag missing keywords and score job match…"
+          placeholder="Paste the role you care about. We'll flag missing keywords and score job match…"
           rows={3}
           className="az-analyze-jd-textarea"
         />
@@ -233,7 +233,7 @@ export function AnalyzeCoachLoader({
             <h2 style={{ margin: "0 0 6px", fontSize: 18, fontWeight: 800, letterSpacing: -0.45, color: "var(--text)" }}>
               Building your improvement plan
             </h2>
-            <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 }}>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>
               Usually under a minute. Stay on this tab — your score and bullet fixes appear here automatically.
             </p>
             <div style={{ marginBottom: 16 }}>{steps.map((label, i) => stepRow(label, i, i === steps.length - 1))}</div>

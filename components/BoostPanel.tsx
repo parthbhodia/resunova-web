@@ -13,14 +13,27 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction, type RefObject } from "react";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
+import CloseIcon from "@mui/icons-material/Close";
+import CheckIcon from "@mui/icons-material/Check";
+import AddIcon from "@mui/icons-material/Add";
 import { useRouter } from "next/navigation";
-import { authHeaders, scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { canBoost } from "@/lib/boostPrefill";
-import { apiUrl } from "@/lib/utils";
+import { autoSaveBoostVersion, fetchLatestResumeBase, type ResumeBase } from "@/lib/boostToVersion";
+import { readStashedBoostVersion, clearStashedBoostVersion, type StashedBoostVersion } from "@/lib/versionBoostPrefill";
+import { setDefaultVersion } from "@/lib/resumeVersions";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
+import { TailoringModeModal } from "@/components/TailoringModeModal";
+import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 import AnalyzeLiveResumeBody from "@/components/AnalyzeLiveResumeBody";
 import { GapFixSuggestionCard, type GapFixSuggestion } from "@/components/ratings/GapFixSuggestionCard";
 import { resumeLayoutFromPreviewStyle, resumeLayoutCssVars, resumePageRootStyle, RESUME_BULLET_STYLESHEET } from "@/lib/resumeLayout";
+import { apiFetch } from "@/lib/apiClient";
 
 // ─── Boost API response ────────────────────────────────────────────────────
 // Contract mirrors resunova-api's /api/jobs/boost (docs/boost-frontend-spec.md).
@@ -35,6 +48,12 @@ type BoostSuggestion = GapFixSuggestion & {
   gainedRequirements?: string[];
 };
 
+type BoostSkip = {
+  keyword: string;
+  reason: string;   // not_keyword_shaped | over_limit | no_honest_bridge | validation_failed | no_score_flip
+  detail?: string;  // the model's own words for no_honest_bridge, when it gave one
+};
+
 type BoostResult = {
   company: string;
   title: string;
@@ -47,7 +66,45 @@ type BoostResult = {
   changes?: BoostSuggestion[]; // legacy alias for `suggestions`
   appliedKeywords: string[];
   skippedKeywords: string[];
+  skipped?: BoostSkip[];      // per-keyword reasons (older backends omit this)
 };
+
+const SKIP_REASON_LABEL: Record<string, string> = {
+  not_keyword_shaped: "a full phrase, not a keyword",
+  over_limit: "over the per-run limit — boost again to cover it",
+  no_honest_bridge: "no honest match in your experience",
+  validation_failed: "the rewrite lost facts from your original bullet",
+  no_score_flip: "couldn't verifiably raise your match",
+  not_covered: "didn't make this run — boost again to cover it",
+};
+
+/** Per-keyword skip list with honest reasons; falls back to the legacy blanket
+ *  list when the backend predates `skipped`. */
+function SkippedKeywordList({ result }: { result: BoostResult }) {
+  const detailed = result.skipped?.filter((s) => s.keyword) ?? [];
+  if (detailed.length === 0) {
+    if (result.skippedKeywords.length === 0) return null;
+    return (
+      <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>
+        Skipped (couldn&apos;t honestly support): {result.skippedKeywords.join(", ")}
+      </p>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>
+        SKIPPED · {detailed.length}
+      </span>
+      {detailed.map((s) => (
+        <span key={s.keyword} style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>
+          <strong style={{ color: "var(--text)", fontWeight: 600 }}>{s.keyword}</strong>
+          {" — "}
+          {s.reason === "no_honest_bridge" && s.detail ? s.detail : (SKIP_REASON_LABEL[s.reason] ?? "couldn't honestly support")}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 // Server-side deterministic re-score for a partial accepted subset. The match
 // scorer is bucket-weighted + renormalized, so a suggestion's marginal value is
@@ -61,7 +118,21 @@ const SECTION_LABELS: Record<string, string> = {
   projects: "Projects",
 };
 
-export default function BoostPanel({ job, onClose, open = true }: { job: JobDetailData; onClose: () => void; open?: boolean }) {
+function BoostPanelInner({
+  job,
+  onClose,
+  open = true,
+  onApplied,
+  onScoreChange,
+  onResumePromoted,
+}: {
+  job: JobDetailData;
+  onClose: () => void;
+  open?: boolean;
+  onApplied?: (postingId: string, score: number | null) => void;
+  onScoreChange?: (postingId: string, score: number) => void;
+  onResumePromoted?: (analysisId: string) => void;
+}) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -78,6 +149,21 @@ export default function BoostPanel({ job, onClose, open = true }: { job: JobDeta
   const [boostResult, setBoostResult] = useState<BoostResult | null>(null);
   const [boostError, setBoostError] = useState<string | null>(null);
 
+  // Tailoring intensity — same setting Tailor uses (user_profiles.tailoring_mode);
+  // first Boost with no stored choice raises the one-time explainer modal.
+  const [tailoringMode, setTailoringMode] = useState<TailoringMode | null>(() => getCachedTailoringMode());
+  const [showTailoringModal, setShowTailoringModal] = useState(false);
+  const pendingBoostAfterModeRef = useRef(false);
+  useEffect(() => {
+    let alive = true;
+    void fetchTailoringMode().then((m) => { if (alive && m) setTailoringMode(m); });
+    return () => { alive = false; };
+  }, []);
+
+  // Phase 2: a version the user chose to "Boost to a job" (else null → boost the
+  // latest scan, phase-1 behavior). Read once; the stash is consumed on generate.
+  const [boostVersion] = useState<StashedBoostVersion | null>(() => readStashedBoostVersion());
+
   // PDF export
   const previewRef = useRef<HTMLDivElement>(null);
   const { exportPdf, exporting: pdfExporting, error: pdfError } = useHtmlPdfExport();
@@ -93,22 +179,30 @@ export default function BoostPanel({ job, onClose, open = true }: { job: JobDeta
   const panelWidth = step === 3 ? 760 : 560;
 
   // Step 2 → 3: call /api/jobs/boost
-  const handleGenerate = async () => {
+  const handleGenerate = async (modeOverride?: TailoringMode) => {
+    const effMode = modeOverride ?? tailoringMode;
+    if (effMode === null) {
+      pendingBoostAfterModeRef.current = true;
+      setShowTailoringModal(true);
+      return;
+    }
     setStep(3);
     setGenerating(true);
     setBoostResult(null);
     setBoostError(null);
     try {
-      const headers = await authHeaders();
-      const resp = await fetch(apiUrl("/api/jobs/boost"), {
+      const resp = await apiFetch("/api/jobs/boost", {
         method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           posting_id: job.id,
           keywords: [...keywords],
           sections: [...selected],
           notes,
           depth: expDepth,
+          tailoring_mode: effMode,
+          // Phase 2: boost this chosen version instead of the latest scan.
+          ...(boostVersion ? { resume_text: boostVersion.extractedText, structured_resume: boostVersion.structured } : {}),
         }),
       });
       if (!resp.ok) {
@@ -119,6 +213,9 @@ export default function BoostPanel({ job, onClose, open = true }: { job: JobDeta
       }
       const data = await resp.json() as BoostResult;
       setBoostResult(data);
+      // Consume the version stash once the boost has run (the in-memory
+      // `boostVersion` still drives the child-chained auto-save below).
+      if (boostVersion) clearStashedBoostVersion();
     } catch (e) {
       setBoostError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -142,6 +239,27 @@ export default function BoostPanel({ job, onClose, open = true }: { job: JobDeta
 
   return (
     <>
+      <TailoringModeModal
+        open={showTailoringModal}
+        initialMode={tailoringMode ?? "honest"}
+        onSave={(mode) => {
+          setTailoringMode(mode);
+          void saveTailoringMode(mode);
+          setShowTailoringModal(false);
+          if (pendingBoostAfterModeRef.current) {
+            pendingBoostAfterModeRef.current = false;
+            void handleGenerate(mode);
+          }
+        }}
+        onCancel={() => {
+          // "Not now" = boost once with the honest default; keep asking later.
+          setShowTailoringModal(false);
+          if (pendingBoostAfterModeRef.current) {
+            pendingBoostAfterModeRef.current = false;
+            void handleGenerate("honest");
+          }
+        }}
+      />
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 60 }} />
       <div
         style={{
@@ -158,7 +276,11 @@ export default function BoostPanel({ job, onClose, open = true }: { job: JobDeta
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <span style={{ color: "var(--accent)", fontSize: 16 }}>✦</span>
             <span style={{ fontSize: 18, fontWeight: 700, color: "var(--text)" }}>Optimize my résumé</span>
-            <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--muted)" }}>✕</button>
+            <Tooltip title="Close">
+              <IconButton onClick={onClose} size="small" aria-label="Close boost panel" sx={{ ml: "auto" }}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </div>
           {/* stepper */}
           <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
@@ -234,6 +356,10 @@ export default function BoostPanel({ job, onClose, open = true }: { job: JobDeta
               onRetry={() => setStep(2)}
               jobUrl={job.url}
               postingId={job.id}
+              onApplied={onApplied}
+              onScoreChange={onScoreChange}
+              onResumePromoted={onResumePromoted}
+              boostVersion={boostVersion}
             />
           )}
         </div>
@@ -272,6 +398,9 @@ function Step1({ job, ready, onNext, onScanFirst }: {
         {score != null && (
           <p style={{ fontSize: 13, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
             You match <strong style={{ color: "var(--text)" }}>{job.matchedCount}</strong> of <strong style={{ color: "var(--text)" }}>{job.totalRequirements}</strong> requirements for this role.
+            {score < 25 && (
+              <> This role is a weak fit for your résumé, so tailoring can only honestly add a few keywords — expect a modest jump, not a transformation.</>
+            )}
           </p>
         )}
       </div>
@@ -282,7 +411,7 @@ function Step1({ job, ready, onNext, onScanFirst }: {
           <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>YOU HAVE</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
             {visMatched.map((r, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, fontSize: 12.5, background: "rgba(var(--green-ink-rgb, 4,120,87),0.08)", color: "var(--text)", border: "1px solid rgba(var(--green-ink-rgb, 4,120,87),0.18)" }}>
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, fontSize: 13, background: "rgba(var(--green-ink-rgb, 4,120,87),0.08)", color: "var(--text)", border: "1px solid rgba(var(--green-ink-rgb, 4,120,87),0.18)" }}>
                 <span style={{ color: "var(--green-ink)", fontWeight: 700 }}>✓</span>
                 {r.canonical}
               </span>
@@ -302,7 +431,7 @@ function Step1({ job, ready, onNext, onScanFirst }: {
           <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", color: "var(--muted)" }}>ADD THESE TO LEVEL UP</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
             {visGaps.map((r, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 999, fontSize: 12.5, fontWeight: 500, background: "color-mix(in srgb, #c4793a 12%, transparent)", color: "var(--text)", border: "1px solid color-mix(in srgb, #c4793a 34%, transparent)" }}>
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 999, fontSize: 13, fontWeight: 500, background: "color-mix(in srgb, #c4793a 12%, transparent)", color: "var(--text)", border: "1px solid color-mix(in srgb, #c4793a 34%, transparent)" }}>
                 <span style={{ color: "#c4793a", fontWeight: 700 }}>+</span>
                 {r.canonical}
               </span>
@@ -313,7 +442,7 @@ function Step1({ job, ready, onNext, onScanFirst }: {
               {showAllGaps ? "Show fewer" : `Show all ${job.missing.length} ›`}
             </button>
           )}
-          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 13, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>
             One tap tailors your résumé to add <strong style={{ color: "var(--text)" }}>{job.missing.length}</strong> of these — from your real experience.
           </p>
         </div>
@@ -324,7 +453,7 @@ function Step1({ job, ready, onNext, onScanFirst }: {
         {ready ? (
           <button
             onClick={onNext}
-            style={{ width: "100%", padding: "14px 0", borderRadius: 11, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 600, cursor: "pointer" }}
+            style={{ width: "100%", padding: "14px 0", borderRadius: 11, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
           >
             Improve my résumé for this job →
           </button>
@@ -377,10 +506,10 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
               <div key={s} style={{ border: `1px solid ${on ? "var(--accent)" : "var(--surface2)"}`, borderRadius: 12, padding: "12px 14px", background: "var(--surface)", display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <Checkbox on={on} onClick={() => toggleSection(s)} />
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{SECTION_LABELS[s] || s}</span>
-                  <button onClick={() => setNoteFor(noteFor === s ? null : s)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--accent)", fontWeight: 500 }}>
-                    {notes[s] ? "✎ note" : "+ note"}
-                  </button>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{SECTION_LABELS[s] || s}</span>
+                  <Button onClick={() => setNoteFor(noteFor === s ? null : s)} size="small" variant="text" sx={{ ml: "auto", minHeight: 32, fontSize: 12 }}>
+                    {notes[s] ? "Edit note" : "Add note"}
+                  </Button>
                 </div>
                 {noteFor === s && (
                   <textarea
@@ -388,7 +517,7 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
                     onChange={(e) => setNotes((p) => ({ ...p, [s]: e.target.value }))}
                     placeholder="Optional: how should we steer this section? e.g. 'emphasize fintech work'"
                     rows={2}
-                    style={{ width: "100%", fontSize: 12.5, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--bg)", color: "var(--text)", resize: "vertical", boxSizing: "border-box" }}
+                    style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--surface2)", background: "var(--bg)", color: "var(--text)", resize: "vertical", boxSizing: "border-box" }}
                   />
                 )}
                 {s === "experience" && on && (
@@ -406,19 +535,29 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <SectionHeading n={2} title="Add missing skill keywords" badge={`${keywords.size} / ${total}`} />
           <p style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", margin: 0 }}>
-            Pulled from this job&apos;s requirements your résumé doesn&apos;t mention yet. Pick the ones you can honestly back up — tailoring weaves them into your real experience.
+            Pulled from this job&apos;s requirements your résumé doesn&apos;t mention yet. Pick the ones you can honestly back up — tailoring weaves them into your real experience, a couple per bullet at most.
+            {total > 12 ? " We tailor up to 12 keywords per run." : ""}
           </p>
           {total === 0 ? (
-            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0 }}>No missing concrete keywords — your résumé already covers this role&apos;s hard requirements.</p>
+            <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>No missing concrete keywords — your résumé already covers this role&apos;s hard requirements.</p>
           ) : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {job.injectableKeywords.map((k) => {
                 const on = keywords.has(k);
                 return (
-                  <button key={k} onClick={() => toggleKeyword(k)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, fontSize: 12.5, cursor: "pointer", border: `1px solid ${on ? "var(--accent)" : "var(--surface2)"}`, background: on ? "var(--accent-bg)" : "var(--surface)", color: on ? "var(--accent)" : "var(--text)", fontWeight: 500 }}>
-                    <span style={{ color: "var(--accent)", fontWeight: 600 }}>{on ? "✓" : "+"}</span>
-                    {k}
-                  </button>
+                  // MUI's icon slot rather than a nested span: the check/plus
+                  // is decorative, and Chip already handles its spacing and
+                  // colour against the selected state.
+                  <Chip
+                    key={k}
+                    label={k}
+                    onClick={() => toggleKeyword(k)}
+                    clickable
+                    variant={on ? "filled" : "outlined"}
+                    color={on ? "primary" : "default"}
+                    icon={on ? <CheckIcon /> : <AddIcon />}
+                    sx={{ height: 36, fontSize: 13, fontWeight: 500 }}
+                  />
                 );
               })}
             </div>
@@ -431,7 +570,7 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
         <button
           onClick={onGenerate}
           disabled={selected.size === 0 && keywords.size === 0}
-          style={{ width: "100%", padding: "14px 0", borderRadius: 11, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14.5, fontWeight: 600, opacity: selected.size === 0 && keywords.size === 0 ? 0.55 : 1, cursor: selected.size === 0 && keywords.size === 0 ? "not-allowed" : "pointer" }}
+          style={{ width: "100%", padding: "14px 0", borderRadius: 11, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, opacity: selected.size === 0 && keywords.size === 0 ? 0.55 : 1, cursor: selected.size === 0 && keywords.size === 0 ? "not-allowed" : "pointer" }}
         >
           Generate tailored résumé →
         </button>
@@ -439,7 +578,7 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
           <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--muted)", padding: 0 }}>
             ‹ Back
           </button>
-          <span style={{ fontSize: 11.5, color: "var(--muted)" }}>
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>
             {selected.size} section{selected.size === 1 ? "" : "s"} · {keywords.size} keyword{keywords.size === 1 ? "" : "s"}
           </span>
         </div>
@@ -450,7 +589,22 @@ function Step2({ job, sections, selected, toggleSection, expDepth, setExpDepth, 
 
 // ─── Step 3 ───────────────────────────────────────────────────────────────
 
-function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, onDownload, onRetry, jobUrl, postingId }: {
+function Step3({
+  generating,
+  result,
+  error,
+  previewRef,
+  pdfExporting,
+  pdfError,
+  onDownload,
+  onRetry,
+  jobUrl,
+  postingId,
+  onApplied,
+  onScoreChange,
+  onResumePromoted,
+  boostVersion,
+}: {
   generating: boolean;
   result: BoostResult | null;
   error: string | null;
@@ -461,6 +615,10 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
   onRetry: () => void;
   jobUrl: string;
   postingId: string;
+  onApplied?: (postingId: string, score: number | null) => void;
+  onScoreChange?: (postingId: string, score: number) => void;
+  onResumePromoted?: (analysisId: string) => void;
+  boostVersion?: StashedBoostVersion | null;
 }) {
   // ── Accept/reject + live-score state (all hooks run before any early return) ──
   const suggestions = useMemo<BoostSuggestion[]>(
@@ -475,11 +633,25 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
   const [liveScore, setLiveScore] = useState<number | null>(null);
   const [scoring, setScoring] = useState(false);
   const [scoreUnavailable, setScoreUnavailable] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+  const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
+  const [promoteError, setPromoteError] = useState<string | null>(null);
 
-  // Reset selections whenever a fresh boost result arrives. Default: all applied,
-  // matching afterScore + the all-applied `tailoredText` the backend returns.
+  // Boost → Version auto-save: once the user accepts ≥1 suggestion, the boosted
+  // résumé is saved to My Résumés (created once per job, updated in place).
+  const savedVersionIdRef = useRef<string | null>(null);
+  const resumeBaseRef = useRef<ResumeBase | null>(null);
+  const [savedToLibrary, setSavedToLibrary] = useState(false);
+
+  // Reset selections whenever a fresh boost result arrives. Default: NOTHING
+  // applied — suggestions render review-first (suggest-then-accept), mirroring
+  // Analyze. The preview shows the original résumé and the score sits at
+  // beforeScore until the user accepts a suggestion (or "Accept all"). Drafts are
+  // pre-seeded so an accepted card already carries its suggested text. Every
+  // downstream value (acceptedCount, headlineScore, the appliedText revert loop)
+  // already keys off accepted[], so flipping the default cascades correctly.
   useEffect(() => {
-    setAccepted(suggestions.map(() => true));
+    setAccepted(suggestions.map(() => false));
     setDrafts(suggestions.map((s) => s.suggested));
     setLiveScore(null);
     setScoreUnavailable(false);
@@ -501,10 +673,9 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
           .map((s, i) => ({ original: s.original, suggested: drafts[i] ?? s.suggested, keep: accepted[i] }))
           .filter((x) => x.keep)
           .map(({ original, suggested }) => ({ original, suggested }));
-        const headers = await authHeaders();
-        const resp = await fetch(apiUrl("/api/jobs/boost/score"), {
+        const resp = await apiFetch("/api/jobs/boost/score", {
           method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ posting_id: postingId, suggestions: subset }),
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -539,8 +710,115 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
     return text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n");
   }, [result, suggestions, accepted, drafts]);
 
+  // Text of every ACCEPTED suggestion as it now appears in the preview, so the
+  // changed bullets get the same green "applied" highlight Analyze/Tailor use.
+  // (Stripped from the PDF via highlightsEnabled:false on export.)
+  const appliedHighlights = useMemo(
+    () =>
+      suggestions
+        .map((s, i) => (accepted[i] ? (drafts[i]?.trim() || s.suggested) : null))
+        .filter((x): x is string => !!x && x.trim().length > 0),
+    [suggestions, accepted, drafts],
+  );
+
   const toggle = (i: number) => setAccepted((a) => a.map((v, j) => (j === i ? !v : v)));
   const setDraft = (i: number, t: string) => setDrafts((d) => d.map((v, j) => (j === i ? t : v)));
+
+  const improved = result?.improved ?? (total > 0 && afterScore > beforeScore);
+  const partial = total > 0 && acceptedCount !== total && acceptedCount !== 0;
+  // Headline score: anchors are exact; in-between comes from the server re-score
+  // (falls back to the all-applied projection until that endpoint is live).
+  const headlineScore = acceptedCount === total ? afterScore
+    : acceptedCount === 0 ? beforeScore
+    : (liveScore ?? afterScore);
+
+  useEffect(() => {
+    if (!result || acceptedCount === 0 || scoring) return;
+    onScoreChange?.(postingId, headlineScore);
+  }, [acceptedCount, headlineScore, onScoreChange, postingId, result, scoring]);
+
+  // Reset the saved-version session when a fresh boost result arrives.
+  useEffect(() => {
+    savedVersionIdRef.current = null;
+    resumeBaseRef.current = null;
+    setSavedToLibrary(false);
+  }, [result]);
+
+  // Auto-save the boosted résumé to My Résumés once ≥1 suggestion is accepted.
+  // Created once per job, updated in place as the accepted set changes. Waits
+  // for the live re-score to settle so the stored match score is final.
+  useEffect(() => {
+    if (!result || acceptedCount === 0 || scoring) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        // Base = the chosen version (phase 2) or the latest scan (phase 1).
+        if (!resumeBaseRef.current) {
+          resumeBaseRef.current = boostVersion
+            ? { structured: boostVersion.structured, extractedText: boostVersion.extractedText }
+            : await fetchLatestResumeBase();
+        }
+        const base = resumeBaseRef.current;
+        if (!base) return; // no scanned résumé / not signed in
+        const pairs = suggestions
+          .map((s, i) => ({ original: s.original, suggested: drafts[i] ?? s.suggested, keep: accepted[i] }))
+          .filter((x) => x.keep)
+          .map(({ original, suggested }) => ({ original, suggested }));
+        if (pairs.length === 0) return;
+        const id = await autoSaveBoostVersion({
+          existingVersionId: savedVersionIdRef.current,
+          base,
+          pairs,
+          company: result.company,
+          title: result.title,
+          matchScore: headlineScore,
+          // Phase 2: chain the result as a CHILD of the version we boosted.
+          sourceVersion: boostVersion
+            ? { id: boostVersion.id, rootId: boostVersion.rootId, version: boostVersion.version, name: boostVersion.name }
+            : null,
+        });
+        if (!cancelled && id) {
+          savedVersionIdRef.current = id;
+          setSavedToLibrary(true);
+        }
+      } catch { /* best-effort — never block the Boost flow */ }
+    }, 1100);
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, accepted, drafts, acceptedCount, headlineScore, scoring, boostVersion]);
+
+  const handleUseForFutureMatches = async () => {
+    if (!result || acceptedCount === 0 || promoting) return;
+    setPromoting(true);
+    setPromoteError(null);
+    setPromoteMessage(null);
+    try {
+      const resp = await apiFetch("/api/jobs/boost/use-resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          posting_id: postingId,
+          title: result.title,
+          company: result.company,
+          tailoredText: appliedText,
+          matchScore: headlineScore,
+        }),
+      });
+      const body = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
+      if (typeof body?.analysisId === "string") onResumePromoted?.(body.analysisId);
+      // Phase 3: keep "which résumé is live" unified — the boost auto-saved a
+      // version, so star it too (use-resume already promoted the working résumé).
+      if (savedVersionIdRef.current) {
+        try { await setDefaultVersion(savedVersionIdRef.current); } catch { /* best-effort */ }
+      }
+      setPromoteMessage(body?.message || "Optimized resume is now used for future job matching.");
+    } catch (err) {
+      setPromoteError(err instanceof Error ? err.message : "Could not save this optimized resume.");
+    } finally {
+      setPromoting(false);
+    }
+  };
 
   if (generating) {
     return (
@@ -556,7 +834,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center", paddingTop: 32 }}>
         <span style={{ fontSize: 28 }}>⚠️</span>
-        <p style={{ fontSize: 13.5, color: "var(--text)", textAlign: "center", margin: 0, lineHeight: 1.6, maxWidth: 380 }}>{error}</p>
+        <p style={{ fontSize: 14, color: "var(--text)", textAlign: "center", margin: 0, lineHeight: 1.6, maxWidth: 380 }}>{error}</p>
         <button
           onClick={onRetry}
           style={{ padding: "11px 28px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 4 }}
@@ -569,29 +847,27 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
 
   if (!result) return null;
 
-  const improved = result.improved ?? (total > 0 && afterScore > beforeScore);
-  const partial = total > 0 && acceptedCount !== total && acceptedCount !== 0;
-
-  // Headline score: anchors are exact; in-between comes from the server re-score
-  // (falls back to the all-applied projection until that endpoint is live).
-  const headlineScore = acceptedCount === total ? afterScore
-    : acceptedCount === 0 ? beforeScore
-    : (liveScore ?? afterScore);
   const scoreColor = headlineScore >= 70 ? "var(--green-ink)" : headlineScore >= 50 ? "#e0a35c" : "var(--muted)";
   const previewCtx = resumeLayoutFromPreviewStyle("classic");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+      {boostVersion ? (
+        <div style={{ fontSize: 13, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
+          <span aria-hidden>↳</span> Boosting your saved version <strong style={{ color: "var(--text)" }}>{boostVersion.name}</strong> — accepted changes save back as a new version of it.
+        </div>
+      ) : null}
+
       {/* ── Match banner — gated on `improved` ── */}
       {improved ? (
         <div style={{ background: "var(--surface)", borderRadius: 14, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>BEFORE</span>
+            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>BEFORE</span>
             <span style={{ fontSize: 28, fontWeight: 700, color: "var(--muted)", lineHeight: 1 }}>{beforeScore}%</span>
           </div>
           <span style={{ fontSize: 22, color: "var(--muted)" }}>→</span>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", color: "var(--muted)" }}>
               {acceptedCount === total ? "AFTER" : "NOW"}
             </span>
             <span style={{ fontSize: 36, fontWeight: 700, color: scoreColor, lineHeight: 1, opacity: scoring ? 0.55 : 1, transition: "opacity 0.15s" }}>
@@ -605,15 +881,25 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
                 ? <>Showing the projected score with all {total} suggestions — live per-selection scoring is rolling out.</>
                 : <>Your match {headlineScore > beforeScore ? "is up" : "is"} from <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong> to <strong style={{ color: scoreColor }}>{headlineScore}%</strong> with {acceptedCount} of {total} suggestions applied.</>}
           </span>
+          {savedToLibrary ? (
+            <a
+              href="/?view=library"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 560, color: "var(--green-ink)", textDecoration: "none", whiteSpace: "nowrap" }}
+              title="This tailored résumé was saved to My Résumés"
+            >
+              <span aria-hidden>✓</span> Saved to My Résumés
+            </a>
+          ) : null}
         </div>
       ) : (
         <div style={{ background: "var(--surface)", borderRadius: 14, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>No honest improvements to apply</span>
-          <span style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>No honest improvements to apply</span>
+          <span style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>
             {result.skippedKeywords.length > 0
-              ? <>Skipped — couldn&apos;t honestly support: {result.skippedKeywords.join(", ")}. Your match stays at <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong>.</>
+              ? <>The keywords below couldn&apos;t be added honestly. Your match stays at <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong>.</>
               : <>Your résumé already covers what this posting asks for, or the remaining gaps can&apos;t be closed truthfully. Match: <strong style={{ color: "var(--text)" }}>{beforeScore}%</strong>.</>}
           </span>
+          <SkippedKeywordList result={result} />
         </div>
       )}
 
@@ -635,7 +921,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
                 <GapFixSuggestionCard
                   suggestion={s}
                   index={i}
-                  checked={accepted[i] ?? true}
+                  checked={accepted[i] ?? false}
                   onToggleCheck={() => toggle(i)}
                   draftText={drafts[i] ?? s.suggested}
                   onDraftChange={(t) => setDraft(i, t)}
@@ -644,7 +930,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "8px 4px 2px" }}>
                     {s.gainedRequirements!.map((req) => (
                       <span key={req} style={{
-                        fontSize: 10.5, fontWeight: 600, color: "var(--green-ink)",
+                        fontSize: 11, fontWeight: 600, color: "var(--green-ink)",
                         background: "rgba(34,197,94,0.10)", border: "1px solid rgba(34,197,94,0.25)",
                         borderRadius: 20, padding: "2px 9px",
                       }}>+ {req}</span>
@@ -654,11 +940,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
               </div>
             ))}
           </div>
-          {result.skippedKeywords.length > 0 && (
-            <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>
-              Skipped (couldn&apos;t honestly support): {result.skippedKeywords.join(", ")}
-            </p>
-          )}
+          <SkippedKeywordList result={result} />
         </div>
       )}
 
@@ -694,7 +976,8 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
               structuredResumeAuthoritative
               flatTextFallback
               presentationOnly
-              highlightsEnabled={false}
+              tailorAppliedHighlights={appliedHighlights}
+              highlightsEnabled={appliedHighlights.length > 0}
             />
           </div>
         </div>
@@ -713,11 +996,51 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
           href={jobUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => onApplied?.(postingId, headlineScore)}
           style={{ flex: "1 1 180px", padding: "13px 0", borderRadius: 11, border: "1px solid var(--surface2)", background: "var(--surface)", color: "var(--text)", fontSize: 14, fontWeight: 600, textAlign: "center", textDecoration: "none", display: "block" }}
         >
           Apply on company site ↗
         </a>
+        <button
+          type="button"
+          onClick={() => void handleUseForFutureMatches()}
+          disabled={acceptedCount === 0 || promoting}
+          style={{
+            flex: "1 1 220px",
+            padding: "13px 0",
+            borderRadius: 11,
+            border: "1px solid color-mix(in srgb, var(--accent) 35%, var(--surface2))",
+            background: "var(--surface)",
+            color: "var(--accent)",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: acceptedCount === 0 || promoting ? "not-allowed" : "pointer",
+            opacity: acceptedCount === 0 || promoting ? 0.6 : 1,
+            fontFamily: "inherit",
+          }}
+        >
+          {promoting ? "Saving..." : "Use for future matches"}
+        </button>
       </div>
+
+      <p style={{ fontSize: 13, color: "var(--muted)", margin: 0, lineHeight: 1.55 }}>
+        Applying with this tailored version? Use it for future matches to rerun scoring against this optimized resume.
+      </p>
+
+      {(promoteMessage || promoteError) && (
+        <p
+          role={promoteError ? "alert" : "status"}
+          style={{
+            fontSize: 13,
+            color: promoteError ? "#b91c1c" : "var(--green-ink)",
+            margin: 0,
+            lineHeight: 1.5,
+            fontWeight: 600,
+          }}
+        >
+          {promoteError || promoteMessage}
+        </p>
+      )}
 
       {(pdfError) && (
         <p style={{ fontSize: 12, color: "#d97757", margin: 0 }}>PDF export failed: {pdfError}</p>
@@ -728,7 +1051,7 @@ function Step3({ generating, result, error, previewRef, pdfExporting, pdfError, 
 
 const linkBtnStyle: CSSProperties = {
   background: "none", border: "none", padding: 0, cursor: "pointer",
-  fontSize: 11.5, fontWeight: 600, color: "var(--accent)",
+  fontSize: 12, fontWeight: 600, color: "var(--accent)",
 };
 
 function SectionHeading({ n, title, badge }: { n: number; title: string; badge?: string }) {
@@ -736,7 +1059,7 @@ function SectionHeading({ n, title, badge }: { n: number; title: string; badge?:
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <span style={{ width: 22, height: 22, borderRadius: 999, background: "var(--text)", color: "var(--bg)", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
       <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>{title}</span>
-      {badge && <span style={{ marginLeft: "auto", fontSize: 11.5, fontWeight: 600, color: "var(--muted)", background: "var(--surface2)", padding: "3px 9px", borderRadius: 999 }}>{badge}</span>}
+      {badge && <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "var(--surface2)", padding: "3px 9px", borderRadius: 999 }}>{badge}</span>}
     </div>
   );
 }
@@ -754,9 +1077,23 @@ function RadioOpt({ on, onClick, title, sub }: { on: boolean; onClick: () => voi
     <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, cursor: "pointer", textAlign: "left", border: "none", background: on ? "var(--accent-bg)" : "var(--surface2)" }}>
       <span style={{ width: 16, height: 16, borderRadius: 999, border: `${on ? 5 : 1.5}px solid ${on ? "var(--accent)" : "var(--muted)"}`, background: "var(--bg)", flexShrink: 0 }} />
       <span style={{ display: "flex", flexDirection: "column" }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text)" }}>{title}</span>
-        <span style={{ fontSize: 11.5, color: "var(--muted)" }}>{sub}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{title}</span>
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>{sub}</span>
       </span>
     </button>
+  );
+}
+
+/**
+ * Scoped MUI provider, same reason as the other converted surfaces: this is a
+ * static export and only subtrees that use MUI should carry an Emotion
+ * runtime. Wrapped at the export rather than inside the component because it
+ * has early returns.
+ */
+export default function BoostPanel(props: React.ComponentProps<typeof BoostPanelInner>) {
+  return (
+    <MuiThemeRegistry>
+      <BoostPanelInner {...props} />
+    </MuiThemeRegistry>
   );
 }

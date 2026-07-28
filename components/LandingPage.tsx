@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { goToFreeScan, signInWithGoogle } from "@/lib/anonScan";
+import { goToFreeScan } from "@/lib/anonScan";
+import { useSignInDialog } from "@/components/SignInDialog";
 import { SITE_URL } from "@/lib/brand";
 import { LogoFull, LogoMark } from "./BrandLogo";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,9 @@ import {
   VariantD,
   VariantE,
 } from "@/components/LandingFeatureShowcase";
+import LandingFAQ from "@/components/LandingFAQ";
+import LandingTopCompanies from "@/components/LandingTopCompanies";
+import { FloatingFeatureNav, Reveal, TealScrollStyles } from "@/components/landing/TealScroll";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 // Cool slate palette — professional SaaS, not warm editorial
@@ -24,6 +28,18 @@ const T = {
   blue:        "#2563eb",
   blueHover:   "#1d4ed8",
   blueGlow:    "rgba(37,99,235,0.14)",
+
+  // Hot CTA — the logo's own orange, promoted to THE action color (Teal-style:
+  // exactly one saturated pill on an otherwise quiet ground)
+  hot:         "#e0894e",
+  hotHover:    "#d4772f",
+  hotInk:      "#231303",
+
+  // Full-bleed feature blocks (committed colors — same in both themes)
+  blockIndigo: "#1d2f8f",
+  blockGreen:  "#0a4f42",
+  blockGold:   "#f4c76b",
+  blockGoldInk:"#33240a",
 
   // Semantic
   green:       "#059669",
@@ -66,7 +82,6 @@ function useLandingTheme(): [Theme, () => void] {
   }, []);
   return [theme, toggle];
 }
-
 // ── Data ────────────────────────────────────────────────────────────────────
 /** Toggle "Three steps…" / How it works block on the landing page. */
 const SHOW_HOW_SECTION = false;
@@ -159,6 +174,92 @@ type TemplateDef = { name: string; type: "Résumé" | "CV"; accent: string; dark
 
 const RESUME_TEMPLATES: TemplateDef[] = [
   {
+    name: "Elise", type: "Résumé", accent: "#0f5561", darkAccent: "#2dd4bf", href: "/template-builder/?preset=creative-teal",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        {/* Dark teal right sidebar */}
+        <path d="M130 0h64a6 6 0 0 1 6 6v252a6 6 0 0 1-6 6h-64Z" fill="#0f5561" />
+        {/* Main column */}
+        <text x="14" y="26" fontFamily="Helvetica, Arial, sans-serif" fontSize="11.5" fontWeight="700" fill="#0f172a" letterSpacing="0.3">SOFIA MARIN</text>
+        <text x="14" y="36" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#0f5561">sofia.marin@email.com · (312) 555-0177 · Chicago, IL</text>
+        <text x="14" y="50" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.4" fontWeight="700" fill="#0f5561" letterSpacing="1">SUMMARY</text>
+        <text x="14" y="59" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">Brand designer turning research into identity</text>
+        <text x="14" y="66" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">systems for consumer and B2B products.</text>
+        <text x="14" y="81" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.4" fontWeight="700" fill="#0f5561" letterSpacing="1">EXPERIENCE</text>
+        <text x="14" y="92" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.9" fontWeight="700" fill="#0f172a">Senior Brand Designer</text>
+        <text x="14" y="100" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fontStyle="italic" fill="#475569">Ogilvy — 2021 – Present</text>
+        <text x="16" y="109" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">• Rebranded 6 product lines, lifting recall 22%</text>
+        <text x="16" y="116" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">• Led a 4-designer identity systems team</text>
+        <text x="14" y="129" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.9" fontWeight="700" fill="#0f172a">Brand Designer</text>
+        <text x="14" y="137" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fontStyle="italic" fill="#475569">Landor — 2018 – 2021</text>
+        <text x="16" y="146" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">• Shipped 30+ campaign systems across print</text>
+        <text x="16" y="153" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">• Cut asset production time 40% with templates</text>
+        <text x="14" y="166" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.9" fontWeight="700" fill="#0f172a">Junior Designer</text>
+        <text x="14" y="174" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fontStyle="italic" fill="#475569">Studio North — 2016 – 2018</text>
+        <text x="16" y="183" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fill="#334155">• Produced identity work for 12 retail clients</text>
+        {/* Sidebar: initials badge + inverse-text sections */}
+        <circle cx="165" cy="34" r="15" fill="#0a3d46" stroke="rgba(255,255,255,0.25)" strokeWidth="0.8" />
+        <text x="165" y="38.5" textAnchor="middle" fontFamily="Helvetica, Arial, sans-serif" fontSize="10" fontWeight="700" fill="#ffffff">SM</text>
+        <text x="138" y="66" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#ffffff" letterSpacing="1">EDUCATION</text>
+        <line x1="138" y1="70" x2="192" y2="70" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+        <text x="138" y="79" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fontWeight="700" fill="#ffffff">BFA, Graphic Design</text>
+        <text x="138" y="86" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.3" fill="rgba(255,255,255,0.72)">RISD · 2016</text>
+        <text x="138" y="104" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#ffffff" letterSpacing="1">SKILLS</text>
+        <line x1="138" y1="108" x2="192" y2="108" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+        <text x="138" y="117" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">Brand identity</text>
+        <text x="138" y="125" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">Art direction</text>
+        <text x="138" y="133" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">Figma · Illustrator</text>
+        <text x="138" y="141" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">Typography</text>
+        <text x="138" y="149" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">Motion basics</text>
+        <text x="138" y="167" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#ffffff" letterSpacing="1">AWARDS</text>
+        <line x1="138" y1="171" x2="192" y2="171" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+        <text x="138" y="180" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">ADC Young Guns</text>
+        <text x="138" y="188" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="rgba(255,255,255,0.85)">D&amp;AD Shortlist</text>
+      </svg>
+    ),
+  },
+  {
+    name: "Harper", type: "Résumé", accent: "#1e3a5f", darkAccent: "#93b3d8", href: "/template-builder/?preset=creative-banner",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        {/* Navy top banner */}
+        <path d="M6 0h188a6 6 0 0 1 6 6v52H0V6a6 6 0 0 1 6-6Z" fill="#1e3a5f" />
+        <text x="14" y="24" fontFamily="Helvetica, Arial, sans-serif" fontSize="11.5" fontWeight="700" fill="#ffffff" letterSpacing="0.3">AVERY JOHNS</text>
+        <text x="14" y="34" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.9" fontWeight="700" fill="rgba(255,255,255,0.88)">Data analyst translating messy data into decisions.</text>
+        <text x="14" y="44" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.3" fill="rgba(255,255,255,0.72)">avery.johns@email.com · (917) 555-0163 · New York, NY</text>
+        <circle cx="176" cy="28" r="14" fill="#16304f" stroke="rgba(255,255,255,0.25)" strokeWidth="0.8" />
+        <text x="176" y="32.5" textAnchor="middle" fontFamily="Helvetica, Arial, sans-serif" fontSize="9.5" fontWeight="700" fill="#ffffff">AJ</text>
+        {/* Two-column body: main + light right sidebar */}
+        <line x1="124" y1="66" x2="124" y2="252" stroke="#e2e8f0" strokeWidth="0.8" />
+        <text x="14" y="78" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#1e3a5f" letterSpacing="1">EXPERIENCE</text>
+        <text x="14" y="89" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#0f172a">Senior Data Analyst</text>
+        <text x="14" y="97" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fontStyle="italic" fill="#475569">Spotify — 2022 – Present</text>
+        <text x="16" y="106" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#334155">• Built retention models guiding a $4M budget</text>
+        <text x="16" y="113" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#334155">• Automated weekly KPI packs, saving 12 hrs/wk</text>
+        <text x="14" y="126" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#0f172a">Data Analyst</text>
+        <text x="14" y="134" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fontStyle="italic" fill="#475569">Peloton — 2019 – 2022</text>
+        <text x="16" y="143" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#334155">• Modeled churn drivers across 2M subscribers</text>
+        <text x="16" y="150" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#334155">• Shipped dashboards used by 40+ stakeholders</text>
+        <text x="14" y="163" fontFamily="Helvetica, Arial, sans-serif" fontSize="5.8" fontWeight="700" fill="#0f172a">Analytics Intern</text>
+        <text x="14" y="171" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.6" fontStyle="italic" fill="#475569">NBCUniversal — 2018</text>
+        <text x="16" y="180" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.5" fill="#334155">• A/B tested homepage modules (+8% CTR)</text>
+        <text x="132" y="78" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#1e3a5f" letterSpacing="1">EDUCATION</text>
+        <text x="132" y="88" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.7" fontWeight="700" fill="#0f172a">B.S. Statistics</text>
+        <text x="132" y="95" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.3" fill="#475569">NYU · 2019</text>
+        <text x="132" y="111" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#1e3a5f" letterSpacing="1">SKILLS</text>
+        <text x="132" y="121" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">SQL · Python · dbt</text>
+        <text x="132" y="129" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">Tableau · Looker</text>
+        <text x="132" y="137" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">Experiment design</text>
+        <text x="132" y="145" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">Stakeholder comms</text>
+        <text x="132" y="161" fontFamily="Helvetica, Arial, sans-serif" fontSize="6.2" fontWeight="700" fill="#1e3a5f" letterSpacing="1">CERTS</text>
+        <text x="132" y="171" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">Google Analytics IQ</text>
+        <text x="132" y="179" fontFamily="Helvetica, Arial, sans-serif" fontSize="4.4" fill="#334155">AWS Cloud Practitioner</text>
+      </svg>
+    ),
+  },
+  {
     name: "Executive", type: "Résumé", accent: "#2563eb", darkAccent: "#60a5fa", href: "/template-builder/?preset=executive",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
@@ -222,71 +323,6 @@ const RESUME_TEMPLATES: TemplateDef[] = [
       </svg>
     ),
   },
-  {
-    name: "Classic", type: "Résumé", accent: "#b45309", darkAccent: "#fbbf24", href: "/template-builder/?preset=classic",
-    thumb: (
-      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
-        <rect width="200" height="264" rx="6" fill="#ffffff" />
-        <text x="100" y="28" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="13.5" fontWeight="700" fill="#1a1a1a">Eleanor R. Whitman</text>
-        <text x="100" y="39" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">Boston, MA · eleanor.whitman@email.com · (617) 555-0119</text>
-        <line x1="20" y1="46" x2="180" y2="46" stroke="#1a1a1a" strokeWidth="0.7" />
-        <text x="18" y="60" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">EXPERIENCE</text>
-        <text x="18" y="72" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.4" fontWeight="700" fill="#1a1a1a">Associate Attorney</text>
-        <text x="182" y="72" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2019 – Present</text>
-        <text x="18" y="80" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fontStyle="italic" fill="#444444">Ropes &amp; Gray LLP — Boston, MA</text>
-        <text x="22" y="89" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Second-chaired three M&amp;A deals totaling $1.2B</text>
-        <text x="22" y="97" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Drafted and negotiated commercial agreements</text>
-        <text x="18" y="110" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.4" fontWeight="700" fill="#1a1a1a">Judicial Law Clerk</text>
-        <text x="182" y="110" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2018 – 2019</text>
-        <text x="18" y="118" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fontStyle="italic" fill="#444444">U.S. District Court, D. Mass.</text>
-        <text x="22" y="127" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">— Authored bench memoranda for federal civil matters</text>
-        <text x="18" y="142" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">EDUCATION</text>
-        <text x="18" y="154" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.8" fontWeight="700" fill="#1a1a1a">J.D., Harvard Law School</text>
-        <text x="182" y="154" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2018</text>
-        <text x="18" y="162" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fontStyle="italic" fill="#444444">cum laude · Harvard Law Review</text>
-        <text x="18" y="173" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.8" fontWeight="700" fill="#1a1a1a">B.A., Yale University</text>
-        <text x="182" y="173" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="5" fill="#555555">2015</text>
-        <text x="18" y="188" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">BAR ADMISSIONS</text>
-        <text x="18" y="200" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">Massachusetts (2018) · New York (2019)</text>
-        <text x="18" y="214" fontFamily="'Times New Roman', Georgia, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="1">HONORS</text>
-        <text x="18" y="226" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.1" fill="#333333">Order of the Coif · Moot Court Champion</text>
-      </svg>
-    ),
-  },
-  {
-    name: "Academic CV", type: "CV", accent: "#7c3aed", darkAccent: "#a78bfa", href: "/template-builder/?preset=classic",
-    thumb: (
-      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
-        <rect width="200" height="264" rx="6" fill="#ffffff" />
-        <text x="100" y="24" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="12.5" fontWeight="700" fill="#1a1a1a">Priya N. Raman, Ph.D.</text>
-        <text x="100" y="34" textAnchor="middle" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#555555">Dept. of Computer Science · Stanford University · praman@stanford.edu</text>
-        <line x1="20" y1="41" x2="180" y2="41" stroke="#1a1a1a" strokeWidth="0.6" />
-        <text x="18" y="53" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">EDUCATION</text>
-        <text x="18" y="63" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Ph.D., Computer Science — MIT</text>
-        <text x="182" y="63" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2020</text>
-        <text x="18" y="71" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">B.S., Computer Science — Caltech</text>
-        <text x="182" y="71" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2015</text>
-        <text x="18" y="84" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">SELECTED PUBLICATIONS</text>
-        <text x="18" y="94" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">1. Raman P., Chen L. Sparse Attention at Scale. NeurIPS 2023.</text>
-        <text x="18" y="101" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">2. Raman P. et al. Efficient Transformers for Long Context. ICML 2023.</text>
-        <text x="18" y="108" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">3. Raman P., Gupta S. Retrieval-Augmented Pretraining. ACL 2022.</text>
-        <text x="18" y="115" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">4. Raman P. et al. Calibrated Uncertainty in LLMs. ICLR 2022.</text>
-        <text x="18" y="122" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">5. Raman P., Lee J. Robust Fine-Tuning of Encoders. EMNLP 2021.</text>
-        <text x="18" y="129" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.6" fill="#333333">6. Raman P. Data-Efficient Representation Learning. NeurIPS 2020.</text>
-        <text x="18" y="142" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">APPOINTMENTS</text>
-        <text x="18" y="152" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Assistant Professor — Stanford University</text>
-        <text x="182" y="152" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2021–</text>
-        <text x="18" y="160" fontFamily="'Times New Roman', Georgia, serif" fontSize="5.3" fill="#333333">Research Scientist — Google DeepMind</text>
-        <text x="182" y="160" textAnchor="end" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.7" fill="#555555">2020–21</text>
-        <text x="18" y="173" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">GRANTS &amp; AWARDS</text>
-        <text x="18" y="183" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">NSF CAREER Award (2023) · Best Paper, NeurIPS 2023</text>
-        <text x="18" y="191" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">Google Research Scholar (2022) · MIT Presidential Fellow</text>
-        <text x="18" y="204" fontFamily="'Times New Roman', Georgia, serif" fontSize="6.6" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">TEACHING</text>
-        <text x="18" y="214" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">CS224N: NLP with Deep Learning · CS161: Algorithms</text>
-        <text x="18" y="222" fontFamily="'Times New Roman', Georgia, serif" fontSize="4.8" fill="#333333">Advising 5 Ph.D. students · 3 M.S. theses</text>
-      </svg>
-    ),
-  },
 ];
 
 function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string>; dark: boolean }) {
@@ -307,7 +343,8 @@ function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string
       onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.boxShadow = "none"; el.style.borderColor = C.border; }}
     >
       <div style={{ position: "relative", padding: "20px 20px 0", background: dark ? "rgba(255,255,255,0.03)" : "#eef2f7" }}>
-        <span style={{ position: "absolute", top: 14, right: 14, zIndex: 1, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: a, background: `${a}1f`, padding: "3px 8px", borderRadius: 6 }}>{t.type}</span>
+        {/* Solid backing — the badge can overlap dark thumb areas (Elise sidebar, Harper banner). */}
+        <span style={{ position: "absolute", top: 14, right: 14, zIndex: 1, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: a, background: dark ? "rgba(15,23,42,0.92)" : "rgba(255,255,255,0.95)", border: `1px solid ${a}55`, padding: "3px 8px", borderRadius: 6 }}>{t.type}</span>
         <div style={{ filter: "drop-shadow(0 8px 18px rgba(15,23,42,0.16))" }}>
           {t.thumb}
         </div>
@@ -323,13 +360,13 @@ function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string
 
 // ── Root ────────────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const { openSignIn } = useSignInDialog();
   const [theme, toggleTheme]  = useLandingTheme();
   const dark = theme === "dark";
   const [showBanner, setShowBanner] = useState(false);
   /** Mobile hamburger menu (≤768px). */
   const [menuOpen, setMenuOpen] = useState(false);
+  /** Which mobile-menu accordion is open (Features / Resume / Cover Letter). */
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   useEffect(() => {
     const dismissed = localStorage.getItem("rn-banner-v2");
@@ -338,6 +375,24 @@ export default function LandingPage() {
   const dismissBanner = useCallback(() => {
     setShowBanner(false);
     localStorage.setItem("rn-banner-v2", "1");
+  }, []);
+
+  // Sticky mobile CTA: with the page many screens tall, the hero's primary
+  // action disappears after screen one — surface it again once the user has
+  // scrolled past the hero. Session-dismissible; ≤640px only (via CSS).
+  const [stickyCtaVisible, setStickyCtaVisible] = useState(false);
+  const [stickyCtaDismissed, setStickyCtaDismissed] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try { return sessionStorage.getItem("rn-sticky-cta") === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    const onScroll = () => setStickyCtaVisible(window.scrollY > 700);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  const dismissStickyCta = useCallback(() => {
+    setStickyCtaDismissed(true);
+    try { sessionStorage.setItem("rn-sticky-cta", "1"); } catch { /* ignore */ }
   }, []);
 
   const C = {
@@ -351,10 +406,8 @@ export default function LandingPage() {
     shadow:  dark ? "0 28px 72px rgba(0,0,0,0.60)" : "0 28px 72px rgba(13,17,23,0.10)",
   };
 
-  async function signIn() {
-    setLoading(true); setError(null);
-    const err = await signInWithGoogle();
-    if (err) { setError(err); setLoading(false); }
+  function signIn() {
+    openSignIn();
   }
 
   const scrollTo = useCallback((id: string) => {
@@ -373,9 +426,9 @@ export default function LandingPage() {
     background: T.blue, color: "#fff",
     border: "none", borderRadius: 10,
     fontSize: "var(--font-size-lg)", fontWeight: 600, letterSpacing: -0.2,
-    cursor: loading ? "wait" : "pointer", fontFamily: "inherit",
+    cursor: "pointer", fontFamily: "inherit",
     transition: "background 0.15s, box-shadow 0.15s",
-    opacity: loading ? 0.7 : 1,
+    opacity: 1,
     boxShadow: `0 4px 16px ${T.blueGlow}`,
     whiteSpace: "nowrap" as const,
   };
@@ -406,7 +459,7 @@ export default function LandingPage() {
           <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.4 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ display: "inline-block", verticalAlign: "-2px", marginRight: 8 }}><path d="M12 2l1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7z" /></svg>
             <strong style={{ fontWeight: 700 }}>New:</strong>
-            {" "}AI bullet rewrites + ATS scoring — scan your résumé free, no account needed.
+            {" "}AI bullet rewrites + 8-dimension résumé scoring. No account needed. Start free.
             {" "}
             <button
               onClick={() => { goToFreeScan(); }}
@@ -452,14 +505,22 @@ export default function LandingPage() {
             @media (min-width: 768px) { .lp-header-inner { padding: 0 32px !important; } }
           `}</style>
           {/* Logo — shared SVG mark + wordmark */}
-          <Link href="/" prefetch={false} style={{ textDecoration: "none", color: "inherit", display: "flex", alignItems: "center" }} aria-label="Resunova home">
+          <Link href="/" prefetch={false} style={{ flexShrink: 0, textDecoration: "none", color: "inherit", display: "flex", alignItems: "center" }} aria-label="Resunova home">
             <LogoFull markSize={32} textColor={dark ? "#ffffff" : "#0f172a"} />
           </Link>
 
           {/* Center Nav */}
-          <nav className="lp-nav hidden md-flex" style={{ display: "none", alignItems: "center", justifyContent: "center", gap: 36, position: "absolute", left: 0, right: 0, height: "100%", pointerEvents: "none" }}>
+          {/* IN FLOW, deliberately. This nav used to be `position: absolute;
+              left: 0; right: 0`, which took it out of the flex row and stretched
+              it across the whole header — so it centred on the viewport while
+              the logo and the action buttons laid themselves out underneath it.
+              Between the 1024px breakpoint and roughly 1200px the two groups
+              simply drew on top of each other ("ATS Checker" over "Log In").
+              As a flex child it negotiates width like everything else, so the
+              overlap is not possible at any viewport. */}
+          <nav className="lp-nav hidden md-flex" style={{ display: "none", alignItems: "center", justifyContent: "center", gap: 36, height: "100%", flex: "1 1 auto", minWidth: 0 }}>
             <style>{`
-              @media (min-width: 768px) { .md-flex { display: flex !important; } }
+              @media (min-width: 1024px) { .md-flex { display: flex !important; } }
               .mega-menu-dropdown {
                 position: fixed;
                 top: 76px;
@@ -468,7 +529,7 @@ export default function LandingPage() {
                 opacity: 0;
                 visibility: hidden;
                 transform: translateY(-4px);
-                transition: all 0.2s ease-out;
+                transition: background-color 0.2s ease-out, border-color 0.2s ease-out, color 0.2s ease-out, box-shadow 0.2s ease-out, transform 0.2s ease-out, opacity 0.2s ease-out;
                 z-index: 1000;
                 pointer-events: none;
                 display: flex;
@@ -567,12 +628,10 @@ export default function LandingPage() {
                     <h3 style={{ fontSize: 16, fontWeight: 600, color: dark ? "#ffffff" : "#0f172a", marginBottom: 20 }}>Resume Examples</h3>
                     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                       {[
-                        { label: "Software Engineering", href: "/template-builder/?preset=modern" },
-                        { label: "Engineering", href: "/template-builder/?preset=classic" },
-                        { label: "Back-End Developer / Engineer", href: "/template-builder/?preset=modern" },
-                        { label: "Student Internship", href: "/template-builder/?preset=executive" },
-                        { label: "Business", href: "/template-builder/?preset=executive" },
-                        { label: "Healthcare", href: "/template-builder/?preset=classic" }
+                        { label: "Software Engineer", href: "/resume-examples/software-engineer" },
+                        { label: "Data Analyst", href: "/resume-examples/data-analyst" },
+                        { label: "Registered Nurse", href: "/resume-examples/registered-nurse" },
+                        { label: "Sales Representative", href: "/resume-examples/sales-representative" }
                       ].map(item => (
                         <Link
                           key={item.label}
@@ -592,7 +651,7 @@ export default function LandingPage() {
                           </svg>
                         </Link>
                       ))}
-                      <a
+                      <Link
                         href="/resume-examples"
                         style={{
                           background: "transparent", border: "none", textAlign: "left",
@@ -603,7 +662,19 @@ export default function LandingPage() {
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.textDecoration = "none"; }}
                       >
                         View all examples
-                      </a>
+                      </Link>
+                      <Link
+                        href="/skills-for-resume"
+                        style={{
+                          background: "transparent", border: "none", textAlign: "left",
+                          fontSize: 14, color: T.blue, cursor: "pointer",
+                          fontWeight: 600, textDecoration: "none"
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.textDecoration = "underline"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.textDecoration = "none"; }}
+                      >
+                        Skills by role
+                      </Link>
                     </div>
                   </div>
 
@@ -654,10 +725,11 @@ export default function LandingPage() {
             </div>
 
             {[
-              ["Resume", "templates", "/?view=builder"],
+              ["Resume Builder", "templates", "/?view=builder"],
+              ["Resume Examples", "resume-examples-nav", "/resume-examples/"],
               ["Cover Letter", "cover-letter", "/?view=cover-letter"],
               ["ATS Checker", "analyze", "/?view=analyze"],
-              ["Pricing", "pricing", "#pricing"]
+              ["Blog", "blog-nav", "/blog/"]
             ].map(([lbl, id, href]) => (
               <Link
                 key={id}
@@ -675,7 +747,20 @@ export default function LandingPage() {
           </nav>
 
           {/* Right side actions */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 16 }}>
+            {/* Theme toggle — kept from the previous header (all breakpoints) */}
+            <button onClick={toggleTheme} title={dark ? "Light mode" : "Dark mode"} style={{
+              width: 34, height: 34, borderRadius: 8,
+              background: "transparent",
+              border: `1px solid ${dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`,
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              color: C.muted, transition: "color 0.15s",
+            }}>
+              {dark
+                ? <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M3.1 12.9l1.4-1.4M11.5 4.5l1.4-1.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                : <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 10.5A6 6 0 015.5 2.5a6 6 0 000 11 6 6 0 008-3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+              }
+            </button>
             <div className="md-flex hidden" style={{ display: "none", alignItems: "center", gap: 16 }}>
             <button
               onClick={signIn}
@@ -688,7 +773,7 @@ export default function LandingPage() {
                 padding: "8px 20px",
                 borderRadius: 12,
                 cursor: "pointer",
-                transition: "all 0.2s",
+                transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
                 fontFamily: "inherit"
               }}
               onMouseEnter={e => { 
@@ -701,32 +786,32 @@ export default function LandingPage() {
               Log In
             </button>
 
-            <Button onClick={signIn} disabled={loading}
+            <Button onClick={signIn}
               aria-label="Create My Resume"
               title="Create My Resume"
               style={{
-                background: T.blue,
-                color: "#fff",
+                background: T.hot,
+                color: T.hotInk,
                 border: "none",
                 fontSize: 15,
-                fontWeight: 600,
+                fontWeight: 700,
                 padding: "8px 24px",
-                borderRadius: 8,
+                borderRadius: 999,
                 cursor: "pointer",
-                transition: "all 0.2s",
+                transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
                 fontFamily: "inherit",
-                boxShadow: "0 4px 12px rgba(37,99,235,0.2)"
+                boxShadow: "0 4px 14px rgba(212,119,47,0.35)"
               }}
-              onMouseEnter={e => { 
+              onMouseEnter={e => {
                 (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 16px rgba(37,99,235,0.3)";
+                (e.currentTarget as HTMLElement).style.background = T.hotHover;
               }}
-              onMouseLeave={e => { 
+              onMouseLeave={e => {
                 (e.currentTarget as HTMLElement).style.transform = "none";
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 12px rgba(37,99,235,0.2)";
+                (e.currentTarget as HTMLElement).style.background = T.hot;
               }}
             >
-              {loading ? "Loading…" : "Create My Resume"}
+              Create My Resume
             </Button>
             </div>
 
@@ -742,7 +827,7 @@ export default function LandingPage() {
               background: "transparent",
               border: `1px solid transparent`,
               cursor: "pointer", alignItems: "center", justifyContent: "center", display: "flex",
-              color: C.ink, transition: "all 0.15s",
+              color: C.ink, transition: "background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s",
             }}
             onMouseEnter={e => { 
               (e.currentTarget as HTMLElement).style.backgroundColor = dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"; 
@@ -752,7 +837,7 @@ export default function LandingPage() {
             }}
           >
             <style>{`
-              @media (min-width: 768px) { .md-hide { display: none !important; } }
+              @media (min-width: 1024px) { .md-hide { display: none !important; } }
             `}</style>
             {menuOpen
               ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -848,6 +933,10 @@ export default function LandingPage() {
               )}
             </div>
 
+            <a href="/resume-examples/" onClick={(e) => { e.preventDefault(); setMenuOpen(false); window.location.assign("/resume-examples/"); }} style={{ padding: "16px 0", fontSize: 18, fontWeight: 500, color: C.ink, textDecoration: "none", borderBottom: `1px solid ${C.border}` }}>
+              Resume Examples
+            </a>
+
             {/* Cover Letter Accordion */}
             <div style={{ borderBottom: `1px solid ${C.border}` }}>
               <button
@@ -878,8 +967,8 @@ export default function LandingPage() {
               ATS Checker
             </a>
             
-            <a href="#pricing" onClick={(e) => { e.preventDefault(); setMenuOpen(false); scrollTo("pricing"); }} style={{ padding: "16px 0", fontSize: 18, fontWeight: 500, color: C.ink, textDecoration: "none", borderBottom: `1px solid ${C.border}` }}>
-              Pricing
+            <a href="/blog/" onClick={(e) => { e.preventDefault(); setMenuOpen(false); window.location.assign("/blog/"); }} style={{ padding: "16px 0", fontSize: 18, fontWeight: 500, color: C.ink, textDecoration: "none", borderBottom: `1px solid ${C.border}` }}>
+              Blog
             </a>
 
             {/* Bottom Actions */}
@@ -897,8 +986,8 @@ export default function LandingPage() {
               <button
                 onClick={() => { setMenuOpen(false); signIn(); }}
                 style={{
-                  width: "100%", background: "#ef4444", border: "none", color: "#fff",
-                  padding: "12px", fontSize: 16, fontWeight: 600, borderRadius: 8, cursor: "pointer", fontFamily: "inherit",
+                  width: "100%", background: T.hot, border: "none", color: T.hotInk,
+                  padding: "12px", fontSize: 16, fontWeight: 700, borderRadius: 999, cursor: "pointer", fontFamily: "inherit",
                   transition: "opacity 0.2s"
                 }}
               >
@@ -925,8 +1014,8 @@ export default function LandingPage() {
             fontWeight: 600, letterSpacing: 0.2, maxWidth: "100%",
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.blue, display: "inline-block", flexShrink: 0 }} />
-            <span className="lp-hero-sub-full">Completely free · For students &amp; the community · AI-powered · ATS-safe</span>
-            <span className="lp-hero-sub-short">Free forever · AI-powered · ATS-safe</span>
+            <span className="lp-hero-sub-full">Start free · No account to scan · Built for students &amp; career switchers · ATS-safe</span>
+            <span className="lp-hero-sub-short">Start free · No account · ATS-safe</span>
           </div>
 
           {/* Headline — DM Sans 800. Full on desktop; punchy 2-liner on phones. */}
@@ -936,26 +1025,27 @@ export default function LandingPage() {
             color: C.ink, margin: "0 0 28px",
           }}>
             <span className="lp-hero-sub-full">
-              Your résumé,<br />
-              <span style={{ color: T.blue }}>finally fluent</span><br />
-              in the language<br />of opportunity.
+              Score your résumé.<br />
+              Fix the weak bullets.<br />
+              Tailor it to any job.<br />
+              <span style={{ color: T.blue }}>Start free. Upgrade anytime.</span>
             </span>
             <span className="lp-hero-sub-short">
-              Your résumé,<br />
-              <span style={{ color: T.blue }}>finally fluent.</span>
+              Score, fix, and tailor<br />your résumé.{" "}
+              <span style={{ color: T.blue }}>Start free.</span>
             </span>
           </h1>
 
           <p style={{ fontSize: "var(--font-size-xl)", color: C.muted, lineHeight: 1.72, maxWidth: 480, margin: "0 0 44px", letterSpacing: -0.15 }}>
             {/* Full copy on desktop; trimmed on phones. Key phrases highlighted. */}
             <span className="lp-hero-sub-full">
-              Upload your résumé for an <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>bullet-by-bullet AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>under 60 seconds</b>.{" "}
+              Upload your résumé, get an <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>honest bullet-by-bullet rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
             </span>
             <span className="lp-hero-sub-short">
-              An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>AI rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> — in <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
+              An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>honest rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
             </span>
-            <strong style={{ color: C.ink, fontWeight: 700 }}>No account needed.</strong>{" "}
-            <strong style={{ color: "#16a34a", fontWeight: 700 }}>Completely free.</strong>
+            <strong style={{ color: C.ink, fontWeight: 700 }}>No account.</strong>{" "}
+            <strong style={{ color: "#16a34a", fontWeight: 700 }}>No credit card.</strong>
           </p>
 
           {/* CTA row */}
@@ -967,24 +1057,26 @@ export default function LandingPage() {
                 onClick={() => { goToFreeScan(); }}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 10,
-                  padding: "18px 36px",
-                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                  color: "#fff", border: "none", borderRadius: 14,
+                  padding: "18px 38px",
+                  background: T.hot,
+                  color: T.hotInk, border: "none", borderRadius: 999,
                   fontSize: 18, fontWeight: 800, letterSpacing: -0.3,
                   cursor: "pointer", fontFamily: "inherit",
-                  boxShadow: "0 8px 32px rgba(37,99,235,0.45), 0 2px 8px rgba(37,99,235,0.20)",
-                  transition: "transform 0.15s, box-shadow 0.15s",
+                  boxShadow: "0 10px 32px rgba(212,119,47,0.45)",
+                  transition: "transform 0.15s, box-shadow 0.15s, background 0.15s",
                   whiteSpace: "nowrap",
                 }}
                 onMouseEnter={e => {
                   const el = e.currentTarget as HTMLElement;
                   el.style.transform = "translateY(-2px)";
-                  el.style.boxShadow = "0 12px 40px rgba(37,99,235,0.55), 0 2px 8px rgba(37,99,235,0.20)";
+                  el.style.background = T.hotHover;
+                  el.style.boxShadow = "0 14px 40px rgba(212,119,47,0.55)";
                 }}
                 onMouseLeave={e => {
                   const el = e.currentTarget as HTMLElement;
                   el.style.transform = "";
-                  el.style.boxShadow = "0 8px 32px rgba(37,99,235,0.45), 0 2px 8px rgba(37,99,235,0.20)";
+                  el.style.background = T.hot;
+                  el.style.boxShadow = "0 10px 32px rgba(212,119,47,0.45)";
                 }}
               >
                 Score my résumé free
@@ -994,11 +1086,10 @@ export default function LandingPage() {
 
             {/* Trust micro-copy */}
             <p style={{ fontSize: 13, color: C.muted, margin: 0, letterSpacing: -0.1 }}>
-              No account needed to score &nbsp;·&nbsp; Sign in to save your analysis &nbsp;·&nbsp; Always free
+              No account needed to scan &nbsp;·&nbsp; Sign in only to save your analysis &nbsp;·&nbsp; Start free, upgrade anytime
             </p>
           </div>
 
-          {error && <p style={{ fontSize: "var(--font-size-base)", color: "#f85149", marginBottom: 16 }}>{error}</p>}
 
           {/* Social proof */}
           <div className="lp-hero-social" style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -1049,16 +1140,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <LandingPreviewStyles />
-
-      {/* ───────────── Jobs — promoted to first band after the hero ─────── */}
-      <JobsBand C={C} dark={dark} />
-
-      {/* ───────────── Stats ticker ─────────────────────────── */}
+      {/* ───────────── Stats ticker — trust bar directly under the hero ─── */}
       <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, overflow: "hidden", padding: "18px 0" }}>
         <div style={{ display: "flex", gap: 0, width: "max-content", animation: "ticker 36s linear infinite" }}>
           {[...Array(4)].flatMap(() => [
-            ["$0",      "Completely free — always"],
+            ["Free",    "Start free, upgrade anytime"],
+            ["250k+",   "Jobs on the board"],
             ["400+",    "Job seekers so far"],
             ["60s",     "Typical tailoring time"],
             ["4.7 ★",   "Early user rating"],
@@ -1075,13 +1162,34 @@ export default function LandingPage() {
         </div>
       </div>
 
+      <LandingPreviewStyles />
+      <TealScrollStyles />
+
+      {/* ───────────── Floating feature nav (tracks the product sections) ── */}
+      <FloatingFeatureNav
+        C={C}
+        dark={dark}
+        accent={T.hotHover}
+        items={[
+          { id: "jobs", label: "Jobs", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg> },
+          { id: "product-rewrite", label: "AI Rewrites", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> },
+          { id: "product-tour", label: "Tailor", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg> },
+          { id: "templates", label: "Templates", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/></svg> },
+          { id: "interview", label: "Interview", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5h16v10H9l-4 4z"/><path d="M8 9h8M8 12h5"/></svg> },
+        ]}
+      />
+
+      {/* ───────────── Jobs — promoted to first band after the hero ─────── */}
+      <JobsBand C={C} dark={dark} />
+
       {/* ───────────── AI rewrite preview (B) ─────────────── */}
       <LandingPreviewSection
         id="product-rewrite"
         eyebrow="Bullet rewrites"
-        title="Vague lines become interview-ready achievements."
-        desc="Resunova flags duty-list bullets and suggests rewrites with stronger verbs and real metrics — using only facts already on your résumé."
+        title="&quot;Responsible for&quot; never got anyone hired."
+        desc="Resunova flags weak duty-list bullets and rewrites them with stronger verbs and real numbers, using only facts already on your résumé. No inventing. No keyword stuffing."
         dark
+        curve="right"
         C={C}
         wide
         animationOnly={!SHOW_LANDING_CARDS}
@@ -1092,7 +1200,7 @@ export default function LandingPage() {
       </LandingPreviewSection>
 
       {SHOW_LANDING_CARDS && (
-      <section id="features" style={{ padding: "120px 40px", maxWidth: 1200, margin: "0 auto", scrollMarginTop: 76 }}>
+      <section id="features" className="lp-sec" style={{ padding: "120px 40px", maxWidth: 1200, margin: "0 auto", scrollMarginTop: 76 }}>
         <div style={{ marginBottom: 64 }}>
           <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 16px" }}>
             What we analyze
@@ -1116,7 +1224,7 @@ export default function LandingPage() {
       <LandingPreviewSection
         id="product-scan"
         eyebrow="Line-by-line analysis"
-        title="See what a recruiter would flag — before you apply."
+        title="See what a recruiter would flag, before you apply."
         desc="Upload a PDF and get flagged weaknesses, strong bullets, and a first fix you can accept in one click."
         C={C}
         wide
@@ -1130,7 +1238,7 @@ export default function LandingPage() {
 
       {SHOW_LANDING_CARDS && (
       <section id="platform" style={{ background: C.bg2, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, scrollMarginTop: 76 }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 40px" }}>
+        <div className="lp-sec" style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 40px" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }}>
             <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 16px" }}>
               Built into Resunova
@@ -1154,10 +1262,11 @@ export default function LandingPage() {
       <LandingPreviewSection
         id="product-tour"
         eyebrow="Tailor to the role"
-        title="Match the job, close keyword gaps, export."
-        desc="Paste a posting, score your fit, apply fixes across bullets and keywords, then download a PDF that matches the preview."
+        title="Paste the job description. Close every gap. Export."
+        desc="Score your fit against the posting, fix missing keywords across your bullets, then export an ATS-safe PDF that matches the preview exactly."
         C={C}
         bg={C.surface}
+        curve="left"
         wide
         animationOnly={!SHOW_LANDING_CARDS}
         ctaLabel="Tailor my résumé now"
@@ -1166,22 +1275,42 @@ export default function LandingPage() {
         <VariantD embedded />
       </LandingPreviewSection>
 
-      {/* ───────────── Templates showcase ───────────────────── */}
-      <section id="templates" style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "100px 40px", scrollMarginTop: 76 }}>
+      {/* ───────────── Templates showcase — gold block ───────── */}
+      <section id="templates" className="lp-sec" style={{ background: T.blockGold, borderRadius: "0 clamp(36px, 8vw, 110px) 0 0", padding: "108px 40px 100px", scrollMarginTop: 120 }}>
         <div style={{ maxWidth: 1080, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 14px" }}>Templates</p>
-            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", color: C.ink, margin: "0 0 14px" }}>
-              Start from a recruiter-ready template.
+            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: "#7a5416", textTransform: "uppercase", margin: "0 0 14px" }}>Templates</p>
+            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", color: T.blockGoldInk, margin: "0 0 14px" }}>
+              Clean enough for recruiters. Plain enough for the ATS.
             </h2>
-            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
-              Pick a résumé or CV layout, tailor it to the job, and export an ATS-safe PDF — no design work required.
+            <p style={{ fontSize: "var(--font-size-lg)", color: "#6b4e1c", lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
+              Pick a technical, creative, or CV layout, tailor it to the job description, and export an ATS-safe PDF. No design skills required.
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>
-            {RESUME_TEMPLATES.map((t) => (
-              <TemplateCard key={t.name} t={t} C={C} dark={dark} />
-            ))}
+          <Reveal>
+            <div className="lp-templates-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>
+              {RESUME_TEMPLATES.map((t) => (
+                <TemplateCard key={t.name} t={t} C={C} dark={dark} />
+              ))}
+            </div>
+          </Reveal>
+          <div style={{ textAlign: "center", marginTop: 42 }}>
+            <button
+              onClick={() => { window.location.href = "/template-builder"; }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "14px 30px",
+                background: T.blockGoldInk, color: T.blockGold,
+                border: "none", borderRadius: 999,
+                fontSize: 15, fontWeight: 800, letterSpacing: -0.2,
+                cursor: "pointer", fontFamily: "inherit",
+                transition: "transform 0.15s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ""; }}
+            >
+              Start from a free template <span style={{ fontSize: 17 }}>→</span>
+            </button>
           </div>
         </div>
       </section>
@@ -1189,7 +1318,7 @@ export default function LandingPage() {
       {/* Jobs section moved up — now rendered as <JobsBand /> directly after the hero. */}
 
       {/* ───────────── Research & data approach ─────────────── */}
-      <section id="approach" style={{ padding: "100px 40px", maxWidth: 1200, margin: "0 auto", scrollMarginTop: 76 }}>
+      <section id="approach" className="lp-sec" style={{ padding: "100px 40px", maxWidth: 1200, margin: "0 auto", scrollMarginTop: 76 }}>
         <div style={{ display: "grid", gridTemplateColumns: SHOW_LANDING_CARDS ? "1fr 1fr" : "1fr", gap: 56, alignItems: "start", maxWidth: SHOW_LANDING_CARDS ? undefined : 640 }} className="lp-approach-grid">
           <div>
             <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 16px" }}>
@@ -1221,7 +1350,7 @@ export default function LandingPage() {
       {/* How it works — hidden via SHOW_HOW_SECTION */}
       {SHOW_HOW_SECTION && (
       <section id="how" style={{ borderBottom: `1px solid ${C.border}`, scrollMarginTop: 76 }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 40px" }}>
+        <div className="lp-sec" style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 40px" }}>
           <div style={{ textAlign: "center", marginBottom: 72 }}>
             <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 16px" }}>The process</p>
             <h2 className="lp-h2" style={{ fontSize: "clamp(32px, 4vw, 52px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: C.ink, margin: 0 }}>
@@ -1245,7 +1374,7 @@ export default function LandingPage() {
       )}
 
       {/* ───────────── Company logos ────────────────────────── */}
-      <section id="reviews" style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, padding: "72px 40px", scrollMarginTop: 76 }}>
+      <section id="reviews" className="lp-sec" style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, padding: "72px 40px", scrollMarginTop: 76 }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
           <p style={{ textAlign: "center", fontSize: "var(--font-size-sm)", fontWeight: 600, color: C.muted, letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 48px" }}>
             Where our users are interviewing
@@ -1286,7 +1415,9 @@ export default function LandingPage() {
       </section>
 
       {/* ───────────── Post-logos CTA nudge ─────────────────── */}
-      <div style={{ background: C.bg2, borderBottom: `1px solid ${C.border}`, padding: "36px 40px", textAlign: "center" }}>
+      {/* Sits on the page ground (C.bg, no hairline) so the interview block's
+          curved corner directly below carves out of clean matching whitespace. */}
+      <div style={{ background: C.bg, padding: "36px 40px 76px", textAlign: "center" }}>
         <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, margin: "0 0 18px", fontWeight: 500 }}>
           Is your résumé ready for these companies?
         </p>
@@ -1295,63 +1426,55 @@ export default function LandingPage() {
           style={{
             display: "inline-flex", alignItems: "center", gap: 8,
             padding: "14px 32px",
-            background: T.blue, color: "#fff",
-            border: "none", borderRadius: 12,
-            fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
+            background: T.hot, color: T.hotInk,
+            border: "none", borderRadius: 999,
+            fontSize: 16, fontWeight: 800, letterSpacing: -0.2,
             cursor: "pointer", fontFamily: "inherit",
-            boxShadow: "0 4px 20px rgba(37,99,235,0.35)",
-            transition: "transform 0.15s, box-shadow 0.15s",
+            boxShadow: "0 10px 26px -8px rgba(212,119,47,0.6)",
+            transition: "transform 0.15s, background 0.15s",
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
             el.style.transform = "translateY(-2px)";
-            el.style.boxShadow = "0 8px 28px rgba(37,99,235,0.5)";
+            el.style.background = T.hotHover;
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement;
             el.style.transform = "";
-            el.style.boxShadow = "0 4px 20px rgba(37,99,235,0.35)";
+            el.style.background = T.hot;
           }}
         >
           Check my résumé score — it&apos;s free <span style={{ fontSize: 18 }}>→</span>
         </button>
       </div>
 
-      {/* ───────────── Interview coaching announcement strip ── */}
-      <div role="region" aria-label="Interview coaching — coming soon" style={{
-        background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
-        padding: "14px 24px",
-        display: "flex", alignItems: "center", justifyContent: "center", gap: 11, flexWrap: "wrap", textAlign: "center",
-      }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-          <rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="19" x2="12" y2="22" /><line x1="8.5" y1="22" x2="15.5" y2="22" />
-        </svg>
-        <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.45 }}>
-          <strong style={{ fontWeight: 700 }}>Coming soon:</strong> AI mock interviews tailored to the exact role — part of our growing university partnerships, including <strong style={{ fontWeight: 700 }}>UMBC</strong>.
-        </span>
-      </div>
+      {/* ───────────── Interview coaching announcement strip ──
+          Parked for now (stacked bands cluttered the reviews→interview seam,
+          and the interview block below announces the feature itself).
+          Re-enable by removing `false &&`. */}
 
       {/* ───────────── Interview coaching ───────────────────── */}
-      <section id="interview" className="lp-interview-sec" style={{ borderTop: `1px solid ${C.border}`, background: C.bg, padding: "100px 40px", scrollMarginTop: 76 }}>
+      <section id="interview" className="lp-interview-sec" style={{ background: T.blockGreen, borderRadius: "clamp(36px, 8vw, 110px) 0 0 0", padding: "108px 40px 100px", scrollMarginTop: 120 }}>
         <div style={{ maxWidth: 1040, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 8,
               padding: "5px 13px", marginBottom: 16,
-              background: "rgba(37,99,235,0.10)", border: `1px solid ${T.blue}28`,
-              borderRadius: 100, fontSize: 12, fontWeight: 600, color: T.blue, letterSpacing: 0.2,
+              background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.24)",
+              borderRadius: 100, fontSize: 12, fontWeight: 600, color: "#dff1ea", letterSpacing: 0.2,
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.amber, display: "inline-block" }} />
-              Interview coaching · Coming soon
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 8px #4ade80", display: "inline-block" }} />
+              Interview coaching · Now live
             </div>
-            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: C.ink, margin: "0 0 16px" }}>
-              Land the callback, then close it.
+            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 48px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em", color: "#ffffff", margin: "0 0 16px" }}>
+              Practice the questions this job will actually ask.
             </h2>
-            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 580, margin: "0 auto" }}>
-              Practice real questions for the exact role you&apos;re targeting and get instant, specific feedback — so you walk in interview-ready, not winging it.
+            <p style={{ fontSize: "var(--font-size-lg)", color: "#bfe0d6", lineHeight: 1.65, maxWidth: 580, margin: "0 auto" }}>
+              Resunova generates questions from the actual job posting, not a generic question bank, and gives instant, specific feedback on your answers. Walk in prepared, not winging it.
             </p>
           </div>
 
+          <Reveal>
           <div className="lp-interview-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
             {([
               { icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="19" x2="12" y2="22" /><line x1="8.5" y1="22" x2="15.5" y2="22" /></svg>), accent: T.blue, title: "AI mock interviews", desc: "Role-specific questions pulled from the exact job description you’re targeting." },
@@ -1367,31 +1490,42 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+          </Reveal>
+
+          {/* Interview prep finally gets a real CTA */}
+          <div style={{ textAlign: "center", marginTop: 44 }}>
+            <button
+              onClick={() => { window.location.href = "/interview-prep"; }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "15px 32px",
+                background: T.hot, color: T.hotInk,
+                border: "none", borderRadius: 999,
+                fontSize: 16, fontWeight: 800, letterSpacing: -0.2,
+                cursor: "pointer", fontFamily: "inherit",
+                boxShadow: "0 12px 30px -10px rgba(0,0,0,0.55)",
+                transition: "transform 0.15s, background 0.15s",
+              }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = T.hotHover; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.background = T.hot; }}
+            >
+              Practice my interview free <span style={{ fontSize: 18 }}>→</span>
+            </button>
+          </div>
         </div>
       </section>
 
-      {/* ───────────── University partnerships banner (image) ── */}
-      <section aria-label="University partnerships" style={{ background: C.bg, padding: "76px 40px", borderTop: `1px solid ${C.border}` }}>
-        <Link href="/contact" prefetch={false} aria-label="Partner with Resunova — university career centers" style={{ display: "block", maxWidth: 1040, margin: "0 auto", borderRadius: 24, overflow: "hidden", boxShadow: C.shadow }}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG banner; next/image can't optimize SVG and breaks `output: export` */}
-          <img
-            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/university-partners-banner.svg`}
-            alt="Resunova partners with university career centers, including UMBC (University of Maryland, Baltimore County) — unlimited scans and Career Center-aligned feedback for students, with more campuses joining."
-            width={1200}
-            height={360}
-            style={{ display: "block", width: "100%", height: "auto" }}
-          />
-        </Link>
-      </section>
+      {/* ───────────── FAQ (visible + JSON-LD for the crawlable homepage) ── */}
+      <LandingFAQ C={C} accent={T.blue} />
 
       {/* ───────────── Final CTA ────────────────────────────── */}
-      <section style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>
+      <section className="lp-sec" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>
         <h2 style={{ fontSize: "clamp(40px, 5.5vw, 68px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", color: "#fff", margin: "0 0 20px" }}>
-          Your next interview<br />starts here.
+          In about sixty seconds,<br />you&apos;ll know exactly what to fix.
         </h2>
         <p style={{ fontSize: "var(--font-size-xl)", color: "rgba(255,255,255,0.82)", margin: "0 0 44px", lineHeight: 1.65, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
-          <strong style={{ color: "#fff", fontWeight: 700 }}>Completely free</strong>
-          {" "}— for students, lifelong learners, and anyone in the job-seeking community. No credit card, no hidden tiers. Tailor in 60 seconds and apply with a résumé built to earn callbacks.
+          <strong style={{ color: "#fff", fontWeight: 700 }}>Start free, upgrade anytime.</strong>
+          {" "}Built for students, lifelong learners, and anyone in the job-seeking community. No credit card to scan. Upload your résumé and apply with one built to earn callbacks.
         </p>
 
         {/* Dual CTA */}
@@ -1401,23 +1535,23 @@ export default function LandingPage() {
             style={{
               display: "inline-flex", alignItems: "center", gap: 10,
               padding: "18px 40px",
-              background: "#fff", color: T.blue,
-              border: "none", borderRadius: 14,
+              background: T.hot, color: T.hotInk,
+              border: "none", borderRadius: 999,
               fontSize: 18, fontWeight: 800, letterSpacing: -0.3,
               cursor: "pointer", fontFamily: "inherit",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.20)",
-              transition: "transform 0.15s, box-shadow 0.15s",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+              transition: "transform 0.15s, background 0.15s",
               whiteSpace: "nowrap",
             }}
             onMouseEnter={e => {
               const el = e.currentTarget as HTMLElement;
               el.style.transform = "translateY(-2px)";
-              el.style.boxShadow = "0 12px 40px rgba(0,0,0,0.28)";
+              el.style.background = T.hotHover;
             }}
             onMouseLeave={e => {
               const el = e.currentTarget as HTMLElement;
               el.style.transform = "";
-              el.style.boxShadow = "0 8px 32px rgba(0,0,0,0.20)";
+              el.style.background = T.hot;
             }}
           >
             Score my résumé free <span style={{ fontSize: 20 }}>→</span>
@@ -1425,7 +1559,6 @@ export default function LandingPage() {
 
           <button
             onClick={signIn}
-            disabled={loading}
             style={{
               display: "inline-flex", alignItems: "center", gap: 9,
               padding: "17px 30px",
@@ -1434,10 +1567,10 @@ export default function LandingPage() {
               border: "1.5px solid rgba(255,255,255,0.30)",
               borderRadius: 14,
               fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
-              cursor: loading ? "wait" : "pointer", fontFamily: "inherit",
+              cursor: "pointer", fontFamily: "inherit",
               transition: "background 0.15s, border-color 0.15s",
               whiteSpace: "nowrap",
-              opacity: loading ? 0.7 : 1,
+              opacity: 1,
             }}
             onMouseEnter={e => {
               const el = e.currentTarget as HTMLElement;
@@ -1450,13 +1583,13 @@ export default function LandingPage() {
               el.style.borderColor = "rgba(255,255,255,0.30)";
             }}
           >
-            <GoogleG /> {loading ? "Loading…" : "Sign in with Google"}
+            Sign in or create account
           </button>
         </div>
 
         {/* Micro-copy */}
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", margin: 0 }}>
-          No credit card &nbsp;·&nbsp; No paywall &nbsp;·&nbsp; Nothing to cancel
+          No credit card to start &nbsp;·&nbsp; Free daily scans &nbsp;·&nbsp; Cancel anytime
         </p>
       </section>
 
@@ -1487,6 +1620,11 @@ export default function LandingPage() {
             <nav className="lp-footer-nav" aria-label="Footer" style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
               {[
                 ["Blog", "/blog"],
+                ["Jobs", "/jobs/"],
+                ["Resume Examples", "/resume-examples"],
+                ["Skills for Resume", "/skills-for-resume"],
+                ["Cover Letter", "/cover-letter"],
+                ["ATS Checker", "/ats-resume-checker"],
                 ["Contact", "/contact"],
                 ["Privacy", "/privacy"],
                 ["Terms", "/terms"],
@@ -1503,6 +1641,38 @@ export default function LandingPage() {
                   {label}
                 </Link>
               ))}
+
+              {/* Product Hunt badge — theme-aware (light/dark) */}
+              <a
+                href="https://www.producthunt.com/products/resunova?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-resunova"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="lp-ph-badge"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  height: 54,
+                  filter: dark ? "brightness(1.1) drop-shadow(0 2px 6px rgba(0,0,0,0.3))" : "drop-shadow(0 2px 4px rgba(0,0,0,0.08))",
+                  transition: "filter 0.2s",
+                  marginLeft: "auto",
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.filter = dark ? "brightness(1.15) drop-shadow(0 4px 12px rgba(0,0,0,0.4))" : "drop-shadow(0 4px 8px rgba(0,0,0,0.12))";
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.filter = dark ? "brightness(1.1) drop-shadow(0 2px 6px rgba(0,0,0,0.3))" : "drop-shadow(0 2px 4px rgba(0,0,0,0.08))";
+                }}
+              >
+                <img
+                  alt="Resunova - The AI resume checker that can't lie to you | Product Hunt"
+                  width="250"
+                  height="54"
+                  src={`https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1187910&theme=${dark ? "dark" : "light"}&t=1783180072635`}
+                  style={{ display: "block", maxWidth: "100%", height: "auto" }}
+                />
+              </a>
             </nav>
           </div>
 
@@ -1530,6 +1700,36 @@ export default function LandingPage() {
       </footer>
 
       {/* ── Global keyframes ────────────────────────────────── */}
+      {stickyCtaVisible && !stickyCtaDismissed && (
+        <div className="lp-sticky-cta" role="region" aria-label="Scan your resume">
+          <button
+            onClick={() => { goToFreeScan(); }}
+            className="lp-sticky-cta-btn"
+            style={{
+              flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "15px 20px", background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
+              color: "#fff", border: "none", borderRadius: 13,
+              fontSize: 15, fontWeight: 800, letterSpacing: -0.2,
+              cursor: "pointer", fontFamily: "inherit",
+              boxShadow: "0 10px 30px rgba(30,58,138,0.45)",
+            }}
+          >
+            Score my résumé free →
+          </button>
+          <button
+            onClick={dismissStickyCta}
+            aria-label="Dismiss"
+            style={{
+              width: 40, height: 40, flexShrink: 0, borderRadius: "50%",
+              border: `1px solid ${C.border}`, background: C.surface, color: C.muted,
+              fontSize: 15, cursor: "pointer", fontFamily: "inherit",
+              boxShadow: "0 6px 20px rgba(15,23,42,0.18)",
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <style>{`
         @keyframes lpFadeUp  { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
         @keyframes ticker    { from { transform: translateX(0); } to { transform: translateX(-50%); } }
@@ -1546,8 +1746,8 @@ export default function LandingPage() {
         @keyframes lpArrowPop { from { transform: translateY(4px) scale(0); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
         .lp-hero-sub-short { display: none; }
         .lp-nav-burger { display: none; }
-        @media (min-width: 769px) { .lp-nav-menu { display: none !important; } }
-        @media (max-width: 768px) {
+        @media (min-width: 1024px) { .lp-nav-menu { display: none !important; } }
+        @media (max-width: 1023.98px) {
           .lp-nav-cta { display: none !important; }
           .lp-nav-section { display: none !important; }
           .lp-nav-burger { display: inline-flex !important; }
@@ -1566,6 +1766,59 @@ export default function LandingPage() {
           .lp-jobs-band { padding: 64px 20px !important; }
           .lp-hero-h1   { font-size: 48px !important; }
         }
+        .lp-sticky-cta { display: none; }
+        @keyframes lpStickyIn { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @media (max-width: 640px) {
+          .lp-sticky-cta {
+            display: flex;
+            position: fixed;
+            left: 12px;
+            right: 12px;
+            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            z-index: 60;
+            gap: 8px;
+            align-items: center;
+            animation: lpStickyIn 0.25s ease both;
+          }
+        }
+        @media (max-width: 768px) {
+          /* Templates: horizontal snap carousel — six stacked full-width cards
+             were ~6 viewport-heights of scroll on a phone. */
+          .lp-templates-grid {
+            display: flex !important;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            gap: 14px !important;
+            padding: 4px 4px 18px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+          .lp-templates-grid::-webkit-scrollbar { display: none; }
+          .lp-templates-grid > a {
+            flex: 0 0 76%;
+            max-width: 300px;
+            scroll-snap-align: center;
+          }
+        }
+        @media (max-width: 640px) {
+          /* Tighter mobile rhythm: 100/40 desktop padding wastes ~20% of a
+             390px viewport's width and adds screens of empty space. */
+          .lp-sec { padding: 64px 20px !important; }
+          /* Interview trio: swipe instead of a 3-screen stack. */
+          .lp-interview-grid {
+            display: flex !important;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            gap: 14px !important;
+            padding: 4px 4px 18px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+          .lp-interview-grid::-webkit-scrollbar { display: none; }
+          .lp-interview-grid > * { flex: 0 0 82%; scroll-snap-align: center; }
+          /* Tabbed tailor demo: trim the desktop-sized reserved panel height. */
+          .lp-demo-tabbody { min-height: 200px !important; }
+        }
         @media (max-width: 640px) {
           .lp-hero-sub-full { display: none !important; }
           .lp-hero-sub-short { display: inline !important; }
@@ -1579,16 +1832,17 @@ export default function LandingPage() {
           .lp-hero-cta-row { width: 100% !important; }
           .lp-hero-cta-btn { width: 100% !important; justify-content: center !important; padding: 17px 24px !important; }
           .lp-hero-social { justify-content: center !important; }
-          .lp-interview-grid { grid-template-columns: 1fr !important; }
           .lp-interview-sec { padding: 64px 20px !important; }
           .lp-footer-top { flex-direction: column !important; gap: 24px !important; }
-          .lp-footer-nav { width: 100%; gap: 16px !important; }
+          .lp-footer-nav { width: 100%; flex-direction: column; align-items: flex-start !important; gap: 16px !important; }
+          .lp-ph-badge { margin-left: 0 !important; }
           .lp-footer-bottom { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
         }
         @media (max-width: 600px) {
           .lp-header { padding: 0 16px !important; }
           .lp-nav { gap: 10px !important; }
           .lp-nav-section { display: none !important; }
+          .lp-nav > a[href*="producthunt"] { display: none !important; }
         }
         @media (max-width: 540px) {
           .lp-feat-grid { grid-template-columns: 1fr !important; }
@@ -1621,6 +1875,7 @@ function LandingPreviewSection({
   animationOnly = false,
   ctaLabel,
   ctaHref,
+  curve,
   C,
   children,
 }: {
@@ -1634,6 +1889,8 @@ function LandingPreviewSection({
   animationOnly?: boolean;
   ctaLabel?: string;
   ctaHref?: string;
+  /** Teal-style curved section opening: large top corner on this side. */
+  curve?: "left" | "right";
   C: Record<string, string>;
   children: React.ReactNode;
 }) {
@@ -1641,10 +1898,11 @@ function LandingPreviewSection({
     <section
       id={id}
       style={{
-        padding: animationOnly ? "80px 40px" : "100px 40px",
+        padding: animationOnly ? "88px 40px" : "108px 40px 100px",
         background: bg ?? (dark ? "#0f172a" : C.bg2),
-        borderTop: dark ? undefined : `1px solid ${C.border}`,
-        scrollMarginTop: 76,
+        borderTop: dark || curve ? undefined : `1px solid ${C.border}`,
+        borderRadius: curve === "left" ? "clamp(36px, 8vw, 110px) 0 0 0" : curve === "right" ? "0 clamp(36px, 8vw, 110px) 0 0" : undefined,
+        scrollMarginTop: 120,
       }}
     >
       <div style={{ maxWidth: wide ? 960 : 800, margin: "0 auto", textAlign: animationOnly ? "center" : undefined }}>
@@ -1670,32 +1928,32 @@ function LandingPreviewSection({
             maxWidth: animationOnly ? 520 : 560,
           }}>{desc}</p>
         ) : null}
-        {children}
+        <Reveal>{children}</Reveal>
         {ctaLabel && ctaHref && (
           <div style={{ marginTop: 36, textAlign: animationOnly ? "center" : undefined }}>
             <button
               onClick={() => { ctaHref === "/?view=analyze" ? goToFreeScan() : (window.location.href = ctaHref); }}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
-                padding: "13px 28px",
-                background: dark ? "rgba(255,255,255,0.10)" : T.blue,
-                color: "#fff",
-                border: dark ? "1.5px solid rgba(255,255,255,0.20)" : "none",
-                borderRadius: 12,
-                fontSize: 15, fontWeight: 700, letterSpacing: -0.2,
+                padding: "14px 30px",
+                background: T.hot,
+                color: T.hotInk,
+                border: "none",
+                borderRadius: 999,
+                fontSize: 15, fontWeight: 800, letterSpacing: -0.2,
                 cursor: "pointer", fontFamily: "inherit",
-                boxShadow: dark ? "none" : "0 4px 20px rgba(37,99,235,0.35)",
-                transition: "transform 0.15s, box-shadow 0.15s",
+                boxShadow: "0 10px 26px -8px rgba(212,119,47,0.6)",
+                transition: "transform 0.15s, background 0.15s",
               }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement;
                 el.style.transform = "translateY(-1px)";
-                el.style.boxShadow = dark ? "none" : "0 8px 28px rgba(37,99,235,0.45)";
+                el.style.background = T.hotHover;
               }}
               onMouseLeave={e => {
                 const el = e.currentTarget as HTMLElement;
                 el.style.transform = "";
-                el.style.boxShadow = dark ? "none" : "0 4px 20px rgba(37,99,235,0.35)";
+                el.style.background = T.hot;
               }}
             >
               {ctaLabel} <span style={{ fontSize: 17 }}>→</span>
@@ -1766,11 +2024,29 @@ function JobApplyFeed({ jobs, C, dark }: { jobs: JobCard[]; C: Record<string, st
   const cardTransform = stage === "enter" ? "translateY(48px)" : stage === "leave" ? "translateY(-48px)" : "translateY(0)";
   const cardOpacity = stage === "enter" || stage === "leave" ? 0 : 1;
 
+  // Next roles in the queue — peek out behind the active card with real info
+  // (logo, title, match) instead of blank slabs, and rotate with the demo.
+  const next1 = jobs[(idx + 1) % jobs.length];
+  const next2 = jobs[(idx + 2) % jobs.length];
+
+  const queueRow = (q: JobCard) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 14px" }}>
+      <div style={{ width: 22, height: 22, borderRadius: 6, background: C.bg2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transform: "scale(0.82)" }}>{q.logo}</div>
+      <span style={{ fontSize: 13, fontWeight: 650, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{q.title}</span>
+      <span style={{ fontSize: 12, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{q.company}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{q.low} match</span>
+    </div>
+  );
+
   return (
-    <div style={{ position: "relative", minHeight: 250, display: "flex", alignItems: "center" }}>
-      {/* Ghost stack behind for depth (suggests a queue of roles) */}
-      <div aria-hidden style={{ position: "absolute", left: 26, right: 26, top: 32, height: 168, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.45 }} />
-      <div aria-hidden style={{ position: "absolute", left: 14, right: 14, top: 17, height: 184, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.7 }} />
+    <div style={{ position: "relative", paddingTop: 62 }}>
+      {/* Up-next queue behind the active card — top strip of each stays visible */}
+      <div aria-hidden style={{ position: "absolute", left: 26, right: 26, top: 0, height: 72, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.55, overflow: "hidden" }}>
+        {queueRow(next2)}
+      </div>
+      <div aria-hidden style={{ position: "absolute", left: 13, right: 13, top: 30, height: 72, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, opacity: 0.8, overflow: "hidden" }}>
+        {queueRow(next1)}
+      </div>
 
       <div style={{
         position: "relative", width: "100%",
@@ -1879,41 +2155,63 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
     { logo: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z" fill="#1877F2"/></svg>, title: "Product Manager", company: "Meta · Menlo Park · Full-time", match: 85, low: 41, target: false, featured: false, opacity: 0.62 },
   ];
 
+  // Committed dark-indigo block: same in both themes, so copy colors are fixed
+  // (not theme vars) and the companies rail gets a translucent-on-indigo C map.
+  const ink = "#ffffff";
+  const soft = "#c6cdf5";
+  const dim = "#9daaf0";
+  const onIndigoC: Record<string, string> = {
+    ...C,
+    ink,
+    muted: soft,
+    border: "rgba(255,255,255,0.20)",
+    surface: "rgba(255,255,255,0.08)",
+    bg2: "rgba(255,255,255,0.10)",
+  };
+
   return (
-    <section id="jobs" style={{ background: C.bg2, borderTop: `1px solid ${C.border}`, scrollMarginTop: 76 }}>
-      <div className="lp-jobs-band" style={{ padding: "100px 40px", maxWidth: 1200, margin: "0 auto" }}>
+    <section id="jobs" style={{ background: T.blockIndigo, borderRadius: "clamp(36px, 8vw, 110px) 0 0 0", scrollMarginTop: 120 }}>
+      <div className="lp-jobs-band" style={{ padding: "110px 40px 90px", maxWidth: 1200, margin: "0 auto" }}>
         <div className="lp-jobs-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
 
           {/* Left — copy + features */}
+          <Reveal dir="left">
           <div>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 8,
               padding: "5px 13px", marginBottom: 18,
-              background: "rgba(37,99,235,0.10)", border: `1px solid ${T.blue}28`,
-              borderRadius: 100, fontSize: 12, fontWeight: 600, color: T.blue, letterSpacing: 0.2,
+              background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.24)",
+              borderRadius: 100, fontSize: 12, fontWeight: 600, color: ink, letterSpacing: 0.2,
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a", boxShadow: "0 0 8px #16a34a", display: "inline-block" }} />
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 8px #4ade80", display: "inline-block" }} />
               New · Job matching
             </div>
-            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 14px" }}>
+            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: dim, textTransform: "uppercase", margin: "0 0 14px" }}>
               Your job search, upgraded
             </p>
-            <h2 style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 20px", color: C.ink }}>
-              Find jobs that fit —<br />before you apply.
+            <h2 style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 20px", color: ink }}>
+              A job board that<br />reads your résumé.
             </h2>
-            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.7, margin: "0 0 40px", maxWidth: 460 }}>
-              A scored, profile-aware feed so you spend time on the roles most likely to call you back.
+            <p style={{ fontSize: "var(--font-size-lg)", color: soft, lineHeight: 1.7, margin: "0 0 24px", maxWidth: 460 }}>
+              Browse a feed with disclosed salaries and H-1B sponsor data where postings share them. See your match score before you apply, tailor on the spot, and track every application in one place.
             </p>
 
+            {/* Scale stat — a number that lands. Round + under the true total, refreshed daily. */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 40 }}>
+              <span style={{ fontSize: "clamp(30px, 4.5vw, 44px)", fontWeight: 800, color: T.hot, letterSpacing: "-0.03em", lineHeight: 1 }}>250,000+</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: ink }}>jobs on the board</span>
+              <span style={{ fontSize: 13, color: dim }}>· refreshed daily</span>
+            </div>
+
             <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 40 }}>
-              {features.map(({ svg, bg, color, title, desc }) => (
+              {features.map(({ svg, title, desc }) => (
                 <div key={title} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, color }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, color: "#fff" }}>
                     {svg}
                   </div>
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, marginBottom: 4 }}>{title}</div>
-                    <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>{desc}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: ink, marginBottom: 4 }}>{title}</div>
+                    <div style={{ fontSize: 14, color: soft, lineHeight: 1.6 }}>{desc}</div>
                   </div>
                 </div>
               ))}
@@ -1923,24 +2221,32 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
               onClick={() => { window.location.href = "/?view=jobs"; }}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
-                padding: "14px 28px",
-                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                color: "#fff", border: "none", borderRadius: 12,
-                fontSize: "var(--font-size-base)", fontWeight: 700,
+                padding: "14px 30px",
+                background: T.hot,
+                color: T.hotInk, border: "none", borderRadius: 999,
+                fontSize: "var(--font-size-base)", fontWeight: 800,
                 cursor: "pointer", fontFamily: "inherit",
-                boxShadow: "0 4px 20px rgba(37,99,235,0.35)",
-                transition: "transform 0.15s, box-shadow 0.15s",
+                boxShadow: "0 10px 26px -8px rgba(0,0,0,0.5)",
+                transition: "transform 0.15s, background 0.15s",
               }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.boxShadow = "0 8px 28px rgba(37,99,235,0.45)"; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.boxShadow = "0 4px 20px rgba(37,99,235,0.35)"; }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = T.hotHover; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.background = T.hot; }}
             >
-              Browse matched jobs <span style={{ fontSize: 18 }}>→</span>
+              Browse 250,000+ jobs <span style={{ fontSize: 18 }}>→</span>
             </button>
           </div>
+          </Reveal>
 
           {/* Right — self-playing apply demo (cycles roles, taps Apply, slides up) */}
-          <JobApplyFeed jobs={jobs} C={C} dark={dark} />
+          <Reveal dir="right" delay={90}>
+            <JobApplyFeed jobs={jobs} C={C} dark={dark} />
+          </Reveal>
         </div>
+
+        {/* Top companies hiring — live counts as an auto-scrolling marquee. */}
+        <Reveal delay={120}>
+          <LandingTopCompanies C={onIndigoC} accent={T.hot} marquee />
+        </Reveal>
       </div>
     </section>
   );
@@ -2058,20 +2364,7 @@ function FeatureCell({ f, dark, C }: { f: typeof FEATURES[0]; dark: boolean; C: 
       {/* Feature number — bold blue DM Sans, no serif */}
       <div style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, color: T.blue, letterSpacing: "0.08em", marginBottom: 14 }}>{f.num}</div>
       <h3 style={{ fontSize: "var(--font-size-2xl)", fontWeight: 700, color: C.ink, margin: "0 0 10px", letterSpacing: -0.4 }}>{f.title}</h3>
-      <p style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.72, margin: 0 }}>{f.desc}</p>
+      <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.72, margin: 0 }}>{f.desc}</p>
     </div>
-  );
-}
-
-// ── Lock icon ─────────────────────────────────────────────────────────────────
-// ── Google G icon ─────────────────────────────────────────────────────────────
-function GoogleG() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 48 48">
-      <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.6 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.7-.4-3.9z"/>
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
-      <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.7-.4-3.9z"/>
-    </svg>
   );
 }

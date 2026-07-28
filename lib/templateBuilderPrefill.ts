@@ -18,6 +18,9 @@ import {
   normalizeStructuredResume,
   type StructuredResume,
 } from "@/store/resumeAnalyzeStore";
+import type { RoleResumeData } from "@/lib/roleResumeData";
+// One definition of the date split, shared with the document model.
+import { splitDateRange } from "@/lib/resumeDocumentModel";
 
 const TEMPLATE_BUILDER_STRUCTURED_PREFILL_KEY = "rn_template_builder_structured_prefill";
 
@@ -42,22 +45,7 @@ function mapExtraSections(structured: StructuredResume): TBCustomSection[] {
   return out;
 }
 
-function splitDateRange(raw: string): { startDate: string; endDate: string; current: boolean } {
-  const text = (raw ?? "").trim();
-  if (!text) return { startDate: "", endDate: "", current: false };
-  const parts = text
-    .split(/\s(?:-|–|—|to)\s/i)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (!parts.length) return { startDate: text, endDate: "", current: false };
-  if (parts.length === 1) return { startDate: parts[0], endDate: "", current: false };
-  const startDate = parts[0];
-  const endDate = parts[parts.length - 1];
-  const current = /present|current|ongoing|now/i.test(endDate);
-  return { startDate, endDate: current ? "" : endDate, current };
-}
-
-function mapStructuredResumeToTemplateData(structured: StructuredResume): TBResumeData {
+export function mapStructuredResumeToTemplateData(structured: StructuredResume): TBResumeData {
   const featuredSkills = DEFAULT_FEATURED_SKILLS();
   const flatSkills = structured.skills.flatMap((s) => (Array.isArray(s.items) ? s.items : []));
   const uniqueSkills: string[] = [];
@@ -158,6 +146,33 @@ function mapStructuredResumeToTemplateData(structured: StructuredResume): TBResu
         hiddenSections,
       };
     })(),
+  };
+}
+
+/** Build a TBResumeData skeleton from role-page data (skills + example summary). */
+export function prefillFromRole(role: RoleResumeData): TBResumeData {
+  const featuredSkills = DEFAULT_FEATURED_SKILLS();
+  role.topSkills.slice(0, featuredSkills.length).forEach((skill, idx) => {
+    featuredSkills[idx] = { skill: skill.name, rating: idx < 2 ? 5 : 4 };
+  });
+
+  return {
+    ...DEFAULT_RESUME,
+    profile: {
+      ...DEFAULT_RESUME.profile,
+      summary: role.example.summary,
+    },
+    workExperiences: [DEFAULT_WORK()],
+    educations: [DEFAULT_EDU()],
+    projects: [DEFAULT_PROJECT()],
+    skills: {
+      featuredSkills,
+      descriptions: role.topSkills.map((s) => s.name).join(", "),
+    },
+    customization: DEFAULT_CUSTOMIZATION,
+    sectionOrder: normalizeSectionOrder(DEFAULT_RESUME.sectionOrder, []),
+    hiddenSections: ["projects"],
+    customSections: [],
   };
 }
 

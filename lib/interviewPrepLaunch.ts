@@ -32,3 +32,41 @@ export function prefillPrepFromJob(job: JobDetail): void {
     });
   }
 }
+
+export type TailorPrepHandoff = {
+  resumeText: string;
+  structured: StructuredResume | null;
+  jobDescription: string;
+  company: string;
+  role: string;
+};
+
+/**
+ * Pre-fill Interview Prep from a finished Tailor run.
+ *
+ * Tailor already holds everything the prep setup screen asks for, so sending
+ * the user there empty-handed makes them paste the JD and re-upload a résumé
+ * they just used. Same store mutations as the Jobs-feed path above; there is no
+ * `jobPostingId` because a Tailor run is not tied to a posting in our corpus.
+ */
+export function prefillPrepFromTailor(handoff: TailorPrepHandoff): void {
+  const store = useInterviewPrepStore.getState();
+  const resumeText = (handoff.resumeText ?? "").trim();
+  const structured = handoff.structured ?? null;
+  const company = (handoff.company ?? "").trim();
+
+  store.reset();
+  store.setCompany(company);
+  store.setRole((handoff.role ?? "").trim());
+  store.setJobDescription((handoff.jobDescription ?? "").trim());
+
+  if (resumeText || structured) {
+    store.setParsedResume({
+      fileName: company ? `Résumé for ${company}` : "Your tailored résumé",
+      extractedText: resumeText,
+      resumeHeader: [],
+      structuredResume: structured,
+      category: classifyResumeCategory(structured, resumeText).category,
+    });
+  }
+}

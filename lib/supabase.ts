@@ -5,6 +5,7 @@ import { type ProfileFormState, EMPTY_PROFILE } from "./profileStorage";
 import { type ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "./resumeExtractorService";
 import { dispatchResumeLibraryChanged } from "./resumeLibraryEvents";
 import { coerceTemplateBuilderData } from "./coerceTemplateBuilderData";
+import { apiFetch } from "@/lib/apiClient";
 
 /* ── Analyze-history types ───────────────────────────────────── */
 // result is typed as Record<string,unknown> here because the DB stores raw
@@ -16,6 +17,14 @@ export interface AnalyzeRecord {
   createdAt: string;
   sourcePdfUrl?: string | null;
   sourceFilename?: string | null;
+  /** Version lineage (git-like). A fresh analysis is v1 rooted at its own id;
+   *  each saved edit is an immutable child version chained via parentId. */
+  parentId?: string | null;
+  version?:  number;
+  rootId?:   string | null;
+  /** Score provenance: 'llm' = verified re-score, 'estimate' = deterministic
+   *  save-edits estimate, null = original analysis. */
+  scoreSource?: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result:    any;
 }
@@ -390,7 +399,7 @@ export async function fetchAnalyses(limit = 10): Promise<AnalyzeRecord[]> {
 
   const { data, error } = await db
     .from("resume_analyses")
-    .select("id, label, score, created_at, source_pdf_url, source_filename")
+    .select("id, label, score, created_at, source_pdf_url, source_filename, parent_id, version, root_id, score_source")
     .eq("user_id", session.user.id)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -404,6 +413,10 @@ export async function fetchAnalyses(limit = 10): Promise<AnalyzeRecord[]> {
     createdAt: row.created_at as string,
     sourcePdfUrl: (row.source_pdf_url as string | null) ?? null,
     sourceFilename: (row.source_filename as string | null) ?? null,
+    parentId:  (row.parent_id as string | null) ?? null,
+    version:   (row.version as number | null) ?? 1,
+    rootId:    (row.root_id as string | null) ?? (row.id as string),
+    scoreSource: (row.score_source as string | null) ?? null,
     result:    null,
   }));
 }
@@ -416,7 +429,7 @@ export async function fetchAnalysisById(id: string): Promise<AnalyzeRecord | nul
 
   const { data, error } = await db
     .from("resume_analyses")
-    .select("id, label, score, result, created_at, source_pdf_url, source_filename")
+    .select("id, label, score, result, created_at, source_pdf_url, source_filename, parent_id, version, root_id, score_source")
     .eq("id", id)
     .eq("user_id", session.user.id)
     .single();
@@ -430,6 +443,10 @@ export async function fetchAnalysisById(id: string): Promise<AnalyzeRecord | nul
     createdAt: data.created_at as string,
     sourcePdfUrl: (data.source_pdf_url as string | null) ?? null,
     sourceFilename: (data.source_filename as string | null) ?? null,
+    parentId:  (data.parent_id as string | null) ?? null,
+    version:   (data.version as number | null) ?? 1,
+    rootId:    (data.root_id as string | null) ?? (data.id as string),
+    scoreSource: (data.score_source as string | null) ?? null,
     result:    data.result,
   };
 }
@@ -464,6 +481,76 @@ export async function insertAnalysis(
 
   if (error) throw error;
   return data.id as string;
+}
+
+/**
+ * Insert a new immutable VERSION of an existing analysis (append-only lineage).
+ * Chains parent_id → the row being edited, version = parent.version + 1, and
+ * inherits the root_id so every version of one résumé groups together.
+ * Returns the created record (with lineage fields) so the caller can advance the
+ * in-memory history head without a refetch. Never mutates the parent row.
+ */
+export async function createAnalysisVersion(
+  parent: { id: string; version?: number; rootId?: string | null; label: string },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  result: any,
+  opts?: { label?: string },
+): Promise<AnalyzeRecord | null> {
+  const db = getSupabaseClient();
+  const { data: { session } } = await db.auth.getSession();
+  if (!session?.user?.id) return null;
+
+  const rootId  = parent.rootId ?? parent.id;
+  const label   = opts?.label ?? parent.label;
+
+  // Next ordinal across the WHOLE root group (not parent.version + 1), so saving
+  // from a RESTORED older version still yields a strictly increasing head rather
+  // than a colliding version number.
+  let version = (parent.version ?? 1) + 1;
+  try {
+    const { data: top } = await db
+      .from("resume_analyses")
+      .select("version")
+      .eq("user_id", session.user.id)
+      .eq("root_id", rootId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const topVersion = (top as { version?: number } | null)?.version;
+    if (typeof topVersion === "number") version = topVersion + 1;
+  } catch { /* fall back to parent.version + 1 */ }
+
+  const { data, error } = await db
+    .from("resume_analyses")
+    .insert({
+      user_id:    session.user.id,
+      user_email: session.user.email ?? null,
+      label,
+      score:      result.overallScore,
+      result,
+      parent_id:  parent.id,
+      version,
+      root_id:    rootId,
+      score_source: "estimate",
+    })
+    .select("id, created_at")
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id:        data.id as string,
+    label,
+    score:     result.overallScore as number,
+    createdAt: data.created_at as string,
+    sourcePdfUrl: null,
+    sourceFilename: null,
+    parentId:  parent.id,
+    version,
+    rootId,
+    scoreSource: "estimate",
+    result,
+  };
 }
 
 /** Delete a single analysis row by id. */
@@ -786,7 +873,15 @@ export async function upsertUserProfile(profile: ProfileFormState): Promise<void
   }
 }
 
-/** Load signed-in user's extracted profile. */
+/* ── Career profile (résumé-extracted dashboard) persistence ────────────────
+ * Deliberately a SEPARATE table (`user_extracted_profiles`, migration 036)
+ * from `user_profiles` above — both are keyed on `user_id`, and an upsert
+ * replaces the whole `profile` jsonb column, so sharing a table would mean
+ * saving Tailor defaults and saving the career-profile dashboard clobber
+ * each other. Null on any failure; callers fall back to the localStorage copy
+ * (`loadExtractedProfile` in `profileStorage.ts`). */
+
+/** Load the signed-in user's career-profile dashboard data. Null when signed out or on error. */
 export async function fetchExtractedProfile(): Promise<ExtractedProfileState | null> {
   try {
     const db = getSupabaseClient();
@@ -794,31 +889,31 @@ export async function fetchExtractedProfile(): Promise<ExtractedProfileState | n
     if (!session?.user?.id) return null;
 
     const { data, error } = await db
-      .from("user_profiles")
+      .from("user_extracted_profiles")
       .select("profile")
       .eq("user_id", session.user.id)
       .maybeSingle();
 
     if (error) {
-      console.warn("[user_profiles_ext] fetch:", error.message);
+      console.warn("[user_extracted_profiles] fetch:", error.message);
       return null;
     }
     if (!data?.profile) return null;
     return { ...INITIAL_EXTRACTED_PROFILE, ...(data.profile as Partial<ExtractedProfileState>) };
   } catch (e) {
-    console.warn("[user_profiles_ext] fetch:", e);
+    console.warn("[user_extracted_profiles] fetch:", e);
     return null;
   }
 }
 
-/** Upsert extracted profile for the signed-in user. */
+/** Upsert the career-profile dashboard data for the signed-in user. No-op when logged out. */
 export async function upsertExtractedProfile(profile: ExtractedProfileState): Promise<void> {
   try {
     const db = getSupabaseClient();
     const { data: { session } } = await db.auth.getSession();
     if (!session?.user?.id) return;
 
-    const { error } = await db.from("user_profiles").upsert(
+    const { error } = await db.from("user_extracted_profiles").upsert(
       {
         user_id: session.user.id,
         profile: profile as unknown as Record<string, unknown>,
@@ -827,9 +922,9 @@ export async function upsertExtractedProfile(profile: ExtractedProfileState): Pr
       { onConflict: "user_id" },
     );
 
-    if (error) console.warn("[user_profiles_ext] upsert:", error.message);
+    if (error) console.warn("[user_extracted_profiles] upsert:", error.message);
   } catch (e) {
-    console.warn("[user_profiles_ext] upsert:", e);
+    console.warn("[user_extracted_profiles] upsert:", e);
   }
 }
 
@@ -885,14 +980,9 @@ export async function fetchLatestPrepSession(): Promise<PrepSessionRecord | null
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token) return null;
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/latest`,
-      {
+    const res = await apiFetch(`/api/interview-prep/latest`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
       },
     );
 
@@ -957,6 +1047,116 @@ export async function fetchLatestPrepSession(): Promise<PrepSessionRecord | null
   }
 }
 
+/** Lightweight prep-session row for the Prep History list (no questions blob). */
+export interface PrepSessionSummary {
+  id: string;
+  company: string | null;
+  role: string;
+  category: string;
+  difficulty: string;
+  interviewType: string;
+  questionCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function mapPrepQuestions(
+  q: Record<string, PrepQuestion[]>,
+): PrepSessionRecord["questions"] {
+  const map = (list?: PrepQuestion[]) =>
+    (list ?? []).map((item) => ({
+      question: item.question,
+      reason: item.reason,
+      source: item.source,
+      star_framework: item.star_framework ?? null,
+      best_story: item.best_story ?? null,
+    }));
+  return {
+    resume_questions:     map(q.resume_questions),
+    jd_questions:         map(q.jd_questions),
+    behavioral_questions: map(q.behavioral_questions),
+    company_questions:    map(q.company_questions),
+  };
+}
+
+function mapPrepSession(body: {
+  session: Record<string, unknown>;
+  questions: Record<string, PrepQuestion[]>;
+}): PrepSessionRecord {
+  const s = body.session;
+  return {
+    id:             String(s.id ?? ""),
+    company:        (s.company as string | null) ?? null,
+    role:           String(s.role ?? ""),
+    category:       String(s.category ?? "General"),
+    difficulty:     String(s.difficulty ?? "medium"),
+    interviewType:  String(s.interview_type ?? "mixed"),
+    jobDescription: (s.job_description as string | null) ?? null,
+    sources:        (s.sources as string[]) ?? [],
+    focusAreas:     (s.focus_areas as string[]) ?? [],
+    questionCount:  Number(s.question_count ?? 20),
+    createdAt:      String(s.created_at ?? ""),
+    updatedAt:      String(s.updated_at ?? ""),
+    questions:      mapPrepQuestions(body.questions),
+  };
+}
+
+/** List the user's saved prep kits (metadata only), newest first. */
+export async function fetchPrepSessions(): Promise<PrepSessionSummary[]> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token) return [];
+
+    const res = await apiFetch(`/api/interview-prep/sessions`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    if (!res.ok) return [];
+    const body = (await res.json()) as { sessions?: Array<Record<string, unknown>> };
+    return (body.sessions ?? []).map((s) => ({
+      id:             String(s.id ?? ""),
+      company:        (s.company as string | null) ?? null,
+      role:           String(s.role ?? ""),
+      category:       String(s.category ?? "General"),
+      difficulty:     String(s.difficulty ?? "medium"),
+      interviewType:  String(s.interview_type ?? "mixed"),
+      questionCount:  Number(s.question_count ?? 0),
+      createdAt:      String(s.created_at ?? ""),
+      updatedAt:      String(s.updated_at ?? ""),
+    }));
+  } catch (e) {
+    console.warn("[interview-prep] fetchPrepSessions:", e);
+    return [];
+  }
+}
+
+/** Load one saved prep kit (session + questions) by id for review. */
+export async function fetchPrepSessionById(id: string): Promise<PrepSessionRecord | null> {
+  try {
+    const db = getSupabaseClient();
+    const { data: { session } } = await db.auth.getSession();
+    if (!session?.access_token || !id) return null;
+
+    const res = await apiFetch(`/api/interview-prep/session/${encodeURIComponent(id)}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as {
+      session?: Record<string, unknown>;
+      questions?: Record<string, PrepQuestion[]>;
+    };
+    if (!body.session) return null;
+    return mapPrepSession({ session: body.session, questions: body.questions ?? {} });
+  } catch (e) {
+    console.warn("[interview-prep] fetchPrepSessionById:", e);
+    return null;
+  }
+}
+
 /**
  * Delete a prep session via DELETE /api/interview-prep/session/{id}.
  * Returns true on success, false on failure.
@@ -967,11 +1167,8 @@ export async function deletePrepSession(sessionId: string): Promise<boolean> {
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token || !sessionId) return false;
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/session/${encodeURIComponent(sessionId)}`,
-      {
+    const res = await apiFetch(`/api/interview-prep/session/${encodeURIComponent(sessionId)}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${session.access_token}` },
       },
     );
     return res.ok;
@@ -1001,20 +1198,18 @@ export interface PrepStory {
  * STAR+R stories that accumulates across every prep session
  * (GET /api/interview-prep/stories). Empty array when signed out or on error.
  */
-export async function fetchStoryBank(): Promise<PrepStory[]> {
+export async function fetchStoryBank(sessionId?: string | null): Promise<PrepStory[]> {
   try {
     const db = getSupabaseClient();
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token) return [];
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/stories`,
-      {
+    // Scope the bank to the current prep session (this résumé) so we never show
+    // a previous résumé's stories.
+    const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : "";
+    const res = await apiFetch(`/api/interview-prep/stories${qs}`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
       },
     );
     if (!res.ok) return [];
@@ -1047,11 +1242,8 @@ export async function deleteStory(storyId: string): Promise<boolean> {
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token || !storyId) return false;
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/story/${encodeURIComponent(storyId)}`,
-      {
+    const res = await apiFetch(`/api/interview-prep/story/${encodeURIComponent(storyId)}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${session.access_token}` },
       },
     );
     return res.ok;
@@ -1081,14 +1273,9 @@ export async function fetchJobPrepStatuses(
     const { data: { session } } = await db.auth.getSession();
     if (!session?.access_token) return {};
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/interview-prep/job-statuses?ids=${encodeURIComponent(ids.join(","))}`,
-      {
+    const res = await apiFetch(`/api/interview-prep/job-statuses?ids=${encodeURIComponent(ids.join(","))}`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
       },
     );
     if (!res.ok) return {};

@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { apiUrl } from "@/lib/utils";
-import { getSupabaseClient } from "@/lib/supabase";
+import { apiFetch } from "@/lib/apiClient";
 
 interface AIEnhanceButtonProps {
   bullet: string;
@@ -20,15 +19,9 @@ export function AIEnhanceButton({ bullet, onEnhanced, context = {} }: AIEnhanceB
     setLoading(true);
     setError(null);
     try {
-      const db = getSupabaseClient();
-      const { data: { session } } = await db.auth.getSession();
-
-      const res = await fetch(apiUrl("/api/rewrite-bullet"), {
+      const res = await apiFetch("/api/rewrite-bullet", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {})
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bullet: bullet,
           jd: context.jd,
@@ -63,7 +56,7 @@ export function AIEnhanceButton({ bullet, onEnhanced, context = {} }: AIEnhanceB
         disabled={loading}
         title="Enhance bullet with AI (ATS-optimized)"
         style={{
-          fontSize: 10.5,
+          fontSize: 11,
           fontWeight: 600,
           padding: "5px 10px",
           borderRadius: 7,
