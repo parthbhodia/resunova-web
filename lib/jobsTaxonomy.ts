@@ -53,8 +53,14 @@ export type MetroSuggestion = {
   remote?: boolean;
 };
 
+/** Default location — all US locations (no narrowing). Resunova targets US users
+ *  only, so this is pre-selected. It's a sentinel: it sends NO location filter
+ *  (skipped in browseSelectionToParams + JobsFeed.appendBrowseParams). */
+export const NATIONWIDE_LOCATION = "United States";
+
 export const US_METROS: MetroSuggestion[] = [
-  { label: "Remote — anywhere in the US", sub: "Work-from-anywhere roles", locationTerms: [], remote: true },
+  { label: NATIONWIDE_LOCATION, sub: "All US locations · nationwide", locationTerms: [] },
+  { label: "Remote (anywhere in the US)", sub: "Work-from-anywhere roles", locationTerms: [], remote: true },
   { label: "New York, NY", sub: "NYC · Manhattan · Brooklyn · Queens", locationTerms: ["new york", "nyc", "manhattan", "brooklyn"] },
   { label: "San Francisco Bay Area, CA", sub: "SF · Oakland · South Bay", locationTerms: ["san francisco", "bay area", "oakland", "palo alto", "mountain view", "san jose", "sunnyvale"] },
   { label: "Los Angeles, CA", sub: "LA · Santa Monica · Pasadena", locationTerms: ["los angeles", "santa monica", "pasadena", "culver city"] },
@@ -88,10 +94,11 @@ export function matchRoleSuggestions(query: string, limit = 6): RoleSuggestion[]
 
 export function matchMetros(query: string, limit = 6): MetroSuggestion[] {
   const q = query.trim().toLowerCase();
-  // Always surface Remote first; it's the most-requested "location".
+  // Surface "United States" (the nationwide default) first, then Remote, then cities.
+  const nationwide = US_METROS.filter((m) => m.label === NATIONWIDE_LOCATION);
   const remote = US_METROS.filter((m) => m.remote);
-  const cities = US_METROS.filter((m) => !m.remote);
-  if (!q) return [...remote, ...cities].slice(0, limit);
+  const cities = US_METROS.filter((m) => !m.remote && m.label !== NATIONWIDE_LOCATION);
+  if (!q) return [...nationwide, ...remote, ...cities].slice(0, limit);
   const starts: MetroSuggestion[] = [];
   const incl: MetroSuggestion[] = [];
   for (const m of cities) {
@@ -100,8 +107,19 @@ export function matchMetros(query: string, limit = 6): MetroSuggestion[] {
     else if (hay.includes(q)) incl.push(m);
   }
   const remoteHit = "remote".includes(q) || q.includes("remote") ? remote : [];
-  return [...remoteHit, ...starts, ...incl].slice(0, limit);
+  const nationwideHit = "united states".includes(q) || "usa nationwide america".includes(q) ? nationwide : [];
+  return [...nationwideHit, ...remoteHit, ...starts, ...incl].slice(0, limit);
 }
+
+/** Experience-level buckets → the granular `seniority` values the corpus stores.
+ * Single source of truth shared by the onboarding wizard and JobsFeed's filter
+ * chip so the two never drift. Sent to the backend as `?seniority_any=`. */
+export const SENIORITY_BUCKET_VALS: Record<string, string[]> = {
+  entry: ["intern", "entry"],
+  mid: ["mid"],
+  senior: ["senior"],
+  lead: ["lead", "principal", "director", "executive"],
+};
 
 /** What the wizard hands back to the feed when the user browses/skips. */
 export type JobsBrowseSelection = {
@@ -115,6 +133,8 @@ export type JobsBrowseSelection = {
   locationTerms: string[];
   /** "remote" when the Remote metro was chosen, else "". */
   workModel: string;
+  /** Experience-level bucket key (entry|mid|senior|lead) or "" for any. */
+  seniority: string;
 };
 
 export function browseSelectionToParams(sel: JobsBrowseSelection): URLSearchParams {
@@ -122,9 +142,12 @@ export function browseSelectionToParams(sel: JobsBrowseSelection): URLSearchPara
   if (sel.role.trim()) p.set("role", sel.role.trim());
   if (sel.titleTerms.length) p.set("title_any", sel.titleTerms.join("|"));
   if (sel.locationTerms.length) p.set("location_any", sel.locationTerms.join("|"));
-  // Skip the free-text location when Remote is chosen — the label isn't a place;
-  // work_model carries it. Only free-text city searches (no workModel) send it.
-  else if (sel.location.trim() && !sel.workModel) p.set("location", sel.location.trim());
+  // Skip the free-text location when Remote or the "United States" nationwide
+  // default is chosen — neither is a place to narrow on (US-only corpus already).
+  // Only free-text city searches (no workModel) send it.
+  else if (sel.location.trim() && sel.location.trim() !== NATIONWIDE_LOCATION && !sel.workModel) p.set("location", sel.location.trim());
   if (sel.workModel) p.set("work_model", sel.workModel);
+  const senVals = sel.seniority ? SENIORITY_BUCKET_VALS[sel.seniority] : undefined;
+  if (senVals?.length) p.set("seniority_any", senVals.join("|"));
   return p;
 }
