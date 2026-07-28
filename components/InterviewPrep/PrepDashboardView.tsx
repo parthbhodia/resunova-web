@@ -54,6 +54,7 @@ import {
   buildQuestionSections,
 } from "./dashboardMockQuestions";
 import WorkflowStepper from "./WorkflowStepper";
+import CompanyBriefingPanel from "./CompanyBriefingPanel";
 import {
   fetchLatestPrepSession,
   fetchPrepSessionById,
@@ -500,6 +501,13 @@ export default function PrepDashboardView() {
           role={role}
           interviewTypeLabel={interviewTypeLabel}
           difficultyLabel={difficultyLabel}
+        />
+
+        {/* Live company research — interview + cover-letter prep */}
+        <CompanyBriefingPanel
+          company={company}
+          role={role}
+          jobDescription={jobDescription}
         />
 
         {/* Question section cards */}
