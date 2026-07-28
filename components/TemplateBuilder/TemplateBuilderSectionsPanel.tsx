@@ -42,7 +42,7 @@ const iconBtn: React.CSSProperties = {
   color: "var(--muted)",
   fontSize: 14,
   cursor: "pointer",
-  padding: "5px 6px", // >=24px tap target (WCAG 2.5.8 AA) at fontSize 14/lineHeight 1
+  padding: "2px 5px",
   borderRadius: 4,
   lineHeight: 1,
 };
@@ -164,8 +164,6 @@ export default function TemplateBuilderSectionsPanel({
                 type="button"
                 style={iconBtn}
                 title={isHidden ? "Show in preview" : "Hide from preview"}
-                aria-label={isHidden ? `Show ${sectionSlotLabel(slot, customSections)} in preview` : `Hide ${sectionSlotLabel(slot, customSections)} from preview`}
-                aria-pressed={isHidden}
                 onClick={() => store.toggleSectionHidden(slot)}
               >
                 {isHidden ? "👁‍🗨" : "👁"}
@@ -174,7 +172,6 @@ export default function TemplateBuilderSectionsPanel({
                 type="button"
                 style={iconBtn}
                 title="Edit section"
-                aria-label={`Edit ${sectionSlotLabel(slot, customSections)}`}
                 onClick={() => {
                   if (isCustom && customId) {
                     onEditCustomSection(editingCustomId === customId ? null : customId);
@@ -191,7 +188,6 @@ export default function TemplateBuilderSectionsPanel({
                   type="button"
                   style={{ ...iconBtn, color: "var(--red, #ef4444)" }}
                   title="Remove section"
-                  aria-label={`Remove ${sectionSlotLabel(slot, customSections)}`}
                   onClick={() => {
                     store.removeCustomSection(customId);
                     if (editingCustomId === customId) onEditCustomSection(null);

@@ -5,58 +5,13 @@ import {
   Edit3, Brain, Code, Briefcase, GraduationCap, Folder, Settings, User, Plus, X, CheckCircle2, Save, Mail, Phone, MapPin, Zap
 } from "lucide-react";
 import { ExtractedProfileState } from "../../lib/resumeExtractorService";
-import { type ProfileFormState, EMPTY_PROFILE } from "../../lib/profileStorage";
 
-export type EditSection = "header" | "contact" | "summary" | "skills" | "experience" | "education" | "projects" | "jobPrefs" | "tailoringDefaults" | "eeo" | null;
-
-/** Sections that edit the Tailor-defaults record (`user_profiles`) rather than
- * the extracted résumé (`user_extracted_profiles`). */
-const TAILOR_DEFAULT_SECTIONS: ReadonlySet<EditSection> = new Set<EditSection>([
-  "jobPrefs",
-  "tailoringDefaults",
-  "eeo",
-]);
-
-const EDIT_SECTION_LABELS: Record<string, string> = {
-  jobPrefs: "Job Preferences",
-  tailoringDefaults: "Tailoring Defaults",
-  eeo: "Application Details",
-};
-
-const ROLE_SUGGESTIONS = [
-  "Software Engineer", "Data Analyst", "Product Manager", "Business Analyst",
-  "Marketing", "Sales", "Designer", "Nurse",
-];
-
-const TONE_OPTIONS: { value: string; label: string }[] = [
-  { value: "confident", label: "Confident & concise" },
-  { value: "formal", label: "Formal" },
-  { value: "friendly", label: "Friendly" },
-];
-
-const SECTION_ORDER_OPTIONS: { value: string; label: string }[] = [
-  { value: "summary-exp-proj-edu", label: "Summary → Experience → Projects → Education" },
-  { value: "exp-summary-edu", label: "Experience → Summary → Education" },
-  { value: "edu-exp", label: "Education → Experience → …" },
-];
-
-const EEO_QUESTIONS: { key: keyof ProfileFormState; label: string; options: string[] }[] = [
-  { key: "eeoWorkUs", label: "Are you authorized to work in the U.S.?", options: ["Yes", "No"] },
-  { key: "eeoSponsor", label: "Will you require visa sponsorship now or in the future?", options: ["Yes", "No"] },
-  { key: "eeoDisability", label: "Do you have a disability?", options: ["Yes", "No", "Decline to state"] },
-  { key: "eeoVeteran", label: "Are you a veteran?", options: ["Yes", "No", "Decline to state"] },
-  { key: "eeoGender", label: "What is your gender?", options: ["Male", "Female", "Non-Binary", "Decline to state"] },
-  { key: "eeoLgbtq", label: "Do you identify as LGBTQ+?", options: ["Yes", "No", "Decline to state"] },
-];
+export type EditSection = "header" | "contact" | "summary" | "skills" | "experience" | "education" | "projects" | "preferences" | "tailoring" | null;
 
 interface ProfileDashboardProps {
   extractedData: ExtractedProfileState;
-  /** Tailor defaults + EEO (`ProfileFormState`), persisted to `user_profiles`. */
-  tailorDefaults?: ProfileFormState;
   status?: "idle" | "extracting" | "review" | "completed";
   onUpdateData?: (newData: Partial<ExtractedProfileState>) => void;
-  /** Patch handler for the Tailor-defaults record (writes to `user_profiles`). */
-  onUpdateTailorDefaults?: (patch: Partial<ProfileFormState>) => void;
   editSection?: EditSection;
   onOpenEdit?: (section: EditSection) => void;
   onCloseEdit?: () => void;
@@ -79,7 +34,7 @@ const labelStyle: React.CSSProperties = {
   fontSize: 12, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "block",
 };
 
-export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY_PROFILE, status = "completed", onUpdateData, onUpdateTailorDefaults, editSection = null, onOpenEdit, onCloseEdit }: ProfileDashboardProps) {
+export default function ProfileDashboard({ extractedData, status = "completed", onUpdateData, editSection = null, onOpenEdit, onCloseEdit }: ProfileDashboardProps) {
   const isReady = status === "completed";
 
   // Local state if not controlled by parent
@@ -89,9 +44,7 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
   const [isAddingSkill, setIsAddingSkill] = useState(false);
   const [newSkill, setNewSkill] = useState("");
   const skillInputRef = useRef<HTMLInputElement>(null);
-  const [draft, setDraft] = useState<Partial<ExtractedProfileState>>({});
-  // Separate draft for the Tailor-defaults sections (different persistence target).
-  const [tdDraft, setTdDraft] = useState<Partial<ProfileFormState>>({});
+  const [draft, setDraft] = useState<any>({});
 
   useEffect(() => {
     if (isAddingSkill && skillInputRef.current) skillInputRef.current.focus();
@@ -109,18 +62,12 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
       setDraft({ education: JSON.parse(JSON.stringify(extractedData.education || [])) });
     } else if (activeEditSection === "projects") {
       setDraft({ projects: JSON.parse(JSON.stringify(extractedData.projects || [])) });
-    } else if (activeEditSection === "jobPrefs") {
-      setTdDraft({ roles: tailorDefaults.roles || "", locations: tailorDefaults.locations || "" });
-    } else if (activeEditSection === "tailoringDefaults") {
-      setTdDraft({ tone: tailorDefaults.tone || "confident", sectionOrder: tailorDefaults.sectionOrder || "summary-exp-proj-edu" });
-    } else if (activeEditSection === "eeo") {
-      setTdDraft({
-        eeoWorkUs: tailorDefaults.eeoWorkUs || "", eeoSponsor: tailorDefaults.eeoSponsor || "",
-        eeoDisability: tailorDefaults.eeoDisability || "", eeoVeteran: tailorDefaults.eeoVeteran || "",
-        eeoGender: tailorDefaults.eeoGender || "", eeoLgbtq: tailorDefaults.eeoLgbtq || "",
-      });
+    } else if (activeEditSection === "preferences") {
+      setDraft({ preferences: (extractedData as any).preferences || "" });
+    } else if (activeEditSection === "tailoring") {
+      setDraft({ tailoring: (extractedData as any).tailoring || "" });
     }
-  }, [activeEditSection, extractedData, tailorDefaults]);
+  }, [activeEditSection, extractedData]);
 
   const handleOpenEdit = (section: EditSection) => {
     if (onOpenEdit) onOpenEdit(section);
@@ -131,15 +78,10 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
     if (onCloseEdit) onCloseEdit();
     else setLocalEditSection(null);
     setDraft({});
-    setTdDraft({});
   };
 
   const saveEdit = () => {
-    if (TAILOR_DEFAULT_SECTIONS.has(activeEditSection)) {
-      if (onUpdateTailorDefaults) onUpdateTailorDefaults(tdDraft);
-    } else if (onUpdateData) {
-      onUpdateData(draft);
-    }
+    if (onUpdateData) onUpdateData(draft);
     handleCloseEdit();
   };
 
@@ -199,7 +141,7 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
         <div onClick={handleCloseEdit} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.15s ease-out" }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "var(--surface)", borderRadius: 20, border: "1px solid var(--border)", width: "100%", maxWidth: 560, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.15)", animation: "slideUp 0.2s ease-out" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, background: "var(--surface)", zIndex: 1, borderRadius: "20px 20px 0 0" }}>
-              <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: "var(--text)", textTransform: "capitalize" }}>Edit {(activeEditSection && EDIT_SECTION_LABELS[activeEditSection]) || activeEditSection}</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: "var(--text)", textTransform: "capitalize" }}>Edit {activeEditSection}</h3>
               <button onClick={handleCloseEdit} style={{ background: "var(--surface2)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text)" }}><X size={16} /></button>
             </div>
 
@@ -218,129 +160,48 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
               )}
               {activeEditSection === "experience" && (
                 <>
-                  {(draft.experience || []).map((exp, i) => (
+                  {(draft.experience || []).map((exp: any, i: number) => (
                     <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>Experience {i + 1}</span><button onClick={() => setDraft({ ...draft, experience: (draft.experience || []).filter((_, j) => j !== i) })} style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={14} /></button></div>
-                      <div><label style={labelStyle}>Role</label><input style={inputStyle} value={exp.role || ""} onChange={e => { const ex = [...(draft.experience || [])]; ex[i] = { ...ex[i], role: e.target.value }; setDraft({ ...draft, experience: ex }); }} /></div>
-                      <div><label style={labelStyle}>Company</label><input style={inputStyle} value={exp.company || ""} onChange={e => { const ex = [...(draft.experience || [])]; ex[i] = { ...ex[i], company: e.target.value }; setDraft({ ...draft, experience: ex }); }} /></div>
-                      <div><label style={labelStyle}>Dates</label><input style={inputStyle} value={exp.dates || ""} onChange={e => { const ex = [...(draft.experience || [])]; ex[i] = { ...ex[i], dates: e.target.value }; setDraft({ ...draft, experience: ex }); }} /></div>
-                      <div><label style={labelStyle}>Description</label><textarea style={textareaStyle} value={exp.description || ""} onChange={e => { const ex = [...(draft.experience || [])]; ex[i] = { ...ex[i], description: e.target.value }; setDraft({ ...draft, experience: ex }); }} /></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>Experience {i + 1}</span><button onClick={() => setDraft({ ...draft, experience: draft.experience.filter((_: any, j: number) => j !== i) })} style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={14} /></button></div>
+                      <div><label style={labelStyle}>Role</label><input style={inputStyle} value={exp.role || ""} onChange={e => { const ex = [...draft.experience]; ex[i] = { ...ex[i], role: e.target.value }; setDraft({ ...draft, experience: ex }); }} /></div>
+                      <div><label style={labelStyle}>Company</label><input style={inputStyle} value={exp.company || ""} onChange={e => { const ex = [...draft.experience]; ex[i] = { ...ex[i], company: e.target.value }; setDraft({ ...draft, experience: ex }); }} /></div>
+                      <div><label style={labelStyle}>Dates</label><input style={inputStyle} value={exp.dates || ""} onChange={e => { const ex = [...draft.experience]; ex[i] = { ...ex[i], dates: e.target.value }; setDraft({ ...draft, experience: ex }); }} /></div>
+                      <div><label style={labelStyle}>Description</label><textarea style={textareaStyle} value={exp.description || ""} onChange={e => { const ex = [...draft.experience]; ex[i] = { ...ex[i], description: e.target.value }; setDraft({ ...draft, experience: ex }); }} /></div>
                     </div>
                   ))}
-                  <button onClick={() => setDraft({ ...draft, experience: [...(draft.experience || []), { role: "", company: "", dates: "", location: "", bullets: [] }] })} style={{ padding: "10px 16px", background: "var(--surface2)", border: "1px dashed var(--border)", borderRadius: 10, cursor: "pointer", fontSize: 14, color: "var(--muted)", fontWeight: 500 }}><Plus size={16} /> Add Experience</button>
+                  <button onClick={() => setDraft({ ...draft, experience: [...(draft.experience || []), { role: "", company: "", dates: "", description: "" }] })} style={{ padding: "10px 16px", background: "var(--surface2)", border: "1px dashed var(--border)", borderRadius: 10, cursor: "pointer", fontSize: 14, color: "var(--muted)", fontWeight: 500 }}><Plus size={16} /> Add Experience</button>
                 </>
               )}
               {activeEditSection === "education" && (
                 <>
-                  {(draft.education || []).map((edu, i) => (
+                  {(draft.education || []).map((edu: any, i: number) => (
                     <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>Education {i + 1}</span><button onClick={() => setDraft({ ...draft, education: (draft.education || []).filter((_, j) => j !== i) })} style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={14} /></button></div>
-                      <div><label style={labelStyle}>Degree</label><input style={inputStyle} value={edu.degree || ""} onChange={e => { const ed = [...(draft.education || [])]; ed[i] = { ...ed[i], degree: e.target.value }; setDraft({ ...draft, education: ed }); }} /></div>
-                      <div><label style={labelStyle}>Institution</label><input style={inputStyle} value={edu.institution || ""} onChange={e => { const ed = [...(draft.education || [])]; ed[i] = { ...ed[i], institution: e.target.value }; setDraft({ ...draft, education: ed }); }} /></div>
-                      <div><label style={labelStyle}>Dates</label><input style={inputStyle} value={edu.dates || ""} onChange={e => { const ed = [...(draft.education || [])]; ed[i] = { ...ed[i], dates: e.target.value }; setDraft({ ...draft, education: ed }); }} /></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>Education {i + 1}</span><button onClick={() => setDraft({ ...draft, education: draft.education.filter((_: any, j: number) => j !== i) })} style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={14} /></button></div>
+                      <div><label style={labelStyle}>Degree</label><input style={inputStyle} value={edu.degree || ""} onChange={e => { const ed = [...draft.education]; ed[i] = { ...ed[i], degree: e.target.value }; setDraft({ ...draft, education: ed }); }} /></div>
+                      <div><label style={labelStyle}>Institution</label><input style={inputStyle} value={edu.institution || ""} onChange={e => { const ed = [...draft.education]; ed[i] = { ...ed[i], institution: e.target.value }; setDraft({ ...draft, education: ed }); }} /></div>
+                      <div><label style={labelStyle}>Dates</label><input style={inputStyle} value={edu.dates || edu.year || ""} onChange={e => { const ed = [...draft.education]; ed[i] = { ...ed[i], dates: e.target.value, year: e.target.value }; setDraft({ ...draft, education: ed }); }} /></div>
                     </div>
                   ))}
-                  <button onClick={() => setDraft({ ...draft, education: [...(draft.education || []), { degree: "", institution: "", dates: "", bullets: [] }] })} style={{ padding: "10px 16px", background: "var(--surface2)", border: "1px dashed var(--border)", borderRadius: 10, cursor: "pointer", fontSize: 14, color: "var(--muted)", fontWeight: 500 }}><Plus size={16} /> Add Education</button>
+                  <button onClick={() => setDraft({ ...draft, education: [...(draft.education || []), { degree: "", institution: "", dates: "" }] })} style={{ padding: "10px 16px", background: "var(--surface2)", border: "1px dashed var(--border)", borderRadius: 10, cursor: "pointer", fontSize: 14, color: "var(--muted)", fontWeight: 500 }}><Plus size={16} /> Add Education</button>
                 </>
               )}
               {activeEditSection === "projects" && (
                 <>
-                  {(draft.projects || []).map((proj, i) => (
+                  {(draft.projects || []).map((proj: any, i: number) => (
                     <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>Project {i + 1}</span><button onClick={() => setDraft({ ...draft, projects: (draft.projects || []).filter((_, j) => j !== i) })} style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={14} /></button></div>
-                      <div><label style={labelStyle}>Name</label><input style={inputStyle} value={proj.name || ""} onChange={e => { const pr = [...(draft.projects || [])]; pr[i] = { ...pr[i], name: e.target.value }; setDraft({ ...draft, projects: pr }); }} /></div>
-                      <div><label style={labelStyle}>Description</label><textarea style={textareaStyle} value={proj.description || ""} onChange={e => { const pr = [...(draft.projects || [])]; pr[i] = { ...pr[i], description: e.target.value }; setDraft({ ...draft, projects: pr }); }} /></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>Project {i + 1}</span><button onClick={() => setDraft({ ...draft, projects: draft.projects.filter((_: any, j: number) => j !== i) })} style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={14} /></button></div>
+                      <div><label style={labelStyle}>Name</label><input style={inputStyle} value={proj.name || ""} onChange={e => { const pr = [...draft.projects]; pr[i] = { ...pr[i], name: e.target.value }; setDraft({ ...draft, projects: pr }); }} /></div>
+                      <div><label style={labelStyle}>Description</label><textarea style={textareaStyle} value={proj.description || ""} onChange={e => { const pr = [...draft.projects]; pr[i] = { ...pr[i], description: e.target.value }; setDraft({ ...draft, projects: pr }); }} /></div>
                     </div>
                   ))}
-                  <button onClick={() => setDraft({ ...draft, projects: [...(draft.projects || []), { name: "", tech: "", bullets: [] }] })} style={{ padding: "10px 16px", background: "var(--surface2)", border: "1px dashed var(--border)", borderRadius: 10, cursor: "pointer", fontSize: 14, color: "var(--muted)", fontWeight: 500 }}><Plus size={16} /> Add Project</button>
+                  <button onClick={() => setDraft({ ...draft, projects: [...(draft.projects || []), { name: "", description: "", techStack: [] }] })} style={{ padding: "10px 16px", background: "var(--surface2)", border: "1px dashed var(--border)", borderRadius: 10, cursor: "pointer", fontSize: 14, color: "var(--muted)", fontWeight: 500 }}><Plus size={16} /> Add Project</button>
                 </>
               )}
-              {activeEditSection === "jobPrefs" && (
-                <>
-                  <div>
-                    <label style={labelStyle}>Target Roles</label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                      {ROLE_SUGGESTIONS.map((r) => {
-                        const current = (tdDraft.roles || "").split(",").map(s => s.trim()).filter(Boolean);
-                        const active = current.some(c => c.toLowerCase() === r.toLowerCase());
-                        return (
-                          <button
-                            key={r}
-                            type="button"
-                            onClick={() => {
-                              const next = active ? current.filter(c => c.toLowerCase() !== r.toLowerCase()) : [...current, r];
-                              setTdDraft({ ...tdDraft, roles: next.join(", ") });
-                            }}
-                            style={{
-                              padding: "5px 12px", borderRadius: 20,
-                              border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                              background: active ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "var(--surface2)",
-                              color: active ? "var(--accent)" : "var(--text)",
-                              fontSize: 12, fontWeight: active ? 700 : 500, cursor: "pointer", fontFamily: "inherit",
-                            }}
-                          >
-                            {active ? "✓ " : ""}{r}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <input style={inputStyle} value={tdDraft.roles || ""} onChange={e => setTdDraft({ ...tdDraft, roles: e.target.value })} placeholder="Or type custom roles, comma-separated…" />
-                    <div style={{ fontSize: 11, color: "var(--dim)", marginTop: 6, lineHeight: 1.45 }}>Guides which JD keywords get emphasised when tailoring, and scopes your Jobs feed.</div>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Target Locations</label>
-                    <input style={inputStyle} value={tdDraft.locations || ""} onChange={e => setTdDraft({ ...tdDraft, locations: e.target.value })} placeholder="Remote · NYC · …" />
-                  </div>
-                </>
+              {activeEditSection === "preferences" && (
+                <div><label style={labelStyle}>Job Preferences</label><textarea style={textareaStyle} value={draft.preferences || ""} onChange={e => setDraft({ ...draft, preferences: e.target.value })} /></div>
               )}
-              {activeEditSection === "tailoringDefaults" && (
-                <>
-                  <div>
-                    <label style={labelStyle}>Default Tone</label>
-                    <select style={{ ...inputStyle, cursor: "pointer" }} value={tdDraft.tone || "confident"} onChange={e => setTdDraft({ ...tdDraft, tone: e.target.value })}>
-                      {TONE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Default Section Order</label>
-                    <select style={{ ...inputStyle, cursor: "pointer" }} value={tdDraft.sectionOrder || "summary-exp-proj-edu"} onChange={e => setTdDraft({ ...tdDraft, sectionOrder: e.target.value })}>
-                      {SECTION_ORDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                </>
-              )}
-              {activeEditSection === "eeo" && (
-                <>
-                  <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 4px 0" }}>
-                    Optional. Stored so Apply-jobs flows can pre-fill these on supported forms. Never used for résumé scoring or tailoring. Clear anytime.
-                  </p>
-                  {EEO_QUESTIONS.map((q) => (
-                    <div key={q.key}>
-                      <label style={labelStyle}>{q.label}</label>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        {q.options.map((opt) => {
-                          const active = tdDraft[q.key] === opt;
-                          return (
-                            <button
-                              key={opt}
-                              type="button"
-                              onClick={() => setTdDraft({ ...tdDraft, [q.key]: active ? "" : opt })}
-                              style={{
-                                padding: "6px 14px", borderRadius: 20,
-                                border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                                background: active ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "var(--surface2)",
-                                color: active ? "var(--accent)" : "var(--text)",
-                                fontSize: 12, fontWeight: active ? 700 : 500, cursor: "pointer", fontFamily: "inherit",
-                              }}
-                            >
-                              {active ? "✓ " : ""}{opt}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </>
+              {activeEditSection === "tailoring" && (
+                <div><label style={labelStyle}>Tailoring Defaults</label><textarea style={textareaStyle} value={draft.tailoring || ""} onChange={e => setDraft({ ...draft, tailoring: e.target.value })} placeholder="Any specific defaults..." /></div>
               )}
             </div>
 
@@ -401,8 +262,8 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
                     {extractedData.education && extractedData.education.length > 0 && <div style={{ display: "flex", alignItems: "center", gap: 6 }}><GraduationCap size={14} /> {extractedData.education[0].institution}</div>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 16, color: "#3b82f6", fontSize: 13, fontWeight: 600 }}>
-                    {extractedData.linkedin && <a href={extractedData.linkedin} style={{ color: "inherit", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>LinkedIn</a>}
-                    {extractedData.github && <a href={extractedData.github} style={{ color: "#64748b", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>GitHub</a>}
+                    {(extractedData as any).linkedin && <a href={(extractedData as any).linkedin} style={{ color: "inherit", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>LinkedIn</a>}
+                    {(extractedData as any).github && <a href={(extractedData as any).github} style={{ color: "#64748b", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>GitHub</a>}
                   </div>
                 </>
               ) : (
@@ -476,7 +337,7 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
                 extractedData.education.map((edu, i) => (
                   <div key={i}>
                     <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px 0", color: "var(--text)" }}>{edu.degree}</h4>
-                    <div style={{ fontSize: 13, color: "var(--muted)" }}>{edu.institution} • {edu.dates}</div>
+                    <div style={{ fontSize: 13, color: "var(--muted)" }}>{edu.institution} • {edu.dates || (edu as any).year}</div>
                   </div>
                 ))
               ) : <p style={{ fontSize: 14, color: "var(--muted)", margin: 0 }}>No education provided.</p>
@@ -541,7 +402,7 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
                         <span style={{ fontSize: 13, color: "var(--muted)" }}>{exp.dates}</span>
                       </div>
                       <p style={{ fontSize: 14, color: "var(--text)", fontWeight: 500, margin: "0 0 8px 0" }}>{exp.company}</p>
-                      <p style={{ fontSize: 14, color: "var(--muted)", margin: 0, lineHeight: 1.6 }}>{exp.description || (exp.bullets && exp.bullets.join(" "))}</p>
+                      <p style={{ fontSize: 14, color: "var(--muted)", margin: 0, lineHeight: 1.6 }}>{(exp as any).description || (exp.bullets && exp.bullets.join(" "))}</p>
                     </div>
                   </div>
                 ))
@@ -567,7 +428,7 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
                 extractedData.projects.map((proj, i) => (
                   <div key={i}>
                     <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 4px 0", color: "var(--text)" }}>{proj.name}</h4>
-                    <p style={{ fontSize: 13, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>{proj.description}</p>
+                    <p style={{ fontSize: 13, color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>{(proj as any).description}</p>
                   </div>
                 ))
               ) : <p style={{ fontSize: 14, color: "var(--muted)", margin: 0 }}>No projects provided.</p>
@@ -577,71 +438,32 @@ export default function ProfileDashboard({ extractedData, tailorDefaults = EMPTY
           </div>
         </div>
         
-        {/* Job Preferences (Half) — target roles + locations (Tailor/Jobs defaults) */}
+        {/* Job Preferences (Half) */}
         <div style={cardStyle}>
           <div style={cardHeaderStyle}>
             <div style={titleWrapperStyle}>
               <div style={iconCircleStyle("#6366f1")}><Settings size={16} /></div>
               <h3 style={titleStyle}>Job Preferences</h3>
             </div>
-            <button onClick={() => isReady && handleOpenEdit("jobPrefs")} style={editButtonStyle}><Edit3 size={16} /></button>
+            <button onClick={() => isReady && handleOpenEdit("preferences")} style={editButtonStyle}><Edit3 size={16} /></button>
           </div>
-          {isReady ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 14, color: "var(--muted)", lineHeight: 1.5 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Target Roles</div>
-                {tailorDefaults.roles?.trim() || "Not set yet."}
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Target Locations</div>
-                {tailorDefaults.locations?.trim() || "Not set yet."}
-              </div>
-            </div>
-          ) : <SkeletonLine width="60%" />}
+          <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.5 }}>
+            {isReady ? ((extractedData as any).preferences || "No preferences set.") : <SkeletonLine width="60%" />}
+          </div>
         </div>
-
-        {/* Tailoring Defaults (Half) — tone + section order */}
+        
+        {/* Tailoring Defaults (Half) */}
         <div style={cardStyle}>
           <div style={cardHeaderStyle}>
             <div style={titleWrapperStyle}>
               <div style={iconCircleStyle("#ec4899")}><Zap size={16} /></div>
               <h3 style={titleStyle}>Tailoring Defaults</h3>
             </div>
-            <button onClick={() => isReady && handleOpenEdit("tailoringDefaults")} style={editButtonStyle}><Edit3 size={16} /></button>
+            <button onClick={() => isReady && handleOpenEdit("tailoring")} style={editButtonStyle}><Edit3 size={16} /></button>
           </div>
-          {isReady ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 14, color: "var(--muted)", lineHeight: 1.5 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Tone</div>
-                {TONE_OPTIONS.find(o => o.value === (tailorDefaults.tone || "confident"))?.label ?? tailorDefaults.tone}
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Section Order</div>
-                {SECTION_ORDER_OPTIONS.find(o => o.value === (tailorDefaults.sectionOrder || "summary-exp-proj-edu"))?.label ?? tailorDefaults.sectionOrder}
-              </div>
-            </div>
-          ) : <SkeletonLine width="60%" />}
-        </div>
-
-        {/* Application Details (Full) — optional EEO answers for Apply-jobs pre-fill */}
-        <div style={{ ...cardStyle, gridColumn: "1 / -1" }}>
-          <div style={cardHeaderStyle}>
-            <div style={titleWrapperStyle}>
-              <div style={iconCircleStyle("#0ea5e9")}><User size={16} /></div>
-              <h3 style={titleStyle}>Application Details <span style={{ fontSize: 12, fontWeight: 500, color: "var(--dim)" }}>· optional</span></h3>
-            </div>
-            <button onClick={() => isReady && handleOpenEdit("eeo")} style={editButtonStyle}><Edit3 size={16} /></button>
+          <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.5 }}>
+            {isReady ? ((extractedData as any).tailoring || "No defaults set.") : <SkeletonLine width="60%" />}
           </div>
-          {isReady ? (
-            <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.5 }}>
-              {(() => {
-                const filled = EEO_QUESTIONS.filter(q => (tailorDefaults[q.key] || "").trim()).length;
-                return filled > 0
-                  ? `${filled} of ${EEO_QUESTIONS.length} saved — used to pre-fill Apply-jobs forms, never for scoring.`
-                  : "Save optional work-authorization and EEO answers to auto-fill job applications later.";
-              })()}
-            </div>
-          ) : <SkeletonLine width="60%" />}
         </div>
 
       </div>

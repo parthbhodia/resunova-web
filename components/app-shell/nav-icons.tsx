@@ -2,16 +2,6 @@ import type { ReactNode } from "react";
 
 /** Original Resunova nav glyphs (18×18) — stroke uses currentColor from parent. */
 export const NAV_ICONS = {
-  home: (
-    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path
-        d="M2.5 6.8 8 2.5l5.5 4.3V13a.9.9 0 0 1-.9.9H10V9.5H6v4.4H3.4a.9.9 0 0 1-.9-.9V6.8Z"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-    </svg>
-  ),
   advisor: (
     <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path

@@ -251,10 +251,6 @@ export interface AdminAnalyticsSummary {
   total_tokens: number;
   total_prompt_tokens: number;
   total_completion_tokens: number;
-  /** USD estimate summed from per-model rates; 0 when all-local/free. */
-  cost_usd?: number | null;
-  /** Paid models missing a price entry (cost undercount warning). */
-  unpriced_models?: string[];
   success_runs: number;
   failed_runs: number;
   failure_rate_pct: number;
@@ -280,44 +276,15 @@ export interface AdminAnalyticsUserRow {
   tools: Record<string, number>;
 }
 
-export interface AdminContactFunnel {
-  reveals: number;
-  unique_revealers: number;
-  postings_revealed: number;
-  copies: number;
-  emails: number;
-  action_rate_pct: number;
-}
-
-export interface AdminAnalyticsBusinessBlock {
-  active_postings: number;
-  skills_extracted: number;
-  with_salary: number;
-  h1b_sponsor_postings: number;
-  companies: number;
-  dol_employers: number;
-  dol_poc_emails: number;
-  company_contacts: number;
-  job_contacts: number;
-  contact_funnel: AdminContactFunnel;
-}
-
 export interface AdminAnalyticsJobsBlock {
   postings: {
     total: number;
     active: number;
     extracted: number;
     pending_extraction: number;
-    old_pending_skipped?: number;
-    extract_window_days?: number;
-    posted_24h?: number;
-    posted_7d?: number;
-    us_active?: number;
-    companies?: number;
-    by_source: Array<{ source: string; active: number; last_24h?: number; extracted?: number }>;
+    by_source: Array<{ source: string; active: number }>;
     by_company: Array<{ company: string; active: number }>;
   };
-  business?: AdminAnalyticsBusinessBlock;
   scan_runs: {
     total_runs: number;
     jobs_added: number;
@@ -341,19 +308,10 @@ export interface AdminAnalyticsJobsBlock {
     apply_clicks: number;
     saves: number;
     hides: number;
-    contacts?: AdminContactFunnel;
     unique_appliers: number;
     daily_applies: Array<{ date: string; applies: number }>;
     top_companies: Array<{ company: string; applies: number }>;
     top_postings: Array<{ title: string; company: string; applies: number }>;
-    by_user: Array<{
-      user_id: string;
-      user_email: string | null;
-      applies: number;
-      postings: number;
-      last_applied_at: string | null;
-      companies: string[];
-    }>;
   };
 }
 
@@ -362,7 +320,7 @@ export interface AdminAnalyticsResponse {
   summary: AdminAnalyticsSummary;
   users: AdminAnalyticsUserRow[];
   tools: AdminAnalyticsToolRow[];
-  models: Array<{ model: string; runs: number; tokens: number; cost_usd?: number; free?: boolean }>;
+  models: Array<{ model: string; runs: number; tokens: number }>;
   daily: Array<{ date: string; runs: number; tokens: number; failures: number }>;
   activity: {
     total_analyses: number;
@@ -371,30 +329,4 @@ export interface AdminAnalyticsResponse {
     daily: Array<{ date: string; analyses: number }>;
   };
   jobs?: AdminAnalyticsJobsBlock;
-}
-
-// ── Job Market analysis (GET /api/admin/job-market → admin_job_market RPC) ─────
-export interface JobMarketSkill { skill: string; n: number; required: number; }
-
-export interface AdminJobMarketResponse {
-  generated_at: string;
-  kpis: {
-    active_us: number;
-    employers: number;
-    sources: number;
-    families: number;
-    onsite: number;
-    hybrid: number;
-    remote: number;
-    salary_disclosed: number;
-    h1b: number;
-  };
-  families: Array<{ family: string; n: number }>;
-  work_model: Array<{ k: string; n: number }>;
-  seniority: Array<{ k: string; n: number }>;
-  salary: Array<{ family: string; n: number; p25: number; median: number; p75: number }>;
-  trend: Array<{ wk: string; n: number }>;
-  skills_overall: JobMarketSkill[];
-  skills_by_family: Record<string, JobMarketSkill[]>;
-  cached?: boolean;
 }

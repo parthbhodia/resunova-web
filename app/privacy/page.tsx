@@ -4,7 +4,7 @@ import { LogoFull } from "@/components/BrandLogo";
 import { CONTACT_EMAIL, PRIVACY_EMAIL, SITE_URL } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy",
+  title: "Privacy Policy · Resunova",
   description:
     "Resunova does not sell your data. Learn how we use information only to run the service, analytics, and internal improvements to serve you better.",
   robots: { index: true, follow: true },
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
             <b>Effective:</b> {EFFECTIVE} &nbsp;·&nbsp; <b>Last updated:</b> {LAST_UPDATED}
           </p>
           <p style={{ fontSize: "var(--font-size-lg)", color: "var(--muted)", marginTop: 16, lineHeight: 1.7, maxWidth: 580 }}>
-            We believe privacy is a fundamental right. <b style={{ color: "var(--text)" }}>We do not sell your personal data.</b> We retain and use it only to operate the Service for you, for user and product analytics that help us improve the experience, and for internal training and quality work so we can serve the community better, never for ad resale or data brokerage.
+            We believe privacy is a fundamental right. <b style={{ color: "var(--text)" }}>We do not sell your personal data.</b> We retain and use it only to operate the Service for you, for user and product analytics that help us improve the experience, and for internal training and quality work so we can serve the community better — never for ad resale or data brokerage.
           </p>
         </div>
 
@@ -67,8 +67,8 @@ export default function PrivacyPage() {
           <Section title="At a Glance">
             <DataTable rows={[
               ["What we collect", "Email address, name, resume text, job descriptions, analysis results, usage analytics"],
-              ["Why we collect it", "To run the Service for you; for analytics to improve the product; and for internal training / quality improvement, not for sale"],
-              ["Who we share with", "Supabase (storage), Google (OAuth + AI + Analytics): no third-party ad networks"],
+              ["Why we collect it", "To run the Service for you; for analytics to improve the product; and for internal training / quality improvement — not for sale"],
+              ["Who we share with", "Supabase (storage), Google (OAuth + AI + Analytics) — no third-party ad networks"],
               ["Do we sell your data?", "No. We do not sell, rent, or trade your personal information."],
               ["How long we keep it", "Until you delete it or close your account (analytics may follow GA4 retention)"],
               ["Your rights", "Access, correct, export, or delete your data at any time"],
@@ -82,12 +82,12 @@ export default function PrivacyPage() {
             <p>We store and process the information described in this policy <b>only</b> for the following purposes, each aimed at serving you and the user community better:</p>
             <ul>
               <li><b>Operating the Service:</b> authentication, saving your resumes and analyses, generating tailored content and PDFs, and support when you contact us.</li>
-              <li><b>User and product analytics:</b> understanding how features are used (including through tools such as Google Analytics 4), so we can fix friction, prioritize improvements, and measure reliability, typically in aggregated or otherwise privacy-preserving form where feasible.</li>
-              <li><b>Internal training and quality improvement:</b> improving prompts, scoring, ATS checks, and related workflows; validating outputs; and building a safer, more accurate experience for everyone. This work uses data only as permitted by this policy and applicable law, not for unrelated commercial exploitation.</li>
+              <li><b>User and product analytics:</b> understanding how features are used (including through tools such as Google Analytics 4), so we can fix friction, prioritize improvements, and measure reliability — typically in aggregated or otherwise privacy-preserving form where feasible.</li>
+              <li><b>Internal training and quality improvement:</b> improving prompts, scoring, ATS checks, and related workflows; validating outputs; and building a safer, more accurate experience for everyone. This work uses data only as permitted by this policy and applicable law — not for unrelated commercial exploitation.</li>
             </ul>
             <p>We do not use your information for third‑party targeted advertising, and we do not monetize personal data by selling it.</p>
             <p>
-              <b>Separate from the above:</b> when you use AI features, portions of your content are sent to <b>Google&apos;s generative AI API</b> as described in <b>Section 5</b>. Google processes that traffic under <b>its own</b> terms and privacy rules, which are distinct from Resunova&apos;s no-sale and limited-use commitments in this section.
+              <b>Separate from the above:</b> when you use AI features, portions of your content are sent to <b>Google&apos;s generative AI API</b> as described in <b>Section 5</b>. Google processes that traffic under <b>its own</b> terms and privacy rules — which are distinct from Resunova&apos;s no-sale and limited-use commitments in this section.
             </p>
           </Section>
 
@@ -127,7 +127,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="3. How We Use Your Information">
-            <p>Consistent with the commitments above, we use information <b>only</b> as needed for the Service, analytics, and internal training and quality improvement, <b>never</b> by selling it.</p>
+            <p>Consistent with the commitments above, we use information <b>only</b> as needed for the Service, analytics, and internal training and quality improvement — <b>never</b> by selling it.</p>
             <ul>
               <li><b>To deliver the Service:</b> Processing your resume with AI, generating tailored versions, computing match scores, running ATS checks</li>
               <li><b>To maintain your account:</b> Storing your saved resumes, analysis history, and preferences</li>
@@ -145,14 +145,14 @@ export default function PrivacyPage() {
             <ThirdPartyTable rows={[
               {
                 name: "Supabase",
-                purpose: "Authentication, database, and file storage for your account data, saved resumes, and analysis results",
-                data: "Email, password hash when email login is used, user ID, resume content, analysis results, generated PDFs",
+                purpose: "Database and file storage for your account data, saved resumes, and analysis results",
+                data: "Email, user ID, resume content, analysis results, generated PDFs",
                 location: "US/EU (varies by Supabase region)",
                 link: "https://supabase.com/privacy",
               },
               {
                 name: "Google OAuth 2.0",
-                purpose: "Optional authentication when you choose Continue with Google",
+                purpose: "Authentication — sign in with your Google account",
                 data: "Email, name, profile picture, Google user ID",
                 location: "US (Google LLC)",
                 link: "https://policies.google.com/privacy",
@@ -174,16 +174,16 @@ export default function PrivacyPage() {
             ]} />
 
             <p style={{ marginTop: 20 }}>
-              We do <b>not</b> sell, rent, or trade your personal data. We do <b>not</b> share it with advertising networks, data brokers, or any other third party for their independent marketing or resale. Processors listed above receive data <b>only</b> to perform services on our behalf (hosting, auth, AI inference, analytics) under contractual and legal safeguards, not so they can sell your résumé or profile.
+              We do <b>not</b> sell, rent, or trade your personal data. We do <b>not</b> share it with advertising networks, data brokers, or any other third party for their independent marketing or resale. Processors listed above receive data <b>only</b> to perform services on our behalf (hosting, auth, AI inference, analytics) under contractual and legal safeguards — not so they can sell your résumé or profile.
             </p>
           </Section>
 
           <Section title="5. AI Processing Notice">
             <Callout>
-              <b>Important:</b> When you use AI features (resume tailoring, bullet rewrites, match scoring), your resume text and job description are sent to Google&apos;s generative AI API for processing. Google&apos;s <a href="https://ai.google.dev/terms" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>Google AI for Developers Terms</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>Privacy Policy</a> apply to that processing, including how Google may log, retain, secure, or use API traffic under its own rules (which can change from time to time).
+              <b>Important:</b> When you use AI features (resume tailoring, bullet rewrites, match scoring), your resume text and job description are sent to Google&apos;s generative AI API for processing. Google&apos;s <a href="https://ai.google.dev/terms" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>Google AI for Developers Terms</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>Privacy Policy</a> apply to that processing — including how Google may log, retain, secure, or use API traffic under its own rules (which can change from time to time).
             </Callout>
             <p>
-              <b>Resunova vs. Google:</b> The commitments elsewhere in this policy (for example that <b>we do not sell your personal data</b> and that we use data stored on our side only to operate the Service, run analytics, and improve quality for users) describe <b>Resunova&apos;s</b> practices and our agreements with you. They are not a substitute for Google&apos;s terms. When your content is transmitted to Google&apos;s generative AI API, it is processed on <b>Google&apos;s infrastructure</b> as an independent service provider; we do not control Google&apos;s internal systems, retention windows for transient API traffic, or any product-improvement or safety practices Google applies to its APIs as described in Google&apos;s own documentation.
+              <b>Resunova vs. Google:</b> The commitments elsewhere in this policy — for example that <b>we do not sell your personal data</b> and that we use data stored on our side only to operate the Service, run analytics, and improve quality for users — describe <b>Resunova&apos;s</b> practices and our agreements with you. They are not a substitute for Google&apos;s terms. When your content is transmitted to Google&apos;s generative AI API, it is processed on <b>Google&apos;s infrastructure</b> as an independent service provider; we do not control Google&apos;s internal systems, retention windows for transient API traffic, or any product-improvement or safety practices Google applies to its APIs as described in Google&apos;s own documentation.
             </p>
             <p>
               We send Google only what is reasonably necessary to fulfill each AI request (typically the résumé and job-description text you are actively working with). Outputs are returned to Resunova so we can show you results and save them to your account when you choose to save. For the most current rules on what Google does with API inputs and outputs, rely on Google&apos;s published terms and privacy materials linked above.
@@ -192,7 +192,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="6. Data Retention">
-            <p>We keep personal data no longer than necessary for the purposes in this policy: principally running the Service for you, analytics to improve the product, and internal training and quality work.</p>
+            <p>We keep personal data no longer than necessary for the purposes in this policy — principally running the Service for you, analytics to improve the product, and internal training and quality work.</p>
             <ul>
               <li><b>Account data</b> (email, name): Retained until you delete your account</li>
               <li><b>Saved resumes and analysis history:</b> Retained until you delete individual records or your account</li>
@@ -221,8 +221,8 @@ export default function PrivacyPage() {
             <p>We implement industry-standard measures to protect your data:</p>
             <ul>
               <li>All data is transmitted over HTTPS/TLS</li>
-              <li>Database access is controlled by Row-Level Security (RLS) policies; your data is only accessible to your account</li>
-              <li>Authentication is handled by Supabase Auth using email/password or supported OAuth providers such as Google</li>
+              <li>Database access is controlled by Row-Level Security (RLS) policies — your data is only accessible to your account</li>
+              <li>Authentication is handled by Supabase Auth with Google OAuth 2.0</li>
             </ul>
             <p>No system is 100% secure. If you discover a security vulnerability, please disclose it responsibly to <a href="mailto:parthbhodia08@gmail.com" style={{ color: "var(--accent)" }}>parthbhodia08@gmail.com</a>.</p>
           </Section>
@@ -348,7 +348,7 @@ function ContactCard() {
       fontSize: "var(--font-size-lg)",
       marginTop: 8,
     }}>
-      <div style={{ fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Resunova Privacy Team</div>
+      <div style={{ fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Resunova — Privacy Team</div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--muted)" }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <rect x="1" y="2.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>

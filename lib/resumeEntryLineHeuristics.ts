@@ -88,13 +88,6 @@ export function looksLikeEntryHeader(line: string): boolean {
   const t = line.trim();
   if (!t || t.length > 200) return false;
   if (t.includes("|")) return true;
-  // Two or more mid-dot separators = a structured entry header
-  // (title · company · location · date). This must win BEFORE the date
-  // branches below, because a PDF that glues role/company/location/date onto
-  // one `·`-separated line (when the extractor didn't split them into separate
-  // structured fields) is long enough to trip the inline-date-narrative guard
-  // and would otherwise be misread as prose and rendered unstyled.
-  if (t.split("·").length >= 3) return true;
   if (/\b(19|20)\d{2}\s*[–—\-]\s*((19|20)\d{2}|present|current)/i.test(t)) {
     return !looksLikeInlineDateNarrative(t);
   }

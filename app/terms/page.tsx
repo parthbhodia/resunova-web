@@ -4,7 +4,7 @@ import { LogoFull } from "@/components/BrandLogo";
 import { CONTACT_EMAIL, SITE_URL } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Terms of Service",
+  title: "Terms of Service · Resunova",
   description: "Read Resunova's Terms of Service governing your use of our AI resume tailoring platform.",
   robots: { index: true, follow: true },
 };
@@ -77,7 +77,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="3. Account Registration">
-            <p>Access to account features requires authentication using an email address and password or a supported third-party provider such as Google. When you use a third-party provider, you authorize Resunova to receive the account information that provider shares, such as your name, email address, and profile picture.</p>
+            <p>Access to the Service requires authentication via your Google account. By signing in, you authorize Resunova to receive your name, email address, and profile picture from Google as provided by Google&apos;s OAuth 2.0 service.</p>
             <p>You are responsible for all activity that occurs under your account. You must notify us immediately at {CONTACT_EMAIL} if you suspect unauthorized use of your account.</p>
           </Section>
 
@@ -113,20 +113,19 @@ export default function TermsPage() {
 
           <Section title="7. Privacy">
             <p>Your use of the Service is also governed by our <Link href="/privacy" style={{ color: "var(--accent)", textDecoration: "none" }}>Privacy Policy</Link>, which is incorporated into these Terms by reference. Please read it carefully to understand how we collect, use, and protect your information.</p>
-            <p>Resunova does <b>not sell</b> your personal data. We use and retain data only as described there (including to operate the Service, for user analytics to improve the product, and for internal training and quality improvement), and not for unrelated commercial resale.</p>
+            <p>Resunova does <b>not sell</b> your personal data. We use and retain data only as described there — including to operate the Service, for user analytics to improve the product, and for internal training and quality improvement — and not for unrelated commercial resale.</p>
           </Section>
 
-          <Section title="8. Free Tier and Paid Subscriptions">
+          <Section title="8. Free Tier and Future Billing">
             <p>
-              The Service includes a <b>free tier</b> that supports students and the broader job-seeking community: we believe in equitable access to career tools.
-              We also offer optional paid subscription plans (such as Resunova Pro) that unlock additional usage and features. Subscription prices, billing periods, and included features are presented at the point of purchase; subscriptions renew automatically until canceled, and you can cancel at any time, effective at the end of the current billing period.
-              We reserve the right to modify the free tier or paid plans in the future and will provide reasonable advance notice of material changes.
+              The Service is offered <b>completely free of charge</b> to support students and the broader job-seeking community — we believe in the greater good of equitable access to career tools.
+              We reserve the right to introduce paid tiers or modify the free tier in the future. We will provide reasonable advance notice of any such changes.
             </p>
           </Section>
 
           <Section title="9. Limitation of Liability">
             <Callout>
-              To the maximum extent permitted by applicable law, Resunova and its operators shall not be liable for any indirect, incidental, special, consequential, or punitive damages (including but not limited to loss of employment opportunities, lost profits, or loss of data) arising from your use of the Service.
+              To the maximum extent permitted by applicable law, Resunova and its operators shall not be liable for any indirect, incidental, special, consequential, or punitive damages — including but not limited to loss of employment opportunities, lost profits, or loss of data — arising from your use of the Service.
             </Callout>
             <p>Our total liability for any claim arising out of or relating to the Service shall not exceed the amount you paid for the Service in the 12 months preceding the claim (or $0 if you used the free tier).</p>
           </Section>

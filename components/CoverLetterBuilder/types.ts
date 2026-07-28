@@ -21,7 +21,7 @@ export interface CLContent {
     closingParagraph: string;
 }
 
-export type CLTemplateId = "professional" | "modern" | "minimal" | "creative" | "novice" | "madona" | "wakanda" | "london" | "tech" | "elegant";
+export type CLTemplateId = "professional" | "modern" | "minimal" | "creative";
 
 export interface CLCustomization {
     templateId: CLTemplateId;
@@ -73,10 +73,4 @@ export const CL_TEMPLATES: { id: CLTemplateId; label: string; description: strin
     { id: "modern", label: "Modern", description: "Bold left accent stripe, strong typography." },
     { id: "minimal", label: "Minimal", description: "Pure text, no frills. Works everywhere." },
     { id: "creative", label: "Creative", description: "Gradient header. For design/creative roles." },
-    { id: "novice", label: "Novice Cover Letter", description: "A comprehensive, beginner-friendly cover letter." },
-    { id: "madona", label: "Madona Cover Letter", description: "A comprehensive, professional cover letter designed to help you stand out." },
-    { id: "wakanda", label: "Wakanda Cover Letter", description: "A comprehensive, high-impact cover letter built to help you win interviews." },
-    { id: "london", label: "London Cover Letter", description: "A comprehensive, professional cover letter designed to help you stand out." },
-    { id: "tech", label: "Tech Cover Letter", description: "A sleek, monospace-accented layout perfect for engineering roles." },
-    { id: "elegant", label: "Elegant Cover Letter", description: "A refined, classic serif design with elegant spacing." },
 ];

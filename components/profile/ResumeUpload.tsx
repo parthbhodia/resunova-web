@@ -62,9 +62,9 @@ export default function ResumeUpload({ status: parentStatus, onExtractionStart, 
       setTimeout(() => {
         setState("review");
       }, 500);
-    } catch (err) {
+    } catch (err: any) {
       clearInterval(interval);
-      setError(err instanceof Error ? err.message : "Failed to analyze resume");
+      setError(err.message || "Failed to analyze resume");
       setState("uploadIdle");
     }
   };

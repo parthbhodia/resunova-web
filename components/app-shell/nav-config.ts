@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { BUILDER_SUBFLOW_ICONS, NAV_ICONS } from "./nav-icons";
 
 export type AppView =
-  | "home"
   | "builder"
   | "library"
   | "analyze"
@@ -13,9 +12,8 @@ export type AppView =
   | "account";
 
 export const VIEW_LABELS: Record<AppView, string> = {
-  home: "Home",
   builder: "Resume Builder",
-  library: "My Resumes",
+  library: "Library",
   analyze: "Analyze",
   profile: "Profile",
   jobs: "Jobs",
@@ -25,7 +23,6 @@ export const VIEW_LABELS: Record<AppView, string> = {
 };
 
 export const VIEW_ICONS: Record<AppView, ReactNode> = {
-  home: NAV_ICONS.home,
   analyze: NAV_ICONS.analyze,
   builder: NAV_ICONS.builder,
   library: NAV_ICONS.library,
@@ -47,19 +44,19 @@ export const BUILDER_SUBFLOWS = [
 // max). Profile is intentionally NOT here — it's reachable from the top-bar
 // account avatar and the More sheet, which frees a slot and removes redundancy.
 export const MOBILE_TAB_VIEWS: AppView[] = [
-  "home",
   "analyze",
   "jobs",
+  "builder",
   "library",
 ];
 
 // Short, one-word labels for the bottom bar so nothing truncates at phone width
 // (e.g. "Resume Builder" → "Resume"). Falls back to VIEW_LABELS if unset.
 export const MOBILE_TAB_LABELS: Partial<Record<AppView, string>> = {
-  home: "Home",
   analyze: "Analyze",
   jobs: "Jobs",
-  library: "Resumes",
+  builder: "Resume",
+  library: "Library",
 };
 
 /** Wrapper + menu button: original muted icons, accent when active. */

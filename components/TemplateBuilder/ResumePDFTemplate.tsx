@@ -96,6 +96,36 @@ export default function ResumePDFTemplate({ data }: Props) {
 
   const featuredWithSkill = skills.featuredSkills.filter((f) => f.skill.trim());
 
+  const isCorePreset = !customization?.stylePreset || ["executive", "modern", "classic"].includes(customization.stylePreset);
+  if (!isCorePreset) {
+    const presetId = customization.stylePreset!;
+    const templateName = presetId.charAt(0).toUpperCase() + presetId.slice(1);
+    
+    // Using a static map for the bundler to resolve the paths
+    const templates: Record<string, any> = {
+      azurill: require("../ResumeTemplates/AzurillPDF").AzurillPDF,
+      onyx: require("../ResumeTemplates/OnyxPDF").OnyxPDF,
+      bronzor: require("../ResumeTemplates/BronzorPDF").BronzorPDF,
+      chikorita: require("../ResumeTemplates/ChikoritaPDF").ChikoritaPDF,
+      ditgar: require("../ResumeTemplates/DitgarPDF").DitgarPDF,
+      ditto: require("../ResumeTemplates/DittoPDF").DittoPDF,
+      gengar: require("../ResumeTemplates/GengarPDF").GengarPDF,
+      glalie: require("../ResumeTemplates/GlaliePDF").GlaliePDF,
+      kakuna: require("../ResumeTemplates/KakunaPDF").KakunaPDF,
+      lapras: require("../ResumeTemplates/LaprasPDF").LaprasPDF,
+      leafish: require("../ResumeTemplates/LeafishPDF").LeafishPDF,
+      meowth: require("../ResumeTemplates/MeowthPDF").MeowthPDF,
+      pikachu: require("../ResumeTemplates/PikachuPDF").PikachuPDF,
+      rhyhorn: require("../ResumeTemplates/RhyhornPDF").RhyhornPDF,
+      scizor: require("../ResumeTemplates/ScizorPDF").ScizorPDF,
+    };
+
+    const TemplateComp = templates[presetId];
+    if (TemplateComp) {
+      return <TemplateComp data={data} />;
+    }
+  }
+
   return (
     <Document title={profile.name ? `${profile.name} Resume` : "Resume"}>
       <Page size="LETTER" style={styles.page}>

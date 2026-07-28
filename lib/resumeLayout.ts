@@ -4,14 +4,16 @@
  * entryGap between jobs. Template Builder + AnalyzeLiveResumeBody both consume this module.
  */
 import type { CSSProperties } from "react";
-import type { TBFont, TBPageWidth, TBStylePreset, TBFontSize, TBLayout } from "@/components/TemplateBuilder/types";
+import type { TBFont, TBPageWidth, TBStylePreset, TBFontSize } from "@/components/TemplateBuilder/types";
 
-export type { TBFont, TBPageWidth, TBStylePreset, TBFontSize, TBLayout };
+export type { TBFont, TBPageWidth, TBStylePreset, TBFontSize };
 
 export interface ResumeStylePresetOption {
   id: TBStylePreset;
   label: string;
   description: string;
+  category?: string;
+  enforcedLayout?: string;
   font: TBFont;
   accentColor: string;
   baseFont: number;
@@ -26,10 +28,6 @@ export interface ResumeStylePresetOption {
   entryGap: number;
   bulletGap: number;
   letterSpacing: number;
-  /** Visual category grouping for the Style panel. */
-  category?: "technical" | "creative";
-  /** Forces a specific layout when this preset is active. */
-  enforcedLayout?: TBLayout;
 }
 
 export interface ResumePageWidthOption {
@@ -74,7 +72,6 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
     entryGap: 8,
     bulletGap: 2,
     letterSpacing: 1,
-    category: "technical",
   },
   {
     id: "modern",
@@ -94,7 +91,6 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
     entryGap: 6,
     bulletGap: 1.5,
     letterSpacing: 0.9,
-    category: "technical",
   },
   {
     id: "classic",
@@ -114,50 +110,67 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
     entryGap: 7,
     bulletGap: 2,
     letterSpacing: 0.8,
-    category: "technical",
   },
   {
-    id: "creative-teal",
-    label: "Elise",
-    description: "Striking dark right sidebar with circular initials and crisp typography.",
+    id: "azurill",
+    label: "Azurill (Two Column)",
+    description: "A two-column layout with a left sidebar.",
     font: "Helvetica",
-    accentColor: "#0f5561",
-    baseFont: 10.5,
-    bodyFont: 10,
-    metaFont: 9.5,
-    sectionFont: 12,
-    nameFont: 22,
-    lineHeight: 1.15,
-    summaryLineHeight: 1.25,
-    skillsLineHeight: 1.2,
-    sectionGap: 12,
-    entryGap: 8,
-    bulletGap: 3,
-    letterSpacing: 1.2,
-    category: "creative",
-    enforcedLayout: "rightSidebar",
-  },
-  {
-    id: "creative-banner",
-    label: "Harper",
-    description: "Bold top header block with clean two-column main content structure.",
-    font: "Helvetica",
-    accentColor: "#1e3a5f",
-    baseFont: 10.5,
+    accentColor: "#1e3a8a",
+    baseFont: 11,
     bodyFont: 10,
     metaFont: 10,
-    sectionFont: 11.5,
-    nameFont: 22,
+    sectionFont: 11,
+    nameFont: 16,
     lineHeight: 1.15,
-    summaryLineHeight: 1.25,
-    skillsLineHeight: 1.2,
-    sectionGap: 12,
+    summaryLineHeight: 1.2,
+    skillsLineHeight: 1.15,
+    sectionGap: 11,
     entryGap: 8,
-    bulletGap: 3,
+    bulletGap: 2,
     letterSpacing: 1,
-    category: "creative",
-    enforcedLayout: "topBannerRightSidebar",
   },
+  {
+    id: "onyx",
+    label: "Onyx (Single Column)",
+    description: "A clean single column layout with accented side borders.",
+    font: "Helvetica",
+    accentColor: "#475569",
+    baseFont: 11,
+    bodyFont: 10,
+    metaFont: 10,
+    sectionFont: 11,
+    nameFont: 16,
+    lineHeight: 1.15,
+    summaryLineHeight: 1.2,
+    skillsLineHeight: 1.15,
+    sectionGap: 11,
+    entryGap: 8,
+    bulletGap: 2,
+    letterSpacing: 1,
+  },
+  { id: "bronzor", label: "Bronzor", description: "Bronzor template", font: "Helvetica", accentColor: "#6b7280", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "chikorita", label: "Chikorita", description: "Chikorita template", font: "Helvetica", accentColor: "#22c55e", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "ditgar", label: "Ditgar", description: "Ditgar template", font: "Helvetica", accentColor: "#8b5cf6", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "ditto", label: "Ditto", description: "Ditto template", font: "Helvetica", accentColor: "#d946ef", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "gengar", label: "Gengar", description: "Gengar template", font: "Helvetica", accentColor: "#a855f7", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "glalie", label: "Glalie", description: "Glalie template", font: "Helvetica", accentColor: "#0ea5e9", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "kakuna", label: "Kakuna", description: "Kakuna template", font: "Helvetica", accentColor: "#eab308", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "lapras", label: "Lapras", description: "Lapras template", font: "Helvetica", accentColor: "#3b82f6", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "leafish", label: "Leafish", description: "Leafish template", font: "Helvetica", accentColor: "#10b981", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "meowth", label: "Meowth", description: "Meowth template", font: "Helvetica", accentColor: "#eab308", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "pikachu", label: "Pikachu", description: "Pikachu template", font: "Helvetica", accentColor: "#facc15", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "rhyhorn", label: "Rhyhorn", description: "Rhyhorn template", font: "Helvetica", accentColor: "#64748b", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "scizor", label: "Scizor", description: "Scizor template", font: "Helvetica", accentColor: "#ef4444", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "teal-clean", label: "Clean Balanced", description: "Teal HQ Clean Balanced template", font: "Helvetica", accentColor: "#000000", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 12, nameFont: 32, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 12, bulletGap: 4, letterSpacing: 1 },
+  { id: "teal-sleek", label: "Sleek Professional", description: "Teal HQ Sleek Professional template", font: "Helvetica", accentColor: "#7c3aed", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 12, nameFont: 32, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 12, bulletGap: 4, letterSpacing: 1 },
+  { id: "teal-modern", label: "Modern Color Accent", description: "Teal HQ Modern Color Accent template", font: "Helvetica", accentColor: "#059669", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 12, nameFont: 32, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 12, bulletGap: 4, letterSpacing: 1 },
+  { id: "teal-clear", label: "Professional and Clear", description: "Teal HQ Professional and Clear template", font: "Helvetica", accentColor: "#2563eb", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 12, nameFont: 32, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 12, bulletGap: 4, letterSpacing: 1 },
+  { id: "teal-line-split", label: "Split Sidebar", description: "Teal HQ Split Sidebar template", font: "Helvetica", accentColor: "#297860", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 28, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 16, bulletGap: 4, letterSpacing: 0 },
+  { id: "teal-line-classic", label: "Classic Left Header", description: "Teal HQ Classic Left Header template", font: "Helvetica", accentColor: "#297860", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 28, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 16, bulletGap: 4, letterSpacing: 0 },
+  { id: "teal-line-bold", label: "Bold Classic Header", description: "Teal HQ Bold Classic Header", font: "Helvetica", accentColor: "#4a3c75", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 28, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 16, bulletGap: 4, letterSpacing: 0 },
+  { id: "teal-bookmark", label: "Modern Bookmark", description: "Teal HQ Modern Bookmark template", font: "Helvetica", accentColor: "#eab308", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 28, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 24, entryGap: 16, bulletGap: 4, letterSpacing: 0 },
+  { id: "teal-inline", label: "Inline Minimalist", description: "Teal HQ Inline Minimalist template", font: "Helvetica", accentColor: "#2563eb", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 28, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 12, bulletGap: 4, letterSpacing: 0 },
 ];
 
 export const RESUME_PAGE_WIDTH_OPTIONS: ResumePageWidthOption[] = [
@@ -302,8 +315,6 @@ export function resumeLayoutCssVars(ctx: ResumeLayoutContext): Record<string, st
     "--az-resume-contact-margin-bottom": `${RESUME_LAYOUT_SHELL.contactMarginBottom}px`,
     "--az-resume-header-name-margin-bottom": `${RESUME_LAYOUT_SHELL.headerNameMarginBottom}px`,
     "--resume-paper-accent": ctx.accent,
-    "--resume-paper-inverse-text": "#ffffff",
-    "--resume-paper-inverse-muted": "rgba(255, 255, 255, 0.7)",
   };
 }
 
@@ -339,14 +350,15 @@ export function resumePageRootStyle(
 }
 
 export function resumeSectionTitleStyle(ctx: ResumeLayoutContext): CSSProperties {
+  const isTeal = ctx.preset.id.startsWith("teal-");
   return {
     fontSize: ctx.preset.sectionFont,
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: ctx.preset.letterSpacing,
     color: ctx.accent,
-    borderBottom: `0.5px solid ${ctx.accent}`,
-    paddingBottom: RESUME_LAYOUT_SHELL.sectionTitlePaddingBottom,
+    borderBottom: isTeal ? "none" : `0.5px solid ${ctx.accent}`,
+    paddingBottom: isTeal ? 0 : RESUME_LAYOUT_SHELL.sectionTitlePaddingBottom,
     marginBottom: RESUME_LAYOUT_SHELL.sectionTitleMarginBottom,
     marginTop: ctx.preset.sectionGap,
   };
@@ -424,10 +436,10 @@ export function resumeSecondaryEntryBlockStyle(ctx: ResumeLayoutContext): CSSPro
   };
 }
 
-export function resumeSkillsGridStyle(isSidebar?: boolean): CSSProperties {
+export function resumeSkillsGridStyle(): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: isSidebar ? "1fr" : "repeat(3, 1fr)",
+    gridTemplateColumns: "repeat(3, 1fr)",
     gap: "4px 16px",
     marginBottom: RESUME_LAYOUT_SHELL.sectionTitleMarginBottom,
   };

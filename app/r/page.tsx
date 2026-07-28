@@ -117,7 +117,7 @@ function SharePageInner() {
               {error.toLowerCase().includes("revoked")
                 ? "The owner has turned this link off."
                 : error.toLowerCase().includes("not found")
-                  ? "Double-check the URL: the shortcode might be wrong or expired."
+                  ? "Double-check the URL — the shortcode might be wrong or expired."
                   : error}
             </div>
           </div>

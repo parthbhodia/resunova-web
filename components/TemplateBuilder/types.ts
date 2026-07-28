@@ -41,10 +41,10 @@ export interface TBProject {
 }
 
 export type TBFont = "Helvetica" | "Times-Roman" | "Courier";
-export type TBStylePreset = "executive" | "modern" | "classic" | "slate" | "minimal" | "sapphire" | "sharp" | "creative-teal" | "creative-banner";
+export type TBStylePreset = "executive" | "modern" | "classic" | "azurill" | "onyx" | "bronzor" | "chikorita" | "ditgar" | "ditto" | "gengar" | "glalie" | "kakuna" | "lapras" | "leafish" | "meowth" | "pikachu" | "rhyhorn" | "scizor" | "teal-clean" | "teal-sleek" | "teal-modern" | "teal-clear" | "teal-bookmark" | "teal-line-split" | "teal-line-classic" | "teal-line-bold" | "teal-inline" | "teal-indigo";
 export type TBPageWidth = "narrow" | "standard" | "wide";
 export type TBFontSize = "small" | "medium" | "large";
-export type TBLayout = "single" | "twoColumn" | "rightSidebar" | "topBannerRightSidebar";
+export type TBLayout = "single" | "twoColumn" | "teal-split" | "teal-centered" | "teal-single" | "teal-skills-sidebar" | "teal-left-header" | "rightSidebar" | "topBannerRightSidebar";
 
 export interface TBCustomization {
   font: TBFont;

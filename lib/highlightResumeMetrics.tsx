@@ -1,5 +1,4 @@
-import { Fragment, type ReactNode } from "react";
-import { renderInlineMarkdown } from "@/lib/inlineMarkdown";
+import type { ReactNode } from "react";
 
 /**
  * Wraps common résumé metric patterns in a soft green background (Resume Worded–style “good” spans).
@@ -11,8 +10,9 @@ export function highlightMetricSpans(text: string): ReactNode[] {
   let last = 0;
   let m: RegExpExecArray | null;
   let key = 0;
+  // eslint-disable-next-line no-cond-assign
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) out.push(<Fragment key={`hs-${key++}`}>{renderInlineMarkdown(text.slice(last, m.index))}</Fragment>);
+    if (m.index > last) out.push(text.slice(last, m.index));
     out.push(
       <mark key={`hk-${key++}`} className="az-metric">
         {m[0]}
@@ -20,6 +20,6 @@ export function highlightMetricSpans(text: string): ReactNode[] {
     );
     last = m.index + m[0].length;
   }
-  if (last < text.length) out.push(<Fragment key={`hs-${key++}`}>{renderInlineMarkdown(text.slice(last))}</Fragment>);
-  return out.length > 0 ? out : renderInlineMarkdown(text);
+  if (last < text.length) out.push(text.slice(last));
+  return out.length > 0 ? out : [text];
 }

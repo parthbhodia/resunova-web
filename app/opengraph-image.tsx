@@ -32,24 +32,11 @@ export default function OgImage() {
         <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28 }}>
           <div style={{
             width: 72, height: 72, borderRadius: 20,
-            background: "linear-gradient(135deg, #e09050, #c4793a)",
+            background: "linear-gradient(135deg, #c4793a, #e09050)",
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: "0 8px 32px rgba(196,121,58,0.4)",
           }}>
-            {/* Nova R mark — keep paths in sync with components/BrandLogo.tsx */}
-            <svg width="58" height="58" viewBox="0 0 28 28">
-              <path d="M8.7 8.2v12.6" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
-              <path
-                d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7"
-                stroke="white" strokeWidth="2.4" strokeLinecap="round"
-                strokeLinejoin="round" fill="none"
-              />
-              <path d="M13.2 16.4l4.4 4.4" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
-              <path
-                d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z"
-                fill="white" opacity="0.88"
-              />
-            </svg>
+            <span style={{ color: "white", fontSize: 38, fontWeight: 900 }}>R</span>
           </div>
           <span style={{
             color: "white", fontSize: 56, fontWeight: 800,

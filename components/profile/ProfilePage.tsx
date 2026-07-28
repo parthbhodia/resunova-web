@@ -1,65 +1,40 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import ProfileDashboard from "./ProfileDashboard";
 import ResumeUpload from "./ResumeUpload";
 import { ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "../../lib/resumeExtractorService";
-import {
-  ChevronRight,
-  FileText,
-  Pencil,
-  Upload,
-  AlertCircle,
-  Mail,
-  Phone,
-  Globe,
-  Link,
-  Briefcase,
-  GraduationCap,
-  Folder,
-  Target,
-  Settings,
-  Shield,
-} from "lucide-react";
-import { loadExtractedProfile, saveExtractedProfile, loadProfile, saveProfile, mergeProfilePreferEmpty, tailorContactHintsFromExtracted, type ProfileFormState, EMPTY_PROFILE } from "../../lib/profileStorage";
-import { fetchExtractedProfile, upsertExtractedProfile, fetchUserProfile, upsertUserProfile } from "../../lib/supabase";
+import { CheckCircle2, AlertCircle, Sparkles, AlertTriangle, ArrowRight, TrendingUp, Bell, Star, FileText, MessageSquare, Briefcase } from "lucide-react";
+import { EditSection } from "./ProfileDashboard";
+import { loadExtractedProfile, saveExtractedProfile } from "../../lib/profileStorage";
+import { fetchExtractedProfile, upsertExtractedProfile } from "../../lib/supabase";
 
 export default function ProfilePage() {
   const [uploadStatus, setUploadStatus] = useState<"idle" | "extracting" | "review" | "completed">("idle");
+  const [extractionProgress, setExtractionProgress] = useState(0);
   const [extractedData, setExtractedData] = useState<ExtractedProfileState>(INITIAL_EXTRACTED_PROFILE);
+  const [editSection, setEditSection] = useState<EditSection>(null);
 
+  // Autosave State
   const [baseline, setBaseline] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const autoSaveTimerRef = useRef<number | null>(null);
 
-  const [tailorDefaults, setTailorDefaults] = useState<ProfileFormState>(EMPTY_PROFILE);
-  const [tdBaseline, setTdBaseline] = useState<string>("");
-  const [tdSaving, setTdSaving] = useState(false);
-  const tdSaveTimerRef = useRef<number | null>(null);
-
   const dirty = typeof window !== "undefined" && baseline !== "" && baseline !== JSON.stringify(extractedData);
-  const tdDirty = typeof window !== "undefined" && tdBaseline !== "" && tdBaseline !== JSON.stringify(tailorDefaults);
-  const anyDirty = dirty || tdDirty;
-  const anySaving = saving || tdSaving;
 
+  // Load Profile on Mount
   useEffect(() => {
     let mounted = true;
     async function init() {
       const dbProfile = await fetchExtractedProfile();
       const localProfile = loadExtractedProfile();
       const initial = dbProfile || localProfile;
-
-      const dbDefaults = await fetchUserProfile();
-      const localDefaults = loadProfile();
-      const initialDefaults = dbDefaults || localDefaults;
-
       if (mounted) {
         setExtractedData(initial);
         setBaseline(JSON.stringify(initial));
-        setTailorDefaults(initialDefaults);
-        setTdBaseline(JSON.stringify(initialDefaults));
-
+        
         if (initial.name || (initial.skills && initial.skills.length > 0) || (initial.experience && initial.experience.length > 0)) {
-          setUploadStatus("completed");
+           setUploadStatus("completed");
         }
       }
     }
@@ -81,20 +56,7 @@ export default function ProfilePage() {
     }
   }, [extractedData]);
 
-  const saveTailorDefaults = useCallback(async () => {
-    setTdSaving(true);
-    const snap = { ...tailorDefaults };
-    try {
-      saveProfile(snap);
-      await upsertUserProfile(snap);
-      setTdBaseline(JSON.stringify(snap));
-    } catch (e) {
-      console.warn("Tailor-defaults save failed", e);
-    } finally {
-      setTdSaving(false);
-    }
-  }, [tailorDefaults]);
-
+  // Debounced Autosave
   useEffect(() => {
     if (!dirty || saving) return;
     if (typeof window === "undefined") return;
@@ -111,533 +73,385 @@ export default function ProfilePage() {
     };
   }, [extractedData, dirty, saving, save]);
 
+  // Prevent closing tab with unsaved changes
   useEffect(() => {
-    if (!tdDirty || tdSaving) return;
-    if (typeof window === "undefined") return;
-    if (tdSaveTimerRef.current) window.clearTimeout(tdSaveTimerRef.current);
-    tdSaveTimerRef.current = window.setTimeout(() => {
-      tdSaveTimerRef.current = null;
-      void saveTailorDefaults();
-    }, 1500);
-    return () => {
-      if (tdSaveTimerRef.current) {
-        window.clearTimeout(tdSaveTimerRef.current);
-        tdSaveTimerRef.current = null;
-      }
-    };
-  }, [tailorDefaults, tdDirty, tdSaving, saveTailorDefaults]);
-
-  useEffect(() => {
-    if (!anyDirty || typeof window === "undefined") return;
+    if (!dirty || typeof window === "undefined") return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [anyDirty]);
+  }, [dirty]);
 
-  const handleExtractionStart = () => setUploadStatus("extracting");
+  // --- AI RECOMMENDATION LOGIC ---
+  const getRecommendations = () => {
+    const recs = [];
+    
+    // Check Summary
+    if ((extractedData.summary?.length || 0) < 100) {
+      recs.push({
+        id: "summary",
+        title: "Improve summary",
+        desc: "Add technologies and career goals. Short summaries perform poorly.",
+        points: 5,
+        section: "summary" as EditSection
+      });
+    }
 
-  const handleExtractionComplete = () => {
+    // Check Skills
+    if ((extractedData.skills?.length || 0) < 5) {
+      recs.push({
+        id: "skills",
+        title: "Add core skills",
+        desc: "ATS systems look for specific keywords. Add at least 5 key skills relevant to your industry.",
+        points: 10,
+        section: "skills" as EditSection
+      });
+    }
+
+    // Check Experience Metrics
+    const expLacksNumbers = extractedData.experience?.some(exp => {
+      const text = ((exp as any).description || "") + (exp.bullets?.join(" ") || "");
+      return text.length > 0 && !/\d/.test(text); // No numbers found
+    });
+    if (expLacksNumbers) {
+      recs.push({
+        id: "exp_metrics",
+        title: "Add measurable impact to experience",
+        desc: "Your experience has tasks but no numbers. Add metrics like 'improved efficiency by 40%'.",
+        points: 15,
+        section: "experience" as EditSection
+      });
+    }
+
+    // Check Projects / Achievements
+    if ((extractedData.projects?.length || 0) + (extractedData.experience?.length || 0) < 2) {
+      recs.push({
+        id: "achievements",
+        title: "Add experience or projects",
+        desc: "Profiles with detailed experience or projects perform better.",
+        points: 15,
+        section: "projects" as EditSection
+      });
+    }
+
+    // Check Links (LinkedIn/Portfolio etc)
+    if (!(extractedData as any).linkedin && !(extractedData as any).github && !(extractedData as any).portfolio) {
+      recs.push({
+        id: "links",
+        title: "Add professional links",
+        desc: "Recruiters prefer candidates with a LinkedIn profile or professional portfolio.",
+        points: 10,
+        section: "contact" as EditSection // Map to contact/header
+      });
+    }
+
+    return recs;
+  };
+
+  const recommendations = getRecommendations();
+  
+  // Calculate a fake score based on recommendations left
+  const baseScore = 100;
+  const penalty = recommendations.reduce((sum, r) => sum + r.points, 0);
+  const profileScore = uploadStatus === "completed" ? Math.max(0, baseScore - penalty) : 0;
+
+  const handleExtractionStart = () => {
+    setUploadStatus("extracting");
+    setExtractionProgress(0);
+  };
+
+  const handleExtractionProgress = (progress: number) => {
+    setExtractionProgress(progress);
+  };
+
+  const handleExtractionComplete = (data: ExtractedProfileState) => {
+    // Data extracted, wait for user to review
     setUploadStatus("review");
   };
 
   const handleAcceptAll = (data: ExtractedProfileState) => {
     setExtractedData(data);
     setUploadStatus("completed");
-    setTailorDefaults(prev => mergeProfilePreferEmpty(prev, tailorContactHintsFromExtracted(data)).next);
   };
 
-  const hasData = uploadStatus === "completed" && (extractedData.name || extractedData.experience?.length > 0 || extractedData.skills?.length > 0);
+  const handleUpdateData = (newData: Partial<ExtractedProfileState>) => {
+    setExtractedData(prev => ({ ...prev, ...newData }));
+  };
 
-  const experienceYears = extractedData.experience?.length
-    ? `${extractedData.experience.length} role${extractedData.experience.length !== 1 ? "s" : ""}`
-    : "";
-
-  const totalYears = (() => {
-    if (!extractedData.experience?.length) return "";
-    let earliest = new Date().getFullYear();
-    let latest = 0;
-    for (const exp of extractedData.experience) {
-      const match = exp.dates?.match(/(\d{4})/);
-      if (match) {
-        const y = parseInt(match[1], 10);
-        if (y < earliest) earliest = y;
+  const GlobalStyles = (
+    <style dangerouslySetInnerHTML={{__html: `
+      .profile-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 24px;
+        align-items: flex-start;
+        width: 100%;
       }
-      const endMatch = exp.dates?.match(/(\d{4})\s*$/);
-      if (endMatch) {
-        const y = parseInt(endMatch[1], 10);
-        if (y > latest) latest = y;
+      .profile-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        width: 320px;
+        position: sticky;
+        top: 24px;
       }
-    }
-    if (latest >= earliest) return `${latest - earliest} years`;
-    return "";
-  })();
+      .clean-card {
+        background: var(--surface);
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 24px;
+        box-shadow: var(--shadow-card, 0 4px 20px rgba(0,0,0,0.03));
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      .clean-card:hover {
+        box-shadow: var(--shadow-card-hover, 0 8px 30px rgba(0,0,0,0.06));
+      }
+      @media (max-width: 1024px) {
+        .profile-grid {
+          grid-template-columns: 1fr;
+        }
+        .profile-sidebar {
+          width: 100%;
+          position: static;
+        }
+      }
+    `}} />
+  );
 
-  const summaryItems = [experienceYears, totalYears].filter(Boolean).join(" \u00b7 ");
+
 
   return (
-    <div style={{ background: "var(--bg)", color: "var(--text)", minHeight: "100vh" }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .cm-page { max-width: 760px; margin: 0 auto; padding: 32px 24px 72px; }
-        .cm-eyebrow { margin: 0 0 8px; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; }
-        .cm-title { margin: 0; font-size: clamp(32px, 5vw, 44px); font-weight: 400; line-height: 1.1; letter-spacing: -1px; }
-        .cm-promise { max-width: 560px; margin: 12px auto 0; color: var(--muted); font-size: 16px; line-height: 1.55; }
-        .cm-meta { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 18px; color: var(--muted); font-size: 12px; }
-        .cm-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font-weight: 600; font-size: 12px; }
-        .cm-chip svg { width: 13px; height: 13px; flex-shrink: 0; }
-        .cm-saved { display: inline-flex; align-items: center; gap: 4px; color: #2ea043; font-weight: 600; }
-        .cm-saved::before { content: ""; width: 6px; height: 6px; background: #2ea043; border-radius: 50%; }
-        .cm-sep { color: var(--muted); }
-
-        .cm-attention { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 0; padding: 10px 12px; background: rgba(210, 153, 34, 0.08); color: #9a6700; border: 1px solid rgba(210, 153, 34, 0.3); border-left: 3px solid #d29922; border-radius: 3px; font-size: 13px; }
-        [data-theme="dark"] .cm-attention { background: rgba(210, 153, 34, 0.12); color: #e3b341; border-color: rgba(210, 153, 34, 0.35); border-left-color: #d29922; }
-        .cm-attention-body { display: flex; align-items: center; gap: 8px; }
-        .cm-attention-body svg { width: 16px; height: 16px; flex-shrink: 0; }
-        .cm-text-btn { flex-shrink: 0; padding: 2px 0; background: none; border: 0; border-bottom: 1px solid currentColor; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 700; }
-
-        .cm-identity { display: grid; grid-template-columns: 1fr auto; gap: 20px; padding: 20px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-top: 20px; }
-        .cm-identity-name { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.2; }
-        .cm-identity-role { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
-        .cm-contact { display: flex; flex-wrap: wrap; gap: 6px 16px; grid-column: 1 / -1; margin-top: 4px; color: var(--muted); font-size: 12px; }
-        .cm-contact-item { display: inline-flex; align-items: center; gap: 4px; }
-        .cm-contact-item svg { width: 12px; height: 12px; }
-        .cm-edit-btn { align-self: center; display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600; transition: background 0.15s; }
-        .cm-edit-btn:hover { background: var(--accent-bg); }
-
-        .cm-ledger { border-bottom: 1px solid var(--border); }
-        .cm-section { border-bottom: 1px solid var(--border); }
-        .cm-section:last-child { border-bottom: 0; }
-        .cm-section summary { display: grid; min-height: 56px; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 8px; cursor: pointer; list-style: none; user-select: none; padding: 0; }
-        .cm-section summary::-webkit-details-marker { display: none; }
-        .cm-section summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
-        .cm-chevron { display: grid; width: 18px; height: 18px; place-items: center; color: var(--accent); transition: transform 0.16s ease; }
-        .cm-section[open] .cm-chevron { transform: rotate(90deg); }
-        .cm-section-title { font-size: 16px; font-weight: 600; line-height: 1.25; }
-        .cm-section-count { display: block; margin-top: 1px; color: var(--muted); font-size: 11px; }
-        .cm-section-label { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-        .cm-detail-body { padding: 0 0 20px 28px; }
-
-        .cm-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; padding: 12px 0; border-top: 1px dotted var(--border); }
-        .cm-entry:first-child { padding-top: 2px; border-top: 0; }
-        .cm-entry h4 { margin: 0; font-size: 13px; font-weight: 600; }
-        .cm-entry p { margin: 2px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
-        .cm-entry-date { color: var(--muted); font-size: 11px; white-space: nowrap; }
-
-        .cm-tag-list { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
-        .cm-tag { padding: 4px 8px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 3px; font-size: 11px; }
-
-        .cm-inline-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px dotted var(--border); }
-        .cm-source-note { color: var(--muted); font-size: 10px; }
-
-        .cm-page-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 20px; }
-        .cm-action-note { color: var(--muted); font-size: 11px; }
-        .cm-upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600; transition: background 0.15s; }
-        .cm-upload-btn:hover { background: var(--accent-bg); }
-
-        .cm-empty { max-width: 560px; margin: 10px auto 0; padding: 44px 40px; background: var(--surface); border: 1px solid var(--border); border-top: 2px solid var(--accent); text-align: center; }
-        .cm-empty-rule { width: 32px; margin: 0 auto 20px; border-top: 1px solid var(--border); }
-        .cm-empty h2 { margin: 0; font-size: 24px; font-weight: 600; }
-        .cm-empty p { max-width: 400px; margin: 10px auto 20px; color: var(--muted); font-size: 14px; }
-        .cm-upload-primary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.15s; }
-        .cm-upload-primary:hover { filter: brightness(1.1); }
-        .cm-upload-primary svg { width: 14px; height: 14px; }
-        .cm-privacy { display: flex; max-width: 380px; align-items: flex-start; gap: 8px; margin: 16px auto 0; color: var(--muted); text-align: left; font-size: 11px; line-height: 1.5; }
-        .cm-privacy svg { flex-shrink: 0; width: 13px; height: 13px; margin-top: 1px; }
-
-        .cm-upload-wrap { position: relative; display: inline-block; }
-        .cm-upload-wrap input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-
-        .cm-toast { position: fixed; right: 20px; bottom: 20px; z-index: 30; padding: 8px 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); font-size: 12px; opacity: 0; transform: translateY(6px); pointer-events: none; transition: opacity 0.18s, transform 0.18s; }
-        .cm-toast.show { opacity: 1; transform: translateY(0); }
-
-        @media (max-width: 640px) {
-          .cm-page { padding: 20px 16px 80px; }
-          .cm-title { font-size: 32px; }
-          .cm-identity { grid-template-columns: 1fr auto; gap: 12px; }
-          .cm-contact { grid-column: 1 / -1; }
-          .cm-section summary { min-height: 52px; }
-          .cm-detail-body { padding-left: 24px; }
-          .cm-entry { grid-template-columns: 1fr; }
-          .cm-entry-date { grid-row: 2; }
-          .cm-page-actions { flex-direction: column; align-items: stretch; }
-        }
-      ` }} />
-
-      <div className="cm-page">
-        <header style={{ textAlign: "center", marginBottom: 28 }}>
-          <p className="cm-eyebrow">Career record</p>
-          <h1 className="cm-title">Career Memory</h1>
-          <p className="cm-promise">Upload once. Resunova remembers your career history and uses it across every application.</p>
-
-          {hasData && (
-            <div className="cm-meta">
-              {extractedData.name && (
-                <>
-                  <span className="cm-chip">
-                    <FileText />
-                    {extractedData.name}&apos;s Resume
-                  </span>
-                  <span className="cm-sep">&middot;</span>
-                </>
-              )}
-              {anySaving ? (
-                <span style={{ color: "var(--muted)" }}>Saving&hellip;</span>
-              ) : anyDirty ? (
-                <span style={{ color: "var(--muted)" }}>Unsaved changes</span>
-              ) : (
-                <span className="cm-saved">Saved</span>
-              )}
-            </div>
-          )}
-        </header>
-
-        {hasData ? (
-          <>
-            {/* Attention strip — facts needing review */}
-            <FactReviewStrip data={extractedData} />
-
-            {/* Identity card */}
-            <section className="cm-identity">
-              <div>
-                <h2 className="cm-identity-name">{extractedData.name || "Your Name"}</h2>
-                <p className="cm-identity-role">
-                  {extractedData.role || extractedData.headline || "Your role"}
-                  {extractedData.location ? <> &middot; {extractedData.location}</> : null}
-                </p>
+    <div style={{ background: "var(--bg)", color: "var(--text)" }}>
+      {GlobalStyles}
+      <main style={{ padding: "24px 32px", width: "100%" }}>
+        
+        {/* Generic Career Profile Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <div>
+            <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4, color: "var(--text)", lineHeight: "normal" }}>Career Profile</h2>
+            <p style={{ fontSize: 14, color: "var(--muted)", margin: 0 }}>AI-powered dashboard • Last updated today</p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {uploadStatus === "completed" && (
+              <div style={{ fontSize: 13, fontWeight: 600, color: saving ? "#3b82f6" : dirty ? "#94a3b8" : "#10b981", display: "flex", alignItems: "center", gap: 6, transition: "color 0.2s ease" }}>
+                {saving ? "Saving..." : dirty ? "Unsaved changes" : <><CheckCircle2 size={14} /> Saved</>}
               </div>
-              <button className="cm-edit-btn" type="button" onClick={() => {
-                const el = document.querySelector(".cm-section[data-section='contact']") as HTMLDetailsElement | null;
-                if (el) { el.open = true; el.scrollIntoView({ behavior: "smooth", block: "center" }); }
-              }}>
-                <Pencil size={12} /> Edit
-              </button>
-              <div className="cm-contact">
-                {extractedData.email && (
-                  <span className="cm-contact-item"><Mail size={12} /> {extractedData.email}</span>
-                )}
-                {extractedData.phone && (
-                  <span className="cm-contact-item"><Phone size={12} /> {extractedData.phone}</span>
-                )}
-                {extractedData.linkedin && (
-                  <span className="cm-contact-item"><Link size={12} /> LinkedIn</span>
-                )}
-                {extractedData.github && (
-                  <span className="cm-contact-item"><Link size={12} /> GitHub</span>
-                )}
-                {extractedData.portfolio && (
-                  <span className="cm-contact-item"><Globe size={12} /> Portfolio</span>
-                )}
-              </div>
-            </section>
+            )}
+            <button 
+              onClick={() => setUploadStatus("idle")}
+              style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 100, padding: "8px 16px", fontSize: 14, fontWeight: 600, color: "var(--text)", cursor: "pointer" }}
+            >
+              Update Resume
+            </button>
+          </div>
+        </div>
 
-            {/* Ledger sections */}
-            <div className="cm-ledger">
-              <LedgerSection
-                title="Experience"
-                count={summaryItems || undefined}
-                label="Resume"
-                icon={<Briefcase size={14} />}
-                defaultOpen
-              >
-                {extractedData.experience?.length ? (
-                  extractedData.experience.map((exp, i) => (
-                    <div className="cm-entry" key={i}>
-                      <div>
-                        <h4>{exp.role}{exp.company ? `, ${exp.company}` : ""}</h4>
-                        {exp.description && <p>{exp.description}</p>}
-                        {exp.bullets?.length > 0 && !exp.description && (
-                          <p>{exp.bullets.slice(0, 2).join(" \u2022 ")}</p>
-                        )}
-                      </div>
-                      <span className="cm-entry-date">{exp.dates || ""}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>No experience added yet.</p>
-                )}
-                <div className="cm-inline-actions">
-                  <span className="cm-source-note">Source: resume</span>
-                  <button className="cm-text-btn" type="button">Edit experience</button>
-                </div>
-              </LedgerSection>
-
-              <LedgerSection
-                title="Education"
-                count={extractedData.education?.length ? `${extractedData.education.length} school${extractedData.education.length !== 1 ? "s" : ""}` : undefined}
-                label="Resume"
-                icon={<GraduationCap size={14} />}
-              >
-                {extractedData.education?.length ? (
-                  extractedData.education.map((edu, i) => (
-                    <div className="cm-entry" key={i}>
-                      <div>
-                        <h4>{edu.degree || "Degree"}</h4>
-                        <p>{edu.institution}</p>
-                      </div>
-                      <span className="cm-entry-date">{edu.dates || ""}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>No education added yet.</p>
-                )}
-                <div className="cm-inline-actions">
-                  <span className="cm-source-note">Source: resume</span>
-                  <button className="cm-text-btn" type="button">Edit education</button>
-                </div>
-              </LedgerSection>
-
-              <LedgerSection
-                title="Skills"
-                count={extractedData.skills?.length ? `${extractedData.skills.length} skills` : undefined}
-                label="Resume"
-                icon={<Settings size={14} />}
-              >
-                {extractedData.skills?.length ? (
-                  <div className="cm-tag-list">
-                    {extractedData.skills.map((skill, i) => (
-                      <span className="cm-tag" key={i}>{skill}</span>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>No skills added yet.</p>
-                )}
-                <div className="cm-inline-actions">
-                  <span className="cm-source-note">Source: resume</span>
-                  <button className="cm-text-btn" type="button">Edit skills</button>
-                </div>
-              </LedgerSection>
-
-              <LedgerSection
-                title="Projects"
-                count={extractedData.projects?.length ? `${extractedData.projects.length} projects` : undefined}
-                label="Resume"
-                icon={<Folder size={14} />}
-              >
-                {extractedData.projects?.length ? (
-                  extractedData.projects.map((proj, i) => (
-                    <div className="cm-entry" key={i}>
-                      <div>
-                        <h4>{proj.name}</h4>
-                        {proj.description && <p>{proj.description}</p>}
-                        {proj.tech && <p style={{ fontStyle: "italic" }}>{proj.tech}</p>}
-                        {!proj.description && proj.bullets?.length > 0 && (
-                          <p>{proj.bullets.slice(0, 2).join(" \u2022 ")}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>No projects added yet.</p>
-                )}
-                <div className="cm-inline-actions">
-                  <span className="cm-source-note">Source: resume</span>
-                  <button className="cm-text-btn" type="button">Edit projects</button>
-                </div>
-              </LedgerSection>
-
-              <LedgerSection
-                title="Summary"
-                label="Resume"
-                icon={<FileText size={14} />}
-              >
-                {extractedData.summary ? (
-                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "var(--text)" }}>{extractedData.summary}</p>
-                ) : (
-                  <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>No summary written yet.</p>
-                )}
-                <div className="cm-inline-actions">
-                  <span className="cm-source-note">Source: resume</span>
-                  <button className="cm-text-btn" type="button">Edit summary</button>
-                </div>
-              </LedgerSection>
-
-              <LedgerSection
-                title="Target roles"
-                label="You"
-                icon={<Target size={14} />}
-              >
-                <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
-                  {tailorDefaults.roles || "No target roles set. Edit your preferences to help Resunova tailor applications."}
-                </p>
-                <div className="cm-inline-actions">
-                  <span className="cm-source-note">Source: your preferences</span>
-                  <button className="cm-text-btn" type="button">Edit target roles</button>
-                </div>
-              </LedgerSection>
-
-              <LedgerSection
-                title="Application defaults"
-                label="You"
-                icon={<Shield size={14} />}
-              >
-                <div className="cm-entry" style={{ borderTop: 0, paddingTop: 0 }}>
-                  <div>
-                    <h4>Preferred tone</h4>
-                    <p>{tailorDefaults.tone === "confident" ? "Confident & concise" : tailorDefaults.tone === "formal" ? "Formal" : tailorDefaults.tone === "friendly" ? "Friendly" : "Not set"}</p>
-                  </div>
-                </div>
-                {tailorDefaults.portfolio && (
-                  <div className="cm-entry">
-                    <div>
-                      <h4>Portfolio</h4>
-                      <p>{tailorDefaults.portfolio}</p>
-                    </div>
-                  </div>
-                )}
-                <div className="cm-inline-actions">
-                  <span className="cm-source-note">Source: your preferences</span>
-                  <button className="cm-text-btn" type="button">Edit defaults</button>
-                </div>
-              </LedgerSection>
-            </div>
-
-            <div className="cm-page-actions">
-              <span className="cm-action-note">
-                {anySaving ? "Saving changes\u2026" : anyDirty ? "Unsaved changes" : "Changes save to your Career Memory."}
-              </span>
-              <button className="cm-upload-btn" type="button" onClick={() => setUploadStatus("idle")}>
-                <Upload size={13} /> Update from resume
-              </button>
-            </div>
-          </>
-        ) : (
-          /* Empty state */
-          <section style={{ marginTop: 8 }}>
-            <ResumeUpload
+        <div className="profile-grid">
+          {/* Main Content (Left) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+            <ResumeUpload 
               status={uploadStatus}
               onExtractionStart={handleExtractionStart}
-              onExtractionComplete={handleExtractionComplete}
+              onProgress={handleExtractionProgress}
+              onExtractionComplete={handleExtractionComplete} 
               onAcceptAll={handleAcceptAll}
             />
-            <div className="cm-empty">
-              <div className="cm-empty-rule" />
-              <h2>Start with the resume you trust</h2>
-              <p>We&rsquo;ll organize your experience, education, skills, and projects into a career record you can review.</p>
-              <div className="cm-upload-wrap">
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      // Delegate to ResumeUpload's internal handler by triggering extraction directly
-                      import("../../lib/resumeExtractorService").then(({ extractResumeData }) => {
-                        setUploadStatus("extracting");
-                        extractResumeData(file).then((data) => {
-                          setExtractedData(data);
-                          setUploadStatus("review");
-                        }).catch(() => setUploadStatus("idle"));
-                      });
-                    }
-                  }}
-                  aria-describedby="cm-upload-privacy"
-                />
-                <label className="cm-upload-primary" style={{ cursor: "pointer" }}>
-                  <Upload size={14} /> Upload your resume
-                </label>
+            <ProfileDashboard 
+              extractedData={extractedData} 
+              status={uploadStatus} 
+              onUpdateData={handleUpdateData}
+              editSection={editSection}
+              onOpenEdit={setEditSection}
+              onCloseEdit={() => setEditSection(null)}
+            />
+          </div>          {/* Right Sidebar */}
+          <div className="profile-sidebar">
+            {/* Profile Score Card */}
+            <div className="clean-card">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24, color: "var(--muted)", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <TrendingUp size={16} color="#3b82f6" /> PROFILE SCORE
               </div>
-              <div className="cm-privacy" id="cm-upload-privacy">
-                <Shield size={13} />
-                <span>Your resume stays private. We reuse only the career facts you approve, so future applications start with accurate context.</span>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32 }}>
+                <div style={{ position: "relative", width: 80, height: 80, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
+                    <circle cx="40" cy="40" r="34" fill="none" stroke="#f1f5f9" strokeWidth="6" />
+                    <circle cx="40" cy="40" r="34" fill="none" stroke="#3b82f6" strokeWidth="6" strokeDasharray={`${2 * Math.PI * 34}`} strokeDashoffset={`${2 * Math.PI * 34 * (1 - profileScore / 100)}`} style={{ transition: "stroke-dashoffset 1s ease-out" }} strokeLinecap="round" />
+                  </svg>
+                  <div style={{ position: "absolute", fontSize: 24, fontWeight: 800, color: "var(--text)" }}>{profileScore}</div>
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 2px 0", color: "var(--text)" }}>
+                    {uploadStatus === "completed" ? (extractedData?.name || "Your Name") : "Your Name"}
+                  </h3>
+                  <p style={{ fontSize: 13, margin: "0 0 8px 0", color: "#3b82f6", fontWeight: 600 }}>
+                    {uploadStatus === "completed" ? (extractedData?.role || "Your Role") : "Your Role"}
+                  </p>
+                  {profileScore >= 90 ? (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#ecfdf5", color: "#059669", padding: "2px 8px", borderRadius: 100, fontSize: 11, fontWeight: 700 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981" }} /> Excellent
+                    </div>
+                  ) : profileScore >= 60 ? (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fffbeb", color: "#d97706", padding: "2px 8px", borderRadius: 100, fontSize: 11, fontWeight: 700 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b" }} /> Good
+                    </div>
+                  ) : (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fef2f2", color: "#b91c1c", padding: "2px 8px", borderRadius: 100, fontSize: 11, fontWeight: 700 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444" }} /> Needs Work
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16 }}>
+                COMPLETION CHECKLIST
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
+                {[
+                  { label: "Add profile photo", points: 5, done: false },
+                  { label: "Add professional links", points: 10, done: !!((extractedData as any).linkedin || (extractedData as any).github || (extractedData as any).portfolio) },
+                  { label: "Add experience/projects", points: 15, done: ((extractedData.projects?.length || 0) + (extractedData.experience?.length || 0)) >= 2 },
+                  { label: "Add core skills", points: 10, done: (extractedData.skills?.length || 0) > 0 },
+                  { label: "Write career summary", points: 5, done: !!extractedData.summary },
+                  { label: "Add education details", points: 5, done: (extractedData.education?.length || 0) > 0 }
+                ].map((item, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13, color: item.done ? "#94a3b8" : "var(--text)", fontWeight: 500 }}>
+                      {item.done ? <CheckCircle2 size={18} color="#3b82f6" /> : <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid #e2e8f0" }} />}
+                      <span style={{ textDecoration: item.done ? "line-through" : "none" }}>{item.label}</span>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: item.done ? "#94a3b8" : "#3b82f6", background: item.done ? "#f8fafc" : "#eff6ff", padding: "2px 6px", borderRadius: 100 }}>
+                      +{item.points}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ background: "#eff6ff", borderRadius: 12, padding: 16, border: "1px solid #bfdbfe" }}>
+                <h4 style={{ fontSize: 12, fontWeight: 700, color: "#1e40af", margin: "0 0 12px 0" }}>Completing improves:</h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#2563eb", fontWeight: 500 }}><TrendingUp size={14} /> ATS Score <ArrowRight size={14} style={{ marginLeft: "auto" }} /></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#2563eb", fontWeight: 500 }}><TrendingUp size={14} /> Job Matching <ArrowRight size={14} style={{ marginLeft: "auto" }} /></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#2563eb", fontWeight: 500 }}><TrendingUp size={14} /> Interview Questions <ArrowRight size={14} style={{ marginLeft: "auto" }} /></div>
+                </div>
               </div>
             </div>
-          </section>
-        )}
-      </div>
 
-      <Toast />
+            {/* AI Coach Card (Clean Theme) */}
+            <div className="clean-card">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: "color-mix(in srgb, var(--accent) 15%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)" }}>
+                  <Sparkles size={14} />
+                </div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "var(--text)" }}>Resunova AI Coach</h3>
+              </div>
+
+              <div style={{ background: "var(--surface2)", borderRadius: 12, padding: 16, marginBottom: 24, border: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Profile {profileScore}% complete</span>
+                  {profileScore >= 90 ? (
+                    <span style={{ fontSize: 11, fontWeight: 700, background: "rgba(16, 185, 129, 0.2)", color: "#10b981", padding: "2px 8px", borderRadius: 100 }}>Fully Optimized</span>
+                  ) : profileScore >= 60 ? (
+                    <span style={{ fontSize: 11, fontWeight: 700, background: "rgba(245, 158, 11, 0.2)", color: "#fbbf24", padding: "2px 8px", borderRadius: 100 }}>Room to grow</span>
+                  ) : (
+                    <span style={{ fontSize: 11, fontWeight: 700, background: "rgba(239, 68, 68, 0.2)", color: "#ef4444", padding: "2px 8px", borderRadius: 100 }}>Action Required</span>
+                  )}
+                </div>
+                <div style={{ width: "100%", height: 6, background: "#0f172a", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ width: `${profileScore}%`, height: "100%", background: "linear-gradient(90deg, #3b82f6, #8b5cf6)", borderRadius: 3 }} />
+                </div>
+              </div>
+
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16 }}>
+                RECOMMENDATIONS
+              </div>
+
+              {recommendations.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {recommendations.map(rec => (
+                    <div key={rec.id} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                      <AlertTriangle size={16} color="#fbbf24" style={{ flexShrink: 0, marginTop: 2 }} />
+                      <div>
+                        <h4 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: "0 0 4px 0" }}>{rec.title}</h4>
+                        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 8px 0", lineHeight: 1.5 }}>{rec.desc}</p>
+                        <button onClick={() => setEditSection(rec.section)} style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0 }}>
+                          Fix Now <ArrowRight size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <CheckCircle2 size={16} color="#10b981" />
+                  <span style={{ fontSize: 13, color: "#e2e8f0" }}>Profile is fully optimized!</span>
+                </div>
+              )}
+            </div>
+
+            {/* Next Steps Card */}
+            <div className="clean-card">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                <Star size={16} color="#f59e0b" />
+                <h3 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text)", textTransform: "uppercase", letterSpacing: 0.5 }}>Next Steps</h3>
+              </div>
+              
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                <div style={{ width: "100%", height: 8, background: "var(--surface2)", borderRadius: 4, overflow: "hidden", marginRight: 12 }}>
+                  <div style={{ width: `${profileScore}%`, height: "100%", background: "linear-gradient(90deg, #f59e0b, #10b981)", borderRadius: 4 }} />
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{profileScore}/100</span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
+                <div style={{ background: "var(--surface2)", padding: 16, borderRadius: 12, display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "color-mix(in srgb, var(--accent) 15%, transparent)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>1</div>
+                  <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Improve resume keywords</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", background: "color-mix(in srgb, var(--text) 10%, transparent)", padding: "2px 8px", borderRadius: 100, whiteSpace: "nowrap" }}>High impact</div>
+                </div>
+                <div style={{ background: "var(--surface2)", padding: 16, borderRadius: 12, display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "color-mix(in srgb, var(--accent) 15%, transparent)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>2</div>
+                  <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Complete projects section</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", background: "color-mix(in srgb, var(--text) 10%, transparent)", padding: "2px 8px", borderRadius: 100, whiteSpace: "nowrap" }}>Quick win</div>
+                </div>
+                <div style={{ background: "var(--surface2)", padding: 16, borderRadius: 12, display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "color-mix(in srgb, var(--accent) 15%, transparent)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>3</div>
+                  <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Prepare for interviews</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", background: "color-mix(in srgb, var(--text) 10%, transparent)", padding: "2px 8px", borderRadius: 100, whiteSpace: "nowrap" }}>Recommended</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <button 
+                  onClick={() => window.location.href = '/?view=analyze'}
+                  style={{ width: "100%", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 12, padding: "12px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.2s" }}
+                  onMouseOver={(e) => (e.currentTarget.style.filter = "brightness(1.1)")}
+                  onMouseOut={(e) => (e.currentTarget.style.filter = "brightness(1)")}
+                >
+                  <FileText size={18} /> Analyze Resume
+                </button>
+                <div style={{ display: "flex", gap: 12 }}>
+                  <button 
+                    onClick={() => window.location.href = '/interview-prep'}
+                    style={{ flex: 1, background: "var(--surface2)", color: "var(--text)", border: "none", borderRadius: 12, padding: "10px 0", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                  >
+                    <MessageSquare size={16} /> Interview
+                  </button>
+                  <button 
+                    onClick={() => window.location.href = '/?view=jobs'}
+                    style={{ flex: 1, background: "var(--surface2)", color: "var(--text)", border: "none", borderRadius: 12, padding: "10px 0", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                  >
+                    <Briefcase size={16} /> View Jobs
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>      
+        </div>
+      </main>
     </div>
   );
-}
-
-/* ---- Sub-components ---- */
-
-function LedgerSection({
-  title,
-  count,
-  label,
-  icon,
-  defaultOpen = false,
-  children,
-}: {
-  title: string;
-  count?: string;
-  label: string;
-  icon?: React.ReactNode;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <details className="cm-section" data-section={title.toLowerCase().replace(/\s+/g, "-")} open={defaultOpen}>
-      <summary>
-        <span className="cm-chevron"><ChevronRight size={14} /></span>
-        <span>
-          <span className="cm-section-title" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {icon && <span style={{ color: "var(--muted)" }}>{icon}</span>}
-            {title}
-          </span>
-          {count && <span className="cm-section-count">{count}</span>}
-        </span>
-        <span className="cm-section-label">{label}</span>
-      </summary>
-      <div className="cm-detail-body">{children}</div>
-    </details>
-  );
-}
-
-function FactReviewStrip({ data }: { data: ExtractedProfileState }) {
-  const issues: string[] = [];
-
-  if (data.experience?.length) {
-    for (const exp of data.experience) {
-      if (!exp.dates || /present/i.test(exp.dates)) {
-        // Check if dates look incomplete
-        if (!exp.dates || exp.dates.split(/\s*[-\u2013]\s*/).length < 2) {
-          issues.push(`${exp.role || "A role"} needs date review`);
-        }
-      }
-    }
-  }
-
-  if (data.summary && data.summary.length < 80) {
-    issues.push("Summary is very short");
-  }
-
-  if (issues.length === 0) return null;
-
-  return (
-    <div className="cm-attention" role="status">
-      <div className="cm-attention-body">
-        <AlertCircle />
-        <span><strong>{issues.length} fact{issues.length !== 1 ? "s" : ""} to review</strong> from your latest resume.</span>
-      </div>
-      <button className="cm-text-btn" type="button" onClick={() => {
-        const el = document.querySelector(".cm-section[data-section='experience']") as HTMLDetailsElement | null;
-        if (el) { el.open = true; el.scrollIntoView({ behavior: "smooth", block: "center" }); }
-      }}>
-        Review now
-      </button>
-    </div>
-  );
-}
-
-function Toast() {
-  const [msg, setMsg] = useState("");
-  const [show, setShow] = useState(false);
-  const timerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const handler = (e: CustomEvent<string>) => {
-      setMsg(e.detail);
-      setShow(true);
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-      timerRef.current = window.setTimeout(() => setShow(false), 2200);
-    };
-    window.addEventListener("cm:toast" as string, handler as EventListener);
-    return () => window.removeEventListener("cm:toast" as string, handler as EventListener);
-  }, []);
-
-  return <div className={`cm-toast${show ? " show" : ""}`} role="status" aria-live="polite">{msg}</div>;
 }

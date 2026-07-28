@@ -255,7 +255,7 @@ export function DimensionTrendChart({
           return (
             <g key={g}>
               <line x1={pad.l} y1={gy} x2={W - pad.r} y2={gy} stroke="var(--border)" strokeWidth={1} strokeDasharray="4 4" />
-              <text x={pad.l - 6} y={gy + 3} textAnchor="end" fontSize={9} fill="var(--muted)">
+              <text x={pad.l - 6} y={gy + 3} textAnchor="end" fontSize={9} fill="var(--muted">
                 {g}
               </text>
             </g>

@@ -82,7 +82,7 @@ export default function ResumeExamplesHubPage() {
         </nav>
       </header>
 
-      <main style={{ maxWidth: 1120, margin: "0 auto", padding: "40px 24px 90px" }}>
+      <main style={{ maxWidth: 1180, margin: "0 auto", padding: "32px 24px 90px" }}>
         <nav aria-label="Breadcrumb" style={{ fontSize: 13, color: "var(--dim)", marginBottom: 24 }}>
           <Link href="/" style={{ color: "var(--dim)", textDecoration: "none" }}>
             Home

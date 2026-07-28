@@ -62,17 +62,6 @@ export function buildOAuthReturnUrl(): string {
   return canonical + path;
 }
 
-/** Absolute URL for a static auth page such as the password-reset form. */
-export function buildAuthRouteUrl(path: `/${string}`): string {
-  const normalizedPath = `/${path.replace(/^\/+/, "")}`;
-  if (typeof window === "undefined") return resolveSiteUrl() + normalizedPath;
-  if (isLocalDevHost(window.location.hostname)) {
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-    return window.location.origin + basePath + normalizedPath;
-  }
-  return resolveSiteUrl() + normalizedPath;
-}
-
 /** Post-login destination without origin — used for router.replace(). */
 export function getPostLoginDestFromWindow(): string {
   return getAppRelativeLocation();

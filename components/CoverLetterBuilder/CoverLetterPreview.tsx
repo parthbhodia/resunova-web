@@ -4,17 +4,10 @@ import { ProfessionalTemplate } from "./templates/ProfessionalTemplate";
 import { ModernTemplate } from "./templates/ModernTemplate";
 import { MinimalTemplate } from "./templates/MinimalTemplate";
 import { CreativeTemplate } from "./templates/CreativeTemplate";
-import { NoviceTemplate } from "./templates/NoviceTemplate";
-import { MadonaTemplate } from "./templates/MadonaTemplate";
-import { WakandaTemplate } from "./templates/WakandaTemplate";
-import { LondonTemplate } from "./templates/LondonTemplate";
-import { TechTemplate } from "./templates/TechTemplate";
-import { ElegantTemplate } from "./templates/ElegantTemplate";
 
 interface Props {
   data: CLData;
   onEditField: (field: string, rect: DOMRect) => void;
-  isReadonly?: boolean;
 }
 
 const TEMPLATE_MAP = {
@@ -22,24 +15,13 @@ const TEMPLATE_MAP = {
   modern: ModernTemplate,
   minimal: MinimalTemplate,
   creative: CreativeTemplate,
-  novice: NoviceTemplate,
-  madona: MadonaTemplate,
-  wakanda: WakandaTemplate,
-  london: LondonTemplate,
-  tech: TechTemplate,
-  elegant: ElegantTemplate,
 };
 
-export const CoverLetterPreview = forwardRef<HTMLDivElement, Props>(({ data, onEditField, isReadonly }, ref) => {
+export const CoverLetterPreview = forwardRef<HTMLDivElement, Props>(({ data, onEditField }, ref) => {
   const TemplateComponent = TEMPLATE_MAP[data.customization.templateId] || ProfessionalTemplate;
 
   const HoverWrapper: React.FC<{ field: string; children: React.ReactNode }> = ({ field, children }) => {
     const [hovered, setHovered] = useState(false);
-    
-    if (isReadonly) {
-      return <>{children}</>;
-    }
-
     return (
       <div 
         style={{ position: "relative", cursor: "text" }}

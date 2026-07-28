@@ -7,7 +7,6 @@ import { isStructuredUsable } from "@/components/AnalyzeLiveResumeBody";
 import type { CategoryAssignmentOptions } from "@/lib/analysisCategoryMatch";
 import { stashTemplateBuilderStructuredPrefillFromStructuredResume } from "@/lib/templateBuilderPrefill";
 import { useResumeAnalyzeStore, type AnalyzeBulletSnapshot } from "@/store/resumeAnalyzeStore";
-import type { ScoreEstimate } from "@/lib/analyzeScoreEstimate";
 import { useAnalyzeExport } from "@/hooks/useAnalyzeExport";
 
 const PULSE_MS = 850;
@@ -50,11 +49,6 @@ interface Props {
   restoredResumeNoPdfHint?: boolean;
   exportDocxEnabled?: boolean;
   categoryAssignmentOpts?: CategoryAssignmentOptions;
-  /** Re-run the analysis with applied fixes baked in; persists a new analysis row. */
-  onRescore?: () => void;
-  rescoring?: boolean;
-  /** Deterministic projected score from applied fixes (null = nothing to show). */
-  scoreEstimate?: ScoreEstimate | null;
 }
 
 /**
@@ -81,9 +75,6 @@ export default function AnalyzePreviewPane({
   restoredResumeNoPdfHint = false,
   exportDocxEnabled,
   categoryAssignmentOpts,
-  onRescore,
-  rescoring = false,
-  scoreEstimate = null,
 }: Props) {
   const router = useRouter();
   const { exportDocx, exporting, canExport, error: exportError } = useAnalyzeExport();
@@ -106,10 +97,6 @@ export default function AnalyzePreviewPane({
   const summaryOverride = useResumeAnalyzeStore((s) => s.summaryOverride);
   const fieldOverrides = useResumeAnalyzeStore((s) => s.fieldOverrides);
   const setFieldOverride = useResumeAnalyzeStore((s) => s.setFieldOverride);
-  const setSummaryOverride = useResumeAnalyzeStore((s) => s.setSummaryOverride);
-  const hiddenPaths = useResumeAnalyzeStore((s) => s.hiddenPaths);
-  const toggleBulletHidden = useResumeAnalyzeStore((s) => s.toggleBulletHidden);
-  const applyBulletOp = useResumeAnalyzeStore((s) => s.applyBulletOp);
   const pulseToken = useResumeAnalyzeStore((s) => s.pulseToken);
   const pulseBulletIndex = useResumeAnalyzeStore((s) => s.pulseBulletIndex);
   const clearPulse = useResumeAnalyzeStore((s) => s.clearPulse);
@@ -147,10 +134,6 @@ export default function AnalyzePreviewPane({
       summaryOverride={summaryOverride}
       fieldOverrides={fieldOverrides}
       onFieldEdit={setFieldOverride}
-      onSummaryEdit={setSummaryOverride}
-      hiddenPaths={hiddenPaths}
-      onToggleBulletHidden={toggleBulletHidden}
-      onBulletOp={applyBulletOp}
       fieldsEditable={true}
       presentationOnly={presentationOnly}
       onOpenBuilder={onOpenBuilder}
@@ -165,9 +148,6 @@ export default function AnalyzePreviewPane({
       categoryAssignmentOpts={categoryAssignmentOpts}
       onEditInTemplateBuilder={handleEditInTemplateBuilder}
       editInBuilderEnabled={editInBuilderEnabled}
-      onRescore={onRescore}
-      rescoring={rescoring}
-      scoreEstimate={scoreEstimate}
     />
   );
 }

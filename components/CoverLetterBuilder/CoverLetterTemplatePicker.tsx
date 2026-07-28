@@ -1,83 +1,12 @@
 "use client";
-import React, { useRef, useState, useEffect } from "react";
 import { CL_TEMPLATES, CLTemplateId } from "./types";
 import { ArrowLeft, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { CoverLetterPreview } from "./CoverLetterPreview";
-import { CLData } from "./types";
-
-const DUMMY_DATA: CLData = {
-  recipient: {
-    companyName: "Acme Corp",
-    hiringManagerName: "Hiring Manager",
-    roleTitle: "Software Engineer",
-    companyAddress: "123 Tech Lane, SF, CA",
-    jobPostingUrl: "https://example.com/job"
-  },
-  author: {
-    name: "Alex Johnson",
-    email: "alex@example.com",
-    phone: "(555) 123-4567",
-    location: "New York, NY",
-    linkedin: "linkedin.com/in/alex"
-  },
-  content: {
-    openingParagraph: "I am writing to express my strong interest in the Software Engineer position at Acme Corp. With a background in building scalable web applications, I am excited about the opportunity to contribute to your engineering team.",
-    whyCompany: "Acme Corp has always stood out to me because of its commitment to pushing the boundaries of what's possible. I deeply admire your recent launch of the distributed platform.",
-    whyFit: "In my previous role, I led the development of a microservices architecture that improved system performance by 40%. My strong proficiency in React and Node.js makes me an excellent fit.",
-    closingParagraph: "Thank you for considering my application. I look forward to hearing from you soon."
-  },
-  customization: {
-    templateId: "professional",
-    accentColor: "#3b82f6",
-    font: "Inter",
-    fontSize: "medium",
-    dateFormat: "short",
-  }
-};
 
 interface Props {
   onSelect: (id: CLTemplateId) => void;
   selectedId?: string;
   onBack?: () => void;
-}
-
-function ScaledPreview({ tpl }: { tpl: any }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.25);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setScale(entry.contentRect.width / 816);
-      }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div 
-      ref={containerRef}
-      className="relative w-full aspect-[8.5/11] bg-surface2 rounded-md mb-4 overflow-hidden border border-border"
-    >
-      <div className="absolute top-0 left-0 origin-top-left" style={{ 
-        width: 816, 
-        height: 1056, 
-        transform: `scale(${scale})`
-      }}>
-        <CoverLetterPreview 
-          data={{
-            ...DUMMY_DATA, 
-            customization: { ...DUMMY_DATA.customization, templateId: tpl.id }
-          }} 
-          onEditField={() => {}}
-          isReadonly={true}
-        />
-      </div>
-    </div>
-  );
 }
 
 export default function CoverLetterTemplatePicker({ onSelect, selectedId, onBack }: Props) {
@@ -88,7 +17,7 @@ export default function CoverLetterTemplatePicker({ onSelect, selectedId, onBack
       <div className="max-w-4xl mx-auto">
         <button 
           onClick={onBack || (() => router.back())}
-          className="flex items-center gap-2 text-sm text-dim hover:text-text mb-8 transition-colors"
+          className="flex items-center gap-2 text-sm text-muted hover:text-text mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
@@ -96,7 +25,7 @@ export default function CoverLetterTemplatePicker({ onSelect, selectedId, onBack
 
         <div className="mb-10 text-center">
           <h1 className="text-3xl font-bold mb-3 tracking-tight">Choose a template</h1>
-          <p className="text-dim text-sm max-w-lg mx-auto">
+          <p className="text-muted text-sm max-w-lg mx-auto">
             Select a design for your cover letter. It should ideally match your résumé style.
           </p>
         </div>
@@ -118,13 +47,63 @@ export default function CoverLetterTemplatePicker({ onSelect, selectedId, onBack
                   </div>
                 )}
                 
-                <ScaledPreview tpl={tpl} />
+                {/* Mock Thumbnail */}
+                <div className="w-full aspect-[8.5/11] bg-surface2 rounded-md mb-4 flex flex-col overflow-hidden border border-border">
+                  {tpl.id === "professional" && (
+                    <div className="p-4 w-full h-full">
+                      <div className="w-1/2 h-3 bg-muted rounded mb-1 mx-auto" />
+                      <div className="w-1/3 h-2 bg-dim rounded mb-4 mx-auto" />
+                      <div className="w-full h-[1px] bg-accent mb-4" />
+                      <div className="w-1/4 h-2 bg-muted rounded mb-1" />
+                      <div className="w-1/4 h-2 bg-muted rounded mb-4" />
+                      <div className="w-full h-2 bg-dim rounded mb-2" />
+                      <div className="w-5/6 h-2 bg-dim rounded mb-2" />
+                      <div className="w-full h-2 bg-dim rounded mb-2" />
+                    </div>
+                  )}
+                  {tpl.id === "modern" && (
+                    <div className="flex w-full h-full">
+                      <div className="w-3 bg-accent h-full" />
+                      <div className="p-4 flex-1">
+                        <div className="w-1/2 h-3 bg-accent rounded mb-1" />
+                        <div className="w-1/3 h-2 bg-dim rounded mb-4" />
+                        <div className="w-1/4 h-2 bg-muted rounded mb-4" />
+                        <div className="w-full h-2 bg-dim rounded mb-2" />
+                        <div className="w-5/6 h-2 bg-dim rounded mb-2" />
+                        <div className="w-full h-2 bg-dim rounded mb-2" />
+                      </div>
+                    </div>
+                  )}
+                  {tpl.id === "minimal" && (
+                    <div className="p-4 w-full h-full flex flex-col items-end">
+                      <div className="w-1/3 h-3 bg-muted rounded mb-1" />
+                      <div className="w-1/4 h-2 bg-dim rounded mb-6" />
+                      <div className="w-full h-2 bg-dim rounded mb-2" />
+                      <div className="w-5/6 h-2 bg-dim rounded mb-2" />
+                      <div className="w-full h-2 bg-dim rounded mb-2" />
+                    </div>
+                  )}
+                  {tpl.id === "creative" && (
+                    <div className="w-full h-full flex flex-col">
+                      <div className="w-full h-16 bg-gradient-to-br from-accent to-surface3 p-3 text-white">
+                        <div className="w-1/2 h-3 bg-white/80 rounded mb-1" />
+                        <div className="w-1/3 h-2 bg-white/50 rounded" />
+                      </div>
+                      <div className="p-4 flex-1">
+                        <div className="w-1/4 h-2 bg-muted rounded mb-4" />
+                        <div className="w-full h-2 bg-dim rounded mb-2" />
+                        <div className="w-5/6 h-2 bg-dim rounded mb-2" />
+                        <div className="w-full h-2 bg-dim rounded mb-2" />
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <h3 className="font-semibold text-lg">{tpl.label}</h3>
                 <p className="text-sm text-dim mt-1">{tpl.description}</p>
                 
                 <div className="mt-4 pt-4 border-t border-border flex justify-between items-center">
-                  <span className="text-sm font-medium text-dim group-hover:text-accent transition-colors">
+                  <span className="text-sm font-medium text-muted group-hover:text-accent transition-colors">
                     Use this template
                   </span>
                   <span className="text-accent">→</span>

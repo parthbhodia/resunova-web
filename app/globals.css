@@ -463,41 +463,6 @@ select option { background: var(--surface); }
   .rb-page       { padding: 18px 12px 50px !important; }
 }
 
-/* Blog index cards + guide rows. Pseudo-classes can't be expressed as inline
-   style objects, and /blog is a server component, so hover/focus live here
-   rather than costing a "use client" boundary. Hover is carried by border-color
-   (not a background wash): --bg to --surface is only a 1.05:1 delta in light
-   theme, which would make the hover state effectively invisible there. */
-.bx-card {
-  transition: border-color 0.15s ease, transform 0.15s ease;
-}
-.bx-card:hover {
-  border-color: var(--border-h);
-  transform: translateY(-2px);
-}
-.bx-row {
-  transition: background 0.12s ease;
-}
-.bx-row:hover {
-  background: var(--surface);
-}
-.bx-card:hover .bx-title,
-.bx-row:hover .bx-title {
-  color: var(--accent-h);
-}
-.bx-card:focus-visible,
-.bx-row:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-@media (prefers-reduced-motion: reduce) {
-  .bx-card,
-  .bx-card:hover {
-    transition: none;
-    transform: none;
-  }
-}
-
 /* Landing page footer */
 .lp-footer-nav {
   display: flex;

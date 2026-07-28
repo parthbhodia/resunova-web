@@ -1,45 +1,17 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { LogoFull } from "@/components/BrandLogo";
-import { SITE_URL } from "@/lib/brand";
-import { JOBS_GENERATED_AT, PUBLIC_JOBS, jobHref } from "@/lib/jobsSeoData";
+"use client";
 
-export const dynamic = "force-static";
+import React from "react";
 
-export const metadata: Metadata = {
-  title: "Fresh Jobs from Company Career Sites | Resunova",
-  description: "Browse fresh job openings sourced from company career sites. Read each full job description and apply directly, without a subscription or paywall.",
-  alternates: { canonical: `${SITE_URL}/jobs/` },
-  robots: { index: true, follow: true },
-};
-
-export default function JobsIndexPage() {
+export default function JobsPage() {
   return (
-    <main className="mx-auto min-h-screen max-w-5xl px-5 py-8 text-text sm:px-8">
-      <header className="mb-12 flex items-center justify-between border-b border-border pb-5">
-        <Link href="/" aria-label="Resunova home"><LogoFull /></Link>
-        <div className="flex items-center gap-5">
-          <Link href="/jobs/sponsors/" className="text-sm font-semibold text-accent">H-1B sponsor jobs</Link>
-          <Link href="/?view=jobs" className="text-sm font-semibold text-accent">Personalized job matches</Link>
-        </div>
-      </header>
-      <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-accent">Direct from employers</p>
-      <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">Fresh jobs, open to everyone.</h1>
-      <p className="mt-4 max-w-2xl text-base leading-7 text-rn-muted">
-        Read the full posting and apply on the company site. No subscription is required. Sign in only if you want Resunova to rank jobs against your resume.
+    <div style={{ padding: "40px", maxWidth: "800px", margin: "0 auto", textAlign: "center" }}>
+      <h1 style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "16px", color: "var(--text)" }}>Find Jobs</h1>
+      <p style={{ fontSize: "16px", color: "var(--muted)", marginBottom: "32px" }}>
+        This page is under construction. Soon you will be able to view and search for job postings tailored to your profile here.
       </p>
-      {JOBS_GENERATED_AT && <p className="mt-3 text-xs text-dim">Updated {new Date(JOBS_GENERATED_AT).toLocaleDateString("en-US", { dateStyle: "long" })}</p>}
-
-      <section aria-label="Current job openings" className="mt-10 grid gap-3">
-        {PUBLIC_JOBS.map((job) => (
-          <article key={job.id} className="rounded-xl border border-border bg-surface p-5">
-            <Link href={jobHref(job.id)} className="text-lg font-bold text-text no-underline hover:text-accent">{job.title}</Link>
-            <p className="mt-1 text-sm font-semibold text-rn-muted">{job.company}</p>
-            <p className="mt-2 text-sm text-dim">{[job.location, job.workModel].filter(Boolean).join(" · ") || "Location not specified"}</p>
-          </article>
-        ))}
-        {PUBLIC_JOBS.length === 0 && <p className="rounded-xl border border-border bg-surface p-6 text-rn-muted">The latest job index is being refreshed.</p>}
-      </section>
-    </main>
+      <div style={{ background: "var(--surface)", border: "1px dashed var(--border)", borderRadius: "16px", padding: "48px" }}>
+        <p style={{ color: "var(--muted)", fontWeight: "500" }}>Job board integration coming soon...</p>
+      </div>
+    </div>
   );
 }

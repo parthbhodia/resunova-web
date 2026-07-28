@@ -7,8 +7,6 @@ export type ExtractedExperience = {
   dates: string;
   location: string;
   bullets: string[];
-  /** Free-text override typed in the profile editor; takes priority over `bullets` for display. */
-  description?: string;
 };
 
 export type ExtractedEducation = {
@@ -22,8 +20,6 @@ export type ExtractedProject = {
   name: string;
   tech: string;
   bullets: string[];
-  /** Free-text override typed in the profile editor. */
-  description?: string;
 };
 
 export type ExtractedProfileState = {
@@ -34,9 +30,6 @@ export type ExtractedProfileState = {
   role: string;
   headline: string;
   summary: string;
-  linkedin: string;
-  github: string;
-  portfolio: string;
   skills: string[];
   experience: ExtractedExperience[];
   education: ExtractedEducation[];
@@ -51,41 +44,20 @@ export const INITIAL_EXTRACTED_PROFILE: ExtractedProfileState = {
   role: "",
   headline: "",
   summary: "",
-  linkedin: "",
-  github: "",
-  portfolio: "",
   skills: [],
   experience: [],
   education: [],
   projects: [],
 };
 
-/** Shape of `structuredResume` as returned by `/api/upload-resume`
- * (see `_resume_doc_to_dict` in resunova-api's `extract/structured_doc.py`). */
-type RawSkillGroup = { category?: string; items?: string[] };
-type RawStructuredResume = {
-  full_name?: string;
-  name?: string;
-  email?: string;
-  phone?: string;
-  location?: string;
-  role?: string;
-  headline?: string;
-  summary?: string;
-  linkedin?: string;
-  github?: string;
-  skills?: Array<string | RawSkillGroup>;
-  experience?: ExtractedExperience[];
-  education?: ExtractedEducation[];
-  projects?: ExtractedProject[];
-};
-
 /**
- * Uploads a resume and returns the parsed structured data.
+ * Uploads a resume and returns the parsed structured data
  */
 export async function extractResumeData(file: File): Promise<ExtractedProfileState> {
   const formData = new FormData();
   formData.append("file", file);
+  // Optional: add defer_analysis=1 to get faster response if available
+  formData.append("defer_analysis", "1");
 
   const resp = await apiFetch("/api/upload-resume", {
     method: "POST",
@@ -98,13 +70,17 @@ export async function extractResumeData(file: File): Promise<ExtractedProfileSta
   }
 
   const json = await resp.json();
-  const sr = json.structuredResume as RawStructuredResume | undefined;
 
-  if (!sr) {
-    throw new Error(
-      "Unable to perform structured extraction on this resume. Try a different format.",
-    );
+  if (!json.structuredResume) {
+    // Attempt fallback from basic hints if backend failed to produce a structured doc
+    const text = json.extractedText || json.text || "";
+    if (text) {
+        throw new Error("Unable to perform structured extraction on this resume. Try a different format.");
+    }
+    throw new Error("No structured data returned from AI");
   }
+
+  const sr = json.structuredResume;
 
   return {
     name: sr.full_name || sr.name || "",
@@ -114,13 +90,8 @@ export async function extractResumeData(file: File): Promise<ExtractedProfileSta
     role: sr.role || sr.headline || "",
     headline: sr.headline || "",
     summary: sr.summary || "",
-    linkedin: sr.linkedin || "",
-    github: sr.github || "",
-    portfolio: "",
-    skills: Array.isArray(sr.skills)
-      ? sr.skills.flatMap((s) =>
-          typeof s === "string" ? [s] : Array.isArray(s.items) ? s.items : [],
-        )
+    skills: Array.isArray(sr.skills) 
+      ? sr.skills.flatMap((s: any) => typeof s === 'string' ? [s] : (s.items && Array.isArray(s.items) ? s.items : [JSON.stringify(s)])) 
       : [],
     experience: sr.experience || [],
     education: sr.education || [],

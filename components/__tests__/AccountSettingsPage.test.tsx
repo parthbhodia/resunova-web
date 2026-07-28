@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+// @ts-ignore
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AccountSettingsPage from "@/components/AccountSettingsPage";
@@ -14,12 +15,7 @@ vi.mock("@/lib/supabase", () => ({
   getSupabaseClient: () => ({ auth: { getUser: mockGetUser, getSession: mockGetSession } }),
 }));
 vi.mock("@/lib/authSignOut", () => ({ signOutAndReturnHome: mockSignOut }));
-// Pass through the real module (PlanBillingCard renders ui/button, which needs
-// `cn`); only apiUrl is stubbed so fetches hit the relative-path fetch mock.
-vi.mock("@/lib/utils", async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  apiUrl: (p: string) => p,
-}));
+vi.mock("@/lib/utils", () => ({ apiUrl: (p: string) => p }));
 // Render next/link as a plain anchor so the "Profile" cross-link is a real element.
 vi.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a>,

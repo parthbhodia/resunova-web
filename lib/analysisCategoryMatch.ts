@@ -464,10 +464,8 @@ export function countBulletsInCategory(
   bullets: CategoryRewriteBullet[],
   category: string,
   opts?: CategoryAssignmentOptions,
-  resolvedIndices?: ReadonlySet<number>,
 ): number {
   return bullets.filter((b, i) =>
-    !resolvedIndices?.has(i) &&
     bulletBelongsToCategory(b, category, bullets, i, opts),
   ).length;
 }

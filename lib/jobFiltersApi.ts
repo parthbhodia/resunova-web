@@ -9,10 +9,7 @@ import { apiFetch } from "@/lib/apiClient";
 
 /** The serializable slice of JobsFeed's filter state that a saved filter holds. */
 export type FilterSnapshot = {
-  countryScope?: string;
-  companyFilter?: string;
-  familyOverride?: string | null;
-  locationText?: string;
+  locationStates: string[];
   workModels: string[];
   seniorities: string[];
   empType: string;
@@ -22,8 +19,7 @@ export type FilterSnapshot = {
   ageFilter: string;
   search: string;
   sortBy: string;
-  clearance?: string;     // "any" | "required" | "exclude"
-  citizenship?: string;   // "any" | "required" | "exclude"
+  rolesOnly: boolean;
 };
 
 export type SavedFilter = {

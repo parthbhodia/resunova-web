@@ -26,11 +26,10 @@ export function CoverLetterEditOverlay({ field, data, rect, onClose, onUpdate }:
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
-      // Initial height adjustment
       inputRef.current.style.height = "auto";
       inputRef.current.style.height = inputRef.current.scrollHeight + "px";
     }
-  }, []);
+  }, [val]);
 
   if (!rect) return null;
 
@@ -43,20 +42,15 @@ export function CoverLetterEditOverlay({ field, data, rect, onClose, onUpdate }:
   };
 
   // Clamp position so overlay never goes off-screen
-  // Cap the overlay width to prevent it from spanning the whole screen
-  const OVERLAY_W = Math.min(Math.max(rect.width + 16, 260), 500);
+  const OVERLAY_W = Math.max(rect.width + 16, 260);
   const OVERLAY_H = 160; // approximate max height
-  
+  const MARGIN = 12;
   const rawTop = rect.top - 8;
   const rawLeft = rect.left - 8;
-  const clampedTop = Math.min(rawTop, window.innerHeight - OVERLAY_H - 24);
-  
-  // Because the app shell has a sidebar, 'position: fixed' might be relative to a transformed parent.
-  // To absolutely ensure it doesn't go off the right side of the screen, we forcefully cap its max left position.
-  const clampedLeft = Math.min(rawLeft, 250); 
-  
-  const finalTop = Math.max(12, clampedTop);
-  const finalLeft = Math.max(12, clampedLeft);
+  const clampedTop = Math.min(rawTop, window.innerHeight - OVERLAY_H - MARGIN);
+  const clampedLeft = Math.min(rawLeft, window.innerWidth - OVERLAY_W - MARGIN);
+  const finalTop = Math.max(MARGIN, clampedTop);
+  const finalLeft = Math.max(MARGIN, clampedLeft);
 
   return (
     <>
@@ -87,11 +81,6 @@ export function CoverLetterEditOverlay({ field, data, rect, onClose, onUpdate }:
             ref={inputRef}
             value={val}
             onChange={(e) => setVal(e.target.value)}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = "auto";
-              target.style.height = target.scrollHeight + "px";
-            }}
             onKeyDown={(e) => {
               if (e.key === "Escape") handleBlur();
             }}
@@ -104,11 +93,9 @@ export function CoverLetterEditOverlay({ field, data, rect, onClose, onUpdate }:
               padding: "8px",
               fontSize: "13px",
               minHeight: "60px",
-              maxHeight: "400px",
               outline: "none",
               resize: "none",
-              fontFamily: "inherit",
-              boxSizing: "border-box"
+              fontFamily: "inherit"
             }}
           />
         ) : (

@@ -55,8 +55,8 @@ function AITextarea({ field, context, onEnhanced, value, style, signedIn, signin
 
   const enhance = useCallback(async () => {
     // Account-only feature: don't fire a doomed request for signed-out users —
-    // surface the sign-in prompt instead of a cryptic 401. (Except in development mode)
-    if (signedIn === false && process.env.NODE_ENV !== "development") { setError(null); setShowSignIn(true); return; }
+    // surface the sign-in prompt instead of a cryptic 401.
+    if (signedIn === false) { setError(null); setShowSignIn(true); return; }
     setLoading(true); setError(null); setShowSignIn(false);
     try {
       const db = getSupabaseClient();
@@ -102,10 +102,10 @@ function AITextarea({ field, context, onEnhanced, value, style, signedIn, signin
             type="button"
             onClick={enhance}
             disabled={loading}
-            title={signedIn === false && process.env.NODE_ENV !== "development" ? "Sign in to use AI Enhance" : undefined}
+            title={signedIn === false ? "Sign in to use AI Enhance" : undefined}
             style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, color: loading ? "var(--muted)" : "#fff", background: loading ? "var(--surface2)" : "var(--accent)", border: "none", borderRadius: 5, padding: "4px 9px", cursor: loading ? "not-allowed" : "pointer", }}
           >
-            {loading ? "Enhancing…" : <>✦ AI Enhance{signedIn === false && process.env.NODE_ENV !== "development" && <span aria-hidden="true" style={{ opacity: 0.85 }}>🔒</span>}</>}
+            {loading ? "Enhancing…" : <>✦ AI Enhance{signedIn === false && <span aria-hidden="true" style={{ opacity: 0.85 }}>🔒</span>}</>}
           </button>
         </div>
       )}
