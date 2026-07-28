@@ -7,6 +7,7 @@ export type BlogPostMeta = {
   readMinutes: number;
   tag: string;
   publishedAt?: string;
+  stat?: string;
 };
 
 export const BLOG_POSTS: BlogPostMeta[] = [
@@ -41,4 +42,36 @@ export const BLOG_POSTS: BlogPostMeta[] = [
 
 export function blogPostHref(slug: string): string {
   return `/blog/${slug}`;
+}
+
+export const BLOG_LAST_MODIFIED = "2026-06-10";
+
+
+export function createBlogPostMetadata(slug: string) {
+  const post = BLOG_POSTS.find((p) => p.slug === slug);
+  return {
+    title: post?.title,
+    description: post?.description,
+  };
+}
+
+export function formatPublishedAt(dateStr?: string) {
+  if (!dateStr) return "";
+  return new Date(dateStr).toLocaleDateString();
+}
+
+export function hasFinding(post: BlogPostMeta) {
+  return !!post.publishedAt;
+}
+
+export function createBlogPostJsonLd(slug: string) {
+  return {};
+}
+
+export function blogPostBySlug(slug: string) {
+  return BLOG_POSTS.find((p) => p.slug === slug);
+}
+
+export function blogPostCanonical(slug: string) {
+  return `https://resunova.com/blog/${slug}`;
 }

@@ -10,9 +10,23 @@ import { RESUME_CATEGORIES, TOTAL_RESUME_EXAMPLES, TOTAL_RESUME_CATEGORIES } fro
 import { ROLE_RESUME_DATA, roleResumeHref } from "@/lib/roleResumeData";
 import { stashTemplateBuilderExactPrefill } from "@/lib/templateBuilderPrefill";
 import ResumeThumbnail from "@/components/seo/ResumeThumbnail";
+import ResumePreview from "@/components/TemplateBuilder/ResumePreview";
 
 const ALL = "All";
 const PAGE_SIZE = 12;
+
+const KEPT_ALL_TITLES = [
+  "Clean Balanced Resume Template",
+  "Sleek Professional Resume",
+  "Modern Color Accent Resume",
+  "Professional and Clear Resume",
+  "Project Coordinator",
+  "Modern Bookmark Resume",
+  "Inline Minimalist Resume",
+  "Green Line Split Resume",
+  "Bold Red Line Resume",
+  "Purple Lavender Sidebar Resume",
+];
 
 // Real, recognizable roles that have a sourced role page — not a random pick.
 const QUICK_ROLES = ["software-engineer", "product-manager", "data-analyst", "sales-representative"];
@@ -39,6 +53,7 @@ export default function ResumeExamplesMarketplace() {
   const [level, setLevel] = useState(ALL);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [prefillError, setPrefillError] = useState("");
+  const [previewExample, setPreviewExample] = useState<ResumeCatalogExample | null>(null);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
   const levels = useMemo(
@@ -51,11 +66,15 @@ export default function ResumeExamplesMarketplace() {
       PUBLIC_RESUME_EXAMPLES.filter((e) => {
         const matchesQuery =
           !deferredQuery ||
-          [e.title, e.category, e.desc, ...e.tags, ...e.data.skills.featuredSkills.map(({ skill }) => skill)]
+          [e.title, e.category, e.desc, ...(e.tags || []), ...(e.data.skills?.featuredSkills || []).map(({ skill }) => skill)]
             .join(" ")
             .toLowerCase()
             .includes(deferredQuery);
-        return matchesQuery && (category === ALL || e.category === category) && (level === ALL || e.level === level);
+        if (category === ALL) {
+          return matchesQuery && (level === ALL || e.level === level) && KEPT_ALL_TITLES.includes(e.title);
+        } else {
+          return matchesQuery && e.category === category && (level === ALL || e.level === level);
+        }
       }),
     [deferredQuery, category, level],
   );
@@ -245,17 +264,17 @@ export default function ResumeExamplesMarketplace() {
           zIndex: 20,
           display: "flex",
           alignItems: "center",
-          gap: 8,
+          gap: 12,
           overflowX: "auto",
-          padding: "12px 0",
-          margin: "0 0 24px",
+          padding: "16px 0",
+          margin: "0 0 32px",
           background: "var(--bg)",
           borderTop: "1px solid var(--border)",
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--dim)", flexShrink: 0, marginRight: 4 }}>
-          Level:
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", flexShrink: 0, marginRight: 8 }}>
+          Filter by Level:
         </span>
         {levels.map((l) => (
           <button
@@ -289,33 +308,120 @@ export default function ResumeExamplesMarketplace() {
       </div>
 
       {/* Example grid */}
-      <section id="example-grid" style={{ marginBottom: 56 }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-          <h2 style={sectionTitle}>{category === ALL ? "All resume examples" : `${category} resumes`}</h2>
-          <span aria-live="polite" style={{ fontSize: 14, color: "var(--dim)" }}>{filtered.length} {filtered.length === 1 ? "example" : "examples"}</span>
+      <section id="example-grid" style={{ marginBottom: 64 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+          <h2 style={{ fontSize: 32, fontWeight: 800, letterSpacing: -0.8, color: "var(--text)", margin: 0 }}>
+            {category === ALL ? "All resume templates" : `${category} templates`}
+          </h2>
+          <span aria-live="polite" style={{ fontSize: 15, fontWeight: 600, color: "var(--muted)" }}>
+            Showing {filtered.length} {filtered.length === 1 ? "template" : "templates"}
+          </span>
         </div>
-        {prefillError && <p role="alert" style={{ color: "var(--red-ink, #dc2626)", fontSize: 13, margin: "0 0 14px" }}>{prefillError}</p>}
-        <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+        {prefillError && <p role="alert" style={{ color: "var(--red-ink, #dc2626)", fontSize: 14, fontWeight: 500, margin: "0 0 16px" }}>{prefillError}</p>}
+        <div style={{ display: "grid", gap: "36px 28px", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))" }}>
           {visible.map((example) => (
-            <div key={`${example.category}-${example.title}`} style={{ border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", background: "var(--surface)" }}>
-              <div style={{ padding: 14, background: "var(--bg)" }}>
-                <ResumeThumbnail data={example.data} />
+            <div
+              key={`${example.category}-${example.title}`}
+              style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: "265px",
+                height: "342px",
+                margin: "0 auto",
+                borderRadius: 16,
+                overflow: "hidden",
+                background: "#ffffff",
+                border: "1px solid var(--border, #e2e8f0)",
+                boxShadow: "0 4px 16px rgba(0, 0, 0, 0.07)",
+                transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+                cursor: "pointer",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "flex-start",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-6px)";
+                e.currentTarget.style.boxShadow = "0 16px 36px -4px rgba(0, 0, 0, 0.14)";
+                const overlay = e.currentTarget.querySelector(".hover-overlay") as HTMLElement;
+                if (overlay) overlay.style.opacity = "1";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 16px rgba(0, 0, 0, 0.07)";
+                const overlay = e.currentTarget.querySelector(".hover-overlay") as HTMLElement;
+                if (overlay) overlay.style.opacity = "0";
+              }}
+            >
+              <div
+                style={{
+                  pointerEvents: "none",
+                  zoom: 0.325,
+                  WebkitFontSmoothing: "antialiased",
+                  width: "8.5in",
+                  height: "11in",
+                  transformOrigin: "top center",
+                }}
+              >
+                <ResumePreview data={example.data} />
               </div>
-              <div style={{ padding: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>{example.category}</span>
-                  <span style={{ fontSize: 12, color: "var(--dim)" }}>{example.level}</span>
-                </div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", margin: "0 0 6px" }}>{example.title}</h3>
-                <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 12px" }}>{example.desc}</p>
-                <p style={{ fontSize: 12, color: "var(--dim)", margin: "0 0 14px" }}>{example.tags.join(" · ")}</p>
+
+              {/* Hover Overlay */}
+              <div
+                className="hover-overlay"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: 16,
+                  backgroundColor: "rgba(15, 23, 42, 0.55)",
+                  backdropFilter: "blur(6px)",
+                  WebkitBackdropFilter: "blur(6px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 12,
+                  opacity: 0,
+                  transition: "opacity 0.2s ease",
+                  zIndex: 10,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewExample(example)}
+                  style={{
+                    background: "#ffffff",
+                    color: "#0f172a",
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "10px 22px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                    width: "80%",
+                    maxWidth: 180,
+                  }}
+                >
+                  View Template
+                </button>
                 <button
                   type="button"
                   onClick={() => handleUseExample(example)}
-                  aria-label={`Use ${example.title} example`}
-                  style={{ width: "100%", padding: "10px 0", borderRadius: 10, border: "none", background: "var(--accent)", color: "var(--accent-foreground)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                  style={{
+                    background: "#f5b900",
+                    color: "#000000",
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "10px 22px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(245, 185, 0, 0.35)",
+                    width: "80%",
+                    maxWidth: 180,
+                  }}
                 >
-                  Use this template
+                  Use this Template
                 </button>
               </div>
             </div>
@@ -338,6 +444,93 @@ export default function ResumeExamplesMarketplace() {
           </div>
         )}
       </section>
+
+      {/* Preview Modal */}
+      {previewExample && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 100,
+          backgroundColor: "rgba(0,0,0,0.6)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 40
+        }} onClick={() => setPreviewExample(null)}>
+          <div style={{
+            background: "#fff",
+            borderRadius: 16,
+            position: "relative",
+            maxHeight: "90vh",
+            maxWidth: "90vw",
+            width: 1100,
+            display: "flex",
+            flexDirection: "row",
+            overflow: "hidden",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.2)"
+          }} onClick={e => e.stopPropagation()}>
+            <button 
+              style={{ position: "absolute", top: 16, right: 20, background: "transparent", border: "none", cursor: "pointer", fontSize: 24, color: "#999", zIndex: 10 }}
+              onClick={() => setPreviewExample(null)}
+            >✕</button>
+            
+            {/* Left side: Resume Preview */}
+            <div style={{ 
+              flex: "1 1 60%",
+              minWidth: 0,
+              background: "#e2e8f0", 
+              overflow: "auto", 
+              display: "flex", 
+              justifyContent: "center", 
+              padding: "40px 20px" 
+            }}>
+              <div style={{ zoom: 0.7, WebkitFontSmoothing: "antialiased", background: "#fff", boxShadow: "0 0 20px rgba(0,0,0,0.1)", height: "fit-content" }}>
+                <ResumePreview data={previewExample.data} />
+              </div>
+            </div>
+            
+            {/* Right side: Info */}
+            <div style={{ 
+              flex: "0 0 40%",
+              minWidth: 0,
+              padding: "40px 32px", 
+              display: "flex", 
+              flexDirection: "column", 
+              overflowY: "auto" 
+            }}>
+              <div style={{ display: "inline-block", background: "var(--indigo-50, #eef2ff)", color: "var(--indigo-700, #4338ca)", padding: "4px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, marginBottom: 16, width: "fit-content" }}>
+                {previewExample.category} • {previewExample.level}
+              </div>
+              
+              <h3 style={{ margin: "0 0 16px 0", fontSize: 32, fontWeight: 800, color: "var(--text)", lineHeight: 1.2 }}>{previewExample.title}</h3>
+              
+              <p style={{ fontSize: 16, color: "var(--muted)", lineHeight: 1.6, marginBottom: 32 }}>
+                {previewExample.desc}
+              </p>
+              
+              <div style={{ marginBottom: "auto" }}>
+                <h4 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: 1, color: "var(--muted)", marginBottom: 12 }}>Tags</h4>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {previewExample.tags.map(t => (
+                    <span key={t} style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "6px 12px", borderRadius: 6, fontSize: 13, color: "var(--dim)", fontWeight: 500 }}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              
+              <div style={{ marginTop: 40, borderTop: "1px solid var(--border)", paddingTop: 32 }}>
+                <button 
+                  onClick={() => handleUseExample(previewExample)}
+                  style={{ width: "100%", background: "#f5b900", color: "#000", padding: "16px 24px", borderRadius: 12, fontWeight: 700, fontSize: 18, border: "none", cursor: "pointer", boxShadow: "0 4px 12px rgba(245, 185, 0, 0.3)", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}
+                >
+                  <Zap size={20} fill="currentColor" /> Use this Template
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Featured résumé */}
       <section

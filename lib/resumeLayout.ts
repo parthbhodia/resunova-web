@@ -12,6 +12,8 @@ export interface ResumeStylePresetOption {
   id: TBStylePreset;
   label: string;
   description: string;
+  category?: string;
+  enforcedLayout?: string;
   font: TBFont;
   accentColor: string;
   baseFont: number;
@@ -160,6 +162,15 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
   { id: "pikachu", label: "Pikachu", description: "Pikachu template", font: "Helvetica", accentColor: "#facc15", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
   { id: "rhyhorn", label: "Rhyhorn", description: "Rhyhorn template", font: "Helvetica", accentColor: "#64748b", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
   { id: "scizor", label: "Scizor", description: "Scizor template", font: "Helvetica", accentColor: "#ef4444", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 16, lineHeight: 1.15, summaryLineHeight: 1.2, skillsLineHeight: 1.15, sectionGap: 11, entryGap: 8, bulletGap: 2, letterSpacing: 1 },
+  { id: "teal-clean", label: "Clean Balanced", description: "Teal HQ Clean Balanced template", font: "Helvetica", accentColor: "#000000", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 12, nameFont: 32, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 12, bulletGap: 4, letterSpacing: 1 },
+  { id: "teal-sleek", label: "Sleek Professional", description: "Teal HQ Sleek Professional template", font: "Helvetica", accentColor: "#7c3aed", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 12, nameFont: 32, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 12, bulletGap: 4, letterSpacing: 1 },
+  { id: "teal-modern", label: "Modern Color Accent", description: "Teal HQ Modern Color Accent template", font: "Helvetica", accentColor: "#059669", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 12, nameFont: 32, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 12, bulletGap: 4, letterSpacing: 1 },
+  { id: "teal-clear", label: "Professional and Clear", description: "Teal HQ Professional and Clear template", font: "Helvetica", accentColor: "#2563eb", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 12, nameFont: 32, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 12, bulletGap: 4, letterSpacing: 1 },
+  { id: "teal-line-split", label: "Split Sidebar", description: "Teal HQ Split Sidebar template", font: "Helvetica", accentColor: "#297860", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 28, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 16, bulletGap: 4, letterSpacing: 0 },
+  { id: "teal-line-classic", label: "Classic Left Header", description: "Teal HQ Classic Left Header template", font: "Helvetica", accentColor: "#297860", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 28, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 16, bulletGap: 4, letterSpacing: 0 },
+  { id: "teal-line-bold", label: "Bold Classic Header", description: "Teal HQ Bold Classic Header", font: "Helvetica", accentColor: "#4a3c75", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 28, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 16, bulletGap: 4, letterSpacing: 0 },
+  { id: "teal-bookmark", label: "Modern Bookmark", description: "Teal HQ Modern Bookmark template", font: "Helvetica", accentColor: "#eab308", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 28, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 24, entryGap: 16, bulletGap: 4, letterSpacing: 0 },
+  { id: "teal-inline", label: "Inline Minimalist", description: "Teal HQ Inline Minimalist template", font: "Helvetica", accentColor: "#2563eb", baseFont: 11, bodyFont: 10, metaFont: 10, sectionFont: 11, nameFont: 28, lineHeight: 1.4, summaryLineHeight: 1.5, skillsLineHeight: 1.5, sectionGap: 16, entryGap: 12, bulletGap: 4, letterSpacing: 0 },
 ];
 
 export const RESUME_PAGE_WIDTH_OPTIONS: ResumePageWidthOption[] = [
@@ -339,14 +350,15 @@ export function resumePageRootStyle(
 }
 
 export function resumeSectionTitleStyle(ctx: ResumeLayoutContext): CSSProperties {
+  const isTeal = ctx.preset.id.startsWith("teal-");
   return {
     fontSize: ctx.preset.sectionFont,
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: ctx.preset.letterSpacing,
     color: ctx.accent,
-    borderBottom: `0.5px solid ${ctx.accent}`,
-    paddingBottom: RESUME_LAYOUT_SHELL.sectionTitlePaddingBottom,
+    borderBottom: isTeal ? "none" : `0.5px solid ${ctx.accent}`,
+    paddingBottom: isTeal ? 0 : RESUME_LAYOUT_SHELL.sectionTitlePaddingBottom,
     marginBottom: RESUME_LAYOUT_SHELL.sectionTitleMarginBottom,
     marginTop: ctx.preset.sectionGap,
   };

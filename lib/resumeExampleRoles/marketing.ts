@@ -250,6 +250,334 @@ export const marketingData: RolePageData = {
         }
       },
       critique: "A vibrant Social Media resume that connects follower growth (15k to 180k) and organic views (15M+) directly to business results (selling out inventory units in 48 hours)."
+    },
+    {
+      id: "mkt-tina-miller-1",
+      persona: {
+        name: "Tina Miller",
+        location: "Florida",
+        email: "tinamiller.nyc20@gmail.com",
+      },
+      headline: "Senior Marketing Manager",
+      resumeData: {
+        customization: { font: "Helvetica", accentColor: "#1e3a8a", stylePreset: "azurill", pageWidth: "standard", fontSize: "medium", layout: "single" },
+        sectionOrder: [...DEFAULT_CORE_SECTION_ORDER],
+        hiddenSections: [],
+        customSections: [],
+        profile: {
+          name: "Tina Miller", 
+          email: "tinamiller.nyc20@gmail.com", 
+          phone: "123-5456-7890", 
+          location: "Florida", 
+          website: "", 
+          linkedin: "linkedin.com/in/tina-miller-nyc", 
+          github: "", 
+          summary: "7+ years of social marketing experience, driving customer growth and engagement in digital, B2B, and content marketing campaigns. Increased brand awareness by 25%, website traffic by 40%, customer acquisition by 25%, customer lifetime value by 40%, and sales revenue by $2M in 6 months. Led campaign strategies, resulting in a 45% increase in lead conversion."
+        },
+        workExperiences: [
+          { 
+            id: "mkt-tm-we-1", 
+            company: "WeWork", 
+            jobTitle: "Senior Marketing Manager", 
+            location: "New York, United States", 
+            startDate: "07/2020", 
+            endDate: "Present", 
+            current: true, 
+            bullets: "Increased lead generation by 30% in 3 months through the development and execution of cross-channel campaigns targeting key customer segments.\nIncreased the company's online presence by 25%, driving a 40% increase in website traffic and generating $2M in revenue through successful digital campaigns.\nLed the analysis of over 75 marketing campaigns, uncovering actionable insights that led to a 25% increase in customer acquisition and a 40% growth in customer lifetime value year-over-year." 
+          },
+          { 
+            id: "mkt-tm-we-2", 
+            company: "NVIDIA", 
+            jobTitle: "Marketing Manager", 
+            location: "United States", 
+            startDate: "03/2020", 
+            endDate: "06/2022", 
+            current: false, 
+            bullets: "Managed a comprehensive cross-functional marketing campaign for a new product launch, overseeing a team of 10 professionals, coordinating promotional activities, and executing digital marketing strategies across multiple channels. The campaign resulted in a 30% increase in brand awareness, generating $500,000 in sales revenue within Q1.\nImproved long and short form YouTube strategy resulting in a 15% increase in channel views month over month through a better SEO-targeting media strategy." 
+          },
+          { 
+            id: "mkt-tm-we-3", 
+            company: "White Lotus Resort", 
+            jobTitle: "Marketing Manager", 
+            location: "United States", 
+            startDate: "01/2017", 
+            endDate: "01/2020", 
+            current: false, 
+            bullets: "Boosted digital advertising revenue by 6% within 9 months by leveraging strategic B2B and B2C relationships, enhancing client engagement.\nDeveloped a comprehensive B2B/B2C digital advertising strategy, driving a 300% revenue increase within 6 months by optimizing targeted campaigns.\nCreated a comprehensive digital marketing strategy that significantly improved online visibility, resulting in a measurable increase in customer engagement." 
+          }
+        ],
+        educations: [
+          { 
+            id: "mkt-tm-ed-1", 
+            school: "Georgia Institute of Technology Scheller College of Business", 
+            degree: "Master of Arts in Marketing Management", 
+            location: "Atlanta, Georgia", 
+            startDate: "", 
+            endDate: "", 
+            gpa: "", 
+            coursework: "" 
+          }
+        ],
+        projects: [],
+        skills: {
+          featuredSkills: [
+            { skill: "Cross-Channel Campaigns", rating: 5 },
+            { skill: "Customer Acquisition", rating: 5 },
+            { skill: "Digital Advertising", rating: 5 },
+            { skill: "Data Analysis", rating: 4 },
+            { skill: "SEO Strategy", rating: 4 },
+            { skill: "B2B Marketing", rating: 4 }
+          ],
+          descriptions: "Skills: Advertising, Analysis, B2B Marketing, B2B Relations Management, Content Marketing, Cross-Channel Campaigns, Customer Acquisition, Customer Lifetime Value, Data Analysis, Digital Advertising, Digital Marketing, Email Marketing, Events Management, Google Analytics, Lead Conversion, Lead Generation, Management, Marketing Campaign Management, Marketing Technology, Martech Tools, Media Campaigns, Media Strategy, New Business Development, Paid Digital Channels, Partner Management, PPC, Problem Solving, Product Marketing, Project Management, Revenue Management, Sales Revenue Growth, SEO Strategy, Social Marketing, Web Traffic Growth"
+        }
+      },
+      critique: "A clean, two-column layout highlighting extensive marketing skills and quantifiable revenue achievements."
+    },
+    {
+      id: "mkt-tina-miller-2",
+      persona: {
+        name: "Tina Miller",
+        location: "Florida",
+        email: "tinamiller.nyc20@gmail.com",
+      },
+      headline: "Senior Marketing Manager",
+      resumeData: {
+        customization: { font: "Helvetica", accentColor: "#0f5561", stylePreset: "modern", pageWidth: "standard", fontSize: "medium", layout: "single" },
+        sectionOrder: [...DEFAULT_CORE_SECTION_ORDER],
+        hiddenSections: [],
+        customSections: [],
+        profile: {
+          name: "Tina Miller", 
+          email: "tinamiller.nyc20@gmail.com", 
+          phone: "123-5456-7890", 
+          location: "Florida", 
+          website: "", 
+          linkedin: "linkedin.com/in/tina-miller-nyc", 
+          github: "", 
+          summary: "7+ years of social marketing experience, driving customer growth and engagement in digital, B2B, and content marketing campaigns. Increased brand awareness by 25%, website traffic by 40%, customer acquisition by 25%, customer lifetime value by 40%, and sales revenue by $2M in 6 months. Led campaign strategies, resulting in a 45% increase in lead conversion."
+        },
+        workExperiences: [
+          { 
+            id: "mkt-tm-we-1b", 
+            company: "WeWork", 
+            jobTitle: "Senior Marketing Manager", 
+            location: "New York, United States", 
+            startDate: "07/2020", 
+            endDate: "Present", 
+            current: true, 
+            bullets: "Increased lead generation by 30% in 3 months through the development and execution of cross-channel campaigns targeting key customer segments.\nIncreased the company's online presence by 25%, driving a 40% increase in website traffic and generating $2M in revenue through successful digital campaigns.\nLed the analysis of over 75 marketing campaigns, uncovering actionable insights that led to a 25% increase in customer acquisition and a 40% growth in customer lifetime value year-over-year." 
+          },
+          { 
+            id: "mkt-tm-we-2b", 
+            company: "NVIDIA", 
+            jobTitle: "Marketing Manager", 
+            location: "United States", 
+            startDate: "03/2020", 
+            endDate: "06/2022", 
+            current: false, 
+            bullets: "Managed a comprehensive cross-functional marketing campaign for a new product launch, overseeing a team of 10 professionals, coordinating promotional activities, and executing digital marketing strategies across multiple channels. The campaign resulted in a 30% increase in brand awareness, generating $500,000 in sales revenue within Q1.\nImproved long and short form YouTube strategy resulting in a 15% increase in channel views month over month through a better SEO-targeting media strategy." 
+          },
+          { 
+            id: "mkt-tm-we-3b", 
+            company: "White Lotus Resort", 
+            jobTitle: "Marketing Manager", 
+            location: "United States", 
+            startDate: "01/2017", 
+            endDate: "01/2020", 
+            current: false, 
+            bullets: "Boosted digital advertising revenue by 6% within 9 months by leveraging strategic B2B and B2C relationships, enhancing client engagement.\nDeveloped a comprehensive B2B/B2C digital advertising strategy, driving a 300% revenue increase within 6 months by optimizing targeted campaigns.\nCreated a comprehensive digital marketing strategy that significantly improved online visibility, resulting in a measurable increase in customer engagement." 
+          }
+        ],
+        educations: [
+          { 
+            id: "mkt-tm-ed-1b", 
+            school: "Georgia Institute of Technology Scheller College of Business", 
+            degree: "Master of Arts in Marketing Management", 
+            location: "Atlanta, Georgia", 
+            startDate: "", 
+            endDate: "", 
+            gpa: "", 
+            coursework: "" 
+          }
+        ],
+        projects: [],
+        skills: {
+          featuredSkills: [
+            { skill: "Cross-Channel Campaigns", rating: 5 },
+            { skill: "Customer Acquisition", rating: 5 },
+            { skill: "Digital Advertising", rating: 5 },
+            { skill: "Data Analysis", rating: 4 },
+            { skill: "SEO Strategy", rating: 4 },
+            { skill: "B2B Marketing", rating: 4 }
+          ],
+          descriptions: "Skills: Advertising, Analysis, B2B Marketing, B2B Relations Management, Content Marketing, Cross-Channel Campaigns, Customer Acquisition, Customer Lifetime Value, Data Analysis, Digital Advertising, Digital Marketing, Email Marketing, Events Management, Google Analytics, Lead Conversion, Lead Generation, Management, Marketing Campaign Management, Marketing Technology, Martech Tools, Media Campaigns, Media Strategy, New Business Development, Paid Digital Channels, Partner Management, PPC, Problem Solving, Product Marketing, Project Management, Revenue Management, Sales Revenue Growth, SEO Strategy, Social Marketing, Web Traffic Growth"
+        }
+      },
+      critique: "A modern, centered layout that emphasizes the candidate's name and contact information."
+    },
+    {
+      id: "mkt-tina-miller-3",
+      persona: {
+        name: "Tina Miller",
+        location: "Florida",
+        email: "tinamiller.nyc20@gmail.com",
+      },
+      headline: "Senior Marketing Manager",
+      resumeData: {
+        customization: { font: "Helvetica", accentColor: "#8b5cf6", stylePreset: "ditgar", pageWidth: "standard", fontSize: "medium", layout: "single" },
+        sectionOrder: [...DEFAULT_CORE_SECTION_ORDER],
+        hiddenSections: [],
+        customSections: [],
+        profile: {
+          name: "Tina Miller", 
+          email: "tinamiller.nyc20@gmail.com", 
+          phone: "123-5456-7890", 
+          location: "Florida", 
+          website: "", 
+          linkedin: "linkedin.com/in/tina-miller-nyc", 
+          github: "", 
+          summary: "7+ years of social marketing experience, driving customer growth and engagement in digital, B2B, and content marketing campaigns. Increased brand awareness by 25%, website traffic by 40%, customer acquisition by 25%, customer lifetime value by 40%, and sales revenue by $2M in 6 months. Led campaign strategies, resulting in a 45% increase in lead conversion."
+        },
+        workExperiences: [
+          { 
+            id: "mkt-tm-we-1c", 
+            company: "WeWork", 
+            jobTitle: "Senior Marketing Manager", 
+            location: "New York, United States", 
+            startDate: "07/2020", 
+            endDate: "Present", 
+            current: true, 
+            bullets: "Increased lead generation by 30% in 3 months through the development and execution of cross-channel campaigns targeting key customer segments.\nIncreased the company's online presence by 25%, driving a 40% increase in website traffic and generating $2M in revenue through successful digital campaigns.\nLed the analysis of over 75 marketing campaigns, uncovering actionable insights that led to a 25% increase in customer acquisition and a 40% growth in customer lifetime value year-over-year." 
+          },
+          { 
+            id: "mkt-tm-we-2c", 
+            company: "NVIDIA", 
+            jobTitle: "Marketing Manager", 
+            location: "United States", 
+            startDate: "03/2020", 
+            endDate: "06/2022", 
+            current: false, 
+            bullets: "Managed a comprehensive cross-functional marketing campaign for a new product launch, overseeing a team of 10 professionals, coordinating promotional activities, and executing digital marketing strategies across multiple channels. The campaign resulted in a 30% increase in brand awareness, generating $500,000 in sales revenue within Q1.\nImproved long and short form YouTube strategy resulting in a 15% increase in channel views month over month through a better SEO-targeting media strategy." 
+          },
+          { 
+            id: "mkt-tm-we-3c", 
+            company: "White Lotus Resort", 
+            jobTitle: "Marketing Manager", 
+            location: "United States", 
+            startDate: "01/2017", 
+            endDate: "01/2020", 
+            current: false, 
+            bullets: "Boosted digital advertising revenue by 6% within 9 months by leveraging strategic B2B and B2C relationships, enhancing client engagement.\nDeveloped a comprehensive B2B/B2C digital advertising strategy, driving a 300% revenue increase within 6 months by optimizing targeted campaigns.\nCreated a comprehensive digital marketing strategy that significantly improved online visibility, resulting in a measurable increase in customer engagement." 
+          }
+        ],
+        educations: [
+          { 
+            id: "mkt-tm-ed-1c", 
+            school: "Georgia Institute of Technology Scheller College of Business", 
+            degree: "Master of Arts in Marketing Management", 
+            location: "Atlanta, Georgia", 
+            startDate: "", 
+            endDate: "", 
+            gpa: "", 
+            coursework: "" 
+          }
+        ],
+        projects: [],
+        skills: {
+          featuredSkills: [
+            { skill: "Cross-Channel Campaigns", rating: 5 },
+            { skill: "Customer Acquisition", rating: 5 },
+            { skill: "Digital Advertising", rating: 5 },
+            { skill: "Data Analysis", rating: 4 },
+            { skill: "SEO Strategy", rating: 4 },
+            { skill: "B2B Marketing", rating: 4 }
+          ],
+          descriptions: "Skills: Advertising, Analysis, B2B Marketing, B2B Relations Management, Content Marketing, Cross-Channel Campaigns, Customer Acquisition, Customer Lifetime Value, Data Analysis, Digital Advertising, Digital Marketing, Email Marketing, Events Management, Google Analytics, Lead Conversion, Lead Generation, Management, Marketing Campaign Management, Marketing Technology, Martech Tools, Media Campaigns, Media Strategy, New Business Development, Paid Digital Channels, Partner Management, PPC, Problem Solving, Product Marketing, Project Management, Revenue Management, Sales Revenue Growth, SEO Strategy, Social Marketing, Web Traffic Growth"
+        }
+      },
+      critique: "A bold design featuring striking purple accents and solid section dividers."
+    },
+    {
+      id: "mkt-tina-miller-4",
+      persona: {
+        name: "Tina Miller",
+        location: "Florida",
+        email: "tinamiller.nyc20@gmail.com",
+      },
+      headline: "Senior Marketing Manager",
+      resumeData: {
+        customization: { font: "Courier", accentColor: "#1e3a5f", stylePreset: "executive", pageWidth: "standard", fontSize: "medium", layout: "single" },
+        sectionOrder: [...DEFAULT_CORE_SECTION_ORDER],
+        hiddenSections: [],
+        customSections: [],
+        profile: {
+          name: "Tina Miller", 
+          email: "tinamiller.nyc20@gmail.com", 
+          phone: "123-5456-7890", 
+          location: "Florida", 
+          website: "", 
+          linkedin: "linkedin.com/in/tina-miller-nyc", 
+          github: "", 
+          summary: "7+ years of social marketing experience, driving customer growth and engagement in digital, B2B, and content marketing campaigns. Increased brand awareness by 25%, website traffic by 40%, customer acquisition by 25%, customer lifetime value by 40%, and sales revenue by $2M in 6 months. Led campaign strategies, resulting in a 45% increase in lead conversion."
+        },
+        workExperiences: [
+          { 
+            id: "mkt-tm-we-1d", 
+            company: "WeWork", 
+            jobTitle: "Senior Marketing Manager", 
+            location: "New York, United States", 
+            startDate: "07/2020", 
+            endDate: "Present", 
+            current: true, 
+            bullets: "Increased lead generation by 30% in 3 months through the development and execution of cross-channel campaigns targeting key customer segments.\nIncreased the company's online presence by 25%, driving a 40% increase in website traffic and generating $2M in revenue through successful digital campaigns.\nLed the analysis of over 75 marketing campaigns, uncovering actionable insights that led to a 25% increase in customer acquisition and a 40% growth in customer lifetime value year-over-year." 
+          },
+          { 
+            id: "mkt-tm-we-2d", 
+            company: "NVIDIA", 
+            jobTitle: "Marketing Manager", 
+            location: "United States", 
+            startDate: "03/2020", 
+            endDate: "06/2022", 
+            current: false, 
+            bullets: "Managed a comprehensive cross-functional marketing campaign for a new product launch, overseeing a team of 10 professionals, coordinating promotional activities, and executing digital marketing strategies across multiple channels. The campaign resulted in a 30% increase in brand awareness, generating $500,000 in sales revenue within Q1.\nImproved long and short form YouTube strategy resulting in a 15% increase in channel views month over month through a better SEO-targeting media strategy." 
+          },
+          { 
+            id: "mkt-tm-we-3d", 
+            company: "White Lotus Resort", 
+            jobTitle: "Marketing Manager", 
+            location: "United States", 
+            startDate: "01/2017", 
+            endDate: "01/2020", 
+            current: false, 
+            bullets: "Boosted digital advertising revenue by 6% within 9 months by leveraging strategic B2B and B2C relationships, enhancing client engagement.\nDeveloped a comprehensive B2B/B2C digital advertising strategy, driving a 300% revenue increase within 6 months by optimizing targeted campaigns.\nCreated a comprehensive digital marketing strategy that significantly improved online visibility, resulting in a measurable increase in customer engagement." 
+          }
+        ],
+        educations: [
+          { 
+            id: "mkt-tm-ed-1d", 
+            school: "Georgia Institute of Technology Scheller College of Business", 
+            degree: "Master of Arts in Marketing Management", 
+            location: "Atlanta, Georgia", 
+            startDate: "", 
+            endDate: "", 
+            gpa: "", 
+            coursework: "" 
+          }
+        ],
+        projects: [],
+        skills: {
+          featuredSkills: [
+            { skill: "Cross-Channel Campaigns", rating: 5 },
+            { skill: "Customer Acquisition", rating: 5 },
+            { skill: "Digital Advertising", rating: 5 },
+            { skill: "Data Analysis", rating: 4 },
+            { skill: "SEO Strategy", rating: 4 },
+            { skill: "B2B Marketing", rating: 4 }
+          ],
+          descriptions: "Skills: Advertising, Analysis, B2B Marketing, B2B Relations Management, Content Marketing, Cross-Channel Campaigns, Customer Acquisition, Customer Lifetime Value, Data Analysis, Digital Advertising, Digital Marketing, Email Marketing, Events Management, Google Analytics, Lead Conversion, Lead Generation, Management, Marketing Campaign Management, Marketing Technology, Martech Tools, Media Campaigns, Media Strategy, New Business Development, Paid Digital Channels, Partner Management, PPC, Problem Solving, Product Marketing, Project Management, Revenue Management, Sales Revenue Growth, SEO Strategy, Social Marketing, Web Traffic Growth"
+        }
+      },
+      critique: "A traditional executive layout using Courier for a classic, typewritten feel."
     }
   ],
 

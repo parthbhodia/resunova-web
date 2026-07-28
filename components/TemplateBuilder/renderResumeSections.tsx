@@ -45,7 +45,22 @@ function parseBullets(raw: string): string[] {
  * when it is omitted the output is byte-identical to what it has always been,
  * so the export cannot be affected by anything the on-screen editor does.
  */
+
+function renderSectionTitle(ctx: ResumeLayoutContext, title: ReactNode) {
+  if (!title) return null;
+  if (ctx.preset.id.startsWith("teal-line-")) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ ...resumeSectionTitleStyle(ctx), marginBottom: 0, paddingBottom: 0, borderBottom: "none" }}>{title}</div>
+        <div style={{ flex: 1, height: 1.5, background: "rgba(0,0,0,0.1)", marginLeft: 12 }}></div>
+      </div>
+    );
+  }
+  return <div style={resumeSectionTitleStyle(ctx)}>{title}</div>;
+}
+
 export function renderTbContentSection(
+
   section: TBContentSection,
   data: TBResumeData,
   ctx: ResumeLayoutContext,
@@ -81,7 +96,7 @@ export function renderTbContentSection(
       if (!profile.summary.trim()) return null;
       return (
         <>
-          <div style={resumeSectionTitleStyle(ctx)}>Summary</div>
+          {renderSectionTitle(ctx, "Summary")}
           {edit ? (
             <EditableText as="p" multiline value={profile.summary} style={resumeSummaryStyle(ctx)}
               placeholder="Write a two-line summary…"
@@ -95,28 +110,55 @@ export function renderTbContentSection(
       if (!workExperiences.some((w) => w.company || w.jobTitle)) return null;
       return (
         <>
-          <div style={resumeSectionTitleStyle(ctx)}>Experience</div>
+          {renderSectionTitle(ctx, "Experience")}
           <MaybeSortable edit={edit} ids={workExperiences.filter((w) => w.company || w.jobTitle).map((w) => w.id)}
             onReorder={(f, t) => edit!.moveEntry("experience", f, t)}>
           {workExperiences.filter((w) => w.company || w.jobTitle).map((w, idx, arr) => {
             const dateStr = [w.startDate, w.current ? "Present" : w.endDate].filter(Boolean).join(" – ");
             const bullets = parseBullets(w.bullets);
-            const body = (
-              <>
-                <div style={resumeJobRowStyle()}>
-                  {edit
-                    ? <EditableText value={w.jobTitle} placeholder="Job Title" style={resumeJobTitleStyle(ctx)}
-                        onCommit={(v) => edit.setField(`work.${w.id}.jobTitle`, v)} />
-                    : <span style={resumeJobTitleStyle(ctx)}>{w.jobTitle || "Job Title"}</span>}
-                  <span style={resumeMetaStyle(ctx)}>{dateStr}</span>
-                </div>
-                <div style={resumeJobRowStyle()}>
-                  {edit
-                    ? <EditableText value={w.company} placeholder="Company" style={resumeCompanyLineStyle(ctx)}
-                        onCommit={(v) => edit.setField(`work.${w.id}.company`, v)} />
-                    : <span style={resumeCompanyLineStyle(ctx)}>{w.company}</span>}
-                  {w.location && <span style={resumeMetaStyle(ctx)}>{w.location}</span>}
-                </div>
+              const body = (
+                <>
+                  {ctx.preset.id === "teal-inline" ? (
+                    <>
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", marginBottom: 2 }}>
+                        {edit
+                          ? <EditableText value={w.company} placeholder="Company" style={{...resumeCompanyLineStyle(ctx), fontWeight: 800, fontSize: ctx.preset.sectionFont}}
+                              onCommit={(v) => edit.setField(`work.${w.id}.company`, v)} />
+                          : <span style={{...resumeCompanyLineStyle(ctx), fontWeight: 800, fontSize: ctx.preset.sectionFont}}>{w.company}</span>}
+                        {w.location && (
+                          <>
+                            <span style={{ fontSize: 10, margin: "0 6px" }}>•</span>
+                            <span style={{...resumeMetaStyle(ctx), fontWeight: 700, color: "#000"}}>{w.location}</span>
+                          </>
+                        )}
+                        <span style={{ fontSize: 10, margin: "0 6px" }}>•</span>
+                        <span style={{...resumeMetaStyle(ctx), fontWeight: 700, color: "#000"}}>{dateStr}</span>
+                      </div>
+                      <div style={{ marginBottom: 6 }}>
+                        {edit
+                          ? <EditableText value={w.jobTitle} placeholder="Job Title" style={{...resumeJobTitleStyle(ctx), fontWeight: 700, color: "#000"}}
+                              onCommit={(v) => edit.setField(`work.${w.id}.jobTitle`, v)} />
+                          : <span style={{...resumeJobTitleStyle(ctx), fontWeight: 700, color: "#000"}}>{w.jobTitle || "Job Title"}</span>}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={resumeJobRowStyle()}>
+                        {edit
+                          ? <EditableText value={w.jobTitle} placeholder="Job Title" style={resumeJobTitleStyle(ctx)}
+                              onCommit={(v) => edit.setField(`work.${w.id}.jobTitle`, v)} />
+                          : <span style={resumeJobTitleStyle(ctx)}>{w.jobTitle || "Job Title"}</span>}
+                        <span style={resumeMetaStyle(ctx)}>{dateStr}</span>
+                      </div>
+                      <div style={resumeJobRowStyle()}>
+                        {edit
+                          ? <EditableText value={w.company} placeholder="Company" style={resumeCompanyLineStyle(ctx)}
+                              onCommit={(v) => edit.setField(`work.${w.id}.company`, v)} />
+                          : <span style={resumeCompanyLineStyle(ctx)}>{w.company}</span>}
+                        {w.location && <span style={resumeMetaStyle(ctx)}>{w.location}</span>}
+                      </div>
+                    </>
+                  )}
                 {bullets.map((b, i) => (
                   edit ? (
                     <CanvasBlock key={i} dense actions={bulletActions("experience", w.id, i)}>
@@ -142,27 +184,52 @@ export function renderTbContentSection(
       if (!educations.some((e) => e.school || e.degree)) return null;
       return (
         <>
-          <div style={resumeSectionTitleStyle(ctx)}>Education</div>
+          {renderSectionTitle(ctx, "Education")}
           <MaybeSortable edit={edit} ids={educations.filter((e) => e.school || e.degree).map((e) => e.id)}
             onReorder={(f, t) => edit!.moveEntry("education", f, t)}>
           {educations.filter((e) => e.school || e.degree).map((e, idx, arr) => {
             const dateStr = [e.startDate, e.endDate].filter(Boolean).join(" – ");
             const eduBody = (
               <div style={resumeSecondaryEntryBlockStyle(ctx)}>
-                <div style={resumeJobRowStyle()}>
-                  {edit
-                    ? <EditableText value={e.school} placeholder="School" style={resumeJobTitleStyle(ctx)}
-                        onCommit={(v) => edit.setField(`edu.${e.id}.school`, v)} />
-                    : <span style={resumeJobTitleStyle(ctx)}>{e.school || "School"}</span>}
-                  <span style={resumeMetaStyle(ctx)}>{dateStr}</span>
-                </div>
-                <div style={resumeJobRowStyle()}>
-                  {edit
-                    ? <EditableText value={e.degree} placeholder="Degree" style={resumeCompanyLineStyle(ctx)}
-                        onCommit={(v) => edit.setField(`edu.${e.id}.degree`, v)} />
-                    : <span style={resumeCompanyLineStyle(ctx)}>{e.degree}</span>}
-                  {e.gpa && <span style={resumeMetaStyle(ctx)}>GPA: {e.gpa}</span>}
-                </div>
+                {ctx.preset.id === "teal-inline" ? (
+                  <>
+                    <div style={{ marginBottom: 2 }}>
+                      {edit
+                        ? <EditableText value={e.degree} placeholder="Degree" style={{...resumeCompanyLineStyle(ctx), fontWeight: 800, fontSize: ctx.preset.sectionFont}}
+                            onCommit={(v) => edit.setField(`edu.${e.id}.degree`, v)} />
+                        : <span style={{...resumeCompanyLineStyle(ctx), fontWeight: 800, fontSize: ctx.preset.sectionFont}}>{e.degree}</span>}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", marginBottom: 6 }}>
+                      {edit
+                        ? <EditableText value={e.school} placeholder="School" style={{...resumeJobTitleStyle(ctx), fontWeight: 500, color: "#000"}}
+                            onCommit={(v) => edit.setField(`edu.${e.id}.school`, v)} />
+                        : <span style={{...resumeJobTitleStyle(ctx), fontWeight: 500, color: "#000"}}>{e.school || "School"}</span>}
+                      {e.location && (
+                        <>
+                          <span style={{ fontSize: 10, margin: "0 6px" }}>•</span>
+                          <span style={{...resumeMetaStyle(ctx), color: "#000"}}>{e.location}</span>
+                        </>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={resumeJobRowStyle()}>
+                      {edit
+                        ? <EditableText value={e.school} placeholder="School" style={resumeJobTitleStyle(ctx)}
+                            onCommit={(v) => edit.setField(`edu.${e.id}.school`, v)} />
+                        : <span style={resumeJobTitleStyle(ctx)}>{e.school || "School"}</span>}
+                      <span style={resumeMetaStyle(ctx)}>{dateStr}</span>
+                    </div>
+                    <div style={resumeJobRowStyle()}>
+                      {edit
+                        ? <EditableText value={e.degree} placeholder="Degree" style={resumeCompanyLineStyle(ctx)}
+                            onCommit={(v) => edit.setField(`edu.${e.id}.degree`, v)} />
+                        : <span style={resumeCompanyLineStyle(ctx)}>{e.degree}</span>}
+                      {e.gpa && <span style={resumeMetaStyle(ctx)}>GPA: {e.gpa}</span>}
+                    </div>
+                  </>
+                )}
                 {e.location && <div style={resumeMetaSmallStyle(ctx)}>{e.location}</div>}
                 {e.coursework && <div style={resumeMetaSmallStyle(ctx)}>Coursework: {e.coursework}</div>}
               </div>
@@ -178,7 +245,7 @@ export function renderTbContentSection(
       if (!projects.some((p) => p.name)) return null;
       return (
         <>
-          <div style={resumeSectionTitleStyle(ctx)}>Projects</div>
+          {renderSectionTitle(ctx, "Projects")}
           <MaybeSortable edit={edit} ids={projects.filter((p) => p.name).map((p) => p.id)}
             onReorder={(f, t) => edit!.moveEntry("project", f, t)}>
           {projects.filter((p) => p.name).map((p, idx, arr) => {
@@ -214,13 +281,13 @@ export function renderTbContentSection(
         </>
       );
     case "skills": {
-      const featuredWithSkill = skills.featuredSkills.filter((f) => f.skill.trim());
-      if (!featuredWithSkill.length && !skills.descriptions.trim()) return null;
+      const featuredWithSkill = skills?.featuredSkills?.filter((f) => f.skill.trim()) || [];
+      if (!featuredWithSkill.length && !skills?.descriptions?.trim()) return null;
       // Featured skills render as a plain highlighted list — no proficiency
       // dots (self-assessed ratings carry no signal for recruiters/ATS).
       return (
         <>
-          <div style={resumeSectionTitleStyle(ctx)}>Skills</div>
+          {renderSectionTitle(ctx, "Skills")}
           {featuredWithSkill.length > 0 && (
             <div style={{ ...resumeSkillsTextStyle(ctx), fontWeight: 600, color: "#222", marginBottom: 2 }}>
               {featuredWithSkill.map((fs) => fs.skill).join("  ·  ")}

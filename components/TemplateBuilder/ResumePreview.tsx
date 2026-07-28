@@ -39,7 +39,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData; edit?: Ca
   });
   const hidden = new Set(hiddenSections ?? []);
 
-  const renderContactRowWithIcons = (color = "#555", isDark = false) => {
+  const renderContactRowWithIcons = (color = "#555", isDark = false, alignRight = false) => {
     const iconStyle = { marginRight: 4, flexShrink: 0, opacity: isDark ? 0.8 : 0.6, marginTop: 1 };
     const itemStyle = { display: "flex", alignItems: "center", color };
     
@@ -49,6 +49,7 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData; edit?: Ca
         color,
         display: "flex",
         flexWrap: "wrap",
+        justifyContent: alignRight ? "flex-end" : "flex-start",
         gap: "6px 14px",
       }}>
         {profile.phone && (
@@ -95,10 +96,119 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData; edit?: Ca
   if (layout === "single") {
     return (
       <div ref={ref} style={resumePageRootStyle(ctx)}>
-        <div style={resumeNameStyle(ctx)}>
-          {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
-        </div>
-        {renderContactRowWithIcons(ctx.preset.accentColor)}
+        {ctx.preset.id === "teal-bookmark" ? (
+          <div style={{ position: "relative", display: "flex", justifyContent: "space-between", marginBottom: 32, paddingRight: 80 }}>
+            <div>
+              <div style={resumeNameStyle(ctx)}>
+                {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
+              </div>
+              <div style={{ fontSize: ctx.preset.sectionFont * 1.3, fontWeight: 600, color: "#666", marginTop: 4 }}>
+                {data.workExperiences[0]?.jobTitle || "Job Title"}
+              </div>
+            </div>
+            <div style={{ textAlign: "right", maxWidth: 220 }}>
+              {renderContactRowWithIcons("#666", false, true)}
+            </div>
+            <div style={{
+              position: "absolute",
+              top: -ctx.page.paddingY,
+              right: -10,
+              width: 50,
+              height: 70,
+              backgroundColor: ctx.preset.accentColor,
+              clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 15px), 0 100%)",
+            }} />
+          </div>
+        ) : ctx.preset.id === "teal-inline" ? (
+          <div style={{ textAlign: "left", marginBottom: ctx.preset.sectionGap }}>
+            <div style={{ ...resumeNameStyle(ctx), color: ctx.preset.accentColor, fontWeight: 800 }}>
+              {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
+            </div>
+            <div style={{
+              fontSize: ctx.preset.metaFont,
+              color: "#000",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "4px 8px",
+              marginBottom: 16
+            }}>
+              {[
+                profile.location, 
+                profile.linkedin?.replace(/^https?:\/\/(www\.)?/, ''), 
+                profile.email, 
+                profile.phone,
+                profile.website?.replace(/^https?:\/\/(www\.)?/, ''), 
+                profile.github?.replace(/^https?:\/\/(www\.)?/, '')
+              ].filter(Boolean).map((item, idx, arr) => (
+                <div key={idx} style={{ display: "flex", alignItems: "center" }}>
+                  <span>{item}</span>
+                  {idx < arr.length - 1 && <span style={{ margin: "0 8px", opacity: 0.8 }}>•</span>}
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: ctx.preset.nameFont * 0.45, fontWeight: 700, color: "#000" }}>
+              {data.workExperiences[0]?.jobTitle || "Job Title"}
+            </div>
+          </div>
+        ) : ctx.preset.id === "teal-line-bold" ? (
+          <div style={{ textAlign: "center", marginBottom: ctx.preset.sectionGap }}>
+            <div style={{ width: "100%", height: 3.5, backgroundColor: ctx.preset.accentColor, marginBottom: 16 }} />
+            <div style={{ ...resumeNameStyle(ctx), fontWeight: 800, color: "#000", marginBottom: 6, textAlign: "center" }}>
+              {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
+            </div>
+            <div style={{
+              fontSize: ctx.preset.metaFont,
+              color: "#444",
+              display: "flex",
+              justifyContent: "center",
+              gap: "8px",
+              flexWrap: "wrap",
+              marginBottom: 16
+            }}>
+              {[
+                profile.location,
+                profile.phone,
+                profile.email,
+                profile.linkedin?.replace(/^https?:\/\/(www\.)?/, '')
+              ].filter(Boolean).map((item, idx, arr) => (
+                <span key={idx}>
+                  {item}
+                  {idx < arr.length - 1 && <span style={{ margin: "0 6px", opacity: 0.7 }}>•</span>}
+                </span>
+              ))}
+            </div>
+            <div style={{ fontSize: ctx.preset.nameFont * 0.45, fontWeight: 700, color: "#000", textAlign: "left" }}>
+              {data.workExperiences[0]?.jobTitle || "Senior Marketing Manager"}
+            </div>
+          </div>
+        ) : ctx.preset.id === "teal-indigo" ? (
+          <div style={{ textAlign: "left", marginBottom: ctx.preset.sectionGap }}>
+            <div style={{ ...resumeNameStyle(ctx), color: ctx.preset.accentColor, fontWeight: 800, marginBottom: 4 }}>
+              {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
+            </div>
+            <div style={{
+              fontSize: ctx.preset.metaFont,
+              color: "#444",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              marginBottom: 16
+            }}>
+              <div>{[profile.location, profile.linkedin?.replace(/^https?:\/\/(www\.)?/, '')].filter(Boolean).join(" • ")}</div>
+              <div>{[profile.email, profile.phone].filter(Boolean).join(" • ")}</div>
+            </div>
+            <div style={{ fontSize: ctx.preset.nameFont * 0.45, fontWeight: 700, color: "#000", marginBottom: 12 }}>
+              {data.workExperiences[0]?.jobTitle || "Senior Marketing Manager"}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={resumeNameStyle(ctx)}>
+              {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
+            </div>
+            {renderContactRowWithIcons(ctx.preset.accentColor)}
+          </>
+        )}
 
         {sectionOrder.map((slot) => {
           if (hidden.has(slot)) return null;
@@ -354,6 +464,325 @@ const ResumePreview = forwardRef<HTMLDivElement, { data: TBResumeData; edit?: Ca
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // ── Teal Skills Sidebar Layout (Purple Accent + Soft Sidebar) ──────────────
+  if (layout === "teal-skills-sidebar" || ctx.preset.id === "teal-skills-sidebar") {
+    const sidebarCtx = { ...ctx };
+    const sidebarBg = `color-mix(in srgb, ${ctx.accent} 8%, #ffffff)`;
+
+    return (
+      <div
+        ref={ref}
+        style={{
+          ...resumePageRootStyle(ctx),
+          padding: 0,
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "stretch",
+        }}
+      >
+        {/* Main Left Column */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            padding: `${ctx.page.paddingY}px ${ctx.page.paddingX}px`,
+            boxSizing: "border-box",
+          }}
+        >
+          <div style={{ ...resumeNameStyle(ctx), color: ctx.preset.accentColor, fontWeight: 800, marginBottom: 2 }}>
+            {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
+          </div>
+          <div style={{ fontSize: ctx.preset.sectionFont, fontWeight: 600, color: "#555", marginBottom: 20 }}>
+            {data.workExperiences[0]?.jobTitle || "Senior Marketing Manager"}
+          </div>
+          {mainSlots.map((slot) => (
+            <div key={slot}>{renderSectionSlot(slot, data, ctx, edit)}</div>
+          ))}
+        </div>
+
+        {/* Soft Colored Right Sidebar */}
+        <div
+          style={{
+            width: "32%",
+            flexShrink: 0,
+            background: sidebarBg,
+            padding: `${ctx.page.paddingY}px ${Math.round(ctx.page.paddingX * 0.75)}px`,
+            boxSizing: "border-box",
+            borderLeft: `1px solid color-mix(in srgb, ${ctx.accent} 15%, transparent)`,
+          }}
+        >
+          <div style={{ marginBottom: 20 }}>
+            <div style={{
+              fontSize: ctx.preset.sectionFont * 0.85,
+              fontWeight: 800,
+              color: ctx.preset.accentColor,
+              letterSpacing: 0.5,
+              textTransform: "uppercase",
+              marginBottom: 8,
+              borderBottom: `1px solid color-mix(in srgb, ${ctx.accent} 25%, transparent)`,
+              paddingBottom: 2
+            }}>
+              CONTACT
+            </div>
+            {renderContactRowWithIcons("#444")}
+          </div>
+          {sidebarSlots.map((slot) => (
+            <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx, edit)}</div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Teal Line Split Layout (Green Centered Header + Right Sidebar) ──────────
+  if (layout === "teal-line-split" || ctx.preset.id === "teal-line-split") {
+    const sidebarCtx = { ...ctx };
+    return (
+      <div
+        ref={ref}
+        style={{
+          ...resumePageRootStyle(ctx),
+          padding: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div style={{
+          padding: `${ctx.page.paddingY}px ${ctx.page.paddingX}px 12px`,
+          textAlign: "center",
+        }}>
+          <div style={{ ...resumeNameStyle(ctx), color: ctx.preset.accentColor, marginBottom: 6, textAlign: "center", fontWeight: 800 }}>
+            {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
+          </div>
+          <div style={{
+            fontSize: ctx.preset.metaFont,
+            color: "#444",
+            display: "flex",
+            justifyContent: "center",
+            gap: "8px",
+            flexWrap: "wrap",
+            marginBottom: 10
+          }}>
+            {[
+              profile.location,
+              profile.phone,
+              profile.email,
+              profile.linkedin?.replace(/^https?:\/\/(www\.)?/, '')
+            ].filter(Boolean).map((item, idx, arr) => (
+              <span key={idx}>
+                {item}
+                {idx < arr.length - 1 && <span style={{ margin: "0 6px", opacity: 0.7 }}>•</span>}
+              </span>
+            ))}
+          </div>
+          <hr style={{ border: "none", borderTop: "1px solid #94a3b8", margin: 0 }} />
+        </div>
+
+        <div style={{ display: "flex", flex: 1, alignItems: "stretch", padding: `12px ${ctx.page.paddingX}px ${ctx.page.paddingY}px` }}>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              paddingRight: 24,
+              boxSizing: "border-box",
+            }}
+          >
+            <div style={{ fontSize: ctx.preset.metaFont + 2, fontWeight: 700, color: "#111", marginBottom: 12 }}>
+              {data.workExperiences[0]?.jobTitle || "Senior Marketing Manager"}
+            </div>
+            {mainSlots.map((slot) => (
+              <div key={slot}>{renderSectionSlot(slot, data, ctx, edit)}</div>
+            ))}
+          </div>
+          <div
+            style={{
+              width: "32%",
+              flexShrink: 0,
+              boxSizing: "border-box",
+            }}
+          >
+            {sidebarSlots.map((slot) => (
+              <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx, edit)}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Teal Split Layout (Clean Balanced & Professional and Clear) ──────────
+  if (layout === "teal-split") {
+    const sidebarCtx = { ...ctx };
+    return (
+      <div
+        ref={ref}
+        style={{
+          ...resumePageRootStyle(ctx),
+          padding: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div style={{
+          padding: `${ctx.page.paddingY}px ${ctx.page.paddingX}px 24px`,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}>
+          <div>
+            <div style={{ ...resumeNameStyle(ctx), marginBottom: 4, letterSpacing: -0.5 }}>
+              {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
+            </div>
+            <div style={{ fontSize: ctx.preset.metaFont + 2, fontWeight: 700, color: "#111" }}>
+              {profile.summary ? profile.summary.split(".")[0] + "." : "Professional Title"}
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end", textAlign: "right" }}>
+            {profile.location && <div style={{ fontSize: ctx.preset.metaFont, color: "#444" }}>{profile.location}</div>}
+            {profile.phone && <div style={{ fontSize: ctx.preset.metaFont, color: "#444" }}>{profile.phone}</div>}
+            {profile.email && <div style={{ fontSize: ctx.preset.metaFont, color: "#444" }}>{profile.email}</div>}
+            {profile.linkedin && <div style={{ fontSize: ctx.preset.metaFont, color: "#444" }}>{profile.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</div>}
+          </div>
+        </div>
+        <div style={{ display: "flex", flex: 1, alignItems: "stretch" }}>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: `0 ${ctx.page.paddingX}px ${ctx.page.paddingY}px`,
+              boxSizing: "border-box",
+            }}
+          >
+            {mainSlots.map((slot) => (
+              <div key={slot}>{renderSectionSlot(slot, data, ctx, edit)}</div>
+            ))}
+          </div>
+          <div
+            style={{
+              width: "35%",
+              flexShrink: 0,
+              padding: `0 ${Math.round(ctx.page.paddingX * 0.75)}px ${ctx.page.paddingY}px 0`,
+              boxSizing: "border-box",
+            }}
+          >
+            {sidebarSlots.map((slot) => (
+              <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx, edit)}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Teal Centered Layout (Modern Color Accent) ──────────────────────────
+  if (layout === "teal-centered") {
+    const sidebarCtx = { ...ctx };
+    return (
+      <div
+        ref={ref}
+        style={{
+          ...resumePageRootStyle(ctx),
+          padding: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div style={{
+          padding: `${ctx.page.paddingY}px ${ctx.page.paddingX}px 16px`,
+          textAlign: "center",
+        }}>
+          <div style={{ ...resumeNameStyle(ctx), color: ctx.accent, marginBottom: 8, letterSpacing: -0.5 }}>
+            {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
+          </div>
+          <hr style={{ border: "none", borderTop: `1px solid ${ctx.accent}`, margin: "0 0 8px 0" }} />
+          <div style={{ 
+            fontSize: ctx.preset.metaFont, 
+            color: "#444", 
+            display: "flex", 
+            justifyContent: "center", 
+            gap: "12px", 
+            flexWrap: "wrap",
+            marginBottom: 8 
+          }}>
+            {profile.location && <span>{profile.location}</span>}
+            {profile.phone && <span>• {profile.phone}</span>}
+            {profile.email && <span>• {profile.email}</span>}
+            {profile.linkedin && <span>• {profile.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</span>}
+          </div>
+          <hr style={{ border: "none", borderTop: `1px solid ${ctx.accent}`, margin: "0" }} />
+        </div>
+        <div style={{ display: "flex", flex: 1, alignItems: "stretch", padding: `0 ${ctx.page.paddingX}px ${ctx.page.paddingY}px` }}>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              paddingRight: 24,
+              boxSizing: "border-box",
+            }}
+          >
+            <div style={{ fontSize: ctx.preset.metaFont + 2, fontWeight: 700, color: "#111", marginBottom: 12 }}>
+              {profile.summary ? profile.summary.split(".")[0] + "." : "Professional Title"}
+            </div>
+            {mainSlots.map((slot) => (
+              <div key={slot}>{renderSectionSlot(slot, data, ctx, edit)}</div>
+            ))}
+          </div>
+          <div
+            style={{
+              width: "30%",
+              flexShrink: 0,
+              boxSizing: "border-box",
+            }}
+          >
+            {sidebarSlots.map((slot) => (
+              <div key={slot}>{renderSectionSlot(slot, data, sidebarCtx, edit)}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Teal Single Layout (Sleek Professional) ─────────────────────────────
+  if (layout === "teal-single") {
+    return (
+      <div
+        ref={ref}
+        style={{
+          ...resumePageRootStyle(ctx),
+          padding: `${ctx.page.paddingY}px ${ctx.page.paddingX}px`,
+        }}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ ...resumeNameStyle(ctx), marginBottom: 4, letterSpacing: -0.5 }}>
+            {profile.name || <span style={{ color: "#bbb" }}>Your Name</span>}
+          </div>
+          <div style={{ 
+            fontSize: ctx.preset.metaFont, 
+            color: "#444", 
+            display: "flex", 
+            gap: "8px", 
+            flexWrap: "wrap",
+            marginBottom: 12 
+          }}>
+            {profile.location && <span>{profile.location}</span>}
+            {profile.phone && <span>• {profile.phone}</span>}
+            {profile.email && <span>• {profile.email}</span>}
+            {profile.linkedin && <span>• {profile.linkedin.replace(/^https?:\/\/(www\.)?/, '')}</span>}
+          </div>
+          <hr style={{ border: "none", borderTop: `2px solid ${ctx.accent}`, margin: "0" }} />
+        </div>
+        <div style={{ fontSize: ctx.preset.metaFont + 2, fontWeight: 700, color: "#111", marginBottom: 12 }}>
+          {profile.summary ? profile.summary.split(".")[0] + "." : "Professional Title"}
+        </div>
+        {sectionOrder.map((slot) => {
+          if (hidden.has(slot)) return null;
+          return <div key={slot}>{renderSectionSlot(slot, data, ctx, edit)}</div>;
+        })}
       </div>
     );
   }
