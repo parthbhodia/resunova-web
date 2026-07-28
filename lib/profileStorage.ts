@@ -1,9 +1,16 @@
 /**
  * Saved Profile (structured defaults + EEO) — localStorage plus optional Supabase
  * `user_profiles` when signed in (see `fetchUserProfile` / `upsertUserProfile` in `supabase.ts`).
+ *
+ * This also carries the separate "extracted profile" (career dashboard: name,
+ * skills, experience, education, projects — populated by résumé upload/AI
+ * extraction on `/profile`). It persists to its own `user_extracted_profiles`
+ * Supabase table (see `fetchExtractedProfile` / `upsertExtractedProfile` in
+ * `supabase.ts`) — a separate table from `user_profiles` on purpose, so saving
+ * one never clobbers the other.
  */
 
-import { ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "./resumeExtractorService";
+import { type ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "./resumeExtractorService";
 
 export type ProfileFormState = {
   displayName: string;
@@ -30,7 +37,6 @@ export type ProfileFormState = {
 };
 
 export const PROFILE_STORAGE_KEY = "rn_profile_v1";
-export const EXTRACTED_PROFILE_STORAGE_KEY = "rn_extracted_profile_v1";
 
 export const EMPTY_PROFILE: ProfileFormState = {
   displayName: "",
@@ -76,12 +82,14 @@ export function saveProfile(s: ProfileFormState) {
   }
 }
 
+export const EXTRACTED_PROFILE_STORAGE_KEY = "rn_extracted_profile_v1";
+
 export function loadExtractedProfile(): ExtractedProfileState {
   if (typeof window === "undefined") return { ...INITIAL_EXTRACTED_PROFILE };
   try {
     const raw = localStorage.getItem(EXTRACTED_PROFILE_STORAGE_KEY);
     if (!raw) return { ...INITIAL_EXTRACTED_PROFILE };
-    const p = JSON.parse(raw) as ExtractedProfileState;
+    const p = JSON.parse(raw) as Partial<ExtractedProfileState>;
     return { ...INITIAL_EXTRACTED_PROFILE, ...p };
   } catch {
     return { ...INITIAL_EXTRACTED_PROFILE };
@@ -94,6 +102,26 @@ export function saveExtractedProfile(s: ExtractedProfileState) {
   } catch {
     /* quota */
   }
+}
+
+/**
+ * Map an extracted résumé's contact fields onto Tailor-defaults (`ProfileFormState`)
+ * hint keys. Only the unambiguous 1:1 contact fields — deliberately NOT `role`
+ * (candidate's current title ≠ target `roles`) or `location` (current ≠ target
+ * `locations`). Feed the result to `mergeProfilePreferEmpty` so existing values
+ * are never overwritten.
+ */
+export function tailorContactHintsFromExtracted(
+  e: { name?: string; email?: string; phone?: string; linkedin?: string; portfolio?: string; github?: string; headline?: string },
+): Partial<ProfileFormState> {
+  return {
+    displayName: e.name || "",
+    email: e.email || "",
+    phone: e.phone || "",
+    linkedin: e.linkedin || "",
+    portfolio: e.portfolio || e.github || "",
+    headline: e.headline || "",
+  };
 }
 
 /** For each key in `hints`, set on `base` only when base value is empty/whitespace. */

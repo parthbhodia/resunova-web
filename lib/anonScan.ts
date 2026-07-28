@@ -127,6 +127,33 @@ export function clearAnonScanUsed(): void {
 }
 
 /**
+ * Carries a target job's JD into the anonymous Analyze scan — e.g. a signed-out
+ * visitor on a job detail page taps "Upload your résumé", and the first scan
+ * matches that exact role. Session-scoped + one-shot: consumed on the Analyze
+ * mount, then cleared. Falls back to an un-prefilled scan on any failure.
+ */
+const ANALYZE_JD_PREFILL_KEY = "rn_analyze_jd_prefill_v1";
+
+export function stashAnalyzeJd(jd: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const t = (jd || "").trim();
+    if (t) sessionStorage.setItem(ANALYZE_JD_PREFILL_KEY, t);
+  } catch { /* quota — un-prefilled scan still works */ }
+}
+
+export function takeAnalyzeJd(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = sessionStorage.getItem(ANALYZE_JD_PREFILL_KEY);
+    if (v) sessionStorage.removeItem(ANALYZE_JD_PREFILL_KEY);
+    return v && v.trim() ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Shared Google OAuth entry. Returns the user to where they started sign-in
  * (e.g. `?view=jobs` so the jobs onboarding wizard shows) instead of the default
  * Analyze view. Belt-and-suspenders: pass the full current URL as the OAuth
