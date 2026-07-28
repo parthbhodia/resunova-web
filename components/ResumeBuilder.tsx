@@ -86,6 +86,7 @@ import ScoreRing    from "./ScoreRing";
 import MatchBreakdownCards from "./MatchBreakdownCards";
 import { TailorMatchSidebar, TailorMatchDetail } from "./DetailedRatingsView";
 import TailorRecentJobs from "./TailorRecentJobs";
+import TailorResumeHistoryPicker from "./TailorResumeHistoryPicker";
 import TailorPreviewPane from "./TailorPreviewPane";
 import TailorAnalyzingLoader from "./TailorAnalyzingLoader";
 import CategoryFixPanel from "./CategoryFixPanel";
@@ -3054,10 +3055,10 @@ export default function ResumeBuilder({
                   <div className="rb-tailor-sidebar-inner">
                     <div className="rb-tailor-sidebar-pinned">
                       <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>
-                        Recent jobs
+                        History
                       </div>
                       <div style={{ fontSize: 11, color: "var(--dim)", lineHeight: 1.45 }}>
-                        Pick up where you left off — company, role, and JD restore automatically.
+                        Past tailor jobs — company, role, and JD restore automatically.
                       </div>
                     </div>
                     <div className="rb-tailor-sidebar-scroll">
@@ -3081,7 +3082,7 @@ export default function ResumeBuilder({
                     type="button"
                     className="rb-tailor-sidebar-hide"
                     onClick={() => setTailorSidebarVisible(false)}
-                    title="Hide recent jobs for more space"
+                    title="Hide history for more space"
                     style={{
                       position: "absolute",
                       top: 16,
@@ -3103,6 +3104,38 @@ export default function ResumeBuilder({
                     </svg>
                   </button>
                 </aside>
+            ) : null}
+            {tailorPreResult && !tailorSidebarVisible ? (
+              <button
+                type="button"
+                onClick={() => setTailorSidebarVisible(true)}
+                title="Show history"
+                aria-label="Show tailor history"
+                style={{
+                  position: "absolute",
+                  left: 10,
+                  top: 18,
+                  zIndex: 5,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 10px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                  <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                History
+              </button>
             ) : null}
             <div
               className={tailorPreResult ? "rb-tailor-main" : undefined}
@@ -3408,6 +3441,26 @@ export default function ResumeBuilder({
                 error={uploadTypeError || uploadError}
                 onDismiss={() => { setUploadTypeError(null); clearUploadError(); }}
                 style={{ marginTop: 8, marginBottom: 0 }}
+              />
+            )}
+
+            {!candidateProfile && !studioHandoff && (
+              <TailorResumeHistoryPicker
+                onPick={(pick) => {
+                  const text = (pick.extractedText || "").trim();
+                  setCandidateProfile(text || null);
+                  setUploadedFileName(pick.fileName);
+                  setResumeHeaderLines(pick.resumeHeader);
+                  lastResumeExtractRef.current = text;
+                  setStructuredUpload(
+                    pick.structured
+                      ? { profile: text, structured: pick.structured }
+                      : null,
+                  );
+                  setSourcePdfBlobUrl(null);
+                  setUploadedPdfDataUrl(null);
+                  setProfileSyncUpsell(null);
+                }}
               />
             )}
 

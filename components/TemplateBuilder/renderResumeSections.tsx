@@ -37,7 +37,38 @@ function MaybeSortable({ edit, ids, onReorder, children }: {
 }
 
 function parseBullets(raw: string): string[] {
-  return raw.split("\n").map((l) => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+  // Strip common bullet glyphs (incl. en/em dashes + middle-dot) so we never
+  // double-prefix. Split on real newlines only — soft wraps stay one bullet.
+  return raw
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^[\s\u00a0]*[-–—•●◦▪▫·*]\s*/, "").trim())
+    .filter(Boolean);
+}
+
+/** Keep the glyph and text on one row. EditableText is `inline-block`, so a
+ *  long bullet used to wrap the whole text under a lone `•` on the line above. */
+function BulletLine({
+  text,
+  ctx,
+  edit,
+}: {
+  text: string;
+  ctx: ResumeLayoutContext;
+  edit?: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        ...resumeBulletStyle(ctx),
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 6,
+      }}
+    >
+      <span aria-hidden style={{ flexShrink: 0, lineHeight: 1.45 }}>•</span>
+      <div style={{ flex: 1, minWidth: 0 }}>{edit ?? text}</div>
+    </div>
+  );
 }
 
 /**
@@ -120,10 +151,20 @@ export function renderTbContentSection(
                 {bullets.map((b, i) => (
                   edit ? (
                     <CanvasBlock key={i} dense actions={bulletActions("experience", w.id, i)}>
-                      <div style={resumeBulletStyle(ctx)}>• <EditableText value={b} multiline
-                        onCommit={(v) => edit.setBullet("experience", w.id, i, v)} /></div>
+                      <BulletLine
+                        text={b}
+                        ctx={ctx}
+                        edit={
+                          <EditableText
+                            value={b}
+                            multiline
+                            style={{ display: "block", width: "100%" }}
+                            onCommit={(v) => edit.setBullet("experience", w.id, i, v)}
+                          />
+                        }
+                      />
                     </CanvasBlock>
-                  ) : <div key={i} style={resumeBulletStyle(ctx)}>• {b}</div>
+                  ) : <BulletLine key={i} text={b} ctx={ctx} />
                 ))}
               </>
             );
@@ -199,10 +240,20 @@ export function renderTbContentSection(
                 {bullets.map((b, i) => (
                   edit ? (
                     <CanvasBlock key={i} dense actions={bulletActions("project", p.id, i)}>
-                      <div style={resumeBulletStyle(ctx)}>• <EditableText value={b} multiline
-                        onCommit={(v) => edit.setBullet("project", p.id, i, v)} /></div>
+                      <BulletLine
+                        text={b}
+                        ctx={ctx}
+                        edit={
+                          <EditableText
+                            value={b}
+                            multiline
+                            style={{ display: "block", width: "100%" }}
+                            onCommit={(v) => edit.setBullet("project", p.id, i, v)}
+                          />
+                        }
+                      />
                     </CanvasBlock>
-                  ) : <div key={i} style={resumeBulletStyle(ctx)}>• {b}</div>
+                  ) : <BulletLine key={i} text={b} ctx={ctx} />
                 ))}
               </div>
             );
@@ -248,7 +299,7 @@ export function renderTbContentSection(
 
 function renderCustomSection(section: TBCustomSection, ctx: ResumeLayoutContext, edit?: CanvasEdit): ReactNode {
   const title = section.title.trim();
-  const lines = section.lines.split("\n").map((l) => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+  const lines = parseBullets(section.lines);
   if (!title && !lines.length) return null;
   return (
     <>
@@ -259,12 +310,23 @@ function renderCustomSection(section: TBCustomSection, ctx: ResumeLayoutContext,
           : (title || "Additional")}
       </div>
       {lines.map((line, i) => (
-        <div key={i} style={resumeBulletStyle(ctx)}>• {
-          edit
-            ? <EditableText value={line} multiline
-                onCommit={(v) => edit.setCustomLine(section.id, i, v)} />
-            : line
-        }</div>
+        edit ? (
+          <BulletLine
+            key={i}
+            text={line}
+            ctx={ctx}
+            edit={
+              <EditableText
+                value={line}
+                multiline
+                style={{ display: "block", width: "100%" }}
+                onCommit={(v) => edit.setCustomLine(section.id, i, v)}
+              />
+            }
+          />
+        ) : (
+          <BulletLine key={i} text={line} ctx={ctx} />
+        )
       ))}
     </>
   );

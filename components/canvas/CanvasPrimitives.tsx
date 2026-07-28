@@ -57,7 +57,6 @@ export function EditableText({
         if (e.key === "Escape") { e.currentTarget.textContent = value; e.currentTarget.blur(); }
       }}
       style={{
-        ...style,
         outline: "none",
         borderRadius: 3,
         // A hairline that only shows on hover/focus, so the paper still reads
@@ -66,6 +65,7 @@ export function EditableText({
         cursor: "text",
         minWidth: value ? undefined : 40,
         display: "inline-block",
+        ...style,
       }}
       className="tb-canvas-editable"
       data-placeholder={placeholder}
