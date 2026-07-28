@@ -236,18 +236,8 @@ export default function ProfilePage() {
         .cm-upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600; transition: background 0.15s; }
         .cm-upload-btn:hover { background: var(--accent-bg); }
 
-        .cm-empty { max-width: 560px; margin: 10px auto 0; padding: 44px 40px; background: var(--surface); border: 1px solid var(--border); border-top: 2px solid var(--accent); text-align: center; }
-        .cm-empty-rule { width: 32px; margin: 0 auto 20px; border-top: 1px solid var(--border); }
-        .cm-empty h2 { margin: 0; font-size: 24px; font-weight: 600; }
-        .cm-empty p { max-width: 400px; margin: 10px auto 20px; color: var(--muted); font-size: 14px; }
-        .cm-upload-primary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.15s; }
-        .cm-upload-primary:hover { filter: brightness(1.1); }
-        .cm-upload-primary svg { width: 14px; height: 14px; }
-        .cm-privacy { display: flex; max-width: 380px; align-items: flex-start; gap: 8px; margin: 16px auto 0; color: var(--muted); text-align: left; font-size: 11px; line-height: 1.5; }
+        .cm-privacy { display: flex; max-width: 480px; align-items: flex-start; gap: 8px; margin: 16px auto 0; color: var(--muted); text-align: left; font-size: 11px; line-height: 1.5; }
         .cm-privacy svg { flex-shrink: 0; width: 13px; height: 13px; margin-top: 1px; }
-
-        .cm-upload-wrap { position: relative; display: inline-block; }
-        .cm-upload-wrap input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
         .cm-toast { position: fixed; right: 20px; bottom: 20px; z-index: 30; padding: 8px 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); font-size: 12px; opacity: 0; transform: translateY(6px); pointer-events: none; transition: opacity 0.18s, transform 0.18s; }
         .cm-toast.show { opacity: 1; transform: translateY(0); }
@@ -503,45 +493,17 @@ export default function ProfilePage() {
             </div>
           </>
         ) : (
-          /* Empty state */
-          <section style={{ marginTop: 8 }}>
+          /* Empty state — single upload entry (ResumeUpload). Do not stack a second CTA. */
+          <section style={{ marginTop: 8, maxWidth: 720, marginInline: "auto" }}>
             <ResumeUpload
               status={uploadStatus}
               onExtractionStart={handleExtractionStart}
               onExtractionComplete={handleExtractionComplete}
               onAcceptAll={handleAcceptAll}
             />
-            <div className="cm-empty">
-              <div className="cm-empty-rule" />
-              <h2>Start with the resume you trust</h2>
-              <p>We&rsquo;ll organize your experience, education, skills, and projects into a career record you can review.</p>
-              <div className="cm-upload-wrap">
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      // Delegate to ResumeUpload's internal handler by triggering extraction directly
-                      import("../../lib/resumeExtractorService").then(({ extractResumeData }) => {
-                        setUploadStatus("extracting");
-                        extractResumeData(file).then((data) => {
-                          setExtractedData(data);
-                          setUploadStatus("review");
-                        }).catch(() => setUploadStatus("idle"));
-                      });
-                    }
-                  }}
-                  aria-describedby="cm-upload-privacy"
-                />
-                <label className="cm-upload-primary" style={{ cursor: "pointer" }}>
-                  <Upload size={14} /> Upload your resume
-                </label>
-              </div>
-              <div className="cm-privacy" id="cm-upload-privacy">
-                <Shield size={13} />
-                <span>Your resume stays private. We reuse only the career facts you approve, so future applications start with accurate context.</span>
-              </div>
+            <div className="cm-privacy" id="cm-upload-privacy">
+              <Shield size={13} />
+              <span>Your resume stays private. We reuse only the career facts you approve, so future applications start with accurate context.</span>
             </div>
           </section>
         )}
