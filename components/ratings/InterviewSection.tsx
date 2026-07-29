@@ -40,7 +40,7 @@ function FullPrepLink({ onClick, variant }: { onClick: () => void; variant: "pri
             cursor: "pointer",
           }}
     >
-      🎤 Practise in Interview Prep →
+      🎤 Practice in Interview Prep →
     </button>
   );
 }

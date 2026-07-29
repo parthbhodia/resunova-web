@@ -67,7 +67,7 @@ export const NAV_MENU_BTN_CLASS =
   "!gap-2.5 !px-3 !py-2.5 text-[var(--muted)] hover:bg-[var(--surface2)] hover:text-[var(--text)] [&_.app-nav-icon_svg]:!size-5";
 
 export const NAV_ACTIVE_CLASS =
-  "data-active:!border-accent/22 data-active:!bg-[var(--accent-bg)] data-active:!text-accent data-active:shadow-[inset_3px_0_0_0_var(--accent)] data-active:hover:!bg-[var(--accent-bg)] data-active:hover:!text-accent data-active:[&_.app-nav-icon]:opacity-100";
+  "data-active:!border-accent/35 data-active:!bg-[color-mix(in_srgb,var(--accent)_14%,var(--surface))] data-active:!text-accent data-active:shadow-[inset_3px_0_0_0_var(--accent)] data-active:hover:!bg-[color-mix(in_srgb,var(--accent)_18%,var(--surface))] data-active:hover:!text-accent data-active:[&_.app-nav-icon]:opacity-100 data-active:[&_.app-nav-icon]:text-accent";
 
 export const SIDEBAR_COLLAPSED_KEY = "rn-app-sidebar-collapsed";
 
