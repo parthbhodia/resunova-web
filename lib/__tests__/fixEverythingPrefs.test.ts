@@ -6,10 +6,8 @@ import {
 describe("auto-apply preference", () => {
   beforeEach(() => localStorage.clear());
 
-  it("defaults to off", () => {
-    // Writing rewrites into a résumé unprompted is not a safe default; it has
-    // to be chosen.
-    expect(getFixAllAutoApply()).toBe(false);
+  it("defaults to on (highlighted preview is the review surface)", () => {
+    expect(getFixAllAutoApply()).toBe(true);
   });
 
   it("round-trips a choice", () => {
@@ -19,17 +17,16 @@ describe("auto-apply preference", () => {
     expect(getFixAllAutoApply()).toBe(false);
   });
 
-  it("treats any unexpected stored value as off", () => {
+  it("treats any unexpected stored value as on (safe product default)", () => {
     localStorage.setItem("rn_fix_all_auto_v1", "yes");
-    expect(getFixAllAutoApply()).toBe(false);
+    expect(getFixAllAutoApply()).toBe(true);
   });
 
-  it("falls back to off when storage throws", () => {
-    // Private mode must not accidentally enable auto-apply.
+  it("falls back to on when storage throws", () => {
     const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("denied");
     });
-    expect(getFixAllAutoApply()).toBe(false);
+    expect(getFixAllAutoApply()).toBe(true);
     spy.mockRestore();
   });
 
@@ -43,23 +40,21 @@ describe("auto-apply preference", () => {
 });
 
 describe("button copy", () => {
-  it("says review when review is what happens", () => {
+  it("says generate-first when review mode is on", () => {
     const { title, subtitle } = fixAllButtonLabel(6, false, false);
     expect(title).toContain("Fix everything (6)");
-    expect(subtitle.toLowerCase()).toContain("review");
+    expect(subtitle.toLowerCase()).toContain("generate");
   });
 
-  it("says it applies straight to the résumé when it does", () => {
-    // The label has to state the consequence; a user should never be surprised
-    // by their résumé changing.
+  it("says apply to preview when auto-apply is on", () => {
     const { title, subtitle } = fixAllButtonLabel(6, true, false);
-    expect(title).toContain("apply");
-    expect(subtitle.toLowerCase()).toContain("applies straight");
-    expect(subtitle.toLowerCase()).not.toContain("review");
+    expect(title).toContain("Fix everything");
+    expect(subtitle.toLowerCase()).toContain("preview");
+    expect(subtitle.toLowerCase()).toContain("highlight");
   });
 
   it("reflects the mode while running", () => {
-    expect(fixAllButtonLabel(3, true, true).title).toBe("Fixing…");
+    expect(fixAllButtonLabel(3, true, true).title).toBe("Tailoring résumé…");
     expect(fixAllButtonLabel(3, false, true).title).toBe("Finding fixes…");
   });
 });

@@ -2714,12 +2714,10 @@ export default function ResumeBuilder({
   /**
    * Fix everything in one pass.
    *
-   * Batches by gap TYPE rather than firing one request per gap: three focused
-   * prompts instead of a dozen, and — more importantly — no sequence of rounds
-   * each re-reading a résumé the previous round already changed. The results
-   * land in the normal gap-fix panel, so the user still reviews before anything
-   * is written. Nothing is auto-applied; the validators reject fabrication, but
-   * a rewrite the candidate can't stand behind is theirs to catch.
+   * Batches by gap TYPE (a few focused prompts, not one per gap). Default:
+   * apply every rewrite straight to the preview with green highlights — the
+   * résumé IS the review surface. Opt into "Show suggestions first" to land
+   * in the gap-fix panel instead. Overall match % stays frozen until Re-check.
    */
   const fixEverything = useCallback(async () => {
     if (!jd.trim() || openGapBatches.length === 0 || fixAllBusy) return;
@@ -2775,11 +2773,8 @@ export default function ResumeBuilder({
         return;
       }
 
-      // Explicit opt-in only. The switch is off by default and the button says
-      // which of the two it will do, so the résumé never changes unprompted —
-      // but a user who has done this twenty times should not have to click
-      // through a review every time. Applied edits stay reversible: they are
-      // preview overrides, and every bullet keeps its revert control.
+      // Default: apply to preview. Opt-out checkbox lands suggestions in the
+      // review panel instead. Applied edits are preview overrides (reversible).
       if (fixAllAutoApply) {
         await applyGapFixes(
           all.map((s) => ({
@@ -4136,6 +4131,11 @@ export default function ResumeBuilder({
                     onActiveTabChange={setResultsActiveTab}
                     collapsed={matchSidebarCollapsed}
                     onCollapsedChange={setMatchSidebarCollapsed}
+                    onFixEverything={() => { void fixEverything(); }}
+                    openGapCount={openGapCount}
+                    fixEverythingBusy={fixAllBusy}
+                    fixEverythingAutoApply={fixAllAutoApply}
+                    onFixEverythingAutoApplyChange={toggleFixAllAutoApply}
                   />
                   <div className="tb-split-work-slot">
                     {scoreStale && !gapApplyBusy && (
@@ -4187,7 +4187,7 @@ export default function ResumeBuilder({
                           style={{
                             padding: "5px 10px", borderRadius: 999, border: "none",
                             background: "var(--accent)", color: "#fff",
-                            fontSize: 11.5, fontWeight: 700, fontFamily: "inherit",
+                            fontSize: 12, fontWeight: 700, fontFamily: "inherit",
                             cursor: tailorRescoring ? "not-allowed" : "pointer",
                             opacity: tailorRescoring ? 0.65 : 1, flexShrink: 0,
                             whiteSpace: "nowrap",

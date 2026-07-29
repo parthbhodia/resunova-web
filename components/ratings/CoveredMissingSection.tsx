@@ -115,7 +115,7 @@ export function CoveredMissingSection({
                             Getting fixes…
                           </>
                         ) : (
-                          <>⚡ Fix with AI</>
+                          <>Fix this one</>
                         )}
                       </button>
                     )}
