@@ -102,7 +102,13 @@ const SECTION_DESC: Record<Tab, string> = {
 type GapFixSuggestion = {
   id: string; section: string; original: string; suggested: string; reason: string; priority: string;
 };
-type GapFixPanel = { gapName: string; gapNotes: string; suggestions: GapFixSuggestion[] };
+type GapFixPanel = {
+  gapName: string;
+  gapNotes: string;
+  suggestions: GapFixSuggestion[];
+  atsFallback?: boolean;
+  targetTerms?: string[];
+};
 
 type SharedProps = {
   ratings: RatingsData;
@@ -133,6 +139,7 @@ type SharedProps = {
   gapFixError?: string | null;
   onApplyFix?: (s: GapFixSuggestion) => void | Promise<void>;
   onApplyAllGapFixes?: (suggestions: GapFixSuggestion[]) => void | Promise<void>;
+  onSkipGapFix?: (s: GapFixSuggestion) => void;
   onDismissFix?: () => void;
   addressedGaps?: ReadonlySet<string>;
   addressedGapActions?: readonly AddressedGapAction[];
@@ -560,6 +567,7 @@ export function TailorMatchDetail(props: SharedProps) {
     gapFixError,
     onApplyFix,
     onApplyAllGapFixes,
+    onSkipGapFix,
     onDismissFix,
     addressedGaps,
     addressedGapActions,
@@ -654,6 +662,7 @@ export function TailorMatchDetail(props: SharedProps) {
             gapFixError={gapFixError}
             onApplyFix={onApplyFix}
             onApplyAllFixes={onApplyAllGapFixes}
+            onSkipFix={onSkipGapFix}
             onDismissFix={onDismissFix}
             gapFixDrafts={gapFixDrafts}
             onGapFixDraftChange={onGapFixDraftChange}

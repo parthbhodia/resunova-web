@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { suggestionsWithDrafts } from "@/lib/tailorGapFix";
 import { GapFixSuggestionCard, type GapFixSuggestion } from "@/components/ratings/GapFixSuggestionCard";
 
@@ -8,6 +8,10 @@ export type GapFixPanelState = {
   gapName: string;
   gapNotes: string;
   suggestions: GapFixSuggestion[];
+  /** True when suggestions came from the server's ATS keyword fallback pass. */
+  atsFallback?: boolean;
+  /** JD product/tool terms this gap is targeting (chip row). */
+  targetTerms?: string[];
 };
 
 type Props = {
@@ -15,6 +19,7 @@ type Props = {
   gapFixError?: string | null;
   onApplyFix?: (s: GapFixSuggestion) => void | Promise<void>;
   onApplyAllFixes?: (suggestions: GapFixSuggestion[]) => void | Promise<void>;
+  onSkipFix?: (s: GapFixSuggestion) => void;
   onDismissFix?: () => void;
   gapFixDrafts?: Record<string, string>;
   onGapFixDraftChange?: (id: string, text: string) => void;
@@ -32,6 +37,7 @@ export default function GapFixTabPanel({
   gapFixError,
   onApplyFix,
   onApplyAllFixes,
+  onSkipFix,
   onDismissFix,
   gapFixDrafts = {},
   onGapFixDraftChange,
@@ -45,30 +51,16 @@ export default function GapFixTabPanel({
     [gapFixPanel.suggestions],
   );
 
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set(panelSuggestions.map((s) => s.id)));
+  const targetTerms = useMemo(
+    () => (gapFixPanel.targetTerms ?? []).map((t) => t.trim()).filter(Boolean),
+    [gapFixPanel.targetTerms],
+  );
 
-  useEffect(() => {
-    setCheckedIds(new Set(panelSuggestions.map((s) => s.id)));
-  }, [gapFixPanel.gapName, panelSuggestions.length]);
-
-  const toggleCheck = (id: string) => {
-    setCheckedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const effectiveChecked = checkedIds;
-
-  // Bring the card for a clicked preview bullet into view. Same shape as
-  // CategoryFixPanel: the 80ms defer matters because this panel is mounted
-  // fresh when the tab switches, so the refs populate in the same commit.
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const firstActiveId = activeGapFixIds && activeGapFixIds.size > 0
-    ? panelSuggestions.find((s) => activeGapFixIds.has(s.id))?.id
-    : undefined;
+  const firstActiveId =
+    activeGapFixIds && activeGapFixIds.size > 0
+      ? panelSuggestions.find((s) => activeGapFixIds.has(s.id))?.id
+      : undefined;
 
   useEffect(() => {
     if (!firstActiveId) return;
@@ -82,23 +74,51 @@ export default function GapFixTabPanel({
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0, height: "100%" }}>
       <div
         style={{
-          padding: "16px 24px",
+          padding: "14px 20px",
           borderBottom: "1px solid var(--border)",
-          background: "linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(139,92,246,0.06) 100%)",
+          background: "var(--surface)",
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "space-between",
           gap: 12,
           flexShrink: 0,
         }}
       >
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>⚡ AI gap fixes</div>
-          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
-            Targeted rewrites for: <strong style={{ color: "var(--text)", fontWeight: 600 }}>{gapFixPanel.gapName}</strong>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
+            Gap fixes
           </div>
+          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
+            Review each rewrite, then Apply or Skip.{" "}
+            <strong style={{ color: "var(--text)", fontWeight: 600 }}>{gapFixPanel.gapName}</strong>
+          </div>
+          {targetTerms.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+              {targetTerms.map((term) => (
+                <span
+                  key={term}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--text)",
+                    background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
+                    borderRadius: 999,
+                    padding: "3px 9px",
+                  }}
+                >
+                  {term}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {gapFixPanel.atsFallback && panelSuggestions.length > 0 ? (
+            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8, lineHeight: 1.4 }}>
+              ATS keyword pass: prioritize JD coverage; double-check each rewrite before applying.
+            </div>
+          ) : null}
         </div>
-        {onDismissFix && (
+        {onDismissFix ? (
           <button
             type="button"
             onClick={onDismissFix}
@@ -106,75 +126,79 @@ export default function GapFixTabPanel({
               padding: "6px 12px",
               borderRadius: 8,
               border: "1px solid var(--border)",
-              background: "var(--surface)",
+              background: "var(--surface2)",
               color: "var(--muted)",
               fontSize: 12,
               fontWeight: 600,
               fontFamily: "inherit",
               cursor: "pointer",
+              flexShrink: 0,
             }}
           >
             Close
           </button>
-        )}
+        ) : null}
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 24px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 20px" }}>
         {gapFixError ? (
           <p style={{ margin: 0, fontSize: 13, color: "var(--error, #ef4444)" }}>{gapFixError}</p>
         ) : panelSuggestions.length === 0 ? (
           <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
-            No targeted rewrites found for this gap. Try &quot;Get suggestions&quot; on the Interview tab for a broader pass.
+            No ATS-friendly rewrites could be woven into your existing bullets for this gap
+            (nothing transferable enough without inventing experience). Try &quot;Get suggestions&quot;
+            on the Interview tab for a broader pass, or add related experience in the preview first.
           </p>
         ) : (
           <>
-            {onApplyFix && panelSuggestions.length > 0 && (
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+            {onApplyAllFixes && panelSuggestions.length > 1 ? (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
                 <button
                   type="button"
-                  disabled={applyBusy || effectiveChecked.size === 0}
+                  disabled={applyBusy}
                   onClick={() => {
-                    const toApply = suggestionsWithDrafts(
-                      panelSuggestions.filter((s) => effectiveChecked.has(s.id)),
-                      gapFixDrafts,
-                    );
+                    const toApply = suggestionsWithDrafts(panelSuggestions, gapFixDrafts);
                     if (toApply.length === 0) return;
-                    if (onApplyAllFixes) void onApplyAllFixes(toApply);
-                    else toApply.forEach((s) => { void onApplyFix!(s); });
+                    void onApplyAllFixes(toApply);
                   }}
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "8px 16px",
+                    padding: "7px 12px",
                     borderRadius: 8,
-                    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                    border: "none",
-                    color: "#fff",
+                    border: "1px solid var(--border)",
+                    background: "var(--surface)",
+                    color: "var(--text)",
                     fontSize: 12,
-                    fontWeight: 700,
+                    fontWeight: 600,
                     fontFamily: "inherit",
-                    cursor: applyBusy || effectiveChecked.size === 0 ? "not-allowed" : "pointer",
-                    opacity: applyBusy || effectiveChecked.size === 0 ? 0.55 : 1,
+                    cursor: applyBusy ? "not-allowed" : "pointer",
+                    opacity: applyBusy ? 0.55 : 1,
                   }}
                 >
-                  {applyBusy ? "Applying…" : `Apply selected (${effectiveChecked.size})`}
+                  {applyBusy ? "Applying…" : `Apply all (${panelSuggestions.length})`}
                 </button>
               </div>
-            )}
+            ) : null}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {panelSuggestions.map((s, i) => (
                 <GapFixSuggestionCard
                   key={s.id}
                   suggestion={s}
                   index={i}
-                  checked={effectiveChecked.has(s.id)}
-                  onToggleCheck={() => toggleCheck(s.id)}
                   draftText={gapFixDrafts[s.id] ?? s.suggested}
                   onDraftChange={(text) => onGapFixDraftChange?.(s.id, text)}
                   active={!!activeGapFixIds?.has(s.id)}
                   onActivate={onGapFixActivate ? () => onGapFixActivate(s.id) : undefined}
                   targetBulletText={gapFixBulletText?.(s.id)}
+                  onApply={
+                    onApplyFix
+                      ? () => {
+                          const drafted = suggestionsWithDrafts([s], gapFixDrafts)[0] ?? s;
+                          return onApplyFix(drafted);
+                        }
+                      : undefined
+                  }
+                  onSkip={onSkipFix ? () => onSkipFix(s) : undefined}
+                  applyBusy={applyBusy}
                   cardRef={(el) => {
                     if (el) cardRefs.current.set(s.id, el);
                     else cardRefs.current.delete(s.id);

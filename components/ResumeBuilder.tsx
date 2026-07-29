@@ -714,6 +714,8 @@ export default function ResumeBuilder({
     gapNotes: string;
     suggestions: GapFixSuggestion[];
     gapType: AddressedGapAction["type"];
+    atsFallback?: boolean;
+    targetTerms?: string[];
   } | null>(null);
   const [gapFixError, setGapFixError] = useState<string | null>(null);
   /** True while a gap-fix suggestion is being applied + PDF compiled + rescored. */
@@ -2313,17 +2315,27 @@ export default function ResumeBuilder({
           ...(prof ? { candidate_profile: prof } : {}),
         }),
       });
-      const data = await resp.json() as { suggestions?: unknown[]; error?: string };
+      const data = await resp.json() as {
+        suggestions?: unknown[];
+        error?: string;
+        atsFallback?: boolean;
+        targetTerms?: string[];
+      };
       if (!resp.ok || data.error) throw new Error(data.error ?? "Gap fix failed");
       const suggs = (Array.isArray(data.suggestions) ? data.suggestions : []) as Array<{
         id: string; section: string; original: string; suggested: string; reason: string; priority: string;
       }>;
       const eligible = suggs.filter((s) => s.original?.trim() && s.suggested?.trim());
+      const terms = Array.isArray(data.targetTerms)
+        ? data.targetTerms.map((t) => String(t).trim()).filter(Boolean)
+        : [];
       setGapFixPanel({
         gapName: gap.name,
         gapNotes: gap.notes,
         suggestions: eligible,
         gapType: gap.type ?? "qualification",
+        atsFallback: Boolean(data.atsFallback) && eligible.length > 0,
+        targetTerms: terms,
       });
       setResultsActiveTab("gapfix");
     } catch (e: unknown) {
@@ -2349,6 +2361,7 @@ export default function ResumeBuilder({
   const applyGapFixes = useCallback(async (
     items: Array<{ id: string; section: string; original: string; suggested: string; reason: string; priority: string }>,
     gapNameOverride?: string,
+    opts?: { closePanel?: boolean },
   ) => {
     if (items.length === 0) return;
     const gapName = gapNameOverride ?? gapFixPanel?.gapName ?? "";
@@ -2356,6 +2369,8 @@ export default function ResumeBuilder({
     const gapType: AddressedGapAction["type"] = gapFixPanel?.gapType ?? "qualification";
     const draftedItems = suggestionsWithDrafts(items, gapFixDrafts);
     const appliedText = draftedItems.map((s) => s.suggested).filter(Boolean).join("\n");
+    const closePanel = opts?.closePanel !== false;
+    const appliedIds = new Set(draftedItems.map((s) => s.id));
 
     if (gapName) {
       setAddressedGaps((prev) => new Set([...prev, gapName]));
@@ -2365,17 +2380,32 @@ export default function ResumeBuilder({
         return [...prev, { id, label: gapName, type: gapType, appliedText }];
       });
     }
-    setGapFixPanel(null);
-    // Clearing gapFixPanel removes the "gapfix" tab from the nav — if it was the
-    // active tab, the detail panel would render blank. Switch back to the gap's
-    // originating category (or Overall) so the user lands on real content.
-    setResultsActiveTab((prev) => {
-      if (prev !== "gapfix") return prev;
-      if (gapType === "responsibility") return "responsibilities";
-      if (gapType === "keyword") return "keywords";
-      if (gapType === "qualification") return "qualifications";
-      return "overall";
-    });
+
+    const leaveGapFixTab = () => {
+      setResultsActiveTab((prev) => {
+        if (prev !== "gapfix") return prev;
+        if (gapType === "responsibility") return "responsibilities";
+        if (gapType === "keyword") return "keywords";
+        if (gapType === "qualification") return "qualifications";
+        return "overall";
+      });
+    };
+
+    if (closePanel) {
+      setGapFixPanel(null);
+      // Clearing gapFixPanel removes the "gapfix" tab from the nav — if it was the
+      // active tab, the detail panel would render blank. Switch back to the gap's
+      // originating category (or Overall) so the user lands on real content.
+      leaveGapFixTab();
+    } else {
+      const remaining = (gapFixPanel?.suggestions ?? []).filter((s) => !appliedIds.has(s.id));
+      if (remaining.length === 0) {
+        setGapFixPanel(null);
+        leaveGapFixTab();
+      } else {
+        setGapFixPanel((prev) => (prev ? { ...prev, suggestions: remaining } : null));
+      }
+    }
 
     setGapApplyBusy(true);
     try {
@@ -2499,14 +2529,39 @@ export default function ResumeBuilder({
   const applyGapFix = useCallback(async (s: {
     id: string; section: string; original: string; suggested: string; reason: string; priority: string;
   }) => {
-    await applyGapFixes([s]);
+    await applyGapFixes([s], undefined, { closePanel: false });
   }, [applyGapFixes]);
 
   const applyAllGapFixes = useCallback(async (
     items: Array<{ id: string; section: string; original: string; suggested: string; reason: string; priority: string }>,
   ) => {
-    await applyGapFixes(items);
+    await applyGapFixes(items, undefined, { closePanel: true });
   }, [applyGapFixes]);
+
+  const skipGapFix = useCallback((s: {
+    id: string; section: string; original: string; suggested: string; reason: string; priority: string;
+  }) => {
+    const gapType: AddressedGapAction["type"] = gapFixPanel?.gapType ?? "qualification";
+    const remaining = (gapFixPanel?.suggestions ?? []).filter((x) => x.id !== s.id);
+    if (remaining.length === 0) {
+      setGapFixPanel(null);
+      setResultsActiveTab((tab) => {
+        if (tab !== "gapfix") return tab;
+        if (gapType === "responsibility") return "responsibilities";
+        if (gapType === "keyword") return "keywords";
+        if (gapType === "qualification") return "qualifications";
+        return "overall";
+      });
+    } else {
+      setGapFixPanel((prev) => (prev ? { ...prev, suggestions: remaining } : null));
+    }
+    setGapFixDrafts((prev) => {
+      if (!(s.id in prev)) return prev;
+      const next = { ...prev };
+      delete next[s.id];
+      return next;
+    });
+  }, [gapFixPanel]);
 
   const skillCategories = useMemo(
     () => skillCategoryOptions(tailorStructuredResume),
@@ -4094,6 +4149,7 @@ export default function ResumeBuilder({
                       gapFixError={gapFixError}
                       onApplyFix={applyGapFix}
                       onApplyAllGapFixes={applyAllGapFixes}
+                      onSkipGapFix={skipGapFix}
                       onDismissFix={() => setGapFixPanel(null)}
                       addressedGaps={addressedGaps}
                       addressedGapActions={addressedGapActions}
