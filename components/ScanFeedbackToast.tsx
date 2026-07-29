@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
-import { useUpgradeDialog } from "@/components/UpgradeDialog";
+import { FeedbackToastCard, type FeedbackToastVariant } from "@/components/FeedbackToastCard";
+import { useUpgradeDialog, PRO_SCAN_DAILY_LIMIT } from "@/components/UpgradeDialog";
 
 export type ScanMeta = {
   enforced?: boolean;
@@ -45,9 +46,32 @@ export function useScanToast() {
   return { scanMeta, handleScanResponse, handleScanError, clearScanMeta };
 }
 
-export function ScanFeedbackToast({ meta, onDismiss }: { meta: ScanMeta; onDismiss: () => void }) {
+function resetCountdown(resetAt?: string | null): string {
+  if (!resetAt) return "tomorrow";
+  const ms = new Date(resetAt).getTime() - Date.now();
+  if (ms <= 0) return "shortly";
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours >= 1) return `${hours}h ${mins}m`;
+  return `${Math.max(1, mins)}m`;
+}
+
+function featureNoun(feature?: string): { singular: string; plural: string } {
+  if (feature === "interview_prep") {
+    return { singular: "interview prep parse", plural: "interview prep parses" };
+  }
+  return { singular: "resume scan", plural: "resume scans" };
+}
+
+export function ScanFeedbackToast({
+  meta,
+  onDismiss,
+}: {
+  meta: ScanMeta;
+  onDismiss: () => void;
+}) {
   const { openUpgrade } = useUpgradeDialog();
-  // auto dismiss after 6 seconds for success
+
   useEffect(() => {
     if (meta.allowed) {
       const t = setTimeout(onDismiss, 6000);
@@ -59,87 +83,75 @@ export function ScanFeedbackToast({ meta, onDismiss }: { meta: ScanMeta; onDismi
 
   const isError = !meta.allowed;
   const remaining = meta.remaining ?? 0;
-  
-  let hoursUntilReset = 0;
-  let minsUntilReset = 0;
-  if (meta.resetAt) {
-    const ms = new Date(meta.resetAt).getTime() - Date.now();
-    if (ms > 0) {
-      hoursUntilReset = Math.floor(ms / (1000 * 60 * 60));
-      minsUntilReset = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-    }
+  const nouns = featureNoun(meta.feature);
+  const nearLimit = !isError && remaining === 0;
+
+  let variant: FeedbackToastVariant = "success";
+  let title = "Scan complete";
+  let description: React.ReactNode;
+  let primaryAction: { label: string; onClick: () => void } | undefined;
+  let secondaryAction: { label: string; onClick: () => void } | undefined;
+
+  if (isError) {
+    variant = "warning";
+    title = "Daily limit reached";
+    description = (
+      <>
+        You&apos;ve used all {meta.limit} of your daily free {nouns.plural}. Come back in{" "}
+        {resetCountdown(meta.resetAt)} or upgrade to Pro for {PRO_SCAN_DAILY_LIMIT}/day.
+      </>
+    );
+    primaryAction = {
+      label: "Upgrade",
+      onClick: () => {
+        openUpgrade({
+          code: meta.code,
+          feature: meta.feature,
+          limit: meta.limit,
+          used: meta.used,
+          resetAt: meta.resetAt,
+        });
+        onDismiss();
+      },
+    };
+    secondaryAction = { label: "Not now", onClick: onDismiss };
+  } else if (nearLimit) {
+    variant = "warning";
+    title = "No free scans left";
+    description = `You've used today's free ${nouns.plural}. Upgrade to Pro for ${PRO_SCAN_DAILY_LIMIT}/day, or come back tomorrow.`;
+    primaryAction = {
+      label: "Upgrade",
+      onClick: () => {
+        openUpgrade({
+          code: meta.code,
+          feature: meta.feature,
+          limit: meta.limit,
+          used: meta.used,
+          resetAt: meta.resetAt,
+        });
+        onDismiss();
+      },
+    };
+    secondaryAction = { label: "Dismiss", onClick: onDismiss };
+  } else {
+    variant = "success";
+    title = "Scan complete";
+    description = (
+      <>
+        {remaining} free {remaining === 1 ? nouns.singular : nouns.plural} remaining today.
+      </>
+    );
   }
 
-  const bgColor = isError ? "var(--red-dim, rgba(239, 68, 68, 0.1))" : (remaining === 0 ? "var(--amber-dim, rgba(245, 158, 11, 0.1))" : "var(--surface, #ffffff)");
-  const borderColor = isError ? "var(--red, #ef4444)" : (remaining === 0 ? "var(--amber, #f59e0b)" : "var(--border, #e2e8f0)");
-  const textColor = isError ? "var(--red, #ef4444)" : (remaining === 0 ? "var(--amber, #f59e0b)" : "var(--text, #0f172a)");
-
   return (
-    <div style={{
-      position: 'fixed',
-      bottom: 24,
-      right: 24,
-      zIndex: 9999,
-      background: bgColor,
-      border: `1px solid ${borderColor}`,
-      padding: '16px 20px',
-      borderRadius: 12,
-      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-      maxWidth: 340,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 8,
-      fontFamily: 'var(--font-sans, system-ui, sans-serif)',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: textColor }}>
-          {isError ? "Daily Limit Reached" : "Scan Complete"}
-        </h4>
-        <button 
-          onClick={onDismiss}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.6, padding: 4 }}
-          aria-label="Dismiss"
-        >
-          ✕
-        </button>
-      </div>
-
-      <p style={{ margin: 0, fontSize: 13, color: "var(--muted, #64748b)", lineHeight: 1.4 }}>
-        {isError ? (
-          <>You have used all {meta.limit} of your daily free {meta.feature === "interview_prep" ? "interview prep parses" : "resume scans"}. Come back in {hoursUntilReset}h {minsUntilReset}m or upgrade to Pro for 30/day.</>
-        ) : (
-          <>{remaining} free {meta.feature === "interview_prep" ? "interview prep parse" : "resume scan"}{remaining !== 1 ? 's' : ''} remaining today.</>
-        )}
-      </p>
-
-      {isError && (
-        <button
-          type="button"
-          onClick={() => {
-            openUpgrade({
-              code: meta.code,
-              feature: meta.feature,
-              limit: meta.limit,
-              used: meta.used,
-              resetAt: meta.resetAt,
-            });
-            onDismiss();
-          }}
-          style={{
-            marginTop: 4,
-            alignSelf: 'flex-start',
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--accent, #3b82f6)",
-          }}
-        >
-          Upgrade →
-        </button>
-      )}
-    </div>
+    <FeedbackToastCard
+      title={title}
+      description={description}
+      variant={variant}
+      role={isError ? "alert" : "status"}
+      onDismiss={onDismiss}
+      primaryAction={primaryAction}
+      secondaryAction={secondaryAction}
+    />
   );
 }

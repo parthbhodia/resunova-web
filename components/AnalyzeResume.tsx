@@ -54,7 +54,10 @@ import { useAnalyzeSession } from "./analyze/useAnalyzeSession";
 import { useAnalyzeLoaderProgress } from "./analyze/useAnalyzeLoaderProgress";
 import { Tip } from "@/components/ui/tip";
 import { apiFetch, refusalFrom } from "@/lib/apiClient";
-
+import {
+  FeedbackToastCard,
+  feedbackToastMeta,
+} from "@/components/FeedbackToastCard";
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -1422,30 +1425,17 @@ export default function AnalyzeResume() {
       }}
     >
 
-      {feedbackToast ? (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            position: "fixed",
-            right: 16,
-            bottom: 18,
-            zIndex: 1200,
-            maxWidth: "min(440px, calc(100vw - 32px))",
-            padding: "12px 14px",
-            borderRadius: 12,
-            background: "rgba(30,41,59,0.96)",
-            border: "1px solid rgba(148,163,184,0.32)",
-            boxShadow: "0 14px 30px rgba(2,6,23,0.35)",
-            color: "#f8fafc",
-            fontSize: 13,
-            lineHeight: 1.45,
-            letterSpacing: -0.15,
-          }}
-        >
-          {feedbackToast}
-        </div>
-      ) : null}
+      {feedbackToast ? (() => {
+        const meta = feedbackToastMeta(feedbackToast);
+        return (
+          <FeedbackToastCard
+            title={meta.title}
+            description={feedbackToast}
+            variant={meta.variant}
+            onDismiss={() => setFeedbackToast(null)}
+          />
+        );
+      })() : null}
 
       {/* After an analysis: one-tap "save this résumé to your Profile" (self-hides
           when no structured résumé / already saved or dismissed). */}
