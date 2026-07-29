@@ -560,37 +560,43 @@ select option { background: var(--surface); }
   min-height: 40px;
 }
 
-/* Collapsed rail */
+/* Collapsed rail — tighter vertical rhythm */
 .app-shell-root .group[data-collapsible="icon"] [data-slot="sidebar-header"] {
-  padding: 14px 10px 10px !important;
+  padding: 12px 8px 8px !important;
 }
 
 .app-shell-root .group[data-collapsible="icon"] [data-sidebar="content"] {
-  padding: 4px 10px 12px !important;
+  padding: 2px 8px 10px !important;
 }
 
 .app-shell-root .group[data-collapsible="icon"] [data-sidebar="footer"] {
-  padding: 10px 10px 12px !important;
+  padding: 8px 8px 10px !important;
 }
 
-/* Every button in the icon rail: same 36×36 pill hit target, centered */
+/* Every button in the icon rail: same 34×34 pill hit target, centered */
 .app-shell-root .group[data-collapsible="icon"] [data-sidebar="menu-item"] {
   display: flex;
   justify-content: center;
 }
 
 .app-shell-root .group[data-collapsible="icon"] [data-sidebar="menu-button"] {
-  width: 36px !important;
-  min-width: 36px !important;
-  height: 36px !important;
-  min-height: 36px !important;
-  padding: 8px !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 7px !important;
   border-radius: 9px !important;
   flex-shrink: 0;
+  border: 1px solid transparent;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .app-shell-root .group[data-collapsible="icon"] [data-sidebar="menu"] {
-  gap: 2px;
+  gap: 1px;
   align-items: stretch;
 }
 
@@ -605,10 +611,10 @@ select option { background: var(--surface); }
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  opacity: 0.65;
+  opacity: 0.72;
   transition:
-    opacity 0.2s cubic-bezier(0.32, 0.72, 0, 1),
-    color 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    opacity 0.15s ease,
+    color 0.15s ease;
 }
 
 [data-sidebar="menu-button"] .app-nav-icon svg,
@@ -622,24 +628,33 @@ select option { background: var(--surface); }
   height: 15px;
 }
 
-/* Icon rail active: pill highlight (not a full square tile) */
+/* Icon rail active: stronger pill so the current page is obvious at a glance */
 .group[data-collapsible="icon"] [data-sidebar="menu-button"][data-active="true"] {
-  box-shadow: none !important;
-  border: 1px solid rgba(47, 129, 247, 0.25) !important;
-  background: var(--accent-bg) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent) !important;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface)) !important;
   color: var(--accent) !important;
   border-radius: 9px !important;
 }
 
-/* Active icon fully opaque */
+/* Active icon fully opaque + accent stroke */
 .group[data-collapsible="icon"] [data-sidebar="menu-button"][data-active="true"] .app-nav-icon {
   opacity: 1;
+  color: var(--accent);
 }
 
-/* Hover: subtle tint on inactive items */
+.group[data-collapsible="icon"] [data-sidebar="menu-button"][data-active="true"] .app-nav-icon svg {
+  stroke: currentColor;
+}
+
+/* Hover: clearer tint on inactive items */
 .group[data-collapsible="icon"] [data-sidebar="menu-button"]:not([data-active="true"]):hover {
   background: var(--surface2) !important;
   border-radius: 9px !important;
+}
+
+.group[data-collapsible="icon"] [data-sidebar="menu-button"]:not([data-active="true"]):hover .app-nav-icon {
+  opacity: 0.92;
 }
 
 .group[data-collapsible="icon"] [data-sidebar="menu-button"] {
