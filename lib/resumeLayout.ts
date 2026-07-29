@@ -529,13 +529,16 @@ export const RESUME_BULLET_STYLESHEET = `
   }
   .az-highlights-off .az-gap-pill,
   .az-highlights-off .az-change-hl,
+  .az-highlights-off .az-kw-pill,
   .az-clean-export .az-gap-pill,
-  .az-clean-export .az-change-hl {
+  .az-clean-export .az-change-hl,
+  .az-clean-export .az-kw-pill {
     background: transparent !important;
     border: none !important;
     padding: 0 !important;
     margin: 0 !important;
     border-radius: 0 !important;
     font-weight: inherit !important;
+    display: inline !important;
   }
 `;

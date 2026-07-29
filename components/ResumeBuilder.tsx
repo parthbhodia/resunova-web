@@ -544,6 +544,8 @@ export default function ResumeBuilder({
   const [tailorBulletAnalysis, setTailorBulletAnalysis] = useState<LiveBulletItem[]>([]);
   const [tailorLineOverrides, setTailorLineOverrides] = useState<Record<number, string>>({});
   const [tailorAppliedBulletIndices, setTailorAppliedBulletIndices] = useState<ReadonlySet<number>>(() => new Set());
+  /** Durable original→applied text pairs so insert pills survive after overrides bake into structured. */
+  const [appliedPillPairs, setAppliedPillPairs] = useState<Array<{ original: string; applied: string }>>([]);
   // Inline preview edits (Analyze parity). PATH-keyed (`exp.0.bullets.2`) for
   // neutral bullets + generic fields; ORTHOGONAL to the index-keyed
   // tailorLineOverrides used by gap-fix, so the two never collide. Path-based
@@ -1402,6 +1404,7 @@ export default function ResumeBuilder({
       setTailorBulletAnalysis(Array.isArray(data.bulletAnalysis) ? data.bulletAnalysis : []);
       setTailorLineOverrides({});
       setTailorAppliedBulletIndices(new Set());
+      setAppliedPillPairs([]);
       setAddressedGaps(new Set());
       setAddressedGapActions([]);
       setScoreStale(false);
@@ -1604,6 +1607,17 @@ export default function ResumeBuilder({
       effectiveCandidateProfile,
     );
   }, [gapFixPanel, tailorBulletAnalysis, effectiveCandidateProfile]);
+
+  /** Found JD keywords (direct + contextual) → inline pills on the Tailor preview. */
+  const keywordHighlightTerms = useMemo(() => {
+    const kw = result?.ratings?.keywords;
+    if (!kw) return [] as string[];
+    const direct = kw.direct_skills?.found ?? kw.found ?? [];
+    const contextual = (kw.contextual?.found ?? []).map((c) =>
+      typeof c === "string" ? c : String(c?.keyword ?? ""),
+    );
+    return [...direct, ...contextual].map((t) => String(t ?? "").trim()).filter(Boolean);
+  }, [result?.ratings?.keywords]);
 
   /** suggestion id → bullet index, for linking a card to the line it edits. */
   const gapFixBulletMap = useMemo(() => {
@@ -2515,6 +2529,21 @@ export default function ResumeBuilder({
       setTailorLineOverrides(nextOverrides);
       if (appliedIndices.size > 0) {
         setTailorAppliedBulletIndices(appliedIndices);
+        setAppliedPillPairs((prev) => {
+          const next = [...prev];
+          for (const [index, { original }] of perBullet) {
+            const applied = (nextOverrides[index] ?? "").trim();
+            if (!applied) continue;
+            const orig = original.trim();
+            const existing = next.findIndex((p) =>
+              resumeLineMatchesSuggestionOriginal(applied, p.applied)
+              || resumeLineMatchesSuggestionOriginal(orig, p.original),
+            );
+            if (existing >= 0) next[existing] = { original: orig, applied };
+            else next.push({ original: orig, applied });
+          }
+          return next;
+        });
       }
 
       // Applied gap fixes are NOT pushed into the suggestions store any more.
@@ -2892,6 +2921,21 @@ export default function ResumeBuilder({
       setTailorLineOverrides(nextOverrides);
       if (appliedIndices.size > 0) {
         setTailorAppliedBulletIndices(appliedIndices);
+        setAppliedPillPairs((prev) => {
+          const next = [...prev];
+          for (const s of acceptedList) {
+            const applied = s.suggested.trim();
+            const orig = s.original.trim();
+            if (!applied || !orig) continue;
+            const existing = next.findIndex((p) =>
+              resumeLineMatchesSuggestionOriginal(applied, p.applied)
+              || resumeLineMatchesSuggestionOriginal(orig, p.original),
+            );
+            if (existing >= 0) next[existing] = { original: orig, applied };
+            else next.push({ original: orig, applied });
+          }
+          return next;
+        });
         window.setTimeout(() => setTailorAppliedBulletIndices(new Set()), 3000);
       }
 
@@ -4288,6 +4332,8 @@ export default function ResumeBuilder({
                     gapFixTargetBulletIndices={gapFixTargetIndices}
                     tailorGapFixHighlights={tailorGapFixHighlights}
                     tailorAppliedBulletIndices={tailorAppliedBulletIndices}
+                    appliedPillPairs={appliedPillPairs}
+                    keywordHighlightTerms={keywordHighlightTerms}
                     fieldOverrides={tailorFieldOverrides}
                     onFieldEdit={setTailorFieldOverride}
                     onBulletOp={applyTailorBulletOp}

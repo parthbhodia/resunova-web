@@ -91,8 +91,8 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
     el.style.cursor = "default";
   });
 
-  // Always unwrap word-change highlighters — review chrome, never part of the PDF.
-  clone.querySelectorAll("mark.az-change-hl").forEach((el) => {
+  // Always unwrap review highlighters — never part of the PDF.
+  clone.querySelectorAll("mark.az-change-hl, mark.az-gap-pill, mark.az-kw-pill").forEach((el) => {
     const text = el.textContent ?? "";
     el.replaceWith(clone.ownerDocument?.createTextNode(text) ?? document.createTextNode(text));
   });
@@ -135,7 +135,8 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
     .az-pdf-ignore               { display: none !important; }
     .az-highlights-off .az-metric { font-weight: inherit !important; color: inherit !important; background: transparent !important; }
     mark.az-change-hl,
-    mark.az-gap-pill {
+    mark.az-gap-pill,
+    mark.az-kw-pill {
       background: transparent !important;
       color: inherit !important;
       padding: 0 !important;
@@ -143,6 +144,7 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
       border: none !important;
       border-radius: 0 !important;
       font-weight: inherit !important;
+      display: inline !important;
     }
 
     /* Disable all animations and transitions — prevents Chromium capturing

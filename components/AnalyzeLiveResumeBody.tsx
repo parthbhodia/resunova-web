@@ -9,6 +9,7 @@ import { highlightMetricSpans } from "@/lib/highlightResumeMetrics";
 import { applyInlineFormat, renderInlineMarkdown, stripInlineMarkdown, type InlineFormat } from "@/lib/inlineMarkdown";
 import { diffWords } from "@/lib/textDiff";
 import { gapFixAppendDelta } from "@/lib/gapFixAppendDelta";
+import { renderWithKeywordPills } from "@/lib/keywordInlinePills";
 import { moveCleanPathRemap, deleteCleanPathRemap, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 import { DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -882,18 +883,59 @@ function renderMetricLineWithLabel(text: string, highlightsEnabled: boolean): Re
   );
 }
 
-/** Pill style for a contiguous insert (gap-fix append) — glanceable, not a second sentence. */
+/** Pill style for a contiguous insert (gap-fix append) — real capsule, not a flat box.
+ *  `inline-flex` is required: `display:inline` flattens border-radius into a rectangle. */
 const GAP_PILL_STYLE: CSSProperties = {
-  display: "inline",
+  display: "inline-flex",
+  alignItems: "center",
+  verticalAlign: "baseline",
   background: "rgba(34, 197, 94, 0.22)",
   border: "1px solid rgba(22, 163, 74, 0.55)",
   borderRadius: 9999,
-  padding: "1px 7px 2px",
-  margin: "0 1px",
+  padding: "1px 8px 2px",
+  margin: "0 2px",
   fontWeight: 600,
+  lineHeight: 1.35,
+  whiteSpace: "nowrap",
   boxDecorationBreak: "clone",
   WebkitBoxDecorationBreak: "clone",
 };
+
+export type AppliedPillPair = { original: string; applied: string };
+
+/** Prefer a durable applied-pair baseline so pills survive rescore / structured bake-in. */
+function resolvePillOriginal(
+  current: string,
+  fallbackOriginal: string,
+  pairs: readonly AppliedPillPair[],
+): string {
+  const hit = pairs.find((p) => resumeLineMatchesSuggestionOriginal(current, p.applied));
+  return (hit?.original || fallbackOriginal || "").trim();
+}
+
+/**
+ * Preview line body: gap-fix insert pills win when we have an original→applied
+ * pair; otherwise (or as a fallback) paint found JD keywords as Jobscan-style pills.
+ */
+function renderPreviewLineBody(
+  text: string,
+  opts: {
+    highlightsEnabled: boolean;
+    keywordTerms: readonly string[];
+    pillOriginal?: string;
+  },
+): ReactNode {
+  const { highlightsEnabled, keywordTerms, pillOriginal } = opts;
+  if (highlightsEnabled && pillOriginal) {
+    const gap = renderChangedWordsHighlighted(pillOriginal, text);
+    if (gap) return gap;
+  }
+  const metric = (chunk: string) => renderMetricLineWithLabel(chunk, highlightsEnabled);
+  if (highlightsEnabled && keywordTerms.length > 0) {
+    return renderWithKeywordPills(text, keywordTerms, metric);
+  }
+  return metric(text);
+}
 
 /** Inline highlighter for applied/edited bullets — paints only the words that
  *  were added vs `original`. Prefers a single pill around a contiguous append
@@ -1195,6 +1237,10 @@ interface Props {
   gapFixTargetBulletIndices?: number[];
   /** Brief green flash on applied bullet indices after gap apply. */
   tailorAppliedBulletIndices?: ReadonlySet<number>;
+  /** Durable original→applied pairs so insert pills survive rescore. */
+  appliedPillPairs?: readonly AppliedPillPair[];
+  /** Found JD keywords to paint as inline pills in the résumé body. */
+  keywordHighlightTerms?: readonly string[];
   /** Score / gap / metric tinting on bullets and lines (off = clean résumé for preview + PDF). */
   highlightsEnabled?: boolean;
   /** Analyze: the professional-summary paragraph has issues — amber-highlight it + make it clickable. */
@@ -1376,6 +1422,8 @@ export default function AnalyzeLiveResumeBody({
   tailorAppliedHighlights = [],
   gapFixTargetBulletIndices = [],
   tailorAppliedBulletIndices = new Set<number>(),
+  appliedPillPairs = [],
+  keywordHighlightTerms = [],
   highlightsEnabled = true,
   summaryFlagged = false,
   onSummarySelect,
@@ -2109,9 +2157,20 @@ export default function AnalyzeLiveResumeBody({
                     ...tailorHlStyle,
                     ...fieldEditedStyle,
                   }}>
-                    {inSkillsSection
-                      ? renderSkillsLine(normalizeSkillsLineSpacing(t))
-                      : renderLabeledLine(t)}
+                    {(() => {
+                      const soft = inSkillsSection
+                        ? normalizeSkillsLineSpacing(t)
+                        : t;
+                      const base = inSkillsSection
+                        ? () => renderSkillsLine(soft)
+                        : () => renderLabeledLine(soft);
+                      if (highlightsEnabled && keywordHighlightTerms.length > 0) {
+                        return renderWithKeywordPills(soft, keywordHighlightTerms, (chunk) =>
+                          inSkillsSection ? renderSkillsLine(chunk) : renderLabeledLine(chunk),
+                        );
+                      }
+                      return base();
+                    })()}
                   </div>
                 );
               })}
@@ -2233,7 +2292,11 @@ export default function AnalyzeLiveResumeBody({
                     }}
                   >
                     <span {...editableSpanProps} style={{ flex: 1, fontSize: "var(--az-resume-body-font-size, 10px)", lineHeight: "inherit", color: "var(--resume-paper-ink)", overflowWrap: "anywhere", wordBreak: "break-word", ...hiddenTextStyle }}>
-                      {renderMetricLineWithLabel(neutralText, highlightsEnabled)}
+                      {renderPreviewLineBody(neutralText, {
+                        highlightsEnabled,
+                        keywordTerms: keywordHighlightTerms,
+                        pillOriginal: resolvePillOriginal(neutralText, "", appliedPillPairs),
+                      })}
                     </span>
                     {hideBtn}
                   </div>
@@ -2268,12 +2331,18 @@ export default function AnalyzeLiveResumeBody({
               const originalBulletText = softenRunOnExtractLine(
                 (bullet.originalBullet || "").replace(/^[\s•\-–—*·◦▪▸→>]+/, "").trimStart(),
               );
+              const pillOriginal = resolvePillOriginal(
+                showText,
+                previewLineApplied ? originalBulletText : "",
+                appliedPillPairs,
+              );
+              const showInsertPills = highlightsEnabled && !!pillOriginal;
               const isPulsing = pulseBulletIndex === bulletIdx;
               const isGapFixTarget =
                 highlightsEnabled && presentationOnly && gapFixTargetBulletIndices.includes(bulletIdx);
               const isGapFixApplied =
                 highlightsEnabled && presentationOnly && tailorAppliedBulletIndices.has(bulletIdx);
-              const isPreviewLineApplied = highlightsEnabled && previewLineApplied;
+              const isPreviewLineApplied = highlightsEnabled && (previewLineApplied || showInsertPills);
 
               let bgTint = scoreBgTint(
                 bullet.score,
@@ -2398,12 +2467,13 @@ export default function AnalyzeLiveResumeBody({
                             }
                           : {})}
                       >
-                        {previewLineApplied
-                          ? (renderChangedWordsHighlighted(originalBulletText, showText)
-                              ?? renderMetricLineWithLabel(showText, highlightsEnabled))
-                          : renderMetricLineWithLabel(showText, highlightsEnabled)}
+                        {renderPreviewLineBody(showText, {
+                          highlightsEnabled,
+                          keywordTerms: keywordHighlightTerms,
+                          pillOriginal: showInsertPills ? pillOriginal : undefined,
+                        })}
                       </span>
-                      {previewLineApplied && (
+                      {(previewLineApplied || showInsertPills) && (
                         <span className="az-pdf-ignore az-preview-applied-mark"
                           title={presentationOnly ? "Suggestion applied" : "Preview updated"}
                           style={{ marginLeft: 5, fontSize: 9, fontWeight: 800, color: presentationOnly ? "var(--green)" : "var(--amber)" }}
@@ -2411,7 +2481,7 @@ export default function AnalyzeLiveResumeBody({
                           {presentationOnly ? "✓" : "●"}
                         </span>
                       )}
-                      {highlightsEnabled && presentationOnly && hasActionable && !previewLineApplied && (
+                      {highlightsEnabled && presentationOnly && hasActionable && !previewLineApplied && !showInsertPills && (
                         <span className="az-pdf-ignore" title="Click to see AI suggestion" style={{ marginLeft: 5, fontSize: 9, color: "var(--resume-paper-muted)" }}>✦</span>
                       )}
                     </span>

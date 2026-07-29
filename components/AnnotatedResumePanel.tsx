@@ -110,6 +110,10 @@ interface Props {
   gapFixTargetBulletIndices?: number[];
   /** Brief green flash on applied bullet indices after gap apply. */
   tailorAppliedBulletIndices?: ReadonlySet<number>;
+  /** Durable original→applied pairs so insert pills survive rescore. */
+  appliedPillPairs?: readonly { original: string; applied: string }[];
+  /** Found JD keywords to paint as inline pills in the résumé body. */
+  keywordHighlightTerms?: readonly string[];
   /** Target role for export filenames (Tailor JD title); falls back to structured experience. */
   exportRoleLabel?: string;
   /** Inline summary edit committed from the preview (Analyze routes this to summaryOverride). */
@@ -457,6 +461,8 @@ export default function AnnotatedResumePanel({
   tailorAppliedHighlights = [],
   gapFixTargetBulletIndices = [],
   tailorAppliedBulletIndices = new Set<number>(),
+  appliedPillPairs = [],
+  keywordHighlightTerms = [],
   exportRoleLabel = "",
   onSummaryEdit,
   hiddenPaths,
@@ -1509,6 +1515,8 @@ export default function AnnotatedResumePanel({
                 tailorAppliedHighlights={tailorAppliedHighlights}
                 gapFixTargetBulletIndices={gapFixTargetBulletIndices}
                 tailorAppliedBulletIndices={tailorAppliedBulletIndices}
+                appliedPillPairs={appliedPillPairs}
+                keywordHighlightTerms={keywordHighlightTerms}
                 highlightsEnabled={highlightsEnabled}
                 selectedSectionIdx={selectedSectionIdx}
                 onSectionSelected={onSectionSelected}
