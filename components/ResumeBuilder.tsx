@@ -3954,46 +3954,35 @@ export default function ResumeBuilder({
                       onChange={commitTailoringMode}
                     />
                   </span>
-                  <div style={{ display: "inline-flex", border: "1px solid var(--border-strong, var(--border))", borderRadius: 7, overflow: "hidden" }}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={tryAnotherJob}
-                      style={{ color: "var(--muted)", border: "none", borderRadius: 0 }}
-                    >
-                      Try a different JD
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            aria-label="More résumé options"
-                            title="More options"
-                            style={{ color: "var(--muted)", border: "none", borderRadius: 0, borderLeft: "1px solid var(--border)", padding: "0 8px" }}
-                          >
-                            ▾
-                          </Button>
-                        }
-                      />
-                      <DropdownMenuContent align="end" sideOffset={6} className="w-64">
-                        <DropdownMenuItem onClick={tryAnotherJob}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "1px 0" }}>
-                            <span style={{ fontSize: 13, fontWeight: 600 }}>Try a different JD</span>
-                            <span style={{ fontSize: 11, color: "var(--muted)" }}>Keeps this résumé, clears the job details</span>
-                          </div>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={startOverTailor}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "1px 0" }}>
-                            <span style={{ fontSize: 13, fontWeight: 600 }}>Start over</span>
-                            <span style={{ fontSize: 11, color: "var(--muted)" }}>Clears the résumé too — upload a new one</span>
-                          </div>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="default"
+                    onClick={tryAnotherJob}
+                    title="Keep this résumé, clear the job details"
+                    style={{
+                      color: "var(--text)",
+                      fontWeight: 650,
+                      borderColor: "color-mix(in srgb, var(--accent) 45%, var(--border))",
+                      background: "color-mix(in srgb, var(--accent) 8%, var(--surface))",
+                      boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    Try a different JD
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="default"
+                    onClick={startOverTailor}
+                    title="Clear the résumé too — upload a new one"
+                    style={{
+                      color: "var(--text)",
+                      fontWeight: 600,
+                      borderColor: "var(--border-strong, var(--border))",
+                      background: "var(--surface)",
+                    }}
+                  >
+                    Start over
+                  </Button>
                 </div>
               </header>
 
