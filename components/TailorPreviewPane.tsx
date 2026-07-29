@@ -103,6 +103,10 @@ export default function TailorPreviewPane({
       extractedText={extractedText.trim() || null}
       structuredResume={structuredResume}
       structuredResumeAuthoritative
+      // Same as BoostPanel: when structured is missing or a shell (edu/project
+      // names, no EXPERIENCE bullets), render the full flat candidateProfile
+      // instead of an empty / sparse preview.
+      flatTextFallback
       resumeHeader={resumeHeader}
       presentationOnly
       fieldsEditable={editingEnabled}
