@@ -568,25 +568,6 @@ export default function ResumeBuilder({
     setTailorHeadlineOverride(text);
     setScoreStale(true);
   }, []);
-  /** Bullet-level structural op (drag-reorder / add / delete) from the Tailor
-   *  preview. Mutates the uploaded structured doc (the authoritative scored
-   *  input on rescore) and remaps path-keyed field overrides to follow.
-   *  Also syncs candidateProfile text so Hub/rescore see the same bullets. */
-  const applyTailorBulletOp = useCallback((op: StructuredBulletOp) => {
-    let nextProfile: string | null = null;
-    setStructuredUpload((prev) => {
-      if (!prev) return prev;
-      const next = applyBulletOpToStructured(prev.structured, op);
-      if (!next) return prev;
-      nextProfile = structuredToPlainText(next) || prev.profile;
-      return { profile: nextProfile, structured: next };
-    });
-    if (nextProfile !== null) {
-      setCandidateProfile(nextProfile);
-    }
-    setTailorFieldOverrides((prev) => remapOverlayPaths(prev, op.pathRemap));
-    setScoreStale(true);
-  }, []);
   // Popup rewrite drafts for ANALYZED bullets (index >= 0). Applying writes into
   // tailorLineOverrides so the change flows through the existing
   // synthesize/patch → rescore index pipeline (no new desync surface).
@@ -782,6 +763,25 @@ export default function ResumeBuilder({
     profile: string;
     structured: StructuredResume;
   } | null>(() => builderSession0?.structuredUpload ?? null);
+  /** Bullet-level structural op (drag-reorder / add / delete) from the Tailor
+   *  preview. Mutates the uploaded structured doc (the authoritative scored
+   *  input on rescore) and remaps path-keyed field overrides to follow.
+   *  Also syncs candidateProfile text so Hub/rescore see the same bullets. */
+  const applyTailorBulletOp = useCallback((op: StructuredBulletOp) => {
+    let nextProfile: string | null = null;
+    setStructuredUpload((prev) => {
+      if (!prev) return prev;
+      const next = applyBulletOpToStructured(prev.structured, op);
+      if (!next) return prev;
+      nextProfile = structuredToPlainText(next) || prev.profile;
+      return { profile: nextProfile, structured: next };
+    });
+    if (nextProfile !== null) {
+      setCandidateProfile(nextProfile);
+    }
+    setTailorFieldOverrides((prev) => remapOverlayPaths(prev, op.pathRemap));
+    setScoreStale(true);
+  }, []);
   /** Object URL for the last uploaded PDF — powers true PDF highlights in suggestions (revoked on replace / unmount). */
   const sourcePdfBlobUrlRef = useRef<string | null>(null);
   const [uploadedPdfDataUrl, setUploadedPdfDataUrl] = useState<string | null>(
