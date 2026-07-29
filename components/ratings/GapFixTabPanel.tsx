@@ -8,6 +8,8 @@ export type GapFixPanelState = {
   gapName: string;
   gapNotes: string;
   suggestions: GapFixSuggestion[];
+  /** True when suggestions came from the server's ATS keyword fallback pass. */
+  atsFallback?: boolean;
 };
 
 type Props = {
@@ -97,6 +99,11 @@ export default function GapFixTabPanel({
           <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
             Targeted rewrites for: <strong style={{ color: "var(--text)", fontWeight: 600 }}>{gapFixPanel.gapName}</strong>
           </div>
+          {gapFixPanel.atsFallback && panelSuggestions.length > 0 && (
+            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, lineHeight: 1.4 }}>
+              ATS keyword pass — review carefully; these prioritize JD keyword coverage over a perfect experience match.
+            </div>
+          )}
         </div>
         {onDismissFix && (
           <button
@@ -124,7 +131,9 @@ export default function GapFixTabPanel({
           <p style={{ margin: 0, fontSize: 13, color: "var(--error, #ef4444)" }}>{gapFixError}</p>
         ) : panelSuggestions.length === 0 ? (
           <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
-            No targeted rewrites found for this gap. Try &quot;Get suggestions&quot; on the Interview tab for a broader pass.
+            No ATS-friendly rewrites could be woven into your existing bullets for this gap
+            (nothing transferable enough without inventing experience). Try &quot;Get suggestions&quot;
+            on the Interview tab for a broader pass, or add related experience in the preview first.
           </p>
         ) : (
           <>

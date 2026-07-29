@@ -714,6 +714,7 @@ export default function ResumeBuilder({
     gapNotes: string;
     suggestions: GapFixSuggestion[];
     gapType: AddressedGapAction["type"];
+    atsFallback?: boolean;
   } | null>(null);
   const [gapFixError, setGapFixError] = useState<string | null>(null);
   /** True while a gap-fix suggestion is being applied + PDF compiled + rescored. */
@@ -2313,7 +2314,11 @@ export default function ResumeBuilder({
           ...(prof ? { candidate_profile: prof } : {}),
         }),
       });
-      const data = await resp.json() as { suggestions?: unknown[]; error?: string };
+      const data = await resp.json() as {
+        suggestions?: unknown[];
+        error?: string;
+        atsFallback?: boolean;
+      };
       if (!resp.ok || data.error) throw new Error(data.error ?? "Gap fix failed");
       const suggs = (Array.isArray(data.suggestions) ? data.suggestions : []) as Array<{
         id: string; section: string; original: string; suggested: string; reason: string; priority: string;
@@ -2324,6 +2329,7 @@ export default function ResumeBuilder({
         gapNotes: gap.notes,
         suggestions: eligible,
         gapType: gap.type ?? "qualification",
+        atsFallback: Boolean(data.atsFallback) && eligible.length > 0,
       });
       setResultsActiveTab("gapfix");
     } catch (e: unknown) {
