@@ -107,6 +107,7 @@ import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/co
 import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
 import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
+import { structuredToPlainText } from "@/lib/resumeVersions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -569,13 +570,20 @@ export default function ResumeBuilder({
   }, []);
   /** Bullet-level structural op (drag-reorder / add / delete) from the Tailor
    *  preview. Mutates the uploaded structured doc (the authoritative scored
-   *  input on rescore) and remaps path-keyed field overrides to follow. */
+   *  input on rescore) and remaps path-keyed field overrides to follow.
+   *  Also syncs candidateProfile text so Hub/rescore see the same bullets. */
   const applyTailorBulletOp = useCallback((op: StructuredBulletOp) => {
+    let nextProfile: string | null = null;
     setStructuredUpload((prev) => {
       if (!prev) return prev;
       const next = applyBulletOpToStructured(prev.structured, op);
-      return next ? { ...prev, structured: next } : prev;
+      if (!next) return prev;
+      nextProfile = structuredToPlainText(next) || prev.profile;
+      return { profile: nextProfile, structured: next };
     });
+    if (nextProfile !== null) {
+      setCandidateProfile(nextProfile);
+    }
     setTailorFieldOverrides((prev) => remapOverlayPaths(prev, op.pathRemap));
     setScoreStale(true);
   }, []);
@@ -1252,6 +1260,66 @@ export default function ResumeBuilder({
     const normalized = normalizeStructuredResume(structuredUpload?.structured ?? null);
     return isStructuredUsable(normalized) ? normalized : null;
   }, [structuredUpload]);
+
+  // Debounced Hub save after preview edits (bullet delete/add/reorder, inline
+  // field edits). Upserts the same tailor_match row for company+role so Resume
+  // Hub reflects the edited résumé without waiting for Re-score.
+  useEffect(() => {
+    if (!scoreStale) return;
+    if (!user?.id) return;
+    if (!result?.ratings) return;
+    if (studioHandoff) return;
+
+    const t = window.setTimeout(() => {
+      const base = tailorStructuredResume;
+      if (!base && !(candidateProfile ?? "").trim()) return;
+      const withFields = base
+        ? applyFieldOverridesToStructured(base, tailorFieldOverrides)
+        : null;
+      const headline = tailorHeadlineOverride.trim();
+      const structured = withFields && headline
+        ? { ...withFields, headline }
+        : withFields;
+      const profile =
+        structuredToPlainText(structured) ||
+        (candidateProfile ?? "").trim() ||
+        structuredUpload?.profile ||
+        "";
+      if (!profile && !structured) return;
+
+      const effCompany = company.trim() || "—";
+      const effRole = role.trim() || "—";
+      const folder = result.folder ?? tailorMatchFolder(effCompany, effRole);
+      void persistTailorMatch({
+        folder,
+        company: effCompany,
+        role: effRole,
+        model,
+        ratings: result.ratings!,
+        jobDescription: jd.trim(),
+        candidateProfile: profile,
+        structuredResume: structured,
+      });
+    }, 900);
+
+    return () => window.clearTimeout(t);
+  }, [
+    scoreStale,
+    user?.id,
+    result?.ratings,
+    result?.folder,
+    studioHandoff,
+    tailorStructuredResume,
+    tailorFieldOverrides,
+    tailorHeadlineOverride,
+    candidateProfile,
+    structuredUpload?.profile,
+    company,
+    role,
+    jd,
+    model,
+    persistTailorMatch,
+  ]);
 
   const applyStructuredFromAnalyze = useCallback((raw: Record<string, unknown>, profile?: string) => {
     const sr = normalizeStructuredResume(
@@ -3892,7 +3960,9 @@ export default function ResumeBuilder({
               {scoreStale && !gapApplyBusy && (
                 <div style={{ marginBottom: 12, padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(52,211,153,0.4)", background: "rgba(52,211,153,0.08)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: "var(--green, #34d399)", flex: 1, minWidth: 0 }}>
-                    ✓ Fixes applied to your preview. Match score shown is provisional.
+                    {user?.id
+                      ? "✓ Preview updated — saved to Resume Hub. Match score shown is provisional."
+                      : "✓ Preview updated. Match score shown is provisional."}
                   </span>
                   <button
                     type="button"
