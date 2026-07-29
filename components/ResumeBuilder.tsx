@@ -103,6 +103,10 @@ import {
 } from "@/components/LandingFeatureShowcase";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { ScanFeedbackToast, useScanToast } from "@/components/ScanFeedbackToast";
+import {
+  FeedbackToastCard,
+  feedbackToastMeta,
+} from "@/components/FeedbackToastCard";
 import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/components/TailorSaveStatus";
 import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
 import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
@@ -2970,30 +2974,17 @@ export default function ResumeBuilder({
         overflow: "hidden",
       }}
     >
-      {feedbackToast ? (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            position: "fixed",
-            right: 16,
-            bottom: 18,
-            zIndex: 1200,
-            maxWidth: "min(440px, calc(100vw - 32px))",
-            padding: "12px 14px",
-            borderRadius: 12,
-            background: "rgba(30,41,59,0.96)",
-            border: "1px solid rgba(148,163,184,0.32)",
-            boxShadow: "0 14px 30px rgba(2,6,23,0.35)",
-            color: "#f8fafc",
-            fontSize: 13,
-            lineHeight: 1.45,
-            letterSpacing: -0.15,
-          }}
-        >
-          {feedbackToast}
-        </div>
-      ) : null}
+      {feedbackToast ? (() => {
+        const meta = feedbackToastMeta(feedbackToast);
+        return (
+          <FeedbackToastCard
+            title={meta.title}
+            description={feedbackToast}
+            variant={meta.variant}
+            onDismiss={() => setFeedbackToast(null)}
+          />
+        );
+      })() : null}
 
       {scanMeta && (
         <ScanFeedbackToast
