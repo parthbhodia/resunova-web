@@ -44,7 +44,7 @@ export function fixAllButtonLabel(gapCount: number, autoApply: boolean, busy: bo
   return autoApply
     ? {
         title: `Fix everything (${gapCount})`,
-        subtitle: "Apply all to preview — review the highlighted résumé",
+        subtitle: "Apply all to preview; review the highlighted résumé",
       }
     : {
         title: `Fix everything (${gapCount})`,
