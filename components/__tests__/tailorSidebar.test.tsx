@@ -62,11 +62,24 @@ describe("TailorMatchSidebar — redesigned score card + grouped nav", () => {
     expect(onActiveTabChange).toHaveBeenCalledWith("qualifications");
   });
 
-  it("hides the body when collapsed", () => {
-    const { queryByText } = render(
-      <TailorMatchSidebar ratings={ratings} activeTab="overall" onActiveTabChange={() => {}} collapsed />,
+  it("shows a mini icon rail when collapsed (score + tab icons, no full labels)", () => {
+    const onActiveTabChange = vi.fn();
+    const onCollapsedChange = vi.fn();
+    const { queryByText, getByTitle, getByLabelText } = render(
+      <TailorMatchSidebar
+        ratings={ratings}
+        activeTab="overall"
+        onActiveTabChange={onActiveTabChange}
+        collapsed
+        onCollapsedChange={onCollapsedChange}
+      />,
     );
     expect(queryByText("Match score")).toBeNull();
     expect(queryByText("Beat the ATS")).toBeNull();
+    expect(getByTitle("Qualifications · 1/3")).toBeTruthy();
+    fireEvent.click(getByTitle("Qualifications · 1/3"));
+    expect(onActiveTabChange).toHaveBeenCalledWith("qualifications");
+    fireEvent.click(getByLabelText("Expand match sidebar"));
+    expect(onCollapsedChange).toHaveBeenCalledWith(false);
   });
 });

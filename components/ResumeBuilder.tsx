@@ -760,7 +760,8 @@ export default function ResumeBuilder({
     () => builderSession0?.candidateProfile ?? null,
   );
   const [resumeHeaderLines, setResumeHeaderLines] = useState<string[]>([]);
-  const [matchSidebarCollapsed, setMatchSidebarCollapsed] = useState(false);
+  /** Default collapsed once results exist so the preview owns the width. */
+  const [matchSidebarCollapsed, setMatchSidebarCollapsed] = useState(true);
   const [tailorSidebarVisible, setTailorSidebarVisible] = useState(true);
   const [uploadedFileName,    setUploadedFileName]    = useState<string | null>(
     () => builderSession0?.uploadedFileName ?? null,
@@ -1437,7 +1438,9 @@ export default function ResumeBuilder({
       }
 
       setResult(nextResult);
-      setMatchSidebarCollapsed(false);
+      // Autocollapse to the icon rail so the résumé preview gets the width;
+      // expand via › or the score chip when reviewing gaps.
+      setMatchSidebarCollapsed(true);
     } catch (e: unknown) {
       setAnalyzeError(e instanceof Error ? e.message : "Analysis failed");
     } finally {
@@ -4059,32 +4062,6 @@ export default function ResumeBuilder({
               <div className="rb-results-body">
               {/* ── Gap-fix apply spinner — shown while a single fix is being applied to the preview ── */}
 
-              {/* ── Stale-score banner — applies are local (like Analyze); the real
-                     match score is re-checked on demand here. ── */}
-              {scoreStale && !gapApplyBusy && (
-                <div style={{ marginBottom: 12, padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(52,211,153,0.4)", background: "rgba(52,211,153,0.08)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--green, #34d399)", flex: 1, minWidth: 0 }}>
-                    {user?.id
-                      ? "✓ Preview updated — saved to Resume Hub. Match score shown is provisional."
-                      : "✓ Preview updated. Match score shown is provisional."}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={tailorRescoring}
-                    onClick={() => { void rescoreTailorRatings(); }}
-                    style={{
-                      padding: "6px 14px", borderRadius: 8, border: "none",
-                      background: "var(--accent)", color: "#fff",
-                      fontSize: 13, fontWeight: 600, fontFamily: "inherit",
-                      cursor: tailorRescoring ? "not-allowed" : "pointer",
-                      opacity: tailorRescoring ? 0.6 : 1, flexShrink: 0,
-                    }}
-                  >
-                    {tailorRescoring ? "Re-checking…" : "Re-check match score →"}
-                  </button>
-                </div>
-              )}
-
               {/* ── Apply feedback banner — shown above phase3 for visibility (only while busy) ── */}
               {(applyBusy || applyFeedback) && (
                 <div
@@ -4161,6 +4138,65 @@ export default function ResumeBuilder({
                     onCollapsedChange={setMatchSidebarCollapsed}
                   />
                   <div className="tb-split-work-slot">
+                    {scoreStale && !gapApplyBusy && (
+                      <div
+                        role="status"
+                        style={{
+                          flexShrink: 0,
+                          margin: "10px 12px 0",
+                          padding: "8px 10px 8px 12px",
+                          borderRadius: 999,
+                          border: "1px solid color-mix(in srgb, var(--green, #2f7d5a) 28%, var(--border))",
+                          background: "color-mix(in srgb, var(--green, #2f7d5a) 10%, var(--surface))",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          minWidth: 0,
+                        }}
+                      >
+                        <span
+                          aria-hidden
+                          style={{
+                            width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                            background: "color-mix(in srgb, var(--green, #2f7d5a) 18%, transparent)",
+                            color: "var(--green, #2f7d5a)", fontSize: 11, fontWeight: 800,
+                          }}
+                        >
+                          ✓
+                        </span>
+                        <span
+                          style={{
+                            flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, lineHeight: 1.3,
+                            color: "var(--green, #2f7d5a)",
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}
+                          title={user?.id
+                            ? "Preview updated and saved. Match score is provisional until you re-check."
+                            : "Preview updated. Match score is provisional until you re-check."}
+                        >
+                          {user?.id ? "Preview updated · saved" : "Preview updated"}
+                          <span style={{ fontWeight: 500, color: "var(--muted)", marginLeft: 6 }}>
+                            Score provisional
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          disabled={tailorRescoring}
+                          onClick={() => { void rescoreTailorRatings(); }}
+                          style={{
+                            padding: "5px 10px", borderRadius: 999, border: "none",
+                            background: "var(--accent)", color: "#fff",
+                            fontSize: 11.5, fontWeight: 700, fontFamily: "inherit",
+                            cursor: tailorRescoring ? "not-allowed" : "pointer",
+                            opacity: tailorRescoring ? 0.65 : 1, flexShrink: 0,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {tailorRescoring ? "Checking…" : "Re-check"}
+                        </button>
+                      </div>
+                    )}
                     <TailorMatchDetail
                       ratings={displayRatings}
                       headlineDraft={tailorHeadlineOverride}
