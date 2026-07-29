@@ -80,6 +80,9 @@ interface Props {
   /** Tailor sets this so its (possibly null) structuredResume prop is authoritative
    *  and a stale Analyze-store value can't leak into the Tailor preview. */
   structuredResumeAuthoritative?: boolean;
+  /** When structured is missing/shell, allow AnalyzeLiveResumeBody to parse flat
+   *  extractedText (BoostPanel + Tailor). Default off so Analyze stays structured-only. */
+  flatTextFallback?: boolean;
   /** Name + contact lines from backend — guaranteed header fallback. */
   resumeHeader?: string[];
   /** Right column: résumé tint only; edits and rewrites stay in the work column. */
@@ -443,6 +446,7 @@ export default function AnnotatedResumePanel({
   extractedText,
   structuredResume = null,
   structuredResumeAuthoritative = false,
+  flatTextFallback = false,
   resumeHeader,
   onOpenBuilder,
   builderReady = false,
@@ -1489,6 +1493,7 @@ export default function AnnotatedResumePanel({
                 resumeHeader={resumeHeader}
                 structuredResume={structuredResume}
                 structuredResumeAuthoritative={structuredResumeAuthoritative}
+                flatTextFallback={flatTextFallback}
                 bulletAnalysis={bulletAnalysis}
                 activeCategory={activeCategory}
                 rewriteEdits={rewriteEdits}
