@@ -220,15 +220,24 @@ const IconUpload = () => (
 );
 
 /** A small labeled value pill used in the "Job details" block. */
-function Chip({ children, tone }: { children: ReactNode; tone?: "green" }) {
+function Chip({ children, tone }: { children: ReactNode; tone?: "green" | "amber" }) {
   const green = tone === "green";
+  const amber = tone === "amber";
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", padding: "5px 11px", borderRadius: 8,
       fontSize: 13, fontWeight: 600, lineHeight: 1.3,
-      background: green ? "color-mix(in srgb, #16a34a 13%, transparent)" : "var(--surface2)",
-      color: green ? "#16a34a" : "var(--text)",
-      border: green ? "1px solid color-mix(in srgb, #16a34a 28%, transparent)" : "1px solid var(--border)",
+      background: green
+        ? "color-mix(in srgb, #16a34a 13%, transparent)"
+        : amber
+          ? "color-mix(in srgb, #c4793a 14%, transparent)"
+          : "var(--surface2)",
+      color: green ? "#16a34a" : amber ? "var(--amber-ink, #b45309)" : "var(--text)",
+      border: green
+        ? "1px solid color-mix(in srgb, #16a34a 28%, transparent)"
+        : amber
+          ? "1px solid color-mix(in srgb, #c4793a 36%, transparent)"
+          : "1px solid var(--border)",
     }}>{children}</span>
   );
 }
@@ -538,14 +547,27 @@ function JobBody({
                     <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{job.company}</span>
                   )}
                 </div>
-                {(job.location || (job.workModel && WM_LABEL[job.workModel])) && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 14, color: "var(--muted)" }}>
-                    <IconPin />
-                    <span>
-                      {job.location}
-                      {job.location && job.workModel && WM_LABEL[job.workModel] ? "  ·  " : ""}
-                      {job.workModel && WM_LABEL[job.workModel] ? `${WM_LABEL[job.workModel]} work` : ""}
-                    </span>
+                {(job.location || (job.workModel && WM_LABEL[job.workModel]) || job.locationMismatch) && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, fontSize: 14, color: "var(--muted)", flexWrap: "wrap" }}>
+                    {(job.location || (job.workModel && WM_LABEL[job.workModel])) && (
+                      <>
+                        <IconPin />
+                        <span>
+                          {job.location}
+                          {job.location && job.workModel && WM_LABEL[job.workModel] ? "  ·  " : ""}
+                          {job.workModel && WM_LABEL[job.workModel] ? `${WM_LABEL[job.workModel]} work` : ""}
+                        </span>
+                      </>
+                    )}
+                    {job.locationMismatch && (
+                      <Chip tone="amber">Location mismatch</Chip>
+                    )}
+                  </div>
+                )}
+                {job.locationMismatch && (job.profileLocations?.length ?? 0) > 0 && (
+                  <div style={{ marginTop: 4, fontSize: 12, color: "var(--muted)" }}>
+                    Role is in {job.location || "another city"} · your profile prefers {job.profileLocations!.slice(0, 2).join(", ")}
+                    {(job.profileLocations!.length > 2) ? "…" : ""}
                   </div>
                 )}
                 <div style={{ marginTop: 8, fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
@@ -593,6 +615,14 @@ function JobBody({
               {job.workModel && WM_LABEL[job.workModel] && (
                 <JobDetailFact label="Work model">
                   <Chip>{WM_LABEL[job.workModel]}</Chip>
+                </JobDetailFact>
+              )}
+              {job.locationMismatch && (
+                <JobDetailFact label="Location fit">
+                  <Chip tone="amber">Location mismatch</Chip>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    Doesn't change your match score — just a logistics heads-up.
+                  </span>
                 </JobDetailFact>
               )}
               {job.seniority && SEN_LABEL[job.seniority] && (
@@ -918,6 +948,24 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
             ? "Scan your résumé to see how you match this role."
             : `Your résumé matches ${job.matchedCount} of ${job.totalRequirements} extracted requirements`}
         </div>
+
+        {job.locationMismatch && (
+          <div style={{
+            width: "100%", display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start",
+            padding: "10px 12px", borderRadius: 10,
+            background: "color-mix(in srgb, #c4793a 10%, transparent)",
+            border: "1px solid color-mix(in srgb, #c4793a 28%, transparent)",
+          }}>
+            <Chip tone="amber">Location mismatch</Chip>
+            <div style={{ fontSize: 12, lineHeight: 1.45, color: "var(--muted)" }}>
+              {job.location ? `This role lists ${job.location}` : "This role's location"}
+              {(job.profileLocations?.length ?? 0) > 0
+                ? ` — your profile prefers ${job.profileLocations!.slice(0, 2).join(", ")}.`
+                : "."}
+              {" "}Match % is skills-only and isn't docked for this.
+            </div>
+          </div>
+        )}
 
         {hasReqChips ? (
           <>
