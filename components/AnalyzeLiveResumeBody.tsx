@@ -323,6 +323,70 @@ export function isStructuredUsable(s: StructuredResume | null | undefined): bool
   return hasBody && (hasHeaderIdentity || hasEmployerIdentity);
 }
 
+/**
+ * Structured extract can pass {@link isStructuredUsable} with education/project
+ * *names* alone while EXPERIENCE (and project bodies) are empty — then Tailor
+ * prefers that shell over the full flat `candidateProfile` and the preview
+ * drops jobs. Return true when flat text clearly has work content the
+ * structured payload lacks, so callers fall back to the text path.
+ */
+export function isStructuredTooSparseForFlatText(
+  s: StructuredResume | null | undefined,
+  flatText: string | null | undefined,
+): boolean {
+  if (!s) return false;
+  const flat = (flatText || "").trim();
+  if (flat.length < 400) return false;
+
+  const expBullets = (s.experience || []).reduce(
+    (n, e) => n + (e.bullets?.filter((b) => (b || "").trim()).length ?? 0),
+    0,
+  );
+  const expEntries = (s.experience || []).filter(
+    (e) => ((e.role || e.company || "").trim().length > 0),
+  ).length;
+  const projectBullets = (s.projects || []).reduce(
+    (n, p) => n + (p.bullets?.filter((b) => (b || "").trim()).length ?? 0),
+    0,
+  );
+  const projectNames = (s.projects || []).filter((p) => (p.name || "").trim()).length;
+
+  const flatHasExperienceSection =
+    /\b(work\s+experience|professional\s+experience|employment\s+history)\b/i.test(flat)
+    || (/(^|\n)\s*experience\s*(\n|$)/i.test(flat) && flat.length > 800);
+  // Word/MarkItDown bullets often arrive as "- …" or "• …" lines.
+  const flatBulletLines =
+    (flat.match(/(?:^|\n)\s*(?:[•\-\*\u2022]|\d+[.)])\s+\S/g) || []).length;
+
+  if (
+    flatHasExperienceSection
+    && (flatBulletLines >= 3 || flat.length > 1200)
+    && expBullets === 0
+    && expEntries === 0
+  ) {
+    return true;
+  }
+  if (
+    flatHasExperienceSection
+    && expEntries > 0
+    && expBullets === 0
+    && flatBulletLines >= 3
+  ) {
+    return true;
+  }
+  // Title-only projects + no experience bullets while flat has a real body.
+  if (
+    projectNames > 0
+    && projectBullets === 0
+    && expBullets === 0
+    && flatBulletLines >= 5
+    && flatHasExperienceSection
+  ) {
+    return true;
+  }
+  return false;
+}
+
 // Matches the fixed section order emitted by resume_gui/extract/synthesize.py
 // (summary → education → experience → projects → skills), so the structured
 // render shows the résumé in the same order the text path always has.
@@ -1473,7 +1537,9 @@ export default function AnalyzeLiveResumeBody({
   const [formatToolbar, setFormatToolbar] = useState<{ bulletIdx: number; top: number; left: number } | null>(null);
   const bulletEditableRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
 
-  const structuredPreviewActive = isStructuredUsable(structuredResume);
+  const structuredPreviewActive =
+    isStructuredUsable(structuredResume)
+    && !isStructuredTooSparseForFlatText(structuredResume, extractedText);
 
   const blocks = useMemo(() => {
     // Primary path: typed structuredResume (vision extract) — no line-parse heuristics.
@@ -1482,8 +1548,8 @@ export default function AnalyzeLiveResumeBody({
     }
     // Tailor marks structured authoritative: never silently re-parse flat text (that
     // bypasses section order, per-company tech, and WYSIWYG parity with synthesize.py)
-    // — unless the caller has only flat text to show (boost preview) and explicitly
-    // opts into the flat-parse fallback below.
+    // — unless the caller has only flat text to show (boost preview / Tailor when the
+    // structured extract is a shell) and explicitly opts into the flat-parse fallback.
     if (structuredResumeAuthoritative && !flatTextFallback) {
       return [];
     }

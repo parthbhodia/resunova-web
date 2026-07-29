@@ -64,7 +64,10 @@ import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
 import { useSuggestionsStore } from "@/store/suggestionsStore";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 import { normalizeStructuredResume } from "@/store/resumeAnalyzeStore";
-import { isStructuredUsable } from "@/components/AnalyzeLiveResumeBody";
+import {
+  isStructuredTooSparseForFlatText,
+  isStructuredUsable,
+} from "@/components/AnalyzeLiveResumeBody";
 import {
   PRIORITY_BG,
   PRIORITY_COLOR,
@@ -1267,8 +1270,15 @@ export default function ResumeBuilder({
 
   const tailorStructuredResume = useMemo<StructuredResume | null>(() => {
     const normalized = normalizeStructuredResume(structuredUpload?.structured ?? null);
-    return isStructuredUsable(normalized) ? normalized : null;
-  }, [structuredUpload]);
+    if (!isStructuredUsable(normalized)) return null;
+    // Prefer flat text over a shell structured extract (header + edu/project
+    // names, empty EXPERIENCE) — Match score already uses the full profile.
+    const flat =
+      (structuredUpload?.profile || "").trim()
+      || (candidateProfile || "").trim();
+    if (isStructuredTooSparseForFlatText(normalized, flat)) return null;
+    return normalized;
+  }, [structuredUpload, candidateProfile]);
 
   // Debounced Hub save after preview edits (bullet delete/add/reorder, inline
   // field edits). Upserts the same tailor_match row for company+role so Resume
