@@ -32,15 +32,22 @@ describe("ScanUsageCard — maps each /api/scan-limit-status branch", () => {
   });
 
   it("Pro subscriber gets a Pro badge, not Free and not UMBC", async () => {
-    // The regression this guards: a paying subscriber saw a "Free" badge next
-    // to an Upgrade button, because pro_subscription had no branch server-side
-    // and every unlimited user was labelled UMBC client-side.
+    // Paying Pro is metered at 30/day — still must badge as Pro, never Free/UMBC.
+    global.fetch = vi.fn().mockResolvedValue(jsonRes({
+      enforced: true, unlimited: false, plan: "pro", limit: 30, used: 4, remaining: 26,
+    }));
+    render(<ScanUsageCard />);
+    await waitFor(() => expect(screen.getByText("Pro")).toBeInTheDocument());
+    expect(screen.getByText(/30 résumé scans per day/)).toBeInTheDocument();
+    expect(screen.queryByText("Free")).not.toBeInTheDocument();
+    expect(screen.queryByText("UMBC")).not.toBeInTheDocument();
+  });
+
+  it("legacy unlimited Pro payload still badges Pro", async () => {
     global.fetch = vi.fn().mockResolvedValue(jsonRes({ enforced: true, unlimited: true, plan: "pro" }));
     render(<ScanUsageCard />);
     await waitFor(() => expect(screen.getByText("Pro")).toBeInTheDocument());
     expect(screen.getByText(/included with Pro/)).toBeInTheDocument();
-    expect(screen.queryByText("Free")).not.toBeInTheDocument();
-    expect(screen.queryByText("UMBC")).not.toBeInTheDocument();
   });
 
   it("unlimited with no named plan is still not shown as Free", async () => {

@@ -295,8 +295,10 @@ export default function HomeDashboard() {
   const planLabel = scan?.unlimited
     ? (scan.plan === "pro" ? "Pro" : scan.plan === "institution" ? "University" : "Unlimited")
     : scan?.enforced && typeof scan.remaining === "number"
-      ? `Free · ${Math.max(0, scan.remaining)} scan${scan.remaining === 1 ? "" : "s"} left today`
-      : "Free plan";
+      ? `${scan.plan === "pro" ? "Pro" : "Free"} · ${Math.max(0, scan.remaining)} scan${scan.remaining === 1 ? "" : "s"} left today`
+      : scan?.plan === "pro"
+        ? "Pro"
+        : "Free plan";
 
   return (
     <div className="mx-auto w-full max-w-[1120px] px-5 py-6 md:px-8 md:py-8">
@@ -315,7 +317,7 @@ export default function HomeDashboard() {
           <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[12px] font-medium text-[var(--muted)]">
             {planLabel}
           </span>
-          {!scan?.unlimited ? (
+          {!scan?.unlimited && scan?.plan !== "pro" ? (
             <Button size="sm" className="gap-1.5" onClick={() => openUpgrade()}>
               Upgrade
             </Button>

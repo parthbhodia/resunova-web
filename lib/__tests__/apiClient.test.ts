@@ -156,6 +156,12 @@ describe("scan limit status", () => {
     expect(planLabel(scanLimitFrom({ enforced: true, unlimited: true }))).toBe("Unlimited");
   });
 
+  it("labels metered Pro as Pro, not Free", () => {
+    expect(planLabel(scanLimitFrom({
+      enforced: true, unlimited: false, plan: "pro", limit: 30, used: 4, remaining: 26,
+    }))).toBe("Pro");
+  });
+
   it("has no plan label on the metered free tier", () => {
     expect(planLabel(scanLimitFrom({ enforced: true, unlimited: false, limit: 3, used: 1 }))).toBeNull();
   });

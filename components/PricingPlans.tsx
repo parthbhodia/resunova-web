@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import {
   FREE_INTERVIEW_DAILY_LIMIT,
   FREE_SCAN_DAILY_LIMIT,
+  PRO_INTERVIEW_DAILY_LIMIT,
+  PRO_SCAN_DAILY_LIMIT,
 } from "@/components/UpgradeDialog";
 import {
   PLAN_PRICE_LABELS,
@@ -30,10 +32,10 @@ const FREE_FEATURES = [
 ];
 
 const PRO_FEATURES = [
-  "Unlimited résumé & ATS checks + AI fixes",
-  "Unlimited job-match scoring & tailored résumés",
-  "Unlimited interview-prep scans",
-  "Unlimited clean PDF downloads",
+  `${PRO_SCAN_DAILY_LIMIT} résumé & ATS checks + AI fixes per day`,
+  `${PRO_SCAN_DAILY_LIMIT} job-match scores & tailored résumés per day`,
+  `${PRO_INTERVIEW_DAILY_LIMIT} interview-prep scans per day`,
+  "Clean PDF downloads included",
 ];
 
 const CheckIcon = (

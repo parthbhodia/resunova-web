@@ -162,10 +162,10 @@ export function scanLimitFrom(body: unknown): ScanLimitStatus {
   };
 }
 
-/** Badge copy for a plan, or null when the user is on the metered free tier. */
+/** Badge copy for a plan. Metered Pro still shows "Pro"; Free metered returns null. */
 export function planLabel(status: ScanLimitStatus): string | null {
-  if (!status.unlimited) return null;
   if (status.plan === "pro") return "Pro";
   if (status.plan === "institution") return "University";
-  return "Unlimited";
+  if (status.unlimited) return "Unlimited";
+  return null;
 }

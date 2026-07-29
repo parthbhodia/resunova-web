@@ -56,8 +56,17 @@ export function ScanUsageWidget() {
     );
   }
 
+  const badge =
+    resumeStatus?.plan === "pro" || prepStatus?.plan === "pro"
+      ? "Pro"
+      : resumeStatus?.plan === "institution" || prepStatus?.plan === "institution"
+        ? "University"
+        : resumeStatus?.unlimited || prepStatus?.unlimited
+          ? "Unlimited"
+          : "Free";
+
   return (
-    <Card title="Plan & usage" badge="Free">
+    <Card title="Plan & usage" badge={badge}>
       {/* Resume Scan Usage */}
       <div style={{ marginBottom: 20 }}>
         <h4 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>Résumé Scans</h4>

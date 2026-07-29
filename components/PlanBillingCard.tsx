@@ -87,8 +87,8 @@ export default function PlanBillingCard() {
           <p style={{ fontSize: 14, color: "var(--text)", fontWeight: 600, marginBottom: 4 }}>{label}</p>
           <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6, marginBottom: 14 }}>
             {isPro
-              ? "Unlimited scans, tailoring, and interview prep. Manage your payment method, invoices, or cancellation through the secure Stripe portal."
-              : "You're on the free tier — daily scan caps apply. Pro removes every daily limit."}
+              ? "30 résumé scans, job matches, and interview-prep runs per day. Manage your payment method, invoices, or cancellation through the secure Stripe portal."
+              : "You're on the free tier — daily scan caps apply. Pro raises them to 30/day."}
           </p>
           {error ? (
             <p role="alert" style={{ fontSize: 13, color: "var(--red-ink, #dc2626)", marginBottom: 10 }}>{error}</p>
