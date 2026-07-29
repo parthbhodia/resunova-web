@@ -134,7 +134,16 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
     [data-section-idx]           { background: transparent !important; outline: none !important; }
     .az-pdf-ignore               { display: none !important; }
     .az-highlights-off .az-metric { font-weight: inherit !important; color: inherit !important; background: transparent !important; }
-    mark.az-change-hl { background: transparent !important; color: inherit !important; padding: 0 !important; }
+    mark.az-change-hl,
+    mark.az-gap-pill {
+      background: transparent !important;
+      color: inherit !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      border-radius: 0 !important;
+      font-weight: inherit !important;
+    }
 
     /* Disable all animations and transitions — prevents Chromium capturing
        a mid-animation frame (e.g. the mirror-pulse outline) */

@@ -8,6 +8,7 @@ import { BulletFormatToolbar } from "@/components/BulletFormatToolbar";
 import { highlightMetricSpans } from "@/lib/highlightResumeMetrics";
 import { applyInlineFormat, renderInlineMarkdown, stripInlineMarkdown, type InlineFormat } from "@/lib/inlineMarkdown";
 import { diffWords } from "@/lib/textDiff";
+import { gapFixAppendDelta } from "@/lib/gapFixAppendDelta";
 import { moveCleanPathRemap, deleteCleanPathRemap, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 import { DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -881,15 +882,43 @@ function renderMetricLineWithLabel(text: string, highlightsEnabled: boolean): Re
   );
 }
 
+/** Pill style for a contiguous insert (gap-fix append) — glanceable, not a second sentence. */
+const GAP_PILL_STYLE: CSSProperties = {
+  display: "inline",
+  background: "rgba(34, 197, 94, 0.22)",
+  border: "1px solid rgba(22, 163, 74, 0.55)",
+  borderRadius: 9999,
+  padding: "1px 7px 2px",
+  margin: "0 1px",
+  fontWeight: 600,
+  boxDecorationBreak: "clone",
+  WebkitBoxDecorationBreak: "clone",
+};
+
 /** Inline highlighter for applied/edited bullets — paints only the words that
- *  were added vs `original`. Deletions are omitted (they aren't in the live
- *  line). Left-panel cards own the full before/after detail; the preview just
- *  needs a glanceable cue. Returns null when there's nothing to highlight
- *  (caller falls back to the normal metric renderer). */
+ *  were added vs `original`. Prefers a single pill around a contiguous append
+ *  (gap-fix inserts); falls back to per-token marks for true rewrites.
+ *  Returns null when there's nothing to highlight. */
 function renderChangedWordsHighlighted(original: string, current: string): ReactNode | null {
   const origPlain = stripInlineMarkdown(original).replace(/\s+/g, " ").trim();
   const curPlain = stripInlineMarkdown(current).replace(/\s+/g, " ").trim();
   if (!origPlain || !curPlain || origPlain === curPlain) return null;
+
+  const delta = gapFixAppendDelta(origPlain, curPlain);
+  if (delta.kind === "append") {
+    const before = curPlain.slice(0, delta.addedStart);
+    const mid = curPlain.slice(delta.addedStart, delta.addedEnd);
+    const after = curPlain.slice(delta.addedEnd);
+    if (!mid.trim()) return null;
+    return (
+      <>
+        {before}
+        <mark className="az-gap-pill" style={GAP_PILL_STYLE}>{mid}</mark>
+        {after}
+      </>
+    );
+  }
+
   const tokens = diffWords(origPlain, curPlain);
   if (!tokens.some((t) => t.type === "add")) return null;
   return (
@@ -900,13 +929,8 @@ function renderChangedWordsHighlighted(original: string, current: string): React
           return (
             <mark
               key={i}
-              className="az-change-hl"
-              style={{
-                background: "rgba(52,211,153,0.28)",
-                color: "inherit",
-                borderRadius: 2,
-                padding: "0 1px",
-              }}
+              className="az-gap-pill"
+              style={GAP_PILL_STYLE}
             >
               {t.text}
             </mark>
@@ -2264,11 +2288,16 @@ export default function AnalyzeLiveResumeBody({
                   : "none";
 
               if (highlightsEnabled && presentationOnly && isGapFixApplied) {
+                // Brief green flash while the apply settles; pills stay after.
                 bgTint = PREVIEW_LINE_APPLIED_BG;
                 leftBar = PREVIEW_LINE_APPLIED_BAR;
               } else if (highlightsEnabled && presentationOnly && isGapFixTarget) {
                 bgTint = "rgba(139,92,246,0.12)";
                 leftBar = "3px solid #8b5cf6";
+              } else if (isPreviewLineApplied && presentationOnly) {
+                // Paid-product cue = inline insert pills, not a permanent row wash.
+                bgTint = "transparent";
+                leftBar = "none";
               } else if (isPreviewLineApplied) {
                 bgTint = PREVIEW_LINE_APPLIED_BG;
                 leftBar = PREVIEW_LINE_APPLIED_BAR;
