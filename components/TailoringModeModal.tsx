@@ -17,20 +17,23 @@ export function TailoringModeSelector({
   size?: "sm" | "md";
 }) {
   const fontSize = size === "sm" ? 11.5 : 12.5;
-  const pad = size === "sm" ? "4px 10px" : "6px 12px";
+  const pad = size === "sm" ? "5px 11px" : "6px 12px";
   return (
     <div
       role="radiogroup"
       aria-label="AI tailoring style"
       style={{
         display: "inline-flex",
+        alignItems: "stretch",
         border: "1px solid var(--border)",
         borderRadius: 8,
         overflow: "hidden",
+        background: "var(--surface2)",
         opacity: disabled ? 0.6 : 1,
+        verticalAlign: "middle",
       }}
     >
-      {(Object.keys(TAILORING_MODE_META) as TailoringMode[]).map((mode) => {
+      {(Object.keys(TAILORING_MODE_META) as TailoringMode[]).map((mode, i) => {
         const active = value === mode;
         return (
           <button
@@ -45,8 +48,10 @@ export function TailoringModeSelector({
               font: "inherit",
               fontSize,
               fontWeight: 600,
+              lineHeight: 1.2,
               padding: pad,
               border: "none",
+              borderLeft: i > 0 ? "1px solid var(--border)" : "none",
               cursor: disabled ? "default" : "pointer",
               background: active ? "var(--accent)" : "transparent",
               color: active ? "#fff" : "var(--muted)",

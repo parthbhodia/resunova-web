@@ -311,6 +311,98 @@ export function TailorMatchSidebar({
 
   const { activeTab, setActiveTab, overall_score, navTabs } = state;
   const sidebarCollapsed = collapsed;
+  const scoreCol = scoreColor(overall_score);
+
+  // Compact icon rail when collapsed — keeps tab switching + score glanceable
+  // without eating preview width (Analyze's "Scores" FAB pattern for Tailor).
+  if (sidebarCollapsed) {
+    return (
+      <aside
+        className="tb-match-sidebar tb-match-sidebar--mini"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          minHeight: 0,
+          height: "100%",
+          width: 52,
+          flexShrink: 0,
+          borderRight: "1px solid var(--border)",
+          background: "var(--surface)",
+          overflow: "hidden",
+          padding: "8px 0 10px",
+          gap: 4,
+        }}
+      >
+        <button
+          type="button"
+          title="Expand match sidebar"
+          aria-label="Expand match sidebar"
+          onClick={() => onCollapsedChange?.(false)}
+          style={{
+            width: 36, height: 28, borderRadius: 8,
+            border: "1px solid var(--border)", background: "var(--surface2)",
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 14, color: "var(--muted)", flexShrink: 0,
+          }}
+        >
+          ›
+        </button>
+        <button
+          type="button"
+          title={`Match score ${overall_score} — expand`}
+          aria-label={`Match score ${overall_score}, expand sidebar`}
+          onClick={() => {
+            setActiveTab("overall");
+            onCollapsedChange?.(false);
+          }}
+          style={{
+            width: 40, height: 40, borderRadius: 10,
+            border: `1.5px solid color-mix(in srgb, ${scoreCol} 45%, var(--border))`,
+            background: `color-mix(in srgb, ${scoreCol} 12%, transparent)`,
+            cursor: "pointer", display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 0,
+            fontFamily: "inherit", flexShrink: 0, marginTop: 2, marginBottom: 4,
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 800, color: scoreCol, letterSpacing: -0.4, lineHeight: 1 }}>
+            {overall_score}
+          </span>
+        </button>
+        <div
+          style={{
+            flex: 1, minHeight: 0, width: "100%", overflowY: "auto",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "0 6px",
+          }}
+        >
+          {navTabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const accent = (tab.id === "fixes" || tab.id === "gapfix") ? "#818cf8" : undefined;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                title={`${tab.label} · ${tab.score}`}
+                aria-label={tab.label}
+                aria-current={isActive ? "page" : undefined}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  width: 40, height: 36, borderRadius: 9, border: "none",
+                  background: isActive ? "var(--accent-bg)" : "transparent",
+                  color: accent ?? (isActive ? "var(--accent)" : "var(--dim)"),
+                  cursor: "pointer", display: "flex", alignItems: "center",
+                  justifyContent: "center", flexShrink: 0, fontFamily: "inherit",
+                  boxShadow: isActive ? "inset 0 0 0 1.5px var(--accent)" : undefined,
+                }}
+              >
+                {SECTION_ICON[tab.id]}
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside
@@ -323,26 +415,24 @@ export function TailorMatchSidebar({
         borderRight: "1px solid var(--border)",
         background: "var(--surface)",
         overflow: "hidden",
-        width: sidebarCollapsed ? 36 : undefined,
         flexShrink: 0,
       }}
     >
       {/* Header — collapse toggle + score (expanded) */}
       <div style={{
         flexShrink: 0,
-        padding: sidebarCollapsed ? "10px 4px 8px" : "16px 16px 12px",
-        borderBottom: sidebarCollapsed ? "none" : "1px solid var(--border)",
+        padding: "16px 16px 12px",
+        borderBottom: "1px solid var(--border)",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          {!sidebarCollapsed && (
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6, flex: 1 }}>
-              Job Match
-            </div>
-          )}
+          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: 0.6, flex: 1 }}>
+            Job Match
+          </div>
           <button
             type="button"
-            title={sidebarCollapsed ? "Expand match sidebar" : "Collapse"}
-            onClick={() => onCollapsedChange?.(!sidebarCollapsed)}
+            title="Collapse to icon rail"
+            aria-label="Collapse match sidebar"
+            onClick={() => onCollapsedChange?.(true)}
             style={{
               width: 28, height: 28, borderRadius: 8,
               border: "1px solid var(--border)", background: "var(--surface2)",
@@ -350,13 +440,13 @@ export function TailorMatchSidebar({
               fontSize: 13, color: "var(--muted)", flexShrink: 0,
             }}
           >
-            {sidebarCollapsed ? "›" : "‹"}
+            ‹
           </button>
         </div>
       </div>
 
-      {/* Score card + grouped nav — hidden when collapsed */}
-      {!sidebarCollapsed && (() => {
+      {/* Score card + grouped nav */}
+      {(() => {
         const fixAllLabel = fixAllButtonLabel(openGapCount, fixEverythingAutoApply, fixEverythingBusy);
         const renderRow = (tab: (typeof navTabs)[number]) => {
           const isActive = activeTab === tab.id;
@@ -510,6 +600,7 @@ export function TailorMatchSidebar({
     </aside>
   );
 }
+
 
 /** Middle column — active category detail cards. */
 export function TailorMatchDetail(props: SharedProps) {
