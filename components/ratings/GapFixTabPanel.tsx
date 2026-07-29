@@ -89,7 +89,7 @@ export default function GapFixTabPanel({
             Gap fixes
           </div>
           <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, lineHeight: 1.4 }}>
-            Review each rewrite, then Apply or Skip —{" "}
+            Review each rewrite, then Apply or Skip.{" "}
             <strong style={{ color: "var(--text)", fontWeight: 600 }}>{gapFixPanel.gapName}</strong>
           </div>
           {targetTerms.length > 0 ? (
@@ -114,7 +114,7 @@ export default function GapFixTabPanel({
           ) : null}
           {gapFixPanel.atsFallback && panelSuggestions.length > 0 ? (
             <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8, lineHeight: 1.4 }}>
-              ATS keyword pass — prioritize JD coverage; double-check each rewrite before applying.
+              ATS keyword pass: prioritize JD coverage; double-check each rewrite before applying.
             </div>
           ) : null}
         </div>

@@ -179,7 +179,7 @@ export function GapFixSuggestionCard({
                 borderRadius: 6,
                 background: "color-mix(in srgb, var(--red-ink, #ef4444) 6%, transparent)",
                 border: "1px solid color-mix(in srgb, var(--red-ink, #ef4444) 18%, transparent)",
-                fontSize: 12.5,
+                fontSize: 13,
                 color: "var(--muted)",
                 lineHeight: 1.45,
                 textDecoration: "line-through",
