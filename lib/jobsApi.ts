@@ -106,6 +106,13 @@ export type JobDetail = {
   matchScore: number | null;
   matchedCount: number;
   totalRequirements: number;
+  /** Location fit vs profile preferred locations (detail only; does not dock score). */
+  locationFit?: "match" | "mismatch" | "remote_ok" | "unknown";
+  locationMatch?: boolean;
+  /** True when job city/metro clearly conflicts with preferred locations. */
+  locationMismatch?: boolean;
+  /** Preferred location tokens used for the fit check. */
+  profileLocations?: string[];
 };
 
 export type JobContact = {
