@@ -19,6 +19,10 @@ interface Props {
   gapFixTargetBulletIndices?: number[];
   tailorGapFixHighlights?: string[];
   tailorAppliedBulletIndices?: ReadonlySet<number>;
+  /** Durable original→applied pairs so insert pills survive rescore. */
+  appliedPillPairs?: readonly { original: string; applied: string }[];
+  /** Found JD keywords to paint as inline pills when Highlights is on. */
+  keywordHighlightTerms?: readonly string[];
   /** Inline-edit parity with Analyze. When `onFieldEdit` is supplied, neutral
    *  bullets + generic fields become contentEditable and section headings gain
    *  rename + reorder — via `fieldsEditable`, NOT by dropping `presentationOnly`
@@ -64,6 +68,8 @@ export default function TailorPreviewPane({
   gapFixTargetBulletIndices = [],
   tailorGapFixHighlights = [],
   tailorAppliedBulletIndices = new Set<number>(),
+  appliedPillPairs = [],
+  keywordHighlightTerms = [],
   fieldOverrides = {},
   onFieldEdit,
   onBulletOp,
@@ -106,6 +112,8 @@ export default function TailorPreviewPane({
       gapFixTargetBulletIndices={gapFixTargetBulletIndices}
       tailorGapFixHighlights={tailorGapFixHighlights}
       tailorAppliedBulletIndices={tailorAppliedBulletIndices}
+      appliedPillPairs={appliedPillPairs}
+      keywordHighlightTerms={keywordHighlightTerms}
       exportRoleLabel={role}
       onExportDocx={exportDocxEnabled ? handleExportDocx : undefined}
       exportDocxEnabled={exportDocxEnabled && !docxExportBusy}
