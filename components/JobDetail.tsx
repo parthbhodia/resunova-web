@@ -621,7 +621,7 @@ function JobBody({
                 <JobDetailFact label="Location fit">
                   <Chip tone="amber">Location mismatch</Chip>
                   <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                    Doesn't change your match score — just a logistics heads-up.
+                    Doesn't change your match score. Just a logistics heads-up.
                   </span>
                 </JobDetailFact>
               )}
@@ -960,7 +960,7 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
             <div style={{ fontSize: 12, lineHeight: 1.45, color: "var(--muted)" }}>
               {job.location ? `This role lists ${job.location}` : "This role's location"}
               {(job.profileLocations?.length ?? 0) > 0
-                ? ` — your profile prefers ${job.profileLocations!.slice(0, 2).join(", ")}.`
+                ? ` · your profile prefers ${job.profileLocations!.slice(0, 2).join(", ")}.`
                 : "."}
               {" "}Match % is skills-only and isn't docked for this.
             </div>
