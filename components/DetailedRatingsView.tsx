@@ -114,11 +114,11 @@ type SharedProps = {
   ratings: RatingsData;
   onFixGap?: (item: DetailedRatingItem, gapType: AddressedGapAction["type"]) => void;
   onFixKeyword?: (keyword: string) => void;
-  /** One pass over every remaining gap, reviewed before anything is applied. */
+  /** One pass over every remaining gap → apply to preview (highlighted résumé). */
   onFixEverything?: () => void;
   openGapCount?: number;
   fixEverythingBusy?: boolean;
-  /** Opt-in: skip the review and write the rewrites straight in. Off by default. */
+  /** When true (default), Fix everything applies straight to the preview. */
   fixEverythingAutoApply?: boolean;
   onFixEverythingAutoApplyChange?: (on: boolean) => void;
   /** Bulk: write selected bare skills into the résumé's Skills section. */
@@ -369,6 +369,25 @@ export function TailorMatchSidebar({
             {overall_score}
           </span>
         </button>
+        {onFixEverything && openGapCount > 0 && (
+          <button
+            type="button"
+            title={fixAllButtonLabel(openGapCount, fixEverythingAutoApply, fixEverythingBusy).subtitle}
+            aria-label={`Fix everything, ${openGapCount} gaps`}
+            disabled={fixEverythingBusy}
+            onClick={onFixEverything}
+            style={{
+              width: 40, height: 36, borderRadius: 9, border: "none",
+              background: "var(--accent)", color: "#fff",
+              cursor: fixEverythingBusy ? "wait" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, fontFamily: "inherit", fontSize: 11, fontWeight: 800,
+              opacity: fixEverythingBusy ? 0.7 : 1, marginBottom: 4,
+            }}
+          >
+            {fixEverythingBusy ? "…" : `⚡${openGapCount}`}
+          </button>
+        )}
         <div
           style={{
             flex: 1, minHeight: 0, width: "100%", overflowY: "auto",
@@ -568,10 +587,8 @@ export function TailorMatchSidebar({
               </button>
             )}
 
-            {/* Opt-in, off by default. Rewrites go into the user's résumé, so
-                the default has to be "show me first" — but someone who has done
-                this twenty times shouldn't re-review every pass. The button
-                label above changes with it, so the click never surprises. */}
+            {/* Opt-out of apply-to-preview. Default is apply: the highlighted
+                résumé is the review surface. */}
             {onFixEverything && openGapCount > 0 && onFixEverythingAutoApplyChange && (
               <label
                 style={{
@@ -582,11 +599,11 @@ export function TailorMatchSidebar({
               >
                 <input
                   type="checkbox"
-                  checked={fixEverythingAutoApply}
-                  onChange={(e) => onFixEverythingAutoApplyChange(e.target.checked)}
+                  checked={!fixEverythingAutoApply}
+                  onChange={(e) => onFixEverythingAutoApplyChange(!e.target.checked)}
                   style={{ accentColor: "var(--accent)", cursor: "pointer" }}
                 />
-                Apply automatically, without reviewing
+                Show suggestions first (don&apos;t apply yet)
               </label>
             )}
 
@@ -671,10 +688,80 @@ export function TailorMatchDetail(props: SharedProps) {
     suggestionsLoading,
     onApplyAllSuggestions,
     applyBusy,
+    onFixEverything,
+    openGapCount = 0,
+    fixEverythingBusy = false,
+    fixEverythingAutoApply = true,
+    onFixEverythingAutoApplyChange,
   } = props;
+
+  const fixAllLabel = fixAllButtonLabel(openGapCount, fixEverythingAutoApply, fixEverythingBusy);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0, height: "100%" }}>
+      {onFixEverything && openGapCount > 0 && activeTab !== "gapfix" && (
+        <div
+          style={{
+            flexShrink: 0,
+            padding: "12px 16px",
+            borderBottom: "1px solid var(--border)",
+            background: "var(--surface)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <button
+            type="button"
+            onClick={onFixEverything}
+            disabled={fixEverythingBusy}
+            style={{
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 2,
+              padding: "12px 14px",
+              borderRadius: 10,
+              border: "none",
+              background: "var(--accent)",
+              color: "#fff",
+              fontFamily: "inherit",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: fixEverythingBusy ? "wait" : "pointer",
+              opacity: fixEverythingBusy ? 0.75 : 1,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+            }}
+          >
+            <span>{fixAllLabel.title}</span>
+            <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.9 }}>
+              {fixAllLabel.subtitle}
+            </span>
+          </button>
+          {onFixEverythingAutoApplyChange && (
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                cursor: "pointer",
+                fontSize: 11,
+                color: "var(--muted)",
+                padding: "0 2px",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={!fixEverythingAutoApply}
+                onChange={(e) => onFixEverythingAutoApplyChange(!e.target.checked)}
+                style={{ accentColor: "var(--accent)", cursor: "pointer" }}
+              />
+              Show suggestions first (don&apos;t apply yet)
+            </label>
+          )}
+        </div>
+      )}
       {activeTab !== "fixes" && activeTab !== "gapfix" && (
         <div
           style={{

@@ -195,15 +195,15 @@ function filterKeywordsMissing(
 }
 
 /**
- * Match-score lift when the user closes ONE named JD gap via "Fix this gap".
- * Paid-product feel (~25-35), not Boost's 8pts-per-suggestion damp.
- * Still coverage-tied: only fires when something actually moves missing→resolved.
+ * Overall match score is NOT bumped on optimistic apply — one Fix jumping
+ * 66→99 was dishonest (user must Re-check for a real score). Kept as 0 so
+ * callers/tests still share the helper; category chips may nudge lightly.
  */
-export const GAP_CLOSE_SCORE_BUMP = 28;
-/** Soft ceiling so one optimistic apply can't claim a perfect 100 before re-check. */
+export const GAP_CLOSE_SCORE_BUMP = 0;
+/** Soft ceiling if a future bump is re-enabled — never claim a perfect 100. */
 export const GAP_CLOSE_SCORE_CAP = 99;
-/** Per-category lift alongside the overall bump. */
-export const GAP_CLOSE_CATEGORY_BUMP = 22;
+/** Modest per-category nudge when a gap moves missing→resolved_by_user. */
+export const GAP_CLOSE_CATEGORY_BUMP = 8;
 
 export function bumpOptimisticScore(
   current: number,
@@ -214,7 +214,8 @@ export function bumpOptimisticScore(
   return Math.min(cap, Math.max(0, Math.round(current + delta)));
 }
 
-/** Optimistic UI: missing → resolved_by_user (not verified covered) + score jump. */
+/** Optimistic UI: missing → resolved_by_user (not verified covered).
+ *  Overall match_score stays frozen until the user hits Re-check. */
 export function applyOptimisticGapAddressed(
   ratings: RatingsData,
   gapName: string,
@@ -288,12 +289,9 @@ export function applyOptimisticGapAddressed(
     next = { ...next, keywords: filterKeywordsMissing(r.keywords, gapName) };
   }
 
-  const closedSomething = qual.closed || resp.closed || kwHadMissing;
-  if (closedSomething) {
-    const before = Number(r.match_score ?? r.overall_score ?? 0);
-    const after = bumpOptimisticScore(before, GAP_CLOSE_SCORE_BUMP);
-    next = { ...next, match_score: after, overall_score: after };
-  }
+  // Intentionally do NOT bump match_score / overall_score here. Coverage
+  // chips update; the headline % waits for a real /api/analyze re-check.
+  void (qual.closed || resp.closed || kwHadMissing);
 
   return next;
 }

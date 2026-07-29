@@ -36,16 +36,21 @@ function ratings(over: Partial<RatingsData> = {}): RatingsData {
 
 describe("bumpOptimisticScore", () => {
   it("adds the delta and clamps to the soft cap", () => {
-    expect(bumpOptimisticScore(41, GAP_CLOSE_SCORE_BUMP)).toBe(69);
-    expect(bumpOptimisticScore(90, GAP_CLOSE_SCORE_BUMP)).toBe(GAP_CLOSE_SCORE_CAP);
+    expect(bumpOptimisticScore(41, 28)).toBe(69);
+    expect(bumpOptimisticScore(90, 28)).toBe(GAP_CLOSE_SCORE_CAP);
+  });
+
+  it("overall gap-close bump is zero (no fake 66→99 jumps)", () => {
+    expect(GAP_CLOSE_SCORE_BUMP).toBe(0);
+    expect(bumpOptimisticScore(66, GAP_CLOSE_SCORE_BUMP)).toBe(66);
   });
 });
 
-describe("applyOptimisticGapAddressed score jump", () => {
-  it("lifts match/overall ~28pts when closing a named missing gap", () => {
+describe("applyOptimisticGapAddressed score honesty", () => {
+  it("marks the gap resolved but does NOT inflate overall match score", () => {
     const next = applyOptimisticGapAddressed(ratings(), "LangGraph", "qualification");
-    expect(next.match_score).toBe(69);
-    expect(next.overall_score).toBe(69);
+    expect(next.match_score).toBe(41);
+    expect(next.overall_score).toBe(41);
     expect(next.qualifications?.missing).toEqual([]);
     expect(next.qualifications?.resolved_by_user?.some((i) => i.text === "LangGraph")).toBe(true);
     expect((next.qualifications?.score ?? 0)).toBeGreaterThan(40);
@@ -54,10 +59,11 @@ describe("applyOptimisticGapAddressed score jump", () => {
   it("does not keep stacking when the gap is already resolved", () => {
     const once = applyOptimisticGapAddressed(ratings(), "LangGraph", "qualification");
     const twice = applyOptimisticGapAddressed(once, "LangGraph", "qualification");
-    expect(twice.match_score).toBe(once.match_score);
+    expect(twice.match_score).toBe(41);
+    expect(twice.overall_score).toBe(41);
   });
 
-  it("still jumps when the gap only lives in keywords.missing", () => {
+  it("still clears keyword missing without inflating overall", () => {
     const r = ratings({
       qualifications: { score: 70, covered: [], missing: [] },
       keywords: {
@@ -68,7 +74,7 @@ describe("applyOptimisticGapAddressed score jump", () => {
       },
     });
     const next = applyOptimisticGapAddressed(r, "LiteLLM", "keyword");
-    expect(next.match_score).toBe(69);
+    expect(next.match_score).toBe(41);
     expect(next.keywords?.direct_skills?.missing ?? []).toEqual([]);
   });
 });

@@ -1,28 +1,23 @@
 /**
- * "Apply automatically" preference for the Fix-everything pass.
- *
- * Off by default: writing rewrites straight into someone's résumé without
- * showing them first is not a reasonable default for a product whose whole
- * analysis layer exists to catch dishonest claims. But it is a reasonable
- * CHOICE — a user who trusts the output and has fixed twenty postings this week
- * should not have to click through a review each time.
- *
- * So the switch exists, defaults off, and persists once set. Same
- * localStorage-first shape as lib/tailoringMode.ts, which also has to work for
- * anonymous visitors with no account to store anything against.
+ * "Apply to preview" is the primary Fix-everything path: generate all rewrites
+ * and land them on the résumé with green highlights so the user reviews the
+ * paper, not a card stack. A secondary "review suggestions first" mode still
+ * exists via the checkbox (persisted).
  */
 
 const KEY = "rn_fix_all_auto_v1";
 
-/** Whether the last-chosen setting was auto-apply. Defaults to false. */
+/** Whether Fix-everything applies straight to the preview. Defaults to ON —
+ *  the highlighted résumé IS the review surface. */
 export function getFixAllAutoApply(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined") return true;
   try {
-    return window.localStorage.getItem(KEY) === "1";
+    const v = window.localStorage.getItem(KEY);
+    // Missing key → on (new default). Explicit "0" → review-first.
+    if (v === null) return true;
+    return v !== "0";
   } catch {
-    // Private mode / storage disabled: fall back to the safe default rather
-    // than letting a storage error turn auto-apply on.
-    return false;
+    return true;
   }
 }
 
@@ -42,11 +37,17 @@ export function fixAllButtonLabel(gapCount: number, autoApply: boolean, busy: bo
 } {
   if (busy) {
     return {
-      title: autoApply ? "Fixing…" : "Finding fixes…",
-      subtitle: "One pass over every gap",
+      title: autoApply ? "Tailoring résumé…" : "Finding fixes…",
+      subtitle: "One pass over every open gap",
     };
   }
   return autoApply
-    ? { title: `⚡ Fix & apply everything (${gapCount})`, subtitle: "Applies straight to your résumé" }
-    : { title: `⚡ Fix everything (${gapCount})`, subtitle: "Review before anything changes" };
+    ? {
+        title: `Fix everything (${gapCount})`,
+        subtitle: "Apply all to preview — review the highlighted résumé",
+      }
+    : {
+        title: `Fix everything (${gapCount})`,
+        subtitle: "Generate suggestions first, then apply",
+      };
 }
