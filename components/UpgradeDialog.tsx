@@ -13,9 +13,10 @@
  * every view rendered as AppShell children share one modal.
  *
  * HONESTY NOTE: the Free-vs-Pro numbers below are the REAL server-side caps
- * (FREE_SCAN_DAILY_LIMIT=3, INTERVIEW_PREP_DAILY_LIMIT=2 in the API's
- * services/scan_limits.py). Everything else — job feed, tracker, referrals — has
- * no daily cap today, so it's shown as "Included", not a fake number.
+ * (FREE_SCAN_DAILY_LIMIT=3, PRO_SCAN_DAILY_LIMIT=30, INTERVIEW free=2 / Pro=30
+ * in the API's services/entitlements.py POLICY_V1). Everything else — job feed,
+ * tracker, referrals, AI rewrites & PDF export — has no daily cap today, so it's
+ * shown as "Included", not a fake number.
  * The CTA opens Stripe Checkout via POST /api/billing/checkout; when checkout
  * isn't live (flag off / signed out / request failure) it falls back to the
  * /pricing page instead of dead-ending.
@@ -39,9 +40,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { createCheckoutSession } from "@/lib/billingApi";
 
-/** Real free-tier daily caps (keep in sync with API services/scan_limits.py). */
+/** Real free-tier daily caps (keep in sync with API services/entitlements.py). */
 export const FREE_SCAN_DAILY_LIMIT = 3;
 export const FREE_INTERVIEW_DAILY_LIMIT = 2;
+/** Pro daily caps (keep in sync with API POLICY_V1 PRO_SCAN / PRO_INTERVIEW). */
+export const PRO_SCAN_DAILY_LIMIT = 30;
+export const PRO_INTERVIEW_DAILY_LIMIT = 30;
 
 /** Fallback when Stripe Checkout is unavailable (flag off, signed out, error). */
 const UPGRADE_FALLBACK_HREF = "/pricing";
@@ -105,18 +109,18 @@ export function useUpgradeDialog(): UpgradeDialogContextValue {
 type PlanRow = { label: string; free: string; pro: string; freeMuted?: boolean };
 
 const PLAN_ROWS: PlanRow[] = [
-  { label: "Resume & ATS scans", free: `${FREE_SCAN_DAILY_LIMIT} / day`, pro: "Unlimited" },
-  { label: "Job match & tailoring", free: `${FREE_SCAN_DAILY_LIMIT} / day`, pro: "Unlimited" },
-  { label: "Interview-prep scans", free: `${FREE_INTERVIEW_DAILY_LIMIT} / day`, pro: "Unlimited" },
-  { label: "AI rewrites & clean PDF export", free: "Included", pro: "Unlimited", freeMuted: true },
+  { label: "Resume & ATS scans", free: `${FREE_SCAN_DAILY_LIMIT} / day`, pro: `${PRO_SCAN_DAILY_LIMIT} / day` },
+  { label: "Job match & tailoring", free: `${FREE_SCAN_DAILY_LIMIT} / day`, pro: `${PRO_SCAN_DAILY_LIMIT} / day` },
+  { label: "Interview-prep scans", free: `${FREE_INTERVIEW_DAILY_LIMIT} / day`, pro: `${PRO_INTERVIEW_DAILY_LIMIT} / day` },
+  { label: "AI rewrites & clean PDF export", free: "Included", pro: "Included", freeMuted: true },
   { label: "Job feed, tracker & referrals", free: "Included", pro: "Included", freeMuted: true },
 ];
 
 const PRO_UNLOCKS = [
-  "Unlimited résumé & ATS checks + AI fixes",
-  "Unlimited job-match scoring & tailored résumés",
-  "Unlimited interview-prep scans",
-  "Unlimited clean PDF downloads",
+  `${PRO_SCAN_DAILY_LIMIT} résumé & ATS checks + AI fixes / day`,
+  `${PRO_SCAN_DAILY_LIMIT} job-match scores & tailored résumés / day`,
+  `${PRO_INTERVIEW_DAILY_LIMIT} interview-prep scans / day`,
+  "Clean PDF downloads included",
 ];
 
 export function UpgradeDialogProvider({ children }: { children: ReactNode }) {
@@ -173,15 +177,15 @@ export function UpgradeDialogProvider({ children }: { children: ReactNode }) {
                   {opts.limit ?? FREE_SCAN_DAILY_LIMIT}
                 </span>
                 <span className="text-2xl text-[var(--muted)]">→</span>
-                <span className="text-4xl font-bold leading-none text-accent">∞</span>
+                <span className="text-4xl font-bold leading-none text-accent">{PRO_SCAN_DAILY_LIMIT}</span>
               </div>
 
               <DialogTitle className="text-[19px] font-semibold leading-snug text-[var(--text)]">
                 Unlock the <span className="text-accent">full job-hunt toolkit</span>
               </DialogTitle>
               <DialogDescription className="text-[13px] leading-relaxed text-[var(--muted)]">
-                Pro is the whole engine: unlimited ATS checks &amp; AI fixes, tailored
-                résumés for every job, and unlimited clean PDF downloads.
+                Pro is the whole engine: {PRO_SCAN_DAILY_LIMIT} ATS checks &amp; AI fixes per day,
+                tailored résumés for every job, and clean PDF downloads.
               </DialogDescription>
 
               <ul className="mt-1 flex flex-col gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
@@ -211,7 +215,7 @@ export function UpgradeDialogProvider({ children }: { children: ReactNode }) {
                 <p className="rounded-lg border border-[var(--amber-bg)] bg-[var(--amber-bg)] px-3 py-2 text-[13px] leading-relaxed text-[var(--amber-ink)]">
                   You&apos;ve used all {opts.limit ?? FREE_SCAN_DAILY_LIMIT} free{" "}
                   {featureLabel(opts)} today
-                  {resetIn ? ` — resets ${resetIn}` : ""}. Upgrade for unlimited access.
+                  {resetIn ? ` — resets ${resetIn}` : ""}. Upgrade to Pro for {PRO_SCAN_DAILY_LIMIT}/day.
                 </p>
               ) : null}
 

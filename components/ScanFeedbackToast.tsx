@@ -106,7 +106,7 @@ export function ScanFeedbackToast({ meta, onDismiss }: { meta: ScanMeta; onDismi
 
       <p style={{ margin: 0, fontSize: 13, color: "var(--muted, #64748b)", lineHeight: 1.4 }}>
         {isError ? (
-          <>You have used all {meta.limit} of your daily free {meta.feature === "interview_prep" ? "interview prep parses" : "resume scans"}. Come back in {hoursUntilReset}h {minsUntilReset}m or upgrade for unlimited access.</>
+          <>You have used all {meta.limit} of your daily free {meta.feature === "interview_prep" ? "interview prep parses" : "resume scans"}. Come back in {hoursUntilReset}h {minsUntilReset}m or upgrade to Pro for 30/day.</>
         ) : (
           <>{remaining} free {meta.feature === "interview_prep" ? "interview prep parse" : "resume scan"}{remaining !== 1 ? 's' : ''} remaining today.</>
         )}

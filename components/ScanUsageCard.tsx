@@ -68,11 +68,14 @@ export default function ScanUsageCard() {
   const used = status.used ?? 0;
   const remaining = status.remaining ?? Math.max(0, limit - used);
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const isPro = status.plan === "pro";
 
   return (
-    <Card title="Plan & usage" badge="Free">
+    <Card title="Plan & usage" badge={isPro ? "Pro" : "Free"}>
       <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, marginBottom: 12 }}>
-        Free plan includes <strong style={{ color: "var(--text)" }}>{limit} résumé scans per day</strong>.
+        {isPro
+          ? <>Pro includes <strong style={{ color: "var(--text)" }}>{limit} résumé scans per day</strong>.</>
+          : <>Free plan includes <strong style={{ color: "var(--text)" }}>{limit} résumé scans per day</strong>.</>}
       </p>
       <div
         role="progressbar"
