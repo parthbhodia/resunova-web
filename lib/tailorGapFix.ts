@@ -200,8 +200,8 @@ function filterKeywordsMissing(
  * Still coverage-tied: only fires when something actually moves missing→resolved.
  */
 export const GAP_CLOSE_SCORE_BUMP = 28;
-/** Soft ceiling so one gap close never claims a perfect match. */
-export const GAP_CLOSE_SCORE_CAP = 95;
+/** Soft ceiling so one optimistic apply can't claim a perfect 100 before re-check. */
+export const GAP_CLOSE_SCORE_CAP = 99;
 /** Per-category lift alongside the overall bump. */
 export const GAP_CLOSE_CATEGORY_BUMP = 22;
 
