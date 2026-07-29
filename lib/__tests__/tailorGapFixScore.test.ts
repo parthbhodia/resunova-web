@@ -46,9 +46,9 @@ describe("applyOptimisticGapAddressed score jump", () => {
     const next = applyOptimisticGapAddressed(ratings(), "LangGraph", "qualification");
     expect(next.match_score).toBe(69);
     expect(next.overall_score).toBe(69);
-    expect(next.qualifications.missing).toEqual([]);
-    expect(next.qualifications.resolved_by_user?.some((i) => i.text === "LangGraph")).toBe(true);
-    expect(next.qualifications.score).toBeGreaterThan(40);
+    expect(next.qualifications?.missing).toEqual([]);
+    expect(next.qualifications?.resolved_by_user?.some((i) => i.text === "LangGraph")).toBe(true);
+    expect((next.qualifications?.score ?? 0)).toBeGreaterThan(40);
   });
 
   it("does not keep stacking when the gap is already resolved", () => {
