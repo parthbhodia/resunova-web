@@ -8,6 +8,8 @@ import { parseJsonOrThrow, resumeFileClientError } from "@/lib/utils";
 import { fetchResumes } from "@/lib/supabase";
 import type { ResumeRecord } from "@/lib/types";
 import { apiFetch } from "@/lib/apiClient";
+import { stashTemplateBuilderStructuredPrefillFromStructuredResume } from "@/lib/templateBuilderPrefill";
+import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 
 const PROFILE_KEY = "rn_builder_profile_prefill";
 const STYLE_REF_KEY = "rn_builder_style_ref";
@@ -103,7 +105,7 @@ export function UploadResumePdfPanel({ onDone }: { onDone: (profileText: string)
 
 /* ── History option ─────────────────────────────────────────────────── */
 
-function HistoryOption({ onSelectFolder }: { onSelectFolder: (folder: string) => void }) {
+function HistoryOption({ onSelectResume }: { onSelectResume: (r: ResumeRecord) => void }) {
   const [resumes, setResumes] = useState<ResumeRecord[] | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -134,7 +136,7 @@ function HistoryOption({ onSelectFolder }: { onSelectFolder: (folder: string) =>
         <button
           key={r.folder}
           type="button"
-          onClick={() => onSelectFolder(r.folder)}
+          onClick={() => onSelectResume(r)}
           style={{
             display: "flex", alignItems: "center", gap: 12,
             padding: "12px 14px",
@@ -287,18 +289,36 @@ export default function ContentSourcePicker() {
   const router = useRouter();
   const [active, setActive] = useState<OptionKey | null>(null);
 
-  const goToBuilder = useCallback((profileText?: string, baseFolder?: string) => {
+  const goToBuilder = useCallback((profileText?: string) => {
     if (profileText !== undefined) {
       try { sessionStorage.setItem(PROFILE_KEY, profileText.trim()); } catch { /* quota */ }
     }
-    void baseFolder;
     router.push("/template-builder/");
   }, [router]);
 
-  const handleSelectFolder = useCallback((folder: string) => {
-    // Use existing resume as base — no profile text override needed
-    goToBuilder(undefined, folder);
-  }, [goToBuilder]);
+  const handleSelectResume = useCallback((r: ResumeRecord) => {
+    const doc = (r.resume_doc ?? null) as Record<string, unknown> | null;
+    const structured = (doc?.structured ?? null) as StructuredResume | null;
+    const profile =
+      typeof doc?.profile === "string" ? doc.profile.trim()
+      : typeof doc?.extractedText === "string" ? String(doc.extractedText).trim()
+      : "";
+
+    let stashed = false;
+    try {
+      if (structured) {
+        stashed = stashTemplateBuilderStructuredPrefillFromStructuredResume(structured);
+      }
+      if (profile) sessionStorage.setItem(PROFILE_KEY, profile);
+    } catch { /* quota */ }
+
+    // Prefer structured Template Builder prefill; fall back to plain text profile.
+    if (!stashed && !profile) {
+      goToBuilder();
+      return;
+    }
+    router.push("/template-builder/");
+  }, [goToBuilder, router]);
 
   const handleManualStart = useCallback(() => {
     // Style prefs already in sessionStorage from template studio
@@ -392,7 +412,7 @@ export default function ContentSourcePicker() {
                   <div style={{ padding: "0 20px 20px" }}>
                     <div style={{ height: 1, background: "var(--border)", marginBottom: 16 }} />
                     {opt.key === "upload" && <UploadResumePdfPanel onDone={text => goToBuilder(text)} />}
-                    {opt.key === "history" && <HistoryOption onSelectFolder={handleSelectFolder} />}
+                    {opt.key === "history" && <HistoryOption onSelectResume={handleSelectResume} />}
                     {opt.key === "manual" && <ManualOption onStart={handleManualStart} />}
                   </div>
                 )}

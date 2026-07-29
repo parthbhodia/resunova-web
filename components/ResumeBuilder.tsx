@@ -86,6 +86,7 @@ import ScoreRing    from "./ScoreRing";
 import MatchBreakdownCards from "./MatchBreakdownCards";
 import { TailorMatchSidebar, TailorMatchDetail } from "./DetailedRatingsView";
 import TailorRecentJobs from "./TailorRecentJobs";
+import TailorResumeHistoryPicker from "./TailorResumeHistoryPicker";
 import TailorPreviewPane from "./TailorPreviewPane";
 import TailorAnalyzingLoader from "./TailorAnalyzingLoader";
 import CategoryFixPanel from "./CategoryFixPanel";
@@ -106,6 +107,7 @@ import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/co
 import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
 import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
+import { structuredToPlainText } from "@/lib/resumeVersions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -566,18 +568,6 @@ export default function ResumeBuilder({
     setTailorHeadlineOverride(text);
     setScoreStale(true);
   }, []);
-  /** Bullet-level structural op (drag-reorder / add / delete) from the Tailor
-   *  preview. Mutates the uploaded structured doc (the authoritative scored
-   *  input on rescore) and remaps path-keyed field overrides to follow. */
-  const applyTailorBulletOp = useCallback((op: StructuredBulletOp) => {
-    setStructuredUpload((prev) => {
-      if (!prev) return prev;
-      const next = applyBulletOpToStructured(prev.structured, op);
-      return next ? { ...prev, structured: next } : prev;
-    });
-    setTailorFieldOverrides((prev) => remapOverlayPaths(prev, op.pathRemap));
-    setScoreStale(true);
-  }, []);
   // Popup rewrite drafts for ANALYZED bullets (index >= 0). Applying writes into
   // tailorLineOverrides so the change flows through the existing
   // synthesize/patch → rescore index pipeline (no new desync surface).
@@ -773,6 +763,25 @@ export default function ResumeBuilder({
     profile: string;
     structured: StructuredResume;
   } | null>(() => builderSession0?.structuredUpload ?? null);
+  /** Bullet-level structural op (drag-reorder / add / delete) from the Tailor
+   *  preview. Mutates the uploaded structured doc (the authoritative scored
+   *  input on rescore) and remaps path-keyed field overrides to follow.
+   *  Also syncs candidateProfile text so Hub/rescore see the same bullets. */
+  const applyTailorBulletOp = useCallback((op: StructuredBulletOp) => {
+    let nextProfile: string | null = null;
+    setStructuredUpload((prev) => {
+      if (!prev) return prev;
+      const next = applyBulletOpToStructured(prev.structured, op);
+      if (!next) return prev;
+      nextProfile = structuredToPlainText(next) || prev.profile;
+      return { profile: nextProfile, structured: next };
+    });
+    if (nextProfile !== null) {
+      setCandidateProfile(nextProfile);
+    }
+    setTailorFieldOverrides((prev) => remapOverlayPaths(prev, op.pathRemap));
+    setScoreStale(true);
+  }, [setStructuredUpload, setCandidateProfile, setTailorFieldOverrides, setScoreStale]);
   /** Object URL for the last uploaded PDF — powers true PDF highlights in suggestions (revoked on replace / unmount). */
   const sourcePdfBlobUrlRef = useRef<string | null>(null);
   const [uploadedPdfDataUrl, setUploadedPdfDataUrl] = useState<string | null>(
@@ -1251,6 +1260,66 @@ export default function ResumeBuilder({
     const normalized = normalizeStructuredResume(structuredUpload?.structured ?? null);
     return isStructuredUsable(normalized) ? normalized : null;
   }, [structuredUpload]);
+
+  // Debounced Hub save after preview edits (bullet delete/add/reorder, inline
+  // field edits). Upserts the same tailor_match row for company+role so Resume
+  // Hub reflects the edited résumé without waiting for Re-score.
+  useEffect(() => {
+    if (!scoreStale) return;
+    if (!user?.id) return;
+    if (!result?.ratings) return;
+    if (studioHandoff) return;
+
+    const t = window.setTimeout(() => {
+      const base = tailorStructuredResume;
+      if (!base && !(candidateProfile ?? "").trim()) return;
+      const withFields = base
+        ? applyFieldOverridesToStructured(base, tailorFieldOverrides)
+        : null;
+      const headline = tailorHeadlineOverride.trim();
+      const structured = withFields && headline
+        ? { ...withFields, headline }
+        : withFields;
+      const profile =
+        structuredToPlainText(structured) ||
+        (candidateProfile ?? "").trim() ||
+        structuredUpload?.profile ||
+        "";
+      if (!profile && !structured) return;
+
+      const effCompany = company.trim() || "—";
+      const effRole = role.trim() || "—";
+      const folder = result.folder ?? tailorMatchFolder(effCompany, effRole);
+      void persistTailorMatch({
+        folder,
+        company: effCompany,
+        role: effRole,
+        model,
+        ratings: result.ratings!,
+        jobDescription: jd.trim(),
+        candidateProfile: profile,
+        structuredResume: structured,
+      });
+    }, 900);
+
+    return () => window.clearTimeout(t);
+  }, [
+    scoreStale,
+    user?.id,
+    result?.ratings,
+    result?.folder,
+    studioHandoff,
+    tailorStructuredResume,
+    tailorFieldOverrides,
+    tailorHeadlineOverride,
+    candidateProfile,
+    structuredUpload?.profile,
+    company,
+    role,
+    jd,
+    model,
+    persistTailorMatch,
+  ]);
 
   const applyStructuredFromAnalyze = useCallback((raw: Record<string, unknown>, profile?: string) => {
     const sr = normalizeStructuredResume(
@@ -3054,10 +3123,10 @@ export default function ResumeBuilder({
                   <div className="rb-tailor-sidebar-inner">
                     <div className="rb-tailor-sidebar-pinned">
                       <div style={{ fontSize: 10, fontWeight: 700, color: "var(--amber)", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>
-                        Recent jobs
+                        History
                       </div>
                       <div style={{ fontSize: 11, color: "var(--dim)", lineHeight: 1.45 }}>
-                        Pick up where you left off — company, role, and JD restore automatically.
+                        Past tailor jobs — company, role, and JD restore automatically.
                       </div>
                     </div>
                     <div className="rb-tailor-sidebar-scroll">
@@ -3081,7 +3150,7 @@ export default function ResumeBuilder({
                     type="button"
                     className="rb-tailor-sidebar-hide"
                     onClick={() => setTailorSidebarVisible(false)}
-                    title="Hide recent jobs for more space"
+                    title="Hide history for more space"
                     style={{
                       position: "absolute",
                       top: 16,
@@ -3103,6 +3172,38 @@ export default function ResumeBuilder({
                     </svg>
                   </button>
                 </aside>
+            ) : null}
+            {tailorPreResult && !tailorSidebarVisible ? (
+              <button
+                type="button"
+                onClick={() => setTailorSidebarVisible(true)}
+                title="Show history"
+                aria-label="Show tailor history"
+                style={{
+                  position: "absolute",
+                  left: 10,
+                  top: 18,
+                  zIndex: 5,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 10px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                  <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                History
+              </button>
             ) : null}
             <div
               className={tailorPreResult ? "rb-tailor-main" : undefined}
@@ -3408,6 +3509,26 @@ export default function ResumeBuilder({
                 error={uploadTypeError || uploadError}
                 onDismiss={() => { setUploadTypeError(null); clearUploadError(); }}
                 style={{ marginTop: 8, marginBottom: 0 }}
+              />
+            )}
+
+            {!candidateProfile && !studioHandoff && (
+              <TailorResumeHistoryPicker
+                onPick={(pick) => {
+                  const text = (pick.extractedText || "").trim();
+                  setCandidateProfile(text || null);
+                  setUploadedFileName(pick.fileName);
+                  setResumeHeaderLines(pick.resumeHeader);
+                  // lastResumeExtractRef syncs from candidateProfile via effect
+                  setStructuredUpload(
+                    pick.structured
+                      ? { profile: text, structured: pick.structured }
+                      : null,
+                  );
+                  setSourcePdfBlobUrl(null);
+                  setUploadedPdfDataUrl(null);
+                  setProfileSyncUpsell(null);
+                }}
               />
             )}
 
@@ -3839,7 +3960,9 @@ export default function ResumeBuilder({
               {scoreStale && !gapApplyBusy && (
                 <div style={{ marginBottom: 12, padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(52,211,153,0.4)", background: "rgba(52,211,153,0.08)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: "var(--green, #34d399)", flex: 1, minWidth: 0 }}>
-                    ✓ Fixes applied to your preview. Match score shown is provisional.
+                    {user?.id
+                      ? "✓ Preview updated — saved to Resume Hub. Match score shown is provisional."
+                      : "✓ Preview updated. Match score shown is provisional."}
                   </span>
                   <button
                     type="button"
