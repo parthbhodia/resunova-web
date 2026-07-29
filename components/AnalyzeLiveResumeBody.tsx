@@ -881,44 +881,40 @@ function renderMetricLineWithLabel(text: string, highlightsEnabled: boolean): Re
   );
 }
 
-/** Word-level "what changed" line under an edited bullet — added words on a
- *  soft green, removed words struck through in soft red. Diffs the plain
- *  (markdown-stripped) content only, so a formatting-only edit shows nothing. */
-function BulletChangeDiff({ original, current }: { original: string; current: string }) {
+/** Inline highlighter for applied/edited bullets — paints only the words that
+ *  were added vs `original`. Deletions are omitted (they aren't in the live
+ *  line). Left-panel cards own the full before/after detail; the preview just
+ *  needs a glanceable cue. Returns null when there's nothing to highlight
+ *  (caller falls back to the normal metric renderer). */
+function renderChangedWordsHighlighted(original: string, current: string): ReactNode | null {
   const origPlain = stripInlineMarkdown(original).replace(/\s+/g, " ").trim();
   const curPlain = stripInlineMarkdown(current).replace(/\s+/g, " ").trim();
-  if (!origPlain || origPlain === curPlain) return null;
+  if (!origPlain || !curPlain || origPlain === curPlain) return null;
   const tokens = diffWords(origPlain, curPlain);
+  if (!tokens.some((t) => t.type === "add")) return null;
   return (
-    <div
-      className="az-pdf-ignore"
-      style={{
-        marginTop: 2,
-        fontSize: "calc(var(--az-resume-body-font-size, 10px) - 1px)",
-        lineHeight: 1.4,
-        color: "var(--resume-paper-muted, #8c7d68)",
-        overflowWrap: "anywhere",
-      }}
-    >
-      <span style={{ fontWeight: 700, fontSize: 9, letterSpacing: 0.03, textTransform: "uppercase", marginRight: 5, opacity: 0.75 }}>
-        Changed
-      </span>
+    <>
       {tokens.map((t, i) => {
-        if (t.type === "same") return <span key={i}>{t.text}</span>;
+        if (t.type === "del") return null;
         if (t.type === "add") {
           return (
-            <span key={i} style={{ background: "rgba(52,211,153,0.18)", color: "var(--green, #2f7d5a)", borderRadius: 2 }}>
+            <mark
+              key={i}
+              className="az-change-hl"
+              style={{
+                background: "rgba(52,211,153,0.28)",
+                color: "inherit",
+                borderRadius: 2,
+                padding: "0 1px",
+              }}
+            >
               {t.text}
-            </span>
+            </mark>
           );
         }
-        return (
-          <span key={i} style={{ background: "rgba(248,113,113,0.14)", color: "var(--red, #b8452f)", textDecoration: "line-through", borderRadius: 2 }}>
-            {t.text}
-          </span>
-        );
+        return <span key={i}>{t.text}</span>;
       })}
-    </div>
+    </>
   );
 }
 
@@ -2373,7 +2369,10 @@ export default function AnalyzeLiveResumeBody({
                             }
                           : {})}
                       >
-                        {renderMetricLineWithLabel(showText, highlightsEnabled)}
+                        {previewLineApplied
+                          ? (renderChangedWordsHighlighted(originalBulletText, showText)
+                              ?? renderMetricLineWithLabel(showText, highlightsEnabled))
+                          : renderMetricLineWithLabel(showText, highlightsEnabled)}
                       </span>
                       {previewLineApplied && (
                         <span className="az-pdf-ignore az-preview-applied-mark"
@@ -2388,10 +2387,6 @@ export default function AnalyzeLiveResumeBody({
                       )}
                     </span>
                   </div>
-
-                  {previewLineApplied && (
-                    <BulletChangeDiff original={originalBulletText} current={showText} />
-                  )}
 
                   {/* ── Inline detail panel (non-presentation mode only) ── */}
                   {!presentationOnly && expandedIdx === bulletIdx && (() => {

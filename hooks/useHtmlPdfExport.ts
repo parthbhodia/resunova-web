@@ -91,6 +91,12 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
     el.style.cursor = "default";
   });
 
+  // Always unwrap word-change highlighters — review chrome, never part of the PDF.
+  clone.querySelectorAll("mark.az-change-hl").forEach((el) => {
+    const text = el.textContent ?? "";
+    el.replaceWith(clone.ownerDocument?.createTextNode(text) ?? document.createTextNode(text));
+  });
+
   if (!highlightsEnabled) {
     clone.querySelectorAll("mark.az-metric").forEach((el) => {
       const text = el.textContent ?? "";
@@ -128,6 +134,7 @@ function cleanForExport(source: HTMLElement, highlightsEnabled = true): HTMLElem
     [data-section-idx]           { background: transparent !important; outline: none !important; }
     .az-pdf-ignore               { display: none !important; }
     .az-highlights-off .az-metric { font-weight: inherit !important; color: inherit !important; background: transparent !important; }
+    mark.az-change-hl { background: transparent !important; color: inherit !important; padding: 0 !important; }
 
     /* Disable all animations and transitions — prevents Chromium capturing
        a mid-animation frame (e.g. the mirror-pulse outline) */
