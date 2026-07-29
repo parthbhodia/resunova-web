@@ -781,7 +781,7 @@ export default function ResumeBuilder({
     }
     setTailorFieldOverrides((prev) => remapOverlayPaths(prev, op.pathRemap));
     setScoreStale(true);
-  }, []);
+  }, [setStructuredUpload, setCandidateProfile, setTailorFieldOverrides, setScoreStale]);
   /** Object URL for the last uploaded PDF — powers true PDF highlights in suggestions (revoked on replace / unmount). */
   const sourcePdfBlobUrlRef = useRef<string | null>(null);
   const [uploadedPdfDataUrl, setUploadedPdfDataUrl] = useState<string | null>(
@@ -3519,7 +3519,7 @@ export default function ResumeBuilder({
                   setCandidateProfile(text || null);
                   setUploadedFileName(pick.fileName);
                   setResumeHeaderLines(pick.resumeHeader);
-                  lastResumeExtractRef.current = text;
+                  // lastResumeExtractRef syncs from candidateProfile via effect
                   setStructuredUpload(
                     pick.structured
                       ? { profile: text, structured: pick.structured }
