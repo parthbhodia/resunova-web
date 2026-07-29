@@ -527,4 +527,15 @@ export const RESUME_BULLET_STYLESHEET = `
     color: inherit !important;
     background: transparent !important;
   }
+  .az-highlights-off .az-gap-pill,
+  .az-highlights-off .az-change-hl,
+  .az-clean-export .az-gap-pill,
+  .az-clean-export .az-change-hl {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    font-weight: inherit !important;
+  }
 `;

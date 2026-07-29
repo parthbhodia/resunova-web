@@ -194,7 +194,27 @@ function filterKeywordsMissing(
   return next;
 }
 
-/** Optimistic UI: missing → resolved_by_user (not verified covered). */
+/**
+ * Match-score lift when the user closes ONE named JD gap via "Fix this gap".
+ * Paid-product feel (~25-35), not Boost's 8pts-per-suggestion damp.
+ * Still coverage-tied: only fires when something actually moves missing→resolved.
+ */
+export const GAP_CLOSE_SCORE_BUMP = 28;
+/** Soft ceiling so one gap close never claims a perfect match. */
+export const GAP_CLOSE_SCORE_CAP = 95;
+/** Per-category lift alongside the overall bump. */
+export const GAP_CLOSE_CATEGORY_BUMP = 22;
+
+export function bumpOptimisticScore(
+  current: number,
+  delta: number,
+  cap: number = GAP_CLOSE_SCORE_CAP,
+): number {
+  if (!Number.isFinite(current)) return Math.min(cap, Math.max(0, delta));
+  return Math.min(cap, Math.max(0, Math.round(current + delta)));
+}
+
+/** Optimistic UI: missing → resolved_by_user (not verified covered) + score jump. */
 export function applyOptimisticGapAddressed(
   ratings: RatingsData,
   gapName: string,
@@ -212,6 +232,7 @@ export function applyOptimisticGapAddressed(
     },
   ) => {
     const missingItem = category.missing.find((i) => gapKeysMatch(i.text, gapName));
+    const movedFromMissing = Boolean(missingItem);
     const newMissing = category.missing.filter((i) => !gapKeysMatch(i.text, gapName));
     const covered = dedupeDetailedItems(category.covered);
     let resolved = dedupeDetailedItems(category.resolved_by_user ?? []);
@@ -231,21 +252,47 @@ export function applyOptimisticGapAddressed(
       ]);
     }
     return {
-      ...category,
-      missing: newMissing,
-      covered,
-      resolved_by_user: resolved,
+      category: {
+        ...category,
+        missing: newMissing,
+        covered,
+        resolved_by_user: resolved,
+        score: movedFromMissing
+          ? bumpOptimisticScore(category.score, GAP_CLOSE_CATEGORY_BUMP, 100)
+          : category.score,
+      },
+      closed: movedFromMissing,
     };
   };
 
+  const qual = patchCategory(r.qualifications);
+  const resp = patchCategory(r.responsibilities);
+
+  const kwBefore = r.keywords;
+  const kwHadMissing = Boolean(
+    kwBefore
+    && (
+      (kwBefore.direct_skills?.missing ?? []).some((k) => gapKeysMatch(k, gapName))
+      || (kwBefore.contextual?.missing ?? []).some((k) => gapKeysMatch(k, gapName))
+      || (kwBefore.missing ?? []).some((k) => gapKeysMatch(k, gapName))
+    ),
+  );
+
   let next: RatingsData = {
     ...r,
-    qualifications: patchCategory(r.qualifications),
-    responsibilities: patchCategory(r.responsibilities),
+    qualifications: qual.category,
+    responsibilities: resp.category,
   };
 
   if (r.keywords) {
     next = { ...next, keywords: filterKeywordsMissing(r.keywords, gapName) };
+  }
+
+  const closedSomething = qual.closed || resp.closed || kwHadMissing;
+  if (closedSomething) {
+    const before = Number(r.match_score ?? r.overall_score ?? 0);
+    const after = bumpOptimisticScore(before, GAP_CLOSE_SCORE_BUMP);
+    next = { ...next, match_score: after, overall_score: after };
   }
 
   return next;

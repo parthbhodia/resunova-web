@@ -729,6 +729,14 @@ export default function ResumeBuilder({
   /** True after a gap fix is applied locally — the displayed match score is now
    *  optimistic and a real /api/analyze re-check is available on demand. */
   const [scoreStale, setScoreStale] = useState(false);
+  /** Lets handleFixGap auto-apply without reordering the large applyGapFixes callback. */
+  const applyGapFixesRef = useRef<
+    (
+      items: Array<{ id: string; section: string; original: string; suggested: string; reason: string; priority: string }>,
+      gapNameOverride?: string,
+      opts?: { closePanel?: boolean; gapType?: AddressedGapAction["type"] },
+    ) => Promise<void>
+  >(async () => {});
 
   useEffect(() => {
     if (!gapFixPanel?.gapName) {
@@ -2329,12 +2337,24 @@ export default function ResumeBuilder({
       const terms = Array.isArray(data.targetTerms)
         ? data.targetTerms.map((t) => String(t).trim()).filter(Boolean)
         : [];
+      const gapType = gap.type ?? "qualification";
+
+      // Full pass: auto-apply every returned insert. No per-card Accept on the
+      // résumé — the preview paints pill highlights on the new spans instead.
+      if (eligible.length > 0) {
+        await applyGapFixesRef.current(eligible, gap.name, {
+          closePanel: true,
+          gapType,
+        });
+        return;
+      }
+
       setGapFixPanel({
         gapName: gap.name,
         gapNotes: gap.notes,
-        suggestions: eligible,
-        gapType: gap.type ?? "qualification",
-        atsFallback: Boolean(data.atsFallback) && eligible.length > 0,
+        suggestions: [],
+        gapType,
+        atsFallback: Boolean(data.atsFallback),
         targetTerms: terms,
       });
       setResultsActiveTab("gapfix");
@@ -2361,12 +2381,12 @@ export default function ResumeBuilder({
   const applyGapFixes = useCallback(async (
     items: Array<{ id: string; section: string; original: string; suggested: string; reason: string; priority: string }>,
     gapNameOverride?: string,
-    opts?: { closePanel?: boolean },
+    opts?: { closePanel?: boolean; gapType?: AddressedGapAction["type"] },
   ) => {
     if (items.length === 0) return;
     const gapName = gapNameOverride ?? gapFixPanel?.gapName ?? "";
 
-    const gapType: AddressedGapAction["type"] = gapFixPanel?.gapType ?? "qualification";
+    const gapType: AddressedGapAction["type"] = opts?.gapType ?? gapFixPanel?.gapType ?? "qualification";
     const draftedItems = suggestionsWithDrafts(items, gapFixDrafts);
     const appliedText = draftedItems.map((s) => s.suggested).filter(Boolean).join("\n");
     const closePanel = opts?.closePanel !== false;
@@ -2525,6 +2545,8 @@ export default function ResumeBuilder({
   }, [candidateProfile, tailorBulletAnalysis, tailorLineOverrides, suggestions, suggestSummary,
       strategicTips, interviewQuestions, hydrateSuggestions, acceptSuggestion, gapFixPanel, gapFixDrafts,
       addressedGapActions, jd]);
+
+  applyGapFixesRef.current = applyGapFixes;
 
   const applyGapFix = useCallback(async (s: {
     id: string; section: string; original: string; suggested: string; reason: string; priority: string;
