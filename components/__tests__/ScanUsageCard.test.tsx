@@ -60,12 +60,48 @@ describe("ScanUsageCard — maps each /api/scan-limit-status branch", () => {
   it("free enforced → progressbar + remaining-today copy", async () => {
     global.fetch = vi
       .fn()
-      .mockResolvedValue(jsonRes({ enforced: true, unlimited: false, limit: 2, used: 1, remaining: 1, resetAt: null }));
+      .mockResolvedValue(jsonRes({
+        enforced: true,
+        unlimited: false,
+        limit: 2,
+        used: 1,
+        remaining: 1,
+        resetAt: null,
+        usedLast7Days: 5,
+        dailyUsage: [
+          { date: "2026-07-22", count: 0 },
+          { date: "2026-07-23", count: 1 },
+          { date: "2026-07-24", count: 0 },
+          { date: "2026-07-25", count: 1 },
+          { date: "2026-07-26", count: 0 },
+          { date: "2026-07-27", count: 1 },
+          { date: "2026-07-28", count: 2 },
+        ],
+      }));
     render(<ScanUsageCard />);
     await waitFor(() => expect(screen.getByText(/1 of 2 scans remaining today/)).toBeInTheDocument());
+    expect(screen.getByText("Last 7 days")).toBeInTheDocument();
+    expect(screen.getByText(/5/)).toBeInTheDocument();
     const bar = screen.getByRole("progressbar");
     expect(bar).toHaveAttribute("aria-valuenow", "1");
     expect(bar).toHaveAttribute("aria-valuemax", "2");
+  });
+
+  it("unlimited → shows last-7-day activity when present", async () => {
+    global.fetch = vi.fn().mockResolvedValue(jsonRes({
+      enforced: true,
+      unlimited: true,
+      plan: "institution",
+      usedLast7Days: 9,
+      dailyUsage: Array.from({ length: 7 }, (_, i) => ({
+        date: `2026-07-${22 + i}`,
+        count: i === 6 ? 9 : 0,
+      })),
+    }));
+    render(<ScanUsageCard />);
+    await waitFor(() => expect(screen.getByText(/Unlimited résumé scans/)).toBeInTheDocument());
+    expect(screen.getByText("Last 7 days")).toBeInTheDocument();
+    expect(screen.getByText(/9/)).toBeInTheDocument();
   });
 
   it("quota exhausted → 0 remaining copy", async () => {

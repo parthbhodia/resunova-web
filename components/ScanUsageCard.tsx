@@ -1,13 +1,56 @@
 "use client";
 
 /**
- * Plan & usage card — shows the signed-in user's daily résumé-scan quota.
- * Lives on the Account Settings page (billing/usage, not career data).
+ * Plan & usage card — shows the signed-in user's daily résumé-scan quota
+ * plus last-7-day usage. Lives on the Account Settings page (billing/usage,
+ * not career data).
  */
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/profileSettingsUi";
 import { apiFetch, scanLimitFrom, planLabel, type ScanLimitStatus } from "@/lib/apiClient";
+
+function WeekUsageBlock({ status }: { status: ScanLimitStatus }) {
+  const total = status.usedLast7Days;
+  const days = status.dailyUsage;
+  if (typeof total !== "number") return null;
+  const max = Math.max(1, ...(days ?? []).map((d) => d.count));
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Last 7 days</span>
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+          <strong style={{ color: "var(--text)" }}>{total}</strong>
+          {" "}scan{total === 1 ? "" : "s"}
+        </span>
+      </div>
+      {days && days.length > 0 ? (
+        <div
+          aria-hidden="true"
+          style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 28 }}
+        >
+          {days.map((d) => {
+            const h = Math.max(2, Math.round((d.count / max) * 28));
+            return (
+              <div
+                key={d.date}
+                title={`${d.date}: ${d.count}`}
+                style={{
+                  flex: 1,
+                  height: h,
+                  borderRadius: 3,
+                  background: d.count > 0 ? "var(--accent)" : "var(--surface2)",
+                  opacity: d.count > 0 ? 0.85 : 1,
+                }}
+              />
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function ScanUsageCard() {
   const [status, setStatus] = useState<ScanLimitStatus | null>(null);
@@ -43,6 +86,7 @@ export default function ScanUsageCard() {
         <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
           Your account includes <strong style={{ color: "var(--text)" }}>3 résumé scans per day</strong>, free.
         </p>
+        {status ? <WeekUsageBlock status={status} /> : null}
       </Card>
     );
   }
@@ -62,6 +106,7 @@ export default function ScanUsageCard() {
                 ? "Unlimited résumé scans — admin pass."
                 : "Unlimited résumé scans on your current plan."}
         </p>
+        <WeekUsageBlock status={status} />
       </Card>
     );
   }
@@ -103,6 +148,7 @@ export default function ScanUsageCard() {
           : `${remaining} of ${limit} scan${limit !== 1 ? "s" : ""} remaining today`}
         {" · "}Resets at midnight UTC
       </div>
+      <WeekUsageBlock status={status} />
     </Card>
   );
 }

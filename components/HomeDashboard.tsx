@@ -9,7 +9,7 @@
  *
  * Everything reads from data the app already stores — fetchLibraryItems()
  * (résumés + analyses + builder drafts), GET /api/applications (tracker), and
- * GET /api/scan-limit-status (Free-plan quota). No new backend.
+ * GET /api/scan-limit-status (Free-plan quota + last-7-day usage).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -44,6 +44,7 @@ type ScanStatus = {
   limit?: number;
   used?: number;
   remaining?: number;
+  usedLast7Days?: number | null;
 };
 
 /** Deep-link a library item to its detail panel (mirrors ResumeLibrary.openItem). */
@@ -326,9 +327,9 @@ export default function HomeDashboard() {
       </div>
 
       {/* KPI row */}
-      <div className="mb-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => (
+          Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-[92px] rounded-xl" />
           ))
         ) : (
@@ -337,6 +338,19 @@ export default function HomeDashboard() {
               label="Résumés"
               value={String(derived.totalResumes)}
               hint="in your library"
+            />
+            <StatCard
+              label="Scans (7d)"
+              value={
+                typeof scan?.usedLast7Days === "number"
+                  ? String(scan.usedLast7Days)
+                  : "—"
+              }
+              hint={
+                typeof scan?.usedLast7Days === "number"
+                  ? "résumé scans this week"
+                  : "usage loads with your plan"
+              }
             />
             <StatCard
               label="Best ATS score"
