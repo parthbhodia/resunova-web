@@ -166,6 +166,7 @@ export function scanLimitFrom(body: unknown): ScanLimitStatus {
 export function planLabel(status: ScanLimitStatus): string | null {
   if (status.plan === "pro") return "Pro";
   if (status.plan === "institution") return "University";
+  if (status.plan === "admin") return "Admin";
   if (status.unlimited) return "Unlimited";
   return null;
 }

@@ -148,6 +148,7 @@ describe("scan limit status", () => {
     const pro = scanLimitFrom({ enforced: true, unlimited: true, plan: "pro" });
     expect(planLabel(pro)).toBe("Pro");
     expect(planLabel(scanLimitFrom({ enforced: true, unlimited: true, plan: "institution" }))).toBe("University");
+    expect(planLabel(scanLimitFrom({ enforced: true, unlimited: true, plan: "admin" }))).toBe("Admin");
   });
 
   it("labels an unlimited tier even when the plan is unnamed", () => {

@@ -59,11 +59,13 @@ export function ScanUsageWidget() {
   const badge =
     resumeStatus?.plan === "pro" || prepStatus?.plan === "pro"
       ? "Pro"
-      : resumeStatus?.plan === "institution" || prepStatus?.plan === "institution"
-        ? "University"
-        : resumeStatus?.unlimited || prepStatus?.unlimited
-          ? "Unlimited"
-          : "Free";
+      : resumeStatus?.plan === "admin" || prepStatus?.plan === "admin"
+        ? "Admin"
+        : resumeStatus?.plan === "institution" || prepStatus?.plan === "institution"
+          ? "University"
+          : resumeStatus?.unlimited || prepStatus?.unlimited
+            ? "Unlimited"
+            : "Free";
 
   return (
     <Card title="Plan & usage" badge={badge}>
@@ -100,7 +102,9 @@ function renderUsageBar(status: ScanUsageStatus | null, label: string) {
           ? `Unlimited ${label}: included with Pro.`
           : status.plan === "institution"
             ? `Unlimited ${label}: included with your university account.`
-            : `Unlimited ${label} on your current plan.`}
+            : status.plan === "admin"
+              ? `Unlimited ${label}: admin pass.`
+              : `Unlimited ${label} on your current plan.`}
       </p>
     );
   }

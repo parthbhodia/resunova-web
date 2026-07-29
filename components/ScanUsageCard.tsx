@@ -58,7 +58,9 @@ export default function ScanUsageCard() {
             ? "Unlimited résumé scans, included with Pro."
             : plan === "institution"
               ? "Unlimited résumé scans, included with your university account."
-              : "Unlimited résumé scans on your current plan."}
+              : plan === "admin"
+                ? "Unlimited résumé scans — admin pass."
+                : "Unlimited résumé scans on your current plan."}
         </p>
       </Card>
     );
