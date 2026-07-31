@@ -111,6 +111,8 @@ import {
   feedbackToastMeta,
 } from "@/components/FeedbackToastCard";
 import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/components/TailorSaveStatus";
+import { TailorQueuePanel } from "@/components/tailor/TailorQueuePanel";
+import type { QueueItem } from "@/lib/tailorWorkQueue";
 import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
 import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
@@ -434,8 +436,14 @@ function saveBuilderSessionToDraft(session: BuilderSessionV1) {
 
 export default function ResumeBuilder({
   initialBaseFolder,
+  queueUi = false,
 }: {
   initialBaseFolder?: string | null;
+  /** /tailor-2 redesign: mount the work-queue panel (scoreboard + one queue)
+   *  atop the results workspace. The legacy surfaces stay below it as the
+   *  evidence layer while the redesign is validated; default (false) is
+   *  byte-identical to the live Tailor. */
+  queueUi?: boolean;
 } = {}) {
   const router = useRouter();
   const { openSignIn } = useSignInDialog();
@@ -4138,7 +4146,30 @@ export default function ResumeBuilder({
                     onFixEverythingAutoApplyChange={toggleFixAllAutoApply}
                   />
                   <div className="tb-split-work-slot">
-                    {scoreStale && !gapApplyBusy && (
+                    {queueUi && (
+                      <TailorQueuePanel
+                        ratings={displayRatings}
+                        addressedGaps={addressedGaps}
+                        addressedGapActions={addressedGapActions}
+                        fixAllBusy={fixAllBusy}
+                        onFixAll={() => { void fixEverything(); }}
+                        onFixItem={(item: QueueItem) => {
+                          if (item.kind === "qualification" || item.kind === "responsibility") {
+                            void handleFixGap({ name: item.name, notes: item.detail, type: item.kind });
+                          } else {
+                            void handleFixGap({
+                              name: item.name,
+                              notes: `This keyword is missing from the resume. Rewrite one of the most relevant existing bullets to naturally incorporate "${item.name}" without fabricating experience.`,
+                              type: "keyword",
+                            });
+                          }
+                        }}
+                        stale={scoreStale}
+                        onRecheck={() => { void rescoreTailorRatings(); }}
+                        recheckBusy={tailorRescoring}
+                      />
+                    )}
+                    {scoreStale && !gapApplyBusy && !queueUi && (
                       <div
                         role="status"
                         style={{

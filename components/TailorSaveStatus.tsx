@@ -13,29 +13,52 @@ export function useTailorSaveStatus() {
   const [state, setState] = useState<TailorSaveState>("idle");
   const [toast, setToast] = useState<TailorSaveToastState>(null);
   const firstSaveDoneRef = useRef(false);
+  const savingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSavingTimer = useCallback(() => {
+    if (savingTimerRef.current !== null) {
+      clearTimeout(savingTimerRef.current);
+      savingTimerRef.current = null;
+    }
+  }, []);
 
   const resetForNewRun = useCallback(() => {
+    clearSavingTimer();
     setState("idle");
     setToast(null);
     firstSaveDoneRef.current = false;
-  }, []);
+  }, [clearSavingTimer]);
 
-  const beginSave = useCallback(() => setState("saving"), []);
+  // "Saving…" only appears when a save is genuinely slow. Fix-everything fires
+  // a save per applied batch, and flipping the pill on every one made it strobe
+  // Saving…/Saved for the whole pass. A save that finishes inside the delay
+  // goes straight to its end state with no flash.
+  const beginSave = useCallback(() => {
+    clearSavingTimer();
+    savingTimerRef.current = setTimeout(() => {
+      savingTimerRef.current = null;
+      setState("saving");
+    }, 400);
+  }, [clearSavingTimer]);
 
   const saveSucceeded = useCallback(() => {
+    clearSavingTimer();
     setState("saved");
     if (!firstSaveDoneRef.current) {
       firstSaveDoneRef.current = true;
       setToast({ kind: "success" });
     }
-  }, []);
+  }, [clearSavingTimer]);
 
   const saveFailed = useCallback(() => {
+    clearSavingTimer();
     setState("error");
     setToast({ kind: "error" });
-  }, []);
+  }, [clearSavingTimer]);
 
   const dismissToast = useCallback(() => setToast(null), []);
+
+  useEffect(() => clearSavingTimer, [clearSavingTimer]);
 
   return { state, toast, resetForNewRun, beginSave, saveSucceeded, saveFailed, dismissToast };
 }

@@ -965,6 +965,26 @@ const GAP_PILL_STYLE: CSSProperties = {
   WebkitBoxDecorationBreak: "clone",
 };
 
+/** Same highlight for a LONG insert (an aggressive-mode clause can run 20+
+ *  words). The capsule's `nowrap` cannot break, so past a phrase it shoots off
+ *  the right edge of the paper. `display:inline` + normal wrapping fixes that,
+ *  and `box-decoration-break: clone` keeps rounded ends on every wrapped
+ *  fragment so it still reads as one highlighted run. */
+const GAP_PILL_WRAP_STYLE: CSSProperties = {
+  ...GAP_PILL_STYLE,
+  display: "inline",
+  whiteSpace: "normal",
+  borderRadius: 8,
+  padding: "1px 5px 2px",
+};
+
+/** Under this length an insert keeps the capsule; past it, it must wrap. */
+const GAP_PILL_NOWRAP_MAX_CHARS = 32;
+
+export function gapPillStyle(text: string): CSSProperties {
+  return text.length > GAP_PILL_NOWRAP_MAX_CHARS ? GAP_PILL_WRAP_STYLE : GAP_PILL_STYLE;
+}
+
 export type AppliedPillPair = { original: string; applied: string };
 
 /** Prefer a durable applied-pair baseline so pills survive rescore / structured bake-in. */
@@ -1019,7 +1039,7 @@ function renderChangedWordsHighlighted(original: string, current: string): React
     return (
       <>
         {before}
-        <mark className="az-gap-pill" style={GAP_PILL_STYLE}>{mid}</mark>
+        <mark className="az-gap-pill" style={gapPillStyle(mid)}>{mid}</mark>
         {after}
       </>
     );
@@ -1036,7 +1056,7 @@ function renderChangedWordsHighlighted(original: string, current: string): React
             <mark
               key={i}
               className="az-gap-pill"
-              style={GAP_PILL_STYLE}
+              style={gapPillStyle(t.text)}
             >
               {t.text}
             </mark>
