@@ -14,6 +14,7 @@
  *   needs_review   — a change landed but carries a claim the user must verify
  *                    (aggressive-mode JD mirroring)
  *   not_coverable  — the résumé cannot honestly support it; `detail` says why
+ *   ignored        — the user chose to leave it out; reversible
  *
  * A capped or not-yet-attempted item stays `queued` — never silently
  * "missing". Pure data in, pure data out: the caller owns fetches and DOM.
@@ -25,7 +26,7 @@ import { isGapAddressed } from "@/lib/tailorGapFix";
 
 export type QueueKind = "qualification" | "responsibility" | "keyword" | "contextual";
 
-export type QueueStatus = "queued" | "applied" | "needs_review" | "not_coverable";
+export type QueueStatus = "queued" | "applied" | "needs_review" | "not_coverable" | "ignored";
 
 export interface QueueItem {
   /** Stable across re-derivations: kind + normalized name. */
@@ -42,9 +43,17 @@ export interface QueueItem {
  *  nothing is silently "missing", but the UI offers explanation + a summary
  *  weave instead of a bullet rewrite. */
 export const CONTEXTUAL_DETAIL =
-  "A word from the employer's domain, not a skill. Add it only if a real project touched it.";
+  "A word about the employer's business, not a skill. Worth adding only if you've genuinely worked in that area.";
+
+/** Detail line stamped when the user ignores an item. */
+export const IGNORED_DETAIL = "Ignored. It stays here if you change your mind.";
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+/** The normalization item ids (and the ignored-names set) key on. */
+export function normalizeQueueName(name: string): string {
+  return norm(name);
+}
 
 export function queueItemId(kind: QueueKind, name: string): string {
   return `${kind}:${norm(name)}`;
@@ -86,7 +95,7 @@ export function deriveWorkQueue(
   }
   const kw = ratings.keywords;
   for (const name of kw.direct_skills?.missing ?? kw.missing ?? []) {
-    push("keyword", name, "Missing from the résumé; can be woven into an existing bullet.");
+    push("keyword", name, "Missing from your resume. Fits an existing bullet.");
   }
   for (const name of kw.contextual?.missing ?? []) {
     push("contextual", name, CONTEXTUAL_DETAIL);
@@ -111,6 +120,7 @@ export interface QueueCounts {
   applied: number;
   needsReview: number;
   notCoverable: number;
+  ignored: number;
   open: number;
 }
 
@@ -118,16 +128,19 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
   let applied = 0;
   let needsReview = 0;
   let notCoverable = 0;
+  let ignored = 0;
   for (const it of items) {
     if (it.status === "applied") applied++;
     else if (it.status === "needs_review") needsReview++;
     else if (it.status === "not_coverable") notCoverable++;
+    else if (it.status === "ignored") ignored++;
   }
   return {
     total: items.length,
     applied,
     needsReview,
     notCoverable,
-    open: items.length - applied - needsReview - notCoverable,
+    ignored,
+    open: items.length - applied - needsReview - notCoverable - ignored,
   };
 }

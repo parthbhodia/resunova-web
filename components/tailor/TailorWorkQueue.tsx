@@ -16,27 +16,36 @@ import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import { queueCounts } from "@/lib/tailorWorkQueue";
 
 const KIND_LABEL: Record<QueueKind, string> = {
-  qualification: "Gap",
-  responsibility: "Gap",
+  qualification: "Qualification",
+  responsibility: "Responsibility",
   keyword: "Keyword",
-  contextual: "Context",
+  contextual: "Nice to have",
 };
 
 /** What the row's trailing action says, per state. Null = no action. */
-export type QueueItemAction = "view_change" | "review" | "add_to_summary" | "fix";
+export type QueueItemAction =
+  | "view_change"
+  | "review"
+  | "add_to_summary"
+  | "fix"
+  | "whats_this"
+  | "reconsider";
 
 export function itemAction(it: QueueItem): QueueItemAction | null {
   if (it.status === "applied") return "view_change";
   if (it.status === "needs_review") return "review";
-  if (it.status === "not_coverable") return it.kind === "contextual" ? "add_to_summary" : null;
-  return it.kind === "contextual" ? null : "fix";
+  if (it.status === "ignored") return "reconsider";
+  if (it.status === "not_coverable") return it.kind === "contextual" ? "whats_this" : null;
+  return it.kind === "contextual" ? "whats_this" : "fix";
 }
 
 const ACTION_LABEL: Record<QueueItemAction, string> = {
-  view_change: "View change",
+  view_change: "See it",
   review: "Review",
   add_to_summary: "Add to summary",
   fix: "Fix",
+  whats_this: "What's this?",
+  reconsider: "Reconsider",
 };
 
 function StatusDot({ status, working }: { status: QueueItem["status"]; working: boolean }) {
@@ -83,6 +92,13 @@ function StatusDot({ status, working }: { status: QueueItem["status"]; working: 
       </span>
     );
   }
+  if (status === "ignored") {
+    return (
+      <span aria-label="ignored" style={{ ...base, color: "var(--muted)", opacity: 0.7 }}>
+        –
+      </span>
+    );
+  }
   return <span aria-label="queued" style={base} />;
 }
 
@@ -95,6 +111,8 @@ export function TailorWorkQueue({
   onFixAll,
   onItemAction,
   onDownload,
+  expandedId,
+  expansion,
 }: {
   items: readonly QueueItem[];
   /** Item currently being processed by the pass, if any. */
@@ -107,6 +125,9 @@ export function TailorWorkQueue({
   onFixAll?: () => void;
   onItemAction?: (item: QueueItem, action: QueueItemAction) => void;
   onDownload?: () => void;
+  /** Row whose inline fix flow is open; `expansion` renders under it. */
+  expandedId?: string | null;
+  expansion?: React.ReactNode;
 }) {
   const c = queueCounts(items);
   const seg = (n: number) => `${(n / Math.max(1, c.total)) * 100}%`;
@@ -116,9 +137,9 @@ export function TailorWorkQueue({
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--card)" }}>
       <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ fontSize: FS.body, fontWeight: FW.bold }}>
-          Improvement plan{" "}
+          Missing from your resume{" "}
           <span style={{ color: "var(--muted)", fontWeight: FW.medium }}>
-            · {c.open ? `${c.open} open` : "done"}
+            · {c.open ? `${c.open} to review` : "all reviewed"}
           </span>
         </div>
         {onFixAll ? (
@@ -147,23 +168,23 @@ export function TailorWorkQueue({
       <div aria-hidden style={{ display: "flex", height: 6, background: "var(--surface-2, rgba(127,127,127,0.12))" }}>
         <span style={{ width: seg(c.applied), background: "var(--green-ink, #16a34a)", transition: "width .3s ease" }} />
         <span style={{ width: seg(c.needsReview), background: "var(--amber-ink, #b45309)", transition: "width .3s ease" }} />
-        <span style={{ width: seg(c.notCoverable), background: "var(--muted)", opacity: 0.5, transition: "width .3s ease" }} />
+        <span style={{ width: seg(c.notCoverable + c.ignored), background: "var(--muted)", opacity: 0.5, transition: "width .3s ease" }} />
       </div>
       <div style={{ display: "flex", gap: 14, padding: "7px 14px 0", fontSize: FS.caption, color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-        <span><b style={{ color: "var(--text)" }}>{c.applied}</b> applied</span>
+        <span><b style={{ color: "var(--text)" }}>{c.applied}</b> added</span>
         <span><b style={{ color: "var(--text)" }}>{c.needsReview}</b> need review</span>
-        <span><b style={{ color: "var(--text)" }}>{c.notCoverable}</b> not coverable</span>
-        <span><b style={{ color: "var(--text)" }}>{c.open}</b> queued</span>
+        <span><b style={{ color: "var(--text)" }}>{c.notCoverable + c.ignored}</b> left out</span>
+        <span><b style={{ color: "var(--text)" }}>{c.open}</b> to review</span>
       </div>
 
       <ul style={{ listStyle: "none", margin: "6px 0 0", padding: "0 6px 8px", maxHeight: 380, overflowY: "auto" }}>
         {items.map((it) => {
-          const action = itemAction(it);
+          const expanded = it.id === expandedId;
+          const action = expanded ? null : itemAction(it);
           const working = it.id === workingId || Boolean(workingIds?.has(it.id));
           return (
-            <li
-              key={it.id}
-              data-status={it.status}
+            <li key={it.id} data-status={it.status} style={{ borderRadius: 9 }}>
+            <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "20px 1fr auto",
@@ -232,6 +253,8 @@ export function TailorWorkQueue({
               ) : (
                 <span />
               )}
+            </div>
+            {expanded ? expansion : null}
             </li>
           );
         })}
@@ -240,11 +263,11 @@ export function TailorWorkQueue({
       {finished ? (
         <div style={{ borderTop: "1px solid var(--border)", padding: "13px 14px", background: "var(--green-soft, rgba(22,163,74,0.1))" }}>
           <div style={{ fontSize: FS.body, fontWeight: FW.bold, color: "var(--green-ink, #16a34a)" }}>
-            Pass complete
+            All done
           </div>
           <p style={{ margin: "3px 0 10px", fontSize: FS.small, color: "var(--text)" }}>
-            {c.applied} applied · {c.needsReview} need your confirmation · {c.notCoverable} honestly not
-            coverable, with the reason on each.
+            {c.applied} added · {c.needsReview} waiting on your check · {c.notCoverable + c.ignored} left
+            out, each with the reason next to it.
           </p>
           {onDownload ? (
             <button

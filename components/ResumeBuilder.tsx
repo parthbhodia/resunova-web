@@ -112,7 +112,8 @@ import {
 } from "@/components/FeedbackToastCard";
 import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/components/TailorSaveStatus";
 import { TailorQueuePanel } from "@/components/tailor/TailorQueuePanel";
-import type { QueueItem } from "@/lib/tailorWorkQueue";
+import { normalizeQueueName, type QueueItem } from "@/lib/tailorWorkQueue";
+import type { FixSuggestion } from "@/components/tailor/TailorFixExpansion";
 import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
 import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
@@ -2407,6 +2408,62 @@ export default function ResumeBuilder({
       tailorBulletAnalysis, tailorLineOverrides, effectiveCandidateProfile, tailoringMode]);
 
   /**
+   * Single-item fetch for the /tailor-2 inline fix flow. Same request as
+   * handleFixGap, but RETURNS the rewrite options instead of auto-applying
+   * them — the queue row expands around them so the user picks a version.
+   */
+  const fetchFixSuggestions = useCallback(async (item: QueueItem): Promise<FixSuggestion[]> => {
+    if (!jd.trim()) throw new Error("Add a job description first.");
+    const prof = effectiveCandidateProfile.trim();
+    if (!tailorStructuredResume && !prof) {
+      throw new Error("Upload your resume or paste your profile first.");
+    }
+    const notes =
+      item.kind === "qualification" || item.kind === "responsibility"
+        ? item.detail
+        : `This keyword is missing from the resume. Rewrite one of the most relevant existing bullets to naturally incorporate "${item.name}" without fabricating experience.`;
+    const resp = await apiFetch("/api/suggest-gap-fix", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tailoring_mode: tailoringMode ?? "honest",
+        gap_name: item.name,
+        gap_notes: notes,
+        job_description: jd.trim(),
+        // Patched doc, same as handleFixGap: the eligible-bullets whitelist
+        // must reflect already-applied fixes or a later apply overwrites them.
+        ...(tailorStructuredResume ? {
+          structured_resume: applyFieldOverridesToStructured(
+            patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
+            tailorFieldOverrides,
+          ),
+        } : {}),
+        ...(prof ? { candidate_profile: prof } : {}),
+      }),
+    });
+    const data = await resp.json() as { suggestions?: unknown[]; error?: string };
+    if (!resp.ok || data.error) throw new Error(data.error ?? "Couldn't write suggestions. Try again.");
+    const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as FixSuggestion[];
+    return list.filter((s) => s.original?.trim() && s.suggested?.trim());
+  }, [jd, effectiveCandidateProfile, tailorStructuredResume, tailorBulletAnalysis,
+      tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
+
+  /** Apply exactly one picked (possibly user-edited) suggestion from the queue. */
+  const applyFixSuggestion = useCallback(async (
+    item: QueueItem,
+    suggestion: FixSuggestion,
+    editedText: string | null,
+  ) => {
+    const chosen = editedText !== null && editedText.trim()
+      ? { ...suggestion, suggested: editedText.trim() }
+      : suggestion;
+    await applyGapFixesRef.current([chosen], item.name, {
+      closePanel: false,
+      gapType: item.kind === "contextual" ? "keyword" : item.kind,
+    });
+  }, []);
+
+  /**
    * Apply one or more gap-fix suggestions to the HTML preview (Chromium export path — no LaTeX).
    * Patches synthesized plain text, updates the Fixes tab queue, rescoring via /api/analyze.
    */
@@ -2714,12 +2771,28 @@ export default function ResumeBuilder({
     setFixAllAutoApply(on);
   };
 
-  const openGapBatches = useMemo(
+  /** Items the user explicitly ignored in the /tailor-2 queue (normalized
+   *  names). Owned here, not in the panel, so Fix everything skips them too. */
+  const [ignoredGapNames, setIgnoredGapNames] = useState<ReadonlySet<string>>(new Set());
+  const toggleIgnoredGap = useCallback((item: QueueItem, ignored: boolean) => {
+    setIgnoredGapNames((prev) => {
+      const next = new Set(prev);
+      const key = normalizeQueueName(item.name);
+      if (ignored) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+
+  const openGapBatches = useMemo(() => {
     // Raw ratings, not displayRatings: that memo is declared further down, and
     // collectUnaddressedGaps filters by the same addressed set anyway.
-    () => collectUnaddressedGaps(result?.ratings, addressedGaps, addressedGapActions),
-    [result?.ratings, addressedGaps, addressedGapActions],
-  );
+    const batches = collectUnaddressedGaps(result?.ratings, addressedGaps, addressedGapActions);
+    if (ignoredGapNames.size === 0) return batches;
+    return batches
+      .map((b) => ({ ...b, gaps: b.gaps.filter((g) => !ignoredGapNames.has(normalizeQueueName(g))) }))
+      .filter((b) => b.gaps.length > 0);
+  }, [result?.ratings, addressedGaps, addressedGapActions, ignoredGapNames]);
   const openGapCount = countGaps(openGapBatches);
 
   /**
@@ -4188,17 +4261,10 @@ export default function ResumeBuilder({
                         fixAllBusy={fixAllBusy}
                         pendingGapNames={fixAllPendingGaps}
                         onFixAll={() => { void fixEverything(); }}
-                        onFixItem={(item: QueueItem) => {
-                          if (item.kind === "qualification" || item.kind === "responsibility") {
-                            void handleFixGap({ name: item.name, notes: item.detail, type: item.kind });
-                          } else {
-                            void handleFixGap({
-                              name: item.name,
-                              notes: `This keyword is missing from the resume. Rewrite one of the most relevant existing bullets to naturally incorporate "${item.name}" without fabricating experience.`,
-                              type: "keyword",
-                            });
-                          }
-                        }}
+                        fetchFixSuggestions={fetchFixSuggestions}
+                        applyFixSuggestion={applyFixSuggestion}
+                        ignoredNames={ignoredGapNames}
+                        onToggleIgnored={toggleIgnoredGap}
                         stale={scoreStale}
                         onRecheck={() => { void rescoreTailorRatings(); }}
                         recheckBusy={tailorRescoring}

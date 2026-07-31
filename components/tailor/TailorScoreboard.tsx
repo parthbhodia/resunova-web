@@ -84,13 +84,13 @@ export function TailorScoreboard({
             marginTop: 2,
           }}
         >
-          {found}
+          {total > 0 ? `${Math.round((found / total) * 100)}%` : "—"}
           <span style={{ fontSize: FS.bodyLg, color: "var(--muted)", fontWeight: FW.semibold }}>
-            {" "}/ {total} requirements
+            {" "}· {found} of {total} keywords
           </span>
         </div>
         <div style={{ fontSize: FS.caption, color: "var(--muted)", marginTop: 2 }}>
-          Deterministic, recounted on every accepted change. Free.
+          Recounted the moment you add a change. Free.
         </div>
       </Tile>
 

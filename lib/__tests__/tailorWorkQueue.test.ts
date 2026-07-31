@@ -95,9 +95,18 @@ describe("withStatus / queueCounts", () => {
     q = withStatus(q, queueItemId("contextual", "advertisers"), "not_coverable", "Employer-domain word");
 
     const c = queueCounts(q);
-    expect(c).toEqual({ total: 7, applied: 1, needsReview: 1, notCoverable: 1, open: 4 });
+    expect(c).toEqual({ total: 7, applied: 1, needsReview: 1, notCoverable: 1, ignored: 0, open: 4 });
     // The reason travels with the state — a skipped item explains itself.
     expect(q.find((i) => i.name === "advertisers")?.detail).toBe("Employer-domain word");
+  });
+
+  it("ignored is its own terminal state: counted, out of open, never conflated with not_coverable", () => {
+    let q = deriveWorkQueue(ratings(), new Set());
+    q = withStatus(q, queueItemId("keyword", "Kubernetes"), "ignored", "Ignored. It stays here if you change your mind.");
+    const c = queueCounts(q);
+    expect(c.ignored).toBe(1);
+    expect(c.notCoverable).toBe(0);
+    expect(c.open).toBe(c.total - 1);
   });
 
   it("withStatus is immutable", () => {
