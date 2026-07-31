@@ -376,7 +376,7 @@ export default function HomeDashboard() {
                 title="Tailor to a job"
                 desc="Match your résumé to a specific JD."
                 icon="✦"
-                onClick={() => router.push("/?view=builder&flow=tailor")}
+                onClick={() => router.push("/tailor-2/?flow=tailor")}
               />
               <QuickAction
                 title="Find jobs"

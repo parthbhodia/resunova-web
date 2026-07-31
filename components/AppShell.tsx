@@ -101,6 +101,8 @@ function AppShellBody({ children }: { children: ReactNode }) {
   const active = useAppView();
   const onTemplateBuilderPage =
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
+  const onTailor2Page =
+    (pathname ?? "").replace(/\/$/, "") === "/tailor-2";
   const onInterviewPrepPage =
     (pathname ?? "").replace(/\/$/, "") === "/interview-prep";
   const onCareerProfilePage =
@@ -239,8 +241,8 @@ function AppShellBody({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setBuilderOpen(active === "builder" || onTemplateBuilderPage);
-  }, [active, onTemplateBuilderPage]);
+    setBuilderOpen(active === "builder" || onTemplateBuilderPage || onTailor2Page);
+  }, [active, onTemplateBuilderPage, onTailor2Page]);
 
   useEffect(() => {
     setLayoutOnlyForNav(readBuilderLayoutOnlyFlag());
@@ -267,8 +269,11 @@ function AppShellBody({ children }: { children: ReactNode }) {
         /* ignore */
       }
     }
-    const intent = flow === "tailor" ? "&intent=job" : "";
-    router.push(`/?view=builder&flow=${flow}${intent}`);
+    if (flow === "tailor") {
+      router.push("/tailor-2/?flow=tailor&intent=job");
+    } else {
+      router.push(`/?view=builder&flow=${flow}`);
+    }
     setHistoryOpen(false);
     setBuilderOpen(false);
   };
@@ -283,7 +288,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
   const onSignIn = () => openSignIn();
 
   const initial = (user?.email || "?").charAt(0).toUpperCase();
-  const builderActive = active === "builder" || onTemplateBuilderPage;
+  const builderActive = active === "builder" || onTemplateBuilderPage || onTailor2Page;
   const navBuilderSubflow: "tailor" | "template" = onTemplateBuilderPage
     ? "template"
     : builderActive && builderFlow === "tailor" && layoutOnlyForNav
