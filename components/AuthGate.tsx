@@ -89,6 +89,7 @@ const PUBLIC_ROUTES = new Set<string>([
   "/editor-preview",
   "/profile-mockup",
   "/landing-preview",
+  "/tailor-preview",
   "/terms",
   "/privacy",
   "/contact",
