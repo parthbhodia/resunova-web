@@ -15,7 +15,7 @@
  *  - needs_review   <- not emitted yet; requires per-suggestion risk plumbing
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { AddressedGapAction, RatingsData } from "@/lib/types";
 import {
   CONTEXTUAL_DETAIL,
@@ -51,26 +51,35 @@ export function useStaggeredReveal(items: readonly QueueItem[]): {
     () => new Set(items.filter((it) => TERMINAL.has(it.status)).map((it) => it.id)),
   );
   const [revealWorkingId, setRevealWorkingId] = useState<string | null>(null);
+  const [revealing, setRevealing] = useState(false);
   const queueRef = useRef<string[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The tick reschedules itself; a ref breaks the self-reference cleanly.
+  const tickRef = useRef<() => void>(() => {});
 
   const reduceMotion =
     typeof window !== "undefined" &&
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const tick = useCallback(() => {
-    const next = queueRef.current.shift();
-    timerRef.current = null;
-    if (!next) {
-      setRevealWorkingId(null);
-      return;
-    }
-    setShown((prev) => new Set([...prev, next]));
-    const upcoming = queueRef.current[0] ?? null;
-    setRevealWorkingId(upcoming);
-    if (upcoming) timerRef.current = setTimeout(tick, REVEAL_STEP_MS);
-  }, []);
+  // Latest-ref pattern: assigned in an every-render effect (a render-time ref
+  // write is a lint error), so the scheduled timeout always calls fresh state.
+  useEffect(() => {
+    tickRef.current = () => {
+      const next = queueRef.current.shift();
+      timerRef.current = null;
+      if (!next) {
+        setRevealWorkingId(null);
+        setRevealing(false);
+        return;
+      }
+      setShown((prev) => new Set([...prev, next]));
+      const upcoming = queueRef.current[0] ?? null;
+      setRevealWorkingId(upcoming);
+      if (upcoming) timerRef.current = setTimeout(() => tickRef.current(), REVEAL_STEP_MS);
+      else setRevealing(false);
+    };
+  });
 
   useEffect(() => {
     const fresh = items.filter(
@@ -82,11 +91,12 @@ export function useStaggeredReveal(items: readonly QueueItem[]): {
       return;
     }
     queueRef.current.push(...fresh.map((it) => it.id));
+    setRevealing(true);
     if (timerRef.current === null) {
       setRevealWorkingId(queueRef.current[0] ?? null);
-      timerRef.current = setTimeout(tick, REVEAL_STEP_MS);
+      timerRef.current = setTimeout(() => tickRef.current(), REVEAL_STEP_MS);
     }
-  }, [items, shown, reduceMotion, tick]);
+  }, [items, shown, reduceMotion]);
 
   useEffect(() => () => { if (timerRef.current !== null) clearTimeout(timerRef.current); }, []);
 
@@ -98,7 +108,7 @@ export function useStaggeredReveal(items: readonly QueueItem[]): {
     [items, shown],
   );
 
-  return { displayItems, revealWorkingId, revealing: queueRef.current.length > 0 };
+  return { displayItems, revealWorkingId, revealing };
 }
 
 export function TailorQueuePanel({
