@@ -1046,7 +1046,24 @@ function renderChangedWordsHighlighted(original: string, current: string): React
   }
 
   const tokens = diffWords(origPlain, curPlain);
-  if (!tokens.some((t) => t.type === "add")) return null;
+  const adds = tokens.filter((t) => t.type === "add");
+  if (adds.length === 0) return null;
+
+  // A heavy rewrite diffs into dozens of scattered single-word adds — pilling
+  // each one ("its", "with", "built") makes the bullet unreadable. When the
+  // change is that pervasive, say "this line was rewritten" with ONE quiet
+  // whole-line highlight instead of narrating every word.
+  const addRuns = tokens.reduce(
+    (n, t, i) => n + (t.type === "add" && tokens[i - 1]?.type !== "add" ? 1 : 0),
+    0,
+  );
+  const addedChars = adds.reduce((n, t) => n + t.text.length, 0);
+  if (addRuns > 3 || addedChars / Math.max(1, curPlain.length) > 0.5) {
+    return (
+      <mark className="az-gap-pill" style={GAP_PILL_WRAP_STYLE}>{curPlain}</mark>
+    );
+  }
+
   return (
     <>
       {tokens.map((t, i) => {
