@@ -89,6 +89,7 @@ function StatusDot({ status, working }: { status: QueueItem["status"]; working: 
 export function TailorWorkQueue({
   items,
   workingId,
+  workingIds,
   passRan,
   fixAllBusy,
   onFixAll,
@@ -98,6 +99,8 @@ export function TailorWorkQueue({
   items: readonly QueueItem[];
   /** Item currently being processed by the pass, if any. */
   workingId?: string | null;
+  /** Several items in flight at once (wave-based passes spin a whole batch). */
+  workingIds?: ReadonlySet<string>;
   /** A full pass has completed — show the finish line when nothing is open. */
   passRan?: boolean;
   fixAllBusy?: boolean;
@@ -156,7 +159,7 @@ export function TailorWorkQueue({
       <ul style={{ listStyle: "none", margin: "6px 0 0", padding: "0 6px 8px", maxHeight: 380, overflowY: "auto" }}>
         {items.map((it) => {
           const action = itemAction(it);
-          const working = it.id === workingId;
+          const working = it.id === workingId || Boolean(workingIds?.has(it.id));
           return (
             <li
               key={it.id}

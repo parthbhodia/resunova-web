@@ -2702,6 +2702,9 @@ export default function ResumeBuilder({
   }, [user, openSignIn, effectiveCandidateProfile, tailorStructuredResume, tailorFieldOverrides, jd, company, role, router]);
 
   const [fixAllBusy, setFixAllBusy] = useState(false);
+  /** Gap names whose batch is still generating during a Fix-everything pass —
+   *  the queue UI spins exactly these rows, and each wave clears its own. */
+  const [fixAllPendingGaps, setFixAllPendingGaps] = useState<readonly string[]>([]);
   // Read once on mount rather than at render: localStorage is unavailable
   // during SSR of the static export, and a lazy initialiser keeps this out of
   // an effect.
@@ -2739,6 +2742,7 @@ export default function ResumeBuilder({
     setFixAllBusy(true);
     setGapFixError(null);
     setGapFixPanel(null);
+    setFixAllPendingGaps(openGapBatches.flatMap((b) => b.gaps));
     try {
       const structured = tailorStructuredResume
         ? applyFieldOverridesToStructured(
@@ -2747,57 +2751,83 @@ export default function ResumeBuilder({
           )
         : null;
 
-      // Parallel, not sequential: each batch is generated against the same
-      // résumé snapshot, and collisions between their results are merged at
-      // apply time rather than letting a later batch overwrite an earlier one.
-      const responses = await Promise.all(openGapBatches.map(async (batch) => {
-        const resp = await apiFetch("/api/suggest-gap-fix", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tailoring_mode: tailoringMode ?? "honest",
-            gap_name: batchGapName(batch),
-            gap_notes: batchGapNotes(batch),
-            job_description: jd.trim(),
-            ...(structured ? { structured_resume: structured } : {}),
-            ...(prof ? { candidate_profile: prof } : {}),
-          }),
-        });
-        if (!resp.ok) return [];
-        const data = await resp.json() as { suggestions?: unknown[] };
-        return (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[];
+      // Parallel generation: each batch is written against the same résumé
+      // snapshot. Application is a serialized CHAIN so waves land in settle
+      // order — applyGapFixes merges onto any prior override of the same
+      // bullet, and going through the ref means each wave sees the previous
+      // wave's committed state instead of a stale closure.
+      let applyChain: Promise<void> = Promise.resolve();
+      let appliedTotal = 0;
+      const panelAll: GapFixSuggestion[] = [];
+
+      await Promise.all(openGapBatches.map(async (batch, i) => {
+        let named: GapFixSuggestion[] = [];
+        try {
+          const resp = await apiFetch("/api/suggest-gap-fix", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tailoring_mode: tailoringMode ?? "honest",
+              gap_name: batchGapName(batch),
+              gap_notes: batchGapNotes(batch),
+              job_description: jd.trim(),
+              ...(structured ? { structured_resume: structured } : {}),
+              ...(prof ? { candidate_profile: prof } : {}),
+            }),
+          });
+          if (resp.ok) {
+            const data = await resp.json() as { suggestions?: unknown[] };
+            const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[];
+            // Namespace ids per batch: the API numbers them from 1 each call.
+            named = list
+              .filter((s) => s.original?.trim() && s.suggested?.trim())
+              .map((s) => ({ ...s, id: `b${i}_${s.id}` }));
+          }
+        } catch { /* a failed batch behaves like an empty one */ }
+
+        if (fixAllAutoApply) {
+          // Wave: this batch's rewrites land in the preview the moment they
+          // arrive, and its queue rows stop spinning — the pass is visibly
+          // three arrivals, not one long wait.
+          applyChain = applyChain.then(async () => {
+            if (named.length > 0) {
+              appliedTotal += named.length;
+              await applyGapFixesRef.current(
+                named.map((s) => ({
+                  id: s.id, section: s.section, original: s.original,
+                  suggested: s.suggested, reason: s.reason, priority: s.priority,
+                })),
+                batchGapName(batch),
+                { gapType: batch.type },
+              );
+              // Let React commit this wave's overrides before the next wave
+              // reads them through the ref.
+              await new Promise((r) => setTimeout(r, 30));
+            }
+            setFixAllPendingGaps((prev) => prev.filter((g) => !batch.gaps.includes(g)));
+          });
+        } else {
+          panelAll.push(...named);
+          setFixAllPendingGaps((prev) => prev.filter((g) => !batch.gaps.includes(g)));
+        }
       }));
+      await applyChain;
 
-      // Namespace ids per batch: the API numbers them from 1 each time, so
-      // merging raw would collide and the review panel would key two different
-      // cards the same.
-      const all = responses.flatMap((list, i) =>
-        list
-          .filter((s) => s.original?.trim() && s.suggested?.trim())
-          .map((s) => ({ ...s, id: `b${i}_${s.id}` })));
+      if (fixAllAutoApply) {
+        if (appliedTotal === 0) {
+          setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
+        }
+        return;
+      }
 
-      if (all.length === 0) {
+      if (panelAll.length === 0) {
         setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
         return;
       }
-
-      // Default: apply to preview. Opt-out checkbox lands suggestions in the
-      // review panel instead. Applied edits are preview overrides (reversible).
-      if (fixAllAutoApply) {
-        await applyGapFixes(
-          all.map((s) => ({
-            id: s.id, section: s.section, original: s.original,
-            suggested: s.suggested, reason: s.reason, priority: s.priority,
-          })),
-          openGapBatches.map((b) => batchGapName(b)).join(", "),
-        );
-        return;
-      }
-
       setGapFixPanel({
         gapName: openGapBatches.map((b) => batchGapName(b)).join(", "),
-        gapNotes: `${all.length} rewrite${all.length === 1 ? "" : "s"} across ${openGapCount} gaps.`,
-        suggestions: all,
+        gapNotes: `${panelAll.length} rewrite${panelAll.length === 1 ? "" : "s"} across ${openGapCount} gaps.`,
+        suggestions: panelAll,
         gapType: "qualification",
       });
       setResultsActiveTab("gapfix");
@@ -2805,8 +2835,9 @@ export default function ResumeBuilder({
       setGapFixError("Could not generate fixes. Please try again.");
     } finally {
       setFixAllBusy(false);
+      setFixAllPendingGaps([]);
     }
-  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, applyGapFixes, effectiveCandidateProfile,
+  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, effectiveCandidateProfile,
       tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
 
   /** One batched rewrite pass for several contextual gaps, instead of one call each. */
@@ -4127,7 +4158,10 @@ export default function ResumeBuilder({
               )}
 
               <section className="rb-tailor-workspace" aria-labelledby="rb-results-heading" style={{ position: "relative" }}>
-              {(tailorRescoring || gapApplyBusy) && <RescanOverlay />}
+              {/* During a queue-UI Fix-everything pass the queue rows are the
+                  progress surface — flashing the full overlay once per wave
+                  would bury exactly the progression the waves exist to show. */}
+              {(tailorRescoring || gapApplyBusy) && !(queueUi && fixAllBusy) && <RescanOverlay />}
               {displayRatings && isDetailedRatings(displayRatings) ? (
                 <>
                   <TailorMatchSidebar
@@ -4152,6 +4186,7 @@ export default function ResumeBuilder({
                         addressedGaps={addressedGaps}
                         addressedGapActions={addressedGapActions}
                         fixAllBusy={fixAllBusy}
+                        pendingGapNames={fixAllPendingGaps}
                         onFixAll={() => { void fixEverything(); }}
                         onFixItem={(item: QueueItem) => {
                           if (item.kind === "qualification" || item.kind === "responsibility") {

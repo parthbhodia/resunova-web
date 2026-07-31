@@ -33,6 +33,7 @@ export function TailorQueuePanel({
   addressedGaps,
   addressedGapActions,
   fixAllBusy,
+  pendingGapNames,
   onFixAll,
   onFixItem,
   stale,
@@ -44,6 +45,9 @@ export function TailorQueuePanel({
   addressedGaps: ReadonlySet<string>;
   addressedGapActions?: readonly AddressedGapAction[];
   fixAllBusy: boolean;
+  /** Gap names whose batch is still generating — these rows spin, and each
+   *  wave that lands clears its own. */
+  pendingGapNames?: readonly string[];
   onFixAll: () => void;
   onFixItem: (item: QueueItem) => void;
   stale: boolean;
@@ -90,6 +94,15 @@ export function TailorQueuePanel({
     // view_change / review navigation lands with the preview-linking slice.
   };
 
+  // Rows whose batch is still generating spin; the set shrinks wave by wave.
+  const workingIds = useMemo(() => {
+    if (!fixAllBusy || !pendingGapNames?.length) return undefined;
+    const pending = new Set(pendingGapNames);
+    return new Set(
+      items.filter((it) => it.status === "queued" && pending.has(it.name)).map((it) => it.id),
+    );
+  }, [fixAllBusy, pendingGapNames, items]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 12px 0" }}>
       <TailorScoreboard
@@ -103,6 +116,7 @@ export function TailorQueuePanel({
       />
       <TailorWorkQueue
         items={items}
+        workingIds={workingIds}
         passRan={passRan}
         fixAllBusy={fixAllBusy}
         onFixAll={onFixAll}
