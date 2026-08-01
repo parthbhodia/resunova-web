@@ -667,10 +667,19 @@ export default function ResumeBuilder({
     clearDraft();
   }, [clearSuggestionsState, resetActiveTailorWork, saveStatus]);
 
-  /** "Start over" — same as tryAnotherJob, plus clears the loaded résumé so
-   *  the user lands back on the upload step instead of keeping it prefilled. */
+  /** Clear the loaded résumé and result while preserving the current job.
+   *  This lets a user compare another résumé against the same JD without
+   *  re-pasting company, role, and job description. */
   const startOverTailor = useCallback(() => {
-    tryAnotherJob();
+    resetActiveTailorWork();
+    clearSuggestionsState();
+    setResult(null);
+    setPreview("");
+    setAtsResult(null);
+    setAtsError(null);
+    setTailorSidebarVisible(true);
+    setMatchSidebarCollapsed(false);
+    saveStatus.resetForNewRun();
     if (sourcePdfBlobUrlRef.current) {
       URL.revokeObjectURL(sourcePdfBlobUrlRef.current);
       sourcePdfBlobUrlRef.current = null;
@@ -682,7 +691,7 @@ export default function ResumeBuilder({
     setStructuredUpload(null);
     lastResumeExtractRef.current = "";
     setProfileSyncUpsell(null);
-  }, [tryAnotherJob]);
+  }, [clearSuggestionsState, resetActiveTailorWork, saveStatus]);
 
   useEffect(() => {
     return () => {
@@ -774,7 +783,9 @@ export default function ResumeBuilder({
   const [resumeHeaderLines, setResumeHeaderLines] = useState<string[]>([]);
   /** Default collapsed once results exist so the preview owns the width. */
   const [matchSidebarCollapsed, setMatchSidebarCollapsed] = useState(true);
-  const [tailorSidebarVisible, setTailorSidebarVisible] = useState(true);
+  // History is useful, but it should not take a third of the intake screen
+  // before the user asks for it. Keep it one click away.
+  const [tailorSidebarVisible, setTailorSidebarVisible] = useState(false);
   const [uploadedFileName,    setUploadedFileName]    = useState<string | null>(
     () => builderSession0?.uploadedFileName ?? null,
   );
@@ -4039,6 +4050,7 @@ export default function ResumeBuilder({
 
               {/* ── Results top bar — sticky, full width ── */}
               <header
+                className="rb-results-header"
                 style={{
                   position: "sticky",
                   top: 0,
@@ -4049,8 +4061,8 @@ export default function ResumeBuilder({
                   gap: 14,
                   paddingTop: 14,
                   paddingBottom: 14,
-                  paddingLeft: "clamp(64px, 6vw, 80px)",
-                  paddingRight: "clamp(16px, 3vw, 36px)",
+                  paddingLeft: "clamp(20px, 2.5vw, 36px)",
+                  paddingRight: "clamp(20px, 2.5vw, 36px)",
                   background: "var(--bg)",
                   borderBottom: "1px solid var(--border)",
                   boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
@@ -4099,7 +4111,7 @@ export default function ResumeBuilder({
                     variant="outline"
                     size="default"
                     onClick={startOverTailor}
-                    title="Clear the résumé too — upload a new one"
+                    title="Try this job description with a different résumé"
                     style={{
                       color: "var(--text)",
                       fontWeight: 600,
@@ -4107,7 +4119,7 @@ export default function ResumeBuilder({
                       background: "var(--surface)",
                     }}
                   >
-                    Start over
+                    Try another résumé
                   </Button>
                 </div>
               </header>
@@ -4151,9 +4163,12 @@ export default function ResumeBuilder({
                   flex: 1;
                   min-height: 0;
                   display: grid;
-                  grid-template-columns: auto minmax(260px, 2fr) minmax(280px, 3fr);
+                  grid-template-columns: auto minmax(420px, 0.9fr) minmax(600px, 1.1fr);
                   grid-template-rows: minmax(0, 1fr);
                   overflow: hidden;
+                }
+                .rb-tailor-workspace--queue {
+                  grid-template-columns: minmax(420px, 0.88fr) minmax(620px, 1.12fr);
                 }
                 .tb-split-work-slot {
                   min-height: 0;
@@ -4167,16 +4182,27 @@ export default function ResumeBuilder({
                   overflow: hidden;
                   display: flex;
                   flex-direction: column;
-                  background: var(--bg);
+                  background: color-mix(in srgb, var(--surface2) 72%, var(--bg));
                 }
-                @media (max-width: 960px) {
+                .tb-split-preview-slot .rw-annotated-panel {
+                  width: 100% !important;
+                }
+                .tb-split-preview-slot .az-resume-paper {
+                  width: min(8.5in, 100%);
+                }
+                @media (max-width: 1180px) {
                   .rb-tailor-workspace {
                     grid-template-columns: 1fr;
                     grid-template-rows: auto auto minmax(42vh, 1fr);
                     overflow-y: auto;
                   }
-                  .tb-split-preview-slot { order: 2; min-height: 42vh; max-height: 60vh; }
-                  .tb-split-work-slot { order: 3; border-right: none; }
+                  .tb-split-preview-slot { order: 2; min-height: 56vh; max-height: 72vh; border-bottom: 1px solid var(--border); }
+                  .tb-split-work-slot { order: 3; border-right: none; overflow: visible; }
+                }
+                @media (max-width: 720px) {
+                  .rb-results-header { align-items: flex-start !important; }
+                  .rb-results-header > div:last-child { width: 100%; }
+                  .tb-split-preview-slot { min-height: 62vh; max-height: 76vh; }
                 }
               `}</style>
               <div className="rb-results-body">
@@ -4211,7 +4237,24 @@ export default function ResumeBuilder({
                     </>
                   ) : applyFeedback ? (
                     <>
-                      <span style={{ fontSize: 18 }}>✅</span>
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                          color: "var(--green, #2f7d5a)",
+                          background: "color-mix(in srgb, var(--green, #2f7d5a) 12%, var(--surface))",
+                        }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                          <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
                           {applyFeedback.patchesApplied} change{applyFeedback.patchesApplied !== 1 ? "s" : ""} applied to your résumé
@@ -4235,15 +4278,16 @@ export default function ResumeBuilder({
                       ) : null}
                       <button
                         type="button"
+                        aria-label="Dismiss change confirmation"
                         onClick={() => setApplyFeedback(null)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--dim)", fontSize: 16, padding: 4, flexShrink: 0 }}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--dim)", fontSize: 16, width: 40, height: 40, flexShrink: 0 }}
                       >✕</button>
                     </>
                   ) : null}
                 </div>
               )}
 
-              <section className="rb-tailor-workspace" aria-labelledby="rb-results-heading" style={{ position: "relative" }}>
+              <section className={`rb-tailor-workspace${queueUi ? " rb-tailor-workspace--queue" : ""}`} aria-labelledby="rb-results-heading" style={{ position: "relative" }}>
               {/* During a queue-UI Fix-everything pass the queue rows are the
                   progress surface — flashing the full overlay once per wave
                   would bury exactly the progression the waves exist to show. */}

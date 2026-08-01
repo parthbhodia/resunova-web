@@ -47,8 +47,7 @@ export default function TailorRecentJobs({
       .then((rs) => {
         const filtered = rs
           .filter((r) => r.job_description?.trim() && (r.company?.trim() || r.role?.trim()))
-          .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
-          .slice(0, 10);
+          .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
         setItems(filtered);
       })
       .catch(() => setItems([]));
@@ -118,11 +117,8 @@ export default function TailorRecentJobs({
           display: "flex",
           flexDirection: "column",
           gap: 4,
-          /* ~3 job cards visible, scroll for the rest (matches Analyze past-runs strip). */
-          maxHeight: 178,
-          minHeight: 0,
-          overflowY: "auto",
-          WebkitOverflowScrolling: "touch",
+          // The parent history sidebar owns scrolling. Avoid a three-card
+          // nested scroller so every saved run remains discoverable.
           paddingRight: 2,
         }}
       >
