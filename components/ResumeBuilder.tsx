@@ -88,16 +88,7 @@ import {
 
 import ScoreRing    from "./ScoreRing";
 import MatchBreakdownCards from "./MatchBreakdownCards";
-import { TailorMatchSidebar, TailorMatchDetail, type Tab as RatingsTab } from "./DetailedRatingsView";
-
-/** On /tailor-2 the work queue + dimension chips own these surfaces; the
- *  legacy tabs would duplicate them with their own Fix buttons. */
-const QUEUE_OWNED_TABS: readonly RatingsTab[] = [
-  "job_title",
-  "qualifications",
-  "responsibilities",
-  "keywords",
-];
+import { TailorMatchSidebar, TailorMatchDetail } from "./DetailedRatingsView";
 import TailorRecentJobs from "./TailorRecentJobs";
 import TailorResumeHistoryPicker from "./TailorResumeHistoryPicker";
 import TailorPreviewPane from "./TailorPreviewPane";
@@ -4259,6 +4250,11 @@ export default function ResumeBuilder({
               {(tailorRescoring || gapApplyBusy) && !(queueUi && fixAllBusy) && <RescanOverlay />}
               {displayRatings && isDetailedRatings(displayRatings) ? (
                 <>
+                  {/* The queue panel owns the whole left surface on /tailor-2:
+                      score, chips, work, strengths, finish CTAs. Mounting the
+                      legacy rail beside it would re-create the duplication the
+                      redesign removes. The classic view keeps it unchanged. */}
+                  {!queueUi && (
                   <TailorMatchSidebar
                     ratings={displayRatings}
                     hasSuggestions={suggestions.length > 0 && !generating}
@@ -4268,15 +4264,13 @@ export default function ResumeBuilder({
                     onActiveTabChange={setResultsActiveTab}
                     collapsed={matchSidebarCollapsed}
                     onCollapsedChange={setMatchSidebarCollapsed}
-                    // The queue owns Fix everything on /tailor-2 — a second
-                    // button here would be the duplication the redesign removes.
-                    onFixEverything={queueUi ? undefined : () => { void fixEverything(); }}
+                    onFixEverything={() => { void fixEverything(); }}
                     openGapCount={openGapCount}
                     fixEverythingBusy={fixAllBusy}
                     fixEverythingAutoApply={fixAllAutoApply}
                     onFixEverythingAutoApplyChange={toggleFixAllAutoApply}
-                    hiddenTabs={queueUi ? QUEUE_OWNED_TABS : undefined}
                   />
+                  )}
                   <div className="tb-split-work-slot">
                     {queueUi && (
                       <TailorQueuePanel
@@ -4294,6 +4288,7 @@ export default function ResumeBuilder({
                         stale={scoreStale}
                         onRecheck={() => { void rescoreTailorRatings(); }}
                         recheckBusy={tailorRescoring}
+                        onInterviewPrep={openInterviewPrep}
                       />
                     )}
                     {scoreStale && !gapApplyBusy && !queueUi && (
@@ -4355,6 +4350,7 @@ export default function ResumeBuilder({
                         </button>
                       </div>
                     )}
+                    {!queueUi && (
                     <TailorMatchDetail
                       ratings={displayRatings}
                       headlineDraft={tailorHeadlineOverride}
@@ -4410,8 +4406,8 @@ export default function ResumeBuilder({
                       applyBusy={applyBusy}
                       activeTab={resultsActiveTab}
                       onActiveTabChange={setResultsActiveTab}
-                      hiddenTabs={queueUi ? QUEUE_OWNED_TABS : undefined}
                     />
+                    )}
                     {result.diff.length > 0 && (
                       <div id="rb-results-diff" style={{ margin: "16px 20px", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", background: "var(--surface)", padding: "18px 20px" }}>
                         <DiffView key={result.folder ?? "diff"} diff={result.diff} adds={result.adds} removes={result.removes} rationales={result.rationales} baseFolder={result.baseFolder} baseLoaded={result.baseLoaded} jdKeywords={jdKeywords} />

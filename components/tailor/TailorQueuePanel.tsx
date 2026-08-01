@@ -39,6 +39,7 @@ import {
   type FixExpansionState,
   type FixSuggestion,
 } from "@/components/tailor/TailorFixExpansion";
+import { TailorStrengthsCard } from "@/components/tailor/TailorStrengthsCard";
 
 const NOT_COVERED_DETAIL =
   "This one couldn't be written from your real experience. Try Fix on it alone, or leave it out.";
@@ -142,6 +143,7 @@ export function TailorQueuePanel({
   onRecheck,
   recheckBusy,
   onDownload,
+  onInterviewPrep,
 }: {
   ratings: RatingsData;
   addressedGaps: ReadonlySet<string>;
@@ -169,6 +171,8 @@ export function TailorQueuePanel({
   onRecheck: () => void;
   recheckBusy: boolean;
   onDownload?: () => void;
+  /** Finish-line handoff into interview prep, carrying this run's resume + JD. */
+  onInterviewPrep?: () => void;
 }) {
   // A pass "ran" once Fix everything has gone busy -> idle in this mount.
   const [passRan, setPassRan] = useState(false);
@@ -324,6 +328,7 @@ export function TailorQueuePanel({
         onFixAll={onFixAll}
         onItemAction={handleItemAction}
         onDownload={onDownload}
+        onInterviewPrep={onInterviewPrep}
         expandedId={expandedId}
         expansion={
           expandedItem ? (
@@ -338,6 +343,11 @@ export function TailorQueuePanel({
             />
           ) : null
         }
+      />
+      <TailorStrengthsCard
+        verdict={ratings.verdict}
+        strengths={ratings.whats_working ?? []}
+        fitFactors={ratings.role_context}
       />
     </div>
   );

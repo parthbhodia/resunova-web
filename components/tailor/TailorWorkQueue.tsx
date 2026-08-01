@@ -111,6 +111,7 @@ export function TailorWorkQueue({
   onFixAll,
   onItemAction,
   onDownload,
+  onInterviewPrep,
   expandedId,
   expansion,
   visibleIds,
@@ -126,6 +127,8 @@ export function TailorWorkQueue({
   onFixAll?: () => void;
   onItemAction?: (item: QueueItem, action: QueueItemAction) => void;
   onDownload?: () => void;
+  /** Finish-line handoff into interview prep, carrying this run's resume + JD. */
+  onInterviewPrep?: () => void;
   /** Row whose inline fix flow is open; `expansion` renders under it. */
   expandedId?: string | null;
   expansion?: React.ReactNode;
@@ -280,23 +283,48 @@ export function TailorWorkQueue({
             {c.applied} added · {c.needsReview} waiting on your check · {c.notCoverable + c.ignored} left
             out, each with the reason next to it.
           </p>
-          {onDownload ? (
-            <button
-              type="button"
-              onClick={onDownload}
-              style={{
-                background: "var(--green-ink, #16a34a)",
-                color: "#fff",
-                border: 0,
-                borderRadius: 8,
-                fontSize: FS.body,
-                fontWeight: FW.bold,
-                padding: "8px 14px",
-                cursor: "pointer",
-              }}
-            >
-              Download PDF
-            </button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {onDownload ? (
+              <button
+                type="button"
+                onClick={onDownload}
+                style={{
+                  background: "var(--green-ink, #16a34a)",
+                  color: "#fff",
+                  border: 0,
+                  borderRadius: 8,
+                  fontSize: FS.body,
+                  fontWeight: FW.bold,
+                  padding: "8px 14px",
+                  cursor: "pointer",
+                }}
+              >
+                Download PDF
+              </button>
+            ) : null}
+            {onInterviewPrep ? (
+              <button
+                type="button"
+                onClick={onInterviewPrep}
+                style={{
+                  background: "var(--accent)",
+                  color: "#fff",
+                  border: 0,
+                  borderRadius: 8,
+                  fontSize: FS.body,
+                  fontWeight: FW.bold,
+                  padding: "8px 14px",
+                  cursor: "pointer",
+                }}
+              >
+                Prep for the interview
+              </button>
+            ) : null}
+          </div>
+          {onInterviewPrep ? (
+            <p style={{ margin: "7px 0 0", fontSize: FS.caption, color: "var(--muted)" }}>
+              Your tailored resume and this job carry over.
+            </p>
           ) : null}
         </div>
       ) : null}
