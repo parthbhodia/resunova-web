@@ -10,7 +10,7 @@
  * "queued", never silently "missing".
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { FS, FW } from "@/lib/typography";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import { queueCounts } from "@/lib/tailorWorkQueue";
@@ -43,7 +43,7 @@ const ACTION_LABEL: Record<QueueItemAction, string> = {
   view_change: "See it",
   review: "Review",
   add_to_summary: "Add to summary",
-  fix: "Fix",
+  fix: "Review fix",
   whats_this: "What's this?",
   reconsider: "Reconsider",
 };
@@ -137,16 +137,47 @@ export function TailorWorkQueue({
    *  not a different queue. */
   visibleIds?: ReadonlySet<string> | null;
 }) {
+  const [showAll, setShowAll] = useState(false);
+  const [detailIds, setDetailIds] = useState<Set<string>>(() => new Set());
   const c = queueCounts(items);
   const seg = (n: number) => `${(n / Math.max(1, c.total)) * 100}%`;
   const finished = Boolean(passRan) && c.open === 0;
-  const shown = visibleIds ? items.filter((it) => visibleIds.has(it.id)) : items;
+  const filtered = visibleIds ? items.filter((it) => visibleIds.has(it.id)) : items;
+  const shown = showAll ? filtered : filtered.slice(0, 5);
+  const hiddenCount = Math.max(0, filtered.length - shown.length);
+
+  const toggleDetail = (id: string) => {
+    setDetailIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--card)" }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "var(--card)" }}>
+      {c.open > 0 ? (
+        <div
+          role="status"
+          style={{
+            display: "flex",
+            gap: 9,
+            alignItems: "flex-start",
+            padding: "10px 14px",
+            color: "var(--red-ink, #b42318)",
+            background: "var(--red-soft, #fff1f0)",
+            borderBottom: "1px solid color-mix(in srgb, var(--red-ink, #b42318) 18%, transparent)",
+            fontSize: FS.small,
+          }}
+        >
+          <span aria-hidden style={{ fontWeight: FW.extrabold }}>!</span>
+          <span><b>Keep every claim true.</b> These are job requirements your résumé does not prove yet. Only add experience you actually have.</span>
+        </div>
+      ) : null}
       <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ fontSize: FS.body, fontWeight: FW.bold }}>
-          Missing from your resume{" "}
+          Match gaps{" "}
           <span style={{ color: "var(--muted)", fontWeight: FW.medium }}>
             · {c.open ? `${c.open} to review` : "all reviewed"}
           </span>
@@ -168,7 +199,7 @@ export function TailorWorkQueue({
               opacity: fixAllBusy || c.open === 0 ? 0.6 : 1,
             }}
           >
-            {fixAllBusy ? "Working…" : "Fix everything"}
+            {fixAllBusy ? "Improving…" : "Improve safe matches"}
           </button>
         ) : null}
       </div>
@@ -186,7 +217,7 @@ export function TailorWorkQueue({
         <span><b style={{ color: "var(--text)" }}>{c.open}</b> to review</span>
       </div>
 
-      <ul style={{ listStyle: "none", margin: "6px 0 0", padding: "0 6px 8px", maxHeight: 380, overflowY: "auto" }}>
+      <ul style={{ listStyle: "none", margin: "6px 0 0", padding: "0 6px 4px" }}>
         {shown.length === 0 ? (
           <li style={{ padding: "10px 8px", fontSize: FS.small, color: "var(--muted)" }}>
             Nothing to add here. You&rsquo;re already covered.
@@ -196,6 +227,13 @@ export function TailorWorkQueue({
           const expanded = it.id === expandedId;
           const action = expanded ? null : itemAction(it);
           const working = it.id === workingId || Boolean(workingIds?.has(it.id));
+          const detailOpen = detailIds.has(it.id);
+          const severityColor =
+            it.kind === "qualification" || it.kind === "responsibility"
+              ? "var(--red-ink, #b42318)"
+              : it.kind === "keyword"
+                ? "var(--amber-ink, #b45309)"
+                : "var(--muted)";
           return (
             <li key={it.id} data-status={it.status} style={{ borderRadius: 9 }}>
             <div
@@ -220,7 +258,7 @@ export function TailorWorkQueue({
                         ? "var(--muted)"
                         : it.status === "needs_review"
                           ? "var(--amber-ink, #b45309)"
-                          : "var(--text)",
+                          : severityColor,
                   }}
                 >
                   {it.name}
@@ -242,9 +280,21 @@ export function TailorWorkQueue({
                   {KIND_LABEL[it.kind]}
                 </span>
                 {it.detail ? (
-                  <span style={{ display: "block", fontSize: FS.small, color: "var(--muted)", marginTop: 1, maxWidth: "46ch" }}>
-                    {it.detail}
-                  </span>
+                  <>
+                    <button
+                      type="button"
+                      aria-expanded={detailOpen}
+                      onClick={() => toggleDetail(it.id)}
+                      style={{ display: "block", border: 0, background: "none", color: "var(--muted)", padding: "3px 0 0", fontSize: FS.caption, cursor: "pointer" }}
+                    >
+                      {detailOpen ? "Hide details" : "Why this matters"}
+                    </button>
+                    {detailOpen ? (
+                      <span style={{ display: "block", fontSize: FS.small, color: "var(--muted)", marginTop: 3, maxWidth: "52ch", lineHeight: 1.45 }}>
+                        {it.detail}
+                      </span>
+                    ) : null}
+                  </>
                 ) : null}
               </span>
               {action && onItemAction ? (
@@ -273,6 +323,24 @@ export function TailorWorkQueue({
           );
         })}
       </ul>
+
+      {hiddenCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
+        >
+          Show {hiddenCount} more lower-priority gaps
+        </button>
+      ) : filtered.length > 5 ? (
+        <button
+          type="button"
+          onClick={() => setShowAll(false)}
+          style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
+        >
+          Show top 5 only
+        </button>
+      ) : null}
 
       {finished ? (
         <div style={{ borderTop: "1px solid var(--border)", padding: "13px 14px", background: "var(--green-soft, rgba(22,163,74,0.1))" }}>

@@ -884,7 +884,12 @@ export default function AnnotatedResumePanel({
             color: "var(--text)",
           }}
         >
-          <span aria-hidden="true" style={{ fontSize: 13, lineHeight: 1.2 }}>📄</span>
+          <span aria-hidden="true" style={{ color: "var(--amber-ink, #b45309)", lineHeight: 1.2 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              <path d="M6 3h8l4 4v14H6V3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+              <path d="M14 3v5h5M12 11v4M12 18h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
           <span style={{ flex: 1 }}>
             {pageOverflowNotice}{" "}
             <span style={{ color: "var(--muted)" }}>Hide or tighten bullets to pull it back.</span>

@@ -197,12 +197,11 @@ export default function TailorPreviewPage() {
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "28px 20px 64px" }}>
         <h1 style={{ fontSize: FS.h3, fontWeight: FW.bold, letterSpacing: "-0.02em", margin: "0 0 4px" }}>
-          Tailor redesign preview: fix one by one, or everything at once
+          Tailor results: focus on what matters first
         </h1>
         <p style={{ margin: "0 0 6px", color: "var(--muted)", fontSize: FS.bodyLg, maxWidth: "68ch" }}>
-          Design preview, no backend. Click <b>Fix</b> on the first row: it expands in place with two
-          versions to pick from. Or press <b>Fix everything</b> and watch each row land. Ignore is
-          always available, and ignored items stay out of the big pass too.
+          Design preview, no backend. Start with the five highest-priority gaps, open the reason
+          only when you need it, and review every suggested claim before it reaches your résumé.
         </p>
         <p style={{ margin: "0 0 20px", fontSize: FS.small, color: "var(--dim)" }}>
           <Link href="/" style={{ color: "var(--accent)" }}>← Back to the app</Link>
