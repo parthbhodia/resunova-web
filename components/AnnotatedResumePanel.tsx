@@ -117,6 +117,9 @@ interface Props {
   appliedPillPairs?: readonly { original: string; applied: string }[];
   /** Found JD keywords to paint as inline pills in the résumé body. */
   keywordHighlightTerms?: readonly string[];
+  /** Tailor keeps keyword coverage optional so live-edit highlights can remain on. */
+  keywordHighlightsEnabled?: boolean;
+  onKeywordHighlightsEnabledChange?: (enabled: boolean) => void;
   /** Target role for export filenames (Tailor JD title); falls back to structured experience. */
   exportRoleLabel?: string;
   /** Inline summary edit committed from the preview (Analyze routes this to summaryOverride). */
@@ -467,6 +470,8 @@ export default function AnnotatedResumePanel({
   tailorAppliedBulletIndices = new Set<number>(),
   appliedPillPairs = [],
   keywordHighlightTerms = [],
+  keywordHighlightsEnabled = true,
+  onKeywordHighlightsEnabledChange,
   exportRoleLabel = "",
   onSummaryEdit,
   hiddenPaths,
@@ -884,7 +889,12 @@ export default function AnnotatedResumePanel({
             color: "var(--text)",
           }}
         >
-          <span aria-hidden="true" style={{ fontSize: 13, lineHeight: 1.2 }}>📄</span>
+          <span aria-hidden="true" style={{ color: "var(--amber-ink, #b45309)", lineHeight: 1.2 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              <path d="M6 3h8l4 4v14H6V3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+              <path d="M14 3v5h5M12 11v4M12 18h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
           <span style={{ flex: 1 }}>
             {pageOverflowNotice}{" "}
             <span style={{ color: "var(--muted)" }}>Hide or tighten bullets to pull it back.</span>
@@ -1097,6 +1107,30 @@ export default function AnnotatedResumePanel({
                 options={PREVIEW_HEADER_ALIGN_SEG}
               />
             </div>
+          ) : null}
+          {useLiveDoc && keywordHighlightTerms.length > 0 && onKeywordHighlightsEnabledChange ? (
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 10.5,
+                fontWeight: 600,
+                color: "var(--muted)",
+                cursor: "pointer",
+                userSelect: "none",
+                flexShrink: 0,
+              }}
+              title="Show or hide job-description keyword matches"
+            >
+              <input
+                type="checkbox"
+                checked={keywordHighlightsEnabled}
+                onChange={(event) => onKeywordHighlightsEnabledChange(event.target.checked)}
+                style={{ accentColor: "var(--accent)", cursor: "pointer" }}
+              />
+              Matched keywords
+            </label>
           ) : null}
           {useLiveDoc ? (
             <label
@@ -1526,7 +1560,7 @@ export default function AnnotatedResumePanel({
                 gapFixTargetBulletIndices={gapFixTargetBulletIndices}
                 tailorAppliedBulletIndices={tailorAppliedBulletIndices}
                 appliedPillPairs={appliedPillPairs}
-                keywordHighlightTerms={keywordHighlightTerms}
+                keywordHighlightTerms={keywordHighlightsEnabled ? keywordHighlightTerms : []}
                 highlightsEnabled={highlightsEnabled}
                 selectedSectionIdx={selectedSectionIdx}
                 onSectionSelected={onSectionSelected}

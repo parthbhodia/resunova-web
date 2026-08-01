@@ -80,6 +80,7 @@ export default function TailorAnalyzingLoader() {
         borderRadius: 18, border: "1px solid var(--border)", background: "var(--surface)",
         boxShadow: "var(--shadow-card)", padding: "26px 26px 22px",
         display: "flex", flexDirection: "column", gap: 20,
+        cursor: "default", caretColor: "transparent", userSelect: "none",
       }}
     >
       <style>{`

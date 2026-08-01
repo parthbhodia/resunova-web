@@ -654,6 +654,9 @@ export default function ResumeBuilder({
   const tryAnotherJob = useCallback(() => {
     resetActiveTailorWork();
     clearSuggestionsState();
+    setError(null);
+    setGapFixError(null);
+    setFixCollisionNotice(null);
     setResult(null);
     setPreview("");
     setJd("");
@@ -667,10 +670,22 @@ export default function ResumeBuilder({
     clearDraft();
   }, [clearSuggestionsState, resetActiveTailorWork, saveStatus]);
 
-  /** "Start over" — same as tryAnotherJob, plus clears the loaded résumé so
-   *  the user lands back on the upload step instead of keeping it prefilled. */
+  /** Clear the loaded résumé and result while preserving the current job.
+   *  This lets a user compare another résumé against the same JD without
+   *  re-pasting company, role, and job description. */
   const startOverTailor = useCallback(() => {
-    tryAnotherJob();
+    resetActiveTailorWork();
+    clearSuggestionsState();
+    setError(null);
+    setGapFixError(null);
+    setFixCollisionNotice(null);
+    setResult(null);
+    setPreview("");
+    setAtsResult(null);
+    setAtsError(null);
+    setTailorSidebarVisible(true);
+    setMatchSidebarCollapsed(false);
+    saveStatus.resetForNewRun();
     if (sourcePdfBlobUrlRef.current) {
       URL.revokeObjectURL(sourcePdfBlobUrlRef.current);
       sourcePdfBlobUrlRef.current = null;
@@ -682,7 +697,7 @@ export default function ResumeBuilder({
     setStructuredUpload(null);
     lastResumeExtractRef.current = "";
     setProfileSyncUpsell(null);
-  }, [tryAnotherJob]);
+  }, [clearSuggestionsState, resetActiveTailorWork, saveStatus]);
 
   useEffect(() => {
     return () => {
@@ -732,6 +747,10 @@ export default function ResumeBuilder({
     targetTerms?: string[];
   } | null>(null);
   const [gapFixError, setGapFixError] = useState<string | null>(null);
+  const [fixCollisionNotice, setFixCollisionNotice] = useState<{
+    count: number;
+    bulletExcerpt: string;
+  } | null>(null);
   /** True while a gap-fix suggestion is being applied + PDF compiled + rescored. */
   const [gapApplyBusy, setGapApplyBusy] = useState(false);
 
@@ -774,7 +793,9 @@ export default function ResumeBuilder({
   const [resumeHeaderLines, setResumeHeaderLines] = useState<string[]>([]);
   /** Default collapsed once results exist so the preview owns the width. */
   const [matchSidebarCollapsed, setMatchSidebarCollapsed] = useState(true);
-  const [tailorSidebarVisible, setTailorSidebarVisible] = useState(true);
+  // History is useful, but it should not take a third of the intake screen
+  // before the user asks for it. Keep it one click away.
+  const [tailorSidebarVisible, setTailorSidebarVisible] = useState(false);
   const [uploadedFileName,    setUploadedFileName]    = useState<string | null>(
     () => builderSession0?.uploadedFileName ?? null,
   );
@@ -1585,6 +1606,7 @@ export default function ResumeBuilder({
         setTailorAppliedBulletIndices(remappedApplied);
       }
       setScoreStale(false);
+      setFixCollisionNotice(null);
       return true;
     } catch {
       return false;
@@ -2482,6 +2504,7 @@ export default function ResumeBuilder({
     opts?: { closePanel?: boolean; gapType?: AddressedGapAction["type"] },
   ) => {
     if (items.length === 0) return;
+    setFixCollisionNotice(null);
     const gapName = gapNameOverride ?? gapFixPanel?.gapName ?? "";
 
     const gapType: AddressedGapAction["type"] = opts?.gapType ?? gapFixPanel?.gapType ?? "qualification";
@@ -2598,11 +2621,11 @@ export default function ResumeBuilder({
       }
 
       if (unmergeable.length > 0) {
-        setError(
-          `${unmergeable.length} fix${unmergeable.length === 1 ? "" : "es"} targeted a bullet another fix `
-          + "already rewrote, and the two could not be combined. The first was applied; "
-          + "re-check the match and re-run the remaining gap to fix it against the updated bullet.",
-        );
+        const fullBullet = unmergeable[0].replace(/\s+/g, " ").trim();
+        const bulletExcerpt = fullBullet.length > 112
+          ? `${fullBullet.slice(0, 109).trimEnd()}…`
+          : fullBullet;
+        setFixCollisionNotice({ count: unmergeable.length, bulletExcerpt });
       }
 
       setTailorBulletAnalysis(bullets);
@@ -2807,13 +2830,21 @@ export default function ResumeBuilder({
   /**
    * Fix everything in one pass.
    *
-   * Batches by gap TYPE (a few focused prompts, not one per gap). Default:
-   * apply every rewrite straight to the preview with green highlights — the
-   * résumé IS the review surface. Opt into "Show suggestions first" to land
-   * in the gap-fix panel instead. Overall match % stays frozen until Re-check.
+   * Processes gaps one at a time in queue priority order. This is deliberately
+   * sequential: the active row is unambiguous and each rewrite lands before
+   * the next request starts. Overall match % stays frozen until Re-check.
    */
-  const fixEverything = useCallback(async () => {
-    if (!jd.trim() || openGapBatches.length === 0 || fixAllBusy) return;
+  const fixEverything = useCallback(async (selectedNames?: ReadonlySet<string>) => {
+    const targetBatches = selectedNames?.size
+      ? openGapBatches
+          .map((batch) => ({ ...batch, gaps: batch.gaps.filter((gap) => selectedNames.has(normalizeQueueName(gap))) }))
+          .filter((batch) => batch.gaps.length > 0)
+      : openGapBatches;
+    const targetGapCount = countGaps(targetBatches);
+    const targetRuns = targetBatches.flatMap((batch) =>
+      batch.gaps.map((gap) => ({ ...batch, gaps: [gap] })),
+    );
+    if (!jd.trim() || targetRuns.length === 0 || fixAllBusy) return;
     const prof = effectiveCandidateProfile.trim();
     if (!tailorStructuredResume && !prof) {
       setGapFixError("Fix everything needs résumé text. Upload a PDF or paste your profile, then try again.");
@@ -2828,7 +2859,7 @@ export default function ResumeBuilder({
     setFixAllBusy(true);
     setGapFixError(null);
     setGapFixPanel(null);
-    setFixAllPendingGaps(openGapBatches.flatMap((b) => b.gaps));
+    setFixAllPendingGaps(targetRuns[0]?.gaps ?? []);
     try {
       const structured = tailorStructuredResume
         ? applyFieldOverridesToStructured(
@@ -2837,16 +2868,11 @@ export default function ResumeBuilder({
           )
         : null;
 
-      // Parallel generation: each batch is written against the same résumé
-      // snapshot. Application is a serialized CHAIN so waves land in settle
-      // order — applyGapFixes merges onto any prior override of the same
-      // bullet, and going through the ref means each wave sees the previous
-      // wave's committed state instead of a stale closure.
-      let applyChain: Promise<void> = Promise.resolve();
       let appliedTotal = 0;
       const panelAll: GapFixSuggestion[] = [];
 
-      await Promise.all(openGapBatches.map(async (batch, i) => {
+      for (const [i, batch] of targetRuns.entries()) {
+        setFixAllPendingGaps(batch.gaps);
         let named: GapFixSuggestion[] = [];
         try {
           const resp = await apiFetch("/api/suggest-gap-fix", {
@@ -2872,32 +2898,24 @@ export default function ResumeBuilder({
         } catch { /* a failed batch behaves like an empty one */ }
 
         if (autoApply) {
-          // Wave: this batch's rewrites land in the preview the moment they
-          // arrive, and its queue rows stop spinning — the pass is visibly
-          // three arrivals, not one long wait.
-          applyChain = applyChain.then(async () => {
-            if (named.length > 0) {
-              appliedTotal += named.length;
-              await applyGapFixesRef.current(
-                named.map((s) => ({
-                  id: s.id, section: s.section, original: s.original,
-                  suggested: s.suggested, reason: s.reason, priority: s.priority,
-                })),
-                batchGapName(batch),
-                { gapType: batch.type },
-              );
-              // Let React commit this wave's overrides before the next wave
-              // reads them through the ref.
-              await new Promise((r) => setTimeout(r, 30));
-            }
-            setFixAllPendingGaps((prev) => prev.filter((g) => !batch.gaps.includes(g)));
-          });
+          if (named.length > 0) {
+            appliedTotal += named.length;
+            await applyGapFixesRef.current(
+              named.map((s) => ({
+                id: s.id, section: s.section, original: s.original,
+                suggested: s.suggested, reason: s.reason, priority: s.priority,
+              })),
+              batchGapName(batch),
+              { gapType: batch.type },
+            );
+            await new Promise((resolve) => setTimeout(resolve, 30));
+          }
+          setFixAllPendingGaps((prev) => prev.filter((g) => !batch.gaps.includes(g)));
         } else {
           panelAll.push(...named);
           setFixAllPendingGaps((prev) => prev.filter((g) => !batch.gaps.includes(g)));
         }
-      }));
-      await applyChain;
+      }
 
       if (autoApply) {
         if (appliedTotal === 0) {
@@ -2911,8 +2929,8 @@ export default function ResumeBuilder({
         return;
       }
       setGapFixPanel({
-        gapName: openGapBatches.map((b) => batchGapName(b)).join(", "),
-        gapNotes: `${panelAll.length} rewrite${panelAll.length === 1 ? "" : "s"} across ${openGapCount} gaps.`,
+        gapName: targetRuns.map((b) => batchGapName(b)).join(", "),
+        gapNotes: `${panelAll.length} rewrite${panelAll.length === 1 ? "" : "s"} across ${targetGapCount} gaps.`,
         suggestions: panelAll,
         gapType: "qualification",
       });
@@ -2923,7 +2941,7 @@ export default function ResumeBuilder({
       setFixAllBusy(false);
       setFixAllPendingGaps([]);
     }
-  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, queueUi, effectiveCandidateProfile,
+  }, [jd, openGapBatches, fixAllBusy, fixAllAutoApply, queueUi, effectiveCandidateProfile,
       tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
 
   /** One batched rewrite pass for several contextual gaps, instead of one call each. */
@@ -4019,6 +4037,50 @@ export default function ResumeBuilder({
               />
             ) : (
             <div className="fade-in">
+              {fixCollisionNotice && (
+                <div
+                  role="status"
+                  style={{
+                    marginBottom: 16,
+                    padding: "12px 16px",
+                    background: "var(--amber-soft, #fffbeb)",
+                    border: "1px solid color-mix(in srgb, var(--amber-ink, #b45309) 28%, transparent)",
+                    borderRadius: 10,
+                    color: "var(--text)",
+                    fontSize: 13,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: "var(--amber-ink, #92400e)" }}>
+                    {fixCollisionNotice.count} fix{fixCollisionNotice.count === 1 ? "" : "es"} need{fixCollisionNotice.count === 1 ? "s" : ""} another pass
+                  </div>
+                  <div style={{ marginTop: 3 }}>
+                    Two suggestions targeted the same résumé bullet. We applied the first safely and paused the other.
+                  </div>
+                  <div style={{ marginTop: 5, color: "var(--muted)" }}>
+                    <strong style={{ color: "var(--text)" }}>Affected bullet:</strong> “{fixCollisionNotice.bulletExcerpt}”
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { void rescoreTailorRatings(); }}
+                    disabled={tailorRescoring}
+                    style={{
+                      marginTop: 9,
+                      minHeight: 40,
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      border: "1px solid color-mix(in srgb, var(--amber-ink, #b45309) 42%, transparent)",
+                      background: "var(--card)",
+                      color: "var(--amber-ink, #92400e)",
+                      fontWeight: 700,
+                      cursor: tailorRescoring ? "default" : "pointer",
+                      opacity: tailorRescoring ? 0.6 : 1,
+                    }}
+                  >
+                    {tailorRescoring ? "Re-checking…" : "Re-check match"}
+                  </button>
+                </div>
+              )}
               {error && (
                 <div
                   role="alert"
@@ -4039,6 +4101,7 @@ export default function ResumeBuilder({
 
               {/* ── Results top bar — sticky, full width ── */}
               <header
+                className="rb-results-header"
                 style={{
                   position: "sticky",
                   top: 0,
@@ -4049,8 +4112,8 @@ export default function ResumeBuilder({
                   gap: 14,
                   paddingTop: 14,
                   paddingBottom: 14,
-                  paddingLeft: "clamp(64px, 6vw, 80px)",
-                  paddingRight: "clamp(16px, 3vw, 36px)",
+                  paddingLeft: "clamp(20px, 2.5vw, 36px)",
+                  paddingRight: "clamp(20px, 2.5vw, 36px)",
                   background: "var(--bg)",
                   borderBottom: "1px solid var(--border)",
                   boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
@@ -4099,7 +4162,7 @@ export default function ResumeBuilder({
                     variant="outline"
                     size="default"
                     onClick={startOverTailor}
-                    title="Clear the résumé too — upload a new one"
+                    title="Try this job description with a different résumé"
                     style={{
                       color: "var(--text)",
                       fontWeight: 600,
@@ -4107,7 +4170,7 @@ export default function ResumeBuilder({
                       background: "var(--surface)",
                     }}
                   >
-                    Start over
+                    Try another résumé
                   </Button>
                 </div>
               </header>
@@ -4151,18 +4214,12 @@ export default function ResumeBuilder({
                   flex: 1;
                   min-height: 0;
                   display: grid;
-                  grid-template-columns: auto minmax(260px, 2fr) minmax(280px, 3fr);
+                  grid-template-columns: auto minmax(420px, 0.9fr) minmax(600px, 1.1fr);
                   grid-template-rows: minmax(0, 1fr);
                   overflow: hidden;
                 }
-                /* /tailor-2 does not mount the legacy TailorMatchSidebar, so the
-                   three-track grid above mis-seats everything: the queue lands in
-                   the auto track, the preview drops into the 2fr track, and the
-                   3fr track is left EMPTY but still reserved. Measured at 1900px:
-                   preview 512px with ~768px of the window sitting blank. Two
-                   tracks for two panels. */
                 .rb-tailor-workspace--queue {
-                  grid-template-columns: minmax(340px, 1fr) minmax(460px, 1.05fr);
+                  grid-template-columns: minmax(420px, 0.88fr) minmax(620px, 1.12fr);
                 }
                 .tb-split-work-slot {
                   min-height: 0;
@@ -4176,17 +4233,27 @@ export default function ResumeBuilder({
                   overflow: hidden;
                   display: flex;
                   flex-direction: column;
-                  background: var(--bg);
+                  background: color-mix(in srgb, var(--surface2) 72%, var(--bg));
                 }
-                @media (max-width: 960px) {
-                  .rb-tailor-workspace,
-                  .rb-tailor-workspace--queue {
+                .tb-split-preview-slot .rw-annotated-panel {
+                  width: 100% !important;
+                }
+                .tb-split-preview-slot .az-resume-paper {
+                  width: min(8.5in, 100%);
+                }
+                @media (max-width: 1180px) {
+                  .rb-tailor-workspace {
                     grid-template-columns: 1fr;
                     grid-template-rows: auto auto minmax(42vh, 1fr);
                     overflow-y: auto;
                   }
-                  .tb-split-preview-slot { order: 2; min-height: 42vh; max-height: 60vh; }
-                  .tb-split-work-slot { order: 3; border-right: none; }
+                  .tb-split-preview-slot { order: 2; min-height: 56vh; max-height: 72vh; border-bottom: 1px solid var(--border); }
+                  .tb-split-work-slot { order: 3; border-right: none; overflow: visible; }
+                }
+                @media (max-width: 720px) {
+                  .rb-results-header { align-items: flex-start !important; }
+                  .rb-results-header > div:last-child { width: 100%; }
+                  .tb-split-preview-slot { min-height: 62vh; max-height: 76vh; }
                 }
               `}</style>
               <div className="rb-results-body">
@@ -4221,7 +4288,24 @@ export default function ResumeBuilder({
                     </>
                   ) : applyFeedback ? (
                     <>
-                      <span style={{ fontSize: 18 }}>✅</span>
+                      <span
+                        aria-hidden
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                          color: "var(--green, #2f7d5a)",
+                          background: "color-mix(in srgb, var(--green, #2f7d5a) 12%, var(--surface))",
+                        }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                          <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
                           {applyFeedback.patchesApplied} change{applyFeedback.patchesApplied !== 1 ? "s" : ""} applied to your résumé
@@ -4245,19 +4329,16 @@ export default function ResumeBuilder({
                       ) : null}
                       <button
                         type="button"
+                        aria-label="Dismiss change confirmation"
                         onClick={() => setApplyFeedback(null)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--dim)", fontSize: 16, padding: 4, flexShrink: 0 }}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--dim)", fontSize: 16, width: 40, height: 40, flexShrink: 0 }}
                       >✕</button>
                     </>
                   ) : null}
                 </div>
               )}
 
-              <section
-                className={`rb-tailor-workspace${queueUi ? " rb-tailor-workspace--queue" : ""}`}
-                aria-labelledby="rb-results-heading"
-                style={{ position: "relative" }}
-              >
+              <section className={`rb-tailor-workspace${queueUi ? " rb-tailor-workspace--queue" : ""}`} aria-labelledby="rb-results-heading" style={{ position: "relative" }}>
               {/* During a queue-UI Fix-everything pass the queue rows are the
                   progress surface — flashing the full overlay once per wave
                   would bury exactly the progression the waves exist to show. */}
@@ -4294,6 +4375,9 @@ export default function ResumeBuilder({
                         fixAllBusy={fixAllBusy}
                         pendingGapNames={fixAllPendingGaps}
                         onFixAll={() => { void fixEverything(); }}
+                        onFixSelected={(items) => {
+                          void fixEverything(new Set(items.map((item) => normalizeQueueName(item.name))));
+                        }}
                         fetchFixSuggestions={fetchFixSuggestions}
                         applyFixSuggestion={applyFixSuggestion}
                         ignoredNames={ignoredGapNames}
