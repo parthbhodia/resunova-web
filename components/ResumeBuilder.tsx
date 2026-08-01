@@ -2820,6 +2820,10 @@ export default function ResumeBuilder({
       return;
     }
     if (tailoringMode === null) { setShowTailoringModal(true); return; }
+    // On /tailor-2 the queue IS the review surface: results land as waves the
+    // user can undo per row, so the "Show suggestions first" detour into the
+    // (hidden there) gap-fix panel never applies.
+    const autoApply = queueUi || fixAllAutoApply;
 
     setFixAllBusy(true);
     setGapFixError(null);
@@ -2867,7 +2871,7 @@ export default function ResumeBuilder({
           }
         } catch { /* a failed batch behaves like an empty one */ }
 
-        if (fixAllAutoApply) {
+        if (autoApply) {
           // Wave: this batch's rewrites land in the preview the moment they
           // arrive, and its queue rows stop spinning — the pass is visibly
           // three arrivals, not one long wait.
@@ -2895,7 +2899,7 @@ export default function ResumeBuilder({
       }));
       await applyChain;
 
-      if (fixAllAutoApply) {
+      if (autoApply) {
         if (appliedTotal === 0) {
           setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
         }
@@ -2919,7 +2923,7 @@ export default function ResumeBuilder({
       setFixAllBusy(false);
       setFixAllPendingGaps([]);
     }
-  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, effectiveCandidateProfile,
+  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, queueUi, effectiveCandidateProfile,
       tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
 
   /** One batched rewrite pass for several contextual gaps, instead of one call each. */
@@ -4246,6 +4250,11 @@ export default function ResumeBuilder({
               {(tailorRescoring || gapApplyBusy) && !(queueUi && fixAllBusy) && <RescanOverlay />}
               {displayRatings && isDetailedRatings(displayRatings) ? (
                 <>
+                  {/* The queue panel owns the whole left surface on /tailor-2:
+                      score, chips, work, strengths, finish CTAs. Mounting the
+                      legacy rail beside it would re-create the duplication the
+                      redesign removes. The classic view keeps it unchanged. */}
+                  {!queueUi && (
                   <TailorMatchSidebar
                     ratings={displayRatings}
                     hasSuggestions={suggestions.length > 0 && !generating}
@@ -4261,6 +4270,7 @@ export default function ResumeBuilder({
                     fixEverythingAutoApply={fixAllAutoApply}
                     onFixEverythingAutoApplyChange={toggleFixAllAutoApply}
                   />
+                  )}
                   <div className="tb-split-work-slot">
                     {queueUi && (
                       <TailorQueuePanel
@@ -4278,6 +4288,7 @@ export default function ResumeBuilder({
                         stale={scoreStale}
                         onRecheck={() => { void rescoreTailorRatings(); }}
                         recheckBusy={tailorRescoring}
+                        onInterviewPrep={openInterviewPrep}
                       />
                     )}
                     {scoreStale && !gapApplyBusy && !queueUi && (
@@ -4339,6 +4350,7 @@ export default function ResumeBuilder({
                         </button>
                       </div>
                     )}
+                    {!queueUi && (
                     <TailorMatchDetail
                       ratings={displayRatings}
                       headlineDraft={tailorHeadlineOverride}
@@ -4395,6 +4407,7 @@ export default function ResumeBuilder({
                       activeTab={resultsActiveTab}
                       onActiveTabChange={setResultsActiveTab}
                     />
+                    )}
                     {result.diff.length > 0 && (
                       <div id="rb-results-diff" style={{ margin: "16px 20px", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", background: "var(--surface)", padding: "18px 20px" }}>
                         <DiffView key={result.folder ?? "diff"} diff={result.diff} adds={result.adds} removes={result.removes} rationales={result.rationales} baseFolder={result.baseFolder} baseLoaded={result.baseLoaded} jdKeywords={jdKeywords} />

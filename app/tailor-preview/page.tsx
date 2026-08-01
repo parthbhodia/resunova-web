@@ -24,10 +24,17 @@ import { FS, FW } from "@/lib/typography";
 const DEMO_RATINGS: RatingsData = {
   match_score: 48,
   criteria: [],
-  whats_working: [],
+  whats_working: [
+    "Five years of production LLM systems, exactly the stack the team runs.",
+    "Real security clearance work (SOCOM) most applicants can't claim.",
+    "Quantified outcomes on every role, which recruiters read first.",
+  ],
   gaps: [],
-  verdict: "Fair fit",
+  verdict: "Fair fit, with standout depth in LLM engineering.",
   overall_score: 48,
+  role_context: [
+    { text: "Hybrid role in Sunnyvale", analysis: "Your profile lists Baltimore; expect a relocation question." },
+  ],
   job_title: {
     matched: false,
     jd_title: "Software Engineer III, Engineering Productivity",
@@ -222,6 +229,7 @@ export default function TailorPreviewPage() {
           stale={stale}
           onRecheck={() => setStale(false)}
           recheckBusy={false}
+          onInterviewPrep={() => window.alert("Opens interview prep with this resume and JD carried over.")}
         />
       </div>
     </div>
