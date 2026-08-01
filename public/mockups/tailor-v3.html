@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tailor results — mockup v3</title>
+<style>
+  :root {
+    --ground: #ffffff;
+    --sunk: #f6f8fa;
+    --card: #ffffff;
+    --line: #dfe3e8;
+    --line-soft: #eceff2;
+    --ink: #12161c;
+    --ink-2: #414b58;
+    --muted: #6b7684;
+
+    --accent: #2f81f7;
+    --accent-soft: rgba(47, 129, 247, 0.10);
+
+    --crit: #d92d20;
+    --crit-soft: #fef3f2;
+    --crit-line: rgba(217, 45, 32, 0.28);
+
+    --warn: #b54708;
+    --warn-soft: #fffaeb;
+    --warn-line: rgba(181, 71, 8, 0.26);
+
+    --good: #067647;
+    --good-soft: #ecfdf3;
+    --good-line: rgba(6, 118, 71, 0.24);
+
+    --radius: 12px;
+    --paper: #ffffff;
+    --paper-ink: #1a1a1a;
+
+    --fs-micro: 11px;
+    --fs-caption: 12px;
+    --fs-small: 13px;
+    --fs-body: 14px;
+    --fs-lg: 16px;
+    --fs-xl: 20px;
+    --fs-display: 30px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0d1117;
+      --sunk: #0a0e14;
+      --card: #161b22;
+      --line: #2a313c;
+      --line-soft: #21272f;
+      --ink: #e9eef5;
+      --ink-2: #b6c0cc;
+      --muted: #8b96a5;
+
+      --accent: #4d94ff;
+      --accent-soft: rgba(77, 148, 255, 0.14);
+
+      --crit: #ff7b72;
+      --crit-soft: rgba(255, 123, 114, 0.10);
+      --crit-line: rgba(255, 123, 114, 0.30);
+
+      --warn: #e3a008;
+      --warn-soft: rgba(227, 160, 8, 0.10);
+      --warn-line: rgba(227, 160, 8, 0.28);
+
+      --good: #3fb950;
+      --good-soft: rgba(63, 185, 80, 0.10);
+      --good-line: rgba(63, 185, 80, 0.26);
+
+      --paper: #f4f4f2;
+      --paper-ink: #1a1a1a;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0d1117; --sunk: #0a0e14; --card: #161b22;
+    --line: #2a313c; --line-soft: #21272f;
+    --ink: #e9eef5; --ink-2: #b6c0cc; --muted: #8b96a5;
+    --accent: #4d94ff; --accent-soft: rgba(77,148,255,0.14);
+    --crit: #ff7b72; --crit-soft: rgba(255,123,114,0.10); --crit-line: rgba(255,123,114,0.30);
+    --warn: #e3a008; --warn-soft: rgba(227,160,8,0.10); --warn-line: rgba(227,160,8,0.28);
+    --good: #3fb950; --good-soft: rgba(63,185,80,0.10); --good-line: rgba(63,185,80,0.26);
+    --paper: #f4f4f2; --paper-ink: #1a1a1a;
+  }
+  :root[data-theme="light"] {
+    --ground: #ffffff; --sunk: #f6f8fa; --card: #ffffff;
+    --line: #dfe3e8; --line-soft: #eceff2;
+    --ink: #12161c; --ink-2: #414b58; --muted: #6b7684;
+    --accent: #2f81f7; --accent-soft: rgba(47,129,247,0.10);
+    --crit: #d92d20; --crit-soft: #fef3f2; --crit-line: rgba(217,45,32,0.28);
+    --warn: #b54708; --warn-soft: #fffaeb; --warn-line: rgba(181,71,8,0.26);
+    --good: #067647; --good-soft: #ecfdf3; --good-line: rgba(6,118,71,0.24);
+    --paper: #ffffff; --paper-ink: #1a1a1a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--sunk);
+    color: var(--ink);
+    font: 400 var(--fs-body)/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1440px; margin: 0 auto; padding: 20px 20px 64px; }
+
+  /* ---------- mockup chrome (not part of the design) ---------- */
+  .chrome {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    margin-bottom: 18px;
+  }
+  .chrome h1 {
+    font-size: var(--fs-lg); font-weight: 700; margin: 0; letter-spacing: -0.01em;
+  }
+  .chrome .note { color: var(--muted); font-size: var(--fs-small); }
+  .toggle {
+    margin-left: auto; display: inline-flex; border: 1px solid var(--line);
+    border-radius: 999px; overflow: hidden; background: var(--card);
+  }
+  .toggle button {
+    appearance: none; border: 0; background: none; cursor: pointer;
+    font: 600 var(--fs-small)/1 inherit; color: var(--muted);
+    padding: 9px 16px;
+  }
+  .toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  /* ---------- app frame ---------- */
+  .app {
+    border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    background: var(--ground);
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--card);
+  }
+  .topbar h2 { margin: 0; font-size: var(--fs-lg); font-weight: 800; letter-spacing: -0.015em; }
+  .topbar .sub { color: var(--muted); font-size: var(--fs-small); }
+  .saved { color: var(--good); font-weight: 600; font-size: var(--fs-small); }
+  .topbar .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .btn-ghost {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+    border-radius: 8px; padding: 7px 12px; font: 600 var(--fs-small)/1 inherit; cursor: pointer;
+  }
+
+  .split { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(560px, 1.05fr); }
+  @media (max-width: 1080px) { .split { grid-template-columns: 1fr; } }
+
+  .left { padding: 18px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .right {
+    background: var(--sunk); border-left: 1px solid var(--line);
+    padding: 18px; min-width: 0;
+  }
+  @media (max-width: 1080px) { .right { border-left: 0; border-top: 1px solid var(--line); } }
+
+  /* ---------- verdict ---------- */
+  .verdict {
+    display: flex; gap: 12px; align-items: flex-start;
+    border: 1px solid var(--crit-line); background: var(--crit-soft);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .verdict .icon {
+    flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid;
+    place-items: center; background: var(--crit); color: #fff;
+    font-weight: 800; font-size: var(--fs-small);
+  }
+  .verdict h3 { margin: 0 0 2px; font-size: var(--fs-lg); font-weight: 800; color: var(--crit); letter-spacing: -0.01em; }
+  .verdict p { margin: 0; font-size: var(--fs-small); color: var(--ink-2); }
+
+  /* ---------- scores ---------- */
+  .scores { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .scores { grid-template-columns: 1fr; } }
+  .tile {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--card); padding: 13px 15px;
+  }
+  .eyebrow {
+    display: flex; align-items: center; gap: 6px;
+    font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 999px; flex: none; }
+  .figure {
+    font-size: var(--fs-display); font-weight: 800; letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums; line-height: 1.1; margin-top: 6px;
+  }
+  .figure small { font-size: var(--fs-body); font-weight: 600; color: var(--muted); letter-spacing: 0; }
+  .meterwrap { margin-top: 10px; }
+  .meter {
+    position: relative; height: 7px; border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 20%, transparent); overflow: hidden;
+  }
+  .meter i { display: block; height: 100%; border-radius: 999px; background: var(--good); }
+  .threshold {
+    position: absolute; top: -3px; bottom: -3px; width: 2px;
+    background: var(--ink); opacity: .45;
+  }
+  .meterlabel {
+    display: flex; justify-content: space-between; gap: 8px;
+    font-size: var(--fs-micro); color: var(--muted); margin-top: 5px;
+  }
+  .stale {
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+    font-size: var(--fs-micro); font-weight: 700; color: var(--warn);
+    background: var(--warn-soft); border: 1px solid var(--warn-line);
+    border-radius: 999px; padding: 3px 9px;
+  }
+  .recheck {
+    margin-top: 9px; display: block; border: 1px solid var(--line); background: none;
+    color: var(--accent); border-radius: 8px; padding: 6px 11px;
+    font: 600 var(--fs-small)/1 inherit; cursor: pointer;
+  }
+
+  /* ---------- chips ---------- */
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+    border-radius: 999px; padding: 6px 12px;
+    font: 600 var(--fs-small)/1 inherit; cursor: pointer;
+  }
+  .chip .n { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 700; }
+  .chip[data-tone="crit"] { border-color: var(--crit-line); background: var(--crit-soft); color: var(--crit); }
+  .chip[data-tone="crit"] .n { color: var(--crit); }
+  .chip[data-tone="warn"] { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+  .chip[data-tone="warn"] .n { color: var(--warn); }
+  .chip[data-tone="good"] { border-color: var(--good-line); background: var(--good-soft); color: var(--good); }
+  .chip[data-tone="good"] .n { color: var(--good); }
+  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- queue ---------- */
+  .queue { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); overflow: hidden; }
+  .qhead {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 15px; border-bottom: 1px solid var(--line-soft);
+  }
+  .qhead .t { font-weight: 800; font-size: var(--fs-body); letter-spacing: -0.01em; }
+  .qhead .c { color: var(--muted); font-weight: 500; }
+  .btn-primary {
+    margin-left: auto; border: 0; border-radius: 8px; background: var(--accent); color: #fff;
+    padding: 9px 15px; font: 700 var(--fs-small)/1 inherit; cursor: pointer;
+  }
+  .btn-primary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .group { border-top: 1px solid var(--line-soft); }
+  .group:first-of-type { border-top: 0; }
+  .glabel {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 15px 6px;
+    font-size: var(--fs-micro); font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
+  }
+  .glabel[data-tone="crit"] { color: var(--crit); }
+  .glabel[data-tone="warn"] { color: var(--warn); }
+  .glabel[data-tone="good"] { color: var(--good); }
+  .glabel .rule { flex: 1; height: 1px; background: currentColor; opacity: .22; }
+
+  .row {
+    display: grid; grid-template-columns: 3px 1fr auto; gap: 0 12px;
+    align-items: center; padding: 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .row:last-child { border-bottom: 0; }
+  .stripe { align-self: stretch; }
+  .row[data-tone="crit"] .stripe { background: var(--crit); }
+  .row[data-tone="warn"] .stripe { background: var(--warn); }
+  .row[data-tone="good"] .stripe { background: var(--good); opacity: .55; }
+  .rowbody { padding: 11px 0 11px 12px; min-width: 0; }
+  .rowtitle { font-weight: 650; font-size: var(--fs-body); letter-spacing: -0.005em; }
+  .rowmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 5px; }
+  .verdictchip {
+    font-size: var(--fs-micro); font-weight: 700; border-radius: 5px; padding: 2px 7px;
+    border: 1px solid transparent;
+  }
+  .verdictchip[data-tone="crit"] { color: var(--crit); background: var(--crit-soft); border-color: var(--crit-line); }
+  .verdictchip[data-tone="warn"] { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
+  .verdictchip[data-tone="good"] { color: var(--good); background: var(--good-soft); border-color: var(--good-line); }
+  .why {
+    border: 0; background: none; color: var(--muted); font: 500 var(--fs-caption)/1 inherit;
+    cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px;
+  }
+  .detail {
+    font-size: var(--fs-small); color: var(--ink-2); margin-top: 7px;
+    max-width: 62ch; line-height: 1.5;
+  }
+  .rowact { padding-right: 15px; }
+  .fix {
+    border: 1px solid var(--line); background: var(--card); color: var(--accent);
+    border-radius: 8px; padding: 7px 13px; font: 700 var(--fs-small)/1 inherit; cursor: pointer;
+    white-space: nowrap;
+  }
+  .fix:focus-visible, .why:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .done { color: var(--muted); font-size: var(--fs-small); font-weight: 600; white-space: nowrap; }
+
+  .more {
+    display: block; width: 100%; border: 0; border-top: 1px solid var(--line-soft);
+    background: none; color: var(--accent); padding: 11px;
+    font: 700 var(--fs-small)/1 inherit; cursor: pointer;
+  }
+
+  /* ---------- resume pane ---------- */
+  .pane-head {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .pane-head .t { font-size: var(--fs-micro); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .pane-head .sp { margin-left: auto; display: flex; gap: 6px; }
+  .mini { border: 1px solid var(--line); background: var(--card); color: var(--ink-2); border-radius: 7px; padding: 5px 9px; font: 600 var(--fs-caption)/1 inherit; cursor: pointer; }
+  .mini[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .dl { border: 0; background: var(--accent); color: #fff; border-radius: 7px; padding: 6px 12px; font: 700 var(--fs-caption)/1 inherit; cursor: pointer; }
+
+  .paper {
+    background: var(--paper); color: var(--paper-ink);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 34px 38px; box-shadow: 0 1px 3px rgba(0,0,0,.10);
+    font-size: 13px; line-height: 1.5;
+  }
+  .paper h4 { margin: 0; font-size: 21px; letter-spacing: -0.02em; }
+  .paper .contact { color: #555; font-size: 11.5px; margin-top: 4px; }
+  .paper .sec {
+    margin: 18px 0 7px; font-size: 11px; font-weight: 800; letter-spacing: .10em;
+    text-transform: uppercase; border-bottom: 1.5px solid #d8d8d4; padding-bottom: 3px;
+  }
+  .paper p { margin: 0 0 7px; }
+  .paper .job { display: flex; justify-content: space-between; gap: 10px; font-weight: 700; margin-top: 9px; }
+  .paper .job span { font-weight: 500; color: #666; font-size: 11.5px; white-space: nowrap; }
+  .paper ul { margin: 5px 0 0; padding-left: 17px; }
+  .paper li { margin-bottom: 4px; }
+  mark.hl { background: rgba(47,129,247,.18); border-radius: 2px; padding: 0 1px; }
+  mark.added { background: rgba(6,118,71,.16); border-radius: 2px; padding: 0 1px; box-shadow: inset 0 -1px 0 rgba(6,118,71,.45); }
+
+  /* ---------- annotations ---------- */
+  .notes { margin-top: 26px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .note {
+    border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 10px; background: var(--card); padding: 13px 15px;
+  }
+  .note h4 { margin: 0 0 5px; font-size: var(--fs-small); font-weight: 800; letter-spacing: -0.005em; }
+  .note p { margin: 0; font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; }
+
+  /* ---------- before/after ---------- */
+  .before-only { display: none; }
+  body[data-view="before"] .after-only { display: none; }
+  body[data-view="before"] .before-only { display: revert; }
+  body[data-view="before"] .before-only.flexrow { display: flex; }
+
+  /* ---------- inline fix expansion (v3) ---------- */
+  .row[data-open="true"] { background: var(--accent-soft); }
+  .row[data-open="true"] .stripe { background: var(--accent); }
+  .fixpanel {
+    grid-column: 2 / -1; padding: 0 15px 14px 12px;
+  }
+  .fp-lbl {
+    display: flex; align-items: center; gap: 7px; margin: 2px 0 8px;
+    font-size: var(--fs-micro); font-weight: 800; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .fp-lbl .k {
+    width: 15px; height: 15px; border-radius: 4px; background: var(--accent); color: #fff;
+    display: grid; place-items: center; font-size: 9px; flex: none;
+  }
+  .forks { display: flex; gap: 7px; flex-wrap: wrap; }
+  .fork {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    border-radius: 8px; padding: 7px 12px; font: 650 var(--fs-small)/1 inherit; cursor: pointer;
+  }
+  .fork[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .fork.ghost { border-style: dashed; color: var(--muted); }
+  .fork:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .claim {
+    margin: 9px 0 0; padding: 11px 13px; border-left: 3px solid var(--good);
+    border-radius: 0 8px 8px 0; background: var(--good-soft);
+    font-size: var(--fs-small); line-height: 1.55;
+  }
+  .claim b { font-weight: 700; }
+  .claim .src { display: block; margin-top: 6px; font-size: var(--fs-micro); color: var(--muted); font-weight: 600; }
+  .go { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .go .cost { font-size: var(--fs-micro); color: var(--muted); }
+  .btn-go { border: 0; border-radius: 8px; background: var(--accent); color: #fff; padding: 8px 14px; font: 700 var(--fs-small)/1 inherit; cursor: pointer; }
+  .btn-alt { border: 1px solid var(--line); background: var(--card); color: var(--ink-2); border-radius: 8px; padding: 8px 13px; font: 650 var(--fs-small)/1 inherit; cursor: pointer; }
+  .editbox[hidden] { display: none; }
+  .field { margin-top: 9px; }
+  .field label { display: block; font-size: var(--fs-caption); font-weight: 700; color: var(--ink-2); margin-bottom: 4px; }
+  .field .opt { color: var(--muted); font-weight: 500; }
+  .ctl { width: 100%; border: 1px solid var(--line); background: var(--ground); color: var(--ink); border-radius: 8px; padding: 8px 10px; font: 400 var(--fs-small)/1.45 inherit; resize: vertical; }
+  .ctl:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+
+  .diff { margin-top: 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); overflow: hidden; }
+  .diff .hd { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; padding: 8px 11px; border-bottom: 1px solid var(--line-soft); }
+  .diff .hd .t { font-size: var(--fs-micro); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .diff .hd .cov { margin-left: auto; font-size: var(--fs-caption); font-weight: 700; color: var(--good); font-variant-numeric: tabular-nums; }
+  .drow { display: grid; grid-template-columns: 48px 1fr; gap: 10px; padding: 9px 11px; font-size: var(--fs-small); line-height: 1.5; }
+  .drow + .drow { border-top: 1px solid var(--line-soft); }
+  .drow .dl { font-size: var(--fs-micro); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }
+  .drow.aft { background: var(--good-soft); }
+  ins { background: color-mix(in srgb, var(--good) 22%, transparent); text-decoration: none; border-radius: 3px; padding: 0 2px; box-shadow: inset 0 -1px 0 var(--good); }
+  .applybar { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; padding: 9px 11px; border-top: 1px solid var(--line-soft); }
+  .sc { display: flex; align-items: baseline; gap: 6px; font-weight: 800; font-variant-numeric: tabular-nums; font-size: var(--fs-body); }
+  .sc .to { color: var(--good); }
+  .sc .src2 { font-size: var(--fs-micro); font-weight: 600; color: var(--muted); }
+  .applybar .sp { margin-left: auto; display: flex; gap: 7px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .row, .chip, .tile { transition: background-color .15s ease, border-color .15s ease; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="chrome">
+    <div>
+      <h1>Tailor results &mdash; mockup v3</h1>
+      <div class="note">The clean list stays. The confirm flow opens <b>inside a row</b>, only when you press Fix this. No wizard, no forced order.</div>
+    </div>
+    <div class="toggle" role="group" aria-label="Compare designs">
+      <button type="button" id="b-before" aria-pressed="false">Current</button>
+      <button type="button" id="b-after" aria-pressed="true">Proposed</button>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="topbar">
+      <div>
+        <h2>Your tailored r&eacute;sum&eacute;</h2>
+        <div class="sub">Senior Software Engineer, Full Stack &middot; Google &nbsp;<span class="saved">&#9679; Saved</span></div>
+      </div>
+      <div class="right">
+        <button class="btn-ghost" type="button">Try a different JD</button>
+        <button class="btn-ghost" type="button">Start over</button>
+      </div>
+    </div>
+
+    <div class="split">
+      <!-- ============ LEFT ============ -->
+      <div class="left">
+
+        <!-- PROPOSED: verdict line -->
+        <div class="verdict after-only">
+          <div class="icon" aria-hidden="true">!</div>
+          <div>
+            <h3>3 gaps could get you filtered out</h3>
+            <p>These are hard requirements in the posting your r&eacute;sum&eacute; does not evidence yet. Four smaller items can wait.</p>
+          </div>
+        </div>
+
+        <div class="scores">
+          <div class="tile">
+            <div class="eyebrow"><span class="dot" style="background:var(--good)"></span>ATS match &middot; live</div>
+            <div class="figure">95%<small> &middot; 41 of 43 keywords</small></div>
+
+            <!-- PROPOSED: meter with a target marker -->
+            <div class="meterwrap after-only">
+              <div class="meter">
+                <i style="width:95%"></i>
+                <span class="threshold" style="left:75%" title="Typical shortlist threshold"></span>
+              </div>
+              <div class="meterlabel"><span>Recounted free on every change</span><span>Target 75%</span></div>
+            </div>
+
+            <div class="before-only" style="font-size:var(--fs-caption);color:var(--muted);margin-top:4px">
+              Recounted the moment you add a change. Free.
+            </div>
+          </div>
+
+          <div class="tile">
+            <div class="eyebrow"><span class="dot" style="background:var(--accent)"></span>Quality grade</div>
+            <div class="figure">85<small> / 100</small></div>
+            <div class="before-only" style="font-size:var(--fs-caption);color:var(--muted);margin-top:4px">
+              Graded by AI.
+            </div>
+            <div class="after-only">
+              <span class="stale">Graded 2:41 PM &middot; before your edits</span>
+              <button class="recheck" type="button">Re-check &middot; uses 1 scan</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <button class="chip" type="button" aria-pressed="true">All <span class="n">7</span></button>
+          <button class="chip" type="button" data-tone="good">Title <span class="n">100%</span></button>
+          <button class="chip" type="button" data-tone="crit">Qualifications <span class="n">6/10</span></button>
+          <button class="chip" type="button" data-tone="warn">Responsibilities <span class="n">5/6</span></button>
+          <button class="chip" type="button" data-tone="good">Keywords <span class="n">41/43</span></button>
+        </div>
+
+        <div class="queue">
+          <div class="qhead">
+            <span class="t">Missing from your r&eacute;sum&eacute;</span>
+            <span class="c">&middot; 7 to review</span>
+            <button class="btn-primary" type="button">Fix everything</button>
+          </div>
+
+          <!-- ===== PROPOSED: triaged groups ===== -->
+          <div class="group after-only">
+            <div class="glabel" data-tone="crit">Could get you filtered out &middot; 4 <span class="rule"></span></div>
+
+            <div class="row" data-tone="crit" data-open="true">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">Lead design reviews and guide technical decisions</div>
+                <div class="rowmeta">
+                  <span class="verdictchip" data-tone="warn">Partial match</span>
+                  <button class="why" type="button">Why this matters</button>
+                </div>
+                <div class="detail">Your r&eacute;sum&eacute; shows delivery ownership, but not the review or decision-making context the posting asks for.</div>
+              </div>
+              <div class="rowact"><button class="fix" type="button">Close</button></div>
+
+              <div class="fixpanel">
+                <div class="fp-lbl"><span class="k" aria-hidden="true">1</span>Do you actually have this?</div>
+                <div class="forks">
+                  <button class="fork" type="button" aria-pressed="true">I have this experience</button>
+                  <button class="fork" type="button" aria-pressed="false">Find transferable evidence</button>
+                  <button class="fork ghost" type="button">Skip for now</button>
+                </div>
+
+                <div class="fp-lbl" style="margin-top:14px"><span class="k" aria-hidden="true">2</span>Check this is true</div>
+                <blockquote class="claim">
+                  At <b>Ecclon LLC</b>, you <b>led weekly design reviews, compared API options, and documented the approach the team picked</b>.
+                  <span class="src">Read from your existing bullet. Nothing here was invented, and only this gets used.</span>
+                </blockquote>
+                <div class="go">
+                  <button class="btn-go" type="button">Yes, write the fix</button>
+                  <button class="btn-alt" type="button" data-edit>Not quite &mdash; let me edit</button>
+                  <span class="cost">about 3s &middot; no re-scan</span>
+                </div>
+                <div class="editbox" hidden>
+                  <div class="field">
+                    <label for="v3a">Where did you do this?</label>
+                    <select class="ctl" id="v3a">
+                      <option>Ecclon LLC &middot; Senior Fullstack Developer</option>
+                      <option>UMBC &middot; Research Assistant</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="v3b">What did you do?</label>
+                    <textarea class="ctl" id="v3b" rows="2">Led weekly design reviews, compared API options, and documented the approach we picked.</textarea>
+                  </div>
+                  <div class="field">
+                    <label for="v3c">What changed? <span class="opt">&mdash; optional, a number lands harder</span></label>
+                    <textarea class="ctl" id="v3c" rows="2" placeholder="e.g. shipped two weeks earlier"></textarea>
+                  </div>
+                </div>
+
+                <div class="fp-lbl" style="margin-top:14px"><span class="k" aria-hidden="true">3</span>Review before it goes in</div>
+                <div class="diff">
+                  <div class="hd">
+                    <span class="t">Experience &middot; bullet 1</span>
+                    <span class="cov">Responsibilities 5/6 &rarr; 6/6</span>
+                  </div>
+                  <div class="drow">
+                    <div class="dl">Before</div>
+                    <div>Partnered with product and design to lead features from discovery through production delivery.</div>
+                  </div>
+                  <div class="drow aft">
+                    <div class="dl">After</div>
+                    <div>Led weekly design reviews with product and engineering, <ins>evaluating API trade-offs and documenting the architecture decisions</ins>, helping the team ship two weeks earlier with less QA rework.</div>
+                  </div>
+                  <div class="applybar">
+                    <span class="sc">78% <span aria-hidden="true">&rarr;</span> <span class="to">83%</span>
+                      <span class="src2">keyword recount &middot; free, not an estimate</span></span>
+                    <span class="sp">
+                      <button class="btn-alt" type="button">Edit wording</button>
+                      <button class="btn-go" type="button">Apply this fix</button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row" data-tone="crit">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">5 years of experience with data structures and algorithms</div>
+                <div class="rowmeta">
+                  <span class="verdictchip" data-tone="crit">Not evidenced</span>
+                  <button class="why" type="button">Why this matters</button>
+                </div>
+              </div>
+              <div class="rowact"><button class="fix" type="button">Fix this</button></div>
+            </div>
+
+            <div class="row" data-tone="crit">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">Experience developing accessible technologies</div>
+                <div class="rowmeta">
+                  <span class="verdictchip" data-tone="crit">Not evidenced</span>
+                  <button class="why" type="button">Why this matters</button>
+                </div>
+              </div>
+              <div class="rowact"><button class="fix" type="button">Fix this</button></div>
+            </div>
+
+            <div class="row" data-tone="crit">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">Experience with distributed systems at scale</div>
+                <div class="rowmeta">
+                  <span class="verdictchip" data-tone="crit">Not evidenced</span>
+                  <button class="why" type="button">Why this matters</button>
+                </div>
+              </div>
+              <div class="rowact"><button class="fix" type="button">Fix this</button></div>
+            </div>
+          </div>
+
+          <div class="group after-only">
+            <div class="glabel" data-tone="warn">Worth adding &middot; 2 <span class="rule"></span></div>
+
+            <div class="row" data-tone="warn">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">Kubernetes</div>
+                <div class="rowmeta">
+                  <span class="verdictchip" data-tone="warn">Keyword &middot; fits an existing bullet</span>
+                </div>
+              </div>
+              <div class="rowact"><button class="fix" type="button">Add</button></div>
+            </div>
+
+            <div class="row" data-tone="warn">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">gRPC</div>
+                <div class="rowmeta">
+                  <span class="verdictchip" data-tone="warn">Keyword &middot; fits an existing bullet</span>
+                </div>
+              </div>
+              <div class="rowact"><button class="fix" type="button">Add</button></div>
+            </div>
+          </div>
+
+          <div class="group after-only">
+            <div class="glabel" data-tone="good">Already covered &middot; 2 <span class="rule"></span></div>
+
+            <div class="row" data-tone="good">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">Master&rsquo;s degree or PhD in Computer Science</div>
+                <div class="rowmeta">
+                  <span class="verdictchip" data-tone="good">You have this</span>
+                  <button class="why" type="button">Show the evidence</button>
+                </div>
+                <div class="detail">MS Computer Science, University of Maryland, Baltimore County.</div>
+              </div>
+              <div class="rowact"><span class="done">No action</span></div>
+            </div>
+
+            <div class="row" data-tone="good">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">Proficiency in Python</div>
+                <div class="rowmeta">
+                  <span class="verdictchip" data-tone="good">You have this</span>
+                  <button class="why" type="button">Show the evidence</button>
+                </div>
+              </div>
+              <div class="rowact"><span class="done">No action</span></div>
+            </div>
+          </div>
+
+          <!-- ===== CURRENT: flat list, long prose ===== -->
+          <div class="before-only">
+            <div class="row" data-tone="crit" style="align-items:start">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">Master&rsquo;s degree or PhD in Computer Science or related technical field.</div>
+                <div class="detail">You have a Master of Science in Computer Science from the University of Maryland, Baltimore County, which is a strong related technical field. You are also pursuing a Master of Science in AI and Data Science.</div>
+              </div>
+              <div class="rowact"><button class="fix" type="button">Fix</button></div>
+            </div>
+            <div class="row" data-tone="crit" style="align-items:start">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">Experience developing accessible technologies.</div>
+                <div class="detail">This is not explicitly mentioned in your resume. You could highlight any projects or features where accessibility was a consideration, or mention your understanding of accessibility principles in your cover letter or during an interview.</div>
+              </div>
+              <div class="rowact"><button class="fix" type="button">Fix</button></div>
+            </div>
+            <div class="row" data-tone="crit" style="align-items:start">
+              <div class="stripe"></div>
+              <div class="rowbody">
+                <div class="rowtitle">5 years of experience with data structures/algorithms.</div>
+                <div class="detail">While your Master&rsquo;s in Computer Science and AI/Data Science degrees imply a strong foundation in data structures and algorithms, you haven&rsquo;t explicitly quantified 5 years of experience in this area. You can emphasize your coursework and projects that heavily utilized these concepts, such as designing complex data schemas or building efficient LLM workflows.</div>
+              </div>
+              <div class="rowact"><button class="fix" type="button">Fix</button></div>
+            </div>
+          </div>
+
+          <button class="more" type="button">Show all 7</button>
+        </div>
+      </div>
+
+      <!-- ============ RIGHT ============ -->
+      <div class="right">
+        <div class="pane-head">
+          <span class="t">Your r&eacute;sum&eacute;</span>
+          <span class="sp">
+            <button class="mini" type="button">A</button>
+            <button class="mini" type="button" aria-pressed="true">A</button>
+            <button class="mini" type="button">A</button>
+            <button class="mini" type="button">2 pages</button>
+            <button class="dl" type="button">Download PDF</button>
+          </span>
+        </div>
+
+        <div class="paper">
+          <h4>Parth Bhodia</h4>
+          <div class="contact">parthbhodia11@gmail.com &middot; (443) 929-4371 &middot; linkedin.com/in/parthbhodia &middot; Jersey City, NJ</div>
+
+          <div class="sec">Summary</div>
+          <p>Senior Fullstack Developer with 7+ years building <mark class="hl">scalable web applications</mark> and <mark class="hl">autonomous LLM-driven systems</mark>. Expert in <mark class="hl">multi-step agent workflows</mark> (LangGraph), <mark class="hl">tool-using AI systems</mark>, and <mark class="hl">high-performance backends</mark> (Python, FastAPI, PostgreSQL).</p>
+
+          <div class="sec">Experience</div>
+          <div class="job">Senior Fullstack Developer <span>Jun 2022 &ndash; Present</span></div>
+          <ul>
+            <li>Rebuilt the checkout flow in React, cutting cart abandonment 34% and adding $2.1M in annualised revenue across 40,000 monthly users.</li>
+            <li>Designed <mark class="hl">distributed systems</mark> handling 4TB of daily throughput<mark class="added"> on Kubernetes</mark>, with full observability.</li>
+            <li>Shipped production LLM applications including SOCOM-approved security analysis.</li>
+          </ul>
+
+          <div class="job">Software Developer <span>Jul 2018 &ndash; May 2021</span></div>
+          <ul>
+            <li>Automated CI/CD pipelines with <mark class="hl">Terraform</mark> and AWS, cutting deploy time from 45 to 6 minutes.</li>
+            <li>Owned outcomes from discovery through deployment for three internal platforms.</li>
+          </ul>
+
+          <div class="sec">Education</div>
+          <div class="job">MS, Computer Science <span>Aug 2021 &ndash; May 2023</span></div>
+          <p style="color:#555;font-size:11.5px">University of Maryland, Baltimore County</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h4>The list is the resting state</h4>
+      <p>Everything stays visible and scannable, and you can fix items in any order. The guided flow is a state of one row, not a mode the whole page enters, so the overview is never taken away from you.</p>
+    </div>
+    <div class="note">
+      <h4>Zero typing on the default path</h4>
+      <p>The facts are read out of your r&eacute;sum&eacute; and shown as one sentence to agree with. Yes, write the fix is a click. Fields appear only if you say it is wrong, and then only one is required.</p>
+    </div>
+    <div class="note">
+      <h4>Severity in form, not only colour</h4>
+      <p>Each row carries a left stripe plus a verdict chip, so state survives colour-blindness and a greyscale print. Red and amber mean severity; blue stays reserved for actions.</p>
+    </div>
+    <div class="note">
+      <h4>Analysis text collapses to a verdict</h4>
+      <p>The 40-word explanation becomes a two-word chip with the prose behind &ldquo;Why this matters&rdquo;. Rows drop from about five lines to one, so seven items fit on screen at once.</p>
+    </div>
+    <div class="note">
+      <h4>The two scores stay separate</h4>
+      <p>Per the existing invariant they are never blended. ATS match gets a meter with the shortlist threshold marked; the quality grade is explicitly stamped as dated once you edit.</p>
+    </div>
+    <div class="note">
+      <h4>Covered items become reassurance</h4>
+      <p>Requirements you already meet move into their own green group with the evidence quoted, rather than sitting in &ldquo;missing&rdquo; and inflating the count you are judged on.</p>
+    </div>
+    <div class="note">
+      <h4>The r&eacute;sum&eacute; gets real width</h4>
+      <p>Two tracks, no reserved empty column, and a toolbar that wraps instead of clipping. Applied edits highlight green on the page so a change is visible where it landed.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var body = document.body;
+    var before = document.getElementById("b-before");
+    var after = document.getElementById("b-after");
+    function set(view) {
+      body.setAttribute("data-view", view);
+      before.setAttribute("aria-pressed", String(view === "before"));
+      after.setAttribute("aria-pressed", String(view === "after"));
+    }
+    before.addEventListener("click", function () { set("before"); });
+    after.addEventListener("click", function () { set("after"); });
+    set("after");
+
+    Array.prototype.forEach.call(document.querySelectorAll(".why"), function (b) {
+      b.addEventListener("click", function () {
+        var d = b.closest(".rowbody").querySelector(".detail");
+        if (!d) return;
+        var hidden = d.style.display === "none" || getComputedStyle(d).display === "none";
+        d.style.display = hidden ? "block" : "none";
+        b.textContent = hidden ? "Hide" : (b.dataset.label || "Why this matters");
+      });
+      b.dataset.label = b.textContent;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".detail"), function (d) {
+      if (d.closest(".before-only")) return;
+      if (d.closest('[data-open="true"]')) return;
+      d.style.display = "none";
+    });
+
+    // Inline fix expansion: any row's Fix this opens the panel in place.
+    Array.prototype.forEach.call(document.querySelectorAll("[data-edit]"), function (b) {
+      b.addEventListener("click", function () {
+        var box = b.closest(".fixpanel").querySelector(".editbox");
+        var open = !box.hasAttribute("hidden");
+        if (open) { box.setAttribute("hidden", ""); b.textContent = "Not quite — let me edit"; }
+        else { box.removeAttribute("hidden"); b.textContent = "Hide the details"; }
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".forks"), function (row) {
+      Array.prototype.forEach.call(row.querySelectorAll(".fork:not(.ghost)"), function (f) {
+        f.addEventListener("click", function () {
+          Array.prototype.forEach.call(row.querySelectorAll(".fork:not(.ghost)"), function (o) {
+            o.setAttribute("aria-pressed", String(o === f));
+          });
+        });
+      });
+    });
+  })();
+</script>
+</body>
+</html>

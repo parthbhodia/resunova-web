@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Resunova · Tailor design mockups</title>
+<style>
+  :root{
+    --bg:#f5f7f9; --card:#fff; --line:#dee3e9; --ink:#11151b; --ink-2:#3d4653; --muted:#69747f;
+    --accent:#2f81f7; --good:#067647; --warn:#b54708;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#0c0f14;--card:#191f27;--line:#2b333e;--ink:#e8eef6;--ink-2:#b3bec9;--muted:#8794a2;
+          --accent:#4d94ff;--good:#3fb950;--warn:#e3a008;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:400 15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:880px;margin:0 auto;padding:48px 22px 72px}
+  h1{margin:0;font-size:27px;font-weight:750;letter-spacing:-.022em}
+  .lede{color:var(--ink-2);margin:10px 0 0;max-width:62ch}
+  .note{margin:16px 0 0;padding:11px 14px;border-left:3px solid var(--warn);border-radius:0 8px 8px 0;
+        background:color-mix(in srgb,var(--warn) 9%,transparent);font-size:13.5px;color:var(--ink-2)}
+  ul{list-style:none;padding:0;margin:30px 0 0;display:grid;gap:12px}
+  a.card{display:block;border:1px solid var(--line);border-radius:12px;background:var(--card);
+         padding:16px 18px;text-decoration:none;color:inherit}
+  a.card:hover{border-color:var(--accent)}
+  a.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .tag{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+       border-radius:999px;padding:2px 9px;margin-bottom:7px}
+  .t-cur{color:var(--good);background:color-mix(in srgb,var(--good) 13%,transparent)}
+  .t-alt{color:var(--muted);background:color-mix(in srgb,var(--muted) 15%,transparent)}
+  h2{margin:0;font-size:16.5px;font-weight:700;letter-spacing:-.01em}
+  p{margin:5px 0 0;color:var(--ink-2);font-size:13.5px}
+  footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tailor results &mdash; design mockups</h1>
+  <p class="lede">Three directions for the Tailor results surface, built against the live component tokens so
+    they drop into the codebase rather than needing a re-skin. Each supports light and dark.</p>
+
+  <div class="note">
+    Internal design mockups. Static and non-functional &mdash; buttons do not call the API, and the r&eacute;sum&eacute;
+    content is sample data.
+  </div>
+
+  <ul>
+    <li>
+      <a class="card" href="./tailor-v3.html">
+        <span class="tag t-cur">Current direction</span>
+        <h2>v3 &mdash; list with an inline confirm flow</h2>
+        <p>The triaged list stays as the resting state; the zero-typing fact confirmation expands inside a
+          single row when you press Fix this. No wizard, no forced order.</p>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="./tailor-v1.html">
+        <span class="tag t-alt">Earlier</span>
+        <h2>v1 &mdash; triaged list</h2>
+        <p>Blockers, worth adding, and already covered as three groups, with severity stripes and the analysis
+          prose collapsed. Includes a Current/Proposed toggle.</p>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="./tailor-v2.html">
+        <span class="tag t-alt">Earlier</span>
+        <h2>v2 &mdash; guided wizard</h2>
+        <p>One priority at a time with a progress spine. Rejected: the sequencing bought ordering but took away
+          the whole-picture view.</p>
+      </a>
+    </li>
+  </ul>
+
+  <footer>Resunova &middot; not linked from the app, and excluded from search indexing.</footer>
+</div>
+</body>
+</html>

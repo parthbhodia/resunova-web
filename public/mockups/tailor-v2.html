@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tailor results — mockup v2</title>
+<style>
+  :root {
+    --ground:#ffffff; --sunk:#f5f7f9; --card:#ffffff; --raise:#fbfcfd;
+    --line:#dee3e9; --line-soft:#eaeef2;
+    --ink:#11151b; --ink-2:#3d4653; --muted:#69747f;
+
+    --accent:#2f81f7; --accent-soft:rgba(47,129,247,.10); --accent-line:rgba(47,129,247,.34);
+    --crit:#d92d20; --crit-soft:#fef3f2; --crit-line:rgba(217,45,32,.26);
+    --warn:#b54708; --warn-soft:#fffaeb; --warn-line:rgba(181,71,8,.24);
+    --good:#067647; --good-soft:#ecfdf3; --good-line:rgba(6,118,71,.22);
+
+    --paper:#ffffff; --paper-ink:#1c1c1c; --paper-line:#dcdcd8; --paper-dim:#a9a9a4;
+
+    --fs-micro:11px; --fs-cap:12px; --fs-sm:13px; --fs-md:14px; --fs-lg:16px; --fs-xl:19px; --fs-num:28px;
+    --r:11px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:#12161c; --sunk:#0c0f14; --card:#191f27; --raise:#1e252e;
+      --line:#2b333e; --line-soft:#232a33;
+      --ink:#e8eef6; --ink-2:#b3bec9; --muted:#8794a2;
+      --accent:#4d94ff; --accent-soft:rgba(77,148,255,.14); --accent-line:rgba(77,148,255,.40);
+      --crit:#ff7b72; --crit-soft:rgba(255,123,114,.10); --crit-line:rgba(255,123,114,.30);
+      --warn:#e3a008; --warn-soft:rgba(227,160,8,.10); --warn-line:rgba(227,160,8,.28);
+      --good:#3fb950; --good-soft:rgba(63,185,80,.10); --good-line:rgba(63,185,80,.26);
+      --paper:#161b22; --paper-ink:#e8eef6; --paper-line:#2b333e; --paper-dim:#6c7885;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#12161c; --sunk:#0c0f14; --card:#191f27; --raise:#1e252e;
+    --line:#2b333e; --line-soft:#232a33;
+    --ink:#e8eef6; --ink-2:#b3bec9; --muted:#8794a2;
+    --accent:#4d94ff; --accent-soft:rgba(77,148,255,.14); --accent-line:rgba(77,148,255,.40);
+    --crit:#ff7b72; --crit-soft:rgba(255,123,114,.10); --crit-line:rgba(255,123,114,.30);
+    --warn:#e3a008; --warn-soft:rgba(227,160,8,.10); --warn-line:rgba(227,160,8,.28);
+    --good:#3fb950; --good-soft:rgba(63,185,80,.10); --good-line:rgba(63,185,80,.26);
+    --paper:#161b22; --paper-ink:#e8eef6; --paper-line:#2b333e; --paper-dim:#6c7885;
+  }
+  :root[data-theme="light"]{
+    --ground:#ffffff; --sunk:#f5f7f9; --card:#ffffff; --raise:#fbfcfd;
+    --line:#dee3e9; --line-soft:#eaeef2;
+    --ink:#11151b; --ink-2:#3d4653; --muted:#69747f;
+    --accent:#2f81f7; --accent-soft:rgba(47,129,247,.10); --accent-line:rgba(47,129,247,.34);
+    --crit:#d92d20; --crit-soft:#fef3f2; --crit-line:rgba(217,45,32,.26);
+    --warn:#b54708; --warn-soft:#fffaeb; --warn-line:rgba(181,71,8,.24);
+    --good:#067647; --good-soft:#ecfdf3; --good-line:rgba(6,118,71,.22);
+    --paper:#ffffff; --paper-ink:#1c1c1c; --paper-line:#dcdcd8; --paper-dim:#a9a9a4;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--sunk); color:var(--ink);
+    font:400 var(--fs-md)/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1460px;margin:0 auto;padding:20px 20px 60px}
+
+  .chrome{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-bottom:16px}
+  .chrome h1{margin:0;font-size:var(--fs-lg);font-weight:750;letter-spacing:-.012em}
+  .chrome .n{color:var(--muted);font-size:var(--fs-sm);margin-top:2px}
+  .chrome .n b{color:var(--ink-2);font-weight:650}
+
+  /* ---------- app ---------- */
+  .app{border:1px solid var(--line);border-radius:15px;overflow:hidden;background:var(--ground)}
+  .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:13px 18px;border-bottom:1px solid var(--line);background:var(--card)}
+  .avat{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;font-size:var(--fs-sm);flex:none}
+  .top h2{margin:0;font-size:var(--fs-lg);font-weight:750;letter-spacing:-.014em}
+  .top .sub{color:var(--muted);font-size:var(--fs-sm)}
+  .top .right{margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .kpi{font-size:var(--fs-sm);font-weight:700;font-variant-numeric:tabular-nums}
+  .kpi .lbl{color:var(--muted);font-weight:500}
+  .link{color:var(--muted);font-size:var(--fs-sm);background:none;border:0;cursor:pointer;font-weight:600}
+
+  .split{display:grid;grid-template-columns:minmax(440px,1fr) minmax(540px,1fr)}
+  @media(max-width:1100px){.split{grid-template-columns:1fr}}
+  .left{padding:16px 18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+  .right{background:var(--sunk);border-left:1px solid var(--line);padding:16px 18px;min-width:0}
+  @media(max-width:1100px){.right{border-left:0;border-top:1px solid var(--line)}}
+
+  /* ---------- spine ---------- */
+  .spine{border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:12px 14px}
+  .spine-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .eyebrow{font-size:var(--fs-micro);font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .pips{display:flex;gap:5px;margin-left:auto}
+  .pip{width:26px;height:4px;border-radius:999px;background:color-mix(in srgb,var(--muted) 26%,transparent)}
+  .pip.on{background:var(--accent)}
+  .pip.done{background:var(--good)}
+  .spine h3{margin:5px 0 0;font-size:var(--fs-xl);font-weight:750;letter-spacing:-.018em}
+  .blockers{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);font-size:var(--fs-sm);color:var(--muted)}
+  .blockers b{color:var(--good);font-weight:700}
+  .bdot{width:7px;height:7px;border-radius:999px;background:var(--good);flex:none}
+
+  /* ---------- groups ---------- */
+  .grp{border:1px solid var(--line);border-radius:var(--r);background:var(--card);overflow:hidden}
+  .ghead{display:flex;align-items:center;gap:9px;width:100%;padding:11px 14px;background:none;border:0;cursor:pointer;text-align:left;font:inherit;color:inherit}
+  .ghead:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .gtag{font-size:var(--fs-micro);font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+  .grp[data-tone="crit"] .gtag{color:var(--crit)}
+  .grp[data-tone="warn"] .gtag{color:var(--warn)}
+  .grp[data-tone="good"] .gtag{color:var(--good)}
+  .gcount{font-size:var(--fs-micro);font-weight:800;border-radius:999px;padding:2px 8px;font-variant-numeric:tabular-nums}
+  .grp[data-tone="crit"] .gcount{color:var(--crit);background:var(--crit-soft);border:1px solid var(--crit-line)}
+  .grp[data-tone="warn"] .gcount{color:var(--warn);background:var(--warn-soft);border:1px solid var(--warn-line)}
+  .grp[data-tone="good"] .gcount{color:var(--good);background:var(--good-soft);border:1px solid var(--good-line)}
+  .gsum{color:var(--muted);font-size:var(--fs-sm);margin-left:2px}
+  .chev{margin-left:auto;color:var(--muted);transition:transform .18s ease;font-size:var(--fs-cap)}
+  .grp[data-open="false"] .chev{transform:rotate(-90deg)}
+  .grp[data-open="false"] .gbody{display:none}
+
+  .item{display:grid;grid-template-columns:3px 1fr auto;border-top:1px solid var(--line-soft)}
+  .stripe{align-self:stretch}
+  .grp[data-tone="crit"] .stripe{background:var(--crit)}
+  .grp[data-tone="warn"] .stripe{background:var(--warn)}
+  .grp[data-tone="good"] .stripe{background:var(--good);opacity:.5}
+  .item[data-state="active"]{background:var(--accent-soft)}
+  .item[data-state="active"] .stripe{background:var(--accent)}
+  .ibody{padding:11px 0 11px 12px;min-width:0}
+  .ititle{font-weight:640;font-size:var(--fs-md);letter-spacing:-.004em}
+  .isub{font-size:var(--fs-sm);color:var(--muted);margin-top:3px;max-width:58ch;line-height:1.45}
+  .imeta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:6px}
+  .vchip{font-size:var(--fs-micro);font-weight:700;border-radius:5px;padding:2px 7px;border:1px solid transparent}
+  .vchip[data-t="crit"]{color:var(--crit);background:var(--crit-soft);border-color:var(--crit-line)}
+  .vchip[data-t="warn"]{color:var(--warn);background:var(--warn-soft);border-color:var(--warn-line)}
+  .vchip[data-t="good"]{color:var(--good);background:var(--good-soft);border-color:var(--good-line)}
+  .vchip[data-t="acc"]{color:var(--accent);background:var(--accent-soft);border-color:var(--accent-line)}
+  .iact{padding:11px 14px 11px 10px;display:flex;align-items:flex-start;gap:8px}
+  .queued{font-size:var(--fs-micro);font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;padding-top:3px}
+  .num{width:19px;height:19px;border-radius:999px;display:grid;place-items:center;font-size:10px;font-weight:800;flex:none;margin-top:1px;
+       background:color-mix(in srgb,var(--muted) 22%,transparent);color:var(--muted)}
+  .item[data-state="active"] .num{background:var(--accent);color:#fff}
+  .ihead{display:flex;gap:9px;align-items:flex-start}
+
+  /* ---------- guided flow ---------- */
+  .flow{padding:2px 14px 14px 15px;border-top:1px solid var(--line-soft);background:var(--raise)}
+  .step{padding-top:13px}
+  .steplbl{display:flex;align-items:center;gap:7px;font-size:var(--fs-micro);font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .steplbl .k{width:16px;height:16px;border-radius:4px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:9px;flex:none}
+  .forks{display:flex;gap:8px;flex-wrap:wrap}
+  .fork{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 13px;font:650 var(--fs-sm)/1 inherit;cursor:pointer}
+  .fork[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .fork.ghost{border-style:dashed;color:var(--muted)}
+  .fork:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .facts{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:12px 13px}
+  .facts .hd{font-size:var(--fs-sm);font-weight:700}
+  .facts .hd em{font-style:normal;color:var(--good);font-weight:700}
+  .facts .sub{font-size:var(--fs-cap);color:var(--muted);margin-top:2px}
+  .field{margin-top:11px}
+  .field label{display:block;font-size:var(--fs-cap);font-weight:700;color:var(--ink-2);margin-bottom:4px}
+  .field .opt{color:var(--muted);font-weight:500}
+  .ctl{width:100%;border:1px solid var(--line);background:var(--ground);color:var(--ink);border-radius:8px;padding:8px 10px;font:400 var(--fs-sm)/1.45 inherit;resize:vertical}
+  .ctl:focus-visible{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+  .prefill{font-size:var(--fs-micro);color:var(--good);font-weight:650;margin-top:4px;display:flex;gap:5px;align-items:center}
+  .claim{margin:11px 0 0;padding:11px 13px;border-left:3px solid var(--good);border-radius:0 8px 8px 0;
+         background:var(--good-soft);font-size:var(--fs-sm);line-height:1.55}
+  .claim b{font-weight:700}
+  .claim .src{display:block;margin-top:6px;font-size:var(--fs-micro);color:var(--muted);font-weight:600}
+  .editfacts[hidden]{display:none}
+  .go{margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .btn{border:0;border-radius:8px;background:var(--accent);color:#fff;padding:9px 15px;font:700 var(--fs-sm)/1 inherit;cursor:pointer}
+  .btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .cost{font-size:var(--fs-cap);color:var(--muted)}
+
+  .diff{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--card);overflow:hidden}
+  .diffhd{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
+  .diffhd .t{font-size:var(--fs-micro);font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .diffhd .cov{margin-left:auto;font-size:var(--fs-cap);font-weight:700;color:var(--good);font-variant-numeric:tabular-nums}
+  .drow{display:grid;grid-template-columns:52px 1fr;gap:10px;padding:10px 12px;font-size:var(--fs-sm);line-height:1.5}
+  .drow+.drow{border-top:1px solid var(--line-soft)}
+  .dlbl{font-size:var(--fs-micro);font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:2px}
+  .drow.after{background:var(--good-soft)}
+  ins{background:color-mix(in srgb,var(--good) 22%,transparent);text-decoration:none;border-radius:3px;padding:0 2px;box-shadow:inset 0 -1px 0 var(--good)}
+  .apply{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid var(--line-soft)}
+  .score{display:flex;align-items:baseline;gap:6px;font-weight:800;font-variant-numeric:tabular-nums;font-size:var(--fs-md)}
+  .score .to{color:var(--good)}
+  .score .why{font-size:var(--fs-micro);font-weight:600;color:var(--muted);letter-spacing:0}
+  .apply .sp{margin-left:auto;display:flex;gap:8px}
+  .btn-ghost{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:8px;padding:8px 13px;font:650 var(--fs-sm)/1 inherit;cursor:pointer}
+
+  /* ---------- résumé ---------- */
+  .ph{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:11px}
+  .ph .t{font-size:var(--fs-micro);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .ph .s{font-size:var(--fs-cap);color:var(--muted)}
+  .ph .sp{margin-left:auto;display:flex;gap:6px}
+  .mini{border:1px solid var(--line);background:var(--card);color:var(--ink-2);border-radius:7px;padding:5px 9px;font:650 var(--fs-cap)/1 inherit;cursor:pointer}
+  .dl{border:0;background:var(--accent);color:#fff;border-radius:7px;padding:6px 12px;font:700 var(--fs-cap)/1 inherit;cursor:pointer}
+
+  .paper{background:var(--paper);color:var(--paper-ink);border:1px solid var(--paper-line);border-radius:6px;padding:30px 34px;font-size:12.5px;line-height:1.5}
+  .paper h4{margin:0;font-size:19px;font-weight:750;letter-spacing:-.02em;text-align:center}
+  .paper .ct{text-align:center;color:var(--paper-dim);font-size:11px;margin-top:4px}
+  .paper .sec{margin:17px 0 6px;font-size:10.5px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;border-bottom:1px solid var(--paper-line);padding-bottom:3px}
+  .paper p{margin:0 0 6px}
+  .paper .job{display:flex;justify-content:space-between;gap:10px;font-weight:700;margin-top:9px}
+  .paper .job span{font-weight:500;color:var(--paper-dim);font-size:11px;white-space:nowrap}
+  .paper ul{margin:5px 0 0;padding-left:16px}
+  .paper li{margin-bottom:4px}
+  /* focus mode: everything dims except the sentence in play */
+  .dim{opacity:.34;transition:opacity .2s ease}
+  li.focusline{position:relative;opacity:1}
+  li.focusline::before{content:"";position:absolute;left:-16px;top:1px;bottom:1px;width:2px;background:var(--accent);border-radius:2px}
+
+  /* ---------- notes ---------- */
+  .notes{margin-top:24px;display:grid;gap:11px;grid-template-columns:repeat(auto-fit,minmax(255px,1fr))}
+  .note{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;background:var(--card);padding:12px 14px}
+  .note h4{margin:0 0 4px;font-size:var(--fs-sm);font-weight:800}
+  .note p{margin:0;font-size:var(--fs-sm);color:var(--ink-2);line-height:1.5}
+  .note.keep{border-left-color:var(--good)}
+  .note.from{border-left-color:var(--warn)}
+  .tagline{font-size:var(--fs-micro);font-weight:800;letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px}
+  .note.keep .tagline{color:var(--good)}
+  .note.from .tagline{color:var(--warn)}
+  .note .tagline{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="chrome">
+    <div>
+      <h1>Tailor results &mdash; mockup v2</h1>
+      <div class="n">The merge: <b>their guided three-facts flow</b> running inside <b>my triaged map</b>. Both themes. Built on <code>main</code> @ 1aac6b3.</div>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="top">
+      <div class="avat" aria-hidden="true">R</div>
+      <div>
+        <h2>Tailor for Senior Software Engineer</h2>
+        <div class="sub">Google &middot; New York, NY</div>
+      </div>
+      <div class="right">
+        <span class="kpi">78% <span class="lbl">match</span></span>
+        <span class="kpi">3 <span class="lbl">priorities left</span></span>
+        <span class="kpi" style="color:var(--muted)">4 <span class="lbl">smaller items</span></span>
+        <button class="link" type="button">Save &amp; exit</button>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="left">
+
+        <div class="spine">
+          <div class="spine-top">
+            <span class="eyebrow">Priority 1 of 3</span>
+            <span class="pips" aria-hidden="true"><i class="pip on"></i><i class="pip"></i><i class="pip"></i></span>
+          </div>
+          <h3>Strengthen one responsibility</h3>
+          <div class="blockers">
+            <span class="bdot" aria-hidden="true"></span>
+            <span><b>No hard blockers.</b> No degree, license, or work-authorisation requirement is unmet, so everything left is fixable by editing.</span>
+          </div>
+        </div>
+
+        <!-- ============ CRITICAL GROUP — holds the active guided flow ============ -->
+        <div class="grp" data-tone="crit" data-open="true">
+          <button class="ghead" type="button" data-grp>
+            <span class="gtag">Could filter you out</span>
+            <span class="gcount">3</span>
+            <span class="gsum">worked one at a time</span>
+            <span class="chev" aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="gbody">
+
+            <div class="item" data-state="active">
+              <div class="stripe"></div>
+              <div class="ibody">
+                <div class="ihead">
+                  <span class="num">1</span>
+                  <div style="min-width:0">
+                    <div class="ititle">Lead design reviews and guide technical decisions</div>
+                    <div class="isub">Your r&eacute;sum&eacute; shows delivery ownership, but not the review or decision-making context the posting asks for.</div>
+                    <div class="imeta">
+                      <span class="vchip" data-t="warn">Partial match</span>
+                      <span class="vchip" data-t="acc">High impact</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="iact"></div>
+            </div>
+
+            <div class="flow">
+              <div class="step">
+                <div class="steplbl"><span class="k" aria-hidden="true">1</span>Do you actually have this?</div>
+                <div class="forks">
+                  <button class="fork" type="button" aria-pressed="true">I have this experience</button>
+                  <button class="fork" type="button" aria-pressed="false">Find transferable evidence</button>
+                  <button class="fork ghost" type="button">Skip for now</button>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="steplbl"><span class="k" aria-hidden="true">2</span>Check this is true</div>
+                <div class="facts">
+                  <div class="hd">We use <em>only</em> what you confirm. Nothing gets invented.</div>
+
+                  <blockquote class="claim">
+                    At <b>Ecclon LLC</b>, you <b>led weekly design reviews, compared API options, and documented the approach the team picked</b>.
+                    <span class="src">Read from your existing bullet &mdash; no typing needed if this is right.</span>
+                  </blockquote>
+
+                  <div class="go">
+                    <button class="btn" type="button">Yes, write the fix</button>
+                    <button class="btn-ghost" type="button" data-editfacts>Not quite &mdash; let me edit</button>
+                  </div>
+                  <div class="cost" style="margin-top:8px">One rewrite &middot; about 3 seconds &middot; no full re-scan</div>
+
+                  <div class="editfacts" hidden>
+                    <div class="field">
+                      <label for="f1">Where did you do this?</label>
+                      <select class="ctl" id="f1">
+                        <option>Ecclon LLC &middot; Senior Fullstack Developer</option>
+                        <option>UMBC &middot; Research Assistant</option>
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="f2">What did you do?</label>
+                      <textarea class="ctl" id="f2" rows="2">Led weekly design reviews, compared API options, and documented the approach we picked.</textarea>
+                    </div>
+                    <div class="field">
+                      <label for="f3">What changed as a result? <span class="opt">&mdash; optional, a number lands harder</span></label>
+                      <textarea class="ctl" id="f3" rows="2" placeholder="e.g. shipped two weeks earlier, cut QA rework by a third"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="steplbl"><span class="k" aria-hidden="true">3</span>Review before it goes in</div>
+                <div class="diff">
+                  <div class="diffhd">
+                    <span class="t">Experience &middot; bullet 1</span>
+                    <span class="cov">Responsibilities 5/6 &rarr; 6/6</span>
+                  </div>
+                  <div class="drow">
+                    <div class="dlbl">Before</div>
+                    <div>Partnered with product and design to lead features from discovery through production delivery.</div>
+                  </div>
+                  <div class="drow after">
+                    <div class="dlbl">After</div>
+                    <div>Led weekly design reviews with product and engineering, <ins>evaluating API trade-offs and documenting the architecture decisions</ins>, helping the team ship two weeks earlier with less QA rework.</div>
+                  </div>
+                  <div class="apply">
+                    <span class="score">
+                      78% <span aria-hidden="true">&rarr;</span> <span class="to">83%</span>
+                      <span class="why">keyword recount &middot; free, not an estimate</span>
+                    </span>
+                    <span class="sp">
+                      <button class="btn-ghost" type="button">Edit wording</button>
+                      <button class="btn" type="button">Apply this fix</button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="stripe"></div>
+              <div class="ibody">
+                <div class="ihead">
+                  <span class="num">2</span>
+                  <div style="min-width:0">
+                    <div class="ititle">Show code review feedback</div>
+                    <div class="isub">An internship, team project, open-source contribution, or paid role all count.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="iact"><span class="queued">Next</span></div>
+            </div>
+
+            <div class="item">
+              <div class="stripe"></div>
+              <div class="ibody">
+                <div class="ihead">
+                  <span class="num">3</span>
+                  <div style="min-width:0">
+                    <div class="ititle">Strengthen data structures evidence</div>
+                    <div class="isub">Coursework and projects count when you name what you built with them.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="iact"><span class="queued">Later</span></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ============ the four that their design did not account for ============ -->
+        <div class="grp" data-tone="warn" data-open="false">
+          <button class="ghead" type="button" data-grp>
+            <span class="gtag">Worth adding</span>
+            <span class="gcount">2</span>
+            <span class="gsum">keywords that fit a bullet you already have</span>
+            <span class="chev" aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="gbody">
+            <div class="item">
+              <div class="stripe"></div>
+              <div class="ibody">
+                <div class="ihead"><span class="num">&middot;</span><div style="min-width:0">
+                  <div class="ititle">Kubernetes</div>
+                  <div class="imeta"><span class="vchip" data-t="warn">Fits your distributed-systems bullet</span></div>
+                </div></div>
+              </div>
+              <div class="iact"><button class="btn-ghost" type="button">Add</button></div>
+            </div>
+            <div class="item">
+              <div class="stripe"></div>
+              <div class="ibody">
+                <div class="ihead"><span class="num">&middot;</span><div style="min-width:0">
+                  <div class="ititle">gRPC</div>
+                  <div class="imeta"><span class="vchip" data-t="warn">Fits your backend-services bullet</span></div>
+                </div></div>
+              </div>
+              <div class="iact"><button class="btn-ghost" type="button">Add</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grp" data-tone="good" data-open="false">
+          <button class="ghead" type="button" data-grp>
+            <span class="gtag">Already covered</span>
+            <span class="gcount">2</span>
+            <span class="gsum">nothing to do &mdash; kept so the count stays honest</span>
+            <span class="chev" aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="gbody">
+            <div class="item">
+              <div class="stripe"></div>
+              <div class="ibody">
+                <div class="ihead"><span class="num">&#10003;</span><div style="min-width:0">
+                  <div class="ititle">Master&rsquo;s degree or PhD in Computer Science</div>
+                  <div class="isub">MS Computer Science, University of Maryland, Baltimore County.</div>
+                  <div class="imeta"><span class="vchip" data-t="good">You have this</span></div>
+                </div></div>
+              </div>
+              <div class="iact"></div>
+            </div>
+            <div class="item">
+              <div class="stripe"></div>
+              <div class="ibody">
+                <div class="ihead"><span class="num">&#10003;</span><div style="min-width:0">
+                  <div class="ititle">Proficiency in Python</div>
+                  <div class="isub">Named in your summary and two experience bullets.</div>
+                  <div class="imeta"><span class="vchip" data-t="good">You have this</span></div>
+                </div></div>
+              </div>
+              <div class="iact"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ============ RIGHT ============ -->
+      <div class="right">
+        <div class="ph">
+          <span class="t">Live r&eacute;sum&eacute;</span>
+          <span class="s">Only the sentence you are fixing is in focus</span>
+          <span class="sp">
+            <button class="mini" type="button">Full preview</button>
+            <button class="dl" type="button">Download PDF</button>
+          </span>
+        </div>
+
+        <div class="paper">
+          <h4>Parth Bhodia</h4>
+          <div class="ct">Jersey City, NJ &middot; parthbhodia11@gmail.com &middot; linkedin.com/in/parthbhodia</div>
+
+          <div class="dim">
+            <div class="sec">Summary</div>
+            <p>Senior full-stack engineer with 7+ years building scalable web applications, API platforms, and reliable cloud systems across Python, JavaScript, TypeScript, and AWS.</p>
+          </div>
+
+          <div class="sec">Experience</div>
+          <div class="job">Senior Fullstack Developer &middot; Ecclon LLC <span>May 2022 &ndash; Present</span></div>
+          <ul>
+            <li class="focusline">Partnered with product and design to lead features from discovery through production delivery.</li>
+            <li class="dim">Designed and optimized PostgreSQL schemas for a high-traffic CMS serving 100,000+ users, reducing data retrieval latency by 10%.</li>
+            <li class="dim">Built Vue.js and TypeScript frontends for federal compliance platforms and established reusable patterns for a Next.js migration.</li>
+            <li class="dim">Wrote unit and integration tests across a component-driven codebase and automated deployments through CI/CD.</li>
+          </ul>
+
+          <div class="dim">
+            <div class="job">Research Assistant &ndash; Software Developer &middot; UMBC <span>Jan 2022 &ndash; Dec 2022</span></div>
+            <ul>
+              <li>Built backend services in Java Spring Boot and RabbitMQ for edge-device communication in a distributed system.</li>
+              <li>Designed a GIS visualization framework using Elasticsearch and Kibana to detect geospatial anomalies in real time.</li>
+            </ul>
+            <div class="sec">Education</div>
+            <div class="job">MS, Computer Science <span>Aug 2021 &ndash; May 2023</span></div>
+            <p style="color:var(--paper-dim);font-size:11px">University of Maryland, Baltimore County</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note from">
+      <div class="tagline">Taken from theirs</div>
+      <h4>You supply the facts, not the model</h4>
+      <p>The strongest idea in their design. Confirming evidence up front removes the thing that has to be validated afterwards, so the model only rephrases what you already said.</p>
+    </div>
+    <div class="note from">
+      <div class="tagline">Taken from theirs</div>
+      <h4>One priority at a time</h4>
+      <p>A numbered sequence with a progress spine, plus the honest fork before any generation runs: I have this, find transferable evidence, or skip.</p>
+    </div>
+    <div class="note from">
+      <div class="tagline">Taken from theirs</div>
+      <h4>Consequence before commitment</h4>
+      <p>Before and after with the delta marked, and the score change shown while you can still back out.</p>
+    </div>
+    <div class="note keep">
+      <div class="tagline">Kept from mine</div>
+      <h4>The map survives the road</h4>
+      <p>Their flow showed 3 priorities; your scan produces 7. The other 4 live in collapsed groups, so nothing disappears silently, which is an invariant you already committed to.</p>
+    </div>
+    <div class="note keep">
+      <div class="tagline">Kept from mine</div>
+      <h4>Covered items stay visible</h4>
+      <p>The Master&rsquo;s-degree requirement sits under Already covered with its evidence, rather than in a missing list it contradicts.</p>
+    </div>
+    <div class="note">
+      <div class="tagline">New in v2</div>
+      <h4>Nine fields became zero</h4>
+      <p>The facts are read out of your r&eacute;sum&eacute; and shown as one sentence to agree with. The default path is a click, not typing. Fields appear only if you say it is wrong, and even then just one is required.</p>
+    </div>
+    <div class="note">
+      <div class="tagline">New in v2</div>
+      <h4>The score says where it came from</h4>
+      <p>78 to 83 is marked as the free deterministic keyword recount, not an AI guess, so it cannot be mistaken for the quality grade it must never blend with.</p>
+    </div>
+    <div class="note">
+      <div class="tagline">New in v2</div>
+      <h4>Both themes, and focus that means something</h4>
+      <p>Dimming the r&eacute;sum&eacute; around the sentence in play ties the abstract requirement to the line that will actually change.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  Array.prototype.forEach.call(document.querySelectorAll("[data-grp]"), function (b) {
+    b.addEventListener("click", function () {
+      var g = b.closest(".grp");
+      g.setAttribute("data-open", g.getAttribute("data-open") === "true" ? "false" : "true");
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-editfacts]"), function (b) {
+    b.addEventListener("click", function () {
+      var box = b.closest(".facts").querySelector(".editfacts");
+      var open = !box.hasAttribute("hidden");
+      if (open) { box.setAttribute("hidden", ""); b.textContent = "Not quite — let me edit"; }
+      else { box.removeAttribute("hidden"); b.textContent = "Hide the details"; }
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".forks"), function (row) {
+    Array.prototype.forEach.call(row.querySelectorAll(".fork:not(.ghost)"), function (f) {
+      f.addEventListener("click", function () {
+        Array.prototype.forEach.call(row.querySelectorAll(".fork:not(.ghost)"), function (o) {
+          o.setAttribute("aria-pressed", String(o === f));
+        });
+      });
+    });
+  });
+</script>
+</body>
+</html>
