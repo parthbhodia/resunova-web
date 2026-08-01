@@ -4155,6 +4155,15 @@ export default function ResumeBuilder({
                   grid-template-rows: minmax(0, 1fr);
                   overflow: hidden;
                 }
+                /* /tailor-2 does not mount the legacy TailorMatchSidebar, so the
+                   three-track grid above mis-seats everything: the queue lands in
+                   the auto track, the preview drops into the 2fr track, and the
+                   3fr track is left EMPTY but still reserved. Measured at 1900px:
+                   preview 512px with ~768px of the window sitting blank. Two
+                   tracks for two panels. */
+                .rb-tailor-workspace--queue {
+                  grid-template-columns: minmax(340px, 1fr) minmax(460px, 1.05fr);
+                }
                 .tb-split-work-slot {
                   min-height: 0;
                   overflow-y: auto;
@@ -4170,7 +4179,8 @@ export default function ResumeBuilder({
                   background: var(--bg);
                 }
                 @media (max-width: 960px) {
-                  .rb-tailor-workspace {
+                  .rb-tailor-workspace,
+                  .rb-tailor-workspace--queue {
                     grid-template-columns: 1fr;
                     grid-template-rows: auto auto minmax(42vh, 1fr);
                     overflow-y: auto;
@@ -4243,7 +4253,11 @@ export default function ResumeBuilder({
                 </div>
               )}
 
-              <section className="rb-tailor-workspace" aria-labelledby="rb-results-heading" style={{ position: "relative" }}>
+              <section
+                className={`rb-tailor-workspace${queueUi ? " rb-tailor-workspace--queue" : ""}`}
+                aria-labelledby="rb-results-heading"
+                style={{ position: "relative" }}
+              >
               {/* During a queue-UI Fix-everything pass the queue rows are the
                   progress surface — flashing the full overlay once per wave
                   would bury exactly the progression the waves exist to show. */}
