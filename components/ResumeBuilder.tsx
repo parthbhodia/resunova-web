@@ -654,6 +654,9 @@ export default function ResumeBuilder({
   const tryAnotherJob = useCallback(() => {
     resetActiveTailorWork();
     clearSuggestionsState();
+    setError(null);
+    setGapFixError(null);
+    setFixCollisionNotice(null);
     setResult(null);
     setPreview("");
     setJd("");
@@ -673,6 +676,9 @@ export default function ResumeBuilder({
   const startOverTailor = useCallback(() => {
     resetActiveTailorWork();
     clearSuggestionsState();
+    setError(null);
+    setGapFixError(null);
+    setFixCollisionNotice(null);
     setResult(null);
     setPreview("");
     setAtsResult(null);
@@ -741,6 +747,10 @@ export default function ResumeBuilder({
     targetTerms?: string[];
   } | null>(null);
   const [gapFixError, setGapFixError] = useState<string | null>(null);
+  const [fixCollisionNotice, setFixCollisionNotice] = useState<{
+    count: number;
+    bulletExcerpt: string;
+  } | null>(null);
   /** True while a gap-fix suggestion is being applied + PDF compiled + rescored. */
   const [gapApplyBusy, setGapApplyBusy] = useState(false);
 
@@ -1596,6 +1606,7 @@ export default function ResumeBuilder({
         setTailorAppliedBulletIndices(remappedApplied);
       }
       setScoreStale(false);
+      setFixCollisionNotice(null);
       return true;
     } catch {
       return false;
@@ -2493,6 +2504,7 @@ export default function ResumeBuilder({
     opts?: { closePanel?: boolean; gapType?: AddressedGapAction["type"] },
   ) => {
     if (items.length === 0) return;
+    setFixCollisionNotice(null);
     const gapName = gapNameOverride ?? gapFixPanel?.gapName ?? "";
 
     const gapType: AddressedGapAction["type"] = opts?.gapType ?? gapFixPanel?.gapType ?? "qualification";
@@ -2609,11 +2621,11 @@ export default function ResumeBuilder({
       }
 
       if (unmergeable.length > 0) {
-        setError(
-          `${unmergeable.length} fix${unmergeable.length === 1 ? "" : "es"} targeted a bullet another fix `
-          + "already rewrote, and the two could not be combined. The first was applied; "
-          + "re-check the match and re-run the remaining gap to fix it against the updated bullet.",
-        );
+        const fullBullet = unmergeable[0].replace(/\s+/g, " ").trim();
+        const bulletExcerpt = fullBullet.length > 112
+          ? `${fullBullet.slice(0, 109).trimEnd()}…`
+          : fullBullet;
+        setFixCollisionNotice({ count: unmergeable.length, bulletExcerpt });
       }
 
       setTailorBulletAnalysis(bullets);
@@ -4025,6 +4037,50 @@ export default function ResumeBuilder({
               />
             ) : (
             <div className="fade-in">
+              {fixCollisionNotice && (
+                <div
+                  role="status"
+                  style={{
+                    marginBottom: 16,
+                    padding: "12px 16px",
+                    background: "var(--amber-soft, #fffbeb)",
+                    border: "1px solid color-mix(in srgb, var(--amber-ink, #b45309) 28%, transparent)",
+                    borderRadius: 10,
+                    color: "var(--text)",
+                    fontSize: 13,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: "var(--amber-ink, #92400e)" }}>
+                    {fixCollisionNotice.count} fix{fixCollisionNotice.count === 1 ? "" : "es"} need{fixCollisionNotice.count === 1 ? "s" : ""} another pass
+                  </div>
+                  <div style={{ marginTop: 3 }}>
+                    Two suggestions targeted the same résumé bullet. We applied the first safely and paused the other.
+                  </div>
+                  <div style={{ marginTop: 5, color: "var(--muted)" }}>
+                    <strong style={{ color: "var(--text)" }}>Affected bullet:</strong> “{fixCollisionNotice.bulletExcerpt}”
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { void rescoreTailorRatings(); }}
+                    disabled={tailorRescoring}
+                    style={{
+                      marginTop: 9,
+                      minHeight: 40,
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      border: "1px solid color-mix(in srgb, var(--amber-ink, #b45309) 42%, transparent)",
+                      background: "var(--card)",
+                      color: "var(--amber-ink, #92400e)",
+                      fontWeight: 700,
+                      cursor: tailorRescoring ? "default" : "pointer",
+                      opacity: tailorRescoring ? 0.6 : 1,
+                    }}
+                  >
+                    {tailorRescoring ? "Re-checking…" : "Re-check match"}
+                  </button>
+                </div>
+              )}
               {error && (
                 <div
                   role="alert"
