@@ -9,10 +9,9 @@ import { Button } from "@/components/ui/button";
 import {
   LandingPreviewStyles,
   VariantA,
-  VariantB,
-  VariantD,
   VariantE,
 } from "@/components/LandingFeatureShowcase";
+import SnippetVideo from "@/components/SnippetVideo";
 import LandingFAQ from "@/components/LandingFAQ";
 import LandingTopCompanies from "@/components/LandingTopCompanies";
 import { FloatingFeatureNav, Reveal, TealScrollStyles } from "@/components/landing/TealScroll";
@@ -1196,7 +1195,7 @@ export default function LandingPage() {
         ctaLabel="Fix my bullets free"
         ctaHref="/?view=analyze"
       >
-        <VariantB embedded />
+        <SnippetVideo name="analyze" alt="Resunova résumé analysis: an honest score with ranked fixes and rewrites" />
       </LandingPreviewSection>
 
       {SHOW_LANDING_CARDS && (
@@ -1261,18 +1260,65 @@ export default function LandingPage() {
 
       <LandingPreviewSection
         id="product-tour"
-        eyebrow="Tailor to the role"
-        title="Paste the job description. Close every gap. Export."
-        desc="Score your fit against the posting, fix missing keywords across your bullets, then export an ATS-safe PDF that matches the preview exactly."
+        eyebrow="Build & export"
+        title="Build it, restyle it, export a pixel-perfect PDF."
+        desc="Pick a template, switch fonts and colors live, and download an ATS-safe PDF that matches the preview exactly. No design skills required."
         C={C}
         bg={C.surface}
         curve="left"
         wide
         animationOnly={!SHOW_LANDING_CARDS}
-        ctaLabel="Tailor my résumé now"
-        ctaHref="/?view=builder&flow=tailor"
+        ctaLabel="Open the builder"
+        ctaHref="/template-builder"
       >
-        <VariantD embedded />
+        <SnippetVideo name="templates" alt="Resunova template builder: switch résumé templates live and export a matching PDF" />
+      </LandingPreviewSection>
+
+      {/* ───────────── Interview prep preview ────────────────── */}
+      <LandingPreviewSection
+        id="product-interview"
+        eyebrow="Interview prep"
+        title="Practice the interview, with answers drafted from your résumé."
+        desc="Role-aware questions pulled straight from your own bullets, plus a STAR answer draft that connects your experience to the exact job you want."
+        C={C}
+        wide
+        animationOnly={!SHOW_LANDING_CARDS}
+        ctaLabel="Prep an interview free"
+        ctaHref="/interview-prep"
+      >
+        <SnippetVideo name="interview" alt="Resunova interview prep: résumé-based questions and a drafted STAR answer" />
+      </LandingPreviewSection>
+
+      {/* ───────────── Jobs preview ──────────────────────────── */}
+      <LandingPreviewSection
+        id="product-jobs"
+        eyebrow="Job matching"
+        title="Every live opening, ranked against your résumé."
+        desc="A feed of real openings scored to your résumé, with salary, work model, and sponsorship signals up front. Apply on the company's site: we hand you the match."
+        C={C}
+        bg={C.surface}
+        curve="right"
+        wide
+        animationOnly={!SHOW_LANDING_CARDS}
+        ctaLabel="See my matches"
+        ctaHref="/?view=jobs"
+      >
+        <SnippetVideo name="jobs" alt="Resunova jobs feed: live openings ranked against your résumé" />
+      </LandingPreviewSection>
+
+      {/* ───────────── Cover letter preview ──────────────────── */}
+      <LandingPreviewSection
+        id="product-cover-letter"
+        eyebrow="Cover letters"
+        title="A tailored cover letter, generated from the job post."
+        desc="Paste the posting and get a first draft grounded in your résumé, editable in place and ready to export."
+        C={C}
+        wide
+        animationOnly={!SHOW_LANDING_CARDS}
+        ctaLabel="Write a cover letter"
+        ctaHref="/?view=cover-letter"
+      >
+        <SnippetVideo name="cover-letter" alt="Resunova cover letter builder: a tailored letter generated from the job description" />
       </LandingPreviewSection>
 
       {/* ───────────── Templates showcase — gold block ───────── */}
