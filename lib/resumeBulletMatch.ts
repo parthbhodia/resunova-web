@@ -235,6 +235,57 @@ export function gapFixTargetBulletIndices(
   return [...indices];
 }
 
+// ── "See it": applied queue row → the preview bullet its fix landed on ─────
+
+/**
+ * Which preview override line an applied gap's fix landed on.
+ *
+ * The applied action stores the SUGGESTED text; the preview stores the same
+ * text as `lineOverrides[bulletIdx]`. Batch applies join several suggestions
+ * with newlines and label the action with every gap name, so we prefer the
+ * line that mentions the gap by name before falling back to the first line.
+ * Returns the bullet index, or null when nothing matches (e.g. the fix became
+ * a brand-new appended bullet the caller can't frame).
+ */
+export function findAppliedBulletIndex(
+  gapName: string,
+  actions: ReadonlyArray<{ label: string; appliedText?: string }>,
+  overrides: Record<number, string>,
+): number | null {
+  const name = gapName.trim().toLowerCase();
+  if (!name) return null;
+  const action = [...actions]
+    .reverse()
+    .find((a) => a.appliedText?.trim() && a.label.toLowerCase().includes(name));
+  if (!action?.appliedText) return null;
+
+  const lines = action.appliedText.split("\n").map((l) => l.trim()).filter(Boolean);
+  // A rewrite rarely quotes the gap name verbatim ("CI/CD pipeline experience"
+  // lands as "…a CI/CD pipeline"), so score by word overlap instead.
+  const words = name.split(/[^a-z0-9/+#.]+/).filter((w) => w.length > 2);
+  let preferred = lines[0];
+  let bestHits = 0;
+  for (const l of lines) {
+    const ll = l.toLowerCase();
+    const hits = words.filter((w) => ll.includes(w)).length;
+    if (hits > bestHits) {
+      bestHits = hits;
+      preferred = l;
+    }
+  }
+  if (!preferred) return null;
+
+  const target = normalizeForMatch(preferred);
+  for (const [idxStr, text] of Object.entries(overrides)) {
+    const norm = normalizeForMatch(text ?? "");
+    if (!norm) continue;
+    if (norm === target || norm.includes(target) || target.includes(norm)) {
+      return Number(idxStr);
+    }
+  }
+  return null;
+}
+
 // ── Patch structured résumé with applied overrides ────────────────────────
 // When the user applies gap fixes we patch the preview via `previewLineOverrides`,
 // but re-checking the score used to re-extract structure from the patched flat

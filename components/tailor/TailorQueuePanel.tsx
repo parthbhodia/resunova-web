@@ -30,6 +30,11 @@ import {
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
 import {
+  DIMENSION_KINDS,
+  TailorDimensionChips,
+  type TailorDimension,
+} from "@/components/tailor/TailorDimensionChips";
+import {
   TailorFixExpansion,
   type FixExpansionState,
   type FixSuggestion,
@@ -132,6 +137,7 @@ export function TailorQueuePanel({
   applyFixSuggestion,
   ignoredNames,
   onToggleIgnored,
+  onSeeItem,
   stale,
   onRecheck,
   recheckBusy,
@@ -157,6 +163,8 @@ export function TailorQueuePanel({
    *  skips them too. */
   ignoredNames: ReadonlySet<string>;
   onToggleIgnored: (item: QueueItem, ignored: boolean) => void;
+  /** "See it" on an applied row: frame the preview bullet the fix landed on. */
+  onSeeItem?: (item: QueueItem) => void;
   stale: boolean;
   onRecheck: () => void;
   recheckBusy: boolean;
@@ -244,8 +252,9 @@ export function TailorQueuePanel({
     else if (action === "whats_this" || action === "add_to_summary") {
       setExpandedId(item.id);
       setExpandState({ phase: "info" });
+    } else if (action === "view_change" || action === "review") {
+      onSeeItem?.(item);
     }
-    // view_change / review navigation lands with the preview-linking slice.
   };
 
   const handleApply = async (suggestion: FixSuggestion, editedText: string | null) => {
@@ -270,6 +279,15 @@ export function TailorQueuePanel({
   };
 
   const { displayItems, revealWorkingId, revealing } = useStaggeredReveal(items);
+
+  // Dimension filter: a chip narrows which ROWS render; counts, the progress
+  // bar and Fix everything stay whole-queue.
+  const [activeDim, setActiveDim] = useState<TailorDimension | null>(null);
+  const visibleIds = useMemo(() => {
+    if (!activeDim) return null;
+    const kinds = new Set(DIMENSION_KINDS[activeDim]);
+    return new Set(displayItems.filter((it) => kinds.has(it.kind)).map((it) => it.id));
+  }, [activeDim, displayItems]);
 
   // Rows whose batch is still generating spin; the set shrinks wave by wave.
   // During a reveal, the walking spinner takes over for the next row to land.
@@ -296,8 +314,10 @@ export function TailorQueuePanel({
         onRecheck={onRecheck}
         recheckBusy={recheckBusy}
       />
+      <TailorDimensionChips ratings={ratings} active={activeDim} onPick={setActiveDim} />
       <TailorWorkQueue
         items={displayItems}
+        visibleIds={visibleIds}
         workingIds={workingIds}
         passRan={passRan && !revealing}
         fixAllBusy={fixAllBusy || revealing}
