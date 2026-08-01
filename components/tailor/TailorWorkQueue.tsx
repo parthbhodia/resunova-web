@@ -109,6 +109,7 @@ export function TailorWorkQueue({
   passRan,
   fixAllBusy,
   onFixAll,
+  onFixSelected,
   onItemAction,
   onDownload,
   onInterviewPrep,
@@ -125,6 +126,8 @@ export function TailorWorkQueue({
   passRan?: boolean;
   fixAllBusy?: boolean;
   onFixAll?: () => void;
+  /** Run one honest rewrite pass for only the selected open rows. */
+  onFixSelected?: (items: readonly QueueItem[]) => void;
   onItemAction?: (item: QueueItem, action: QueueItemAction) => void;
   onDownload?: () => void;
   /** Finish-line handoff into interview prep, carrying this run's resume + JD. */
@@ -139,12 +142,29 @@ export function TailorWorkQueue({
 }) {
   const [showAll, setShowAll] = useState(false);
   const [detailIds, setDetailIds] = useState<Set<string>>(() => new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const c = queueCounts(items);
   const seg = (n: number) => `${(n / Math.max(1, c.total)) * 100}%`;
   const finished = Boolean(passRan) && c.open === 0;
   const filtered = visibleIds ? items.filter((it) => visibleIds.has(it.id)) : items;
   const shown = showAll ? filtered : filtered.slice(0, 5);
   const hiddenCount = Math.max(0, filtered.length - shown.length);
+  const selectable = filtered.filter((it) => it.status === "queued" && it.kind !== "contextual");
+  const selected = selectable.filter((it) => selectedIds.has(it.id));
+  const allSelected = selectable.length > 0 && selected.length === selectable.length;
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(selectable.map((it) => it.id)));
+  };
 
   const toggleDetail = (id: string) => {
     setDetailIds((current) => {
@@ -175,17 +195,25 @@ export function TailorWorkQueue({
           <span><b>Keep every claim true.</b> These are job requirements your résumé does not prove yet. Only add experience you actually have.</span>
         </div>
       ) : null}
-      <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ fontSize: FS.body, fontWeight: FW.bold }}>
-          Match gaps{" "}
-          <span style={{ color: "var(--muted)", fontWeight: FW.medium }}>
-            · {c.open ? `${c.open} to review` : "all reviewed"}
-          </span>
+      <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: FS.body, fontWeight: FW.bold }}>
+            Match gaps{" "}
+            <span style={{ color: "var(--muted)", fontWeight: FW.medium }}>
+              · {c.open ? `${c.open} to review` : "all reviewed"}
+            </span>
+          </div>
+          {selectable.length > 0 ? (
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 7, color: "var(--muted)", fontSize: FS.small, cursor: "pointer" }}>
+              <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+              {allSelected ? `All ${selectable.length} selected` : "Select all gaps"}
+            </label>
+          ) : null}
         </div>
         {onFixAll ? (
           <button
             type="button"
-            onClick={onFixAll}
+            onClick={() => selected.length > 0 && onFixSelected ? onFixSelected(selected) : onFixAll()}
             disabled={fixAllBusy || c.open === 0}
             style={{
               background: "var(--accent)",
@@ -199,7 +227,11 @@ export function TailorWorkQueue({
               opacity: fixAllBusy || c.open === 0 ? 0.6 : 1,
             }}
           >
-            {fixAllBusy ? "Improving…" : "Improve safe matches"}
+            {fixAllBusy
+              ? "Improving…"
+              : selected.length > 0
+                ? `Improve selected (${selected.length})`
+                : `Improve all ${selectable.length || c.open}`}
           </button>
         ) : null}
       </div>
@@ -228,6 +260,7 @@ export function TailorWorkQueue({
           const action = expanded ? null : itemAction(it);
           const working = it.id === workingId || Boolean(workingIds?.has(it.id));
           const detailOpen = detailIds.has(it.id);
+          const canSelect = it.status === "queued" && it.kind !== "contextual";
           const severityColor =
             it.kind === "qualification" || it.kind === "responsibility"
               ? "var(--red-ink, #b42318)"
@@ -247,7 +280,17 @@ export function TailorWorkQueue({
                 background: working ? "var(--accent-soft, rgba(37,99,235,0.08))" : undefined,
               }}
             >
-              <StatusDot status={it.status} working={working} />
+              {canSelect && !working ? (
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${it.name}`}
+                  checked={selectedIds.has(it.id)}
+                  onChange={() => toggleSelected(it.id)}
+                  style={{ width: 17, height: 17, margin: "2px 0 0", accentColor: "var(--accent)", cursor: "pointer" }}
+                />
+              ) : (
+                <StatusDot status={it.status} working={working} />
+              )}
               <span style={{ minWidth: 0 }}>
                 <span
                   style={{

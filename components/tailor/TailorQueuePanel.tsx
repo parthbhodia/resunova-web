@@ -134,6 +134,7 @@ export function TailorQueuePanel({
   fixAllBusy,
   pendingGapNames,
   onFixAll,
+  onFixSelected,
   fetchFixSuggestions,
   applyFixSuggestion,
   ignoredNames,
@@ -153,6 +154,7 @@ export function TailorQueuePanel({
    *  wave that lands clears its own. */
   pendingGapNames?: readonly string[];
   onFixAll: () => void;
+  onFixSelected?: (items: readonly QueueItem[]) => void;
   /** Fetch rewrite options for one item; the row expands inline around them. */
   fetchFixSuggestions: (item: QueueItem) => Promise<FixSuggestion[]>;
   /** Apply the picked (possibly edited) suggestion to the preview. */
@@ -326,6 +328,7 @@ export function TailorQueuePanel({
         passRan={passRan && !revealing}
         fixAllBusy={fixAllBusy || revealing}
         onFixAll={onFixAll}
+        onFixSelected={onFixSelected}
         onItemAction={handleItemAction}
         onDownload={onDownload}
         onInterviewPrep={onInterviewPrep}

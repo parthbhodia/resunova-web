@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import AnnotatedResumePanel from "@/components/AnnotatedResumePanel";
 import type { LiveBulletItem } from "@/lib/resumeBulletMatch";
 import type { StructuredBulletOp } from "@/lib/structuredBulletOps";
@@ -68,7 +68,6 @@ export default function TailorPreviewPane({
   gapFixTargetBulletIndices = [],
   tailorGapFixHighlights = [],
   tailorAppliedBulletIndices = new Set<number>(),
-  appliedPillPairs = [],
   keywordHighlightTerms = [],
   fieldOverrides = {},
   onFieldEdit,
@@ -88,6 +87,9 @@ export default function TailorPreviewPane({
   // Opt-in: only enable editing when the caller wires a real handler, so any
   // read-only embed of this pane keeps today's presentation behavior.
   const editingEnabled = !!onFieldEdit;
+  // A clean résumé is the useful default. Keyword coverage is an optional
+  // diagnostic layer; live-edit/applied-change highlights remain independent.
+  const [keywordHighlightsEnabled, setKeywordHighlightsEnabled] = useState(false);
 
   return (
     <AnnotatedResumePanel
@@ -116,8 +118,12 @@ export default function TailorPreviewPane({
       gapFixTargetBulletIndices={gapFixTargetBulletIndices}
       tailorGapFixHighlights={tailorGapFixHighlights}
       tailorAppliedBulletIndices={tailorAppliedBulletIndices}
-      appliedPillPairs={appliedPillPairs}
+      // Tailor uses a restrained row rail/wash for applied changes. Rounded
+      // word-level pills made long rewrites look like a marked-up worksheet.
+      appliedPillPairs={[]}
       keywordHighlightTerms={keywordHighlightTerms}
+      keywordHighlightsEnabled={keywordHighlightsEnabled}
+      onKeywordHighlightsEnabledChange={setKeywordHighlightsEnabled}
       exportRoleLabel={role}
       onExportDocx={exportDocxEnabled ? handleExportDocx : undefined}
       exportDocxEnabled={exportDocxEnabled && !docxExportBusy}
