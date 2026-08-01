@@ -88,7 +88,16 @@ import {
 
 import ScoreRing    from "./ScoreRing";
 import MatchBreakdownCards from "./MatchBreakdownCards";
-import { TailorMatchSidebar, TailorMatchDetail } from "./DetailedRatingsView";
+import { TailorMatchSidebar, TailorMatchDetail, type Tab as RatingsTab } from "./DetailedRatingsView";
+
+/** On /tailor-2 the work queue + dimension chips own these surfaces; the
+ *  legacy tabs would duplicate them with their own Fix buttons. */
+const QUEUE_OWNED_TABS: readonly RatingsTab[] = [
+  "job_title",
+  "qualifications",
+  "responsibilities",
+  "keywords",
+];
 import TailorRecentJobs from "./TailorRecentJobs";
 import TailorResumeHistoryPicker from "./TailorResumeHistoryPicker";
 import TailorPreviewPane from "./TailorPreviewPane";
@@ -2820,6 +2829,10 @@ export default function ResumeBuilder({
       return;
     }
     if (tailoringMode === null) { setShowTailoringModal(true); return; }
+    // On /tailor-2 the queue IS the review surface: results land as waves the
+    // user can undo per row, so the "Show suggestions first" detour into the
+    // (hidden there) gap-fix panel never applies.
+    const autoApply = queueUi || fixAllAutoApply;
 
     setFixAllBusy(true);
     setGapFixError(null);
@@ -2867,7 +2880,7 @@ export default function ResumeBuilder({
           }
         } catch { /* a failed batch behaves like an empty one */ }
 
-        if (fixAllAutoApply) {
+        if (autoApply) {
           // Wave: this batch's rewrites land in the preview the moment they
           // arrive, and its queue rows stop spinning — the pass is visibly
           // three arrivals, not one long wait.
@@ -2895,7 +2908,7 @@ export default function ResumeBuilder({
       }));
       await applyChain;
 
-      if (fixAllAutoApply) {
+      if (autoApply) {
         if (appliedTotal === 0) {
           setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
         }
@@ -2919,7 +2932,7 @@ export default function ResumeBuilder({
       setFixAllBusy(false);
       setFixAllPendingGaps([]);
     }
-  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, effectiveCandidateProfile,
+  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, queueUi, effectiveCandidateProfile,
       tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
 
   /** One batched rewrite pass for several contextual gaps, instead of one call each. */
@@ -4255,11 +4268,14 @@ export default function ResumeBuilder({
                     onActiveTabChange={setResultsActiveTab}
                     collapsed={matchSidebarCollapsed}
                     onCollapsedChange={setMatchSidebarCollapsed}
-                    onFixEverything={() => { void fixEverything(); }}
+                    // The queue owns Fix everything on /tailor-2 — a second
+                    // button here would be the duplication the redesign removes.
+                    onFixEverything={queueUi ? undefined : () => { void fixEverything(); }}
                     openGapCount={openGapCount}
                     fixEverythingBusy={fixAllBusy}
                     fixEverythingAutoApply={fixAllAutoApply}
                     onFixEverythingAutoApplyChange={toggleFixAllAutoApply}
+                    hiddenTabs={queueUi ? QUEUE_OWNED_TABS : undefined}
                   />
                   <div className="tb-split-work-slot">
                     {queueUi && (
@@ -4394,6 +4410,7 @@ export default function ResumeBuilder({
                       applyBusy={applyBusy}
                       activeTab={resultsActiveTab}
                       onActiveTabChange={setResultsActiveTab}
+                      hiddenTabs={queueUi ? QUEUE_OWNED_TABS : undefined}
                     />
                     {result.diff.length > 0 && (
                       <div id="rb-results-diff" style={{ margin: "16px 20px", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", background: "var(--surface)", padding: "18px 20px" }}>

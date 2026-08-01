@@ -155,6 +155,10 @@ type SharedProps = {
   applyBusy?: boolean;
   activeTab?: Tab;
   onActiveTabChange?: (tab: Tab) => void;
+  /** Tabs another surface already owns (e.g. /tailor-2's queue + dimension
+   *  chips replace the four dimension tabs). Hidden from the rail and the
+   *  detail; a hidden activeTab renders as "overall". */
+  hiddenTabs?: readonly Tab[];
   /** Résumé headline draft for the Job Title panel's editor — distinct from any
    *  specific employer's title under Experience, which stays untouched. Empty
    *  string = no override, show the extracted headline / LLM's resume_title. */
@@ -185,9 +189,13 @@ function useTailorRatingsState({
   interviewQuestions,
   activeTab: activeTabProp,
   onActiveTabChange,
-}: Pick<SharedProps, "ratings" | "hasSuggestions" | "gapFixPanel" | "strategicTips" | "interviewQuestions" | "activeTab" | "onActiveTabChange">) {
+  hiddenTabs,
+}: Pick<SharedProps, "ratings" | "hasSuggestions" | "gapFixPanel" | "strategicTips" | "interviewQuestions" | "activeTab" | "onActiveTabChange" | "hiddenTabs">) {
   const [activeTabInternal, setActiveTabInternal] = useState<Tab>("overall");
-  const activeTab = activeTabProp ?? activeTabInternal;
+  const hidden = new Set(hiddenTabs ?? []);
+  const requestedTab = activeTabProp ?? activeTabInternal;
+  // Derived, not cleared in an effect: a hidden tab simply renders as overall.
+  const activeTab = hidden.has(requestedTab) ? "overall" : requestedTab;
   const setActiveTab = (t: Tab) => {
     setActiveTabInternal(t);
     onActiveTabChange?.(t);
@@ -212,10 +220,10 @@ function useTailorRatingsState({
     ...ALWAYS_TABS,
     ...(gapFixPanel ? (["gapfix"] as Tab[]) : []),
     ...(hasSuggestions ? (["fixes"] as Tab[]) : []),
-  ];
+  ].filter((t) => !hidden.has(t));
 
   type NavTab = { id: Tab; label: string; score: string; color: string };
-  const navTabs: NavTab[] = [
+  const allNavTabs: NavTab[] = [
     { id: "overall", label: "Overall Match", score: `${overall_score}%`, color: scoreColor(overall_score) },
     { id: "job_title", label: "Job Title", score: `${job_title.score}%`, color: scoreColor(job_title.score) },
     {
@@ -255,6 +263,7 @@ function useTailorRatingsState({
       : []),
     ...(hasSuggestions ? [{ id: "fixes" as Tab, label: "Polish", score: "Review", color: "#818cf8" }] : []),
   ];
+  const navTabs = allNavTabs.filter((t) => !hidden.has(t.id));
 
   const tabIdx = tabOrder.indexOf(activeTab);
   const prevTab = tabIdx > 0 ? tabOrder[tabIdx - 1] : null;
@@ -297,7 +306,8 @@ export function TailorMatchSidebar({
   fixEverythingBusy = false,
   fixEverythingAutoApply = false,
   onFixEverythingAutoApplyChange,
-}: Pick<SharedProps, "ratings" | "hasSuggestions" | "gapFixPanel" | "strategicTips" | "interviewQuestions" | "activeTab" | "onActiveTabChange"> & {
+  hiddenTabs,
+}: Pick<SharedProps, "ratings" | "hasSuggestions" | "gapFixPanel" | "strategicTips" | "interviewQuestions" | "activeTab" | "onActiveTabChange" | "hiddenTabs"> & {
   collapsed?: boolean;
   onCollapsedChange?: (c: boolean) => void;
   onFixEverything?: () => void;
@@ -306,7 +316,7 @@ export function TailorMatchSidebar({
   fixEverythingAutoApply?: boolean;
   onFixEverythingAutoApplyChange?: (on: boolean) => void;
 }) {
-  const state = useTailorRatingsState({ ratings, hasSuggestions, gapFixPanel, strategicTips, interviewQuestions, activeTab: activeTabProp, onActiveTabChange });
+  const state = useTailorRatingsState({ ratings, hasSuggestions, gapFixPanel, strategicTips, interviewQuestions, activeTab: activeTabProp, onActiveTabChange, hiddenTabs });
   if (!state) return null;
 
   const { activeTab, setActiveTab, overall_score, navTabs } = state;
@@ -629,6 +639,7 @@ export function TailorMatchDetail(props: SharedProps) {
     interviewQuestions: props.interviewQuestions,
     activeTab: props.activeTab,
     onActiveTabChange: props.onActiveTabChange,
+    hiddenTabs: props.hiddenTabs,
   });
   // The "gapfix" tab only exists while gapFixPanel is set. If the panel is
   // cleared (fix applied or dismissed) while it's the active tab, the detail
