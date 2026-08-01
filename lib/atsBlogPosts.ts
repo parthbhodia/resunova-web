@@ -126,6 +126,30 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     statLabel: "of big-company tech roles are remote (market: 13.7%)",
   },
   {
+    slug: "claude-resume-prompts",
+    title: "Claude Resume Prompts That Work (And How to Check What Comes Back)",
+    description:
+      "Nine copy-paste prompts for scoring, rewriting, and tailoring a resume with Claude, plus the four output checks that catch the mistakes these models reliably make.",
+    seoDescription:
+      "Nine copy-paste Claude resume prompts for scoring, rewriting, and tailoring, plus the verification checks that catch AI's most common resume mistakes.",
+    readMinutes: 8,
+    tag: "Guide",
+    publishedAt: "2026-08-01",
+    modifiedAt: "2026-08-01",
+  },
+  {
+    slug: "ai-resume-rewrite-failure-modes",
+    title: "Five Things AI Gets Wrong When It Rewrites Your Resume",
+    description:
+      "We built validators to catch what language models do to resume bullets: no-op rewrites, quantification claims with no number attached, dropped metrics, and gaps contradicted by the resume itself.",
+    seoDescription:
+      "Five failure modes in AI resume rewriting, found while building automated validators: no-op edits, false quantification claims, dropped metrics, and more.",
+    readMinutes: 7,
+    tag: "Research",
+    publishedAt: "2026-08-01",
+    modifiedAt: "2026-08-01",
+  },
+  {
     slug: "tailor-resume-to-job-description",
     title: "How to Tailor Your Resume to a Job Description (Step-by-Step)",
     description:
