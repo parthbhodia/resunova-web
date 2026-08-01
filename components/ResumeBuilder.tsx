@@ -1,11 +1,12 @@
 "use client";
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect, useId, useMemo, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { GenerationResult, SSEEvent, RatingsData, DiffLine, Source, ChangeRationale, ParsedSection } from "@/lib/types";
 import { buildResumeFileStem } from "@/lib/resumeFileName";
 import { saveTailorMatchToLibrary, tailorMatchFolder } from "@/lib/tailorAnalyzeLibrary";
+import { resolveIntentJobRedirect } from "@/lib/tailorIntentRedirect";
 import { accentCardBorder } from "@/lib/accentCardBorder";
 import { getBaseResumeBanner } from "@/lib/libraryFolderLabel";
 import { apiUrl, isResumeUploadFile, parseJsonOrThrow, scoreColor } from "@/lib/utils";
@@ -450,6 +451,7 @@ export default function ResumeBuilder({
   const router = useRouter();
   const { openSignIn } = useSignInDialog();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const draft0: Record<string, unknown> = loadDraft();
   const builderSession0 = parseBuilderSessionFromDraft(draft0);
   const [company,    setCompanyRaw]    = useState<string>(String(draft0.company ?? ""));
@@ -1009,9 +1011,7 @@ export default function ResumeBuilder({
         sessionStorage.removeItem(TAILOR_PREFILL_COMPANY);
         sessionStorage.removeItem(TAILOR_PREFILL_ROLE);
       } catch { /* ignore */ }
-      sp.delete("intent");
-      const qs = sp.toString();
-      router.replace(qs ? `/?${qs}` : "/?view=builder&flow=tailor");
+      router.replace(resolveIntentJobRedirect(pathname, sp));
       return;
     }
 
@@ -1073,7 +1073,7 @@ export default function ResumeBuilder({
       } catch { /* ignore */ }
       router.replace("/template-builder/");
     }
-  }, [router, searchParams]);
+  }, [router, searchParams, pathname]);
 
   // ── ATS state — populated lazily when the user opens the ATS panel. ──
   const [atsResult,    setAtsResult]    = useState<AtsResult | null>(null);
