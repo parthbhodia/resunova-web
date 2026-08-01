@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import AnnotatedResumePanel from "@/components/AnnotatedResumePanel";
 import type { LiveBulletItem } from "@/lib/resumeBulletMatch";
 import type { StructuredBulletOp } from "@/lib/structuredBulletOps";
@@ -88,6 +88,9 @@ export default function TailorPreviewPane({
   // Opt-in: only enable editing when the caller wires a real handler, so any
   // read-only embed of this pane keeps today's presentation behavior.
   const editingEnabled = !!onFieldEdit;
+  // A clean résumé is the useful default. Keyword coverage is an optional
+  // diagnostic layer; live-edit/applied-change highlights remain independent.
+  const [keywordHighlightsEnabled, setKeywordHighlightsEnabled] = useState(false);
 
   return (
     <AnnotatedResumePanel
@@ -118,6 +121,8 @@ export default function TailorPreviewPane({
       tailorAppliedBulletIndices={tailorAppliedBulletIndices}
       appliedPillPairs={appliedPillPairs}
       keywordHighlightTerms={keywordHighlightTerms}
+      keywordHighlightsEnabled={keywordHighlightsEnabled}
+      onKeywordHighlightsEnabledChange={setKeywordHighlightsEnabled}
       exportRoleLabel={role}
       onExportDocx={exportDocxEnabled ? handleExportDocx : undefined}
       exportDocxEnabled={exportDocxEnabled && !docxExportBusy}

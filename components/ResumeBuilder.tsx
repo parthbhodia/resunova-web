@@ -2823,8 +2823,14 @@ export default function ResumeBuilder({
    * résumé IS the review surface. Opt into "Show suggestions first" to land
    * in the gap-fix panel instead. Overall match % stays frozen until Re-check.
    */
-  const fixEverything = useCallback(async () => {
-    if (!jd.trim() || openGapBatches.length === 0 || fixAllBusy) return;
+  const fixEverything = useCallback(async (selectedNames?: ReadonlySet<string>) => {
+    const targetBatches = selectedNames?.size
+      ? openGapBatches
+          .map((batch) => ({ ...batch, gaps: batch.gaps.filter((gap) => selectedNames.has(normalizeQueueName(gap))) }))
+          .filter((batch) => batch.gaps.length > 0)
+      : openGapBatches;
+    const targetGapCount = countGaps(targetBatches);
+    if (!jd.trim() || targetBatches.length === 0 || fixAllBusy) return;
     const prof = effectiveCandidateProfile.trim();
     if (!tailorStructuredResume && !prof) {
       setGapFixError("Fix everything needs résumé text. Upload a PDF or paste your profile, then try again.");
@@ -2839,7 +2845,7 @@ export default function ResumeBuilder({
     setFixAllBusy(true);
     setGapFixError(null);
     setGapFixPanel(null);
-    setFixAllPendingGaps(openGapBatches.flatMap((b) => b.gaps));
+    setFixAllPendingGaps(targetBatches.flatMap((b) => b.gaps));
     try {
       const structured = tailorStructuredResume
         ? applyFieldOverridesToStructured(
@@ -2857,7 +2863,7 @@ export default function ResumeBuilder({
       let appliedTotal = 0;
       const panelAll: GapFixSuggestion[] = [];
 
-      await Promise.all(openGapBatches.map(async (batch, i) => {
+      await Promise.all(targetBatches.map(async (batch, i) => {
         let named: GapFixSuggestion[] = [];
         try {
           const resp = await apiFetch("/api/suggest-gap-fix", {
@@ -2922,8 +2928,8 @@ export default function ResumeBuilder({
         return;
       }
       setGapFixPanel({
-        gapName: openGapBatches.map((b) => batchGapName(b)).join(", "),
-        gapNotes: `${panelAll.length} rewrite${panelAll.length === 1 ? "" : "s"} across ${openGapCount} gaps.`,
+        gapName: targetBatches.map((b) => batchGapName(b)).join(", "),
+        gapNotes: `${panelAll.length} rewrite${panelAll.length === 1 ? "" : "s"} across ${targetGapCount} gaps.`,
         suggestions: panelAll,
         gapType: "qualification",
       });
@@ -2934,7 +2940,7 @@ export default function ResumeBuilder({
       setFixAllBusy(false);
       setFixAllPendingGaps([]);
     }
-  }, [jd, openGapBatches, openGapCount, fixAllBusy, fixAllAutoApply, queueUi, effectiveCandidateProfile,
+  }, [jd, openGapBatches, fixAllBusy, fixAllAutoApply, queueUi, effectiveCandidateProfile,
       tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
 
   /** One batched rewrite pass for several contextual gaps, instead of one call each. */
@@ -4324,6 +4330,9 @@ export default function ResumeBuilder({
                         fixAllBusy={fixAllBusy}
                         pendingGapNames={fixAllPendingGaps}
                         onFixAll={() => { void fixEverything(); }}
+                        onFixSelected={(items) => {
+                          void fixEverything(new Set(items.map((item) => normalizeQueueName(item.name))));
+                        }}
                         fetchFixSuggestions={fetchFixSuggestions}
                         applyFixSuggestion={applyFixSuggestion}
                         ignoredNames={ignoredGapNames}

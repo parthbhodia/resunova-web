@@ -117,6 +117,9 @@ interface Props {
   appliedPillPairs?: readonly { original: string; applied: string }[];
   /** Found JD keywords to paint as inline pills in the résumé body. */
   keywordHighlightTerms?: readonly string[];
+  /** Tailor keeps keyword coverage optional so live-edit highlights can remain on. */
+  keywordHighlightsEnabled?: boolean;
+  onKeywordHighlightsEnabledChange?: (enabled: boolean) => void;
   /** Target role for export filenames (Tailor JD title); falls back to structured experience. */
   exportRoleLabel?: string;
   /** Inline summary edit committed from the preview (Analyze routes this to summaryOverride). */
@@ -467,6 +470,8 @@ export default function AnnotatedResumePanel({
   tailorAppliedBulletIndices = new Set<number>(),
   appliedPillPairs = [],
   keywordHighlightTerms = [],
+  keywordHighlightsEnabled = true,
+  onKeywordHighlightsEnabledChange,
   exportRoleLabel = "",
   onSummaryEdit,
   hiddenPaths,
@@ -1098,6 +1103,30 @@ export default function AnnotatedResumePanel({
               />
             </div>
           ) : null}
+          {useLiveDoc && keywordHighlightTerms.length > 0 && onKeywordHighlightsEnabledChange ? (
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 10.5,
+                fontWeight: 600,
+                color: "var(--muted)",
+                cursor: "pointer",
+                userSelect: "none",
+                flexShrink: 0,
+              }}
+              title="Show or hide job-description keyword matches"
+            >
+              <input
+                type="checkbox"
+                checked={keywordHighlightsEnabled}
+                onChange={(event) => onKeywordHighlightsEnabledChange(event.target.checked)}
+                style={{ accentColor: "var(--accent)", cursor: "pointer" }}
+              />
+              Matched keywords
+            </label>
+          ) : null}
           {useLiveDoc ? (
             <label
               style={{
@@ -1526,7 +1555,7 @@ export default function AnnotatedResumePanel({
                 gapFixTargetBulletIndices={gapFixTargetBulletIndices}
                 tailorAppliedBulletIndices={tailorAppliedBulletIndices}
                 appliedPillPairs={appliedPillPairs}
-                keywordHighlightTerms={keywordHighlightTerms}
+                keywordHighlightTerms={keywordHighlightsEnabled ? keywordHighlightTerms : []}
                 highlightsEnabled={highlightsEnabled}
                 selectedSectionIdx={selectedSectionIdx}
                 onSectionSelected={onSectionSelected}
