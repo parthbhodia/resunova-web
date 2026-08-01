@@ -1075,6 +1075,11 @@ export default function AnnotatedResumePanel({
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
+                // The three segmented groups are a rigid row; without these the
+                // set overflows a narrow preview pane and the toolbar clips
+                // instead of wrapping onto a second line.
+                flexWrap: "wrap",
+                minWidth: 0,
               }}
             >
               <PreviewSegControl

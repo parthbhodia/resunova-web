@@ -651,6 +651,18 @@ export default function ResumeBuilder({
     setGenerating(false);
     setStatusMsg("");
   }, [setSuggestLoading]);
+  // Declared above the reset callbacks that clear them. Both were introduced
+  // lower down with the sequential-gap work, which put every use in
+  // tryAnotherJob / startOverTailor / handleFixGap / fixEverything ahead of the
+  // declaration. React Compiler then could not treat setGapFixError as a stable
+  // setter, inferred it as a real dependency of the two big useCallbacks, and
+  // skipped optimizing the component entirely.
+  const [gapFixError, setGapFixError] = useState<string | null>(null);
+  const [fixCollisionNotice, setFixCollisionNotice] = useState<{
+    count: number;
+    bulletExcerpt: string;
+  } | null>(null);
+
   const tryAnotherJob = useCallback(() => {
     resetActiveTailorWork();
     clearSuggestionsState();
@@ -745,11 +757,6 @@ export default function ResumeBuilder({
     gapType: AddressedGapAction["type"];
     atsFallback?: boolean;
     targetTerms?: string[];
-  } | null>(null);
-  const [gapFixError, setGapFixError] = useState<string | null>(null);
-  const [fixCollisionNotice, setFixCollisionNotice] = useState<{
-    count: number;
-    bulletExcerpt: string;
   } | null>(null);
   /** True while a gap-fix suggestion is being applied + PDF compiled + rescored. */
   const [gapApplyBusy, setGapApplyBusy] = useState(false);
