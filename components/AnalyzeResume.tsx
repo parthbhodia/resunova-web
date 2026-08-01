@@ -49,6 +49,7 @@ import {
 import { lsSave, lsPush } from "./analyze/analyzeHistoryStore";
 import { AnalyzeSidebarPinned, AnalyzeHistoryRail } from "./analyze/AnalyzeSidebar";
 import SaveToProfilePrompt from "./analyze/SaveToProfilePrompt";
+import TopJobsToast from "./analyze/TopJobsToast";
 import AnalyzeImprovementPlan from "./analyze/AnalyzeImprovementPlan";
 import { useAnalyzeSession } from "./analyze/useAnalyzeSession";
 import { useAnalyzeLoaderProgress } from "./analyze/useAnalyzeLoaderProgress";
@@ -1440,6 +1441,11 @@ export default function AnalyzeResume() {
       {/* After an analysis: one-tap "save this résumé to your Profile" (self-hides
           when no structured résumé / already saved or dismissed). */}
       <SaveToProfilePrompt />
+
+      {/* And the payoff: top job matches for the résumé just scanned. Renders
+          only when the feed is résumé-ranked for a signed-in user; bottom-right
+          so it never collides with the profile prompt. */}
+      <TopJobsToast />
 
       {/* ── Mobile backdrop (close history drawer) ─── */}
       {historyOpen && (
