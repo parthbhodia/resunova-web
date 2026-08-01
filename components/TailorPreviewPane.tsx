@@ -68,7 +68,6 @@ export default function TailorPreviewPane({
   gapFixTargetBulletIndices = [],
   tailorGapFixHighlights = [],
   tailorAppliedBulletIndices = new Set<number>(),
-  appliedPillPairs = [],
   keywordHighlightTerms = [],
   fieldOverrides = {},
   onFieldEdit,
@@ -119,7 +118,9 @@ export default function TailorPreviewPane({
       gapFixTargetBulletIndices={gapFixTargetBulletIndices}
       tailorGapFixHighlights={tailorGapFixHighlights}
       tailorAppliedBulletIndices={tailorAppliedBulletIndices}
-      appliedPillPairs={appliedPillPairs}
+      // Tailor uses a restrained row rail/wash for applied changes. Rounded
+      // word-level pills made long rewrites look like a marked-up worksheet.
+      appliedPillPairs={[]}
       keywordHighlightTerms={keywordHighlightTerms}
       keywordHighlightsEnabled={keywordHighlightsEnabled}
       onKeywordHighlightsEnabledChange={setKeywordHighlightsEnabled}

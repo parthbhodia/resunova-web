@@ -2818,10 +2818,9 @@ export default function ResumeBuilder({
   /**
    * Fix everything in one pass.
    *
-   * Batches by gap TYPE (a few focused prompts, not one per gap). Default:
-   * apply every rewrite straight to the preview with green highlights — the
-   * résumé IS the review surface. Opt into "Show suggestions first" to land
-   * in the gap-fix panel instead. Overall match % stays frozen until Re-check.
+   * Processes gaps one at a time in queue priority order. This is deliberately
+   * sequential: the active row is unambiguous and each rewrite lands before
+   * the next request starts. Overall match % stays frozen until Re-check.
    */
   const fixEverything = useCallback(async (selectedNames?: ReadonlySet<string>) => {
     const targetBatches = selectedNames?.size
@@ -2830,7 +2829,10 @@ export default function ResumeBuilder({
           .filter((batch) => batch.gaps.length > 0)
       : openGapBatches;
     const targetGapCount = countGaps(targetBatches);
-    if (!jd.trim() || targetBatches.length === 0 || fixAllBusy) return;
+    const targetRuns = targetBatches.flatMap((batch) =>
+      batch.gaps.map((gap) => ({ ...batch, gaps: [gap] })),
+    );
+    if (!jd.trim() || targetRuns.length === 0 || fixAllBusy) return;
     const prof = effectiveCandidateProfile.trim();
     if (!tailorStructuredResume && !prof) {
       setGapFixError("Fix everything needs résumé text. Upload a PDF or paste your profile, then try again.");
@@ -2845,7 +2847,7 @@ export default function ResumeBuilder({
     setFixAllBusy(true);
     setGapFixError(null);
     setGapFixPanel(null);
-    setFixAllPendingGaps(targetBatches.flatMap((b) => b.gaps));
+    setFixAllPendingGaps(targetRuns[0]?.gaps ?? []);
     try {
       const structured = tailorStructuredResume
         ? applyFieldOverridesToStructured(
@@ -2854,16 +2856,11 @@ export default function ResumeBuilder({
           )
         : null;
 
-      // Parallel generation: each batch is written against the same résumé
-      // snapshot. Application is a serialized CHAIN so waves land in settle
-      // order — applyGapFixes merges onto any prior override of the same
-      // bullet, and going through the ref means each wave sees the previous
-      // wave's committed state instead of a stale closure.
-      let applyChain: Promise<void> = Promise.resolve();
       let appliedTotal = 0;
       const panelAll: GapFixSuggestion[] = [];
 
-      await Promise.all(targetBatches.map(async (batch, i) => {
+      for (const [i, batch] of targetRuns.entries()) {
+        setFixAllPendingGaps(batch.gaps);
         let named: GapFixSuggestion[] = [];
         try {
           const resp = await apiFetch("/api/suggest-gap-fix", {
@@ -2889,32 +2886,24 @@ export default function ResumeBuilder({
         } catch { /* a failed batch behaves like an empty one */ }
 
         if (autoApply) {
-          // Wave: this batch's rewrites land in the preview the moment they
-          // arrive, and its queue rows stop spinning — the pass is visibly
-          // three arrivals, not one long wait.
-          applyChain = applyChain.then(async () => {
-            if (named.length > 0) {
-              appliedTotal += named.length;
-              await applyGapFixesRef.current(
-                named.map((s) => ({
-                  id: s.id, section: s.section, original: s.original,
-                  suggested: s.suggested, reason: s.reason, priority: s.priority,
-                })),
-                batchGapName(batch),
-                { gapType: batch.type },
-              );
-              // Let React commit this wave's overrides before the next wave
-              // reads them through the ref.
-              await new Promise((r) => setTimeout(r, 30));
-            }
-            setFixAllPendingGaps((prev) => prev.filter((g) => !batch.gaps.includes(g)));
-          });
+          if (named.length > 0) {
+            appliedTotal += named.length;
+            await applyGapFixesRef.current(
+              named.map((s) => ({
+                id: s.id, section: s.section, original: s.original,
+                suggested: s.suggested, reason: s.reason, priority: s.priority,
+              })),
+              batchGapName(batch),
+              { gapType: batch.type },
+            );
+            await new Promise((resolve) => setTimeout(resolve, 30));
+          }
+          setFixAllPendingGaps((prev) => prev.filter((g) => !batch.gaps.includes(g)));
         } else {
           panelAll.push(...named);
           setFixAllPendingGaps((prev) => prev.filter((g) => !batch.gaps.includes(g)));
         }
-      }));
-      await applyChain;
+      }
 
       if (autoApply) {
         if (appliedTotal === 0) {
@@ -2928,7 +2917,7 @@ export default function ResumeBuilder({
         return;
       }
       setGapFixPanel({
-        gapName: targetBatches.map((b) => batchGapName(b)).join(", "),
+        gapName: targetRuns.map((b) => batchGapName(b)).join(", "),
         gapNotes: `${panelAll.length} rewrite${panelAll.length === 1 ? "" : "s"} across ${targetGapCount} gaps.`,
         suggestions: panelAll,
         gapType: "qualification",
