@@ -2,13 +2,16 @@
 
 /**
  * Container that adapts ResumeBuilder's live tailor state into the work-queue
- * surfaces (TailorScoreboard + TailorWorkQueue). Mounted only on the /tailor-2
- * route (ResumeBuilder's `queueUi` prop) while the redesign is validated; the
- * legacy match sidebar and detail tabs render below it as the evidence layer.
+ * surfaces (TailorScoreboard + TailorWorkQueue + the inline TailorFixExpansion).
+ * Mounted only on the /tailor-2 route (ResumeBuilder's `queueUi` prop) while
+ * the redesign is validated; the legacy match sidebar and detail tabs render
+ * below it as the evidence layer.
  *
- * State mapping, deliberately conservative for the first live slice:
+ * State mapping:
  *  - applied        <- the existing addressedGaps set (same source the old
  *                      cards use, so the two can never disagree)
+ *  - ignored        <- the user clicked Ignore; owned by ResumeBuilder so the
+ *                      Fix-everything pass skips those items too
  *  - not_coverable  <- still open after a completed Fix-everything pass
  *                      (the pass attempted or capped it; either way the user
  *                      deserves an ending, not a silent "missing")
@@ -19,14 +22,21 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { AddressedGapAction, RatingsData } from "@/lib/types";
 import {
   CONTEXTUAL_DETAIL,
+  IGNORED_DETAIL,
   deriveWorkQueue,
+  normalizeQueueName,
   type QueueItem,
 } from "@/lib/tailorWorkQueue";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
+import {
+  TailorFixExpansion,
+  type FixExpansionState,
+  type FixSuggestion,
+} from "@/components/tailor/TailorFixExpansion";
 
 const NOT_COVERED_DETAIL =
-  "The pass couldn't cover this honestly. Try Fix on it alone, or leave it uncovered rather than stretch.";
+  "This one couldn't be written from your real experience. Try Fix on it alone, or leave it out.";
 
 const TERMINAL: ReadonlySet<QueueItem["status"]> = new Set(["applied", "needs_review", "not_coverable"]);
 
@@ -118,7 +128,10 @@ export function TailorQueuePanel({
   fixAllBusy,
   pendingGapNames,
   onFixAll,
-  onFixItem,
+  fetchFixSuggestions,
+  applyFixSuggestion,
+  ignoredNames,
+  onToggleIgnored,
   stale,
   onRecheck,
   recheckBusy,
@@ -132,7 +145,18 @@ export function TailorQueuePanel({
    *  wave that lands clears its own. */
   pendingGapNames?: readonly string[];
   onFixAll: () => void;
-  onFixItem: (item: QueueItem) => void;
+  /** Fetch rewrite options for one item; the row expands inline around them. */
+  fetchFixSuggestions: (item: QueueItem) => Promise<FixSuggestion[]>;
+  /** Apply the picked (possibly edited) suggestion to the preview. */
+  applyFixSuggestion: (
+    item: QueueItem,
+    suggestion: FixSuggestion,
+    editedText: string | null,
+  ) => Promise<void>;
+  /** Normalized names the user ignored — owned upstream so Fix everything
+   *  skips them too. */
+  ignoredNames: ReadonlySet<string>;
+  onToggleIgnored: (item: QueueItem, ignored: boolean) => void;
   stale: boolean;
   onRecheck: () => void;
   recheckBusy: boolean;
@@ -148,19 +172,28 @@ export function TailorQueuePanel({
 
   const items = useMemo(() => {
     const base = deriveWorkQueue(ratings, addressedGaps, addressedGapActions);
-    if (!passRan || fixAllBusy) return base;
-    // After a completed pass, nothing stays silently open: what the pass
-    // didn't land becomes an explicit "not coverable" with its reason.
-    return base.map((it) =>
-      it.status === "queued"
-        ? {
-            ...it,
-            status: "not_coverable" as const,
-            detail: it.kind === "contextual" ? CONTEXTUAL_DETAIL : NOT_COVERED_DETAIL,
-          }
+    const withPass =
+      !passRan || fixAllBusy
+        ? base
+        : // After a completed pass, nothing stays silently open: what the pass
+          // didn't land becomes an explicit "not coverable" with its reason.
+          base.map((it) =>
+            it.status === "queued"
+              ? {
+                  ...it,
+                  status: "not_coverable" as const,
+                  detail: it.kind === "contextual" ? CONTEXTUAL_DETAIL : NOT_COVERED_DETAIL,
+                }
+              : it,
+          );
+    // The user's explicit Ignore wins over the pass's "not coverable".
+    return withPass.map((it) =>
+      it.status !== "applied" && it.status !== "needs_review"
+        && ignoredNames.has(normalizeQueueName(it.name))
+        ? { ...it, status: "ignored" as const, detail: IGNORED_DETAIL }
         : it,
     );
-  }, [ratings, addressedGaps, addressedGapActions, passRan, fixAllBusy]);
+  }, [ratings, addressedGaps, addressedGapActions, passRan, fixAllBusy, ignoredNames]);
 
   const kw = ratings.keywords;
   const found = kw?.found_count ?? 0;
@@ -172,9 +205,68 @@ export function TailorQueuePanel({
         ? ratings.match_score
         : null;
 
+  // ---- Inline fix expansion -------------------------------------------------
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandState, setExpandState] = useState<FixExpansionState>({ phase: "loading" });
+  const [applying, setApplying] = useState(false);
+  // Guards a slow response from an earlier row overwriting the current one.
+  const fetchSeq = useRef(0);
+
+  const expandedItem = expandedId ? items.find((it) => it.id === expandedId) ?? null : null;
+
+  const openFix = (item: QueueItem) => {
+    setExpandedId(item.id);
+    setExpandState({ phase: "loading" });
+    const seq = ++fetchSeq.current;
+    fetchFixSuggestions(item).then(
+      (suggestions) => {
+        if (fetchSeq.current === seq) setExpandState({ phase: "ready", suggestions });
+      },
+      (e: unknown) => {
+        if (fetchSeq.current === seq) {
+          setExpandState({
+            phase: "error",
+            message: e instanceof Error ? e.message : "Couldn't write suggestions. Try again.",
+          });
+        }
+      },
+    );
+  };
+
+  const closeExpansion = () => {
+    fetchSeq.current++;
+    setExpandedId(null);
+  };
+
   const handleItemAction = (item: QueueItem, action: QueueItemAction) => {
-    if (action === "fix" || action === "add_to_summary") onFixItem(item);
+    if (action === "fix") openFix(item);
+    else if (action === "reconsider") onToggleIgnored(item, false);
+    else if (action === "whats_this" || action === "add_to_summary") {
+      setExpandedId(item.id);
+      setExpandState({ phase: "info" });
+    }
     // view_change / review navigation lands with the preview-linking slice.
+  };
+
+  const handleApply = async (suggestion: FixSuggestion, editedText: string | null) => {
+    if (!expandedItem) return;
+    setApplying(true);
+    try {
+      await applyFixSuggestion(expandedItem, suggestion, editedText);
+      closeExpansion();
+    } catch (e: unknown) {
+      setExpandState({
+        phase: "error",
+        message: e instanceof Error ? e.message : "Couldn't add that. Try again.",
+      });
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const handleIgnore = () => {
+    if (expandedItem) onToggleIgnored(expandedItem, true);
+    closeExpansion();
   };
 
   const { displayItems, revealWorkingId, revealing } = useStaggeredReveal(items);
@@ -212,6 +304,20 @@ export function TailorQueuePanel({
         onFixAll={onFixAll}
         onItemAction={handleItemAction}
         onDownload={onDownload}
+        expandedId={expandedId}
+        expansion={
+          expandedItem ? (
+            <TailorFixExpansion
+              item={expandedItem}
+              state={expandState}
+              applying={applying}
+              onApply={(s, edited) => { void handleApply(s, edited); }}
+              onIgnore={handleIgnore}
+              onTryFix={() => openFix(expandedItem)}
+              onClose={closeExpansion}
+            />
+          ) : null
+        }
       />
     </div>
   );

@@ -1,18 +1,23 @@
 "use client";
 
 /**
- * Design preview for the Tailor redesign — one work queue, two numbers.
- * Open /tailor-preview signed out; no backend, no LLM. The pass is simulated,
- * but it drives the REAL lib (deriveWorkQueue/withStatus/queueCounts) and the
- * REAL components that will mount into the Tailor results page, so what you
- * review here is what ships.
+ * Design preview for the Tailor redesign — one work queue, inline one-by-one
+ * fixes, two numbers. Open /tailor-preview signed out; no backend, no LLM.
+ * The fetches are simulated, but they drive the REAL TailorQueuePanel (queue,
+ * scoreboard, inline TailorFixExpansion, staggered reveal), so what you review
+ * here is what ships on /tailor-2.
+ *
+ * Try both paths:
+ *  - Fix on "CI/CD pipeline experience": the row expands with two versions to
+ *    pick from, Add to resume / Edit first / Ignore.
+ *  - Fix everything: waves land, leftovers end explicit, never silent.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import Link from "next/link";
-import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
-import { TailorWorkQueue } from "@/components/tailor/TailorWorkQueue";
-import { deriveWorkQueue, withStatus, type QueueItem } from "@/lib/tailorWorkQueue";
+import { TailorQueuePanel } from "@/components/tailor/TailorQueuePanel";
+import type { FixSuggestion } from "@/components/tailor/TailorFixExpansion";
+import { normalizeQueueName, type QueueItem } from "@/lib/tailorWorkQueue";
 import type { RatingsData } from "@/lib/types";
 import { FS, FW } from "@/lib/typography";
 
@@ -34,7 +39,7 @@ const DEMO_RATINGS: RatingsData = {
     score: 40,
     covered: [],
     missing: [
-      { text: "CI/CD pipeline experience", analysis: "Not named; bridge from the SOCOM analysis tooling." },
+      { text: "CI/CD pipeline experience", analysis: "Not on your resume yet. You have related work to draw from." },
       { text: "Build systems (Bazel-class)", analysis: "Closest support: frontend build tooling on Project Spectrum." },
     ],
   },
@@ -47,101 +52,150 @@ const DEMO_RATINGS: RatingsData = {
   },
   keywords: {
     direct_skills: { found: ["Python", "TypeScript"], missing: ["Kubernetes"] },
-    contextual: { found: [], missing: ["advertisers", "publishers", "networking"] },
+    contextual: { found: [], missing: ["advertisers", "publishers"] },
     found_count: 57,
     total_count: 69,
   },
 };
 
-/** Scripted outcome per item, in queue order: what the real pass would report. */
-const OUTCOMES: Record<string, { status: QueueItem["status"]; detail: string; gain: number }> = {
-  "qualification:ci/cd pipeline experience": {
-    status: "applied", gain: 2,
-    detail: "Woven into the SOCOM bullet: the pipeline now re-runs the analysis suite on every merge.",
-  },
-  "qualification:build systems (bazel-class)": {
-    status: "needs_review", gain: 1,
-    detail: "Aggressive stretch: “build-caching” mirrors the JD, not your history. Confirm or edit before sending.",
-  },
-  "responsibility:improve developer workflows": {
-    status: "applied", gain: 1,
-    detail: "Added to the summary; it matches the role's own title.",
-  },
-  "keyword:kubernetes": {
-    status: "applied", gain: 1,
-    detail: "Named on the LiteLLM gateway bullet, where the manifests already were.",
-  },
-  "contextual:advertisers": {
-    status: "not_coverable", gain: 0,
-    detail: "Google's business domain, not a skill. Recruiters don't expect it in your bullets.",
-  },
-  "contextual:publishers": {
-    status: "not_coverable", gain: 0,
-    detail: "Employer-domain word. Add only if a real project touched it.",
-  },
-  "contextual:networking": {
-    status: "not_coverable", gain: 0,
-    detail: "No supporting project found. Left out rather than stuffed.",
-  },
+/** Scripted rewrite options per item, keyed by normalized name. */
+const DEMO_SUGGESTIONS: Record<string, FixSuggestion[]> = {
+  "ci/cd pipeline experience": [
+    {
+      id: "d1",
+      section: "Adds CI/CD to this bullet",
+      original:
+        "Designed a LangGraph multi-agent workflow for SOCOM-approved security analysis, building LLM enrichment services for severity classification.",
+      suggested:
+        "Designed a LangGraph multi-agent workflow for SOCOM-approved security analysis, building LLM enrichment services for severity classification, deployed through a CI/CD pipeline that re-runs the full analysis suite on every merge.",
+      reason: "Based on your SOCOM security project. Nothing invented.",
+      priority: "high",
+    },
+    {
+      id: "d2",
+      section: "Shorter rewrite",
+      original:
+        "Designed a LangGraph multi-agent workflow for SOCOM-approved security analysis, building LLM enrichment services for severity classification.",
+      suggested:
+        "Built a SOCOM-approved security analysis workflow with automated CI/CD deployment, including LLM enrichment for severity classification.",
+      reason: "Same project, tighter phrasing.",
+      priority: "high",
+    },
+  ],
+  kubernetes: [
+    {
+      id: "d3",
+      section: "Experience",
+      original:
+        "Deployed an LLM gateway with LiteLLM, routing traffic across model providers.",
+      suggested:
+        "Deployed an LLM gateway with LiteLLM on Kubernetes, routing traffic across model providers.",
+      reason: "The gateway manifests were already Kubernetes. Names it.",
+      priority: "medium",
+    },
+  ],
 };
 
 export default function TailorPreviewPage() {
-  const [items, setItems] = useState<QueueItem[]>(() => deriveWorkQueue(DEMO_RATINGS, new Set()));
-  const [found, setFound] = useState(57);
-  const [workingId, setWorkingId] = useState<string | null>(null);
+  const [ratings, setRatings] = useState<RatingsData>(DEMO_RATINGS);
+  const [addressed, setAddressed] = useState<ReadonlySet<string>>(new Set());
+  const [ignored, setIgnored] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  const [passRan, setPassRan] = useState(false);
+  const [pending, setPending] = useState<readonly string[]>([]);
   const [stale, setStale] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
   const later = (ms: number, fn: () => void) => timers.current.push(setTimeout(fn, ms));
 
-  const runPass = useCallback(() => {
-    setBusy(true);
-    let t = 0;
-    const order = deriveWorkQueue(DEMO_RATINGS, new Set());
-    for (const it of order) {
-      const out = OUTCOMES[it.id];
-      if (!out) continue;
-      const step = out.status === "not_coverable" ? 500 : 950;
-      later(t, () => setWorkingId(it.id));
-      t += step;
-      later(t, () => {
-        setItems((prev) => withStatus(prev, it.id, out.status, out.detail));
-        if (out.gain > 0) {
-          setFound((f) => f + out.gain);
-          setStale(true);
-        }
-      });
-    }
-    later(t + 50, () => {
-      setWorkingId(null);
-      setBusy(false);
-      setPassRan(true);
+  const bumpFound = useCallback((n: number) => {
+    setRatings((r) => {
+      if (!r.keywords) return r;
+      return {
+        ...r,
+        keywords: {
+          ...r.keywords,
+          found_count: (r.keywords.found_count ?? 0) + n,
+          total_count: r.keywords.total_count ?? 0,
+        },
+      };
+    });
+    setStale(true);
+  }, []);
+
+  const fetchFixSuggestions = useCallback(
+    (item: QueueItem) =>
+      new Promise<FixSuggestion[]>((resolve) => {
+        timers.current.push(
+          setTimeout(() => resolve(DEMO_SUGGESTIONS[normalizeQueueName(item.name)] ?? []), 1200),
+        );
+      }),
+    [],
+  );
+
+  const applyFixSuggestion = useCallback(
+    (item: QueueItem) =>
+      new Promise<void>((resolve) => {
+        timers.current.push(
+          setTimeout(() => {
+            setAddressed((prev) => new Set([...prev, item.name]));
+            bumpFound(1);
+            resolve();
+          }, 400),
+        );
+      }),
+    [bumpFound],
+  );
+
+  const onToggleIgnored = useCallback((item: QueueItem, ign: boolean) => {
+    setIgnored((prev) => {
+      const next = new Set(prev);
+      const key = normalizeQueueName(item.name);
+      if (ign) next.add(key);
+      else next.delete(key);
+      return next;
     });
   }, []);
+
+  const runPass = useCallback(() => {
+    if (busy) return;
+    const open = [
+      "CI/CD pipeline experience",
+      "Build systems (Bazel-class)",
+      "Improve developer workflows",
+      "Kubernetes",
+    ].filter((n) => !addressed.has(n) && !ignored.has(normalizeQueueName(n)));
+    setBusy(true);
+    setPending([...open, "advertisers", "publishers"]);
+    let t = 0;
+    for (const name of open) {
+      t += 900;
+      later(t, () => {
+        setAddressed((prev) => new Set([...prev, name]));
+        bumpFound(1);
+        setPending((prev) => prev.filter((p) => p !== name));
+      });
+    }
+    later(t + 600, () => {
+      setPending([]);
+      setBusy(false);
+    });
+  }, [busy, addressed, ignored, bumpFound]);
 
   const reset = useCallback(() => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
-    setItems(deriveWorkQueue(DEMO_RATINGS, new Set()));
-    setFound(57);
-    setWorkingId(null);
-    setBusy(false);
-    setPassRan(false);
-    setStale(false);
+    window.location.reload();
   }, []);
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)" }}>
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "28px 20px 64px" }}>
         <h1 style={{ fontSize: FS.h3, fontWeight: FW.bold, letterSpacing: "-0.02em", margin: "0 0 4px" }}>
-          Tailor redesign preview: one queue, two numbers
+          Tailor redesign preview: fix one by one, or everything at once
         </h1>
         <p style={{ margin: "0 0 6px", color: "var(--muted)", fontSize: FS.bodyLg, maxWidth: "68ch" }}>
-          Design preview, no backend. Press <b>Fix everything</b>: the match counter ticks per accepted
-          change, the grade tile stays put and dates itself, and every item ends in an explicit state.
+          Design preview, no backend. Click <b>Fix</b> on the first row: it expands in place with two
+          versions to pick from. Or press <b>Fix everything</b> and watch each row land. Ignore is
+          always available, and ignored items stay out of the big pass too.
         </p>
         <p style={{ margin: "0 0 20px", fontSize: FS.small, color: "var(--dim)" }}>
           <Link href="/" style={{ color: "var(--accent)" }}>← Back to the app</Link>
@@ -155,25 +209,20 @@ export default function TailorPreviewPage() {
           </button>
         </p>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <TailorScoreboard
-            found={found}
-            total={69}
-            grade={75}
-            gradedAtLabel="2:41 PM"
-            stale={stale}
-            onRecheck={() => setStale(false)}
-          />
-          <TailorWorkQueue
-            items={items}
-            workingId={workingId}
-            passRan={passRan}
-            fixAllBusy={busy}
-            onFixAll={runPass}
-            onItemAction={() => undefined}
-            onDownload={() => undefined}
-          />
-        </div>
+        <TailorQueuePanel
+          ratings={ratings}
+          addressedGaps={addressed}
+          fixAllBusy={busy}
+          pendingGapNames={pending}
+          onFixAll={runPass}
+          fetchFixSuggestions={fetchFixSuggestions}
+          applyFixSuggestion={applyFixSuggestion}
+          ignoredNames={ignored}
+          onToggleIgnored={onToggleIgnored}
+          stale={stale}
+          onRecheck={() => setStale(false)}
+          recheckBusy={false}
+        />
       </div>
     </div>
   );
