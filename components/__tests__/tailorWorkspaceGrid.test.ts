@@ -48,18 +48,34 @@ describe("tailor workspace grid", () => {
     );
   });
 
-  it("keeps the classic three-track grid for the non-queue view", () => {
-    expect(SRC).toMatch(
-      /\.rb-tailor-workspace \{[^}]*grid-template-columns:\s*auto minmax\(260px, 2fr\) minmax\(280px, 3fr\)/,
-    );
+  it("keeps a three-track grid, led by the sidebar's auto track, for the classic view", () => {
+    // Asserted as a shape rather than as literal track widths: the classic view
+    // still mounts TailorMatchSidebar, so it needs the leading `auto` track and
+    // three tracks total. The widths themselves are free to be tuned.
+    const m = SRC.match(/\.rb-tailor-workspace \{[^}]*grid-template-columns:\s*([^;]+);/);
+    expect(m, "classic grid must set grid-template-columns").toBeTruthy();
+
+    const value = m![1].trim();
+    expect(value.startsWith("auto")).toBe(true);
+    const tracks = value.replace(/minmax\([^)]*\)/g, "T").split(/\s+/).filter(Boolean);
+    expect(tracks).toHaveLength(3);
   });
 
-  it("collapses both layouts to a single column on mobile", () => {
-    // The narrow-viewport override must name the queue class too, or /tailor-2
-    // keeps two side-by-side columns on a phone.
-    const mq = SRC.slice(SRC.indexOf("@media (max-width: 960px)"));
-    const firstRule = mq.slice(0, mq.indexOf("}"));
-    expect(firstRule).toContain(".rb-tailor-workspace--queue");
+  it("collapses the queue layout to a single column on mobile", () => {
+    // The queue layout carries BOTH classes, so the narrow-viewport override on
+    // `.rb-tailor-workspace` collapses it too — but only because equal-specificity
+    // rules are resolved by source order. If the `--queue` rule were ever moved
+    // below the media query it would win at every width and /tailor-2 would keep
+    // two side-by-side columns on a phone. That ordering is the invariant here.
+    const queueRule = SRC.indexOf(".rb-tailor-workspace--queue {");
+    expect(queueRule, "queue rule must exist").toBeGreaterThan(-1);
+
+    const mq = SRC.search(/@media \(max-width: \d+px\) \{\s*\n\s*\.rb-tailor-workspace\b/);
+    expect(mq, "a narrow-viewport override for the workspace must exist").toBeGreaterThan(-1);
+    expect(mq).toBeGreaterThan(queueRule);
+
+    const collapsed = SRC.slice(mq, SRC.indexOf("}", mq));
+    expect(collapsed).toContain("grid-template-columns: 1fr");
   });
 });
 
