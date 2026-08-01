@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupAnalysesByRoot } from "@/lib/analyzeVersions";
+import { defaultVariantHead, groupAnalysesByRoot, groupAnalysesByVariant } from "@/lib/analyzeVersions";
 import type { AnalyzeRecord } from "@/lib/supabase";
 
 const rec = (over: Partial<AnalyzeRecord>): AnalyzeRecord => ({
@@ -47,5 +47,83 @@ describe("groupAnalysesByRoot", () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].root).toBe("L1"); // rootId ?? id
     expect(groups[0].recs).toHaveLength(1);
+  });
+});
+
+describe("groupAnalysesByVariant", () => {
+  it("coalesces every row with no variant fields into one implicit 'Default' group", () => {
+    const a = rec({ id: "a", rootId: "a", createdAt: "2026-07-01T00:00:00Z" });
+    const b = rec({ id: "b", rootId: "b", createdAt: "2026-07-02T00:00:00Z" }); // separate lineage
+    const groups = groupAnalysesByVariant([a, b]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].name).toBe("Default");
+    expect(groups[0].roots).toHaveLength(2); // two lineages, one variant
+  });
+
+  it("splits rows into separate variants by (variantGroup, variantName)", () => {
+    const def = rec({
+      id: "a", rootId: "a", createdAt: "2026-07-01T00:00:00Z",
+      variantGroup: "g1", variantName: "Default",
+    });
+    const other = rec({
+      id: "b", rootId: "b", createdAt: "2026-07-03T00:00:00Z",
+      variantGroup: "g1", variantName: "Judi Health",
+    });
+    const groups = groupAnalysesByVariant([def, other]);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].name).toBe("Judi Health"); // most-recently-active first
+    expect(groups[1].name).toBe("Default");
+  });
+
+  it("keeps a variant's rescore lineage together within groupAnalysesByRoot", () => {
+    const v1 = rec({
+      id: "a", rootId: "a", version: 1, createdAt: "2026-07-01T00:00:00Z",
+      variantGroup: "g1", variantName: "Judi Health",
+    });
+    const v2 = rec({
+      id: "a2", rootId: "a", parentId: "a", version: 2, createdAt: "2026-07-02T00:00:00Z",
+      variantGroup: "g1", variantName: "Judi Health",
+    });
+    const groups = groupAnalysesByVariant([v1, v2]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].roots).toHaveLength(1);
+    expect(groups[0].roots[0].recs.map((r) => r.id)).toEqual(["a2", "a"]);
+  });
+
+  it("a different variantGroup with the same variantName is a distinct variant", () => {
+    const a = rec({ id: "a", rootId: "a", createdAt: "2026-07-01T00:00:00Z", variantGroup: "g1", variantName: "Default" });
+    const b = rec({ id: "b", rootId: "b", createdAt: "2026-07-02T00:00:00Z", variantGroup: "g2", variantName: "Default" });
+    const groups = groupAnalysesByVariant([a, b]);
+    expect(groups).toHaveLength(2);
+  });
+});
+
+describe("defaultVariantHead", () => {
+  it("with no variants used, returns the most recent row (today's exact behavior)", () => {
+    const a = rec({ id: "a", rootId: "a", createdAt: "2026-07-01T00:00:00Z" });
+    const b = rec({ id: "b", rootId: "b", createdAt: "2026-07-03T00:00:00Z" });
+    expect(defaultVariantHead([a, b])?.id).toBe("b");
+  });
+
+  it("returns the head of the NAMED default variant, not just the newest row overall", () => {
+    const def = rec({
+      id: "a", rootId: "a", createdAt: "2026-07-01T00:00:00Z",
+      variantGroup: "g1", variantName: "Default",
+    });
+    const other = rec({
+      id: "b", rootId: "b", createdAt: "2026-07-05T00:00:00Z", // newer overall
+      variantGroup: "g1", variantName: "Judi Health",
+    });
+    expect(defaultVariantHead([def, other], "Default")?.id).toBe("a");
+    expect(defaultVariantHead([def, other], "Judi Health")?.id).toBe("b");
+  });
+
+  it("falls back to the most-recently-active variant when the named default no longer exists", () => {
+    const stale = rec({ id: "a", rootId: "a", createdAt: "2026-07-01T00:00:00Z", variantGroup: "g1", variantName: "Deleted" });
+    expect(defaultVariantHead([stale], "Some Deleted Variant")?.id).toBe("a");
+  });
+
+  it("returns null for an empty history", () => {
+    expect(defaultVariantHead([])).toBeNull();
   });
 });
