@@ -113,6 +113,7 @@ export function TailorWorkQueue({
   onDownload,
   expandedId,
   expansion,
+  visibleIds,
 }: {
   items: readonly QueueItem[];
   /** Item currently being processed by the pass, if any. */
@@ -128,10 +129,15 @@ export function TailorWorkQueue({
   /** Row whose inline fix flow is open; `expansion` renders under it. */
   expandedId?: string | null;
   expansion?: React.ReactNode;
+  /** Dimension filter: only these ids render as rows. Counts, the progress
+   *  bar and the Fix-everything button stay whole-queue — a chip is a view,
+   *  not a different queue. */
+  visibleIds?: ReadonlySet<string> | null;
 }) {
   const c = queueCounts(items);
   const seg = (n: number) => `${(n / Math.max(1, c.total)) * 100}%`;
   const finished = Boolean(passRan) && c.open === 0;
+  const shown = visibleIds ? items.filter((it) => visibleIds.has(it.id)) : items;
 
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--card)" }}>
@@ -178,7 +184,12 @@ export function TailorWorkQueue({
       </div>
 
       <ul style={{ listStyle: "none", margin: "6px 0 0", padding: "0 6px 8px", maxHeight: 380, overflowY: "auto" }}>
-        {items.map((it) => {
+        {shown.length === 0 ? (
+          <li style={{ padding: "10px 8px", fontSize: FS.small, color: "var(--muted)" }}>
+            Nothing to add here. You&rsquo;re already covered.
+          </li>
+        ) : null}
+        {shown.map((it) => {
           const expanded = it.id === expandedId;
           const action = expanded ? null : itemAction(it);
           const working = it.id === workingId || Boolean(workingIds?.has(it.id));

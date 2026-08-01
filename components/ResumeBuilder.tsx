@@ -39,6 +39,7 @@ import {
   gapFixTargetBulletMap,
   matchOriginalToBulletIndex,
   applyFieldOverridesToStructured,
+  findAppliedBulletIndex,
   patchStructuredWithOverrides,
   resolveBulletIndexForGapFix,
   synthesizeProfileWithBulletOverrides,
@@ -2448,6 +2449,14 @@ export default function ResumeBuilder({
   }, [jd, effectiveCandidateProfile, tailorStructuredResume, tailorBulletAnalysis,
       tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
 
+  /** "See it" on an applied queue row: frame + scroll the preview bullet the
+   *  fix landed on. Silently no-ops when the fix became a new appended bullet
+   *  we can't map (the preview highlight already marks it). */
+  const seeAppliedItem = useCallback((item: QueueItem) => {
+    const idx = findAppliedBulletIndex(item.name, addressedGapActions, tailorLineOverrides);
+    if (idx !== null) setTailorSelection({ kind: "bullet", idx });
+  }, [addressedGapActions, tailorLineOverrides, setTailorSelection]);
+
   /** Apply exactly one picked (possibly user-edited) suggestion from the queue. */
   const applyFixSuggestion = useCallback(async (
     item: QueueItem,
@@ -4265,6 +4274,7 @@ export default function ResumeBuilder({
                         applyFixSuggestion={applyFixSuggestion}
                         ignoredNames={ignoredGapNames}
                         onToggleIgnored={toggleIgnoredGap}
+                        onSeeItem={seeAppliedItem}
                         stale={scoreStale}
                         onRecheck={() => { void rescoreTailorRatings(); }}
                         recheckBusy={tailorRescoring}
