@@ -1412,7 +1412,10 @@ export default function ResumeBuilder({
         body: JSON.stringify({
           candidate_profile: profile,
           job_description: effJd,
-          include_bullet_analysis: true,
+          // Tailor gets scores/gaps now and writes fixes only when the user
+          // requests them. A full 15-bullet rewrite audit here duplicated the
+          // later one-by-one fix call and dominated initial latency.
+          include_bullet_analysis: false,
           include_structured_resume: !initialStructured,
           ...(initialStructured ? { structured_resume: initialStructured } : {}),
         }),
@@ -1435,8 +1438,27 @@ export default function ResumeBuilder({
       handleScanResponse(raw);
       const data = mergeAnalyzeApiJson(raw) as { ratings?: RatingsData; error?: string; bulletAnalysis?: LiveBulletItem[] };
       if (data.error || !data.ratings) throw new Error(data.error ?? "Analysis returned no ratings");
+      const analyzedStructured = normalizeStructuredResume(
+        (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,
+      );
       applyStructuredFromAnalyze(raw, candidateProfile ?? undefined);
-      setTailorBulletAnalysis(Array.isArray(data.bulletAnalysis) ? data.bulletAnalysis : []);
+      const linkageStructured = analyzedStructured ?? initialStructured;
+      const linkageBullets: LiveBulletItem[] = linkageStructured
+        ? [
+            ...linkageStructured.experience.flatMap((entry) => entry.bullets),
+            ...linkageStructured.projects.flatMap((entry) => entry.bullets),
+            ...linkageStructured.education.flatMap((entry) => entry.bullets),
+          ]
+            .map((bullet) => bullet.trim())
+            .filter(Boolean)
+            .map((originalBullet) => ({
+              originalBullet,
+              score: 100,
+              issues: [],
+              improvedBullet: "",
+            }))
+        : [];
+      setTailorBulletAnalysis(linkageBullets);
       setTailorLineOverrides({});
       setTailorAppliedBulletIndices(new Set());
       setAppliedPillPairs([]);
@@ -1462,9 +1484,7 @@ export default function ResumeBuilder({
           ratings: data.ratings,
           jobDescription: effJd,
           candidateProfile,
-          structuredResume: normalizeStructuredResume(
-            (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,
-          ),
+          structuredResume: analyzedStructured,
         });
       }
 

@@ -3,12 +3,13 @@ import { render } from "@testing-library/react";
 import TailorAnalyzingLoader from "@/components/TailorAnalyzingLoader";
 
 describe("TailorAnalyzingLoader", () => {
-  it("renders the analysing header and all pipeline steps", () => {
+  it("describes the work without claiming fake completed stages", () => {
     const { getByText, container } = render(<TailorAnalyzingLoader />);
-    expect(getByText("Analysing your résumé")).toBeTruthy();
-    for (const label of ["Reading your résumé", "Scoring the match", "Finding gaps & keywords", "Preparing your fixes"]) {
+    expect(getByText("Matching your résumé to this job")).toBeTruthy();
+    for (const label of ["Reading your résumé", "Scoring the match", "Finding gaps & keywords"]) {
       expect(getByText(label)).toBeTruthy();
     }
+    expect(container.querySelector('[aria-label="applied"]')).toBeNull();
     // Accessible live region for screen readers.
     expect(container.querySelector('[role="status"]')).toBeTruthy();
   });

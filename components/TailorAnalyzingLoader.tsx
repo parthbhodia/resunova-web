@@ -3,13 +3,9 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
 /**
- * Polished loading state for the Tailor match analysis (~20s LLM pass).
- * Replaces the bare "Analysing your résumé…" card with a stepped progress
- * experience that shows what's happening and fills the workspace calmly.
- *
- * The steps are illustrative of the real pipeline (read → score → gaps →
- * fixes); the last step holds until the actual result arrives and this
- * component unmounts, so it never implies completion early.
+ * Honest indeterminate state for Tailor match analysis. The API is currently
+ * one request, so the client cannot truthfully mark individual server stages
+ * complete. We show the work included and elapsed time without fake progress.
  */
 
 type Step = { key: string; label: string; sub: string; icon: ReactNode };
@@ -49,25 +45,20 @@ const STEPS: Step[] = [
   },
 ];
 
-const STEP_MS = 4600; // advance cadence; last step holds until unmount
-
 const iconWrap: CSSProperties = {
   width: 34, height: 34, borderRadius: 10, flexShrink: 0,
   display: "grid", placeItems: "center", transition: "background .3s, color .3s, border-color .3s",
 };
 
 export default function TailorAnalyzingLoader() {
-  const reduce = typeof window !== "undefined"
-    && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  const [active, setActive] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
-    if (reduce) return;
     const id = window.setInterval(() => {
-      setActive((a) => Math.min(a + 1, STEPS.length - 1));
-    }, STEP_MS);
+      setElapsedSeconds((seconds) => seconds + 1);
+    }, 1000);
     return () => window.clearInterval(id);
-  }, [reduce]);
+  }, []);
 
   return (
     <div
@@ -104,12 +95,17 @@ export default function TailorAnalyzingLoader() {
         />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.4, color: "var(--text)" }}>
-            Analysing your résumé
+            Matching your résumé to this job
           </div>
           <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 1 }}>
-            Usually about 20 seconds — hang tight, no need to refresh.
+            Detailed evidence check in progress — no need to refresh.
           </div>
         </div>
+        {elapsedSeconds >= 5 ? (
+          <span style={{ marginLeft: "auto", color: "var(--muted)", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
+            {elapsedSeconds}s
+          </span>
+        ) : null}
       </div>
 
       {/* Indeterminate progress sliver */}
@@ -122,55 +118,46 @@ export default function TailorAnalyzingLoader() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {STEPS.map((s, i) => {
-          const done = i < active;
-          const current = i === active;
-          const tone = done ? "var(--green, #34d399)" : current ? "var(--accent)" : "var(--dim)";
+        {STEPS.slice(0, 3).map((s) => {
           return (
             <div
               key={s.key}
               style={{
                 display: "flex", alignItems: "center", gap: 12, padding: "8px 6px", borderRadius: 10,
-                background: current ? "var(--accent-bg)" : "transparent",
-                opacity: done || current ? 1 : 0.6, transition: "background .3s, opacity .3s",
+                background: "var(--surface2)",
               }}
             >
               <span
                 style={{
                   ...iconWrap,
-                  border: `1px solid ${done ? "var(--green, #34d399)" : current ? "var(--accent)" : "var(--border)"}`,
-                  background: done ? "var(--green-bg, rgba(52,211,153,.14))" : current ? "var(--surface)" : "var(--surface2)",
-                  color: tone,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--muted)",
                 }}
                 aria-hidden
               >
                 <span style={{ width: 17, height: 17, display: "grid", placeItems: "center" }}>
-                  {done ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-                  ) : current ? (
-                    <span className="rb-an-spin" style={{ width: 15, height: 15, borderRadius: "50%", border: "2px solid var(--accent-bg)", borderTopColor: "var(--accent)", animation: "rbAnSpin .8s linear infinite" }} />
-                  ) : (
-                    s.icon
-                  )}
+                  {s.icon}
                 </span>
               </span>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
-                  fontSize: 14, fontWeight: current || done ? 700 : 600,
-                  color: current ? "var(--text)" : done ? "var(--text)" : "var(--muted)",
+                  fontSize: 14, fontWeight: 650,
+                  color: "var(--text)",
                 }}>
                   {s.label}
                 </div>
-                {current && (
-                  <div className="rb-an-pulse" style={{ fontSize: 12, color: "var(--muted)", marginTop: 1, animation: "rbAnPulse 1.6s ease-in-out infinite" }}>
-                    {s.sub}
-                  </div>
-                )}
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 1 }}>{s.sub}</div>
               </div>
             </div>
           );
         })}
       </div>
+      {elapsedSeconds >= 45 ? (
+        <div style={{ padding: "9px 11px", borderRadius: 9, background: "var(--amber-soft, #fffbeb)", color: "var(--amber-ink, #92400e)", fontSize: 12.5, lineHeight: 1.45 }}>
+          This is taking longer than usual. We&rsquo;re still waiting for the analysis service; you can leave this tab open.
+        </div>
+      ) : null}
     </div>
   );
 }
