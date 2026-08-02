@@ -74,7 +74,17 @@ export function TailorScoreboard({
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
       <Tile>
-        <Eyebrow dot="var(--green-ink, #16a34a)">ATS match · live</Eyebrow>
+        {/* Deliberately NOT labelled "live". These counts come from
+            ratings.keywords on the last scan, and applyGapFixes does not
+            rescore — it sets scoreStale and moves the item to covered. So
+            after an applied fix this number is a before-picture until the
+            user re-checks. The old copy ("live", "recounted the moment you
+            add a change") described a behaviour the code has never had.
+            When /api/tailor/score-preview lands this becomes a real live
+            count and the wording can change with it. */}
+        <Eyebrow dot={stale ? "var(--amber-ink, #b45309)" : "var(--green-ink, #16a34a)"}>
+          Requirement coverage
+        </Eyebrow>
         <div
           style={{
             fontSize: 26,
@@ -89,8 +99,16 @@ export function TailorScoreboard({
             {" "}· {found} of {total} keywords
           </span>
         </div>
-        <div style={{ fontSize: FS.caption, color: "var(--muted)", marginTop: 2 }}>
-          Recounted the moment you add a change. Free.
+        <div
+          style={{
+            fontSize: FS.caption,
+            color: stale ? "var(--amber-ink, #b45309)" : "var(--muted)",
+            marginTop: 2,
+          }}
+        >
+          {stale
+            ? "Fixes applied · score not rechecked yet."
+            : "Counted from your last scan."}
         </div>
       </Tile>
 
