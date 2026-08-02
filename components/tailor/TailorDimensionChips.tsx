@@ -14,7 +14,7 @@
 import React from "react";
 import type { DetailedRatingItem, RatingsData } from "@/lib/types";
 import { isDetailedRatings } from "@/lib/types";
-import type { QueueKind } from "@/lib/tailorWorkQueue";
+import { type QueueKind, requirementText } from "@/lib/tailorWorkQueue";
 import { FS, FW } from "@/lib/typography";
 
 /** Queue-facing dimension: which row kinds a chip filters to. */
@@ -155,7 +155,13 @@ export function TailorDimensionChips({
               {(kw.direct_skills?.missing?.length ?? 0) + (kw.contextual?.missing?.length ?? 0) > 0 ? (
                 <EvRow
                   have={false}
-                  text={[...(kw.direct_skills?.missing ?? []), ...(kw.contextual?.missing ?? [])].join(", ")}
+                  text={[...(kw.direct_skills?.missing ?? []), ...(kw.contextual?.missing ?? [])]
+                    // Through requirementText, not join(): a keyword that came
+                    // back as an object stringifies to "[object Object]" and
+                    // that is what the user reads.
+                    .map(requirementText)
+                    .filter(Boolean)
+                    .join(", ")}
                   quote="The open items below."
                 />
               ) : null}
@@ -170,10 +176,15 @@ export function TailorDimensionChips({
                     {name} · you have {have(cat)} of {total(cat)}
                   </div>
                   {coveredOf(cat).map((it, i) => (
-                    <EvRow key={`c${i}`} have text={it.text} quote={coveredQuote(it)} />
+                    <EvRow key={`c${i}`} have text={requirementText(it)} quote={coveredQuote(it)} />
                   ))}
                   {cat.missing.map((it, i) => (
-                    <EvRow key={`m${i}`} have={false} text={it.text} quote="Not on your resume yet. Listed below." />
+                    <EvRow
+                      key={`m${i}`}
+                      have={false}
+                      text={requirementText(it)}
+                      quote="Not on your resume yet. Listed below."
+                    />
                   ))}
                 </>
               );

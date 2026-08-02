@@ -64,14 +64,40 @@ const norm = (s: string) => String(s ?? "").trim().toLowerCase().replace(/\s+/g,
  * discarding. Anything else yields "" and the caller skips the item, so one
  * malformed requirement costs that requirement instead of the report.
  */
-function requirementText(item: unknown): string {
-  if (typeof item === "string") return item;
+export function requirementText(item: unknown): string {
+  if (typeof item === "string") return item.trim();
+  if (typeof item === "number") return String(item);
   if (item && typeof item === "object") {
-    const t = (item as { text?: unknown }).text;
-    if (typeof t === "string") return t;
+    const o = item as Record<string, unknown>;
+    // The documented key first, then the aliases the rater actually emits.
+    for (const key of REQUIREMENT_TEXT_KEYS) {
+      const v = o[key];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    // Last resort: an unrecognized wrapper with exactly one string in it is
+    // almost certainly the label under a name we have not seen. Guessing here
+    // beats the alternative, which is dropping a requirement the user needs to
+    // see, or rendering "[object Object]" at them.
+    const strings = Object.values(o).filter(
+      (v): v is string => typeof v === "string" && v.trim().length > 0,
+    );
+    if (strings.length === 1) return strings[0].trim();
   }
   return "";
 }
+
+/** Ordered by how much we trust them; `text` is the documented shape. */
+const REQUIREMENT_TEXT_KEYS = [
+  "text",
+  "keyword",
+  "name",
+  "label",
+  "skill",
+  "term",
+  "requirement",
+  "title",
+  "value",
+] as const;
 
 /** The normalization item ids (and the ignored-names set) key on. */
 export function normalizeQueueName(name: string): string {
