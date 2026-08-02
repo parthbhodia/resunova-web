@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isDetailedRatings } from "@/lib/types";
-import { deriveWorkQueue } from "@/lib/tailorWorkQueue";
+import { deriveWorkQueue, requirementText } from "@/lib/tailorWorkQueue";
 import { collectUnaddressedGaps } from "@/lib/fixEverything";
 import type { RatingsData } from "@/lib/types";
 
@@ -153,5 +153,55 @@ describe("queue items survive whatever shape the model emits", () => {
 
   it("does not throw when text is null", () => {
     expect(() => deriveWorkQueue(withMissing([{ text: null }]), NONE)).not.toThrow();
+  });
+});
+
+/**
+ * Field report after the crash was fixed: the keyword drawer read
+ * "✕ [object Object]", and the queue showed "2 to review" while the chips
+ * said Qualifications 6/6, Responsibilities 5/7, Keywords 22/23 — three gaps,
+ * not two.
+ *
+ * Same object-shaped keyword behind both. `.join(", ")` stringified it for
+ * display, and requirementText returned "" so deriveWorkQueue skipped it.
+ *
+ * Trading a crash for a silently dropped requirement is not a fix. The user
+ * noticed the count was wrong, which is the good outcome only because they
+ * were paying attention. So the extractor now tries the aliases the rater
+ * actually emits, then falls back to a lone string value, before giving up.
+ */
+describe("an object-shaped requirement is read, not dropped", () => {
+  it.each([
+    ["keyword", { keyword: "Kubernetes" }],
+    ["name", { name: "Kubernetes" }],
+    ["label", { label: "Kubernetes" }],
+    ["skill", { skill: "Kubernetes" }],
+    ["term", { term: "Kubernetes" }],
+    ["requirement", { requirement: "Kubernetes" }],
+    ["a lone unrecognized string field", { thing: "Kubernetes" }],
+  ])("reads the label from %s", (_label, shape) => {
+    expect(requirementText(shape)).toBe("Kubernetes");
+  });
+
+  it("prefers the documented text key over an alias", () => {
+    expect(requirementText({ text: "right", name: "wrong" })).toBe("right");
+  });
+
+  it("gives up rather than guessing between several strings", () => {
+    expect(requirementText({ a: "one", b: "two" })).toBe("");
+  });
+
+  it("puts an object-shaped missing keyword into the queue", () => {
+    // The exact production symptom: the third gap must appear.
+    const r = ratings({
+      keywords: {
+        found_count: 22,
+        total_count: 23,
+        direct_skills: { found: [], missing: [{ keyword: "Kubernetes" }] },
+        contextual: { found: [], missing: [] },
+      },
+    });
+    const names = deriveWorkQueue(r, NONE).filter((i) => i.kind === "keyword").map((i) => i.name);
+    expect(names).toEqual(["Kubernetes"]);
   });
 });
