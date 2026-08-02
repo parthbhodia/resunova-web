@@ -40,6 +40,33 @@ jobs:
       - name: Tests
         run: npm test
 
+      # A missing secret expands to an empty string, the build still succeeds,
+      # and the deploy goes out green — but every route that touches the
+      # Supabase client throws at the root and the user gets Next's black
+      # "This page couldn't load" screen. That is a silent site-wide outage
+      # produced by a passing pipeline, so assert the values exist before
+      # baking them in. NEXT_PUBLIC_* are build-time constants: if they are
+      # wrong here, they are wrong in production and nothing downstream can
+      # recover. Values are never echoed, only their presence.
+      - name: Verify build secrets are present
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          RAILWAY_API_URL: ${{ secrets.RAILWAY_API_URL }}
+        run: |
+          missing=""
+          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY RAILWAY_API_URL; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secret(s):$missing"
+            echo "Set them under Settings > Secrets and variables > Actions."
+            echo "Deploying without these bakes an empty config into the bundle"
+            echo "and every signed-in route renders an error screen."
+            exit 1
+          fi
+          echo "All required build secrets are present."
+
       - name: Build
         env:
           NEXT_PUBLIC_BASE_PATH: ""
