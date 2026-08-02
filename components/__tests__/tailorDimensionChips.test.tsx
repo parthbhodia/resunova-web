@@ -94,3 +94,41 @@ describe("findAppliedBulletIndex", () => {
     expect(findAppliedBulletIndex("Kubernetes", [], overrides)).toBeNull();
   });
 });
+
+/**
+ * The crash behind the black "This page couldn't load" screen on /tailor-2.
+ *
+ * These chips gate on isDetailedRatings and then immediately do
+ * `c.covered.length`, `c.missing.length` and `[...c.covered]`. When the guard
+ * only tested the category objects for truthiness, a category shaped
+ * { score, covered } reached that spread and threw "undefined is not
+ * iterable", unmounting the whole tree to the root error boundary.
+ *
+ * Rendering is where it actually died, so it is worth asserting here and not
+ * only at the helper level: a component test exercises the real React path.
+ */
+describe("malformed ratings do not take the page down", () => {
+  const malformed = (over: Record<string, unknown>): RatingsData =>
+    ({ ...ratings, ...over }) as RatingsData;
+
+  it("renders nothing rather than throwing when missing is absent", () => {
+    const r = malformed({ qualifications: { score: 40, covered: [] } });
+    expect(() =>
+      render(<TailorDimensionChips ratings={r} active={null} onPick={() => {}} />),
+    ).not.toThrow();
+  });
+
+  it("renders nothing rather than throwing when covered is absent", () => {
+    const r = malformed({ responsibilities: { score: 40, missing: [] } });
+    expect(() =>
+      render(<TailorDimensionChips ratings={r} active={null} onPick={() => {}} />),
+    ).not.toThrow();
+  });
+
+  it("still renders the chips for a well-formed payload", () => {
+    // Paired control: without this, a guard that always returned false would
+    // satisfy both tests above while the feature was silently dead.
+    render(<TailorDimensionChips ratings={ratings} active={null} onPick={() => {}} />);
+    expect(screen.getByText(/qualifications/i)).toBeInTheDocument();
+  });
+});
