@@ -91,7 +91,30 @@ export function isDetailedRatings(r: RatingsData): r is RatingsData & {
   responsibilities: DetailedCategory;
   keywords: KeywordsRating;
 } {
-  return !!(r.qualifications && r.responsibilities && r.keywords && r.job_title);
+  // Check the arrays, not just the objects holding them.
+  //
+  // This used to test the four categories for truthiness only, while promising
+  // callers a DetailedCategory whose `missing` and `covered` are arrays. A
+  // payload shaped { score, covered } with `missing` absent passed, and every
+  // consumer then dereferenced it: deriveWorkQueue iterated it, fixEverything
+  // filtered it, TailorDimensionChips spread it. The first one to run threw
+  // "undefined is not iterable" and the whole page fell through to the root
+  // error boundary — a black screen after clicking Analyze.
+  //
+  // A predicate that does not check what it claims is worse than none at all:
+  // TypeScript stops asking, so none of those call sites look unsafe. A
+  // malformed payload should degrade to the simple view, never take the page
+  // down, so the shape test lives here where all of them already gate.
+  const cat = (c: unknown): boolean =>
+    !!c
+    && Array.isArray((c as DetailedCategory).missing)
+    && Array.isArray((c as DetailedCategory).covered);
+  return !!(
+    cat(r.qualifications)
+    && cat(r.responsibilities)
+    && r.keywords
+    && r.job_title
+  );
 }
 
 export interface DiffLine {

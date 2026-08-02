@@ -47,9 +47,12 @@ export function OverallSection({
   const missingKeywords = keywords
     ? keywords.total_count - keywords.found_count
     : 0;
-  const missingQuals = qualifications ? qualifications.missing.length : 0;
-  const coveredQuals = qualifications ? qualifications.covered.length : 0;
-  const coveredResp = responsibilities ? responsibilities.covered.length : 0;
+  // Guard the arrays, not just the object holding them: a category can
+  // arrive shaped { score, covered } and `.missing.length` then throws,
+  // taking the page down to the root error boundary.
+  const missingQuals = qualifications?.missing?.length ?? 0;
+  const coveredQuals = qualifications?.covered?.length ?? 0;
+  const coveredResp = responsibilities?.covered?.length ?? 0;
 
   // Resolve actual missing keyword names (new schema → legacy fallback)
   const missingKwNames: string[] = keywords
@@ -63,9 +66,9 @@ export function OverallSection({
   const extraKw = Math.max(0, missingKwNames.length - MAX_KEYWORD_CHIPS);
 
   // Top missing qualifications (text of missing items)
-  const missingQualNames = qualifications
-    ? qualifications.missing.slice(0, MAX_QUAL_CHIPS).map((q) => q.text)
-    : [];
+  const missingQualNames = (qualifications?.missing ?? [])
+    .slice(0, MAX_QUAL_CHIPS)
+    .map((q) => q.text);
   const extraQual = Math.max(0, missingQuals - MAX_QUAL_CHIPS);
 
   return (
