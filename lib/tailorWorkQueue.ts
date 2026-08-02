@@ -48,7 +48,30 @@ export const CONTEXTUAL_DETAIL =
 /** Detail line stamped when the user ignores an item. */
 export const IGNORED_DETAIL = "Ignored. It stays here if you change your mind.";
 
-const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+const norm = (s: string) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+/**
+ * Pull the requirement text out of whatever the rater actually emitted.
+ *
+ * `DetailedRatingItem.text` is typed as a string, but these payloads come from
+ * an LLM and TypeScript's types are erased at runtime, so the declaration is a
+ * hope rather than a guarantee. Production hit `TypeError: e.trim is not a
+ * function` here: an item arrived whose `text` was present but not a string,
+ * and the whole page went down with it.
+ *
+ * Two real shapes are accepted: the documented `{ text: "..." }`, and a bare
+ * string, which the model emits often enough to be worth keeping rather than
+ * discarding. Anything else yields "" and the caller skips the item, so one
+ * malformed requirement costs that requirement instead of the report.
+ */
+function requirementText(item: unknown): string {
+  if (typeof item === "string") return item;
+  if (item && typeof item === "object") {
+    const t = (item as { text?: unknown }).text;
+    if (typeof t === "string") return t;
+  }
+  return "";
+}
 
 /** The normalization item ids (and the ignored-names set) key on. */
 export function normalizeQueueName(name: string): string {
@@ -87,18 +110,26 @@ export function deriveWorkQueue(
     });
   };
 
+  const detailOf = (it: unknown): string => {
+    if (!it || typeof it !== "object") return "";
+    const o = it as { analysis?: unknown; context?: unknown };
+    if (typeof o.analysis === "string") return o.analysis;
+    if (typeof o.context === "string") return o.context;
+    return "";
+  };
+
   for (const it of ratings.qualifications.missing) {
-    push("qualification", it.text, it.analysis ?? it.context ?? "");
+    push("qualification", requirementText(it), detailOf(it));
   }
   for (const it of ratings.responsibilities.missing) {
-    push("responsibility", it.text, it.analysis ?? it.context ?? "");
+    push("responsibility", requirementText(it), detailOf(it));
   }
   const kw = ratings.keywords;
   for (const name of kw.direct_skills?.missing ?? kw.missing ?? []) {
-    push("keyword", name, "Missing from your resume. Fits an existing bullet.");
+    push("keyword", requirementText(name), "Missing from your resume. Fits an existing bullet.");
   }
   for (const name of kw.contextual?.missing ?? []) {
-    push("contextual", name, CONTEXTUAL_DETAIL);
+    push("contextual", requirementText(name), CONTEXTUAL_DETAIL);
   }
   return items;
 }

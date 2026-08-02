@@ -102,3 +102,56 @@ describe("consumers degrade instead of throwing", () => {
     expect(collectUnaddressedGaps(ratings(), NONE).length).toBeGreaterThan(0);
   });
 });
+
+/**
+ * The actual production error, from the console on /tailor-2 after Analyze:
+ *
+ *   Uncaught TypeError: e.trim is not a function
+ *     at b -> s -> v -> Object.useMemo
+ *
+ * Three nested frames inside a useMemo is exactly
+ * norm() <- queueItemId() <- deriveWorkQueue(), which TailorQueuePanel wraps
+ * in useMemo. `e.trim is not a function` (rather than "cannot read properties
+ * of undefined") means the value is present but is not a string.
+ *
+ * The cause is the same class as the guard above: RatingsData declares
+ * `text: string`, but the payload is LLM-generated JSON that nothing
+ * validates at runtime. Types are erased; the model can and does emit other
+ * shapes. A résumé report must never be able to crash the page because one
+ * requirement came back as a number or an object.
+ */
+describe("queue items survive whatever shape the model emits", () => {
+  const withMissing = (missing: unknown[]): RatingsData =>
+    ratings({ qualifications: { score: 40, covered: [], missing } });
+
+  it("does not throw when text is a number", () => {
+    expect(() => deriveWorkQueue(withMissing([{ text: 5 }]), NONE)).not.toThrow();
+  });
+
+  it("does not throw when text is an object", () => {
+    const r = withMissing([{ text: { requirement: "Master's degree" } }]);
+    expect(() => deriveWorkQueue(r, NONE)).not.toThrow();
+  });
+
+  it("does not throw when the item is a bare string", () => {
+    expect(() => deriveWorkQueue(withMissing(["Master's degree"]), NONE)).not.toThrow();
+  });
+
+  it("keeps a bare string as a real queue item rather than dropping it", () => {
+    // Degrading must not mean silently losing a requirement the user needs.
+    const q = deriveWorkQueue(withMissing(["Master's degree or PhD"]), NONE);
+    expect(q.map((i) => i.name)).toContain("Master's degree or PhD");
+  });
+
+  it("drops an unusable item instead of rendering junk", () => {
+    // Scoped to qualifications: the base fixture also contributes
+    // responsibility and keyword rows, which are not what this asserts.
+    const q = deriveWorkQueue(withMissing([{ text: { a: 1 } }, { text: "Ruby on Rails" }]), NONE);
+    expect(q.filter((i) => i.kind === "qualification").map((i) => i.name))
+      .toEqual(["Ruby on Rails"]);
+  });
+
+  it("does not throw when text is null", () => {
+    expect(() => deriveWorkQueue(withMissing([{ text: null }]), NONE)).not.toThrow();
+  });
+});
