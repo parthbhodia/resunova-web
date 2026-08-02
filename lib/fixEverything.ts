@@ -117,3 +117,51 @@ export function batchGapNotes(batch: GapBatch): string {
     + "fit a gap. Leave a gap uncovered rather than fabricate it."
   );
 }
+
+/**
+ * How many rewrite fetches a bulk pass keeps in flight.
+ *
+ * Four rather than unbounded: a 15-gap pass firing 15 simultaneous model calls
+ * invites provider rate limiting, which costs more than the waiting it saves.
+ */
+export const FIX_ALL_FETCH_CONCURRENCY = 4;
+
+/**
+ * Run `fetchOne` over `items` with a bounded number in flight, yielding results
+ * **in the original order** as each becomes available.
+ *
+ * The bulk pass used to await each fetch before starting the next, so its wall
+ * clock was the SUM of every model call. That sequencing bought nothing: each
+ * call receives an identical résumé payload built once before the loop, so
+ * call N+1 never saw anything call N produced.
+ *
+ * Overlapping the fetches while yielding in order keeps both properties that
+ * matter — the per-bullet merge in the apply path depends on a deterministic
+ * order, and the UI paints one row at a time because results are consumed one
+ * at a time. Only the dead waiting between calls disappears.
+ *
+ * `fetchOne` must not throw; a failed item should resolve to its empty value so
+ * one bad gap cannot abort the pass.
+ */
+export async function* orderedConcurrent<T, R>(
+  items: readonly T[],
+  fetchOne: (item: T, index: number) => Promise<R>,
+  concurrency: number = FIX_ALL_FETCH_CONCURRENCY,
+): AsyncGenerator<{ index: number; item: T; result: R }> {
+  const limit = Math.max(1, Math.min(concurrency, items.length));
+  const inFlight = new Map<number, Promise<R>>();
+
+  const start = (i: number) => {
+    if (i < items.length && !inFlight.has(i)) inFlight.set(i, fetchOne(items[i], i));
+  };
+  for (let i = 0; i < limit; i++) start(i);
+
+  for (let i = 0; i < items.length; i++) {
+    const pending = inFlight.get(i) ?? fetchOne(items[i], i);
+    const result = await pending;
+    inFlight.delete(i);
+    // Refill only once the slot is genuinely free, so the window stays bounded.
+    start(i + limit);
+    yield { index: i, item: items[i], result };
+  }
+}

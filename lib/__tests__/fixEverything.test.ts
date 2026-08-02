@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, MAX_GAPS_PER_BATCH,
+  orderedConcurrent,
 } from "@/lib/fixEverything";
 import type { RatingsData } from "@/lib/types";
 
@@ -100,5 +101,94 @@ describe("batch request shape", () => {
     const q = collectUnaddressedGaps(ratings(), NONE)[0];
     expect(batchGapNotes(q).toLowerCase()).toContain("never invent");
     expect(batchGapNotes(q)).toContain("qualifications");
+  });
+});
+
+describe("orderedConcurrent", () => {
+  /** Resolves after `ms`, recording when it started and finished. */
+  const timed = (log: string[], ms: number) => (item: string) => {
+    log.push(`start:${item}`);
+    return new Promise<string>((resolve) =>
+      setTimeout(() => { log.push(`end:${item}`); resolve(`done:${item}`); }, ms),
+    );
+  };
+
+  it("yields results in the original order even when they finish out of order", async () => {
+    const items = ["a", "b", "c", "d"];
+    // 'a' is the slowest, so completion order is d, c, b, a.
+    const delays: Record<string, number> = { a: 40, b: 30, c: 20, d: 10 };
+    const seen: string[] = [];
+    for await (const { item } of orderedConcurrent(
+      items,
+      (it: string) => new Promise((r) => setTimeout(() => r(it), delays[it])),
+      4,
+    )) {
+      seen.push(item);
+    }
+    expect(seen).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("overlaps the fetches rather than running them end to end", async () => {
+    const log: string[] = [];
+    const items = ["a", "b", "c", "d"];
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for await (const _ of orderedConcurrent(items, timed(log, 10), 4)) { /* drain */ }
+
+    // All four start before the first one finishes. Sequentially this would read
+    // start:a end:a start:b end:b ... — the regression this test exists to catch.
+    const firstEnd = log.findIndex((e) => e.startsWith("end:"));
+    const startsBeforeFirstEnd = log.slice(0, firstEnd).filter((e) => e.startsWith("start:"));
+    expect(startsBeforeFirstEnd).toHaveLength(4);
+  });
+
+  it("never exceeds the concurrency limit", async () => {
+    let active = 0;
+    let peak = 0;
+    const items = Array.from({ length: 9 }, (_, i) => `g${i}`);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for await (const _ of orderedConcurrent(
+      items,
+      () => {
+        active += 1;
+        peak = Math.max(peak, active);
+        return new Promise<number>((r) => setTimeout(() => { active -= 1; r(1); }, 5));
+      },
+      3,
+    )) { /* drain */ }
+    expect(peak).toBeLessThanOrEqual(3);
+    expect(peak).toBeGreaterThan(1); // and it genuinely did overlap
+  });
+
+  it("keeps going when one item resolves empty", async () => {
+    const items = ["a", "b", "c"];
+    const out: string[][] = [];
+    for await (const { result } of orderedConcurrent(
+      items,
+      async (it: string) => (it === "b" ? [] : [it]),
+      2,
+    )) {
+      out.push(result);
+    }
+    expect(out).toEqual([["a"], [], ["c"]]);
+  });
+
+  it("runs each item exactly once", async () => {
+    const calls: number[] = [];
+    const items = Array.from({ length: 7 }, (_, i) => i);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for await (const _ of orderedConcurrent(
+      items,
+      async (_item: number, i: number) => { calls.push(i); return i; },
+      3,
+    )) { /* drain */ }
+    expect(calls.sort((x, y) => x - y)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it("handles fewer items than the concurrency limit", async () => {
+    const seen: number[] = [];
+    for await (const { result } of orderedConcurrent([1, 2], async (n: number) => n * 10, 8)) {
+      seen.push(result);
+    }
+    expect(seen).toEqual([10, 20]);
   });
 });

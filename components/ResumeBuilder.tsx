@@ -57,7 +57,7 @@ import {
 } from "@/lib/tailorGapFix";
 import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToStructured";
 import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
-import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes } from "@/lib/fixEverything";
+import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, orderedConcurrent } from "@/lib/fixEverything";
 import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
 import { prefillPrepFromTailor } from "@/lib/interviewPrepLaunch";
 import type { AddressedGapAction } from "@/lib/types";
@@ -2878,9 +2878,11 @@ export default function ResumeBuilder({
       let appliedTotal = 0;
       const panelAll: GapFixSuggestion[] = [];
 
-      for (const [i, batch] of targetRuns.entries()) {
-        setFixAllPendingGaps(batch.gaps);
-        let named: GapFixSuggestion[] = [];
+      /** One gap's rewrites. Never throws: a failed batch behaves like an empty one. */
+      const fetchRewrites = async (
+        batch: (typeof targetRuns)[number],
+        i: number,
+      ): Promise<GapFixSuggestion[]> => {
         try {
           const resp = await apiFetch("/api/suggest-gap-fix", {
             method: "POST",
@@ -2894,15 +2896,33 @@ export default function ResumeBuilder({
               ...(prof ? { candidate_profile: prof } : {}),
             }),
           });
-          if (resp.ok) {
-            const data = await resp.json() as { suggestions?: unknown[] };
-            const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[];
-            // Namespace ids per batch: the API numbers them from 1 each call.
-            named = list
-              .filter((s) => s.original?.trim() && s.suggested?.trim())
-              .map((s) => ({ ...s, id: `b${i}_${s.id}` }));
-          }
-        } catch { /* a failed batch behaves like an empty one */ }
+          if (!resp.ok) return [];
+          const data = await resp.json() as { suggestions?: unknown[] };
+          const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[];
+          // Namespace ids per batch: the API numbers them from 1 each call.
+          return list
+            .filter((s) => s.original?.trim() && s.suggested?.trim())
+            .map((s) => ({ ...s, id: `b${i}_${s.id}` }));
+        } catch {
+          return [];
+        }
+      };
+
+      // The fetches run CONCURRENTLY; the applies stay serialized and in order.
+      //
+      // They were always independent: `structured` is built once above and every
+      // call sends an identical body, so awaiting call N before starting N+1
+      // never gave N+1 fresher input — it only made the pass cost the SUM of the
+      // calls instead of the slowest one. Ordering still matters for the applies,
+      // which the per-bullet merge in applyGapFixes depends on, and costs nothing
+      // because an apply is local state rather than a round trip.
+      // Scheduling lives in orderedConcurrent so it can be tested directly.
+      for await (const { index: i, item: batch, result: named } of orderedConcurrent(
+        targetRuns,
+        fetchRewrites,
+      )) {
+        setFixAllPendingGaps(batch.gaps);
+        void i;
 
         if (autoApply) {
           if (named.length > 0) {
