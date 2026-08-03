@@ -154,7 +154,7 @@ export default function TailorAnalyzingLoader() {
         })}
       </div>
       {elapsedSeconds >= 45 ? (
-        <div style={{ padding: "9px 11px", borderRadius: 9, background: "var(--amber-soft, #fffbeb)", color: "var(--amber-ink, #92400e)", fontSize: 12.5, lineHeight: 1.45 }}>
+        <div style={{ padding: "9px 11px", borderRadius: 9, background: "var(--amber-soft, #fffbeb)", color: "var(--amber-ink, #92400e)", fontSize: 12, lineHeight: 1.45 }}>
           This is taking longer than usual. We&rsquo;re still waiting for the analysis service; you can leave this tab open.
         </div>
       ) : null}
