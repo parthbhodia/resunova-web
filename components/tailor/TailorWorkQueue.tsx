@@ -102,17 +102,67 @@ const VERDICT_LABEL: Record<QueueVerdict, string> = {
 };
 
 /**
- * Verdict tint.
+ * Verdict tone, matching the mockup's `.verdictchip[data-tone]`.
  *
- * `partial` is deliberately NOT red. It means the résumé already demonstrates
+ * `partial` is deliberately NOT crit. It means the résumé already demonstrates
  * the requirement and only the wording is off, which is the best news any open
  * row can carry; printing it in the band's alarm colour would tell someone they
  * are missing something they have.
  */
-const VERDICT_COLOR: Record<QueueVerdict, string> = {
-  partial: "var(--amber-ink, #b45309)",
-  not_evidenced: "var(--muted)",
-  keyword: "var(--muted)",
+const VERDICT_TONE: Record<QueueVerdict, "crit" | "warn"> = {
+  partial: "warn",
+  not_evidenced: "crit",
+  keyword: "warn",
+};
+
+/**
+ * A verdict is a PILL, not a coloured word.
+ *
+ * Rendered as bare tinted text it read as an annotation on the title rather
+ * than a state the row is in, which is most of why the queue looked like a
+ * list of complaints instead of a set of cards you act on. The border is what
+ * does the work: a background alone is a highlight, a background inside a
+ * border is a badge.
+ *
+ * `color-mix` keeps the border derived from the same ink rather than adding a
+ * third hard-coded colour per tone to maintain across two themes.
+ */
+const VERDICT_INK = { crit: "var(--red-ink, #b42318)", warn: "var(--amber-ink, #b45309)" } as const;
+const VERDICT_BG = { crit: "var(--red-bg, rgba(220,38,38,0.10))", warn: "var(--amber-bg, rgba(180,83,9,0.10))" } as const;
+
+function verdictChipStyle(v: QueueVerdict): React.CSSProperties {
+  const tone = VERDICT_TONE[v];
+  const ink = VERDICT_INK[tone];
+  return {
+    fontSize: FS.micro,
+    fontWeight: FW.bold,
+    borderRadius: 5,
+    padding: "2px 7px",
+    color: ink,
+    background: VERDICT_BG[tone],
+    border: `1px solid color-mix(in srgb, ${ink} 30%, transparent)`,
+    whiteSpace: "nowrap",
+    flex: "none",
+  };
+}
+
+/**
+ * The row action, as a button rather than a link.
+ *
+ * A bare blue word beside a bare grey word is two pieces of text, and nothing
+ * on screen says which of them is clickable. The border is the affordance.
+ */
+const ROW_ACTION_STYLE: React.CSSProperties = {
+  border: "1px solid var(--border)",
+  background: "var(--surface, transparent)",
+  color: "var(--text)",
+  borderRadius: 8,
+  padding: "6px 11px",
+  fontSize: FS.small,
+  fontWeight: FW.semibold,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  lineHeight: 1.2,
 };
 
 function StatusDot({ status, working }: { status: QueueItem["status"]; working: boolean }) {
@@ -432,8 +482,14 @@ export function TailorWorkQueue({
                 // greyscale print and colour-blind vision, where a tinted word
                 // does not. State stays with the status dot so the two never
                 // have to share one signal.
-                borderLeft: `3px solid ${TONE_COLOR[group.tone]}`,
-                background: working ? "var(--accent-bg, rgba(9,105,218,0.11))" : undefined,
+                borderLeft: `3px solid ${expanded ? "var(--accent)" : TONE_COLOR[group.tone]}`,
+                // An open row is tinted and takes the accent stripe, so the
+                // confirm flow below it reads as belonging to that row rather
+                // than floating between two. Same treatment as `working`,
+                // because both mean "this row is what you are doing now".
+                background: working || expanded
+                  ? "var(--accent-bg, rgba(9,105,218,0.11))"
+                  : undefined,
               }}
             >
               {canSelect && !working ? (
@@ -523,19 +579,7 @@ export function TailorWorkQueue({
                 {(verdict || it.detail) ? (
                   <span style={{ display: "flex", alignItems: "baseline", gap: 9, marginTop: 2, minWidth: 0 }}>
                     {verdict ? (
-                      <span
-                        style={{
-                          fontSize: FS.caption,
-                          fontWeight: FW.semibold,
-                          // Tinted to its own meaning, not to the band: a
-                          // "you have this, reword it" row inside a blocker
-                          // band is good news and should not be printed in the
-                          // same red as the requirement above it.
-                          color: VERDICT_COLOR[verdict],
-                          whiteSpace: "nowrap",
-                          flex: "none",
-                        }}
-                      >
+                      <span style={verdictChipStyle(verdict)}>
                         {VERDICT_LABEL[verdict]}
                       </span>
                     ) : null}
@@ -572,16 +616,7 @@ export function TailorWorkQueue({
                 <button
                   type="button"
                   onClick={() => onItemAction(it, action)}
-                  style={{
-                    fontSize: FS.small,
-                    fontWeight: FW.semibold,
-                    color: "var(--accent)",
-                    background: "none",
-                    border: 0,
-                    padding: 0,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
+                  style={ROW_ACTION_STYLE}
                 >
                   {actionLabel(action, it)}
                 </button>
