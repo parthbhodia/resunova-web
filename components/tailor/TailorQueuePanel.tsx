@@ -226,7 +226,7 @@ export function TailorQueuePanel({
     // is byte-for-byte the queue that shipped before.
     const base = coverage.unmatched.length
       ? mergeQueues(
-          deriveScorerQueue(coverage.unmatched, raterView(ratings), addressedGaps),
+          deriveScorerQueue(coverage.unmatched, raterView(ratings), addressedGaps, addressedGapActions),
           raterRows,
         )
       : raterRows;

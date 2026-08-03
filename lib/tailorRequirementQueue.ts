@@ -56,6 +56,8 @@
  * Pure: no fetches, no DOM. The caller owns both inputs.
  */
 
+import type { AddressedGapAction } from "@/lib/types";
+import { isGapAddressed } from "@/lib/tailorGapFix";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import {
   CONTEXTUAL_DETAIL,
@@ -260,6 +262,7 @@ export function deriveScorerQueue(
   unmatched: readonly UnmatchedRequirement[],
   rater: RaterView,
   addressed: ReadonlySet<string> = new Set(),
+  actions?: readonly AddressedGapAction[],
 ): SourcedQueueItem[] {
   const out: SourcedQueueItem[] = [];
   const seen = new Set<string>();
@@ -288,7 +291,13 @@ export function deriveScorerQueue(
       id,
       name,
       kind,
-      status: addressed.has(normalizeQueueName(name)) ? "applied" : "queued",
+      // `addressedGaps` holds the RAW labels the apply path recorded, and every
+      // other consumer compares them with the tolerant `gapKeysMatch`. This
+      // used to do an exact `.has(normalizeQueueName(name))`, which is a
+      // different key space, so it never matched: a user applied a fix, the
+      // keyword count moved, and the row went on saying "Not evidenced" with a
+      // Fix button. Since the union, that is most of the queue.
+      status: isGapAddressed(name, addressed, actions) ? "applied" : "queued",
       // A contextual row keeps the explainer even though the scanner did miss
       // it. "The scanner did not find this" reads as a to-do, and for an
       // employer-domain word the honest answer is that writing it in is

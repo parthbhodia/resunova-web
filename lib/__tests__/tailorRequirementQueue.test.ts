@@ -328,3 +328,46 @@ describe("the merge combines the two lists rather than discarding one", () => {
     expect(row.kind).toBe("keyword");
   });
 });
+
+describe("an applied row stops asking to be fixed", () => {
+  /**
+   * Found by driving the real panel in a browser, not by reasoning about it.
+   *
+   * Applying a fix moved the keyword count and set the stale flag, and the row
+   * went on sitting under "Could get you filtered out" reading "Not evidenced"
+   * with a Fix button. `addressedGaps` holds the RAW labels the apply path
+   * recorded and every other consumer compares them with the tolerant
+   * `gapKeysMatch`; this did an exact `.has(normalizeQueueName(name))`, a
+   * different key space, so it never matched. Since the union that is most of
+   * the queue.
+   */
+  it("matches an applied label that was stored raw", () => {
+    const [row] = deriveScorerQueue(
+      unmatched(["CI/CD pipeline experience"]),
+      EMPTY_RATER,
+      new Set(["CI/CD pipeline experience"]), // exactly what ResumeBuilder stores
+    );
+    expect(row.status).toBe("applied");
+  });
+
+  it("matches across the drift the rest of the app already tolerates", () => {
+    // Same requirement, different casing and spacing: `gapKeysMatch` handles
+    // this everywhere else, and the scorer rows must not be the one surface
+    // where it does not.
+    const [row] = deriveScorerQueue(
+      unmatched(["Kubernetes"]),
+      EMPTY_RATER,
+      new Set(["kubernetes "]),
+    );
+    expect(row.status).toBe("applied");
+  });
+
+  it("leaves an untouched requirement queued", () => {
+    const [row] = deriveScorerQueue(
+      unmatched(["Terraform"]),
+      EMPTY_RATER,
+      new Set(["Kubernetes"]),
+    );
+    expect(row.status).toBe("queued");
+  });
+});
