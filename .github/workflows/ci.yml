@@ -7,11 +7,23 @@ name: CI
 # Note this only REPORTS unless "require status checks to pass before merging"
 # is enabled for main in the repository settings.
 
+# Feature branches are listed under `push` as well as `pull_request` on
+# purpose. Twice in one session GitHub did not deliver the pull_request event
+# for a PR into main: the branch pushed fine, the PR head sha was right, no run
+# was queued, and `get_status` reported "pending" with zero checks — which looks
+# exactly like a check that has not finished yet. Both greens had to come from a
+# manual workflow_dispatch.
+#
+# A gate that silently does not run is worse than no gate, because the PR still
+# reads as "checks pending" rather than "unchecked". Listing the push event as
+# well means the run does not depend on a single event being delivered. When
+# both fire, the two runs land in different concurrency groups (refs/heads/x vs
+# refs/pull/N/merge) and both complete; that duplication is the point.
 on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, 'claude/**', 'codex/**', 'feat/**', 'fix/**']
   workflow_dispatch:
 
 permissions:
