@@ -55,6 +55,17 @@ import { useAnalyzeSession } from "./analyze/useAnalyzeSession";
 import { useAnalyzeLoaderProgress } from "./analyze/useAnalyzeLoaderProgress";
 import { Tip } from "@/components/ui/tip";
 import { apiFetch, refusalFrom } from "@/lib/apiClient";
+import { clearRun, startRun } from "@/lib/analyzeRun";
+import { useAdoptedRun } from "@/components/analyze/useAdoptedRun";
+
+/** Everything the UI needs from a scan, captured so it can be applied later by
+ *  whatever component is mounted when the answer arrives. */
+interface AnalyzeOutcome {
+  ok: boolean;
+  status: number;
+  json: Record<string, unknown> & { error?: string };
+  fileName: string;
+}
 import {
   FeedbackToastCard,
   feedbackToastMeta,
@@ -385,36 +396,14 @@ export default function AnalyzeResume() {
     return () => { cancelled = true; };
   }, [userId, result, activeEditDraftId, azHistory]);
 
-  const run = useCallback(async (file: File) => {
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    appShellSidebar?.collapseSidebar();
-
-    setExpandedBullets({});
-    setActiveCategory(null);
-    setSelectedBulletIndex(null);
-    setHistoryRestoreActive(false);
-    const fd = new FormData();
-    fd.append("file", file);
-    if (jd.trim()) fd.append("jd", jd);
-    if (userId)    fd.append("user_id", userId);
-    if (userEmail) fd.append("user_email", userEmail);
-    try {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        fd.set("user_id", session.user.id);
-        if (session.user.email) fd.set("user_email", session.user.email);
-      }
-      const resp = await apiFetch("/api/analyze-upload", { method: "POST", body: fd });
-      const json = await resp.json();
-      if (!resp.ok) {
+  const applyAnalyzeOutcome = useCallback((outcome: AnalyzeOutcome) => {
+    const { ok, status, json, fileName } = outcome;
+      if (!ok) {
         // Branch on the refusal's `remedy`, not on its wording: what the user
         // has to do next is the backend's call, and matching prose meant a copy
         // edit could quietly start pitching Pro to someone who only needed to
         // sign in.
-        const refusal = refusalFrom(resp.status, json);
+        const refusal = refusalFrom(status, json);
         if (refusal) {
           if (refusal.remedy === "sign_in") {
             setFeedbackToast("Free scans used for today. Sign in (it's free) for 3 scans a day and saved reports.");
@@ -422,15 +411,16 @@ export default function AnalyzeResume() {
           } else {
             const freeLimit = refusal.limit && refusal.limit > 0 ? refusal.limit : 3;
             setFeedbackToast(`Daily limit reached. The free plan includes ${freeLimit} scans a day.`);
-            openUpgrade(json);
+            openUpgrade(json as Parameters<typeof openUpgrade>[0]);
           }
           return;
         }
         // Content gate (422): not a résumé we can analyze — show a calm,
         // instructive banner instead of the generic "analysis failed" error.
-        const gateErr = resumeGateErrorFromResponse(resp.status, json);
+        const gateErr = resumeGateErrorFromResponse(status, json);
         if (gateErr) { setError(gateErr); return; }
-        throw new Error(json.error || "Analysis failed");
+        setError(toUserFriendlyErrorMessage(json.error || "Analysis failed"));
+        return;
       }
       const res = mergeAnalyzeApiJson(json as Record<string, unknown>) as unknown as AnalysisResult;
       const resWithMeta: AnalysisResult = { ...res, libraryFolder: null };
@@ -455,14 +445,55 @@ export default function AnalyzeResume() {
         );
       }
       const candidateName = res.resumeHeader?.[0]?.trim() || res.structuredResume?.full_name?.trim();
-      const label = candidateName || file.name.replace(/\.(pdf|docx)$/i, "");
+      const label = candidateName || fileName.replace(/\.(pdf|docx)$/i, "");
       persistResult(label, resWithMeta, draftId);
+  }, [persistResult, isAnon, openSignIn, openUpgrade]);
+
+  const run = useCallback(async (file: File) => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    appShellSidebar?.collapseSidebar();
+
+    setExpandedBullets({});
+    setActiveCategory(null);
+    setSelectedBulletIndex(null);
+    setHistoryRestoreActive(false);
+    const fd = new FormData();
+    fd.append("file", file);
+    if (jd.trim()) fd.append("jd", jd);
+    if (userId)    fd.append("user_id", userId);
+    if (userEmail) fd.append("user_email", userEmail);
+    try {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        fd.set("user_id", session.user.id);
+        if (session.user.email) fd.set("user_email", session.user.email);
+      }
+      // The scan runs in a module-level slot, so the result survives this
+      // component unmounting mid-flight. A scan already cost the user one of
+      // their daily allowance; dropping the answer because they changed tabs
+      // charges them for nothing.
+      const outcome = await startRun<AnalyzeOutcome>("analyze", async () => {
+        const r = await apiFetch("/api/analyze-upload", { method: "POST", body: fd });
+        return { ok: r.ok, status: r.status, json: await r.json(), fileName: file.name };
+      });
+      clearRun("analyze");
+      applyAnalyzeOutcome(outcome);
     } catch (e: unknown) {
       setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : "Unknown error"));
     } finally {
       setLoading(false);
     }
-  }, [jd, persistResult, appShellSidebar]);
+  }, [jd, applyAnalyzeOutcome, appShellSidebar]);
+
+
+  // A scan that finished while this component was unmounted is delivered here.
+  const { adoptedRunning } = useAdoptedRun<AnalyzeOutcome>("analyze", applyAnalyzeOutcome);
+  // Adopting a still-running scan means showing the loader, not the upload
+  // screen: the work is happening, it just started before this mount.
+  const busy = loading || adoptedRunning;
 
   const runFolder = useCallback(async (folder: string) => {
     setLoading(true);
@@ -2138,7 +2169,7 @@ export default function AnalyzeResume() {
         )}
 
         {/* Pre-result upload state */}
-        {!result && !loading && (
+        {!result && !busy && (
           <AnalyzeUploadLanding
             jd={jd}
             onJdChange={setJd}
@@ -2160,7 +2191,7 @@ export default function AnalyzeResume() {
         )}
 
         {/* Loading state */}
-        {loading && (
+        {busy && (
           <AnalyzeCoachLoader stepIndex={loadingMsg} tipIndex={loadingTipIdx} hasJd={!!jd.trim()} />
         )}
 
