@@ -230,3 +230,60 @@ export function planQueueRuns(
 
   return { runs, uncoverable };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// One rewrite per bullet, per pass
+//
+// Every run in a pass is sent the SAME pristine résumé (the structured doc and
+// profile are built once, before the loop). So several runs independently pick
+// whichever bullet is most flexible and each returns a rewrite OF THAT SAME
+// LINE, differing only in the clause they weave in.
+//
+// The apply path fuzzy-matches on `original`. Once the first rewrite has
+// replaced the line, the second one's `original` no longer matches anything, so
+// instead of replacing it gets APPENDED. A field report showed one bullet
+// carrying three copies of its own tail and a résumé running 533px past page
+// one.
+//
+// Widening the pass from three attempts to nineteen multiplies this exactly
+// nineteen-fold, so the guard has to land with it: a bullet that has already
+// been rewritten in this pass is spent, and later suggestions for it are
+// dropped rather than stacked.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The shape the pass carries between the API and the apply path. */
+export interface PassSuggestion {
+  original?: string;
+  suggested?: string;
+}
+
+/** Same normalization the queue uses, so two spellings of a line collide. */
+function bulletKey(text: string): string {
+  return String(text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Keep only the suggestions whose target bullet is still untouched this pass.
+ *
+ * Mutates nothing: returns the survivors plus the bullets now spent, so the
+ * caller threads one set through the loop. A run that returns three rewrites of
+ * one line keeps the first — the runs are ordered by queue priority, so the
+ * earlier one is the higher-value gap.
+ */
+export function keepFirstRewritePerBullet(
+  suggestions: readonly PassSuggestion[],
+  used: ReadonlySet<string>,
+): { kept: PassSuggestion[]; used: Set<string> } {
+  const next = new Set(used);
+  const kept: PassSuggestion[] = [];
+  for (const s of suggestions) {
+    const key = bulletKey(s?.original ?? "");
+    // A suggestion with no original cannot be matched to a line at all; the
+    // apply path would append it. Drop it here rather than let it grow the
+    // résumé from nowhere.
+    if (!key || next.has(key)) continue;
+    next.add(key);
+    kept.push(s);
+  }
+  return { kept, used: next };
+}

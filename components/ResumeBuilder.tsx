@@ -58,7 +58,7 @@ import {
 } from "@/lib/tailorGapFix";
 import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToStructured";
 import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
-import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, planQueueRuns } from "@/lib/fixEverything";
+import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, planQueueRuns, keepFirstRewritePerBullet } from "@/lib/fixEverything";
 import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
 import { prefillPrepFromTailor } from "@/lib/interviewPrepLaunch";
 import type { AddressedGapAction } from "@/lib/types";
@@ -2928,6 +2928,13 @@ export default function ResumeBuilder({
 
       let appliedTotal = 0;
       const panelAll: GapFixSuggestion[] = [];
+      // Bullets already rewritten in THIS pass. Every run is sent the same
+      // pristine résumé, so runs independently pick the same flexible line and
+      // each returns a rewrite of it; the apply path fuzzy-matches `original`,
+      // so the second one no longer matches and gets appended instead of
+      // replacing. That is how a bullet ended up carrying three copies of its
+      // own tail. One rewrite per line, per pass.
+      let usedBullets: ReadonlySet<string> = new Set<string>();
 
       for (const [i, batch] of targetRuns.entries()) {
         setFixAllPendingGaps(batch.gaps);
@@ -2949,9 +2956,12 @@ export default function ResumeBuilder({
             const data = await resp.json() as { suggestions?: unknown[] };
             const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[];
             // Namespace ids per batch: the API numbers them from 1 each call.
-            named = list
-              .filter((s) => s.original?.trim() && s.suggested?.trim())
-              .map((s) => ({ ...s, id: `b${i}_${s.id}` }));
+            const fresh = keepFirstRewritePerBullet(
+              list.filter((s) => s.original?.trim() && s.suggested?.trim()),
+              usedBullets,
+            );
+            usedBullets = fresh.used;
+            named = (fresh.kept as GapFixSuggestion[]).map((s) => ({ ...s, id: `b${i}_${s.id}` }));
           }
         } catch { /* a failed batch behaves like an empty one */ }
 
