@@ -275,7 +275,15 @@ export function TailorWorkQueue({
         {onFixAll ? (
           <button
             type="button"
-            onClick={() => selected.length > 0 && onFixSelected ? onFixSelected(selected) : onFixAll()}
+            // The button names a count; it has to attempt exactly that set.
+            // Falling through to onFixAll() with no argument let the caller
+            // re-derive the work from a NARROWER list than the one on screen,
+            // so "Improve 19 blockers" attempted three.
+            onClick={() => {
+              const target = selected.length > 0 ? selected : selectable;
+              if (onFixSelected && target.length > 0) onFixSelected(target);
+              else onFixAll();
+            }}
             disabled={fixAllBusy || c.open === 0}
             style={{
               background: "var(--accent)",
@@ -357,8 +365,16 @@ export function TailorWorkQueue({
               }}
             >
               <span>{group.label}</span>
+              {/* "all set" is only true when the endings were the user's. A
+                  band that merely has nothing OPEN can be nineteen rows we
+                  failed to write, and calling that all set is the lie the
+                  green tone was also telling. */}
               <span style={{ marginLeft: "auto", letterSpacing: 0, fontWeight: FW.bold, opacity: 0.8 }}>
-                {group.open > 0 ? group.open : "all set"}
+                {group.open > 0
+                  ? group.open
+                  : group.tone === "good"
+                    ? "all set"
+                    : "none left to try"}
               </span>
             </div>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>

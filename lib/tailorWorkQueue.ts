@@ -268,6 +268,16 @@ export interface QueueGroup {
 const isOpen = (it: QueueItem) => it.status === "queued" || it.status === "needs_review";
 
 /**
+ * Did the user get somewhere with this row?
+ *
+ * `applied` is a change that landed; `ignored` is a decision they made. Both are
+ * outcomes they own. `not_coverable` is neither — it is the product failing to
+ * help, and colouring a band of those green under the word "ALL SET" told
+ * someone staring at nineteen dead requirements that everything was fine.
+ */
+const isResolvedWell = (it: QueueItem) => it.status === "applied" || it.status === "ignored";
+
+/**
  * Group in QUEUE_BAND_ORDER, dropping empties. Order within a band is the order
  * the items arrived, which is already priority order from the rater.
  *
@@ -281,10 +291,13 @@ export function groupQueueBySeverity(items: readonly QueueItem[]): QueueGroup[] 
     const inBand = items.filter((it) => BAND_OF_KIND[it.kind] === band);
     if (!inBand.length) continue;
     const open = inBand.filter(isOpen).length;
+    // Green only when every row ended somewhere the user chose. A band of
+    // "not coverable" has nothing open and is not remotely all set.
+    const allWell = inBand.every(isResolvedWell);
     out.push({
       band,
       label: QUEUE_BAND_LABEL[band],
-      tone: open === 0 ? "good" : BAND_TONE[band],
+      tone: open === 0 && allWell ? "good" : BAND_TONE[band],
       open,
       items: inBand,
     });

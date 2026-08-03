@@ -141,6 +141,7 @@ export function TailorQueuePanel({
   addressedGapActions,
   fixAllBusy,
   pendingGapNames,
+  attemptedNames,
   onFixAll,
   onFixSelected,
   fetchFixSuggestions,
@@ -163,6 +164,10 @@ export function TailorQueuePanel({
   /** Gap names whose batch is still generating — these rows spin, and each
    *  wave that lands clears its own. */
   pendingGapNames?: readonly string[];
+  /** Normalized names the last pass actually sent a request for. Only these
+   *  may be marked "not coverable" when it ends: everything else was never
+   *  tried, and saying otherwise blames the résumé for our own omission. */
+  attemptedNames?: ReadonlySet<string>;
   onFixAll: () => void;
   onFixSelected?: (items: readonly QueueItem[]) => void;
   /** Fetch rewrite options for one item; the row expands inline around them. */
@@ -225,13 +230,19 @@ export function TailorQueuePanel({
           raterRows,
         )
       : raterRows;
+    // A pass marks only what it ATTEMPTED.
+    //
+    // This used to stamp every still-queued row "couldn't be written from your
+    // real experience" once a pass ended. That is a claim about the user's
+    // résumé, and it was being made about rows no request was ever sent for —
+    // the pass ran over the rater's shortlist while the queue showed the wider
+    // scorer union. Eight identical false sentences in a column is what the
+    // user saw. A row we did not try stays open, because it is.
     const withPass =
       !passRan || fixAllBusy
         ? base
-        : // After a completed pass, nothing stays silently open: what the pass
-          // didn't land becomes an explicit "not coverable" with its reason.
-          base.map((it) =>
-            it.status === "queued"
+        : base.map((it) =>
+            it.status === "queued" && attemptedNames?.has(normalizeQueueName(it.name))
               ? {
                   ...it,
                   status: "not_coverable" as const,
@@ -254,6 +265,7 @@ export function TailorQueuePanel({
     fixAllBusy,
     ignoredNames,
     coverage.unmatched,
+    attemptedNames,
   ]);
 
   const grade =

@@ -117,3 +117,116 @@ export function batchGapNotes(batch: GapBatch): string {
     + "fit a gap. Leave a gap uncovered rather than fabricate it."
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Covering the whole queue
+//
+// `collectUnaddressedGaps` reads the RATER's missing lists. The queue the user
+// sees is wider than that: it also carries the deterministic scorer's unmatched
+// requirements, which is the whole point of showing them. Filtering the user's
+// selection down to the rater's batches therefore silently dropped most rows —
+// "Improve 19 blockers" would attempt three and then report the other sixteen
+// as impossible.
+//
+// Two silent drops caused that, and both are fixed here:
+//   1. a selected name with no rater batch was filtered out entirely;
+//   2. `take()` caps each batch at MAX_GAPS_PER_BATCH, so even rater-known
+//      gaps past the eighth never ran.
+//
+// A pass now produces one run per selected name, always. A name the rater never
+// mentioned gets a synthesized batch carrying just itself.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A requirement no bullet rewrite can honestly create, with the reason why. */
+export interface UncoverableReason {
+  name: string;
+  reason: string;
+}
+
+/**
+ * Requirements a rewrite can never close, however good the résumé is.
+ *
+ * A degree is the clear case: you either hold it or you do not, and no honest
+ * rephrasing of an existing bullet produces one. Spending a call on it wastes a
+ * request and — worse — comes back empty, which the UI then reported as "couldn't
+ * be written from your real experience", blaming the résumé for a category error.
+ *
+ * Deliberately narrow. "5 years of experience with Java" is NOT included: the
+ * years cannot be invented, but the Java can well be evidenced somewhere the
+ * matcher missed, and wrongly blocking that costs the user a real fix. Same
+ * asymmetry as `sameRequirement` — a false block is worse than a wasted call.
+ */
+const CREDENTIAL_RE =
+  /\b(bachelor'?s?|master'?s?|phd|ph\.d|doctorate|associate'?s?|mba|b\.?s\.?c?|m\.?s\.?c?)\b.{0,40}\b(degree|diploma)\b|\b(degree|diploma)\b.{0,40}\b(bachelor'?s?|master'?s?|phd|doctorate)\b|^\s*(bachelor'?s?|master'?s?|phd|doctorate)\b/i;
+
+export function uncoverableReason(name: string): string | null {
+  const t = (name || "").trim();
+  if (!t) return null;
+  if (CREDENTIAL_RE.test(t)) {
+    return "A credential, not something a rewrite can add. Leave it out unless you hold it.";
+  }
+  return null;
+}
+
+/** One gap-fix request: a batch carrying exactly one gap. */
+export type GapRun = GapBatch;
+
+export interface QueueRunPlan {
+  /** One run per attemptable name, in the order the caller supplied them. */
+  runs: GapRun[];
+  /** Names skipped because no rewrite could ever close them. */
+  uncoverable: UncoverableReason[];
+}
+
+/**
+ * Plan a pass over exactly the names the user selected.
+ *
+ * `known` supplies type/notes for names the rater described; anything else gets
+ * a synthesized single-gap batch so it is still attempted. Nothing is dropped
+ * for being unknown, and nothing is capped — the caller asked for these rows by
+ * name, and quietly attempting a subset is the bug this replaces.
+ */
+export function planQueueRuns(
+  names: readonly string[],
+  known: GapBatch[],
+  detailOf?: (name: string) => string,
+): QueueRunPlan {
+  const norm = (s: string) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  const typeByName = new Map<string, GapType>();
+  const noteByName = new Map<string, string>();
+  for (const b of known) {
+    for (const g of b.gaps) {
+      typeByName.set(norm(g), b.type);
+      if (b.notes) noteByName.set(norm(g), b.notes);
+    }
+  }
+
+  const runs: GapRun[] = [];
+  const uncoverable: UncoverableReason[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of names) {
+    const name = String(raw ?? "").trim();
+    const key = norm(name);
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+
+    const blocked = uncoverableReason(name);
+    if (blocked) {
+      uncoverable.push({ name, reason: blocked });
+      continue;
+    }
+
+    const detail = detailOf?.(name)?.trim() || "";
+    runs.push({
+      // A requirement the rater never classified is asked for as a
+      // qualification: it is the framing that assumes least about the item.
+      type: typeByName.get(key) ?? "qualification",
+      label: "requirement",
+      gaps: [name],
+      notes: noteByName.get(key) || (detail ? `${name}: ${detail}` : name),
+    });
+  }
+
+  return { runs, uncoverable };
+}
