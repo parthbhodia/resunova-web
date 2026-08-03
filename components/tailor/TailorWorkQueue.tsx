@@ -23,9 +23,14 @@ export type QueueItemAction =
   | "add_to_summary"
   | "fix"
   | "whats_this"
-  | "reconsider";
+  | "reconsider"
+  | "no_action";
 
 export function itemAction(it: QueueItem): QueueItemAction | null {
+  // A covered requirement has nothing to do to it, and the mockup says so out
+  // loud rather than leaving an empty gutter where every other row has a
+  // control — the same reason the contextual rows carry an information mark.
+  if (it.status === "covered") return "no_action";
   if (it.status === "applied") return "view_change";
   if (it.status === "needs_review") return "review";
   if (it.status === "ignored") return "reconsider";
@@ -80,6 +85,7 @@ const ACTION_LABEL: Record<QueueItemAction, string> = {
   fix: "Fix this",
   whats_this: "What's this?",
   reconsider: "Reconsider",
+  no_action: "No action",
 };
 
 /**
@@ -99,6 +105,7 @@ const VERDICT_LABEL: Record<QueueVerdict, string> = {
   partial: "Partial match",
   not_evidenced: "Not evidenced",
   keyword: "Keyword · fits an existing bullet",
+  covered: "You have this",
 };
 
 /**
@@ -109,10 +116,11 @@ const VERDICT_LABEL: Record<QueueVerdict, string> = {
  * row can carry; printing it in the band's alarm colour would tell someone they
  * are missing something they have.
  */
-const VERDICT_TONE: Record<QueueVerdict, "crit" | "warn"> = {
+const VERDICT_TONE: Record<QueueVerdict, "crit" | "warn" | "good"> = {
   partial: "warn",
   not_evidenced: "crit",
   keyword: "warn",
+  covered: "good",
 };
 
 /**
@@ -127,8 +135,16 @@ const VERDICT_TONE: Record<QueueVerdict, "crit" | "warn"> = {
  * `color-mix` keeps the border derived from the same ink rather than adding a
  * third hard-coded colour per tone to maintain across two themes.
  */
-const VERDICT_INK = { crit: "var(--red-ink, #b42318)", warn: "var(--amber-ink, #b45309)" } as const;
-const VERDICT_BG = { crit: "var(--red-bg, rgba(220,38,38,0.10))", warn: "var(--amber-bg, rgba(180,83,9,0.10))" } as const;
+const VERDICT_INK = {
+  crit: "var(--red-ink, #b42318)",
+  warn: "var(--amber-ink, #b45309)",
+  good: "var(--green-ink, #16a34a)",
+} as const;
+const VERDICT_BG = {
+  crit: "var(--red-bg, rgba(220,38,38,0.10))",
+  warn: "var(--amber-bg, rgba(180,83,9,0.10))",
+  good: "var(--green-bg, rgba(22,163,74,0.10))",
+} as const;
 
 function verdictChipStyle(v: QueueVerdict): React.CSSProperties {
   const tone = VERDICT_TONE[v];
@@ -263,7 +279,11 @@ export function TailorWorkQueue({
   const [detailIds, setDetailIds] = useState<Set<string>>(() => new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const c = queueCounts(items);
-  const seg = (n: number) => `${(n / Math.max(1, c.total)) * 100}%`;
+  // Covered rows are not work, so they must not dilute the work bar: with
+  // them in the denominator a queue where everything was applied would still
+  // render part-empty.
+  const workTotal = Math.max(1, c.total - c.covered);
+  const seg = (n: number) => `${(n / workTotal) * 100}%`;
   const finished = Boolean(passRan) && c.open === 0;
   const filtered = visibleIds ? items.filter((it) => visibleIds.has(it.id)) : items;
   const shown = showAll ? filtered : filtered.slice(0, 5);
@@ -300,7 +320,20 @@ export function TailorWorkQueue({
        * It was the loudest element at the top of the list and said what the red
        * stripe on every blocker row and the exclusion note below already say.
        * Three restatements of one idea competing for the same glance is how the
-       * warning stops being read at all. */}
+       * warning stops being read at all.
+       *
+       * ⚠️ The banner BELOW is a different thing and is not that one coming
+       * back. That was a warning repeating the stripes; this is a count and a
+       * triage instruction — how many rows are pass/fail, and that the rest can
+       * wait. Nothing else on the page says which band to start with: the
+       * headers name each band, they do not rank them. It hides entirely at
+       * zero blockers, so it can never be a red bar over a clean queue. */}
+      {/* ⚠️ The gap-count banner lives in TailorQueuePanel, ABOVE the score
+       * tiles, not here. Rendered inside this card it sat directly above the
+       * "Could get you filtered out" band header and printed that sentence
+       * twice in a row, which is the restatement the v7 note above is about.
+       * Adjacency is what turned information into noise, so the fix was
+       * distance rather than different words. */}
       <div style={{ padding: "17px 16px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: FS.body, fontWeight: FW.bold }}>
@@ -440,11 +473,16 @@ export function TailorWorkQueue({
                   failed to write, and calling that all set is the lie the
                   green tone was also telling. */}
               <span style={{ marginLeft: "auto", letterSpacing: 0, fontWeight: FW.bold, opacity: 0.8 }}>
-                {group.open > 0
-                  ? group.open
-                  : group.tone === "good"
-                    ? "all set"
-                    : "none left to try"}
+                {group.band === "covered"
+                  // Never "all set": nothing was set. These were satisfied
+                  // before the user arrived, so the honest figure is how many
+                  // of them there are.
+                  ? group.items.length
+                  : group.open > 0
+                    ? group.open
+                    : group.tone === "good"
+                      ? "all set"
+                      : "none left to try"}
               </span>
             </div>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -593,7 +631,14 @@ export function TailorWorkQueue({
                         {/* A cut-off title makes this "show me the rest"; an
                             intact one makes it "explain". Same control, and the
                             label should not claim the wrong one. */}
-                        {detailOpen ? "Hide" : isLongTitle(it.name) ? "More" : "Why this matters"}
+                        {detailOpen
+                        ? "Hide"
+                        : it.status === "covered"
+                          // On a covered row the detail IS the evidence, and
+                          // "Why this matters" would promise an explanation of
+                          // a problem the user does not have.
+                          ? "Show the evidence"
+                          : isLongTitle(it.name) ? "More" : "Why this matters"}
                       </button>
                     ) : null}
                   </span>
@@ -612,7 +657,14 @@ export function TailorWorkQueue({
                   </span>
                 ) : null}
               </span>
-              {action && onItemAction ? (
+              {action === "no_action" ? (
+                // Deliberately not a button. There is nothing to press, and a
+                // bordered control that does nothing when clicked is worse
+                // than plain text saying so.
+                <span style={{ fontSize: FS.small, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  {ACTION_LABEL.no_action}
+                </span>
+              ) : action && onItemAction ? (
                 <button
                   type="button"
                   onClick={() => onItemAction(it, action)}

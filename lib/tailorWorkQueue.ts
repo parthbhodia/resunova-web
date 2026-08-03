@@ -26,7 +26,20 @@ import { isGapAddressed } from "@/lib/tailorGapFix";
 
 export type QueueKind = "qualification" | "responsibility" | "keyword" | "contextual";
 
-export type QueueStatus = "queued" | "applied" | "needs_review" | "not_coverable" | "ignored";
+/**
+ * `covered` is not an outcome of work — it is a requirement the résumé already
+ * satisfies, carried so the queue can show it as reassurance rather than
+ * leaving it invisible. It must never count as open: a requirement you meet
+ * inflating the number you are judged on is the same overcounting this queue
+ * was built to end.
+ */
+export type QueueStatus =
+  | "queued"
+  | "applied"
+  | "needs_review"
+  | "not_coverable"
+  | "ignored"
+  | "covered";
 
 export interface QueueItem {
   /** Stable across re-derivations: kind + normalized name. */
@@ -178,6 +191,8 @@ export interface QueueCounts {
   needsReview: number;
   notCoverable: number;
   ignored: number;
+  /** Requirements the résumé already satisfies. Never work, never open. */
+  covered: number;
   open: number;
 }
 
@@ -186,11 +201,13 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
   let needsReview = 0;
   let notCoverable = 0;
   let ignored = 0;
+  let covered = 0;
   for (const it of items) {
     if (it.status === "applied") applied++;
     else if (it.status === "needs_review") needsReview++;
     else if (it.status === "not_coverable") notCoverable++;
     else if (it.status === "ignored") ignored++;
+    else if (it.status === "covered") covered++;
   }
   return {
     total: items.length,
@@ -198,7 +215,8 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
     needsReview,
     notCoverable,
     ignored,
-    open: items.length - applied - needsReview - notCoverable - ignored,
+    covered,
+    open: items.length - applied - needsReview - notCoverable - ignored - covered,
   };
 }
 
@@ -224,10 +242,17 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
  * Band is derived from kind, so it needs no join between two independent LLM
  * outputs and cannot collapse to one bucket the way importance does.
  */
-export type QueueBand = "blocker" | "boost" | "context";
+export type QueueBand = "blocker" | "boost" | "context" | "covered";
 
 /** Ordered by what it costs to leave the band unaddressed. */
-export const QUEUE_BAND_ORDER: readonly QueueBand[] = ["blocker", "boost", "context"] as const;
+export const QUEUE_BAND_ORDER: readonly QueueBand[] = [
+  "blocker",
+  "boost",
+  "context",
+  // Last on purpose: it is the only band that asks nothing of the reader, so
+  // it must never sit above work.
+  "covered",
+] as const;
 
 /** Hard requirements read as pass/fail to a screener; keywords are upside;
  *  employer-domain words are usually best left alone. */
@@ -242,6 +267,7 @@ export const QUEUE_BAND_LABEL: Record<QueueBand, string> = {
   blocker: "Could get you filtered out",
   boost: "Worth adding",
   context: "About the employer",
+  covered: "Already covered",
 };
 
 /** Severity, not state. State is the row's own status dot, so the two stay
@@ -252,6 +278,7 @@ const BAND_TONE: Record<QueueBand, QueueTone> = {
   blocker: "crit",
   boost: "warn",
   context: "muted",
+  covered: "good",
 };
 
 export interface QueueGroup {
@@ -288,7 +315,12 @@ const isResolvedWell = (it: QueueItem) => it.status === "applied" || it.status =
 export function groupQueueBySeverity(items: readonly QueueItem[]): QueueGroup[] {
   const out: QueueGroup[] = [];
   for (const band of QUEUE_BAND_ORDER) {
-    const inBand = items.filter((it) => BAND_OF_KIND[it.kind] === band);
+    // Status wins over kind for `covered`: what a covered requirement IS
+    // (a degree, a tool) stops mattering once the résumé satisfies it, and
+    // filing it by kind would scatter reassurance through the work bands.
+    const inBand = items.filter((it) =>
+      it.status === "covered" ? band === "covered" : band !== "covered" && BAND_OF_KIND[it.kind] === band,
+    );
     if (!inBand.length) continue;
     const open = inBand.filter(isOpen).length;
     // Green only when every row ended somewhere the user chose. A band of

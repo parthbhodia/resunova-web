@@ -3,6 +3,7 @@ import {
   NO_SCORE_MOVE_NOTE,
   SCORER_ONLY_DETAIL,
   WORDING_DETAIL,
+  deriveCoveredQueue,
   deriveScorerQueue,
   mergeQueues,
   raterView,
@@ -369,5 +370,52 @@ describe("an applied row stops asking to be fixed", () => {
       new Set(["Kubernetes"]),
     );
     expect(row.status).toBe("queued");
+  });
+});
+
+describe("covered rows are reassurance, and never a second copy of work", () => {
+  const RATINGS = {
+    qualifications: {
+      missing: [],
+      covered: [
+        { text: "Proficiency in Python", context: "Built ETL in Python at Acme." },
+        { text: "Master's degree in CS", context: "MS Computer Science, UMBC." },
+      ],
+    },
+    responsibilities: { missing: [], covered: [{ text: "Own delivery", context: "Led two launches." }] },
+    keywords: {},
+  };
+
+  it("carries the rater's own evidence rather than an unsupported claim", () => {
+    const [row] = deriveCoveredQueue(RATINGS);
+    expect(row.status).toBe("covered");
+    expect(row.verdict).toBe("covered");
+    expect(row.detail).toBe("Built ETL in Python at Acme.");
+  });
+
+  it("never promises that closing it moves the number", () => {
+    // It is already matched. Saying otherwise is the false promise `movesScore`
+    // was added to prevent.
+    for (const row of deriveCoveredQueue(RATINGS)) expect(row.movesScore).toBe(false);
+  });
+
+  it("drops a requirement the work queue is already showing", () => {
+    // Found by a panel test rendering two rows for one requirement. The
+    // scorer-unmatched + rater-covered class IS the "Partial match" row, and
+    // that requirement is also on the rater's covered list — so without this
+    // it appears twice, as work and as reassurance, with opposite verdicts.
+    const queued = deriveScorerQueue(
+      unmatched(["Proficiency in Python"]),
+      raterView(RATINGS),
+    );
+    expect(queued[0].verdict).toBe("partial");
+    const covered = deriveCoveredQueue(RATINGS, queued);
+    expect(covered.map((c) => c.name)).not.toContain("Proficiency in Python");
+    expect(covered.map((c) => c.name)).toContain("Master's degree in CS");
+  });
+
+  it("returns nothing when the rater covered nothing", () => {
+    expect(deriveCoveredQueue({ qualifications: { missing: [], covered: [] }, keywords: {} })).toEqual([]);
+    expect(deriveCoveredQueue(null)).toEqual([]);
   });
 });

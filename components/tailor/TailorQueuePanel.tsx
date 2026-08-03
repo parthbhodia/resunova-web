@@ -25,14 +25,18 @@ import {
   IGNORED_DETAIL,
   deriveWorkQueue,
   normalizeQueueName,
+  groupQueueBySeverity,
+  queueCounts,
   type QueueItem,
 } from "@/lib/tailorWorkQueue";
 import {
+  deriveCoveredQueue,
   deriveScorerQueue,
   mergeQueues,
   raterView,
   scoreMovingCount,
 } from "@/lib/tailorRequirementQueue";
+import { FS, FW } from "@/lib/typography";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { useLiveCoverage } from "@/components/tailor/useLiveCoverage";
 import { TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
@@ -230,6 +234,10 @@ export function TailorQueuePanel({
           raterRows,
         )
       : raterRows;
+    // Reassurance rides at the end, always. These are requirements the résumé
+    // already satisfies; `queueCounts` excludes them from `open`, so they
+    // cannot inflate the "N to review" the whole surface is scored on.
+    const withCovered = [...base, ...deriveCoveredQueue(ratings, base)];
     // A pass marks only what it ATTEMPTED.
     //
     // This used to stamp every still-queued row "couldn't be written from your
@@ -240,8 +248,8 @@ export function TailorQueuePanel({
     // user saw. A row we did not try stays open, because it is.
     const withPass =
       !passRan || fixAllBusy
-        ? base
-        : base.map((it) =>
+        ? withCovered
+        : withCovered.map((it) =>
             it.status === "queued" && attemptedNames?.has(normalizeQueueName(it.name))
               ? {
                   ...it,
@@ -365,8 +373,68 @@ export function TailorQueuePanel({
     return ids.size > 0 ? ids : undefined;
   }, [fixAllBusy, pendingGapNames, displayItems, revealWorkingId]);
 
+  // Split the open work by band so the banner can rank it: blockers are what a
+  // screener fails you on, everything else is upside.
+  const bandCounts = useMemo(() => {
+    const counts = queueCounts(items);
+    const blockerOpen = groupQueueBySeverity(items).find((g) => g.band === "blocker")?.open ?? 0;
+    return { blockerOpen, smallerOpen: Math.max(0, counts.open - blockerOpen) };
+  }, [items]);
+  const { blockerOpen, smallerOpen } = bandCounts;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 12px 0" }}>
+      {/* Above the tiles, per the mockup.
+       *
+       * It belongs here rather than inside the queue card: sitting directly on
+       * top of the "Could get you filtered out" band header it printed that
+       * sentence twice in a row, which is exactly the restatement the queue's
+       * own v7 note warns about. Distance is what makes it information again.
+       *
+       * This is NOT the "Keep every claim true" banner returning. That was a
+       * warning repeating the row stripes; this is a count and an ordering —
+       * how many rows are pass/fail and that the rest can wait. Nothing else
+       * ranks the bands. It renders nothing at zero blockers. */}
+      {blockerOpen > 0 ? (
+        <div
+          style={{
+            display: "flex",
+            gap: 11,
+            alignItems: "flex-start",
+            margin: "16px 16px 0",
+            padding: "12px 14px",
+            borderRadius: 10,
+            background: "var(--red-bg, rgba(220,38,38,0.10))",
+            border: "1px solid color-mix(in srgb, var(--red-ink, #b42318) 26%, transparent)",
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              flex: "none", width: 22, height: 22, borderRadius: 7,
+              display: "grid", placeItems: "center",
+              background: "var(--red-ink, #b42318)", color: "#fff",
+              fontSize: FS.caption, fontWeight: FW.extrabold,
+            }}
+          >
+            !
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: FS.body, fontWeight: FW.bold, color: "var(--red-ink, #b42318)" }}>
+              {blockerOpen} gap{blockerOpen === 1 ? "" : "s"} could get you filtered out
+            </div>
+            <div style={{ fontSize: FS.small, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>
+              {/* Naming what can wait is the point. A count on its own is
+                  pressure; a count plus an ordering is a plan. */}
+              Hard requirements the posting asks for that your resume does not
+              evidence yet.
+              {smallerOpen > 0
+                ? ` The other ${smallerOpen} can wait.`
+                : ""}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <TailorScoreboard
         found={coverage.found}
         total={coverage.total}

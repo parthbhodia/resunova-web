@@ -54,6 +54,40 @@ const label: React.CSSProperties = {
   marginBottom: 3,
 };
 
+/**
+ * A numbered step heading.
+ *
+ * The confirm flow is two or three screens deep inside one row, and an
+ * unnumbered eyebrow gives no sense of where you are or how much is left — the
+ * mockup numbers them for exactly that reason. The badge carries the number so
+ * the label stays a label.
+ */
+function StepLabel({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <div style={{ ...label, display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+      <span
+        aria-hidden
+        style={{
+          width: 16,
+          height: 16,
+          borderRadius: 4,
+          display: "inline-grid",
+          placeItems: "center",
+          background: "var(--accent)",
+          color: "#fff",
+          fontSize: FS.micro,
+          fontWeight: FW.extrabold,
+          letterSpacing: 0,
+          flex: "none",
+        }}
+      >
+        {n}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 const card: React.CSSProperties = {
   margin: "0 8px 10px 30px",
   border: "1px solid var(--border)",
@@ -242,7 +276,7 @@ export function TailorFixExpansion({
            one click and no typing, because the sentence is read out of the
            résumé rather than written for the user. */
         <div>
-          <div style={label}>Check this is true</div>
+          <StepLabel n={1}>Check this is true</StepLabel>
           <blockquote
             style={{
               margin: "4px 0 0",
@@ -320,7 +354,7 @@ export function TailorFixExpansion({
         </div>
       ) : current ? (
         <div>
-          <div style={label}>Your bullet</div>
+          <StepLabel n={2}>Your bullet</StepLabel>
           <div style={{ fontSize: FS.small, color: "var(--muted)", lineHeight: 1.5 }}>{current.original}</div>
           <div style={{ ...label, marginTop: 10 }}>
             {suggestions.length > 1 ? "Pick a version" : "Suggested"}
