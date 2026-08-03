@@ -4087,7 +4087,7 @@ export default function ResumeBuilder({
                   style={{
                     marginBottom: 16,
                     padding: "12px 16px",
-                    background: "var(--amber-soft, #fffbeb)",
+                    background: "var(--amber-bg, rgba(180,83,9,0.12))",
                     border: "1px solid color-mix(in srgb, var(--amber-ink, #b45309) 28%, transparent)",
                     borderRadius: 10,
                     color: "var(--text)",

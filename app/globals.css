@@ -332,7 +332,17 @@ a { cursor: pointer; }
  * chrome on every MUI TextField. The MUI control already carries all of these
  * from the theme, so it must opt out rather than be overridden.
  */
-input:not([class*="Mui"]), textarea:not([class*="Mui"]), select:not([class*="Mui"]) {
+/* Checkboxes and radios are excluded. This block is text-input styling —
+   width:100%, 10px padding, a border and a focus ring — and it was applying to
+   them too, so a bare checkbox rendered as a full-width box. In the tailor
+   queue that ate an entire row: the checkbox measured 99px and pushed "Select
+   all gaps" into three stacked lines beside it, with 400px of free space in
+   the row. Several call sites had already worked around it with an inline
+   width/height, which is the tell that the rule, not the call sites, was
+   wrong. Those overrides still win, so they keep their sizing. */
+input:not([class*="Mui"]):not([type="checkbox"]):not([type="radio"]),
+textarea:not([class*="Mui"]),
+select:not([class*="Mui"]) {
   font-family: inherit;
   font-size: 14px;
   letter-spacing: -0.1px;
@@ -345,8 +355,10 @@ input:not([class*="Mui"]), textarea:not([class*="Mui"]), select:not([class*="Mui
   width: 100%;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
-input:not([class*="Mui"]):hover, textarea:not([class*="Mui"]):hover { border-color: var(--border-h); }
-input:not([class*="Mui"]):focus, textarea:not([class*="Mui"]):focus, select:not([class*="Mui"]):focus {
+input:not([class*="Mui"]):not([type="checkbox"]):not([type="radio"]):hover,
+textarea:not([class*="Mui"]):hover { border-color: var(--border-h); }
+input:not([class*="Mui"]):not([type="checkbox"]):not([type="radio"]):focus,
+textarea:not([class*="Mui"]):focus, select:not([class*="Mui"]):focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.22);
 }

@@ -27,6 +27,12 @@ import {
   normalizeQueueName,
   type QueueItem,
 } from "@/lib/tailorWorkQueue";
+import {
+  deriveScorerQueue,
+  mergeQueues,
+  raterView,
+  scoreMovingCount,
+} from "@/lib/tailorRequirementQueue";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { useLiveCoverage } from "@/components/tailor/useLiveCoverage";
 import { TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
@@ -194,8 +200,31 @@ export function TailorQueuePanel({
     else if (wasBusy.current) setPassRan(true);
   }, [fixAllBusy]);
 
+  const kw = ratings.keywords;
+  const scanFound = kw?.found_count ?? 0;
+  const scanTotal = kw?.total_count ?? 0;
+  // Recount against the current text when we can; fall back to the scan's
+  // counts (and the honest label) when we cannot. Read BEFORE the queue is
+  // built, because the queue is now partly derived from what it returns.
+  const coverage = useLiveCoverage(
+    requirementConcepts,
+    currentResumeText ?? "",
+    { found: scanFound, total: scanTotal },
+  );
+
   const items = useMemo(() => {
-    const base = deriveWorkQueue(ratings, addressedGaps, addressedGapActions);
+    const raterRows = deriveWorkQueue(ratings, addressedGaps, addressedGapActions);
+    // The scored requirements are the spine: they are what the percentage
+    // counts, so they are what the user has to move. The rater's list rides on
+    // top for the gaps a matcher cannot see (an unevidenced claim behind a term
+    // that does appear). Until a recount lands, `unmatched` is empty and this
+    // is byte-for-byte the queue that shipped before.
+    const base = coverage.unmatched.length
+      ? mergeQueues(
+          deriveScorerQueue(coverage.unmatched, raterView(ratings), addressedGaps),
+          raterRows,
+        )
+      : raterRows;
     const withPass =
       !passRan || fixAllBusy
         ? base
@@ -217,18 +246,16 @@ export function TailorQueuePanel({
         ? { ...it, status: "ignored" as const, detail: IGNORED_DETAIL }
         : it,
     );
-  }, [ratings, addressedGaps, addressedGapActions, passRan, fixAllBusy, ignoredNames]);
+  }, [
+    ratings,
+    addressedGaps,
+    addressedGapActions,
+    passRan,
+    fixAllBusy,
+    ignoredNames,
+    coverage.unmatched,
+  ]);
 
-  const kw = ratings.keywords;
-  const scanFound = kw?.found_count ?? 0;
-  const scanTotal = kw?.total_count ?? 0;
-  // Recount against the current text when we can; fall back to the scan's
-  // counts (and the honest label) when we cannot.
-  const coverage = useLiveCoverage(
-    requirementConcepts,
-    currentResumeText ?? "",
-    { found: scanFound, total: scanTotal },
-  );
   const grade =
     typeof ratings.overall_score === "number"
       ? ratings.overall_score
@@ -331,6 +358,7 @@ export function TailorQueuePanel({
       <TailorScoreboard
         found={coverage.found}
         total={coverage.total}
+        unit={coverage.unit}
         live={coverage.live}
         lost={coverage.lost}
         grade={grade}

@@ -14,7 +14,7 @@ describe("TailorStrengthsCard", () => {
       />,
     );
     const card = screen.getByTestId("strengths-card");
-    expect(card.textContent).toContain("Working in your favor");
+    expect(card.textContent).toContain("already working in your favor");
     expect(card.textContent).toContain("Fair fit, strong LLM depth.");
     expect(card.textContent).toContain("Production LLM systems");
     expect(card.textContent).toContain("Expect a relocation question.");

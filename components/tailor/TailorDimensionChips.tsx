@@ -28,19 +28,43 @@ export const DIMENSION_KINDS: Record<TailorDimension, readonly QueueKind[]> = {
   keyword: ["keyword", "contextual"],
 };
 
+/**
+ * Quiet chips (mockup v7).
+ *
+ * The rail spends its loudest colour on the two score tiles above, so anything
+ * under them has to read quieter or the panel has two competing focal points.
+ *
+ * The border comes off, but a resting fill goes on. A first pass dropped both
+ * and the chips stopped reading as pressable at all — they looked like a row of
+ * loose text. Quiet is not the same as invisible: the fill is what still says
+ * "this is a control".
+ */
 function chipStyle(active: boolean): React.CSSProperties {
   return {
-    fontSize: FS.small,
+    fontSize: FS.body,
     fontWeight: FW.semibold,
     fontVariantNumeric: "tabular-nums",
-    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "var(--accent-soft, rgba(37,99,235,0.08))" : "var(--card)",
+    // Transparent rather than absent, so the box does not resize on press.
+    border: "1px solid transparent",
+    background: active ? "var(--accent-bg, rgba(9,105,218,0.11))" : "var(--surface-2, rgba(127,127,127,0.08))",
     color: active ? "var(--accent)" : "var(--text)",
     borderRadius: 999,
-    padding: "4px 11px",
+    padding: "7px 13px",
     cursor: "pointer",
     whiteSpace: "nowrap",
   };
+}
+
+/**
+ * The count colour carries whether the dimension still has work in it.
+ *
+ * Title is deliberately never warned even at 10%: it is informational and never
+ * becomes a queue row, so colouring it red would point the user at something
+ * this surface offers no way to act on.
+ */
+function countColor(active: boolean, incomplete: boolean): string {
+  if (active) return "var(--accent)";
+  return incomplete ? "var(--amber-ink, #b45309)" : "var(--muted)";
 }
 
 function EvRow({ have, text, quote }: { have: boolean; text: string; quote?: string }) {
@@ -86,11 +110,27 @@ export function TailorDimensionChips({
   const have = (c: typeof quals) => c.covered.length + (c.resolved_by_user?.length ?? 0);
   const total = (c: typeof quals) => have(c) + c.missing.length;
 
-  const chips: Array<{ dim: TailorDimension; label: string; count: string }> = [
-    { dim: "title", label: "Title", count: `${Math.round(jt.score)}%` },
-    { dim: "qualification", label: "Qualifications", count: `${have(quals)}/${total(quals)}` },
-    { dim: "responsibility", label: "Responsibilities", count: `${have(resps)}/${total(resps)}` },
-    { dim: "keyword", label: "Keywords", count: `${kw.found_count}/${kw.total_count}` },
+  const chips: Array<{ dim: TailorDimension; label: string; count: string; incomplete: boolean }> = [
+    // Title never carries the warn colour — see countColor.
+    { dim: "title", label: "Title", count: `${Math.round(jt.score)}%`, incomplete: false },
+    {
+      dim: "qualification",
+      label: "Qualifications",
+      count: `${have(quals)}/${total(quals)}`,
+      incomplete: have(quals) < total(quals),
+    },
+    {
+      dim: "responsibility",
+      label: "Responsibilities",
+      count: `${have(resps)}/${total(resps)}`,
+      incomplete: have(resps) < total(resps),
+    },
+    {
+      dim: "keyword",
+      label: "Keywords",
+      count: `${kw.found_count}/${kw.total_count}`,
+      incomplete: kw.found_count < kw.total_count,
+    },
   ];
 
   const coveredOf = (c: typeof quals): DetailedRatingItem[] => [
@@ -113,7 +153,7 @@ export function TailorDimensionChips({
             onClick={() => onPick(active === c.dim ? null : c.dim)}
           >
             {c.label}{" "}
-            <span style={{ color: active === c.dim ? "var(--accent)" : "var(--muted)", fontWeight: FW.semibold }}>
+            <span style={{ color: countColor(active === c.dim, c.incomplete), fontWeight: FW.bold }}>
               {c.count}
             </span>
           </button>

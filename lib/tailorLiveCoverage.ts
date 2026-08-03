@@ -28,6 +28,12 @@ export interface LiveCoverage {
   total: number;
   gained: Array<{ id: string; canonical: string; importance: string }>;
   lost: Array<{ id: string; canonical: string; importance: string }>;
+  /** Every requirement the résumé still does not evidence.
+   *
+   *  This is what the percentage is complaining about, itemized. Before it
+   *  existed the queue could only show the rater's summary of the gaps, so a
+   *  scan reporting 15 unmatched requirements offered three rows to fix. */
+  unmatched: Array<{ id: string; canonical: string; importance: string }>;
 }
 
 /** Debounce so a Fix-everything pass lands one request, not one per wave. */
@@ -63,6 +69,9 @@ export async function fetchLiveCoverage(
       total: data.total,
       gained: data.gained ?? [],
       lost: data.lost ?? [],
+      // Absent on a backend that predates the field: an empty list degrades to
+      // the rater-only queue rather than to a crash.
+      unmatched: data.unmatched ?? [],
     };
   } catch {
     return null; // includes AbortError when a newer edit superseded this one

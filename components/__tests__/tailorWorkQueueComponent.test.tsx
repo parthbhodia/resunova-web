@@ -19,8 +19,10 @@ describe("TailorWorkQueue working state", () => {
       />,
     );
     expect(screen.getAllByLabelText("working")).toHaveLength(2);
-    // The contextual row is not in any batch's flight — it stays a plain dot.
-    expect(screen.getAllByLabelText("queued")).toHaveLength(1);
+    // The contextual row is not in any batch's flight, and it is not a
+    // selectable gap either, so it carries the context mark rather than a
+    // status dot claiming it is "queued" for work nobody will do to it.
+    expect(screen.getAllByLabelText("context")).toHaveLength(1);
   });
 
   it("still supports the single workingId used by the preview demo", () => {
@@ -76,7 +78,7 @@ describe("the queue groups by what the gap costs", () => {
     // A qualification and a responsibility read the same to a screener.
     render(<TailorWorkQueue items={items} />);
     expect(screen.getAllByText("Could get you filtered out")).toHaveLength(1);
-    expect(screen.getByText("· 2")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
   });
 
   it("shows no header for a band with nothing in it", () => {
@@ -92,7 +94,7 @@ describe("the queue groups by what the gap costs", () => {
       />,
     );
     expect(screen.getByText("Could get you filtered out")).toBeInTheDocument();
-    expect(screen.getByText("· all set")).toBeInTheDocument();
+    expect(screen.getByText("all set")).toBeInTheDocument();
   });
 
   it("still renders every row", () => {

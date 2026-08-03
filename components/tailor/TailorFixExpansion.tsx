@@ -104,7 +104,7 @@ function SuggestedText({ s }: { s: FixSuggestion }) {
       {s.suggested.slice(0, delta.addedStart)}
       <mark
         style={{
-          background: "var(--green-soft, rgba(22,163,74,0.14))",
+          background: "var(--green-bg, rgba(5,150,105,0.12))",
           color: "inherit",
           borderRadius: 5,
           padding: "0 3px",
@@ -248,7 +248,7 @@ export function TailorFixExpansion({
               margin: "4px 0 0",
               padding: "9px 11px",
               borderLeft: "3px solid var(--green-ink, #16a34a)",
-              background: "var(--green-soft, rgba(22,163,74,0.08))",
+              background: "var(--green-bg, rgba(5,150,105,0.12))",
               borderRadius: "0 8px 8px 0",
               fontSize: FS.body,
               lineHeight: 1.55,
@@ -338,7 +338,7 @@ export function TailorFixExpansion({
                 style={{
                   border: `1px solid ${sel ? "var(--accent)" : "var(--border)"}`,
                   borderRadius: 9,
-                  background: sel ? "var(--accent-soft, rgba(37,99,235,0.08))" : "var(--card)",
+                  background: sel ? "var(--accent-bg, rgba(9,105,218,0.11))" : "var(--card)",
                   padding: "9px 11px",
                   marginTop: 8,
                   cursor: suggestions.length > 1 ? "pointer" : "default",

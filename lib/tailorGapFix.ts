@@ -12,8 +12,27 @@ import {
   matchOriginalToBulletIndex,
 } from "@/lib/resumeBulletMatch";
 
+/**
+ * Coerce a value the types SAY is a string but which arrives from an LLM.
+ *
+ * `gapKeysMatch` is called from ~20 `.some(...)` scans over rater output —
+ * missing-item `.text`, keyword strings, action labels. One non-string among
+ * them threw "e.trim is not a function" out of a render and took the whole
+ * Tailor page down after a Fix-everything pass. Hardening the two normalizers
+ * both paths funnel through fixes every one of those call sites at once, which
+ * is the difference between a fix and twenty patches.
+ *
+ * Numbers become their digits (a requirement really can be "2"); anything else
+ * becomes "", and a label that normalizes to "" simply matches nothing.
+ */
+function asGapText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+
 function formatBulletLine(raw: string): string {
-  const t = raw.trim();
+  const t = asGapText(raw).trim();
   if (!t) return t;
   return /^[•\-–*]/.test(t) || /^\u2022/.test(t) ? t : `• ${t.replace(/^•\s*/, "")}`;
 }
@@ -26,7 +45,7 @@ export function makeStableGapId(label: string, gapType: AddressedGapAction["type
 }
 
 export function normalizeGapKey(text: string): string {
-  return text
+  return asGapText(text)
     .trim()
     .toLowerCase()
     .replace(/\.js\b/g, " js")
@@ -43,7 +62,7 @@ export function normalizeGapKey(text: string): string {
  * themselves. Keeping `+ # .` makes those distinct and comparable.
  */
 export function normalizeGapKeyStrict(text: string): string {
-  return text
+  return asGapText(text)
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9+#.]+/g, " ")

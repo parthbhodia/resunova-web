@@ -131,3 +131,66 @@ describe("the transition parser itself", () => {
     expect(splitTopLevel("color 0.3s ease")).toEqual(["color 0.3s ease"]);
   });
 });
+
+describe("the global input rule", () => {
+  // A text-input block (width:100%, padding, border, focus ring) was applying
+  // to checkboxes and radios too. In the tailor queue that made the checkbox
+  // 99px wide and pushed "Select all gaps" into three stacked lines beside it
+  // with 400px of free space in the row. Several call sites had already added
+  // an inline width/height to work around it, which is the tell that the rule
+  // was wrong rather than the call sites.
+  const RULE = /input:not\(\[class\*="Mui"\]\)([^,{]*)/g;
+
+  it("excludes checkboxes and radios from text-input styling", () => {
+    const selectors = [...GLOBALS.matchAll(RULE)].map((m) => m[1]);
+    expect(selectors.length).toBeGreaterThan(0);
+    for (const s of selectors) {
+      expect(s, `an input rule still matches checkboxes: input:not([class*="Mui"])${s}`)
+        .toMatch(/:not\(\[type="checkbox"\]\)/);
+      expect(s, `an input rule still matches radios: input:not([class*="Mui"])${s}`)
+        .toMatch(/:not\(\[type="radio"\]\)/);
+    }
+  });
+});
+
+describe("CSS variables the tailor surfaces reference", () => {
+  /**
+   * An undefined var() silently uses its fallback, which is invisible until the
+   * theme changes. `--red-soft` never existed, so the "Keep every claim true"
+   * banner fell through to a hardcoded #fff1f0 while its TEXT colour came from
+   * `--red-ink`, which does adapt. In dark mode that rendered #fca5a5 on
+   * #fff1f0 — light pink on light pink, about 1.7:1, unreadable.
+   *
+   * The theme already had alpha-based `--red-bg` / `--amber-bg` / `--green-bg`
+   * defined per theme; the call sites simply used names that were not there.
+   */
+  const TAILOR = ["components/tailor/TailorWorkQueue.tsx",
+                  "components/tailor/TailorFixExpansion.tsx",
+                  "components/tailor/TailorScoreboard.tsx",
+                  "components/tailor/TailorDimensionChips.tsx"]
+    .map((f) => readFileSync(f, "utf8")).join("\n");
+
+  /** Vars the app defines inline on an element rather than in globals.css. */
+  const INLINE_DEFINED = new Set(["--surface-2"]);
+
+  it("are all defined in globals.css", () => {
+    const used = new Set([...TAILOR.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]));
+    expect(used.size).toBeGreaterThan(5);
+    const missing = [...used].filter(
+      (v) => !INLINE_DEFINED.has(v) && !new RegExp(`^\\s*${v}\\s*:`, "m").test(GLOBALS),
+    );
+    expect(missing, `undefined CSS vars: ${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("uses no opaque hex fallback for a TINT background", () => {
+    // Scoped to the tint family (--*-bg / --*-soft) on purpose. A solid fill
+    // like `var(--green-ink, #16a34a)` on the primary button is fine with an
+    // opaque fallback: it is meant to be a solid colour, and white text sits on
+    // it either way. The failure mode is specific to a TRANSLUCENT tint, which
+    // must composite over the theme behind it rather than pin a light-mode hex
+    // under text that adapts.
+    const bad = [...TAILOR.matchAll(/var\(--[a-z0-9-]+-(?:bg|soft),\s*(#[0-9a-fA-F]{3,8})\)/g)]
+      .map((m) => m[1]);
+    expect(bad, `opaque hex tint fallbacks: ${bad.join(", ")}`).toEqual([]);
+  });
+});

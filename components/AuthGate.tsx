@@ -10,6 +10,7 @@ import {
   readForceLandingAfterSignOut,
 } from "@/lib/authSignOut";
 import { urlRequestsPublicAppView } from "@/lib/anonScan";
+import { nextGateSession } from "@/lib/authGateSession";
 import { useSignInDialog } from "./SignInDialog";
 import LandingPage from "./LandingPage";
 import AppShellSkeleton from "./app-shell/AppShellSkeleton";
@@ -170,8 +171,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     });
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_ev, s) => {
-      setSession(s);
+    } = supabase.auth.onAuthStateChange((ev, s) => {
+      // Only an explicit sign-out ends the session here. supabase-js re-emits
+      // on tab refocus and token refresh, and those re-emits do not always
+      // carry a session; taking a momentary null at face value unmounted every
+      // route under this gate and destroyed whatever was in progress.
+      setSession((prev) => nextGateSession(prev, ev, s));
       if (s) {
         clearForceLandingAfterSignOut();
         setForceLanding(false);
