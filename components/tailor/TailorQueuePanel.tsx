@@ -28,6 +28,7 @@ import {
   type QueueItem,
 } from "@/lib/tailorWorkQueue";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
+import { useLiveCoverage } from "@/components/tailor/useLiveCoverage";
 import { TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
 import {
   DIMENSION_KINDS,
@@ -145,6 +146,8 @@ export function TailorQueuePanel({
   recheckBusy,
   onDownload,
   onInterviewPrep,
+  requirementConcepts,
+  currentResumeText,
 }: {
   ratings: RatingsData;
   addressedGaps: ReadonlySet<string>;
@@ -172,6 +175,11 @@ export function TailorQueuePanel({
   stale: boolean;
   onRecheck: () => void;
   recheckBusy: boolean;
+  /** From the analyze response. Handed straight back to score-preview, which
+   *  is why the recount costs no tokens and needs no server-side cache. */
+  requirementConcepts?: readonly unknown[];
+  /** Résumé text with applied fixes baked in, i.e. what is being scored. */
+  currentResumeText?: string;
   onDownload?: () => void;
   /** Finish-line handoff into interview prep, carrying this run's resume + JD. */
   onInterviewPrep?: () => void;
@@ -210,8 +218,15 @@ export function TailorQueuePanel({
   }, [ratings, addressedGaps, addressedGapActions, passRan, fixAllBusy, ignoredNames]);
 
   const kw = ratings.keywords;
-  const found = kw?.found_count ?? 0;
-  const total = kw?.total_count ?? 0;
+  const scanFound = kw?.found_count ?? 0;
+  const scanTotal = kw?.total_count ?? 0;
+  // Recount against the current text when we can; fall back to the scan's
+  // counts (and the honest label) when we cannot.
+  const coverage = useLiveCoverage(
+    requirementConcepts,
+    currentResumeText ?? "",
+    { found: scanFound, total: scanTotal },
+  );
   const grade =
     typeof ratings.overall_score === "number"
       ? ratings.overall_score
@@ -312,8 +327,10 @@ export function TailorQueuePanel({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 12px 0" }}>
       <TailorScoreboard
-        found={found}
-        total={total}
+        found={coverage.found}
+        total={coverage.total}
+        live={coverage.live}
+        lost={coverage.lost}
         grade={grade}
         gradedAtLabel={null}
         stale={stale}
