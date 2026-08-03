@@ -34,7 +34,7 @@ function chipStyle(active: boolean): React.CSSProperties {
     fontWeight: FW.semibold,
     fontVariantNumeric: "tabular-nums",
     border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "var(--accent-soft, rgba(37,99,235,0.08))" : "var(--card)",
+    background: active ? "var(--accent-bg, rgba(9,105,218,0.11))" : "var(--card)",
     color: active ? "var(--accent)" : "var(--text)",
     borderRadius: 999,
     padding: "4px 11px",

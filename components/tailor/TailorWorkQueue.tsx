@@ -190,7 +190,7 @@ export function TailorWorkQueue({
             alignItems: "flex-start",
             padding: "10px 14px",
             color: "var(--red-ink, #b42318)",
-            background: "var(--red-soft, #fff1f0)",
+            background: "var(--red-bg, rgba(220,38,38,0.12))",
             borderBottom: "1px solid color-mix(in srgb, var(--red-ink, #b42318) 18%, transparent)",
             fontSize: FS.small,
           }}
@@ -326,7 +326,7 @@ export function TailorWorkQueue({
                 // does not. State stays with the status dot so the two never
                 // have to share one signal.
                 borderLeft: `3px solid ${TONE_COLOR[group.tone]}`,
-                background: working ? "var(--accent-soft, rgba(37,99,235,0.08))" : undefined,
+                background: working ? "var(--accent-bg, rgba(9,105,218,0.11))" : undefined,
               }}
             >
               {canSelect && !working ? (
@@ -427,7 +427,7 @@ export function TailorWorkQueue({
       ) : null}
 
       {finished ? (
-        <div style={{ borderTop: "1px solid var(--border)", padding: "13px 14px", background: "var(--green-soft, rgba(22,163,74,0.1))" }}>
+        <div style={{ borderTop: "1px solid var(--border)", padding: "13px 14px", background: "var(--green-bg, rgba(5,150,105,0.12))" }}>
           <div style={{ fontSize: FS.body, fontWeight: FW.bold, color: "var(--green-ink, #16a34a)" }}>
             All done
           </div>
