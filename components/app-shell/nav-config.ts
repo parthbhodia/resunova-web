@@ -38,6 +38,15 @@ export const VIEW_ICONS: Record<AppView, ReactNode> = {
 
 export const VIEW_BADGES: Partial<Record<AppView, string>> = {};
 
+// One-line subtitles for the three primary entry points only (Home/Analyze/
+// Builder) — the items a new user actually has to choose between. The rest
+// of the nav stays plain-label to keep the list from doubling in height.
+export const VIEW_DESCRIPTIONS: Partial<Record<AppView, string>> = {
+  home: "Your progress at a glance",
+  analyze: "Paste a JD, see your match",
+  builder: "Tailor to a job, or build fresh",
+};
+
 export const BUILDER_SUBFLOWS = [
   { key: "tailor" as const, label: "Tailor to a job", icon: BUILDER_SUBFLOW_ICONS.tailor },
   { key: "template" as const, label: "Template Builder", icon: BUILDER_SUBFLOW_ICONS.template },

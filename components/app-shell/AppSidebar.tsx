@@ -15,6 +15,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -37,10 +38,30 @@ import {
   NAV_ACTIVE_CLASS,
   NAV_MENU_BTN_CLASS,
   VIEW_BADGES,
+  VIEW_DESCRIPTIONS,
   VIEW_ICONS,
   VIEW_LABELS,
   type AppView,
 } from "./nav-config";
+
+/** Icon chip for the three hero nav items; accent-tinted when its row is active. */
+const HERO_BTN_CLASS = "!h-auto w-full !items-start !gap-2.5 !px-2.5 !py-2";
+
+function NavIconChip({ isActive, children }: { isActive: boolean; children: React.ReactNode }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md transition-colors [&_svg]:size-[17px]",
+        isActive
+          ? "bg-[color-mix(in_srgb,var(--accent)_22%,var(--surface))] text-accent"
+          : "bg-[var(--surface3)] text-[var(--muted)]",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
 
 export type AppSidebarProps = {
   active: AppView;
@@ -111,6 +132,59 @@ function NavItem({
             {textBadge}
           </Badge>
         ) : null}
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+/** Home/Analyze/Builder: icon chip + title + one-line description. Collapses to a plain NavItem in the icon rail, matching every other row. */
+function HeroNavItem({
+  view,
+  isActive,
+  onClick,
+  showLabels,
+  locked,
+}: {
+  view: AppView;
+  isActive: boolean;
+  onClick?: () => void;
+  showLabels: boolean;
+  locked?: boolean;
+}) {
+  if (!showLabels) {
+    return <NavItem view={view} isActive={isActive} onClick={onClick} showLabels={showLabels} locked={locked} />;
+  }
+  const textBadge = locked ? null : VIEW_BADGES[view];
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        isActive={isActive}
+        className={cn(HERO_BTN_CLASS, NAV_ACTIVE_CLASS)}
+        onClick={onClick}
+      >
+        <NavIconChip isActive={isActive}>{VIEW_ICONS[view]}</NavIconChip>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex items-center gap-1.5 text-sm leading-tight font-semibold">
+            <span className={cn(isActive && "text-accent")}>{VIEW_LABELS[view]}</span>
+            {locked ? (
+              <Badge
+                variant="secondary"
+                aria-label="Sign in to use"
+                className="ml-auto flex items-center justify-center px-1.5 py-0 bg-[var(--accent-bg)] text-accent [&>svg]:size-3"
+              >
+                {NAV_ICONS.lock}
+              </Badge>
+            ) : textBadge ? (
+              <Badge
+                variant="secondary"
+                className="ml-auto px-1.5 py-0 text-[9px] font-bold tracking-wide uppercase"
+              >
+                {textBadge}
+              </Badge>
+            ) : null}
+          </span>
+          <span className="text-xs leading-snug text-muted-foreground">{VIEW_DESCRIPTIONS[view]}</span>
+        </span>
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
@@ -199,15 +273,15 @@ export function AppSidebar({
         <ScansRemainingPill collapsed={state === "collapsed"} />
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
-            <SidebarMenu className="group-data-[collapsible=icon]:items-center">
-              <NavItem
+            <SidebarMenu className="gap-0.5 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
+              <HeroNavItem
                 view="home"
                 isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "home"}
                 onClick={gated("home")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
-              <NavItem
+              <HeroNavItem
                 view="analyze"
                 isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "analyze"}
                 onClick={() => onSwitchView("analyze")}
@@ -218,22 +292,37 @@ export function AppSidebar({
                 <SidebarMenuButton
                   isActive={builderActive && !onInterviewPrepPage}
                   tooltip={VIEW_LABELS.builder}
-                  className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS, "w-full")}
+                  className={cn(showLabels ? HERO_BTN_CLASS : NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
                   onClick={handleBuilderClick}
                 >
-                  <span className="app-nav-icon" aria-hidden>
-                    {VIEW_ICONS.builder}
-                  </span>
-                  {showLabels ? <span className="app-nav-label">{VIEW_LABELS.builder}</span> : null}
                   {showLabels ? (
-                    <ChevronDown
-                      className={cn(
-                        "ml-auto size-4 opacity-60 transition-transform",
-                        builderOpen && "rotate-180",
-                      )}
-                      aria-hidden
-                    />
-                  ) : null}
+                    <>
+                      <NavIconChip isActive={builderActive && !onInterviewPrepPage}>
+                        {VIEW_ICONS.builder}
+                      </NavIconChip>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="flex items-center gap-1.5 text-sm leading-tight font-semibold">
+                          <span className={cn(builderActive && !onInterviewPrepPage && "text-accent")}>
+                            {VIEW_LABELS.builder}
+                          </span>
+                          <ChevronDown
+                            className={cn(
+                              "ml-auto size-4 shrink-0 opacity-60 transition-transform",
+                              builderOpen && "rotate-180",
+                            )}
+                            aria-hidden
+                          />
+                        </span>
+                        <span className="text-xs leading-snug text-muted-foreground">
+                          {VIEW_DESCRIPTIONS.builder}
+                        </span>
+                      </span>
+                    </>
+                  ) : (
+                    <span className="app-nav-icon" aria-hidden>
+                      {VIEW_ICONS.builder}
+                    </span>
+                  )}
                 </SidebarMenuButton>
                 {showLabels ? (
                 <Collapsible open={builderOpen} onOpenChange={onBuilderOpenChange}>
@@ -275,21 +364,14 @@ export function AppSidebar({
                 </Collapsible>
                 ) : null}
               </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={onInterviewPrepPage}
-                  tooltip="Interview Prep"
-                  className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
-                  onClick={() => { if (anonMode) onSignIn?.(); else router.push("/interview-prep"); }}
-                >
-                  <span className="app-nav-icon" aria-hidden>
-                    {NAV_ICONS.interviewPrep}
-                  </span>
-                  {showLabels ? <span className="app-nav-label">Interview Prep</span> : null}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
+        <SidebarGroup className="p-0 pt-1">
+          <SidebarGroupLabel>Library</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="group-data-[collapsible=icon]:items-center">
               <NavItem
                 view="library"
                 isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "library"}
@@ -311,6 +393,27 @@ export function AppSidebar({
                 showLabels={showLabels}
                 locked={isLocked("jobs")}
               />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup className="p-0 pt-1">
+          <SidebarGroupLabel>Coaching</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="group-data-[collapsible=icon]:items-center">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={onInterviewPrepPage}
+                  tooltip="Interview Prep"
+                  className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
+                  onClick={() => { if (anonMode) onSignIn?.(); else router.push("/interview-prep"); }}
+                >
+                  <span className="app-nav-icon" aria-hidden>
+                    {NAV_ICONS.interviewPrep}
+                  </span>
+                  {showLabels ? <span className="app-nav-label">Interview Prep</span> : null}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               {advisorAllowed ? (
                 <NavItem
                   view="advisor"
