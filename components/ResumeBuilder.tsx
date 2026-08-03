@@ -45,6 +45,7 @@ import {
   patchStructuredWithOverrides,
   resolveBulletIndexForGapFix,
   synthesizeProfileWithBulletOverrides,
+  applyBulletOverrides,
   type LiveBulletItem,
 } from "@/lib/resumeBulletMatch";
 import {
@@ -58,7 +59,7 @@ import {
 } from "@/lib/tailorGapFix";
 import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToStructured";
 import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
-import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes } from "@/lib/fixEverything";
+import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, planQueueRuns, keepFirstRewritePerBullet } from "@/lib/fixEverything";
 import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
 import { prefillPrepFromTailor } from "@/lib/interviewPrepLaunch";
 import type { AddressedGapAction } from "@/lib/types";
@@ -2838,6 +2839,10 @@ export default function ResumeBuilder({
   /** Gap names whose batch is still generating during a Fix-everything pass —
    *  the queue UI spins exactly these rows, and each wave clears its own. */
   const [fixAllPendingGaps, setFixAllPendingGaps] = useState<readonly string[]>([]);
+  /** Normalized names the last pass actually requested. The queue may only
+   *  call a row "not coverable" if its name is in here — otherwise it is
+   *  reporting a verdict on work that never happened. */
+  const [fixAllAttempted, setFixAllAttempted] = useState<ReadonlySet<string>>(() => new Set());
   // Read once on mount rather than at render: localStorage is unavailable
   // during SSR of the static export, and a lazy initialiser keeps this out of
   // an effect.
@@ -2879,14 +2884,24 @@ export default function ResumeBuilder({
    * the next request starts. Overall match % stays frozen until Re-check.
    */
   const fixEverything = useCallback(async (selectedNames?: ReadonlySet<string>) => {
-    const targetBatches = selectedNames?.size
-      ? openGapBatches
-          .map((batch) => ({ ...batch, gaps: batch.gaps.filter((gap) => selectedNames.has(normalizeQueueName(gap))) }))
-          .filter((batch) => batch.gaps.length > 0)
-      : openGapBatches;
-    const targetGapCount = countGaps(targetBatches);
-    const targetRuns = targetBatches.flatMap((batch) =>
-      batch.gaps.map((gap) => ({ ...batch, gaps: [gap] })),
+    // Plan one run per SELECTED name, not per rater-known name.
+    //
+    // This used to filter the selection down to `openGapBatches`, which is
+    // built from the rater's missing lists. The queue is wider than that now —
+    // it also carries the deterministic scorer's unmatched requirements — so
+    // every scorer row was dropped without a request and then reported back as
+    // "couldn't be written from your real experience". The pass blamed the
+    // résumé for rows it never tried.
+    const plan = selectedNames?.size
+      ? planQueueRuns([...selectedNames], openGapBatches)
+      : { runs: openGapBatches.flatMap((b) => b.gaps.map((g) => ({ ...b, gaps: [g] }))), uncoverable: [] };
+    const targetRuns = plan.runs;
+    const targetGapCount = targetRuns.length;
+    // Credentials can never be closed by a rewrite; say so up front rather than
+    // spending a call and letting the empty result read as a verdict on the
+    // user's experience.
+    setFixAllAttempted(
+      new Set(targetRuns.map((r) => normalizeQueueName(r.gaps[0] ?? ""))),
     );
     if (!jd.trim() || targetRuns.length === 0 || fixAllBusy) return;
     const prof = effectiveCandidateProfile.trim();
@@ -2914,6 +2929,13 @@ export default function ResumeBuilder({
 
       let appliedTotal = 0;
       const panelAll: GapFixSuggestion[] = [];
+      // Bullets already rewritten in THIS pass. Every run is sent the same
+      // pristine résumé, so runs independently pick the same flexible line and
+      // each returns a rewrite of it; the apply path fuzzy-matches `original`,
+      // so the second one no longer matches and gets appended instead of
+      // replacing. That is how a bullet ended up carrying three copies of its
+      // own tail. One rewrite per line, per pass.
+      let usedBullets: ReadonlySet<string> = new Set<string>();
 
       for (const [i, batch] of targetRuns.entries()) {
         setFixAllPendingGaps(batch.gaps);
@@ -2935,9 +2957,12 @@ export default function ResumeBuilder({
             const data = await resp.json() as { suggestions?: unknown[] };
             const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[];
             // Namespace ids per batch: the API numbers them from 1 each call.
-            named = list
-              .filter((s) => s.original?.trim() && s.suggested?.trim())
-              .map((s) => ({ ...s, id: `b${i}_${s.id}` }));
+            const fresh = keepFirstRewritePerBullet(
+              list.filter((s) => s.original?.trim() && s.suggested?.trim()),
+              usedBullets,
+            );
+            usedBullets = fresh.used;
+            named = (fresh.kept as GapFixSuggestion[]).map((s) => ({ ...s, id: `b${i}_${s.id}` }));
           }
         } catch { /* a failed batch behaves like an empty one */ }
 
@@ -3131,11 +3156,29 @@ export default function ResumeBuilder({
 
       if (jd.trim()) {
         try {
-          const updatedProfile = synthesizeProfileWithBulletOverrides(
+          // An override whose INDEX resolved but whose line is no longer in the
+          // text used to be APPENDED as a brand-new bullet at the end of the
+          // résumé — silently, and still counted as applied. It is reported now
+          // instead: only this batch's own overrides move the counters, since
+          // `nextOverrides` also carries earlier ones the user was already told
+          // about.
+          const { text: updatedProfile, unplaced } = applyBulletOverrides(
             candidateProfile ?? "",
             bullets,
             nextOverrides,
           );
+          const lost = unplaced.filter((u) => appliedIndices.has(u.index)).length;
+          if (lost > 0) {
+            setApplyFeedback((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    patchesApplied: Math.max(0, prev.patchesApplied - lost),
+                    patchesFailed: prev.patchesFailed + lost,
+                  }
+                : prev,
+            );
+          }
           await rescoreTailorRatings(updatedProfile);
         } catch { /* rescore is best-effort */ }
       }
@@ -4418,9 +4461,14 @@ export default function ResumeBuilder({
                         addressedGapActions={addressedGapActions}
                         fixAllBusy={fixAllBusy}
                         pendingGapNames={fixAllPendingGaps}
+                        attemptedNames={fixAllAttempted}
                         onFixAll={() => { void fixEverything(); }}
                         onFixSelected={(items) => {
-                          void fixEverything(new Set(items.map((item) => normalizeQueueName(item.name))));
+                          // Original names, not normalized: these are the
+                          // requirement texts the prompt is built from, and a
+                          // lowercased, whitespace-collapsed copy is not the
+                          // requirement.
+                          void fixEverything(new Set(items.map((item) => item.name)));
                         }}
                         fetchFixSuggestions={fetchFixSuggestions}
                         applyFixSuggestion={applyFixSuggestion}

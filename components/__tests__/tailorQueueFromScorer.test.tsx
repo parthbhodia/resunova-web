@@ -56,6 +56,19 @@ const ratings = {
   verdict: "",
 };
 
+/**
+ * What extraction says each of those is.
+ *
+ * Undefined for the two rater-named ones on purpose: a backend deployed before
+ * `type` existed sends none, and those rows must still land somewhere sane.
+ */
+const TYPE_OF: Record<string, string | undefined> = {
+  Terraform: "tool",
+  Snowflake: "tool",
+  "dbt transformations": "technical_skill",
+  "dimensional modeling": "domain_knowledge",
+};
+
 function coverageResponse(unmatched: string[]) {
   return {
     ok: true,
@@ -71,6 +84,7 @@ function coverageResponse(unmatched: string[]) {
         id: `c${i}`,
         canonical,
         importance: "required",
+        type: TYPE_OF[canonical],
       })),
       applied: 0,
       truncated: {},
@@ -163,6 +177,102 @@ describe("the queue accounts for what the percentage is complaining about", () =
     await vi.advanceTimersByTimeAsync(600);
     for (const name of RATER_GAPS) {
       expect(screen.getByText(name)).toBeInTheDocument();
+    }
+  });
+});
+
+describe("the bands say what kind of problem each row is", () => {
+  it("does not put every scored requirement under one header", async () => {
+    // These all shipped as `qualification`, so a wall of unrelated rows sat
+    // under "Could get you filtered out" and the headers stopped meaning
+    // anything. Asserted through the rendered panel, since the band header is
+    // the thing the user actually reads.
+    renderPanel();
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /show \d+ more/i }));
+
+    expect(screen.getByText(/could get you filtered out/i)).toBeInTheDocument();
+    expect(screen.getByText(/worth adding/i)).toBeInTheDocument();
+    expect(screen.getByText(/about the employer/i)).toBeInTheDocument();
+  });
+
+  it("does not offer a fix button for an employer-domain row", async () => {
+    // `dimensional modeling` comes back as domain_knowledge. Writing an
+    // employer's context word into a bullet is the move the contextual class
+    // exists to discourage, so the row explains itself instead.
+    renderPanel();
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /show \d+ more/i }));
+
+    const row = screen.getByText("dimensional modeling").closest("li");
+    expect(row).not.toBeNull();
+    expect(row!.querySelector('input[type="checkbox"]')).toBeNull();
+  });
+});
+
+describe("a row says what we are claiming about it", () => {
+  it("does not call a requirement missing when the resume shows it", async () => {
+    // The rater vouched for Kubernetes; the scanner cannot see it in the words
+    // used. Telling that user "Not evidenced" is telling them they lack
+    // something their own resume demonstrates, which is the credibility
+    // failure this whole surface is built to avoid.
+    vi.mocked(apiFetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        before: 38, after: 38, matchedBefore: 9, matched: 9, total: 24,
+        gained: [], lost: [], applied: 0, truncated: {}, reason: "",
+        unmatched: [
+          { id: "c0", canonical: "Python", importance: "required", type: "technical_skill" },
+        ],
+      }),
+    } as never);
+    render(
+      <TailorQueuePanel
+        ratings={{ ...ratings,
+          qualifications: { score: 40, missing: [], covered: [{ text: "Python", context: "Built ETL in Python." }] },
+        } as never}
+        addressedGaps={new Set()} fixAllBusy={false} onFixAll={vi.fn()}
+        fetchFixSuggestions={vi.fn().mockResolvedValue([])}
+        applyFixSuggestion={vi.fn().mockResolvedValue(undefined)}
+        ignoredNames={new Set()} onToggleIgnored={vi.fn()}
+        stale={false} onRecheck={vi.fn()} recheckBusy={false}
+        requirementConcepts={[{ id: "c0", canonical: "Python" }]}
+        currentResumeText={"Built ETL in Python at Acme."}
+      />,
+    );
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(screen.getByText("Partial match")).toBeInTheDocument());
+    // Scoped to the row under test: the fixture's other rater gap is a real
+    // "Not evidenced" and asserting globally would pass or fail for the wrong
+    // reason.
+    const row = screen.getByText("Python").closest("li");
+    expect(row!.textContent).toContain("Partial match");
+    expect(row!.textContent).not.toContain("Not evidenced");
+  });
+
+  it("asks you to add a keyword rather than to fix it", async () => {
+    // "Fix this" on a row whose entire content is the word `Kubernetes`
+    // overstates the work. Nothing is broken.
+    renderPanel();
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
+    const row = screen.getByText("Terraform").closest("li");
+    expect(row!.textContent).toContain("Add");
+    expect(row!.textContent).not.toContain("Fix this");
+  });
+
+  it("gives a contextual row no verdict word", async () => {
+    // It already carries an information mark and an explainer; a third label
+    // competing for the same glance is how all of them stop being read.
+    renderPanel();
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /show \d+ more/i }));
+    const row = screen.getByText("dimensional modeling").closest("li");
+    for (const v of ["Partial match", "Not evidenced", "Keyword · fits an existing bullet"]) {
+      expect(row!.textContent).not.toContain(v);
     }
   });
 });

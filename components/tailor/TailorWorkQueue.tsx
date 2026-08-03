@@ -14,6 +14,7 @@ import React, { useState } from "react";
 import { FS, FW } from "@/lib/typography";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import { groupQueueBySeverity, queueCounts, type QueueTone } from "@/lib/tailorWorkQueue";
+import type { QueueVerdict, SourcedQueueItem } from "@/lib/tailorRequirementQueue";
 
 /** What the row's trailing action says, per state. Null = no action. */
 export type QueueItemAction =
@@ -76,9 +77,42 @@ const ACTION_LABEL: Record<QueueItemAction, string> = {
   view_change: "See it",
   review: "Review",
   add_to_summary: "Add to summary",
-  fix: "Review fix",
+  fix: "Fix this",
   whats_this: "What's this?",
   reconsider: "Reconsider",
+};
+
+/**
+ * A keyword is a different job from a gap, so it gets a different verb.
+ *
+ * "Fix this" on a row whose whole content is the word `gRPC` overstates the
+ * work: nothing is broken, a term is missing from a bullet that already
+ * describes the work. "Add" says the size of it.
+ */
+function actionLabel(action: QueueItemAction, it: QueueItem): string {
+  if (action === "fix" && it.kind === "keyword") return "Add";
+  return ACTION_LABEL[action];
+}
+
+/** The claim, in the user's words. */
+const VERDICT_LABEL: Record<QueueVerdict, string> = {
+  partial: "Partial match",
+  not_evidenced: "Not evidenced",
+  keyword: "Keyword · fits an existing bullet",
+};
+
+/**
+ * Verdict tint.
+ *
+ * `partial` is deliberately NOT red. It means the résumé already demonstrates
+ * the requirement and only the wording is off, which is the best news any open
+ * row can carry; printing it in the band's alarm colour would tell someone they
+ * are missing something they have.
+ */
+const VERDICT_COLOR: Record<QueueVerdict, string> = {
+  partial: "var(--amber-ink, #b45309)",
+  not_evidenced: "var(--muted)",
+  keyword: "var(--muted)",
 };
 
 function StatusDot({ status, working }: { status: QueueItem["status"]; working: boolean }) {
@@ -189,7 +223,6 @@ export function TailorWorkQueue({
   // so rather than leaving the user to notice the count not adding up.
   const contextualOpen = filtered.filter((it) => it.status === "queued" && it.kind === "contextual").length;
   const selected = selectable.filter((it) => selectedIds.has(it.id));
-  const allSelected = selectable.length > 0 && selected.length === selectable.length;
 
   const toggleSelected = (id: string) => {
     setSelectedIds((current) => {
@@ -200,9 +233,6 @@ export function TailorWorkQueue({
     });
   };
 
-  const toggleAll = () => {
-    setSelectedIds(allSelected ? new Set() : new Set(selectable.map((it) => it.id)));
-  };
 
   const toggleDetail = (id: string) => {
     setDetailIds((current) => {
@@ -229,22 +259,6 @@ export function TailorWorkQueue({
               · {c.open ? `${c.open} to review` : "all reviewed"}
             </span>
           </div>
-          {/* A live control, so it gets real contrast. At the same size and
-              shade of grey as the note under it the two fused into one block
-              and nothing said which part you could click. */}
-          {selectable.length > 0 ? (
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12, color: "var(--text)", fontSize: FS.body, fontWeight: FW.semibold, cursor: "pointer" }}>
-              <input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ flexShrink: 0 }} />
-              {/* The text needs its own element. As a bare child of an
-                  inline-flex label it becomes an anonymous flex item, which
-                  shrinks to its longest word — "Select all gaps" rendered as
-                  three stacked lines next to the checkbox even with 400px of
-                  free space in the row. */}
-              <span style={{ whiteSpace: "nowrap" }}>
-                {allSelected ? `All ${selectable.length} selected` : "Select all gaps"}
-              </span>
-            </label>
-          ) : null}
           {/* Its own tag, not a third stacked line of the same grey, so it
               reads as an annotation on the control above rather than as more
               of it. Says what "all" leaves out, because a pass that silently
@@ -275,7 +289,15 @@ export function TailorWorkQueue({
         {onFixAll ? (
           <button
             type="button"
-            onClick={() => selected.length > 0 && onFixSelected ? onFixSelected(selected) : onFixAll()}
+            // The button names a count; it has to attempt exactly that set.
+            // Falling through to onFixAll() with no argument let the caller
+            // re-derive the work from a NARROWER list than the one on screen,
+            // so "Improve 19 blockers" attempted three.
+            onClick={() => {
+              const target = selected.length > 0 ? selected : selectable;
+              if (onFixSelected && target.length > 0) onFixSelected(target);
+              else onFixAll();
+            }}
             disabled={fixAllBusy || c.open === 0}
             style={{
               background: "var(--accent)",
@@ -291,12 +313,18 @@ export function TailorWorkQueue({
           >
             {/* "all" was a lie whenever a contextual row was open: the pass
                 skips those by design. Naming what it actually operates on
-                keeps the button honest without needing a footnote. */}
+                keeps the button honest without needing a footnote.
+                "Blockers" was the next version of the same lie, and only
+                looked right while every scored row was banded as one — this
+                button covers the blocker AND keyword bands, so it sat above a
+                blocker band of two saying it would improve six. "Gaps" is what
+                the set actually is, and the exclusion tag beside it already
+                names what is left out. */}
             {fixAllBusy
               ? "Improving…"
               : selected.length > 0
                 ? `Improve selected (${selected.length})`
-                : `Improve ${selectable.length || c.open} blocker${(selectable.length || c.open) === 1 ? "" : "s"}`}
+                : `Improve ${selectable.length || c.open} gap${(selectable.length || c.open) === 1 ? "" : "s"}`}
           </button>
         ) : null}
       </div>
@@ -357,14 +385,26 @@ export function TailorWorkQueue({
               }}
             >
               <span>{group.label}</span>
+              {/* "all set" is only true when the endings were the user's. A
+                  band that merely has nothing OPEN can be nineteen rows we
+                  failed to write, and calling that all set is the lie the
+                  green tone was also telling. */}
               <span style={{ marginLeft: "auto", letterSpacing: 0, fontWeight: FW.bold, opacity: 0.8 }}>
-                {group.open > 0 ? group.open : "all set"}
+                {group.open > 0
+                  ? group.open
+                  : group.tone === "good"
+                    ? "all set"
+                    : "none left to try"}
               </span>
             </div>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
         {group.items.map((it, rowIndex) => {
           const expanded = it.id === expandedId;
           const action = expanded ? null : itemAction(it);
+          // Present only on rows the union produced; a plain QueueItem
+          // (a restored payload, a legacy caller) simply has no claim to
+          // make and renders without one.
+          const verdict = (it as Partial<SourcedQueueItem>).verdict;
           const working = it.id === workingId || Boolean(workingIds?.has(it.id));
           const detailOpen = detailIds.has(it.id);
           const canSelect = it.status === "queued" && it.kind !== "contextual";
@@ -467,20 +507,53 @@ export function TailorWorkQueue({
                   >
                     {it.name}
                   </span>
-                  {it.detail ? (
-                    <button
-                      type="button"
-                      aria-expanded={detailOpen}
-                      onClick={() => toggleDetail(it.id)}
-                      style={{ border: 0, background: "none", color: "var(--muted)", padding: 0, fontSize: FS.caption, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, whiteSpace: "nowrap", flex: "none" }}
-                    >
-                      {/* A cut-off title makes this "show me the rest"; an
-                          intact one makes it "explain". Same control, and the
-                          label should not claim the wrong one. */}
-                      {detailOpen ? "Hide" : isLongTitle(it.name) ? "More" : "Why this matters"}
-                    </button>
-                  ) : null}
                 </span>
+                {/* The verdict and the reason toggle share the second line.
+                 *
+                 * A row used to be one line, which kept seven on screen. The
+                 * cost was that the row said WHAT the requirement is and never
+                 * what we are claiming about it, so "Kubernetes" and "Master's
+                 * degree in CS" read as the same kind of problem when one is a
+                 * word to add and the other is a credential you either hold or
+                 * do not. The verdict is that missing sentence, in two or three
+                 * words. Height stays predictable because the title above is
+                 * still clipped to one line — that clip is what stopped a
+                 * 150-character JD responsibility from filling the rail, and it
+                 * is untouched. */}
+                {(verdict || it.detail) ? (
+                  <span style={{ display: "flex", alignItems: "baseline", gap: 9, marginTop: 2, minWidth: 0 }}>
+                    {verdict ? (
+                      <span
+                        style={{
+                          fontSize: FS.caption,
+                          fontWeight: FW.semibold,
+                          // Tinted to its own meaning, not to the band: a
+                          // "you have this, reword it" row inside a blocker
+                          // band is good news and should not be printed in the
+                          // same red as the requirement above it.
+                          color: VERDICT_COLOR[verdict],
+                          whiteSpace: "nowrap",
+                          flex: "none",
+                        }}
+                      >
+                        {VERDICT_LABEL[verdict]}
+                      </span>
+                    ) : null}
+                    {it.detail ? (
+                      <button
+                        type="button"
+                        aria-expanded={detailOpen}
+                        onClick={() => toggleDetail(it.id)}
+                        style={{ border: 0, background: "none", color: "var(--muted)", padding: 0, fontSize: FS.caption, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, whiteSpace: "nowrap", flex: "none" }}
+                      >
+                        {/* A cut-off title makes this "show me the rest"; an
+                            intact one makes it "explain". Same control, and the
+                            label should not claim the wrong one. */}
+                        {detailOpen ? "Hide" : isLongTitle(it.name) ? "More" : "Why this matters"}
+                      </button>
+                    ) : null}
+                  </span>
+                ) : null}
                 {/* Expanding a clipped row has to give back the words the clip
                     took, or "More" leads somewhere that does not contain what
                     was hidden. */}
@@ -510,7 +583,7 @@ export function TailorWorkQueue({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {ACTION_LABEL[action]}
+                  {actionLabel(action, it)}
                 </button>
               ) : (
                 <span />

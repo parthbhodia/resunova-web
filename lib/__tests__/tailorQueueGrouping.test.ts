@@ -51,13 +51,36 @@ describe("groupQueueBySeverity", () => {
     expect(g[0].tone).toBe("crit");
   });
 
-  it("turns a fully handled band good instead of leaving it accusing", () => {
+  it("turns a band good when every ending was the user's own", () => {
+    // applied = a change landed; ignored = they decided. Both are outcomes
+    // they own, and a band of those is genuinely done.
+    const g = groupQueueBySeverity([
+      item("a", "qualification", "applied"),
+      item("b", "responsibility", "ignored"),
+    ]);
+    expect(g[0].open).toBe(0);
+    expect(g[0].tone).toBe("good");
+  });
+
+  it("does not call a band of dead requirements all set", () => {
+    // The reported bug: nineteen rows we could not write for, nothing open,
+    // rendered green under "ALL SET". Nothing is open because nothing is
+    // possible, which is the opposite of fine — you can still be filtered out
+    // on every one of them.
+    const g = groupQueueBySeverity([
+      item("a", "qualification", "not_coverable"),
+      item("b", "responsibility", "not_coverable"),
+    ]);
+    expect(g[0].open).toBe(0);
+    expect(g[0].tone).not.toBe("good");
+  });
+
+  it("does not go good while a single dead requirement remains", () => {
     const g = groupQueueBySeverity([
       item("a", "qualification", "applied"),
       item("b", "responsibility", "not_coverable"),
     ]);
-    expect(g[0].open).toBe(0);
-    expect(g[0].tone).toBe("good");
+    expect(g[0].tone).not.toBe("good");
   });
 
   it("keeps a handled band visible rather than dropping it", () => {

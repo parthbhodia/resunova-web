@@ -50,15 +50,17 @@ describe("what v7 removed stays removed", () => {
 });
 
 describe("the queue header says what the pass will actually do", () => {
-  it("counts blockers, not everything on screen", () => {
+  it("counts what the pass covers, not everything on screen", () => {
     // "Improve all 3" was false: a bulk pass skips contextual rows by design.
+    // "blockers" was false too once rows band by their own type — the pass
+    // covers the blocker and keyword bands both.
     renderQueue();
-    expect(screen.getByRole("button", { name: /improve 2 blockers/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /improve 2 gaps/i })).toBeInTheDocument();
   });
 
-  it("uses the singular for one blocker", () => {
+  it("uses the singular for one gap", () => {
     renderQueue({ items: [items[0], items[2]] });
-    expect(screen.getByRole("button", { name: /improve 1 blocker$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /improve 1 gap$/i })).toBeInTheDocument();
   });
 
   it("names what a pass leaves out instead of letting the count not add up", () => {
