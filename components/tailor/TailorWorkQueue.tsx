@@ -13,14 +13,7 @@
 import React, { useState } from "react";
 import { FS, FW } from "@/lib/typography";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
-import { queueCounts } from "@/lib/tailorWorkQueue";
-
-const KIND_LABEL: Record<QueueKind, string> = {
-  qualification: "Qualification",
-  responsibility: "Responsibility",
-  keyword: "Keyword",
-  contextual: "Nice to have",
-};
+import { groupQueueByKind, queueCounts } from "@/lib/tailorWorkQueue";
 
 /** What the row's trailing action says, per state. Null = no action. */
 export type QueueItemAction =
@@ -255,7 +248,33 @@ export function TailorWorkQueue({
             Nothing to add here. You&rsquo;re already covered.
           </li>
         ) : null}
-        {shown.map((it) => {
+        {groupQueueByKind(shown).map((group) => (
+          <li key={`g:${group.kind}`} style={{ listStyle: "none" }}>
+            {/* Grouped by kind, not by requirement importance. Importance was
+                measured at 94.6% "required" across production scans, with 9 of
+                15 having no non-required concept at all, so it would put
+                everything in one bucket for most users. Kind is how the rest
+                of the surface already talks and cannot collapse. */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 8,
+                padding: "10px 8px 4px",
+                fontSize: FS.micro,
+                fontWeight: FW.bold,
+                letterSpacing: "0.07em",
+                textTransform: "uppercase",
+                color: "var(--muted)",
+              }}
+            >
+              <span>{group.label}</span>
+              <span style={{ fontWeight: FW.semibold, letterSpacing: 0 }}>
+                {group.items.length}
+              </span>
+            </div>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        {group.items.map((it) => {
           const expanded = it.id === expandedId;
           const action = expanded ? null : itemAction(it);
           const working = it.id === workingId || Boolean(workingIds?.has(it.id));
@@ -306,22 +325,6 @@ export function TailorWorkQueue({
                 >
                   {it.name}
                 </span>
-                <span
-                  style={{
-                    fontSize: FS.micro,
-                    fontWeight: FW.bold,
-                    letterSpacing: "0.05em",
-                    textTransform: "uppercase",
-                    color: "var(--muted)",
-                    background: "var(--surface-2, rgba(127,127,127,0.12))",
-                    borderRadius: 5,
-                    padding: "1px 6px",
-                    marginLeft: 7,
-                    verticalAlign: 1,
-                  }}
-                >
-                  {KIND_LABEL[it.kind]}
-                </span>
                 {it.detail ? (
                   <>
                     <button
@@ -365,6 +368,9 @@ export function TailorWorkQueue({
             </li>
           );
         })}
+            </ul>
+          </li>
+        ))}
       </ul>
 
       {hiddenCount > 0 ? (
