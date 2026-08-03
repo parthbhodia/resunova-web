@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tailor left panel — mockup v7</title>
+<style>
+  :root {
+    --ground: #ffffff;
+    --sunk: #f6f8fa;
+    --card: #ffffff;
+    --line: #dfe3e8;
+    --line-soft: #eceff2;
+    --ink: #12161c;
+    --ink-2: #414b58;
+    --muted: #6b7684;
+
+    --accent: #2f81f7;
+    --accent-soft: rgba(47, 129, 247, 0.10);
+
+    --crit: #d92d20;
+    --crit-soft: #fef3f2;
+    --crit-line: rgba(217, 45, 32, 0.28);
+
+    --warn: #b54708;
+    --warn-soft: #fffaeb;
+    --warn-line: rgba(181, 71, 8, 0.26);
+
+    --good: #067647;
+    --good-soft: #ecfdf3;
+    --good-line: rgba(6, 118, 71, 0.24);
+
+    --radius: 14px;
+
+    --fs-micro: 11px;
+    --fs-caption: 12px;
+    --fs-small: 13px;
+    --fs-body: 14px;
+    --fs-lg: 16px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0d1117; --sunk: #0a0e14; --card: #161b22;
+      --line: #2a313c; --line-soft: #21272f;
+      --ink: #e9eef5; --ink-2: #b6c0cc; --muted: #8b96a5;
+      --accent: #4d94ff; --accent-soft: rgba(77, 148, 255, 0.14);
+      --crit: #ff7b72; --crit-soft: rgba(255, 123, 114, 0.10); --crit-line: rgba(255, 123, 114, 0.30);
+      --warn: #e3a008; --warn-soft: rgba(227, 160, 8, 0.10); --warn-line: rgba(227, 160, 8, 0.28);
+      --good: #3fb950; --good-soft: rgba(63, 185, 80, 0.10); --good-line: rgba(63, 185, 80, 0.26);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d1117; --sunk: #0a0e14; --card: #161b22;
+    --line: #2a313c; --line-soft: #21272f;
+    --ink: #e9eef5; --ink-2: #b6c0cc; --muted: #8b96a5;
+    --accent: #4d94ff; --accent-soft: rgba(77,148,255,0.14);
+    --crit: #ff7b72; --crit-soft: rgba(255,123,114,0.10); --crit-line: rgba(255,123,114,0.30);
+    --warn: #e3a008; --warn-soft: rgba(227,160,8,0.10); --warn-line: rgba(227,160,8,0.28);
+    --good: #3fb950; --good-soft: rgba(63,185,80,0.10); --good-line: rgba(63,185,80,0.26);
+  }
+  :root[data-theme="light"] {
+    --ground: #ffffff; --sunk: #f6f8fa; --card: #ffffff;
+    --line: #dfe3e8; --line-soft: #eceff2;
+    --ink: #12161c; --ink-2: #414b58; --muted: #6b7684;
+    --accent: #2f81f7; --accent-soft: rgba(47,129,247,0.10);
+    --crit: #d92d20; --crit-soft: #fef3f2; --crit-line: rgba(217,45,32,0.28);
+    --warn: #b54708; --warn-soft: #fffaeb; --warn-line: rgba(181,71,8,0.26);
+    --good: #067647; --good-soft: #ecfdf3; --good-line: rgba(6,118,71,0.24);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--sunk);
+    color: var(--ink);
+    font: 400 var(--fs-body)/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { display: flex; }
+  .rail {
+    width: 388px; flex: none; padding: 20px 18px; display: flex; flex-direction: column; gap: 16px;
+    border-right: 1px solid var(--line); background: var(--ground); min-height: 100vh;
+  }
+  .stage { flex: 1; min-width: 0; padding: 20px 24px 64px; }
+
+  /* ---------- mockup chrome ---------- */
+  .chrome { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .chrome h1 { font-size: var(--fs-lg); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .chrome .note { color: var(--muted); font-size: var(--fs-small); max-width: 60ch; }
+  .toggle {
+    display: inline-flex; border: 1px solid var(--line);
+    border-radius: 999px; overflow: hidden; background: var(--card); flex: none;
+  }
+  .toggle button {
+    appearance: none; border: 0; background: none; cursor: pointer;
+    font: 600 var(--fs-small)/1 inherit; color: var(--muted); padding: 9px 16px;
+  }
+  .toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  /* ===================== score tiles (v6) ===================== */
+  .scores { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cur-tile { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); padding: 13px 15px; }
+  .cur-eyebrow { display: flex; align-items: center; gap: 6px; font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .cur-eyebrow .dot { width: 7px; height: 7px; border-radius: 999px; }
+  .cur-figure { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin-top: 6px; line-height: 1.1; }
+  .cur-figure small { font-size: var(--fs-caption); font-weight: 600; color: var(--muted); }
+  .cur-meter { height: 7px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 20%, transparent); overflow: hidden; margin-top: 9px; }
+  .cur-meter i { display: block; height: 100%; border-radius: 999px; background: var(--good); }
+  .cur-cap { font-size: var(--fs-caption); color: var(--warn); font-weight: 700; margin-top: 7px; }
+  .cur-cap2 { font-size: var(--fs-caption); color: var(--muted); margin-top: 3px; }
+  .cur-btn { margin-top: 8px; border: 1px solid var(--line); background: none; color: var(--accent); border-radius: 8px; padding: 5px 10px; font: 600 var(--fs-caption)/1 inherit; cursor: pointer; }
+
+  .hero-tile { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); padding: 16px 17px 14px; }
+  .hero-eyebrow { font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+  .hero-row { display: flex; align-items: baseline; gap: 7px; margin-top: 7px; flex-wrap: wrap; }
+  .hero-figure { font-size: 34px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .hero-figure.good { color: var(--good); }
+  .hero-figure.warn { color: var(--warn); }
+  .hero-suffix { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .hero-side { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .hero-meter { height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 16%, transparent); overflow: hidden; margin-top: 11px; position: relative; }
+  .hero-meter i { display: block; height: 100%; border-radius: 999px; }
+  .hero-meter i.good { background: var(--good); }
+  .hero-meter i.warn { background: var(--warn); }
+  .hero-meter .target { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); opacity: .35; }
+  .hero-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+  .hero-foot .cap { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .hero-foot .cap.flag { color: var(--warn); font-weight: 650; }
+  .hero-link { border: 0; background: none; color: var(--muted); font: 600 13px/1 inherit; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+
+  /* ===================== chips ===================== */
+  .cur-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .cur-chip { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 6px 12px; font: 600 var(--fs-small)/1 inherit; cursor: pointer; }
+  .cur-chip[aria-pressed="true"] { border-color: var(--ink); }
+
+  .quiet-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .quiet-chip {
+    /* Quiet ≠ invisible: no border, but a resting fill so it still reads as
+       a pressable pill instead of loose text sitting in a row. */
+    border: 1px solid transparent; background: var(--sunk); color: var(--ink-2);
+    border-radius: 999px; padding: 7px 13px; font: 600 14px/1 inherit; cursor: pointer;
+  }
+  .quiet-chip .n { color: var(--muted); font-weight: 700; }
+  .quiet-chip .n.warn { color: var(--warn); }
+  .quiet-chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+  .quiet-chip[aria-pressed="true"] .n { color: var(--accent); }
+  .quiet-chip:hover { background: var(--line-soft); }
+
+  /* ===================== queue (v5) ===================== */
+  .queue { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); overflow: hidden; }
+  .banner {
+    display: flex; gap: 9px; align-items: flex-start; padding: 10px 14px;
+    color: var(--crit); background: var(--crit-soft); border-bottom: 1px solid var(--crit-line);
+    font-size: var(--fs-small);
+  }
+  .qhead { padding: 17px 16px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .qhead .t { font-size: 15.5px; font-weight: 700; }
+  .qhead .t .c { color: var(--muted); font-weight: 500; }
+  /* The checkbox is a live control — give it real contrast, not the same
+     muted grey as the caption underneath it, or the two fuse into one line
+     of grey text with no way to tell "thing you can click" from "FYI." */
+  .selectrow { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--ink-2); font-size: 14px; font-weight: 600; }
+  .btn-primary { background: var(--accent); color: #fff; border: 0; border-radius: 8px; font-size: 14px; font-weight: 700; padding: 9px 14px; cursor: pointer; white-space: nowrap; }
+  /* A small tagged note, not a third stacked line of the same grey text —
+     its own pill so it reads as an annotation, not a continuation. */
+  .scopehint {
+    margin: 8px 0 0; font-size: 12.5px; font-weight: 600; color: var(--muted);
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--sunk); border-radius: 999px; padding: 5px 11px 5px 9px;
+  }
+  .scopehint svg { flex: none; opacity: .8; }
+
+  .band { padding: 16px 8px 8px 16px; display: flex; align-items: center; gap: 8px; font-size: var(--fs-micro); font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+  .band[data-tone="crit"] { color: var(--crit); }
+  .band[data-tone="muted"] { color: var(--muted); }
+  .band .rule { flex: 1; height: 1px; background: currentColor; opacity: .22; margin-right: 8px; }
+
+  /* v7: a tinted background strip does the section-zoning that a hairline
+     rule used to — same idea as NextRaise's "FREE — FIX THESE NOW" band. */
+  .band-v7 { padding: 11px 16px; display: flex; align-items: baseline; gap: 8px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+  .band-v7[data-tone="crit"] { color: var(--crit); background: var(--crit-soft); }
+  .band-v7[data-tone="muted"] { color: var(--muted); background: var(--sunk); }
+  .band-v7 .count { margin-left: auto; font-weight: 700; letter-spacing: 0; opacity: .8; }
+
+  .row { display: grid; grid-template-columns: 18px 1fr auto; gap: 12px; align-items: start; padding: 14px 16px 14px 14px; border-left: 3px solid transparent; }
+  .row + .row { border-top: 1px solid var(--line-soft); }
+  .row[data-tone="crit"] { border-left-color: var(--crit); }
+  .row[data-tone="muted"] { border-left-color: var(--line); }
+
+  .box { width: 16px; height: 16px; border: 1.5px solid var(--line); border-radius: 4px; margin-top: 2px; flex: none; }
+  .ctxmark { width: 16px; height: 16px; border-radius: 5px; margin-top: 2px; flex: none; background: var(--sunk); border: 1px solid var(--line-soft); display: grid; place-items: center; color: var(--muted); font-size: 9px; font-weight: 800; font-style: italic; }
+
+  .title-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex-wrap: wrap; }
+  .title-v5 { font-size: 14.5px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+  .why { border: 0; background: none; color: var(--muted); font: 500 13px/1 inherit; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; flex: none; }
+  .fix { border: 0; background: none; color: var(--accent); font: 700 13px/1 inherit; cursor: pointer; white-space: nowrap; }
+
+  /* ===================== favor card ===================== */
+  .favor { border: 1px solid var(--good-line); border-radius: var(--radius); background: var(--good-soft); padding: 15px 17px; }
+  .favor-cur h4 { margin: 0 0 8px; font-size: var(--fs-caption); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--good); }
+  .favor-cur p { margin: 0 0 10px; font-size: var(--fs-small); color: var(--ink-2); line-height: 1.55; }
+  .favor ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .favor li { display: flex; gap: 8px; font-size: var(--fs-small); color: var(--ink-2); align-items: baseline; }
+  .favor li b { color: var(--good); flex: none; }
+
+  .favor-v7 h4 { margin: 0 0 5px; font-size: 16px; font-weight: 800; color: var(--ink); }
+  .favor-v7 .sub { margin: 0 0 12px; font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+  .favor-v7 li { font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+
+  .before-only, .after-only { display: block; }
+
+  .notes { margin-top: 32px; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); max-width: 900px; }
+  .note { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--card); padding: 14px 16px; }
+  .note h4 { margin: 0 0 5px; font-size: var(--fs-small); font-weight: 800; letter-spacing: -0.005em; }
+  .note p { margin: 0; font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="stage" style="padding-bottom:0">
+  <div class="chrome">
+    <div>
+      <h1>Tailor left panel &mdash; mockup v7</h1>
+      <div class="note">The whole rail assembled: hero score tiles (v6), a quieted chip row, the decluttered queue (v5), and &ldquo;Working in your favor&rdquo; trimmed to match &mdash; it had the same book-paragraph problem the queue copy had.</div>
+    </div>
+    <div class="toggle" role="group" aria-label="Compare designs">
+      <button type="button" id="b-before" aria-pressed="false">Current</button>
+      <button type="button" id="b-after" aria-pressed="true">Proposed</button>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="rail before-only" id="rail-before">
+
+    <div class="scores">
+      <div class="cur-tile">
+        <div class="cur-eyebrow"><span class="dot" style="background:var(--good)"></span>ATS Match</div>
+        <div class="cur-figure">96%<small> &middot; 22/23</small></div>
+        <div class="cur-meter"><i style="width:96%"></i></div>
+        <div class="cur-cap">1 still unmatched</div>
+        <div class="cur-cap2">Counted from your last scan.</div>
+      </div>
+      <div class="cur-tile">
+        <div class="cur-eyebrow"><span class="dot" style="background:var(--accent)"></span>Quality Grade</div>
+        <div class="cur-figure">75<small> /100</small></div>
+        <div class="cur-cap2" style="margin-top:5px">Graded by AI.</div>
+        <button class="cur-btn" type="button">Re-check &middot; 1 scan</button>
+      </div>
+    </div>
+
+    <div class="cur-chips">
+      <button class="cur-chip" type="button" aria-pressed="true">All</button>
+      <button class="cur-chip" type="button">Title 10%</button>
+      <button class="cur-chip" type="button">Qualifications 6/6</button>
+      <button class="cur-chip" type="button">Responsibilities 5/7</button>
+      <button class="cur-chip" type="button">Keywords 22/23</button>
+    </div>
+
+    <div class="queue">
+      <div class="banner"><span aria-hidden style="font-weight:800">!</span><span><b>Keep every claim true.</b> These are job requirements your r&eacute;sum&eacute; does not prove yet. Only add experience you actually have.</span></div>
+      <div class="qhead">
+        <div>
+          <div class="t">Match gaps <span class="c">&middot; 3 to review</span></div>
+          <label class="selectrow"><input type="checkbox" disabled> Select all gaps</label>
+        </div>
+        <button class="btn-primary" type="button">Improve all 2</button>
+      </div>
+      <div class="band" data-tone="crit"><span>Could get you filtered out</span><span style="letter-spacing:0">&middot; 2</span><span class="rule"></span></div>
+      <div class="row" data-tone="crit">
+        <span class="box"></span>
+        <span style="min-width:0">
+          <span class="title-line" style="align-items:flex-start;flex-wrap:wrap">
+            <span style="font-size:var(--fs-small);font-weight:600">Review code developed by other developers and provide feedback to ensure best practices (e.g., style guidelines, checking code in, accuracy, testability, and efficiency).</span>
+          </span>
+          <div style="margin-top:4px"><button class="why" type="button">Why this matters</button></div>
+        </span>
+        <button class="fix" type="button">Review fix</button>
+      </div>
+      <div class="row" data-tone="crit">
+        <span class="box"></span>
+        <span style="min-width:0">
+          <span class="title-line" style="align-items:flex-start;flex-wrap:wrap">
+            <span style="font-size:var(--fs-small);font-weight:600">Contribute to existing documentation or educational content and adapt content based on product/program updates and user feedback.</span>
+          </span>
+          <div style="margin-top:4px"><button class="why" type="button">Why this matters</button></div>
+        </span>
+        <button class="fix" type="button">Review fix</button>
+      </div>
+      <div class="band" data-tone="muted"><span>About the employer</span><span style="letter-spacing:0">&middot; 1</span><span class="rule"></span></div>
+      <div class="row" data-tone="muted">
+        <span class="box" style="border-radius:999px"></span>
+        <span style="min-width:0">
+          <span class="title-line"><span style="font-size:var(--fs-small);font-weight:600">object-oriented programming</span><button class="why" type="button">Why this matters</button></span>
+        </span>
+        <button class="fix" type="button">What&rsquo;s this?</button>
+      </div>
+    </div>
+
+    <div class="favor favor-cur">
+      <h4>Working in your favor</h4>
+      <p>Your resume demonstrates strong alignment with the minimum qualifications and responsibilities of a Software Engineer, particularly in your extensive experience with full-stack development, programming languages, and software design. To further strengthen your application, consider highlighting any experience with code reviews, documentation contributions, and preferred qualifications such as technical leadership.</p>
+      <ul>
+        <li><b>&#10003;</b> Strong alignment with minimum qualifications for experience in programming languages, full-stack development, and software design/architecture.</li>
+        <li><b>&#10003;</b> Demonstrated experience in writing and testing code, and leading features from discovery through production.</li>
+        <li><b>&#10003;</b> Extensive use of relevant technologies and frameworks listed in skills and applied in experience.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="rail after-only" id="rail-after">
+
+    <div class="scores">
+      <div class="hero-tile">
+        <div class="hero-eyebrow">ATS Match</div>
+        <div class="hero-row"><span class="hero-figure good">96<span class="hero-suffix">%</span></span></div>
+        <div class="hero-meter"><i class="good" style="width:96%"></i></div>
+        <div class="hero-foot"><span class="cap flag">1 unmatched</span><span class="hero-side">22/23</span></div>
+      </div>
+      <div class="hero-tile">
+        <div class="hero-eyebrow">Quality Grade</div>
+        <div class="hero-row"><span class="hero-figure warn">75<span class="hero-suffix">/100</span></span></div>
+        <div class="hero-meter"><i class="warn" style="width:75%"></i><span class="target" style="left:90%"></span></div>
+        <div class="hero-foot"><span class="cap">Graded by AI</span><button class="hero-link" type="button">Re-check</button></div>
+      </div>
+    </div>
+
+    <div class="quiet-chips">
+      <button class="quiet-chip" type="button" aria-pressed="true">All</button>
+      <button class="quiet-chip" type="button">Title <span class="n">10%</span></button>
+      <button class="quiet-chip" type="button">Qualifications <span class="n">6/6</span></button>
+      <button class="quiet-chip" type="button">Responsibilities <span class="n warn">5/7</span></button>
+      <button class="quiet-chip" type="button">Keywords <span class="n warn">22/23</span></button>
+    </div>
+
+    <div class="queue">
+      <div class="qhead">
+        <div>
+          <div class="t">Match gaps <span class="c">&middot; 3 to review</span></div>
+          <label class="selectrow"><input type="checkbox" disabled> Select all gaps</label>
+          <div class="scopehint">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.1"/><path d="M6 5.3v3M6 3.7v.01" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+            1 employer-context item below isn&rsquo;t included
+          </div>
+        </div>
+        <button class="btn-primary" type="button">Improve 2 blockers</button>
+      </div>
+      <div class="band-v7" data-tone="crit"><span>Could get you filtered out</span><span class="count">2</span></div>
+      <div class="row" data-tone="crit">
+        <span class="box"></span>
+        <span style="min-width:0">
+          <span class="title-line">
+            <span class="title-v5" title="Review code developed by other developers and provide feedback to ensure best practices (e.g., style guidelines, checking code in, accuracy, testability, and efficiency).">Review code developed by other developers and provide&hellip;</span>
+            <button class="why" type="button">More</button>
+          </span>
+        </span>
+        <button class="fix" type="button">Review fix</button>
+      </div>
+      <div class="row" data-tone="crit">
+        <span class="box"></span>
+        <span style="min-width:0">
+          <span class="title-line">
+            <span class="title-v5" title="Contribute to existing documentation or educational content and adapt content based on product/program updates and user feedback.">Contribute to existing documentation or educational&hellip;</span>
+            <button class="why" type="button">More</button>
+          </span>
+        </span>
+        <button class="fix" type="button">Review fix</button>
+      </div>
+      <div class="band-v7" data-tone="muted"><span>About the employer</span><span class="count">1</span></div>
+      <div class="row" data-tone="muted">
+        <span class="ctxmark" title="Context, not a selectable gap">i</span>
+        <span style="min-width:0">
+          <span class="title-line"><span style="font-size:var(--fs-small);font-weight:600;min-width:0">object-oriented programming</span><button class="why" type="button">Why this matters</button></span>
+        </span>
+        <button class="fix" type="button">What&rsquo;s this?</button>
+      </div>
+    </div>
+
+    <div class="favor favor-v7">
+      <h4>3 things already working in your favor</h4>
+      <p class="sub">Full-stack range, tested code, and the stack this posting asks for &mdash; all already on the page.</p>
+      <ul>
+        <li style="display:flex;gap:8px"><b style="color:var(--good)">&#10003;</b> Full-stack development, programming languages, and software design/architecture</li>
+        <li style="display:flex;gap:8px;margin-top:6px"><b style="color:var(--good)">&#10003;</b> Writing and testing code, leading features end to end</li>
+        <li style="display:flex;gap:8px;margin-top:6px"><b style="color:var(--good)">&#10003;</b> The technologies and frameworks this job actually lists</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="stage" style="padding-top:0">
+  <div class="notes">
+    <div class="note">
+      <h4>Two hero tiles set the register</h4>
+      <p>Everything below reads quieter because the panel already spent its loudest color at the top &mdash; v6's treatment, now the anchor for the whole rail instead of an isolated pair of tiles.</p>
+    </div>
+    <div class="note">
+      <h4>Chips quieted down, not disappeared</h4>
+      <p>First pass dropped the border entirely and chips read as loose text, not buttons. A soft resting fill replaces the border instead &mdash; quieter than before, still visibly a pill.</p>
+    </div>
+    <div class="note">
+      <h4>The checkbox row isn&rsquo;t a caption anymore</h4>
+      <p>&ldquo;Select all gaps&rdquo; and the exclusion note were the same size and shade of grey, stacked &mdash; one blob, no way to tell control from footnote. The checkbox got real contrast; the hint became its own small tag.</p>
+    </div>
+    <div class="note">
+      <h4>The all-zero counts row is gone</h4>
+      <p>0 added &middot; 0 need review &middot; 0 left out told you nothing you didn&rsquo;t already know from &ldquo;3 to review&rdquo; above it. It should reappear once a number in it is actually nonzero, not sit there as three zeroes by default.</p>
+    </div>
+    <div class="note">
+      <h4>The red banner is gone</h4>
+      <p>&ldquo;Keep every claim true&rdquo; repeated what the red stripe on every blocker row and the &ldquo;isn&rsquo;t included&rdquo; caption already say. One fewer loud element competing at the top of the list.</p>
+    </div>
+    <div class="note">
+      <h4>&ldquo;Working in your favor&rdquo; had the same book-paragraph problem</h4>
+      <p>A 55-word AI-generated paragraph restated the three bullets below it almost verbatim. Cut to a one-line sub-head; the bullets now carry the actual content, shortened to match.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var body = document.body;
+    var before = document.getElementById("b-before");
+    var after = document.getElementById("b-after");
+    function set(view) {
+      before.setAttribute("aria-pressed", String(view === "before"));
+      after.setAttribute("aria-pressed", String(view === "after"));
+      document.getElementById("rail-before").style.display = view === "before" ? "" : "none";
+      document.getElementById("rail-after").style.display = view === "after" ? "" : "none";
+    }
+    before.addEventListener("click", function () { set("before"); });
+    after.addEventListener("click", function () { set("after"); });
+    set("after");
+  })();
+</script>
+</body>
+</html>

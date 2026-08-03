@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tailor score tiles — mockup v6</title>
+<style>
+  :root {
+    --ground: #ffffff;
+    --sunk: #f6f8fa;
+    --card: #ffffff;
+    --line: #dfe3e8;
+    --line-soft: #eceff2;
+    --ink: #12161c;
+    --ink-2: #414b58;
+    --muted: #6b7684;
+
+    --accent: #2f81f7;
+    --accent-soft: rgba(47, 129, 247, 0.10);
+
+    --crit: #d92d20;
+    --crit-soft: #fef3f2;
+    --crit-line: rgba(217, 45, 32, 0.28);
+
+    --warn: #b54708;
+    --warn-soft: #fffaeb;
+    --warn-line: rgba(181, 71, 8, 0.26);
+
+    --good: #067647;
+    --good-soft: #ecfdf3;
+    --good-line: rgba(6, 118, 71, 0.24);
+
+    --radius: 14px;
+
+    --fs-micro: 11px;
+    --fs-caption: 12px;
+    --fs-small: 13px;
+    --fs-body: 14px;
+    --fs-lg: 16px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0d1117; --sunk: #0a0e14; --card: #161b22;
+      --line: #2a313c; --line-soft: #21272f;
+      --ink: #e9eef5; --ink-2: #b6c0cc; --muted: #8b96a5;
+      --accent: #4d94ff; --accent-soft: rgba(77, 148, 255, 0.14);
+      --crit: #ff7b72; --crit-soft: rgba(255, 123, 114, 0.10); --crit-line: rgba(255, 123, 114, 0.30);
+      --warn: #e3a008; --warn-soft: rgba(227, 160, 8, 0.10); --warn-line: rgba(227, 160, 8, 0.28);
+      --good: #3fb950; --good-soft: rgba(63, 185, 80, 0.10); --good-line: rgba(63, 185, 80, 0.26);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d1117; --sunk: #0a0e14; --card: #161b22;
+    --line: #2a313c; --line-soft: #21272f;
+    --ink: #e9eef5; --ink-2: #b6c0cc; --muted: #8b96a5;
+    --accent: #4d94ff; --accent-soft: rgba(77,148,255,0.14);
+    --crit: #ff7b72; --crit-soft: rgba(255,123,114,0.10); --crit-line: rgba(255,123,114,0.30);
+    --warn: #e3a008; --warn-soft: rgba(227,160,8,0.10); --warn-line: rgba(227,160,8,0.28);
+    --good: #3fb950; --good-soft: rgba(63,185,80,0.10); --good-line: rgba(63,185,80,0.26);
+  }
+  :root[data-theme="light"] {
+    --ground: #ffffff; --sunk: #f6f8fa; --card: #ffffff;
+    --line: #dfe3e8; --line-soft: #eceff2;
+    --ink: #12161c; --ink-2: #414b58; --muted: #6b7684;
+    --accent: #2f81f7; --accent-soft: rgba(47,129,247,0.10);
+    --crit: #d92d20; --crit-soft: #fef3f2; --crit-line: rgba(217,45,32,0.28);
+    --warn: #b54708; --warn-soft: #fffaeb; --warn-line: rgba(181,71,8,0.26);
+    --good: #067647; --good-soft: #ecfdf3; --good-line: rgba(6,118,71,0.24);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--sunk);
+    color: var(--ink);
+    font: 400 var(--fs-body)/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 20px 20px 64px; }
+
+  .chrome { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .chrome h1 { font-size: var(--fs-lg); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .chrome .note { color: var(--muted); font-size: var(--fs-small); max-width: 68ch; }
+  .toggle {
+    margin-left: auto; display: inline-flex; border: 1px solid var(--line);
+    border-radius: 999px; overflow: hidden; background: var(--card); flex: none;
+  }
+  .toggle button {
+    appearance: none; border: 0; background: none; cursor: pointer;
+    font: 600 var(--fs-small)/1 inherit; color: var(--muted); padding: 9px 16px;
+  }
+  .toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .rulermark {
+    display: flex; align-items: center; gap: 8px; margin: 18px 0 10px;
+    font-size: var(--fs-micro); color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  }
+  .rulermark .rule { flex: 1; height: 1px; background: var(--line); }
+
+  .scores { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 720px; }
+  @media (max-width: 560px) { .scores { grid-template-columns: 1fr; } }
+
+  /* ===================== CURRENT: reproduced ===================== */
+  .cur-tile { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); padding: 15px 17px; }
+  .cur-eyebrow { display: flex; align-items: center; gap: 6px; font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .cur-eyebrow .dot { width: 7px; height: 7px; border-radius: 999px; }
+  .cur-figure { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin-top: 6px; line-height: 1.1; }
+  .cur-figure small { font-size: var(--fs-body); font-weight: 600; color: var(--muted); }
+  .cur-meter { height: 7px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 20%, transparent); overflow: hidden; margin-top: 10px; }
+  .cur-meter i { display: block; height: 100%; border-radius: 999px; background: var(--good); }
+  .cur-cap { font-size: var(--fs-caption); color: var(--warn); font-weight: 700; margin-top: 8px; }
+  .cur-cap2 { font-size: var(--fs-caption); color: var(--muted); margin-top: 4px; }
+  .cur-btn { margin-top: 9px; border: 1px solid var(--line); background: none; color: var(--accent); border-radius: 8px; padding: 6px 11px; font: 600 var(--fs-small)/1 inherit; cursor: pointer; }
+
+  /* ===================== PROPOSED: hero number, quiet everything else ===================== */
+  .hero-tile {
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+    padding: 18px 20px 16px; position: relative; overflow: hidden;
+  }
+  .hero-eyebrow { font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+  .hero-row { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; }
+  .hero-figure {
+    font-size: 52px; font-weight: 800; letter-spacing: -0.03em; line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-figure.good { color: var(--good); }
+  .hero-figure.warn { color: var(--warn); }
+  .hero-suffix { font-size: var(--fs-body); font-weight: 600; color: var(--muted); }
+  .hero-side { margin-left: auto; text-align: right; }
+  .hero-side .k { font-size: var(--fs-small); font-weight: 700; color: var(--ink-2); }
+  .hero-side .k b { font-variant-numeric: tabular-nums; }
+  .hero-side .g { display: block; font-size: var(--fs-caption); color: var(--muted); margin-top: 2px; }
+
+  .hero-meter { height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 16%, transparent); overflow: hidden; margin-top: 14px; position: relative; }
+  .hero-meter i { display: block; height: 100%; border-radius: 999px; }
+  .hero-meter i.good { background: var(--good); }
+  .hero-meter i.warn { background: var(--warn); }
+  .hero-meter .target { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); opacity: .35; }
+
+  .hero-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 9px; }
+  .hero-foot .cap { font-size: var(--fs-caption); color: var(--muted); }
+  .hero-foot .cap.flag { color: var(--warn); font-weight: 650; }
+  .hero-link {
+    border: 0; background: none; color: var(--muted); font: 600 var(--fs-caption)/1 inherit;
+    cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px;
+  }
+
+  /* Base layout for both — JS sets inline style.display: none to hide the
+     inactive one, and clears it (falls back to this block) to show the
+     active one. Both need the same resting display value here, or clearing
+     the inline style falls back to a stylesheet default that hides it again. */
+  .before-only, .after-only { display: block; }
+
+  .notes { margin-top: 32px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .note { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--card); padding: 16px 18px; }
+  .note h4 { margin: 0 0 5px; font-size: var(--fs-small); font-weight: 800; letter-spacing: -0.005em; }
+  .note p { margin: 0; font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="chrome">
+    <div>
+      <h1>Tailor score tiles &mdash; mockup v6</h1>
+      <div class="note">One hero number, everything else quiet &mdash; the NextRaise reference had one thing at full volume per tile. Ours has five things at the same volume: eyebrow, figure, meter, caption, button.</div>
+    </div>
+    <div class="toggle" role="group" aria-label="Compare designs">
+      <button type="button" id="b-before" aria-pressed="false">Current</button>
+      <button type="button" id="b-after" aria-pressed="true">Proposed</button>
+    </div>
+  </div>
+
+  <div class="rulermark">ATS Match &amp; Quality Grade, side by side<span class="rule"></span></div>
+
+  <!-- ===== CURRENT ===== -->
+  <div class="before-only">
+    <div class="scores">
+      <div class="cur-tile">
+        <div class="cur-eyebrow"><span class="dot" style="background:var(--good)"></span>ATS Match</div>
+        <div class="cur-figure">96%<small> &middot; 22 of 23 keywords</small></div>
+        <div class="cur-meter"><i style="width:96%"></i></div>
+        <div class="cur-cap">1 still unmatched</div>
+        <div class="cur-cap2">Counted from your last scan.</div>
+      </div>
+      <div class="cur-tile">
+        <div class="cur-eyebrow"><span class="dot" style="background:var(--accent)"></span>Quality Grade</div>
+        <div class="cur-figure">75<small> / 100</small></div>
+        <div class="cur-cap2" style="margin-top:6px">Graded by AI.</div>
+        <button class="cur-btn" type="button">Re-check &middot; uses 1 scan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PROPOSED ===== -->
+  <div class="after-only">
+    <div class="scores">
+      <div class="hero-tile">
+        <div class="hero-eyebrow">ATS Match</div>
+        <div class="hero-row">
+          <span class="hero-figure good">96<span class="hero-suffix">%</span></span>
+          <span class="hero-side"><span class="k"><b>22</b>/23 keywords</span></span>
+        </div>
+        <div class="hero-meter"><i class="good" style="width:96%"></i></div>
+        <div class="hero-foot">
+          <span class="cap flag">1 still unmatched</span>
+          <span class="cap">Live &middot; last scan</span>
+        </div>
+      </div>
+      <div class="hero-tile">
+        <div class="hero-eyebrow">Quality Grade</div>
+        <div class="hero-row">
+          <span class="hero-figure warn">75<span class="hero-suffix">/100</span></span>
+        </div>
+        <div class="hero-meter"><i class="warn" style="width:75%"></i><span class="target" style="left:90%" title="Shortlist target"></span></div>
+        <div class="hero-foot">
+          <span class="cap">Graded by AI</span>
+          <button class="hero-link" type="button">Re-check &middot; 1 left</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h4>One number owns the color</h4>
+      <p>Green/amber lives on the figure and its meter fill &mdash; nowhere else on the tile. The old version tinted the dot too, splitting the same signal across two places for no reason.</p>
+    </div>
+    <div class="note">
+      <h4>The figure grew, everything else shrank</h4>
+      <p>96 went from 30px to 52px. The keyword count moved off the headline into a quiet corner label &mdash; still readable, no longer competing for the same first glance.</p>
+    </div>
+    <div class="note">
+      <h4>The button stopped looking like a decision</h4>
+      <p>A bordered button reads as importantly as the score itself. &ldquo;Re-check&rdquo; is now a plain text link &mdash; still clickable, no longer visually arguing with the number above it.</p>
+    </div>
+    <div class="note">
+      <h4>The meter got thinner</h4>
+      <p>7px &rarr; 4px. At tile width a fat bar reads as a second headline; thin, it reads as what it is &mdash; a footnote to the number, with the same shortlist-target marker Tailor already uses elsewhere.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var body = document.body;
+    var before = document.getElementById("b-before");
+    var after = document.getElementById("b-after");
+    function set(view) {
+      body.setAttribute("data-view", view);
+      before.setAttribute("aria-pressed", String(view === "before"));
+      after.setAttribute("aria-pressed", String(view === "after"));
+      document.querySelectorAll(".before-only").forEach(function (el) {
+        el.style.display = view === "before" ? "" : "none";
+      });
+      document.querySelectorAll(".after-only").forEach(function (el) {
+        el.style.display = view === "after" ? "" : "none";
+      });
+    }
+    before.addEventListener("click", function () { set("before"); });
+    after.addEventListener("click", function () { set("after"); });
+    set("after");
+  })();
+</script>
+</body>
+</html>
