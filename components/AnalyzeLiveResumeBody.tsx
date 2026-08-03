@@ -2447,17 +2447,24 @@ export default function AnalyzeLiveResumeBody({
                 highlightsEnabled && presentationOnly && tailorAppliedBulletIndices.has(bulletIdx);
               const isPreviewLineApplied = highlightsEnabled && (previewLineApplied || showInsertPills);
 
-              let bgTint = scoreBgTint(
-                bullet.score,
-                isHighlighted && !isPreviewLineApplied,
-                presentationOnly,
-                highlightsEnabled,
-              );
-              let leftBar = highlightsEnabled && activeCategory && isHighlighted && !isPreviewLineApplied
-                ? "4px solid rgba(248, 113, 113, 0.95)"
-                : highlightsEnabled
-                  ? `3px solid ${scoreBorderColor(bullet.score)}`
-                  : "none";
+              // Tailor can supply neutral, deterministic bullet-link rows so
+              // fixes map to the preview without paying for an upfront rewrite
+              // audit. Do not paint those linkage-only rows as "strong".
+              let bgTint = hasActionable
+                ? scoreBgTint(
+                    bullet.score,
+                    isHighlighted && !isPreviewLineApplied,
+                    presentationOnly,
+                    highlightsEnabled,
+                  )
+                : "transparent";
+              let leftBar = hasActionable
+                ? highlightsEnabled && activeCategory && isHighlighted && !isPreviewLineApplied
+                  ? "4px solid rgba(248, 113, 113, 0.95)"
+                  : highlightsEnabled
+                    ? `3px solid ${scoreBorderColor(bullet.score)}`
+                    : "none"
+                : "none";
 
               if (highlightsEnabled && presentationOnly && isGapFixApplied) {
                 // Brief green flash while the apply settles; pills stay after.
