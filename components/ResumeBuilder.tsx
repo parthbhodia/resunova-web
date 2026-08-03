@@ -1389,6 +1389,11 @@ export default function ResumeBuilder({
     setStructuredUpload({ profile: prof, structured: sr });
   }, [candidateProfile]);
 
+  /** requirementConcepts from the analyze response. Kept so the scoreboard can
+   *  hand them back to /api/tailor/score-preview and recount coverage without
+   *  another extraction: that round-trip is what makes the "live" label true. */
+  const [requirementConcepts, setRequirementConcepts] = useState<readonly unknown[]>([]);
+
   const handleAnalyze = useCallback(async () => {
     const effJd = jd.trim();
     const profile = (candidateProfile ?? "").trim();
@@ -1453,8 +1458,10 @@ export default function ResumeBuilder({
 
       const effCompany = company.trim() || "—";
       const effRole = role.trim() || "—";
+      const conceptsFromScan = raw.requirementConcepts ?? raw.requirement_concepts;
+      setRequirementConcepts(Array.isArray(conceptsFromScan) ? conceptsFromScan : []);
       const matchFolder = tailorMatchFolder(effCompany, effRole);
-      let nextResult: GenerationResult = {
+      const nextResult: GenerationResult = {
         ...EMPTY_RESULT,
         ratings: data.ratings,
         folder: matchFolder,
@@ -4394,6 +4401,8 @@ export default function ResumeBuilder({
                         onRecheck={() => { void rescoreTailorRatings(); }}
                         recheckBusy={tailorRescoring}
                         onInterviewPrep={openInterviewPrep}
+                        requirementConcepts={requirementConcepts}
+                        currentResumeText={effectiveCandidateProfile}
                       />
                     )}
                     {scoreStale && !gapApplyBusy && !queueUi && (

@@ -53,15 +53,24 @@ function Eyebrow({ dot, children }: { dot: string; children: React.ReactNode }) 
 export function TailorScoreboard({
   found,
   total,
+  live = false,
+  lost = 0,
   grade,
   gradedAtLabel,
   stale,
   onRecheck,
   recheckBusy,
 }: {
-  /** Deterministic requirement/keyword coverage — live, free. */
+  /** Deterministic requirement coverage. */
   found: number;
   total: number;
+  /** True only when these counts came from recounting the CURRENT text via
+   *  /api/tailor/score-preview. Without it these are the last scan's numbers
+   *  and the label must not claim otherwise. */
+  live?: boolean;
+  /** Requirements the pending edits dropped. Surfaced, never hidden: a rewrite
+   *  can genuinely remove a term some other requirement was relying on. */
+  lost?: number;
   /** LLM-graded score, or null when never graded this run. */
   grade: number | null;
   /** e.g. "2:41 PM" — when the grade was computed. */
@@ -74,7 +83,15 @@ export function TailorScoreboard({
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
       <Tile>
-        <Eyebrow dot="var(--green-ink, #16a34a)">ATS match · live</Eyebrow>
+        {/* The label tracks what actually happened. This tile used to say
+            "live" and "Recounted the moment you add a change" while nothing
+            recounted: found/total came off the last scan, and applying a fix
+            only marked the score stale. Now `live` is set exactly when
+            /api/tailor/score-preview has recounted the current text, and the
+            wording follows it in both directions. */}
+        <Eyebrow dot={live ? "var(--green-ink, #16a34a)" : "var(--muted)"}>
+          {live ? "ATS match · live" : "ATS match"}
+        </Eyebrow>
         <div
           style={{
             fontSize: 26,
@@ -89,8 +106,23 @@ export function TailorScoreboard({
             {" "}· {found} of {total} keywords
           </span>
         </div>
-        <div style={{ fontSize: FS.caption, color: "var(--muted)", marginTop: 2 }}>
-          Recounted the moment you add a change. Free.
+        <div
+          style={{
+            fontSize: FS.caption,
+            marginTop: 2,
+            color: !live && stale ? "var(--amber-ink, #b45309)" : "var(--muted)",
+          }}
+        >
+          {live
+            ? lost > 0
+              // An edit can drop a term another requirement relied on. Saying
+              // so is the point of counting honestly rather than only counting
+              // gains.
+              ? `Recounted as you edit. ${lost} requirement${lost === 1 ? "" : "s"} no longer covered.`
+              : "Recounted as you edit. Free."
+            : stale
+              ? "Fixes applied · not recounted yet."
+              : "Counted from your last scan."}
         </div>
       </Tile>
 
