@@ -131,3 +131,24 @@ describe("the transition parser itself", () => {
     expect(splitTopLevel("color 0.3s ease")).toEqual(["color 0.3s ease"]);
   });
 });
+
+describe("the global input rule", () => {
+  // A text-input block (width:100%, padding, border, focus ring) was applying
+  // to checkboxes and radios too. In the tailor queue that made the checkbox
+  // 99px wide and pushed "Select all gaps" into three stacked lines beside it
+  // with 400px of free space in the row. Several call sites had already added
+  // an inline width/height to work around it, which is the tell that the rule
+  // was wrong rather than the call sites.
+  const RULE = /input:not\(\[class\*="Mui"\]\)([^,{]*)/g;
+
+  it("excludes checkboxes and radios from text-input styling", () => {
+    const selectors = [...GLOBALS.matchAll(RULE)].map((m) => m[1]);
+    expect(selectors.length).toBeGreaterThan(0);
+    for (const s of selectors) {
+      expect(s, `an input rule still matches checkboxes: input:not([class*="Mui"])${s}`)
+        .toMatch(/:not\(\[type="checkbox"\]\)/);
+      expect(s, `an input rule still matches radios: input:not([class*="Mui"])${s}`)
+        .toMatch(/:not\(\[type="radio"\]\)/);
+    }
+  });
+});

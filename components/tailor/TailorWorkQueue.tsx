@@ -209,8 +209,15 @@ export function TailorWorkQueue({
           </div>
           {selectable.length > 0 ? (
             <label style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 7, color: "var(--muted)", fontSize: FS.small, cursor: "pointer" }}>
-              <input type="checkbox" checked={allSelected} onChange={toggleAll} />
-              {allSelected ? `All ${selectable.length} selected` : "Select all gaps"}
+              <input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ flexShrink: 0 }} />
+              {/* The text needs its own element. As a bare child of an
+                  inline-flex label it becomes an anonymous flex item, which
+                  shrinks to its longest word — "Select all gaps" rendered as
+                  three stacked lines next to the checkbox even with 400px of
+                  free space in the row. */}
+              <span style={{ whiteSpace: "nowrap" }}>
+                {allSelected ? `All ${selectable.length} selected` : "Select all gaps"}
+              </span>
             </label>
           ) : null}
         </div>
