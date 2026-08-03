@@ -129,8 +129,11 @@ describe("the ATS meter", () => {
   });
 
   it("exposes the meter to assistive tech as counts, not as a bar", () => {
+    // The unit follows the data source; unset means the scan's keyword counts.
     render(<TailorScoreboard {...base} found={40} total={43} />);
-    expect(screen.getByLabelText("40 of 43 requirements matched")).toBeInTheDocument();
+    expect(screen.getByLabelText("40 of 43 keywords matched")).toBeInTheDocument();
+    render(<TailorScoreboard {...base} found={9} total={24} unit="requirements" live />);
+    expect(screen.getByLabelText("9 of 24 requirements matched")).toBeInTheDocument();
   });
 
   it("draws no threshold line", () => {

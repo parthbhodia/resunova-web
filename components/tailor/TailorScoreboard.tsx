@@ -64,6 +64,7 @@ function Eyebrow({ dot, children }: { dot: string; children: React.ReactNode }) 
 export function TailorScoreboard({
   found,
   total,
+  unit = "keywords",
   live = false,
   lost = 0,
   grade,
@@ -75,6 +76,9 @@ export function TailorScoreboard({
   /** Deterministic requirement coverage. */
   found: number;
   total: number;
+  /** What `found`/`total` count. Must match where they came from: the live
+   *  recount scores JD requirements, the scan fallback counts rater keywords. */
+  unit?: "requirements" | "keywords";
   /** True only when these counts came from recounting the CURRENT text via
    *  /api/tailor/score-preview. Without it these are the last scan's numbers
    *  and the label must not claim otherwise. */
@@ -114,7 +118,7 @@ export function TailorScoreboard({
         >
           {total > 0 ? `${Math.round((found / total) * 100)}%` : "—"}
           <span style={{ fontSize: FS.bodyLg, color: "var(--muted)", fontWeight: FW.semibold }}>
-            {" "}· {found} of {total} keywords
+            {" "}· {found} of {total} {unit}
           </span>
         </div>
         {/* A bare percentage does not tell a student whether 83 is good. The
@@ -129,7 +133,7 @@ export function TailorScoreboard({
         {total > 0 ? (
           <div
             role="img"
-            aria-label={`${found} of ${total} requirements matched`}
+            aria-label={`${found} of ${total} ${unit} matched`}
             style={{
               display: "flex",
               height: 7,

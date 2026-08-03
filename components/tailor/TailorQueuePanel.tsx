@@ -331,6 +331,7 @@ export function TailorQueuePanel({
       <TailorScoreboard
         found={coverage.found}
         total={coverage.total}
+        unit={coverage.unit}
         live={coverage.live}
         lost={coverage.lost}
         grade={grade}

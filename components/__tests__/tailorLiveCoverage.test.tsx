@@ -57,3 +57,31 @@ describe("the scoreboard label tracks whether a recount happened", () => {
     expect(screen.getByText(/98%/)).toBeInTheDocument();
   });
 });
+
+/**
+ * The tile and the dimension chip render DIFFERENT datasets: the live recount
+ * scores the JD's extracted requirementConcepts with a deterministic matcher,
+ * the chip shows the rater's keyword list. Both said "keywords", so a real
+ * screenshot showed "38% · 9 of 24 keywords · 15 still unmatched" directly
+ * above a chip reading "Keywords 22/23". Worse, the tile FALLS BACK to the
+ * chip's dataset, so one label covered two sources that disagree.
+ */
+describe("the tile names the dataset it is showing", () => {
+  const base = { grade: 85, gradedAtLabel: "2:41 PM", stale: false };
+
+  it("says requirements when the live recount supplied the numbers", () => {
+    render(<TailorScoreboard {...base} found={9} total={24} unit="requirements" live />);
+    expect(screen.getByText(/9 of 24 requirements/i)).toBeInTheDocument();
+    expect(screen.queryByText(/9 of 24 keywords/i)).toBeNull();
+  });
+
+  it("says keywords when it fell back to the scan's keyword counts", () => {
+    render(<TailorScoreboard {...base} found={22} total={23} unit="keywords" />);
+    expect(screen.getByText(/22 of 23 keywords/i)).toBeInTheDocument();
+  });
+
+  it("names the same dataset to assistive tech as it does on screen", () => {
+    render(<TailorScoreboard {...base} found={9} total={24} unit="requirements" live />);
+    expect(screen.getByLabelText("9 of 24 requirements matched")).toBeInTheDocument();
+  });
+});
