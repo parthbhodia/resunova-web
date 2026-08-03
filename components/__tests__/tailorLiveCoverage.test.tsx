@@ -52,9 +52,12 @@ describe("the scoreboard label tracks whether a recount happened", () => {
   });
 
   it("shows the raw counts so the percentage stays checkable", () => {
+    // v7 leads with the percentage and keeps the counts beside it as "42/43",
+    // still on screen rather than only in the accessible name.
     render(<TailorScoreboard {...base} found={42} total={43} live />);
-    expect(screen.getByText(/42 of 43 keywords/i)).toBeInTheDocument();
-    expect(screen.getByText(/98%/)).toBeInTheDocument();
+    expect(screen.getByText("42/43")).toBeInTheDocument();
+    expect(screen.getByLabelText("42 of 43 keywords matched")).toBeInTheDocument();
+    expect(screen.getByText(/98/)).toBeInTheDocument();
   });
 });
 
@@ -70,14 +73,17 @@ describe("the tile names the dataset it is showing", () => {
   const base = { grade: 85, gradedAtLabel: "2:41 PM", stale: false };
 
   it("says requirements when the live recount supplied the numbers", () => {
+    // The unit lives in the accessible name now that the visible counts are
+    // a bare "9/24"; the claim it guards is the same one — the tile must never
+    // label the recount's dataset with the fallback's word.
     render(<TailorScoreboard {...base} found={9} total={24} unit="requirements" live />);
-    expect(screen.getByText(/9 of 24 requirements/i)).toBeInTheDocument();
-    expect(screen.queryByText(/9 of 24 keywords/i)).toBeNull();
+    expect(screen.getByLabelText("9 of 24 requirements matched")).toBeInTheDocument();
+    expect(screen.queryByLabelText("9 of 24 keywords matched")).toBeNull();
   });
 
   it("says keywords when it fell back to the scan's keyword counts", () => {
     render(<TailorScoreboard {...base} found={22} total={23} unit="keywords" />);
-    expect(screen.getByText(/22 of 23 keywords/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("22 of 23 keywords matched")).toBeInTheDocument();
   });
 
   it("names the same dataset to assistive tech as it does on screen", () => {

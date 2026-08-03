@@ -28,6 +28,8 @@ export function TailorStrengthsCard({
   const [expanded, setExpanded] = useState(false);
   const facts = fitFactors ?? [];
   if (!verdict?.trim() && strengths.length === 0 && facts.length === 0) return null;
+  // (leadSentence is defined below the component; see its note for why the
+  // verdict is cut rather than rendered whole.)
 
   const rows = [
     ...strengths.map((s) => ({ kind: "strength" as const, text: s })),
@@ -36,31 +38,29 @@ export function TailorStrengthsCard({
   const hiddenCount = rows.length - VISIBLE_WHEN_COLLAPSED;
   const shown = expanded || hiddenCount <= 0 ? rows : rows.slice(0, VISIBLE_WHEN_COLLAPSED);
 
+  const lead = leadSentence(verdict);
+
   return (
     <div
       data-testid="strengths-card"
       style={{
-        border: "1px solid var(--border)",
-        borderRadius: 12,
-        background: "var(--card)",
-        padding: "12px 14px",
+        border: "1px solid var(--green-line, rgba(22,163,74,0.24))",
+        borderRadius: 14,
+        background: "var(--green-bg, rgba(22,163,74,0.08))",
+        padding: "15px 17px",
       }}
     >
-      <div
-        style={{
-          fontSize: FS.micro,
-          fontWeight: FW.bold,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "var(--green-ink, #16a34a)",
-          marginBottom: 4,
-        }}
-      >
-        Working in your favor
+      {/* Counted, because "3 things" is a claim the card can back and
+          "Working in your favor" is a label. The count also stops the card
+          reading as boilerplate that appears no matter what the scan found. */}
+      <div style={{ fontSize: FS.bodyLg, fontWeight: FW.extrabold, marginBottom: lead ? 5 : 8 }}>
+        {rows.length > 0
+          ? `${rows.length} thing${rows.length === 1 ? "" : "s"} already working in your favor`
+          : "Working in your favor"}
       </div>
-      {verdict?.trim() ? (
-        <div style={{ fontSize: FS.body, fontWeight: FW.semibold, marginBottom: rows.length ? 6 : 0 }}>
-          {verdict}
+      {lead ? (
+        <div style={{ fontSize: FS.body, color: "var(--text)", opacity: 0.85, lineHeight: 1.5, marginBottom: rows.length ? 12 : 0 }}>
+          {lead}
         </div>
       ) : null}
       {shown.map((r, i) => (
@@ -111,3 +111,30 @@ export function TailorStrengthsCard({
     </div>
   );
 }
+
+/**
+ * The first sentence of the verdict, and only that.
+ *
+ * The rater's verdict is reliably two sentences with two different jobs. The
+ * first states what the résumé already does well, which is what this card is
+ * for. The second is advice — "to further strengthen your application, consider
+ * highlighting code reviews, documentation contributions…" — and in the field
+ * report those were, word for word, the two blocker rows in the queue directly
+ * beneath it. Rendering both puts the work list on screen twice, once as a task
+ * and once as a paragraph, and the paragraph is the copy nobody reads.
+ *
+ * Cut at the first sentence boundary rather than at a character count so the
+ * text never ends mid-clause. An abbreviation ("e.g.") could in principle split
+ * early; the guard is a minimum length, which costs nothing and keeps a stray
+ * "Inc." from reducing the line to two words.
+ */
+export function leadSentence(text: string | null | undefined): string {
+  const clean = String(text ?? "").trim().replace(/\s+/g, " ");
+  if (!clean) return "";
+  const m = clean.match(/^.*?[.!?](?=\s|$)/);
+  const first = m?.[0]?.trim() ?? "";
+  return first.length >= MIN_LEAD_CHARS ? first : clean;
+}
+
+/** Below this, a "sentence" is almost certainly an abbreviation, not the lead. */
+const MIN_LEAD_CHARS = 40;

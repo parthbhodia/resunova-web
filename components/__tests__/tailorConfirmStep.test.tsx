@@ -120,12 +120,12 @@ describe("the ATS meter", () => {
 
   it("shows what is still open, which is the part you can act on", () => {
     render(<TailorScoreboard {...base} found={40} total={43} />);
-    expect(screen.getByText(/3 still unmatched/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 unmatched/i)).toBeInTheDocument();
   });
 
   it("says nothing about unmatched requirements when there are none", () => {
     render(<TailorScoreboard {...base} found={43} total={43} />);
-    expect(screen.queryByText(/still unmatched/i)).toBeNull();
+    expect(screen.queryByText(/unmatched/i)).toBeNull();
   });
 
   it("exposes the meter to assistive tech as counts, not as a bar", () => {

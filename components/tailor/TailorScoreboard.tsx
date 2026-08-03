@@ -30,8 +30,8 @@ function Tile({ children }: { children: React.ReactNode }) {
     <div
       style={{
         border: "1px solid var(--border)",
-        borderRadius: 12,
-        padding: "12px 14px",
+        borderRadius: 14,
+        padding: "16px 17px 14px",
         background: "var(--card)",
         minWidth: 0,
       }}
@@ -41,23 +41,137 @@ function Tile({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Eyebrow({ dot, children }: { dot: string; children: React.ReactNode }) {
+/**
+ * Mockup v7 drops the coloured dot that used to sit beside the eyebrow. The
+ * figure below is now colour-coded, so the dot was a second, smaller copy of
+ * the same signal.
+ */
+function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
         fontSize: FS.micro,
         fontWeight: FW.bold,
-        letterSpacing: "0.08em",
+        letterSpacing: "0.07em",
         textTransform: "uppercase",
         color: "var(--muted)",
       }}
     >
-      <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: dot }} />
       {children}
     </div>
+  );
+}
+
+/**
+ * The tile's figure, meter and one-line footer.
+ *
+ * v7 makes the number the loudest thing in the rail: 34px, tinted by band, over
+ * a thin meter. The raw counts move to the right of the footer, where they stay
+ * checkable without competing with the percentage.
+ */
+function HeroTile({
+  eyebrow,
+  value,
+  suffix,
+  ratio,
+  color,
+  target,
+  footLeft,
+  footLeftFlag,
+  footRight,
+}: {
+  eyebrow: React.ReactNode;
+  value: React.ReactNode;
+  suffix: string;
+  /** 0..1, or null when there is nothing to measure. */
+  ratio: number | null;
+  color: string;
+  /** 0..1 marker on the meter, e.g. the grade worth aiming at. */
+  target?: number;
+  footLeft?: React.ReactNode;
+  footLeftFlag?: boolean;
+  footRight?: React.ReactNode;
+}) {
+  return (
+    <Tile>
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginTop: 7, flexWrap: "wrap" }}>
+        <span
+          style={{
+            fontSize: 34,
+            fontWeight: FW.extrabold,
+            letterSpacing: "-0.03em",
+            lineHeight: 1,
+            fontVariantNumeric: "tabular-nums",
+            color,
+          }}
+        >
+          {value}
+          <span style={{ fontSize: FS.small, fontWeight: FW.semibold, color: "var(--muted)" }}>{suffix}</span>
+        </span>
+      </div>
+      {ratio !== null ? (
+        <div
+          style={{
+            height: 4,
+            borderRadius: 999,
+            background: "var(--surface-2, rgba(127,127,127,0.14))",
+            overflow: "hidden",
+            marginTop: 11,
+            position: "relative",
+          }}
+        >
+          <span
+            className="tq-meter"
+            style={{
+              display: "block",
+              height: "100%",
+              width: "100%",
+              borderRadius: 999,
+              transform: `scaleX(${Math.min(1, Math.max(0, ratio))})`,
+              background: color,
+            }}
+          />
+          {target !== undefined ? (
+            <span
+              aria-hidden
+              style={{
+                position: "absolute",
+                top: -2,
+                bottom: -2,
+                left: `${Math.min(100, Math.max(0, target * 100))}%`,
+                width: 2,
+                background: "var(--text)",
+                opacity: 0.35,
+              }}
+            />
+          ) : null}
+        </div>
+      ) : null}
+      {footLeft || footRight ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            gap: 8,
+            marginTop: 9,
+            flexWrap: "wrap",
+          }}
+        >
+          <span
+            style={{
+              fontSize: FS.small,
+              color: footLeftFlag ? "var(--amber-ink, #b45309)" : "var(--muted)",
+              fontWeight: footLeftFlag ? FW.semibold : FW.normal,
+            }}
+          >
+            {footLeft}
+          </span>
+          {footRight}
+        </div>
+      ) : null}
+    </Tile>
   );
 }
 
@@ -95,137 +209,109 @@ export function TailorScoreboard({
   onRecheck?: () => void;
   recheckBusy?: boolean;
 }) {
+  const ratio = total > 0 ? found / total : null;
+  const openCount = total > 0 ? total - found : 0;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-      <Tile>
-        {/* The label tracks what actually happened. This tile used to say
-            "live" and "Recounted the moment you add a change" while nothing
-            recounted: found/total came off the last scan, and applying a fix
-            only marked the score stale. Now `live` is set exactly when
-            /api/tailor/score-preview has recounted the current text, and the
-            wording follows it in both directions. */}
-        <Eyebrow dot={live ? "var(--green-ink, #16a34a)" : "var(--muted)"}>
-          {live ? "ATS match · live" : "ATS match"}
-        </Eyebrow>
-        <div
-          style={{
-            fontSize: 26,
-            fontWeight: FW.extrabold,
-            letterSpacing: "-0.02em",
-            fontVariantNumeric: "tabular-nums",
-            marginTop: 2,
-          }}
-        >
-          {total > 0 ? `${Math.round((found / total) * 100)}%` : "—"}
-          <span style={{ fontSize: FS.bodyLg, color: "var(--muted)", fontWeight: FW.semibold }}>
-            {" "}· {found} of {total} {unit}
-          </span>
-        </div>
-        {/* A bare percentage does not tell a student whether 83 is good. The
-            meter gives the number physical weight and makes the REMAINDER
-            visible, which is the part they can still act on.
-
-            Deliberately unmarked: no "shortlist threshold" line. Every number
-            of that kind we could draw here (75%, 80%) is a competitor's
-            published guidance or folklore, not something measured on this
-            corpus, and drawing it would state as fact something nobody here
-            can source. The honest urgency is the gap itself. */}
-        {total > 0 ? (
-          <div
-            role="img"
-            aria-label={`${found} of ${total} ${unit} matched`}
-            style={{
-              display: "flex",
-              height: 7,
-              borderRadius: 999,
-              overflow: "hidden",
-              background: "var(--surface-2, rgba(127,127,127,0.14))",
-              marginTop: 8,
-            }}
-          >
-            <span
-              className="tq-meter"
-              style={{
-                width: "100%",
-                transform: `scaleX(${Math.min(1, Math.max(0, found / total))})`,
-                background: coverageColor(found / total),
-              }}
-            />
-          </div>
-        ) : null}
-        {total > 0 && total - found > 0 ? (
-          <div style={{ fontSize: FS.caption, marginTop: 5, color: coverageColor(found / total), fontWeight: FW.semibold }}>
-            {total - found} still unmatched
-          </div>
-        ) : null}
-        <div
-          style={{
-            fontSize: FS.caption,
-            marginTop: 2,
-            color: !live && stale ? "var(--amber-ink, #b45309)" : "var(--muted)",
-          }}
-        >
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <HeroTile
+          eyebrow={live ? "ATS match · live" : "ATS match"}
+          value={ratio === null ? "—" : Math.round(ratio * 100)}
+          suffix={ratio === null ? "" : "%"}
+          ratio={ratio}
+          color={ratio === null ? "var(--text)" : coverageColor(ratio)}
+          footLeft={openCount > 0 ? `${openCount} unmatched` : null}
+          footLeftFlag={openCount > 0}
+          footRight={
+            total > 0 ? (
+              <span
+                role="img"
+                aria-label={`${found} of ${total} ${unit} matched`}
+                style={{ fontSize: FS.small, fontWeight: FW.bold, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}
+              >
+                {found}/{total}
+              </span>
+            ) : null
+          }
+        />
+        {/* Kept although the mockup has no line for it.
+         *
+         * This tile shipped once saying "live · recounted the moment you add a
+         * change" while nothing recounted, and the label is the entire reason a
+         * user believes the number. The mockup is a visual language, not a
+         * decision to stop disclosing where the figure came from, so the
+         * provenance stays as one quiet line under the tiles rather than being
+         * dropped along with the old caption stack. Tests pin it in BOTH
+         * directions, because the cheap way to "fix" an over-promising label is
+         * to promise it again. */}
+        <HeroTile
+          eyebrow="Quality grade"
+          value={grade === null ? "—" : grade}
+          suffix={grade === null ? "" : "/100"}
+          ratio={grade === null ? null : grade / 100}
+          color={grade === null ? "var(--text)" : coverageColor(grade / 100)}
+          // The bar a strong résumé clears. Drawn on the LLM grade, which is a
+          // quality judgement we produce ourselves, and never on the ATS meter,
+          // where any "shortlist threshold" number would be folklore we cannot
+          // source.
+          target={grade === null ? undefined : 0.9}
+          footLeft={grade === null ? "Not graded yet" : gradedAtLabel ? `Graded by AI at ${gradedAtLabel}` : "Graded by AI"}
+          footRight={
+            onRecheck ? (
+              <button
+                type="button"
+                onClick={onRecheck}
+                disabled={recheckBusy}
+                style={{
+                  border: 0,
+                  background: "none",
+                  color: "var(--muted)",
+                  fontSize: FS.small,
+                  fontWeight: FW.semibold,
+                  padding: 0,
+                  textDecoration: "underline",
+                  textUnderlineOffset: 3,
+                  whiteSpace: "nowrap",
+                  cursor: recheckBusy ? "default" : "pointer",
+                  opacity: recheckBusy ? 0.6 : 1,
+                }}
+              >
+                {recheckBusy ? "Re-checking…" : "Re-check"}
+              </button>
+            ) : null
+          }
+        />
+      </div>
+      {/* Provenance for both tiles, on one quiet line under them rather than as
+          a caption stack inside each. See the note above the grade tile: the
+          mockup drops this, and it is the one thing in the redesign that is not
+          safe to drop. */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 10,
+          flexWrap: "wrap",
+          marginTop: 7,
+          fontSize: FS.caption,
+        }}
+      >
+        <span style={{ color: !live && stale ? "var(--amber-ink, #b45309)" : "var(--muted)" }}>
           {live
             ? lost > 0
-              // An edit can drop a term another requirement relied on. Saying
-              // so is the point of counting honestly rather than only counting
-              // gains.
               ? `Recounted as you edit. ${lost} requirement${lost === 1 ? "" : "s"} no longer covered.`
               : "Recounted as you edit. Free."
             : stale
               ? "Fixes applied · not recounted yet."
               : "Counted from your last scan."}
-        </div>
-      </Tile>
-
-      <Tile>
-        <Eyebrow dot="var(--accent)">Quality grade</Eyebrow>
-        <div
-          style={{
-            fontSize: 26,
-            fontWeight: FW.extrabold,
-            letterSpacing: "-0.02em",
-            fontVariantNumeric: "tabular-nums",
-            marginTop: 2,
-          }}
-        >
-          {grade === null ? "—" : grade}
-          <span style={{ fontSize: FS.bodyLg, color: "var(--muted)", fontWeight: FW.semibold }}> / 100</span>
-        </div>
-        <div style={{ fontSize: FS.caption, color: "var(--muted)", marginTop: 2 }}>
-          {grade === null
-            ? "Not graded yet for this run."
-            : gradedAtLabel
-              ? `Graded by AI at ${gradedAtLabel}.`
-              : "Graded by AI."}
-        </div>
+        </span>
         {stale ? (
-          <div style={{ fontSize: FS.caption, color: "var(--amber-ink, #b45309)", marginTop: 4 }}>
+          <span style={{ color: "var(--amber-ink, #b45309)" }}>
             Résumé changed since grading. Re-check when you&rsquo;re done editing.
-          </div>
+          </span>
         ) : null}
-        {onRecheck ? (
-          <button
-            type="button"
-            onClick={onRecheck}
-            disabled={recheckBusy}
-            style={{
-              marginTop: 6,
-              fontSize: FS.small,
-              fontWeight: FW.semibold,
-              color: "var(--accent)",
-              background: "none",
-              border: "1px solid var(--border)",
-              borderRadius: 7,
-              padding: "4px 10px",
-              cursor: recheckBusy ? "default" : "pointer",
-              opacity: recheckBusy ? 0.6 : 1,
-            }}
-          >
-            {recheckBusy ? "Re-checking…" : "Re-check · uses 1 scan"}
-          </button>
-        ) : null}
-      </Tile>
+      </div>
     </div>
   );
 }
+

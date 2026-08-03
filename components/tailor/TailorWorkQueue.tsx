@@ -41,6 +41,37 @@ const TONE_COLOR: Record<QueueTone, string> = {
   good: "var(--green-ink, #16a34a)",
 };
 
+/**
+ * Band strip fills.
+ *
+ * Alpha tints, never opaque hex. An opaque light fill is invisible in dark mode
+ * and takes the band's own text down with it; a tint composites over whatever
+ * surface it lands on and stays legible in both themes. The `--*-bg` variables
+ * are the alpha ones — `--*-ink` are the opaque text colours and must not be
+ * used as a background.
+ */
+const TONE_BAND_BG: Record<QueueTone, string> = {
+  crit: "var(--red-bg, rgba(220,38,38,0.10))",
+  warn: "var(--amber-bg, rgba(180,83,9,0.10))",
+  muted: "var(--surface-2, rgba(127,127,127,0.08))",
+  good: "var(--green-bg, rgba(22,163,74,0.10))",
+};
+
+/**
+ * Roughly where a title stops fitting the rail on one line.
+ *
+ * An approximation on purpose. Knowing whether CSS actually clipped a given
+ * string means measuring after layout, and a resize observer per row to pick
+ * between two words of button copy is not worth what it costs. Erring long is
+ * the safe direction: a title just under the threshold reads "Why this matters"
+ * and shows its detail, which is right either way.
+ */
+const LONG_TITLE_CHARS = 46;
+
+export function isLongTitle(name: string): boolean {
+  return name.trim().length > LONG_TITLE_CHARS;
+}
+
 const ACTION_LABEL: Record<QueueItemAction, string> = {
   view_change: "See it",
   review: "Review",
@@ -154,6 +185,9 @@ export function TailorWorkQueue({
   const shown = showAll ? filtered : filtered.slice(0, 5);
   const hiddenCount = Math.max(0, filtered.length - shown.length);
   const selectable = filtered.filter((it) => it.status === "queued" && it.kind !== "contextual");
+  // Open rows a bulk pass deliberately skips. Named here so the header can say
+  // so rather than leaving the user to notice the count not adding up.
+  const contextualOpen = filtered.filter((it) => it.status === "queued" && it.kind === "contextual").length;
   const selected = selectable.filter((it) => selectedIds.has(it.id));
   const allSelected = selectable.length > 0 && selected.length === selectable.length;
 
@@ -181,25 +215,13 @@ export function TailorWorkQueue({
 
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "var(--card)" }}>
-      {c.open > 0 ? (
-        <div
-          role="status"
-          style={{
-            display: "flex",
-            gap: 9,
-            alignItems: "flex-start",
-            padding: "10px 14px",
-            color: "var(--red-ink, #b42318)",
-            background: "var(--red-bg, rgba(220,38,38,0.12))",
-            borderBottom: "1px solid color-mix(in srgb, var(--red-ink, #b42318) 18%, transparent)",
-            fontSize: FS.small,
-          }}
-        >
-          <span aria-hidden style={{ fontWeight: FW.extrabold }}>!</span>
-          <span><b>Keep every claim true.</b> These are job requirements your résumé does not prove yet. Only add experience you actually have.</span>
-        </div>
-      ) : null}
-      <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+      {/* The "Keep every claim true" banner is gone (mockup v7).
+       *
+       * It was the loudest element at the top of the list and said what the red
+       * stripe on every blocker row and the exclusion note below already say.
+       * Three restatements of one idea competing for the same glance is how the
+       * warning stops being read at all. */}
+      <div style={{ padding: "17px 16px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: FS.body, fontWeight: FW.bold }}>
             Match gaps{" "}
@@ -207,8 +229,11 @@ export function TailorWorkQueue({
               · {c.open ? `${c.open} to review` : "all reviewed"}
             </span>
           </div>
+          {/* A live control, so it gets real contrast. At the same size and
+              shade of grey as the note under it the two fused into one block
+              and nothing said which part you could click. */}
           {selectable.length > 0 ? (
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 7, color: "var(--muted)", fontSize: FS.small, cursor: "pointer" }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12, color: "var(--text)", fontSize: FS.body, fontWeight: FW.semibold, cursor: "pointer" }}>
               <input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ flexShrink: 0 }} />
               {/* The text needs its own element. As a bare child of an
                   inline-flex label it becomes an anonymous flex item, which
@@ -219,6 +244,32 @@ export function TailorWorkQueue({
                 {allSelected ? `All ${selectable.length} selected` : "Select all gaps"}
               </span>
             </label>
+          ) : null}
+          {/* Its own tag, not a third stacked line of the same grey, so it
+              reads as an annotation on the control above rather than as more
+              of it. Says what "all" leaves out, because a pass that silently
+              skipped rows is the complaint the queue exists to answer. */}
+          {contextualOpen > 0 ? (
+            <div
+              style={{
+                margin: "8px 0 0",
+                fontSize: FS.caption,
+                fontWeight: FW.semibold,
+                color: "var(--muted)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                background: "var(--surface-2, rgba(127,127,127,0.08))",
+                borderRadius: 999,
+                padding: "5px 11px 5px 9px",
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden style={{ flex: "none", opacity: 0.8 }}>
+                <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.1" />
+                <path d="M6 5.3v3M6 3.7v.01" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+              </svg>
+              {contextualOpen} employer-context item{contextualOpen === 1 ? "" : "s"} below {contextualOpen === 1 ? "isn't" : "aren't"} included
+            </div>
           ) : null}
         </div>
         {onFixAll ? (
@@ -238,11 +289,14 @@ export function TailorWorkQueue({
               opacity: fixAllBusy || c.open === 0 ? 0.6 : 1,
             }}
           >
+            {/* "all" was a lie whenever a contextual row was open: the pass
+                skips those by design. Naming what it actually operates on
+                keeps the button honest without needing a footnote. */}
             {fixAllBusy
               ? "Improving…"
               : selected.length > 0
                 ? `Improve selected (${selected.length})`
-                : `Improve all ${selectable.length || c.open}`}
+                : `Improve ${selectable.length || c.open} blocker${(selectable.length || c.open) === 1 ? "" : "s"}`}
           </button>
         ) : null}
       </div>
@@ -253,12 +307,21 @@ export function TailorWorkQueue({
         <span style={{ width: seg(c.needsReview), background: "var(--amber-ink, #b45309)", transition: "width .3s ease" }} />
         <span style={{ width: seg(c.notCoverable + c.ignored), background: "var(--muted)", opacity: 0.5, transition: "width .3s ease" }} />
       </div>
-      <div style={{ display: "flex", gap: 14, padding: "7px 14px 0", fontSize: FS.caption, color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-        <span><b style={{ color: "var(--text)" }}>{c.applied}</b> added</span>
-        <span><b style={{ color: "var(--text)" }}>{c.needsReview}</b> need review</span>
-        <span><b style={{ color: "var(--text)" }}>{c.notCoverable + c.ignored}</b> left out</span>
-        <span><b style={{ color: "var(--text)" }}>{c.open}</b> to review</span>
-      </div>
+      {/* Hidden until one of these is actually nonzero.
+       *
+       * On a fresh scan it read "0 added · 0 need review · 0 left out · N to
+       * review", which is three zeroes and a restatement of the "N to review"
+       * already in the header two lines above. A row that only ever says
+       * nothing on first sight teaches the user to skip that part of the
+       * panel, including later when it does carry news. */}
+      {c.applied + c.needsReview + c.notCoverable + c.ignored > 0 ? (
+        <div style={{ display: "flex", gap: 14, padding: "7px 14px 0", fontSize: FS.caption, color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
+          <span><b style={{ color: "var(--text)" }}>{c.applied}</b> added</span>
+          <span><b style={{ color: "var(--text)" }}>{c.needsReview}</b> need review</span>
+          <span><b style={{ color: "var(--text)" }}>{c.notCoverable + c.ignored}</b> left out</span>
+          <span><b style={{ color: "var(--text)" }}>{c.open}</b> to review</span>
+        </div>
+      ) : null}
 
       <ul style={{ listStyle: "none", margin: "6px 0 0", padding: "0 6px 4px" }}>
         {shown.length === 0 ? (
@@ -272,27 +335,31 @@ export function TailorWorkQueue({
                 came out of. The header carries the band's tone and the count
                 of what is still OPEN, so a band you have cleared reads as
                 cleared instead of still accusing you. */}
+            {/* v7: a tinted strip, not a hairline rule.
+                The fill does the section-zoning a 1px line was straining to do,
+                and it survives at a glance down a scrolling list where a thin
+                rule between similar-looking rows does not. Count sits right,
+                away from the label, so neither has to be read to find the
+                other. */}
             <div
               className="tq-band"
               style={{
                 display: "flex",
-                alignItems: "center",
+                alignItems: "baseline",
                 gap: 8,
-                padding: "12px 8px 5px",
-                fontSize: FS.micro,
-                fontWeight: FW.bold,
-                letterSpacing: "0.07em",
+                padding: "11px 16px",
+                fontSize: FS.caption,
+                fontWeight: FW.extrabold,
+                letterSpacing: "0.06em",
                 textTransform: "uppercase",
                 color: TONE_COLOR[group.tone],
+                background: TONE_BAND_BG[group.tone],
               }}
             >
               <span>{group.label}</span>
-              <span style={{ letterSpacing: 0 }}>
-                · {group.open > 0 ? group.open : "all set"}
+              <span style={{ marginLeft: "auto", letterSpacing: 0, fontWeight: FW.bold, opacity: 0.8 }}>
+                {group.open > 0 ? group.open : "all set"}
               </span>
-              {/* Carries the tone across the full width, so the band reads as a
-                  band at a glance rather than as one coloured word. */}
-              <span aria-hidden style={{ flex: 1, height: 1, background: "currentColor", opacity: 0.22 }} />
             </div>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
         {group.items.map((it, rowIndex) => {
@@ -337,6 +404,33 @@ export function TailorWorkQueue({
                   onChange={() => toggleSelected(it.id)}
                   style={{ width: 17, height: 17, margin: "2px 0 0", accentColor: "var(--accent)", cursor: "pointer" }}
                 />
+              ) : it.kind === "contextual" && it.status === "queued" ? (
+                // Not a checkbox that happens to be missing — an information
+                // mark, so the empty slot where every other row has a control
+                // reads as deliberate rather than as a row that failed to
+                // render one.
+                <span
+                  role="img"
+                  aria-label="context"
+                  title="Context, not a selectable gap"
+                  style={{
+                    width: 17,
+                    height: 17,
+                    borderRadius: 5,
+                    marginTop: 2,
+                    flex: "none",
+                    background: "var(--surface-2, rgba(127,127,127,0.08))",
+                    border: "1px solid var(--border)",
+                    display: "grid",
+                    placeItems: "center",
+                    color: "var(--muted)",
+                    fontSize: 9,
+                    fontWeight: FW.extrabold,
+                    fontStyle: "italic",
+                  }}
+                >
+                  i
+                </span>
               ) : (
                 <StatusDot status={it.status} working={working} />
               )}
@@ -345,12 +439,24 @@ export function TailorWorkQueue({
                     screen at a row height of one line; at two they do not, and
                     the queue stops being scannable — which was the whole
                     argument for having one queue. */}
-                <span style={{ display: "flex", alignItems: "baseline", gap: 9, flexWrap: "wrap", minWidth: 0 }}>
+                <span style={{ display: "flex", alignItems: "baseline", gap: 9, minWidth: 0 }}>
+                  {/* One line, always. A responsibility lifted verbatim out of
+                      a JD runs to 150+ characters and used to wrap to three
+                      lines, so four rows filled the rail and the queue stopped
+                      being scannable — which was the entire argument for having
+                      one queue. The full text stays reachable: `title` on hover
+                      and the toggle below. */}
                   <span
                     className="tq-title"
+                    title={isLongTitle(it.name) ? it.name : undefined}
                     style={{
                       fontSize: FS.body,
                       fontWeight: FW.semibold,
+                      minWidth: 0,
+                      flex: "1 1 auto",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                       // Plain ink. Severity is the stripe now, and colouring the
                       // title too made every row shout at the same volume.
                       color:
@@ -366,12 +472,23 @@ export function TailorWorkQueue({
                       type="button"
                       aria-expanded={detailOpen}
                       onClick={() => toggleDetail(it.id)}
-                      style={{ border: 0, background: "none", color: "var(--muted)", padding: 0, fontSize: FS.caption, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, whiteSpace: "nowrap" }}
+                      style={{ border: 0, background: "none", color: "var(--muted)", padding: 0, fontSize: FS.caption, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, whiteSpace: "nowrap", flex: "none" }}
                     >
-                      {detailOpen ? "Hide details" : "Why this matters"}
+                      {/* A cut-off title makes this "show me the rest"; an
+                          intact one makes it "explain". Same control, and the
+                          label should not claim the wrong one. */}
+                      {detailOpen ? "Hide" : isLongTitle(it.name) ? "More" : "Why this matters"}
                     </button>
                   ) : null}
                 </span>
+                {/* Expanding a clipped row has to give back the words the clip
+                    took, or "More" leads somewhere that does not contain what
+                    was hidden. */}
+                {detailOpen && isLongTitle(it.name) ? (
+                  <span style={{ display: "block", fontSize: FS.small, color: "var(--text)", marginTop: 5, maxWidth: "52ch", lineHeight: 1.45 }}>
+                    {it.name}
+                  </span>
+                ) : null}
                 {it.detail && detailOpen ? (
                   <span style={{ display: "block", fontSize: FS.small, color: "var(--muted)", marginTop: 4, maxWidth: "52ch", lineHeight: 1.45 }}>
                     {it.detail}
