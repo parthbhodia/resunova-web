@@ -40,6 +40,7 @@ import {
   type FixExpansionState,
   type FixSuggestion,
 } from "@/components/tailor/TailorFixExpansion";
+import type { ConfirmedFact } from "@/lib/tailorConfirmFacts";
 import { TailorStrengthsCard } from "@/components/tailor/TailorStrengthsCard";
 
 const NOT_COVERED_DETAIL =
@@ -159,7 +160,8 @@ export function TailorQueuePanel({
   onFixAll: () => void;
   onFixSelected?: (items: readonly QueueItem[]) => void;
   /** Fetch rewrite options for one item; the row expands inline around them. */
-  fetchFixSuggestions: (item: QueueItem) => Promise<FixSuggestion[]>;
+  /** `facts` is present only when the user corrected the drafted claim. */
+  fetchFixSuggestions: (item: QueueItem, facts?: ConfirmedFact) => Promise<FixSuggestion[]>;
   /** Apply the picked (possibly edited) suggestion to the preview. */
   applyFixSuggestion: (
     item: QueueItem,
@@ -243,11 +245,11 @@ export function TailorQueuePanel({
 
   const expandedItem = expandedId ? items.find((it) => it.id === expandedId) ?? null : null;
 
-  const openFix = (item: QueueItem) => {
+  const openFix = (item: QueueItem, facts?: ConfirmedFact) => {
     setExpandedId(item.id);
     setExpandState({ phase: "loading" });
     const seq = ++fetchSeq.current;
-    fetchFixSuggestions(item).then(
+    fetchFixSuggestions(item, facts).then(
       (suggestions) => {
         if (fetchSeq.current === seq) setExpandState({ phase: "ready", suggestions });
       },
@@ -359,6 +361,10 @@ export function TailorQueuePanel({
               onApply={(s, edited) => { void handleApply(s, edited); }}
               onIgnore={handleIgnore}
               onTryFix={() => openFix(expandedItem)}
+              // A corrected fact is worth a second call: the API treats
+              // confirmed facts as a provenance source, so a number the
+              // candidate supplied stops reading as unevidenced.
+              onRewriteWithFacts={(fact) => openFix(expandedItem, fact)}
               onClose={closeExpansion}
             />
           ) : null

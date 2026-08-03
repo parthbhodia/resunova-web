@@ -14,6 +14,17 @@
 import React from "react";
 import { FS, FW } from "@/lib/typography";
 
+/**
+ * Meter colour by coverage. The bands are a presentation choice about how much
+ * of the requirement list is still open, NOT a claim about hiring outcomes, so
+ * nothing in the UI reads them out as a verdict.
+ */
+export function coverageColor(ratio: number): string {
+  if (ratio >= 0.9) return "var(--green-ink, #16a34a)";
+  if (ratio >= 0.6) return "var(--amber-ink, #b45309)";
+  return "var(--red-ink, #b42318)";
+}
+
 function Tile({ children }: { children: React.ReactNode }) {
   return (
     <div
@@ -106,6 +117,43 @@ export function TailorScoreboard({
             {" "}· {found} of {total} keywords
           </span>
         </div>
+        {/* A bare percentage does not tell a student whether 83 is good. The
+            meter gives the number physical weight and makes the REMAINDER
+            visible, which is the part they can still act on.
+
+            Deliberately unmarked: no "shortlist threshold" line. Every number
+            of that kind we could draw here (75%, 80%) is a competitor's
+            published guidance or folklore, not something measured on this
+            corpus, and drawing it would state as fact something nobody here
+            can source. The honest urgency is the gap itself. */}
+        {total > 0 ? (
+          <div
+            role="img"
+            aria-label={`${found} of ${total} requirements matched`}
+            style={{
+              display: "flex",
+              height: 7,
+              borderRadius: 999,
+              overflow: "hidden",
+              background: "var(--surface-2, rgba(127,127,127,0.14))",
+              marginTop: 8,
+            }}
+          >
+            <span
+              className="tq-meter"
+              style={{
+                width: "100%",
+                transform: `scaleX(${Math.min(1, Math.max(0, found / total))})`,
+                background: coverageColor(found / total),
+              }}
+            />
+          </div>
+        ) : null}
+        {total > 0 && total - found > 0 ? (
+          <div style={{ fontSize: FS.caption, marginTop: 5, color: coverageColor(found / total), fontWeight: FW.semibold }}>
+            {total - found} still unmatched
+          </div>
+        ) : null}
         <div
           style={{
             fontSize: FS.caption,

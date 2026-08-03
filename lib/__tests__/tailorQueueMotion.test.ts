@@ -28,6 +28,31 @@ const tqRules = [...GLOBALS.matchAll(/\.(tq-[a-z-]+)\s*\{([^}]*)\}/g)].map((m) =
   body: m[2],
 }));
 
+/**
+ * Split a transition list on its TOP-LEVEL commas only.
+ *
+ * A naive `.split(",")` reads `cubic-bezier(0.16,1,0.3,1)` as four entries and
+ * reports "1" as a transitioned property. Every rule here used `ease` until the
+ * meter needed an easing curve, so the parser bug shipped green and would have
+ * failed the first correct rule someone wrote.
+ */
+function splitTopLevel(value: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === "," && depth === 0) {
+      out.push(value.slice(start, i));
+      start = i + 1;
+    }
+  }
+  out.push(value.slice(start));
+  return out.filter((s) => s.trim().length > 0);
+}
+
 function keyframeBody(name: string): string {
   const m = GLOBALS.match(new RegExp(`@keyframes\\s+${name}\\s*\\{([\\s\\S]*?)\\n\\}`));
   // Single-line keyframes (the repo writes several that way) close on the same
@@ -70,7 +95,7 @@ describe("tailor queue motion", () => {
     for (const rule of tqRules) {
       const t = rule.body.match(/transition:\s*([^;]+);/);
       if (!t) continue;
-      for (const part of t[1].split(",")) {
+      for (const part of splitTopLevel(t[1])) {
         const prop = part.trim().split(/\s+/)[0];
         expect(SAFE_ANIMATABLE, `.${rule.name} transitions "${prop}"`).toContain(prop);
       }
@@ -87,5 +112,22 @@ describe("tailor queue motion", () => {
     expect(guard, "the global reduced-motion guard is missing").not.toBeNull();
     expect(guard?.[1]).toMatch(/animation-duration:\s*0\.01ms\s*!important/);
     expect(guard?.[1]).toMatch(/animation-iteration-count:\s*1\s*!important/);
+  });
+});
+
+describe("the transition parser itself", () => {
+  // The parser shipped green with a bug because every rule used `ease`. These
+  // pin the behaviour that only surfaced once a rule needed cubic-bezier.
+  it("does not split inside a timing function", () => {
+    expect(splitTopLevel("transform 0.45s cubic-bezier(0.16,1,0.3,1), color 0.2s ease"))
+      .toEqual(["transform 0.45s cubic-bezier(0.16,1,0.3,1)", " color 0.2s ease"]);
+  });
+
+  it("still splits a plain list", () => {
+    expect(splitTopLevel("opacity 1s ease, transform 1s ease")).toHaveLength(2);
+  });
+
+  it("handles a single entry with no comma", () => {
+    expect(splitTopLevel("color 0.3s ease")).toEqual(["color 0.3s ease"]);
   });
 });
