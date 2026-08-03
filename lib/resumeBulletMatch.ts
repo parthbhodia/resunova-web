@@ -93,13 +93,40 @@ export function findLineIndexForOriginal(original: string, lines: string[]): num
   return bestScore >= 0.45 ? best : -1;
 }
 
-/** Merge index-based preview overrides into plain text (Tailor rescore / gap-fix API). */
-export function synthesizeProfileWithBulletOverrides(
+/** An accepted override that matched no line in the current text. */
+export interface UnplacedOverride {
+  index: number;
+  /** The rewrite the user accepted. Returned so nothing is lost silently. */
+  text: string;
+  /** The bullet it was written against, when we still know it. */
+  original: string;
+}
+
+/**
+ * Merge index-based preview overrides into plain text, reporting what did not fit.
+ *
+ * This used to `push()` an unmatched override onto the end of the résumé. The
+ * reasoning was defensible in isolation — dropping it would lose a change the
+ * user explicitly accepted — but "put it somewhere" is not better than "lose
+ * it", and it is how one bullet ended up carrying three copies of its own tail
+ * with the document running past page one.
+ *
+ * An override fails to match whenever the line it was written against has moved
+ * on: the user edited it, an earlier fix rewrote it, a restored session drifted,
+ * or the model returned a slightly reworded `original`. None of those mean "add
+ * a new bullet".
+ *
+ * So there is a third option, which is the honest one: place what fits, and hand
+ * back what did not so the caller can say so. Nothing is invented and nothing is
+ * silently dropped.
+ */
+export function applyBulletOverrides(
   profileText: string,
   bullets: LiveBulletItem[],
   overrides: Record<number, string>,
-): string {
-  if (!Object.keys(overrides).length) return profileText;
+): { text: string; unplaced: UnplacedOverride[] } {
+  const unplaced: UnplacedOverride[] = [];
+  if (!Object.keys(overrides).length) return { text: profileText, unplaced };
   const lines = profileText.split("\n");
   const patched = [...lines];
   const seen = new Set<number>();
@@ -129,11 +156,13 @@ export function synthesizeProfileWithBulletOverrides(
       seen.add(idx);
       continue;
     }
-    patched.push(formatOverrideBullet(raw));
+    // No line to replace. Report it rather than appending a bullet the résumé
+    // never had.
+    unplaced.push({ index: idx, text: raw, original });
     seen.add(idx);
   }
 
-  return patched.join("\n");
+  return { text: patched.join("\n"), unplaced };
 }
 
 // ── Tailor gap-fix: reverse-map suggestion `original` → bullet index ─────────
@@ -387,4 +416,19 @@ export function applyFieldOverridesToStructured<T extends {
     }
   }
   return cloned ?? structured;
+}
+
+/**
+ * Text-only wrapper, kept so existing call sites are unchanged.
+ *
+ * Callers that APPLY a user's accepted fix should prefer `applyBulletOverrides`
+ * and surface `unplaced`: silently discarding an accepted change is the other
+ * half of the bug the append was trying to avoid.
+ */
+export function synthesizeProfileWithBulletOverrides(
+  profileText: string,
+  bullets: LiveBulletItem[],
+  overrides: Record<number, string>,
+): string {
+  return applyBulletOverrides(profileText, bullets, overrides).text;
 }

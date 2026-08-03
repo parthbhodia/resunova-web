@@ -45,6 +45,7 @@ import {
   patchStructuredWithOverrides,
   resolveBulletIndexForGapFix,
   synthesizeProfileWithBulletOverrides,
+  applyBulletOverrides,
   type LiveBulletItem,
 } from "@/lib/resumeBulletMatch";
 import {
@@ -3155,11 +3156,29 @@ export default function ResumeBuilder({
 
       if (jd.trim()) {
         try {
-          const updatedProfile = synthesizeProfileWithBulletOverrides(
+          // An override whose INDEX resolved but whose line is no longer in the
+          // text used to be APPENDED as a brand-new bullet at the end of the
+          // résumé — silently, and still counted as applied. It is reported now
+          // instead: only this batch's own overrides move the counters, since
+          // `nextOverrides` also carries earlier ones the user was already told
+          // about.
+          const { text: updatedProfile, unplaced } = applyBulletOverrides(
             candidateProfile ?? "",
             bullets,
             nextOverrides,
           );
+          const lost = unplaced.filter((u) => appliedIndices.has(u.index)).length;
+          if (lost > 0) {
+            setApplyFeedback((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    patchesApplied: Math.max(0, prev.patchesApplied - lost),
+                    patchesFailed: prev.patchesFailed + lost,
+                  }
+                : prev,
+            );
+          }
           await rescoreTailorRatings(updatedProfile);
         } catch { /* rescore is best-effort */ }
       }
