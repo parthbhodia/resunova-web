@@ -201,3 +201,53 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
     open: items.length - applied - needsReview - notCoverable - ignored,
   };
 }
+
+/**
+ * Grouping for the queue.
+ *
+ * The v3 design groups the work so a long list reads as a few short ones. The
+ * original plan grouped by requirement importance (required vs preferred), but
+ * that was dropped after measuring the real data: across 277 concepts from 15
+ * production scans, importance is 94.6% "required", and 9 of those 15 scans
+ * had ZERO non-required concepts. Grouping on it would put everything in one
+ * bucket for most users, which is not a grouping.
+ *
+ * Kind is the honest axis instead. It is already how the rest of the surface
+ * talks (the dimension chips read Qualifications / Responsibilities /
+ * Keywords), it needs no join between two independent LLM outputs, and it
+ * cannot collapse.
+ *
+ * Order is by leverage: a missing qualification costs more than a missing
+ * keyword, and contextual items are last because they are usually best left
+ * uncovered.
+ */
+export const QUEUE_KIND_ORDER: readonly QueueKind[] = [
+  "qualification",
+  "responsibility",
+  "keyword",
+  "contextual",
+] as const;
+
+export const QUEUE_KIND_LABEL: Record<QueueKind, string> = {
+  qualification: "Qualifications",
+  responsibility: "What the role does",
+  keyword: "Keywords",
+  contextual: "About the employer",
+};
+
+export interface QueueGroup {
+  kind: QueueKind;
+  label: string;
+  items: QueueItem[];
+}
+
+/** Group in QUEUE_KIND_ORDER, dropping empties. Order within a group is the
+ *  order the items arrived, which is already priority order from the rater. */
+export function groupQueueByKind(items: readonly QueueItem[]): QueueGroup[] {
+  const out: QueueGroup[] = [];
+  for (const kind of QUEUE_KIND_ORDER) {
+    const inKind = items.filter((it) => it.kind === kind);
+    if (inKind.length) out.push({ kind, label: QUEUE_KIND_LABEL[kind], items: inKind });
+  }
+  return out;
+}

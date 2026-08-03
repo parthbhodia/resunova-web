@@ -48,3 +48,35 @@ describe("TailorWorkQueue working state", () => {
     expect(onItemAction).toHaveBeenCalledWith(items[0], "fix");
   });
 });
+
+/**
+ * Grouping by kind, which replaced the required/preferred split after that
+ * split was measured and found unusable: 94.6% of concepts come back
+ * "required", and 9 of 15 production scans had no non-required concept at all.
+ */
+describe("the queue groups by kind", () => {
+  const items: QueueItem[] = [
+    { id: "k:go", name: "Go", kind: "keyword", status: "queued", detail: "" },
+    { id: "q:degree", name: "Master's degree", kind: "qualification", status: "queued", detail: "" },
+    { id: "r:review", name: "Review code", kind: "responsibility", status: "queued", detail: "" },
+  ];
+
+  it("shows a header for each kind present", () => {
+    render(<TailorWorkQueue items={items} />);
+    expect(screen.getByText("Qualifications")).toBeInTheDocument();
+    expect(screen.getByText("What the role does")).toBeInTheDocument();
+    expect(screen.getByText("Keywords")).toBeInTheDocument();
+  });
+
+  it("shows no header for a kind with nothing in it", () => {
+    render(<TailorWorkQueue items={[items[0]]} />);
+    expect(screen.queryByText("Qualifications")).toBeNull();
+    expect(screen.getByText("Keywords")).toBeInTheDocument();
+  });
+
+  it("still renders every row", () => {
+    // Grouping is a partition: an item must never disappear into a header.
+    render(<TailorWorkQueue items={items} />);
+    for (const it of items) expect(screen.getByText(it.name)).toBeInTheDocument();
+  });
+});
