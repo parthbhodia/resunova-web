@@ -334,37 +334,41 @@ export function TailorWorkQueue({
                 <StatusDot status={it.status} working={working} />
               )}
               <span style={{ minWidth: 0 }}>
-                <span
-                  className="tq-title"
-                  style={{
-                    fontSize: FS.body,
-                    fontWeight: FW.semibold,
-                    // Plain ink. Severity is the stripe now, and colouring the
-                    // title too made every row shout at the same volume.
-                    color:
-                      it.status === "not_coverable" || it.status === "ignored"
-                        ? "var(--muted)"
-                        : "var(--text)",
-                  }}
-                >
-                  {it.name}
-                </span>
-                {it.detail ? (
-                  <>
+                {/* Title and the reason toggle share a line. Seven items fit on
+                    screen at a row height of one line; at two they do not, and
+                    the queue stops being scannable — which was the whole
+                    argument for having one queue. */}
+                <span style={{ display: "flex", alignItems: "baseline", gap: 9, flexWrap: "wrap", minWidth: 0 }}>
+                  <span
+                    className="tq-title"
+                    style={{
+                      fontSize: FS.body,
+                      fontWeight: FW.semibold,
+                      // Plain ink. Severity is the stripe now, and colouring the
+                      // title too made every row shout at the same volume.
+                      color:
+                        it.status === "not_coverable" || it.status === "ignored"
+                          ? "var(--muted)"
+                          : "var(--text)",
+                    }}
+                  >
+                    {it.name}
+                  </span>
+                  {it.detail ? (
                     <button
                       type="button"
                       aria-expanded={detailOpen}
                       onClick={() => toggleDetail(it.id)}
-                      style={{ display: "block", border: 0, background: "none", color: "var(--muted)", padding: "3px 0 0", fontSize: FS.caption, cursor: "pointer" }}
+                      style={{ border: 0, background: "none", color: "var(--muted)", padding: 0, fontSize: FS.caption, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, whiteSpace: "nowrap" }}
                     >
                       {detailOpen ? "Hide details" : "Why this matters"}
                     </button>
-                    {detailOpen ? (
-                      <span style={{ display: "block", fontSize: FS.small, color: "var(--muted)", marginTop: 3, maxWidth: "52ch", lineHeight: 1.45 }}>
-                        {it.detail}
-                      </span>
-                    ) : null}
-                  </>
+                  ) : null}
+                </span>
+                {it.detail && detailOpen ? (
+                  <span style={{ display: "block", fontSize: FS.small, color: "var(--muted)", marginTop: 4, maxWidth: "52ch", lineHeight: 1.45 }}>
+                    {it.detail}
+                  </span>
                 ) : null}
               </span>
               {action && onItemAction ? (

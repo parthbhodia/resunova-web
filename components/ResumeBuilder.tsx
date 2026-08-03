@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { GenerationResult, SSEEvent, RatingsData, DiffLine, Source, ChangeRationale, ParsedSection } from "@/lib/types";
+import { normalizeConfirmedFacts, type ConfirmedFact } from "@/lib/tailorConfirmFacts";
 import { buildResumeFileStem } from "@/lib/resumeFileName";
 import { saveTailorMatchToLibrary, tailorMatchFolder } from "@/lib/tailorAnalyzeLibrary";
 import { resolveIntentJobRedirect } from "@/lib/tailorIntentRedirect";
@@ -2469,7 +2470,10 @@ export default function ResumeBuilder({
    * handleFixGap, but RETURNS the rewrite options instead of auto-applying
    * them — the queue row expands around them so the user picks a version.
    */
-  const fetchFixSuggestions = useCallback(async (item: QueueItem): Promise<FixSuggestion[]> => {
+  const fetchFixSuggestions = useCallback(async (
+    item: QueueItem,
+    facts?: ConfirmedFact,
+  ): Promise<FixSuggestion[]> => {
     if (!jd.trim()) throw new Error("Add a job description first.");
     const prof = effectiveCandidateProfile.trim();
     if (!tailorStructuredResume && !prof) {
@@ -2479,6 +2483,7 @@ export default function ResumeBuilder({
       item.kind === "qualification" || item.kind === "responsibility"
         ? item.detail
         : `This keyword is missing from the resume. Rewrite one of the most relevant existing bullets to naturally incorporate "${item.name}" without fabricating experience.`;
+    const confirmed = normalizeConfirmedFacts(facts ? [facts] : []);
     const resp = await apiFetch("/api/suggest-gap-fix", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2487,6 +2492,11 @@ export default function ResumeBuilder({
         gap_name: item.name,
         gap_notes: notes,
         job_description: jd.trim(),
+        // Provenance, not permission: the API uses confirmed facts to decide
+        // whether an added number is evidenced, never to withhold a rewrite.
+        // Omitted entirely when absent so the request is byte-identical to
+        // before the confirm step existed.
+        ...(confirmed.length ? { confirmed_facts: confirmed } : {}),
         // Patched doc, same as handleFixGap: the eligible-bullets whitelist
         // must reflect already-applied fixes or a later apply overwrites them.
         ...(tailorStructuredResume ? {
