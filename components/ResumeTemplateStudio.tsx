@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { tailorHref } from "@/lib/tailorRoute";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   DEFAULT_REFERENCE_FOLDER,
@@ -614,7 +615,7 @@ export default function ResumeTemplateStudio({ initialBaseFolder }: { initialBas
           </p>
           <button
             type="button"
-            onClick={() => router.push("/?view=builder&flow=tailor&intent=job")}
+            onClick={() => router.push(tailorHref({ intentJob: true }))}
             style={{
               flexShrink: 0,
               padding: "10px 18px",

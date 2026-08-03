@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { tailorHref } from "@/lib/tailorRoute";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { apiUrl } from "@/lib/utils";
@@ -246,7 +247,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
     try {
       sessionStorage.removeItem(RN_BUILDER_LAYOUT_ONLY_KEY);
     } catch { /* ignore */ }
-    router.push(`/?view=builder&flow=tailor&base=${encodeURIComponent(r.folder)}&intent=job`);
+    router.push(tailorHref({ base: r.folder, intentJob: true }));
   };
 
   const openAnalysis = (item: LibraryFeedItem) => {
@@ -261,7 +262,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
       if (text) sessionStorage.setItem("rn_builder_profile_prefill", text);
       sessionStorage.removeItem(RN_BUILDER_LAYOUT_ONLY_KEY);
     } catch { /* ignore */ }
-    router.push("/?view=builder&flow=tailor&fromAnalyze=1");
+    router.push(tailorHref({ fromAnalyze: true }));
   };
 
   const editAnalysisInTemplateBuilder = (item: LibraryFeedItem) => {
@@ -693,7 +694,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                   try {
                     sessionStorage.removeItem(RN_BUILDER_LAYOUT_ONLY_KEY);
                   } catch { /* ignore */ }
-                  router.push("/?view=builder&flow=tailor&intent=job");
+                  router.push(tailorHref({ intentJob: true }));
                 }}
                 className="shrink-0"
               >
@@ -780,7 +781,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                 }
                 onClick={() => {
                   try { sessionStorage.removeItem(RN_BUILDER_LAYOUT_ONLY_KEY); } catch { /* ignore */ }
-                  router.push("/?view=builder&flow=tailor&intent=job");
+                  router.push(tailorHref({ intentJob: true }));
                 }}
               />
             </div>
@@ -840,7 +841,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                   try {
                     sessionStorage.removeItem(RN_BUILDER_LAYOUT_ONLY_KEY);
                   } catch { /* ignore */ }
-                  router.push("/?view=builder&flow=tailor&intent=job");
+                  router.push(tailorHref({ intentJob: true }));
                 }}
               />
             ) : (

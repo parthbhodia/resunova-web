@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { TAILOR_ROUTE, tailorHref } from "@/lib/tailorRoute";
 import Link from "next/link";
 import { goToFreeScan } from "@/lib/anonScan";
 import { useSignInDialog } from "@/components/SignInDialog";
@@ -590,7 +591,7 @@ export default function LandingPage() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                     {[
                       { title: "ATS Checker", desc: "Get instant feedback for your resume.", icon: <path d="M12 20v-6M6 20V10M18 20V4"/>, href: "/?view=analyze" },
-                      { title: "Resume Builder", desc: "Create your best resume yet. Get hired.", icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>, href: "/?view=builder" },
+                      { title: "Resume Builder", desc: "Create your best resume yet. Get hired.", icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>, href: TAILOR_ROUTE },
                       { title: "Cover Letter", desc: "Let AI write your cover letter.", icon: <><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></>, href: "/?view=cover-letter" },
                       { title: "Resume Templates", desc: "Designed by typographers, approved by recruiters.", icon: <><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></>, href: "/template-builder" }
                     ].map((item) => (
@@ -725,7 +726,7 @@ export default function LandingPage() {
             </div>
 
             {[
-              ["Resume Builder", "templates", "/?view=builder"],
+              ["Resume Builder", "templates", TAILOR_ROUTE],
               ["Resume Examples", "resume-examples-nav", "/resume-examples/"],
               ["Cover Letter", "cover-letter", "/?view=cover-letter"],
               ["ATS Checker", "analyze", "/?view=analyze"],
@@ -883,7 +884,7 @@ export default function LandingPage() {
                 <div style={{ paddingBottom: 16, display: "flex", flexDirection: "column", gap: 16 }}>
                   {[
                     { title: "ATS Checker", desc: "Get instant feedback for your resume.", href: "/?view=analyze" },
-                    { title: "Resume Builder", desc: "Create your best resume yet. Get hired.", href: "/?view=builder" },
+                    { title: "Resume Builder", desc: "Create your best resume yet. Get hired.", href: TAILOR_ROUTE },
                     { title: "Cover Letter", desc: "Let AI write your cover letter.", href: "/?view=cover-letter" },
                     { title: "Resume Templates", desc: "Designed by typographers, approved by recruiters.", href: "/template-builder" }
                   ].map(item => (
@@ -1270,7 +1271,7 @@ export default function LandingPage() {
         wide
         animationOnly={!SHOW_LANDING_CARDS}
         ctaLabel="Tailor my résumé now"
-        ctaHref="/?view=builder&flow=tailor"
+        ctaHref={tailorHref()}
       >
         <VariantD embedded />
       </LandingPreviewSection>

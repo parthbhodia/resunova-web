@@ -11,6 +11,7 @@ import {
   TAILOR_PREFILL_COMPANY,
   TAILOR_PREFILL_ROLE,
 } from "@/lib/tailorPrefill";
+import { tailorHref } from "@/lib/tailorRoute";
 import { structuredToPlainText, type ResumeVersion } from "@/lib/resumeVersions";
 
 // Builder reads these for the résumé itself (same keys Analyze/Boost → Builder use).
@@ -44,4 +45,4 @@ export function stashVersionForTailor(version: Pick<ResumeVersion, "structured" 
 }
 
 /** The URL the builder's intent=job prefill consumes. */
-export const VERSION_TAILOR_URL = "/?view=builder&flow=tailor&intent=job";
+export const VERSION_TAILOR_URL = tailorHref({ intentJob: true });

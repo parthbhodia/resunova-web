@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect, useId, useMemo, type CSSProperties, type ReactNode } from "react";
+import { tailorHref } from "@/lib/tailorRoute";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -1093,7 +1094,7 @@ export default function ResumeBuilder({
       setStudioHandoff(false);
       const baseQ = sp.get("base");
       const styleRef = sp.get("styleRef");
-      let next = "/?view=builder&flow=tailor";
+      let next = tailorHref();
       if (baseQ) next += `&base=${encodeURIComponent(baseQ)}`;
       if (styleRef) next += `&styleRef=${encodeURIComponent(styleRef)}`;
       router.replace(next);
@@ -4976,7 +4977,7 @@ function TemplateCustomizePostResult({
       ) : null}
 
       <nav aria-label="Breadcrumb" style={{ fontSize: 12, color: "var(--dim)", marginBottom: 14 }}>
-        <Link href="/?view=builder&flow=tailor&intent=job" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+        <Link href={tailorHref({ intentJob: true })} style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
           Resume Builder
         </Link>
         <span style={{ margin: "0 8px", opacity: 0.45 }} aria-hidden>›</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { tailorHref } from "@/lib/tailorRoute";
 import { useRouter } from "next/navigation";
 import { fetchResumes } from "@/lib/supabase";
 import type { ResumeRecord } from "@/lib/types";
@@ -80,7 +81,7 @@ export default function TailorRecentJobs({
     } catch { /* ignore */ }
 
     onPick?.();
-    const url = `/?view=builder&flow=tailor&intent=job${r.folder ? `&base=${encodeURIComponent(r.folder)}` : ""}`;
+    const url = tailorHref({ intentJob: true, base: r.folder || undefined });
     router.push(url);
   }
 
