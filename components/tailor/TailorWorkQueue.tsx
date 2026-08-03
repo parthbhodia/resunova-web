@@ -51,6 +51,8 @@ const ACTION_LABEL: Record<QueueItemAction, string> = {
 };
 
 function StatusDot({ status, working }: { status: QueueItem["status"]; working: boolean }) {
+  // `tq-dot` transitions the colours, so a row going queued → applied changes
+  // state visibly instead of teleporting.
   const base: React.CSSProperties = {
     width: 16,
     height: 16,
@@ -68,40 +70,40 @@ function StatusDot({ status, working }: { status: QueueItem["status"]; working: 
     return (
       <span
         aria-label="working"
-        className="rn-queue-spin"
+        className="rn-queue-spin tq-dot"
         style={{ ...base, borderColor: "var(--accent)", borderTopColor: "transparent" }}
       />
     );
   }
   if (status === "applied") {
     return (
-      <span aria-label="applied" style={{ ...base, background: "var(--green-ink, #16a34a)", borderColor: "var(--green-ink, #16a34a)", color: "#fff" }}>
+      <span aria-label="applied" className="tq-dot" style={{ ...base, background: "var(--green-ink, #16a34a)", borderColor: "var(--green-ink, #16a34a)", color: "#fff" }}>
         ✓
       </span>
     );
   }
   if (status === "needs_review") {
     return (
-      <span aria-label="needs review" style={{ ...base, borderColor: "var(--amber-ink, #b45309)", color: "var(--amber-ink, #b45309)" }}>
+      <span aria-label="needs review" className="tq-dot" style={{ ...base, borderColor: "var(--amber-ink, #b45309)", color: "var(--amber-ink, #b45309)" }}>
         !
       </span>
     );
   }
   if (status === "not_coverable") {
     return (
-      <span aria-label="not coverable" style={{ ...base, color: "var(--muted)" }}>
+      <span aria-label="not coverable" className="tq-dot" style={{ ...base, color: "var(--muted)" }}>
         –
       </span>
     );
   }
   if (status === "ignored") {
     return (
-      <span aria-label="ignored" style={{ ...base, color: "var(--muted)", opacity: 0.7 }}>
+      <span aria-label="ignored" className="tq-dot" style={{ ...base, color: "var(--muted)", opacity: 0.7 }}>
         –
       </span>
     );
   }
-  return <span aria-label="queued" style={base} />;
+  return <span aria-label="queued" className="tq-dot" style={base} />;
 }
 
 export function TailorWorkQueue({
@@ -264,6 +266,7 @@ export function TailorWorkQueue({
                 of what is still OPEN, so a band you have cleared reads as
                 cleared instead of still accusing you. */}
             <div
+              className="tq-band"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -285,15 +288,23 @@ export function TailorWorkQueue({
               <span aria-hidden style={{ flex: 1, height: 1, background: "currentColor", opacity: 0.22 }} />
             </div>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {group.items.map((it) => {
+        {group.items.map((it, rowIndex) => {
           const expanded = it.id === expandedId;
           const action = expanded ? null : itemAction(it);
           const working = it.id === workingId || Boolean(workingIds?.has(it.id));
           const detailOpen = detailIds.has(it.id);
           const canSelect = it.status === "queued" && it.kind !== "contextual";
           return (
-            <li key={it.id} data-status={it.status} style={{ borderRadius: 9 }}>
+            <li
+              key={it.id}
+              data-status={it.status}
+              className="tq-row"
+              // Capped stagger: past a handful of rows the delay stops reading
+              // as sequence and starts reading as lag.
+              style={{ borderRadius: 9, animationDelay: `${Math.min(rowIndex, 5) * 0.03}s` }}
+            >
             <div
+              className="tq-rowbody"
               style={{
                 display: "grid",
                 gridTemplateColumns: "20px 1fr auto",
@@ -324,6 +335,7 @@ export function TailorWorkQueue({
               )}
               <span style={{ minWidth: 0 }}>
                 <span
+                  className="tq-title"
                   style={{
                     fontSize: FS.body,
                     fontWeight: FW.semibold,
@@ -376,7 +388,7 @@ export function TailorWorkQueue({
                 <span />
               )}
             </div>
-            {expanded ? expansion : null}
+            {expanded ? <div className="tq-expand">{expansion}</div> : null}
             </li>
           );
         })}

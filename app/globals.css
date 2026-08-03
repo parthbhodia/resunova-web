@@ -381,6 +381,24 @@ select option { background: var(--surface); }
 .fade-in-up  { animation: fadeInUp 0.38s cubic-bezier(0.16,1,0.3,1) both; }
 .scale-in    { animation: scaleIn 0.22s cubic-bezier(0.4,0,0.2,1) both; }
 
+/* ── Tailor work queue motion ─────────────────────────────────
+   Everything here animates transform/opacity or a colour. Nothing animates a
+   layout property, so a queue of fifty rows does not thrash on a fix pass, and
+   the reduced-motion block below collapses all of it. No `transition: all`:
+   an unlisted property is a repaint nobody asked for.
+
+   The settle flash costs no extra state. A row in flight already paints an
+   accent tint; giving background-color a transition means that tint FADES OUT
+   when the fix lands, which reads as the row settling. */
+.tq-row      { animation: fadeSlideIn 0.26s cubic-bezier(0.16,1,0.3,1) both; }
+.tq-rowbody  { transition: background-color 0.5s ease, border-left-color 0.45s ease; }
+.tq-title    { transition: color 0.3s ease; }
+/* A band turning green as you clear it is the payoff for the work. Snapping
+   there loses it. */
+.tq-band     { transition: color 0.45s ease; }
+.tq-expand   { animation: fadeSlideIn 0.22s cubic-bezier(0.16,1,0.3,1) both; }
+.tq-dot      { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+
 /* ── Stagger helpers ──────────────────────────────────────── */
 .stagger-1 { animation-delay: 0.06s; }
 .stagger-2 { animation-delay: 0.12s; }
