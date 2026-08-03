@@ -95,7 +95,7 @@ describe("withStatus / queueCounts", () => {
     q = withStatus(q, queueItemId("contextual", "advertisers"), "not_coverable", "Employer-domain word");
 
     const c = queueCounts(q);
-    expect(c).toEqual({ total: 7, applied: 1, needsReview: 1, notCoverable: 1, ignored: 0, open: 4 });
+    expect(c).toEqual({ total: 7, applied: 1, needsReview: 1, notCoverable: 1, ignored: 0, covered: 0, open: 4 });
     // The reason travels with the state — a skipped item explains itself.
     expect(q.find((i) => i.name === "advertisers")?.detail).toBe("Employer-domain word");
   });
@@ -114,5 +114,27 @@ describe("withStatus / queueCounts", () => {
     const next = withStatus(q, q[0].id, "applied");
     expect(q[0].status).toBe("queued");
     expect(next[0].status).toBe("applied");
+  });
+});
+
+describe("covered requirements are reassurance, never work", () => {
+  it("is excluded from open, so meeting a requirement cannot inflate the count", () => {
+    // The whole surface is scored on "N to review". A requirement the résumé
+    // already satisfies landing in that number is the same overcounting the
+    // queue exists to end.
+    let q = deriveWorkQueue(ratings(), new Set());
+    const before = queueCounts(q).open;
+    q = [...q, {
+      id: "qualification:ms in cs",
+      name: "MS in Computer Science",
+      kind: "qualification" as const,
+      status: "covered" as const,
+      detail: "MS Computer Science, UMBC.",
+    }];
+    const c = queueCounts(q);
+    expect(c.covered).toBe(1);
+    expect(c.open).toBe(before);
+    expect(c.total).toBe(before + queueCounts(q).applied + 1
+      + c.needsReview + c.notCoverable + c.ignored);
   });
 });

@@ -139,9 +139,11 @@ describe("the queue accounts for what the percentage is complaining about", () =
     await vi.advanceTimersByTimeAsync(600);
     await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
     // The queue shows its top 5 and offers the rest behind one control, so the
-    // count lives on that button. Six unmatched requirements, five shown.
-    expect(screen.getByRole("button", { name: /show 1 more/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /show 1 more/i }));
+    // count lives on that button. Six unmatched requirements plus the covered
+    // reassurance row the fixture carries, five shown.
+    const more = screen.getByRole("button", { name: /show \d+ more/i });
+    expect(more).toBeInTheDocument();
+    fireEvent.click(more);
     for (const name of SCORED_UNMATCHED) {
       expect(screen.getByText(name)).toBeInTheDocument();
     }
@@ -192,9 +194,12 @@ describe("the bands say what kind of problem each row is", () => {
     await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /show \d+ more/i }));
 
-    expect(screen.getByText(/could get you filtered out/i)).toBeInTheDocument();
-    expect(screen.getByText(/worth adding/i)).toBeInTheDocument();
-    expect(screen.getByText(/about the employer/i)).toBeInTheDocument();
+    // The band HEADER specifically. The gap-count banner above the tiles
+    // carries the same phrase by design (it summarises the band it points at),
+    // so an unscoped match finds two and proves neither.
+    expect(screen.getByText("Could get you filtered out")).toBeInTheDocument();
+    expect(screen.getByText("Worth adding")).toBeInTheDocument();
+    expect(screen.getByText("About the employer")).toBeInTheDocument();
   });
 
   it("does not offer a fix button for an employer-domain row", async () => {
@@ -274,5 +279,35 @@ describe("a row says what we are claiming about it", () => {
     for (const v of ["Partial match", "Not evidenced", "Keyword · fits an existing bullet"]) {
       expect(row!.textContent).not.toContain(v);
     }
+  });
+});
+
+describe("the queue reports what is already covered", () => {
+  it("shows a covered requirement with its evidence, outside the review count", () => {
+    // Covered requirements were invisible: a user reading "N to review" had no
+    // way to see what they already meet, so the page only ever said what was
+    // wrong. They must not inflate that N either.
+    renderPanel();
+    const header = screen.getByText(/to review/).textContent ?? "";
+    expect(screen.getByText("Already covered")).toBeInTheDocument();
+    expect(screen.getByText("Python")).toBeInTheDocument();
+    expect(screen.getByText("You have this")).toBeInTheDocument();
+    // The fixture has 2 rater gaps and 1 covered item; the count is the gaps.
+    expect(header).toContain("2");
+  });
+
+  it("offers no action on a covered row", async () => {
+    renderPanel();
+    const row = screen.getByText("Python").closest("li");
+    expect(row!.textContent).toContain("No action");
+    expect(row!.querySelector('input[type="checkbox"]')).toBeNull();
+  });
+
+  it("names the toggle for what it reveals", () => {
+    // On a covered row the detail IS the evidence; "Why this matters" would
+    // promise an explanation of a problem the user does not have.
+    renderPanel();
+    const row = screen.getByText("Python").closest("li");
+    expect(row!.textContent).toContain("Show the evidence");
   });
 });

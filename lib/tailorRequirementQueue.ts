@@ -136,7 +136,7 @@ export type QueueSource = "both" | "scorer" | "rater";
  * producer, and the fix was to make the producer authoritative and have the
  * view trust it verbatim. Same rule.
  */
-export type QueueVerdict = "partial" | "not_evidenced" | "keyword";
+export type QueueVerdict = "partial" | "not_evidenced" | "keyword" | "covered";
 
 export interface SourcedQueueItem extends QueueItem {
   source: QueueSource;
@@ -312,6 +312,80 @@ export function deriveScorerQueue(
       verdict: verdictFor(kind, raterCovered),
     });
   }
+  return out;
+}
+
+/**
+ * The requirements the résumé already satisfies, as reassurance rows.
+ *
+ * These were never in the queue. The mockup's argument for adding them is that
+ * a covered requirement is currently invisible, so a user reading "7 to review"
+ * has no way to see the ten they already meet — the surface only ever tells
+ * them what is wrong. Putting them in their own band, last, at the bottom,
+ * costs one line each and changes what the page is: a report rather than a
+ * complaint list.
+ *
+ * They carry the rater's own evidence as `detail`, so "You have this" is
+ * followed by the sentence that justifies it rather than by an assertion the
+ * user has to take on faith.
+ *
+ * ⚠️ They are `status: "covered"`, which `queueCounts` excludes from `open`.
+ * A requirement you meet must never inflate the number you are judged on.
+ */
+export function deriveCoveredQueue(
+  ratings: unknown,
+  /**
+   * Rows already in the work queue.
+   *
+   * ⚠️ Load-bearing. The scorer-unmatched + rater-covered class is exactly the
+   * "Partial match" row: the résumé shows it, the matcher cannot see it. That
+   * requirement is ALSO on the rater's covered list, so without this filter it
+   * renders twice — once as work and once as reassurance, with two different
+   * verdicts on the same line item. Caught by a panel test finding two rows
+   * for one requirement, which is the duplicate the merge exists to prevent.
+   */
+  alreadyQueued: readonly QueueItem[] = [],
+): SourcedQueueItem[] {
+  const r = (ratings ?? {}) as Record<string, unknown>;
+  const out: SourcedQueueItem[] = [];
+  const seen = new Set<string>();
+
+  const take = (key: string, kind: QueueKind) => {
+    const block = r[key] as Record<string, unknown> | undefined;
+    const list = block?.covered;
+    if (!Array.isArray(list)) return;
+    for (const raw of list) {
+      const name = requirementText(raw);
+      if (!name) continue;
+      const id = queueItemId(kind, name);
+      if (seen.has(id)) continue;
+      // A requirement the work queue is already showing stays there. Work
+      // wins over reassurance: the user can act on the one and not the other.
+      if (alreadyQueued.some((q) => sameRequirement(q.name, name))) continue;
+      seen.add(id);
+      const o = (raw ?? {}) as { context?: unknown; analysis?: unknown };
+      const evidence =
+        (typeof o.context === "string" && o.context.trim())
+        || (typeof o.analysis === "string" && o.analysis.trim())
+        || "";
+      out.push({
+        id,
+        name,
+        kind,
+        status: "covered",
+        detail: evidence,
+        source: "rater",
+        // Already matched, so closing it is not available and would not move
+        // anything. Saying otherwise would be the same false promise the
+        // `movesScore` flag exists to prevent.
+        movesScore: false,
+        verdict: "covered",
+      });
+    }
+  };
+
+  take("qualifications", "qualification");
+  take("responsibilities", "responsibility");
   return out;
 }
 

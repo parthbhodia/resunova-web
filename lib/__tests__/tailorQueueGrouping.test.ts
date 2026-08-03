@@ -134,7 +134,42 @@ describe("groupQueueBySeverity", () => {
     const all = [
       item("q", "qualification"), item("r", "responsibility"),
       item("k", "keyword"), item("c", "contextual"),
+      // The covered band is reached by STATUS, not by kind, so it needs an
+      // item of its own here or the exhaustiveness claim is only about kinds.
+      { ...item("cov", "qualification"), status: "covered" as const },
     ];
     expect(groupQueueBySeverity(all)).toHaveLength(QUEUE_BAND_ORDER.length);
+  });
+});
+
+describe("the covered band", () => {
+  const covered = (name: string) => ({
+    id: `qualification:${name}`,
+    name,
+    kind: "qualification" as const,
+    status: "covered" as const,
+    detail: "Evidence sentence.",
+  });
+
+  it("sorts last, so reassurance never sits above work", () => {
+    const groups = groupQueueBySeverity([
+      covered("Python"),
+      { id: "k:go", name: "Go", kind: "keyword" as const, status: "queued" as const, detail: "" },
+    ]);
+    expect(groups.map((g) => g.band)).toEqual(["boost", "covered"]);
+  });
+
+  it("collects covered items whatever kind they are", () => {
+    // Status wins over kind here: what a covered requirement IS stops
+    // mattering once the résumé satisfies it, and filing by kind would
+    // scatter reassurance through the work bands.
+    const groups = groupQueueBySeverity([
+      covered("Python"),
+      { ...covered("Own delivery"), kind: "responsibility" as const, id: "r:own" },
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].band).toBe("covered");
+    expect(groups[0].items).toHaveLength(2);
+    expect(groups[0].open).toBe(0);
   });
 });

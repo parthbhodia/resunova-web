@@ -44,7 +44,13 @@ const DEMO_RATINGS: RatingsData = {
   },
   qualifications: {
     score: 40,
-    covered: [],
+    // Requirements the résumé already satisfies, with the evidence the rater
+    // quoted. The harness had none, so the "Already covered" band could not be
+    // reviewed here at all — the same blind spot the band exists to close.
+    covered: [
+      { text: "5+ years of software engineering", context: "Senior Fullstack Developer since 2018, across two employers." },
+      { text: "Python", context: "LLM enrichment services and LangGraph workflows built in Python." },
+    ],
     missing: [
       { text: "CI/CD pipeline experience", analysis: "Not on your resume yet. You have related work to draw from." },
       { text: "Build systems (Bazel-class)", analysis: "Closest support: frontend build tooling on Project Spectrum." },
@@ -52,7 +58,9 @@ const DEMO_RATINGS: RatingsData = {
   },
   responsibilities: {
     score: 55,
-    covered: [],
+    covered: [
+      { text: "Ship production services", context: "Shipped the SOCOM-approved security analysis workflow to production." },
+    ],
     missing: [
       { text: "Improve developer workflows", context: "Closest match: the internal IPT tool dashboard." },
     ],
