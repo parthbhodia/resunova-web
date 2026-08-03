@@ -162,6 +162,7 @@ export function TailorFixExpansion({
   onIgnore,
   onTryFix,
   onRewriteWithFacts,
+  scoreFix,
   onClose,
 }: {
   item: QueueItem;
@@ -175,10 +176,22 @@ export function TailorFixExpansion({
   /** Re-run the rewrite grounded in what the user says they actually did.
    *  Absent ⇒ the confirm step does not render and behaviour is unchanged. */
   onRewriteWithFacts?: (fact: ConfirmedFact) => void;
+  /** Recount the deterministic match with this one rewrite applied. */
+  scoreFix?: (original: string, suggested: string) => Promise<{ before: number; after: number } | null>;
   onClose: () => void;
 }) {
   const [chosen, setChosen] = useState(0);
   const [editText, setEditText] = useState<string | null>(null);
+  /**
+   * Recount, stamped with the suggestion it describes.
+   *
+   * The key is what makes a late response safe: picking version B and seeing
+   * version A's number is the quiet wrongness this line exists to remove, and
+   * comparing keys at render time handles it without clearing state
+   * synchronously inside the effect.
+   */
+  const [delta, setDelta] = useState<{ key: string; before: number; after: number } | null>(null);
+
   /** null = not correcting; an object = the correction form is open. */
   const [correction, setCorrection] = useState<ConfirmedFact | null>(null);
   /** The user has agreed with (or corrected) the claim for this expansion. */
@@ -186,6 +199,29 @@ export function TailorFixExpansion({
 
   const suggestions = state.phase === "ready" ? state.suggestions : [];
   const current = suggestions[Math.min(chosen, Math.max(0, suggestions.length - 1))];
+
+  /**
+   * Recount whenever the chosen suggestion changes.
+   *
+   * Guarded so a late response from a previously-selected version cannot land
+   * under a different one — picking version B and seeing version A's number is
+   * exactly the kind of quiet wrongness this line exists to remove.
+   */
+  React.useEffect(() => {
+    if (!scoreFix || !current?.original || !current?.suggested) return;
+    const key = `${current.original}\u0000${current.suggested}`;
+    let live = true;
+    void scoreFix(current.original, current.suggested)
+      .then((r) => { if (live && r) setDelta({ key, ...r }); })
+      .catch(() => { /* a missing line is honest; a wrong one is not */ });
+    return () => { live = false; };
+  }, [scoreFix, current?.original, current?.suggested]);
+
+  /** Only render a recount that belongs to what is on screen right now. */
+  const shownDelta =
+    delta && current && delta.key === `${current.original}\u0000${current.suggested}`
+      ? delta
+      : null;
   const draft = draftFactFromSuggestion(current);
   // The confirm step only appears when there is a real résumé bullet to quote.
   // Asking someone to vouch for a sentence we invented would be the opposite of
@@ -402,6 +438,46 @@ export function TailorFixExpansion({
           {current.reason ? (
             <div style={{ fontSize: FS.caption, color: "var(--muted)", marginTop: 9 }}>
               ↳ {current.reason}
+            </div>
+          ) : null}
+          {/* What this specific rewrite does to the number, before committing.
+           *
+           * Applying used to be a leap: the row went green, the scoreboard
+           * moved later, and nothing connected the two — so a fix that changed
+           * nothing looked identical to one that mattered. This is a recount
+           * of exactly this text through the same endpoint the scoreboard
+           * uses, which is why it can say "no change" and be believed.
+           *
+           * It renders nothing while loading and nothing on failure. A missing
+           * line is honest; a stale or invented one is not, and this sits
+           * directly above the button that writes to someone's résumé. */}
+          {shownDelta ? (
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 9, flexWrap: "wrap" }}>
+              <span style={{ fontSize: FS.small, fontWeight: FW.bold, color: "var(--text)" }}>
+                {shownDelta.before}%{" "}
+                <span aria-hidden style={{ color: "var(--muted)" }}>→</span>{" "}
+                <span
+                  style={{
+                    color:
+                      shownDelta.after > shownDelta.before
+                        ? "var(--green-ink, #16a34a)"
+                        : shownDelta.after < shownDelta.before
+                          ? "var(--red-ink, #b42318)"
+                          : "var(--muted)",
+                  }}
+                >
+                  {shownDelta.after}%
+                </span>
+              </span>
+              <span style={{ fontSize: FS.caption, color: "var(--muted)" }}>
+                {shownDelta.after === shownDelta.before
+                  // Saying so out loud beats an unexplained equal pair. A
+                  // rewrite can be worth applying for a human reader and move
+                  // the keyword match not at all, and pretending otherwise is
+                  // how the scoreboard lost trust in the first place.
+                  ? "keyword recount · no change to the match"
+                  : "keyword recount · free, not an estimate"}
+              </span>
             </div>
           ) : null}
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
