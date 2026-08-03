@@ -14,6 +14,9 @@ import {
   fetchLiveCoverage,
   type LiveCoverage,
 } from "@/lib/tailorLiveCoverage";
+import type { UnmatchedRequirement } from "@/lib/tailorRequirementQueue";
+
+const NO_UNMATCHED: readonly UnmatchedRequirement[] = [];
 
 export interface CoverageView {
   found: number;
@@ -31,6 +34,10 @@ export interface CoverageView {
   gained: number;
   /** Requirements the edits dropped. Reported, never hidden. */
   lost: number;
+  /** The unmatched requirements themselves, so the queue can show a row per
+   *  one. Empty when no recount has landed — the caller then keeps the
+   *  rater-derived queue it already had. */
+  unmatched: readonly UnmatchedRequirement[];
 }
 
 export function useLiveCoverage(
@@ -65,7 +72,16 @@ export function useLiveCoverage(
 
   // Derived, not reset in an effect: when the inputs go away the previous
   // recount stops applying immediately rather than after an extra render.
-  if (!canScore || !live) return { ...fallback, unit: "keywords", live: false, gained: 0, lost: 0 };
+  if (!canScore || !live) {
+    return {
+      ...fallback,
+      unit: "keywords",
+      live: false,
+      gained: 0,
+      lost: 0,
+      unmatched: NO_UNMATCHED,
+    };
+  }
   return {
     found: live.matched,
     total: live.total,
@@ -73,5 +89,6 @@ export function useLiveCoverage(
     live: true,
     gained: live.gained.length,
     lost: live.lost.length,
+    unmatched: live.unmatched,
   };
 }
