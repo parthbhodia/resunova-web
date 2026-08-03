@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tailor preview toolbar — mockup v4</title>
+<style>
+  :root {
+    --ground: #ffffff;
+    --sunk: #f6f8fa;
+    --card: #ffffff;
+    --line: #dfe3e8;
+    --line-soft: #eceff2;
+    --ink: #12161c;
+    --ink-2: #414b58;
+    --muted: #6b7684;
+
+    --accent: #2f81f7;
+    --accent-soft: rgba(47, 129, 247, 0.10);
+
+    --crit: #d92d20;
+    --crit-soft: #fef3f2;
+    --crit-line: rgba(217, 45, 32, 0.28);
+
+    --warn: #b54708;
+    --warn-soft: #fffaeb;
+    --warn-line: rgba(181, 71, 8, 0.26);
+
+    --good: #067647;
+    --good-soft: #ecfdf3;
+    --good-line: rgba(6, 118, 71, 0.24);
+
+    --radius: 12px;
+    --paper: #ffffff;
+    --paper-ink: #1a1a1a;
+
+    --fs-micro: 11px;
+    --fs-caption: 12px;
+    --fs-small: 13px;
+    --fs-body: 14px;
+    --fs-lg: 16px;
+    --fs-xl: 20px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0d1117; --sunk: #0a0e14; --card: #161b22;
+      --line: #2a313c; --line-soft: #21272f;
+      --ink: #e9eef5; --ink-2: #b6c0cc; --muted: #8b96a5;
+      --accent: #4d94ff; --accent-soft: rgba(77, 148, 255, 0.14);
+      --crit: #ff7b72; --crit-soft: rgba(255, 123, 114, 0.10); --crit-line: rgba(255, 123, 114, 0.30);
+      --warn: #e3a008; --warn-soft: rgba(227, 160, 8, 0.10); --warn-line: rgba(227, 160, 8, 0.28);
+      --good: #3fb950; --good-soft: rgba(63, 185, 80, 0.10); --good-line: rgba(63, 185, 80, 0.26);
+      --paper: #f4f4f2; --paper-ink: #1a1a1a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d1117; --sunk: #0a0e14; --card: #161b22;
+    --line: #2a313c; --line-soft: #21272f;
+    --ink: #e9eef5; --ink-2: #b6c0cc; --muted: #8b96a5;
+    --accent: #4d94ff; --accent-soft: rgba(77,148,255,0.14);
+    --crit: #ff7b72; --crit-soft: rgba(255,123,114,0.10); --crit-line: rgba(255,123,114,0.30);
+    --warn: #e3a008; --warn-soft: rgba(227,160,8,0.10); --warn-line: rgba(227,160,8,0.28);
+    --good: #3fb950; --good-soft: rgba(63,185,80,0.10); --good-line: rgba(63,185,80,0.26);
+    --paper: #f4f4f2; --paper-ink: #1a1a1a;
+  }
+  :root[data-theme="light"] {
+    --ground: #ffffff; --sunk: #f6f8fa; --card: #ffffff;
+    --line: #dfe3e8; --line-soft: #eceff2;
+    --ink: #12161c; --ink-2: #414b58; --muted: #6b7684;
+    --accent: #2f81f7; --accent-soft: rgba(47,129,247,0.10);
+    --crit: #d92d20; --crit-soft: #fef3f2; --crit-line: rgba(217,45,32,0.28);
+    --warn: #b54708; --warn-soft: #fffaeb; --warn-line: rgba(181,71,8,0.26);
+    --good: #067647; --good-soft: #ecfdf3; --good-line: rgba(6,118,71,0.24);
+    --paper: #ffffff; --paper-ink: #1a1a1a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--sunk);
+    color: var(--ink);
+    font: 400 var(--fs-body)/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 20px 20px 64px; }
+
+  /* ---------- mockup chrome ---------- */
+  .chrome { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .chrome h1 { font-size: var(--fs-lg); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .chrome .note { color: var(--muted); font-size: var(--fs-small); max-width: 68ch; }
+  .toggle {
+    margin-left: auto; display: inline-flex; border: 1px solid var(--line);
+    border-radius: 999px; overflow: hidden; background: var(--card); flex: none;
+  }
+  .toggle button {
+    appearance: none; border: 0; background: none; cursor: pointer;
+    font: 600 var(--fs-small)/1 inherit; color: var(--muted); padding: 9px 16px;
+  }
+  .toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .sizelabel {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    font-size: var(--fs-caption); color: var(--muted); font-weight: 600;
+  }
+  .sizelabel .pip { width: 7px; height: 7px; border-radius: 999px; background: var(--warn); }
+
+  /* ---------- panel frame (this is only the preview-pane sub-header, at its real narrow width) ---------- */
+  .panel {
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    background: var(--ground); max-width: 640px;
+  }
+  .panel-label {
+    padding: 9px 14px; font-size: var(--fs-micro); font-weight: 800;
+    letter-spacing: .07em; text-transform: uppercase; color: var(--muted);
+    background: var(--card); border-bottom: 1px solid var(--line-soft);
+  }
+
+  /* ===================== CURRENT (reproduced) ===================== */
+  .cur-toolbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--line-soft);
+  }
+  .cur-eyebrow {
+    font-size: 10px; font-weight: 800; color: var(--muted); letter-spacing: 0.56px;
+    text-transform: uppercase; flex: none;
+  }
+  .cur-badge {
+    font-size: 11px; font-weight: 700; color: var(--crit); background: var(--crit-soft);
+    border: 1px solid var(--crit-line); padding: 3px 10px; border-radius: 20px; flex: none;
+  }
+  .cur-seg {
+    display: inline-flex; border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden; background: var(--card); flex: none;
+  }
+  .cur-seg button {
+    appearance: none; border: 0; border-left: 1px solid var(--line);
+    min-width: 28px; height: 26px; padding: 0; background: transparent;
+    color: var(--muted); cursor: pointer; font-weight: 800; display: grid; place-items: center;
+  }
+  .cur-seg button:first-child { border-left: 0; }
+  .cur-seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .cur-seg button.fs-s { font-size: 9px; } .cur-seg button.fs-m { font-size: 12px; } .cur-seg button.fs-l { font-size: 15px; }
+  .cur-check {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px;
+    font-weight: 600; color: var(--muted); flex: none; white-space: nowrap;
+  }
+  .cur-btn {
+    font-size: 10.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+    cursor: pointer; flex: none; white-space: nowrap;
+  }
+  .cur-pages {
+    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+    background: var(--warn-soft); color: var(--warn); flex: none; white-space: nowrap;
+  }
+  .cur-dl {
+    font-size: 10.5px; font-weight: 700; padding: 6px 12px; border-radius: 8px;
+    border: 0; background: var(--accent); color: #fff; cursor: pointer; flex: none; white-space: nowrap;
+  }
+  .cur-callout {
+    padding: 10px 14px; font-size: var(--fs-caption); color: var(--crit);
+    background: var(--crit-soft); border-top: 1px dashed var(--crit-line);
+  }
+
+  /* ===================== PROPOSED (v4) ===================== */
+  .v4-toolbar {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 10px 14px; background: var(--card); border-bottom: 1px solid var(--line-soft);
+  }
+  .v4-count {
+    font-size: 11px; font-weight: 700; color: var(--crit); background: var(--crit-soft);
+    border: 1px solid var(--crit-line); padding: 3px 10px; border-radius: 20px; flex: none;
+  }
+  .v4-spacer { flex: 1 1 auto; min-width: 4px; }
+
+  .v4-group {
+    display: inline-flex; align-items: center; gap: 2px;
+    border: 1px solid var(--line); border-radius: 9px; background: var(--sunk);
+    padding: 2px; flex: none;
+  }
+  .v4-pill {
+    appearance: none; border: 0; border-radius: 7px; background: transparent;
+    color: var(--ink-2); font: 650 var(--fs-caption)/1 inherit; padding: 6px 10px;
+    cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .v4-pill[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .v4-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .v4-display {
+    position: relative; flex: none;
+  }
+  .v4-display-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+    border-radius: 8px; padding: 6px 10px; font: 650 var(--fs-caption)/1 inherit; cursor: pointer;
+  }
+  .v4-display-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .v4-display-btn .aa { font-size: 12px; font-weight: 800; }
+  .v4-display-btn svg { flex: none; }
+  .v4-popover {
+    position: absolute; top: calc(100% + 8px); left: 0; z-index: 5;
+    width: 268px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: 0 12px 32px rgba(15,23,42,.16); padding: 12px;
+  }
+  .v4-popover[hidden] { display: none; }
+  .v4-prow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; }
+  .v4-prow + .v4-prow { border-top: 1px solid var(--line-soft); }
+  .v4-plabel { font-size: var(--fs-caption); font-weight: 650; color: var(--ink-2); }
+  .v4-pseg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .v4-pseg button {
+    appearance: none; border: 0; border-left: 1px solid var(--line);
+    min-width: 26px; height: 24px; padding: 0; background: transparent;
+    color: var(--muted); cursor: pointer; font-weight: 800; display: grid; place-items: center;
+  }
+  .v4-pseg button:first-child { border-left: 0; }
+  .v4-pseg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .v4-pseg button.fs-s { font-size: 9px; } .v4-pseg button.fs-m { font-size: 11px; } .v4-pseg button.fs-l { font-size: 14px; }
+
+  .v4-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: var(--fs-caption); font-weight: 700; border-radius: 999px;
+    padding: 6px 11px; flex: none; white-space: nowrap;
+  }
+  .v4-status[data-tone="warn"] { color: var(--warn); background: var(--warn-soft); border: 1px solid var(--warn-line); }
+  .v4-status[data-tone="good"] { color: var(--good); background: var(--good-soft); border: 1px solid var(--good-line); }
+  .v4-status .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; flex: none; }
+
+  .v4-more {
+    appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+    border-radius: 8px; width: 30px; height: 30px; display: grid; place-items: center; cursor: pointer; flex: none;
+  }
+  .v4-dl {
+    font-size: var(--fs-small); font-weight: 700; padding: 7px 14px; border-radius: 8px;
+    border: 0; background: var(--accent); color: #fff; cursor: pointer; flex: none; white-space: nowrap;
+  }
+
+  .v4-overflow-note {
+    display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+    font-size: var(--fs-caption); color: var(--warn); background: var(--warn-soft);
+    border-top: 1px solid var(--warn-line);
+  }
+
+  /* fake paper strip so the panel reads as a real preview pane, not a floating bar */
+  .fakepaper {
+    background: var(--sunk); padding: 18px 22px 26px;
+  }
+  .fakepaper .sheet {
+    background: var(--paper); color: var(--paper-ink); border-radius: 5px;
+    border: 1px solid var(--line); box-shadow: 0 1px 3px rgba(0,0,0,.10);
+    padding: 20px 24px; font-size: 11.5px; line-height: 1.5;
+  }
+  .fakepaper .sheet h4 { margin: 0 0 3px; font-size: 15px; letter-spacing: -0.01em; }
+  .fakepaper .sheet .c { color: #666; font-size: 10px; margin-bottom: 10px; }
+  .fakepaper .sheet .line { height: 7px; background: #e7e7e3; border-radius: 3px; margin-bottom: 6px; }
+  .fakepaper .sheet .line.w60 { width: 60%; } .fakepaper .sheet .line.w80 { width: 80%; } .fakepaper .sheet .line.w45 { width: 45%; }
+
+  /* ---------- narrow-width demo cue ---------- */
+  .rulermark {
+    display: flex; align-items: center; gap: 8px; margin: 14px 0 10px;
+    font-size: var(--fs-micro); color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  }
+  .rulermark .rule { flex: 1; height: 1px; background: var(--line); }
+
+  /* ---------- annotations ---------- */
+  .notes { margin-top: 30px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .note { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--card); padding: 13px 15px; }
+  .note h4 { margin: 0 0 5px; font-size: var(--fs-small); font-weight: 800; letter-spacing: -0.005em; }
+  .note p { margin: 0; font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; }
+
+  .before-only { display: none; }
+  body[data-view="before"] .after-only { display: none; }
+  body[data-view="before"] .before-only { display: revert; }
+  body[data-view="before"] .before-only.flexrow { display: flex; }
+
+  .count-callout {
+    display: flex; gap: 10px; align-items: flex-start; margin: 10px 0 22px;
+    border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 11px 14px;
+    font-size: var(--fs-small); color: var(--ink-2);
+  }
+  .count-callout b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="chrome">
+    <div>
+      <h1>Tailor résumé preview toolbar &mdash; mockup v4</h1>
+      <div class="note">The queue and scores from v3 shipped as-is. What's left messy is the preview pane's sub-header: four icon clusters, two checkboxes, a page pill, and two export buttons all fighting for the same narrow row.</div>
+    </div>
+    <div class="toggle" role="group" aria-label="Compare designs">
+      <button type="button" id="b-before" aria-pressed="false">Current</button>
+      <button type="button" id="b-after" aria-pressed="true">Proposed</button>
+    </div>
+  </div>
+
+  <div class="count-callout">
+    <span>&#9888;&#65039;</span>
+    <span><b>Reproduced from the live component,</b> not redrawn from memory &mdash; <code>PreviewSegControl</code> &times; 4 (width / font size / font / header align), <code>Matched keywords</code> + <code>Highlights</code> checkboxes, <code>Edit in Builder</code>, the <code>~N pages</code> pill, and <code>Download PDF</code> all sit in one <code>flex-wrap</code> row in <a href="#" onclick="return false" style="color:var(--accent)">AnnotatedResumePanel.tsx</a>. At the preview pane's real width (it competes with the résumé for space) that's 13+ independent controls wrapping mid-row.</span>
+  </div>
+
+  <div class="rulermark"><span>Preview pane at ~640px &mdash; its typical width once the résumé column claims the rest</span><span class="rule"></span></div>
+
+  <div class="panel">
+    <div class="panel-label">Your résumé</div>
+
+    <!-- ===== CURRENT: reproduced ===== -->
+    <div class="before-only">
+      <div class="cur-toolbar">
+        <span class="cur-eyebrow">Edit</span>
+        <span class="cur-badge">4/9 need work here</span>
+        <span class="cur-seg" role="group" aria-label="PDF width">
+          <button type="button" aria-pressed="false" title="Narrow"><span style="display:block;width:6px;height:11px;border:1.4px solid currentColor;border-radius:1px"></span></button>
+          <button type="button" aria-pressed="true" title="Standard"><span style="display:block;width:9px;height:11px;border:1.4px solid currentColor;border-radius:1px"></span></button>
+          <button type="button" aria-pressed="false" title="Wide"><span style="display:block;width:12px;height:11px;border:1.4px solid currentColor;border-radius:1px"></span></button>
+        </span>
+        <span class="cur-seg" role="group" aria-label="Font size">
+          <button type="button" class="fs-s" aria-pressed="false">A</button>
+          <button type="button" class="fs-m" aria-pressed="true">A</button>
+          <button type="button" class="fs-l" aria-pressed="false">A</button>
+        </span>
+        <span class="cur-seg" role="group" aria-label="Font">
+          <button type="button" style="font-size:11px" aria-pressed="true">Aa</button>
+          <button type="button" style="font-size:11px;font-family:Georgia,serif" aria-pressed="false">Aa</button>
+          <button type="button" style="font-size:10px;font-family:monospace" aria-pressed="false">Aa</button>
+        </span>
+        <span class="cur-seg" role="group" aria-label="Header align">
+          <button type="button" aria-pressed="true" title="Left">&#8676;</button>
+          <button type="button" aria-pressed="false" title="Center">&#8646;</button>
+        </span>
+        <label class="cur-check"><input type="checkbox" checked disabled> Matched keywords</label>
+        <label class="cur-check"><input type="checkbox" checked disabled> Highlights</label>
+        <button class="cur-btn" type="button">Edit in Builder</button>
+        <span class="cur-pages">~2 pages</span>
+        <button class="cur-dl" type="button">Download PDF</button>
+      </div>
+      <div class="cur-callout">13 independent controls in one row &middot; no grouping, no priority &middot; the page-overflow warning is a lone amber pill with no explanation of what it means or what to do about it.</div>
+    </div>
+
+    <!-- ===== PROPOSED: v4 ===== -->
+    <div class="after-only">
+      <div class="v4-toolbar">
+        <span class="v4-count">4/9 need work</span>
+
+        <span class="v4-group" style="margin-left:auto" role="group" aria-label="Keyword overlays">
+          <button class="v4-pill" type="button" aria-pressed="true">Keywords</button>
+          <button class="v4-pill" type="button" aria-pressed="true">Highlights</button>
+        </span>
+
+        <div class="v4-display">
+          <button class="v4-display-btn" type="button" id="v4-display-toggle" title="Display &middot; page width, font size, font, header align" aria-haspopup="true" aria-expanded="false">
+            <span class="aa">Aa</span>
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="v4-popover" id="v4-popover" hidden>
+            <div class="v4-prow">
+              <span class="v4-plabel">Page width</span>
+              <span class="v4-pseg" role="group" aria-label="PDF width">
+                <button type="button" aria-pressed="false" title="Narrow"><span style="display:block;width:6px;height:10px;border:1.4px solid currentColor;border-radius:1px"></span></button>
+                <button type="button" aria-pressed="true" title="Standard"><span style="display:block;width:9px;height:10px;border:1.4px solid currentColor;border-radius:1px"></span></button>
+                <button type="button" aria-pressed="false" title="Wide"><span style="display:block;width:11px;height:10px;border:1.4px solid currentColor;border-radius:1px"></span></button>
+              </span>
+            </div>
+            <div class="v4-prow">
+              <span class="v4-plabel">Font size</span>
+              <span class="v4-pseg" role="group" aria-label="Font size">
+                <button type="button" class="fs-s" aria-pressed="false">A</button>
+                <button type="button" class="fs-m" aria-pressed="true">A</button>
+                <button type="button" class="fs-l" aria-pressed="false">A</button>
+              </span>
+            </div>
+            <div class="v4-prow">
+              <span class="v4-plabel">Font</span>
+              <span class="v4-pseg" role="group" aria-label="Font">
+                <button type="button" style="font-size:10px" aria-pressed="true">Aa</button>
+                <button type="button" style="font-size:10px;font-family:Georgia,serif" aria-pressed="false">Aa</button>
+                <button type="button" style="font-size:9px;font-family:monospace" aria-pressed="false">Aa</button>
+              </span>
+            </div>
+            <div class="v4-prow">
+              <span class="v4-plabel">Header align</span>
+              <span class="v4-pseg" role="group" aria-label="Header align">
+                <button type="button" aria-pressed="true" title="Left">&#8676;</button>
+                <button type="button" aria-pressed="false" title="Center">&#8646;</button>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <span class="v4-status" data-tone="warn" title="Estimated PDF length at US-Letter size &middot; 156px past the page 1 boundary">
+          <span class="dot"></span> 2 pages
+        </span>
+
+        <button class="v4-more" type="button" title="More &middot; Edit in Builder, Export DOCX" aria-haspopup="true">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="3" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="13" cy="8" r="1.3" fill="currentColor"/></svg>
+        </button>
+
+        <button class="v4-dl" type="button">Download PDF</button>
+      </div>
+      <div class="v4-overflow-note after-only" id="v4-overflow-note">
+        <span>&#9888;&#65039;</span>
+        <span>156px runs past page 1. Tighten a bullet or two, or it exports as 2 pages.</span>
+      </div>
+    </div>
+
+    <div class="fakepaper">
+      <div class="sheet">
+        <h4>Parth Bhodia</h4>
+        <div class="c">parthbhodia11@gmail.com &middot; (443) 929-4371 &middot; linkedin.com/in/parthbhodia &middot; Jersey City, NJ</div>
+        <div class="line w80"></div>
+        <div class="line w60"></div>
+        <div class="line w45"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h4>One always-visible row, one on-demand popover</h4>
+      <p>Width, font size, font, and header alignment are style tuning &mdash; set once, rarely touched again. They move behind a single <b>Aa &middot; Display</b> button. What stays pinned is what's checked constantly: the two content overlays and the export action.</p>
+    </div>
+    <div class="note">
+      <h4>Checkboxes become a segmented pair</h4>
+      <p><b>Keywords</b> and <b>Highlights</b> read as raw HTML checkboxes today, visually unrelated to the buttons next to them. Grouped into one pill pair they read as "what's painted on the page," matching the segmented-control language already used for the display options.</p>
+    </div>
+    <div class="note">
+      <h4>The overflow warning gets a sentence, not just a color</h4>
+      <p>Today "~2 pages" is an amber pill with a tooltip nobody hovers. The status pill now names the actual overage (156px) and, when it's real, a one-line strip underneath says what to do &mdash; the same number already computed in <code>PageFitMeter</code>, just surfaced instead of buried in a title attribute.</p>
+    </div>
+    <div class="note">
+      <h4>Rare actions move into an overflow menu</h4>
+      <p><b>Edit in Builder</b> and <b>Export DOCX</b> are used far less often than Download. A single &ldquo;&hellip;&rdquo; button holds them, so the row's only unmissable button is the one most people actually want.</p>
+    </div>
+    <div class="note">
+      <h4>13 controls &rarr; 5 fixed elements</h4>
+      <p>Count pill, overlay pair, Display popover, page status, Download &mdash; five things at a glance instead of thirteen, and none of them clip or wrap mid-word at the pane's real ~640px width.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var body = document.body;
+    var before = document.getElementById("b-before");
+    var after = document.getElementById("b-after");
+    function set(view) {
+      body.setAttribute("data-view", view);
+      before.setAttribute("aria-pressed", String(view === "before"));
+      after.setAttribute("aria-pressed", String(view === "after"));
+    }
+    before.addEventListener("click", function () { set("before"); });
+    after.addEventListener("click", function () { set("after"); });
+    set("after");
+
+    var toggle = document.getElementById("v4-display-toggle");
+    var pop = document.getElementById("v4-popover");
+    toggle.addEventListener("click", function () {
+      var open = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!open));
+      if (open) { pop.setAttribute("hidden", ""); } else { pop.removeAttribute("hidden"); }
+    });
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest(".v4-display")) {
+        toggle.setAttribute("aria-expanded", "false");
+        pop.setAttribute("hidden", "");
+      }
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll(".v4-pill"), function (b) {
+      b.addEventListener("click", function () {
+        b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".v4-pseg, .cur-seg"), function (grp) {
+      Array.prototype.forEach.call(grp.querySelectorAll("button"), function (btn) {
+        btn.addEventListener("click", function () {
+          Array.prototype.forEach.call(grp.querySelectorAll("button"), function (o) {
+            o.setAttribute("aria-pressed", String(o === btn));
+          });
+        });
+      });
+    });
+  })();
+</script>
+</body>
+</html>
