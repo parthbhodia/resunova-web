@@ -57,10 +57,25 @@ export interface LiveCoverage {
 /** Debounce so a Fix-everything pass lands one request, not one per wave. */
 export const COVERAGE_DEBOUNCE_MS = 400;
 
+export interface PendingRewrite {
+  original: string;
+  suggested: string;
+}
+
 export async function fetchLiveCoverage(
   concepts: readonly unknown[],
   resumeText: string,
   signal?: AbortSignal,
+  /**
+   * Edits not yet applied to `resumeText`.
+   *
+   * The endpoint has always accepted these — scoring a PENDING rewrite is what
+   * it was built for — and we were only ever using it to re-count text already
+   * committed. Passing one lets a fix card say what applying it will do to the
+   * number BEFORE the user commits, which is the difference between an
+   * informed click and a hopeful one.
+   */
+  rewrites?: readonly PendingRewrite[],
 ): Promise<LiveCoverage | null> {
   if (!concepts.length || !resumeText.trim()) return null;
   try {
@@ -70,6 +85,11 @@ export async function fetchLiveCoverage(
       body: JSON.stringify({
         requirement_concepts: concepts,
         resume_text: resumeText,
+        // ⚠️ `pending_rewrites`, not `rewrites`. The route reads that key (and
+        // three camelCase spellings of it) and ignores anything else, so a
+        // near-miss here is silent: the request succeeds, the score comes back
+        // unchanged, and the card confidently reports no movement.
+        ...(rewrites?.length ? { pending_rewrites: rewrites } : {}),
       }),
       signal,
     });

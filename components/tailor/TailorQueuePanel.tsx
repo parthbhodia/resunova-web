@@ -18,7 +18,7 @@
  *  - needs_review   <- not emitted yet; requires per-suggestion risk plumbing
  */
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AddressedGapAction, RatingsData } from "@/lib/types";
 import {
   CONTEXTUAL_DETAIL,
@@ -36,6 +36,7 @@ import {
   raterView,
   scoreMovingCount,
 } from "@/lib/tailorRequirementQueue";
+import { fetchLiveCoverage } from "@/lib/tailorLiveCoverage";
 import { FS, FW } from "@/lib/typography";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { useLiveCoverage } from "@/components/tailor/useLiveCoverage";
@@ -382,6 +383,26 @@ export function TailorQueuePanel({
   }, [items]);
   const { blockerOpen, smallerOpen } = bandCounts;
 
+  /**
+   * Score one pending rewrite against the current résumé.
+   *
+   * Returns null rather than a guess when there is nothing to score with —
+   * a card that cannot recount says nothing instead of showing a number it
+   * made up.
+   */
+  const scoreFix = useCallback(
+    async (original: string, suggested: string) => {
+      const text = currentResumeText ?? "";
+      if (!requirementConcepts?.length || !text.trim() || !original.trim()) return null;
+      const r = await fetchLiveCoverage(requirementConcepts, text, undefined, [
+        { original, suggested },
+      ]);
+      if (!r || typeof r.before !== "number" || typeof r.after !== "number") return null;
+      return { before: r.before, after: r.after };
+    },
+    [requirementConcepts, currentResumeText],
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 12px 0" }}>
       {/* Above the tiles, per the mockup.
@@ -473,6 +494,11 @@ export function TailorQueuePanel({
               // confirmed facts as a provenance source, so a number the
               // candidate supplied stops reading as unevidenced.
               onRewriteWithFacts={(fact) => openFix(expandedItem, fact)}
+              // What applying this one rewrite would do to the deterministic
+              // number, before committing to it. Same endpoint the scoreboard
+              // uses, so it is a recount rather than a projection: zero-token,
+              // no LLM, and it can honestly report no movement or a drop.
+              scoreFix={scoreFix}
               onClose={closeExpansion}
             />
           ) : null
