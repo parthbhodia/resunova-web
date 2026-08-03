@@ -56,6 +56,19 @@ const ratings = {
   verdict: "",
 };
 
+/**
+ * What extraction says each of those is.
+ *
+ * Undefined for the two rater-named ones on purpose: a backend deployed before
+ * `type` existed sends none, and those rows must still land somewhere sane.
+ */
+const TYPE_OF: Record<string, string | undefined> = {
+  Terraform: "tool",
+  Snowflake: "tool",
+  "dbt transformations": "technical_skill",
+  "dimensional modeling": "domain_knowledge",
+};
+
 function coverageResponse(unmatched: string[]) {
   return {
     ok: true,
@@ -71,6 +84,7 @@ function coverageResponse(unmatched: string[]) {
         id: `c${i}`,
         canonical,
         importance: "required",
+        type: TYPE_OF[canonical],
       })),
       applied: 0,
       truncated: {},
@@ -164,5 +178,36 @@ describe("the queue accounts for what the percentage is complaining about", () =
     for (const name of RATER_GAPS) {
       expect(screen.getByText(name)).toBeInTheDocument();
     }
+  });
+});
+
+describe("the bands say what kind of problem each row is", () => {
+  it("does not put every scored requirement under one header", async () => {
+    // These all shipped as `qualification`, so a wall of unrelated rows sat
+    // under "Could get you filtered out" and the headers stopped meaning
+    // anything. Asserted through the rendered panel, since the band header is
+    // the thing the user actually reads.
+    renderPanel();
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /show \d+ more/i }));
+
+    expect(screen.getByText(/could get you filtered out/i)).toBeInTheDocument();
+    expect(screen.getByText(/worth adding/i)).toBeInTheDocument();
+    expect(screen.getByText(/about the employer/i)).toBeInTheDocument();
+  });
+
+  it("does not offer a fix button for an employer-domain row", async () => {
+    // `dimensional modeling` comes back as domain_knowledge. Writing an
+    // employer's context word into a bullet is the move the contextual class
+    // exists to discourage, so the row explains itself instead.
+    renderPanel();
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /show \d+ more/i }));
+
+    const row = screen.getByText("dimensional modeling").closest("li");
+    expect(row).not.toBeNull();
+    expect(row!.querySelector('input[type="checkbox"]')).toBeNull();
   });
 });

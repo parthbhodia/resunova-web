@@ -65,6 +65,33 @@ const DEMO_RATINGS: RatingsData = {
   },
 };
 
+/**
+ * The requirements the deterministic scorer extracted from this posting.
+ *
+ * The harness used to omit these, so the panel never issued a score-preview
+ * request and the queue it showed was the rater's short list only — i.e. the
+ * design surface could not show the queue that actually ships. They carry a
+ * `type` each, because that is what bands a missing degree apart from a
+ * missing tool. Without a backend the request fails and the panel degrades to
+ * the rater-only queue, which is itself worth being able to see here.
+ */
+const DEMO_CONCEPTS = [
+  { id: "rc1", canonical: "CI/CD pipeline experience", type: "experience", importance: "required" },
+  { id: "rc2", canonical: "Build systems (Bazel-class)", type: "tool", importance: "required" },
+  { id: "rc3", canonical: "Kubernetes", type: "tool", importance: "required" },
+  { id: "rc4", canonical: "Improve developer workflows", type: "responsibility", importance: "required" },
+  { id: "rc5", canonical: "BS in Computer Science", type: "degree", importance: "required" },
+  { id: "rc6", canonical: "Bazel", type: "tool", importance: "preferred" },
+  { id: "rc7", canonical: "developer productivity domain", type: "domain_knowledge", importance: "preferred" },
+];
+
+const DEMO_RESUME_TEXT = [
+  "Senior Fullstack Developer",
+  "Designed a LangGraph multi-agent workflow for SOCOM-approved security analysis, building LLM enrichment services for severity classification.",
+  "Deployed an LLM gateway with LiteLLM, routing traffic across model providers.",
+  "Built the internal IPT tool dashboard used by four teams.",
+].join("\n");
+
 /** Scripted rewrite options per item, keyed by normalized name. */
 const DEMO_SUGGESTIONS: Record<string, FixSuggestion[]> = {
   "ci/cd pipeline experience": [
@@ -228,6 +255,8 @@ export default function TailorPreviewPage() {
           stale={stale}
           onRecheck={() => setStale(false)}
           recheckBusy={false}
+          requirementConcepts={DEMO_CONCEPTS}
+          currentResumeText={DEMO_RESUME_TEXT}
           onInterviewPrep={() => window.alert("Opens interview prep with this resume and JD carried over.")}
         />
       </div>

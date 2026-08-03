@@ -229,3 +229,102 @@ describe("the end-to-end shape of the reported bug", () => {
     expect(scoreMovingCount(merged)).toBe(6);
   });
 });
+
+describe("banding comes from the requirement's own type", () => {
+  /** One requirement carrying an extraction type. */
+  const typed = (canonical: string, type: string): UnmatchedRequirement =>
+    ({ id: `t:${canonical}`, canonical, importance: "required", type });
+
+  it("does not file every row under one heading", () => {
+    // These shipped all-qualification, so a degree, a tool and a soft skill
+    // landed in the same band under "Could get you filtered out". Nineteen
+    // equally-urgent blockers is not a priority order, and it erased the one
+    // thing the headers exist to say: these are different problems.
+    const rows = deriveScorerQueue(
+      [
+        typed("MS in Computer Science", "degree"),
+        typed("Terraform", "tool"),
+        typed("excellent communication", "soft_skill"),
+      ],
+      EMPTY_RATER,
+    );
+    expect(rows.map((r) => r.kind)).toEqual(["qualification", "keyword", "contextual"]);
+  });
+
+  it("bands credentials and tenure as blockers", () => {
+    for (const t of ["degree", "certification", "license", "experience"]) {
+      expect(deriveScorerQueue([typed("x y z", t)], EMPTY_RATER)[0].kind)
+        .toBe("qualification");
+    }
+  });
+
+  it("bands named skills, tools and duties as keywords", () => {
+    for (const t of ["technical_skill", "tool", "responsibility"]) {
+      expect(deriveScorerQueue([typed("x y z", t)], EMPTY_RATER)[0].kind)
+        .toBe("keyword");
+    }
+  });
+
+  it("falls back to keyword, not to the loudest band", () => {
+    // The old default was qualification, so any type nobody had thought about
+    // shouted. A wrong quiet default costs less than a wrong loud one, and a
+    // backend predating the field sends no type at all.
+    expect(deriveScorerQueue([typed("x y z", "something_new")], EMPTY_RATER)[0].kind)
+      .toBe("keyword");
+    expect(deriveScorerQueue(unmatched(["no type at all"]), EMPTY_RATER)[0].kind)
+      .toBe("keyword");
+  });
+
+  it("gives a contextual row the explainer, not a to-do", () => {
+    // "The scanner did not find this" reads as work to do. For an employer
+    // domain word, writing it in is usually the wrong move.
+    const [row] = deriveScorerQueue([typed("fintech domain", "domain_knowledge")], EMPTY_RATER);
+    expect(row.kind).toBe("contextual");
+    expect(row.detail).not.toBe(SCORER_ONLY_DETAIL);
+  });
+
+  it("keeps the posting's order rather than regrouping by band", () => {
+    // The server preserves extraction order on purpose; grouping happens at
+    // render time, so this list must not be resorted on the way through.
+    const rows = deriveScorerQueue(
+      [typed("Terraform", "tool"), typed("PhD", "degree"), typed("Airflow", "tool")],
+      EMPTY_RATER,
+    );
+    expect(rows.map((r) => r.name)).toEqual(["Terraform", "PhD", "Airflow"]);
+  });
+});
+
+describe("the merge combines the two lists rather than discarding one", () => {
+  it("keeps the rater's filing when extraction sent no type", () => {
+    // Found by a panel test going red, not by reasoning. The merge keeps the
+    // SCORER's row and drops the rater's for a requirement on both lists, so
+    // an untyped scorer row was demoting a requirement the rater had filed as
+    // a qualification down to a keyword — the merge losing information it was
+    // supposed to be combining.
+    const ratings = {
+      qualifications: { missing: [{ text: "Kubernetes" }], covered: [] },
+      responsibilities: { missing: [{ text: "mentor engineers" }], covered: [] },
+      keywords: {},
+    };
+    const rows = deriveScorerQueue(
+      unmatched(["Kubernetes", "mentor engineers"]), // no `type` on either
+      raterView(ratings),
+    );
+    expect(rows.map((r) => r.kind)).toEqual(["qualification", "responsibility"]);
+  });
+
+  it("lets extraction's type win over where the rater filed it", () => {
+    // `type` is a claim about what the requirement IS; the rater's list is only
+    // which side of its comparison it wrote the item under.
+    const ratings = {
+      qualifications: { missing: [{ text: "Terraform" }], covered: [] },
+      responsibilities: { missing: [], covered: [] },
+      keywords: {},
+    };
+    const [row] = deriveScorerQueue(
+      [{ id: "c0", canonical: "Terraform", importance: "required", type: "tool" }],
+      raterView(ratings),
+    );
+    expect(row.kind).toBe("keyword");
+  });
+});

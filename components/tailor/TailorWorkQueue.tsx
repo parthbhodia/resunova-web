@@ -279,12 +279,18 @@ export function TailorWorkQueue({
           >
             {/* "all" was a lie whenever a contextual row was open: the pass
                 skips those by design. Naming what it actually operates on
-                keeps the button honest without needing a footnote. */}
+                keeps the button honest without needing a footnote.
+                "Blockers" was the next version of the same lie, and only
+                looked right while every scored row was banded as one — this
+                button covers the blocker AND keyword bands, so it sat above a
+                blocker band of two saying it would improve six. "Gaps" is what
+                the set actually is, and the exclusion tag beside it already
+                names what is left out. */}
             {fixAllBusy
               ? "Improving…"
               : selected.length > 0
                 ? `Improve selected (${selected.length})`
-                : `Improve ${selectable.length || c.open} blocker${(selectable.length || c.open) === 1 ? "" : "s"}`}
+                : `Improve ${selectable.length || c.open} gap${(selectable.length || c.open) === 1 ? "" : "s"}`}
           </button>
         ) : null}
       </div>

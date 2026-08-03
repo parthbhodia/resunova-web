@@ -57,13 +57,59 @@
  */
 
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
-import { normalizeQueueName, queueItemId, requirementText } from "@/lib/tailorWorkQueue";
+import {
+  CONTEXTUAL_DETAIL,
+  normalizeQueueName,
+  queueItemId,
+  requirementText,
+} from "@/lib/tailorWorkQueue";
 
 /** One requirement concept as `/api/tailor/score-preview` reports it. */
 export interface UnmatchedRequirement {
   id: string;
   canonical: string;
   importance?: string;
+  /** Extraction's requirement type. Absent on a backend predating the field. */
+  type?: string;
+}
+
+/**
+ * Extraction's requirement type → the band the row belongs in.
+ *
+ * These rows all shipped as `qualification`, which put every one of them in
+ * "Could get you filtered out". That read as a wall of nineteen equally-urgent
+ * blockers, and it also erased the thing the section headers exist to say:
+ * a missing degree and a missing keyword are not the same problem and do not
+ * have the same fix.
+ *
+ * The mapping is the honest reading of each type:
+ *  - a credential, a degree, or years of experience is pass/fail to a screener;
+ *  - a named skill or tool is a keyword — real, coverable, not disqualifying;
+ *  - a responsibility is duty language, which lands as a keyword too;
+ *  - `soft_skill` and `domain_knowledge` are the employer's context words, the
+ *    same honesty class as the rater's contextual keywords: stuffing them into
+ *    bullets is usually the wrong move, so they get the explainer band.
+ *
+ * Returns null for a type we do not recognise, or for none at all — a backend
+ * predating the field sends no type. The caller then falls back to the rater's
+ * own filing, and only past that to `keyword`. Never to `qualification`: that
+ * was the old blanket default, so anything unaccounted for shouted, and a
+ * default that is wrong quietly costs less than one that is wrong loudly.
+ */
+const KIND_OF_REQUIREMENT_TYPE: Record<string, QueueKind> = {
+  certification: "qualification",
+  license: "qualification",
+  degree: "qualification",
+  experience: "qualification",
+  technical_skill: "keyword",
+  tool: "keyword",
+  responsibility: "keyword",
+  soft_skill: "contextual",
+  domain_knowledge: "contextual",
+};
+
+export function queueKindForRequirementType(type: string | undefined): QueueKind | null {
+  return KIND_OF_REQUIREMENT_TYPE[String(type ?? "").trim()] ?? null;
 }
 
 /**
@@ -124,6 +170,19 @@ export interface RaterView {
   missing: readonly string[];
   /** Everything the rater called covered — used only as counter-evidence. */
   covered: readonly string[];
+  /**
+   * Which list each missing name came off, by normalized name.
+   *
+   * Needed because the merge keeps the SCORER's row and drops the rater's when
+   * both name the same requirement. Without this, a requirement the rater filed
+   * as a qualification but extraction sent untyped would silently lose its band
+   * on the way through — the merge would be discarding information rather than
+   * combining it.
+   *
+   * Optional: it is a hint used only when extraction did not say, and the
+   * fallback chain already handles it being absent.
+   */
+  kindOf?: ReadonlyMap<string, QueueKind>;
 }
 
 /** Flatten the rater's qualification + responsibility lists into one view. */
@@ -133,9 +192,18 @@ export function raterView(ratings: unknown): RaterView {
     const block = r[key] as Record<string, unknown> | undefined;
     return textsOf(block?.[field]);
   };
+  const quals = side("qualifications", "missing");
+  const resps = side("responsibilities", "missing");
+  const kindOf = new Map<string, QueueKind>();
+  for (const name of quals) kindOf.set(normalizeQueueName(name), "qualification");
+  for (const name of resps) {
+    const key = normalizeQueueName(name);
+    if (!kindOf.has(key)) kindOf.set(key, "responsibility");
+  }
   return {
-    missing: [...side("qualifications", "missing"), ...side("responsibilities", "missing")],
+    missing: [...quals, ...resps],
     covered: [...side("qualifications", "covered"), ...side("responsibilities", "covered")],
+    kindOf,
   };
 }
 
@@ -147,9 +215,10 @@ export function raterView(ratings: unknown): RaterView {
  * keeping this function honest about its one input and testable without a
  * ratings payload.
  *
- * `kind` is fixed to "qualification" so these land in the blocker band: an
- * unmatched requirement is pass/fail to a screener regardless of which list it
- * came off.
+ * `kind` comes from the requirement's own extraction type, so a degree bands as
+ * a blocker and a tool bands as a keyword. It used to be fixed to
+ * "qualification", which filed every row under one header and told the user
+ * that nineteen unrelated things were all the same kind of urgent.
  */
 export function deriveScorerQueue(
   unmatched: readonly UnmatchedRequirement[],
@@ -161,7 +230,15 @@ export function deriveScorerQueue(
   for (const req of unmatched) {
     const name = String(req?.canonical ?? "").trim();
     if (!name) continue;
-    const id = queueItemId("qualification" as QueueKind, name);
+    // Extraction's own type first: it is a claim about what the requirement
+    // IS. The rater's list membership is only where it filed the comparison,
+    // so it fills the gap rather than overriding. `keyword` last, because a
+    // row we know nothing about should not be shouting.
+    const kind =
+      queueKindForRequirementType(req?.type)
+      ?? rater.kindOf?.get(normalizeQueueName(name))
+      ?? "keyword";
+    const id = queueItemId(kind, name);
     if (seen.has(id)) continue;
     seen.add(id);
 
@@ -174,9 +251,16 @@ export function deriveScorerQueue(
     out.push({
       id,
       name,
-      kind: "qualification",
+      kind,
       status: addressed.has(normalizeQueueName(name)) ? "applied" : "queued",
-      detail: raterCovered ? WORDING_DETAIL : SCORER_ONLY_DETAIL,
+      // A contextual row keeps the explainer even though the scanner did miss
+      // it. "The scanner did not find this" reads as a to-do, and for an
+      // employer-domain word the honest answer is that writing it in is
+      // usually the wrong move — the same class the rater's contextual
+      // keywords are already handled as.
+      detail: kind === "contextual"
+        ? CONTEXTUAL_DETAIL
+        : raterCovered ? WORDING_DETAIL : SCORER_ONLY_DETAIL,
       source: raterMissing ? "both" : "scorer",
       // Both classes are unmatched by the scorer, so both move the number.
       movesScore: true,

@@ -7,7 +7,7 @@ import {
 } from "@/lib/fixEverything";
 
 /**
- * "Improve N blockers" has to attempt N things.
+ * "Improve N gaps" has to attempt N things.
  *
  * The shipped pass filtered the user's selection down to the rater's batches,
  * so every row that came from the deterministic scorer was dropped without a

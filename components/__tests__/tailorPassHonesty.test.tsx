@@ -41,7 +41,7 @@ describe("a band we could not write for is not a win", () => {
 
 describe("the pass attempts exactly what its label promises", () => {
   it("hands the whole selectable queue to the fix handler, not a subset", () => {
-    // "Improve 3 blockers" used to call onFixAll(), which re-derived the work
+    // "Improve 3 gaps" used to call onFixAll(), which re-derived the work
     // from the rater's narrower list. The button now passes the rows it counted.
     const open: QueueItem[] = [
       { id: "a", name: "front-end frameworks", kind: "qualification", status: "queued", detail: "" },
@@ -57,7 +57,7 @@ describe("the pass attempts exactly what its label promises", () => {
         fixAllBusy={false}
       />,
     );
-    screen.getByRole("button", { name: /improve 2 blockers/i }).click();
+    screen.getByRole("button", { name: /improve 2 gaps/i }).click();
     expect(onFixSelected).toHaveBeenCalledTimes(1);
     // Two blockers named, two blockers handed over. Contextual is excluded by
     // design and the header says so.
