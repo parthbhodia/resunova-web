@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Resunova sidebar — mockup v1</title>
+<style>
+  /* Real production tokens, pulled from app/globals.css — not an approximation. */
+  :root, [data-theme="dark"] {
+    --bg: #0d1117; --surface: #161b22; --surface2: #1e2329; --surface3: #252c37;
+    --border: rgba(230,237,243,0.12); --border-h: rgba(230,237,243,0.22);
+    --text: #f0f6fc; --muted: rgba(240,246,252,0.74); --dim: rgba(240,246,252,0.54);
+    --accent: #58a6ff; --accent-h: #79c0ff; --accent-bg: rgba(88,166,255,0.15);
+    --amber: #fbbf24; --amber-bg: rgba(251,191,36,0.16);
+    --radius: 8px; --radius-lg: 12px; --radius-xl: 14px; --radius-pill: 99px;
+    --sidebar-w: 232px;
+  }
+  [data-theme="light"] {
+    --bg: #f7f9fc; --surface: #ffffff; --surface2: #eef3f8; --surface3: #dbe4ee;
+    --border: rgba(15,23,42,0.14); --border-h: rgba(15,23,42,0.26);
+    --text: #0f172a; --muted: #475569; --dim: #64748b;
+    --accent: #0969da; --accent-h: #0559c7; --accent-bg: rgba(9,105,218,0.11);
+    --amber: #b45309; --amber-bg: rgba(180,83,9,0.12);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f7f9fc; --surface: #ffffff; --surface2: #eef3f8; --surface3: #dbe4ee;
+      --border: rgba(15,23,42,0.14); --border-h: rgba(15,23,42,0.26);
+      --text: #0f172a; --muted: #475569; --dim: #64748b;
+      --accent: #0969da; --accent-h: #0559c7; --accent-bg: rgba(9,105,218,0.11);
+      --amber: #b45309; --amber-bg: rgba(180,83,9,0.12);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 400 14px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .chrome { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 20px 20px 0; }
+  .chrome h1 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .chrome .note { color: var(--muted); font-size: 13px; max-width: 60ch; }
+  .toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; background: var(--surface); flex: none; }
+  .toggle button { appearance: none; border: 0; background: none; cursor: pointer; font: 600 13px/1 inherit; color: var(--muted); padding: 9px 16px; }
+  .toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+  .stagewrap { display: flex; gap: 0; padding: 20px; align-items: flex-start; }
+  .frame { border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; background: var(--bg); display: flex; height: 780px; }
+  .canvas { width: 480px; background: var(--surface2); flex: none; }
+
+  /* ===================== shared sidebar shell ===================== */
+  .rail { width: var(--sidebar-w); flex: none; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100%; }
+  .rail-head { padding: 14px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .brand { display: flex; align-items: center; gap: 9px; min-width: 0; border: 0; background: none; cursor: pointer; padding: 0; }
+  .brand .mark { width: 26px; height: 26px; border-radius: 8px; background: var(--accent); flex: none; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 13px; }
+  .brand .word { font-weight: 800; font-size: 16px; letter-spacing: -0.01em; color: var(--text); white-space: nowrap; }
+  .collapse-btn { width: 34px; height: 34px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface2); color: var(--muted); display: grid; place-items: center; cursor: pointer; flex: none; }
+
+  .rail-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 10px; }
+
+  /* ===================== CURRENT: flat list ===================== */
+  .cur-item {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 10px 12px; border-radius: var(--radius); border: 1px solid transparent;
+    background: none; color: var(--muted); cursor: pointer; text-align: left; font: 600 13.5px/1 inherit;
+  }
+  .cur-item svg { flex: none; opacity: .85; }
+  .cur-item .lbl { flex: 1; color: var(--text); }
+  .cur-item .chev { color: var(--dim); flex: none; }
+  .cur-item[data-active="true"] {
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+    box-shadow: inset 3px 0 0 0 var(--accent);
+    color: var(--accent);
+  }
+  .cur-item[data-active="true"] .lbl { color: var(--accent); }
+  .cur-item[data-active="true"] svg { color: var(--accent); opacity: 1; }
+  .cur-sub { padding: 2px 12px 2px 40px; display: flex; flex-direction: column; gap: 1px; }
+  .cur-sub a { display: block; padding: 7px 10px; border-radius: var(--radius); color: var(--muted); font-size: 13px; font-weight: 600; text-decoration: none; }
+  .cur-sub a[data-active="true"] { color: var(--accent); background: var(--accent-bg); }
+
+  .scans-pill {
+    margin: 6px 4px 8px; padding: 7px 12px; border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent) 0%, #f59e0b 100%);
+    color: #fff; font-size: 12.5px; font-weight: 700; letter-spacing: -0.1px;
+    display: flex; align-items: center; gap: 7px;
+    box-shadow: 0 4px 16px -5px var(--accent);
+  }
+
+  .cur-foot { border-top: 1px solid var(--border); padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .cur-foot .row2 { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border-radius: var(--radius); background: none; border: 0; color: var(--muted); cursor: pointer; font: 600 13px/1 inherit; text-align: left; }
+  .cur-foot .row2 svg { flex: none; opacity: .8; }
+  .cur-user { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border-radius: var(--radius); background: none; border: 0; cursor: pointer; margin-top: 2px; }
+  .cur-avatar { width: 28px; height: 28px; border-radius: 999px; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 11px; flex: none; }
+  .cur-user .nm { font-size: 13px; font-weight: 700; color: var(--text); }
+  .cur-legal { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 12px 2px; font-size: 11px; }
+  .cur-legal a { color: var(--dim); text-decoration: none; }
+  .cur-copy { padding: 2px 12px 8px; font-size: 10px; color: var(--dim); letter-spacing: .02em; }
+
+  /* ===================== PROPOSED ===================== */
+  .grouplabel { padding: 14px 12px 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .grouplabel:first-child { padding-top: 4px; }
+
+  .hero-item {
+    display: flex; align-items: flex-start; gap: 11px; width: 100%;
+    padding: 9px 10px; border-radius: var(--radius-lg); border: 0;
+    background: none; color: var(--text); cursor: pointer; text-align: left;
+    margin-bottom: 2px;
+  }
+  .hero-item .ic { width: 32px; height: 32px; border-radius: var(--radius); background: var(--surface3); color: var(--muted); display: grid; place-items: center; flex: none; margin-top: 1px; }
+  .hero-item .ic svg { width: 17px; height: 17px; }
+  .hero-item .txt { min-width: 0; }
+  .hero-item .t { font-size: 14px; font-weight: 700; line-height: 1.3; display: flex; align-items: center; gap: 6px; }
+  .hero-item .d { font-size: 12px; color: var(--muted); margin-top: 1px; line-height: 1.3; }
+  .hero-item .chev { margin-left: auto; color: var(--dim); flex: none; align-self: center; }
+  .hero-item[data-active="true"] { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); box-shadow: inset 3px 0 0 0 var(--accent); }
+  .hero-item[data-active="true"] .ic { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); color: var(--accent); }
+  .hero-item[data-active="true"] .t { color: var(--accent); }
+
+  .sub2 { padding: 0 10px 4px 51px; display: flex; flex-direction: column; gap: 1px; }
+  .sub2 a { display: block; padding: 6px 10px; border-radius: var(--radius); color: var(--muted); font-size: 12.5px; font-weight: 600; text-decoration: none; }
+  .sub2 a[data-active="true"] { color: var(--accent); background: var(--accent-bg); }
+
+  .lite-item {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 8px 10px; border-radius: var(--radius); border: 0;
+    background: none; color: var(--muted); cursor: pointer; text-align: left; font: 600 13px/1 inherit;
+  }
+  .lite-item svg { flex: none; opacity: .85; width: 16px; height: 16px; }
+  .lite-item .lbl { flex: 1; color: var(--text); }
+  .lite-item[data-active="true"] { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); box-shadow: inset 3px 0 0 0 var(--accent); }
+  .lite-item[data-active="true"] .lbl { color: var(--accent); }
+  .lite-item[data-active="true"] svg { color: var(--accent); opacity: 1; }
+
+  .divider { height: 1px; background: var(--border); margin: 10px 8px; }
+
+  .before-only, .after-only { display: block; }
+
+  .notes { padding: 0 20px 40px; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); max-width: 1000px; }
+  .note { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--surface); padding: 15px 17px; }
+  .note h4 { margin: 0 0 5px; font-size: 13.5px; font-weight: 800; letter-spacing: -0.005em; }
+  .note p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.55; }
+</style>
+</head>
+<body>
+<div class="chrome">
+  <div>
+    <h1>Resunova sidebar &mdash; mockup v1</h1>
+    <div class="note">Reference: NextRaise's nav (two-line items, grouped &ldquo;Tools&rdquo; section, solid-pill active state). Not copied wholesale &mdash; Resunova's existing accent-tint + left-border active state is already more restrained than a solid black pill, so that stays. What's missing is grouping and hierarchy: 8 nav items sit in one flat list with no way to tell a primary entry point from a utility one.</div>
+  </div>
+  <div class="toggle" role="group" aria-label="Compare designs">
+    <button type="button" id="b-before" aria-pressed="false">Current</button>
+    <button type="button" id="b-after" aria-pressed="true">Proposed</button>
+  </div>
+</div>
+
+<div class="stagewrap">
+  <div class="frame">
+    <!-- ===== CURRENT: reproduced from AppSidebar.tsx / nav-config.ts ===== -->
+    <div class="rail before-only" id="rail-before">
+      <div class="rail-head">
+        <button class="brand" type="button">
+          <span class="mark">R</span>
+          <span class="word">Resunova</span>
+        </button>
+        <button class="collapse-btn" type="button" title="Collapse">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M4 3v10M11 6l-3 2 3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="scans-pill">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v4l3 2" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="8" r="6" stroke="#fff" stroke-width="1.6"/></svg>
+        3 of 5 résumé scans remaining today
+      </div>
+      <div class="rail-body">
+        <button class="cur-item" data-active="true" type="button">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M2 7l6-4.5L14 7v6a1 1 0 01-1 1H3a1 1 0 01-1-1V7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          <span class="lbl">Home</span>
+        </button>
+        <button class="cur-item" type="button">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2.4" stroke="currentColor" stroke-width="1.4"/></svg>
+          <span class="lbl">Analyze</span>
+        </button>
+        <button class="cur-item" type="button">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.5 8.5h5M5.5 11h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span class="lbl">Resume Builder</span>
+          <svg class="chev" width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="cur-item" type="button">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.6 3.6L13 6.2l-2.6 2.5.6 3.6L8 10.6l-3 1.7.6-3.6L3 6.2l3.4-.6L8 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+          <span class="lbl">Interview Prep</span>
+        </button>
+        <button class="cur-item" type="button">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M3 2h10v12l-5-2.5L3 14V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          <span class="lbl">My Resumes</span>
+        </button>
+        <button class="cur-item" type="button">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="3" width="11" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><path d="M5 6.5h6M5 9h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span class="lbl">Cover letter</span>
+        </button>
+        <button class="cur-item" type="button">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4"/><path d="M10.3 10.3L14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span class="lbl">Jobs</span>
+        </button>
+        <button class="cur-item" type="button">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="currentColor" stroke-width="1.4"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span class="lbl">Advisor</span>
+        </button>
+      </div>
+      <div class="cur-foot">
+        <button class="row2" type="button">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.5V8l2.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          History
+        </button>
+        <button class="row2" type="button">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1.6M8 12.9v1.6M2.6 8H1M15 8h-1.6M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Theme
+        </button>
+        <button class="row2" type="button">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="4.5" y="3.5" width="7" height="9" rx="3.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 3.5v-1M5 6h-1M11 6h1M5 10h-1M11 10h1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Feedback
+        </button>
+        <button class="cur-user" type="button">
+          <span class="cur-avatar">P</span>
+          <span class="nm">Account</span>
+        </button>
+        <div class="cur-legal">
+          <a href="#">Terms</a><a href="#">Privacy</a><a href="#">Contact</a>
+        </div>
+        <div class="cur-copy">&copy; 2026 Resunova</div>
+      </div>
+    </div>
+
+    <!-- ===== PROPOSED ===== -->
+    <div class="rail after-only" id="rail-after">
+      <div class="rail-head">
+        <button class="brand" type="button">
+          <span class="mark">R</span>
+          <span class="word">Resunova</span>
+        </button>
+        <button class="collapse-btn" type="button" title="Collapse">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M4 3v10M11 6l-3 2 3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="scans-pill">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v4l3 2" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="8" r="6" stroke="#fff" stroke-width="1.6"/></svg>
+        3 of 5 résumé scans remaining today
+      </div>
+      <div class="rail-body">
+        <button class="hero-item" data-active="true" type="button">
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M2 7l6-4.5L14 7v6a1 1 0 01-1 1H3a1 1 0 01-1-1V7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></span>
+          <span class="txt"><span class="t">Home</span><span class="d">Your progress at a glance</span></span>
+        </button>
+        <button class="hero-item" type="button">
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2.4" stroke="currentColor" stroke-width="1.4"/></svg></span>
+          <span class="txt"><span class="t">Analyze</span><span class="d">Paste a JD, see your match</span></span>
+        </button>
+        <button class="hero-item" type="button">
+          <span class="ic"><svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.5 8.5h5M5.5 11h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span>
+          <span class="txt"><span class="t">Resume Builder<svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="d">Tailor to a job, or build fresh</span></span>
+        </button>
+
+        <div class="grouplabel">Library</div>
+        <button class="lite-item" type="button">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h10v12l-5-2.5L3 14V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          <span class="lbl">My Resumes</span>
+        </button>
+        <button class="lite-item" type="button">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="3" width="11" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><path d="M5 6.5h6M5 9h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span class="lbl">Cover letter</span>
+        </button>
+        <button class="lite-item" type="button">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4"/><path d="M10.3 10.3L14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span class="lbl">Jobs</span>
+        </button>
+
+        <div class="grouplabel">Coaching</div>
+        <button class="lite-item" type="button">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.6 3.6L13 6.2l-2.6 2.5.6 3.6L8 10.6l-3 1.7.6-3.6L3 6.2l3.4-.6L8 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+          <span class="lbl">Interview Prep</span>
+        </button>
+        <button class="lite-item" type="button">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="currentColor" stroke-width="1.4"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span class="lbl">Advisor</span>
+        </button>
+      </div>
+      <div class="cur-foot">
+        <button class="row2" type="button">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.5V8l2.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          History
+        </button>
+        <button class="row2" type="button">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1.6M8 12.9v1.6M2.6 8H1M15 8h-1.6M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M12.5 3.5l-1.1 1.1M4.6 11.4l-1.1 1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Theme
+        </button>
+        <button class="row2" type="button">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="4.5" y="3.5" width="7" height="9" rx="3.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 3.5v-1M5 6h-1M11 6h1M5 10h-1M11 10h1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Feedback
+        </button>
+        <button class="cur-user" type="button">
+          <span class="cur-avatar">P</span>
+          <span class="nm">Account</span>
+        </button>
+        <div class="cur-legal">
+          <a href="#">Terms</a><a href="#">Privacy</a><a href="#">Contact</a>
+        </div>
+        <div class="cur-copy">&copy; 2026 Resunova</div>
+      </div>
+    </div>
+  </div>
+  <div class="canvas"></div>
+</div>
+
+<div class="notes">
+  <div class="note">
+    <h4>Kept: the active-state treatment</h4>
+    <p>NextRaise's active item is a solid black pill &mdash; loud. Resunova's is already an accent-tinted background with a 3px left border, the same &ldquo;severity/state in form, not just a full-bleed color block&rdquo; instinct used throughout this session. Copying the pill would be a downgrade; it stays as-is.</p>
+  </div>
+  <div class="note">
+    <h4>Grouped instead of flat</h4>
+    <p>8 items in one list with no separation &rarr; Home/Analyze/Resume Builder ungrouped as the primary workflow, then <b>Library</b> (My Resumes, Cover letter, Jobs) and <b>Coaching</b> (Interview Prep, Advisor). Matches NextRaise's instinct to separate primary nav from secondary, using labels that reflect Resunova's actual product structure rather than a generic &ldquo;Tools.&rdquo;</p>
+  </div>
+  <div class="note">
+    <h4>Two-line descriptions only for the top 3</h4>
+    <p>Blanket two-line treatment on all 8 items would roughly double the list's height for little gain &mdash; My Resumes and Jobs don't need explaining. Descriptions are reserved for the three entry points a new user actually has to choose between (start here / check a fit / build something), the same &ldquo;hero gets the weight, everything else stays quiet&rdquo; rule applied to the score tiles earlier.</p>
+  </div>
+  <div class="note">
+    <h4>The scans pill already does NextRaise's promo-card job</h4>
+    <p>NextRaise uses a tinted card up top to cross-sell its Chrome extension. Resunova's gradient &ldquo;3 of 5 scans remaining&rdquo; pill sits in the exact same slot and already carries more urgency (a countdown, not just an ad) &mdash; left untouched rather than adding a redundant second promo surface.</p>
+  </div>
+  <div class="note">
+    <h4>Icon chips, but only where the hierarchy earns them</h4>
+    <p>Rounded-square icon containers (NextRaise's treatment) went on the three hero items only, matching their bigger type. The grouped secondary items keep plain inline icons &mdash; giving every row a chip would flatten the hierarchy the grouping was just built to create.</p>
+  </div>
+  <div class="note">
+    <h4>Not done: splitting Feedback into Report Bug + Feedback</h4>
+    <p>NextRaise has two separate footer buttons; Resunova's single &ldquo;Feedback&rdquo; already opens a dialog with a title + description field, which functionally covers a bug report too. Splitting it is a real product question (does a bug need a different intake path?), not a nav-layout fix, so it's flagged here rather than silently added.</p>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var body = document.body;
+    var before = document.getElementById("b-before");
+    var after = document.getElementById("b-after");
+    function set(view) {
+      before.setAttribute("aria-pressed", String(view === "before"));
+      after.setAttribute("aria-pressed", String(view === "after"));
+      document.getElementById("rail-before").style.display = view === "before" ? "" : "none";
+      document.getElementById("rail-after").style.display = view === "after" ? "" : "none";
+    }
+    before.addEventListener("click", function () { set("before"); });
+    after.addEventListener("click", function () { set("after"); });
+    set("after");
+  })();
+</script>
+</body>
+</html>

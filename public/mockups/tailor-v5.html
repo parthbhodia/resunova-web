@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tailor match-gaps queue — mockup v5</title>
+<style>
+  :root {
+    --ground: #ffffff;
+    --sunk: #f6f8fa;
+    --card: #ffffff;
+    --line: #dfe3e8;
+    --line-soft: #eceff2;
+    --ink: #12161c;
+    --ink-2: #414b58;
+    --muted: #6b7684;
+
+    --accent: #2f81f7;
+    --accent-soft: rgba(47, 129, 247, 0.10);
+
+    --crit: #d92d20;
+    --crit-soft: #fef3f2;
+    --crit-line: rgba(217, 45, 32, 0.28);
+
+    --warn: #b54708;
+    --warn-soft: #fffaeb;
+    --warn-line: rgba(181, 71, 8, 0.26);
+
+    --good: #067647;
+    --good-soft: #ecfdf3;
+    --good-line: rgba(6, 118, 71, 0.24);
+
+    --radius: 12px;
+
+    --fs-micro: 11px;
+    --fs-caption: 12px;
+    --fs-small: 13px;
+    --fs-body: 14px;
+    --fs-lg: 16px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0d1117; --sunk: #0a0e14; --card: #161b22;
+      --line: #2a313c; --line-soft: #21272f;
+      --ink: #e9eef5; --ink-2: #b6c0cc; --muted: #8b96a5;
+      --accent: #4d94ff; --accent-soft: rgba(77, 148, 255, 0.14);
+      --crit: #ff7b72; --crit-soft: rgba(255, 123, 114, 0.10); --crit-line: rgba(255, 123, 114, 0.30);
+      --warn: #e3a008; --warn-soft: rgba(227, 160, 8, 0.10); --warn-line: rgba(227, 160, 8, 0.28);
+      --good: #3fb950; --good-soft: rgba(63, 185, 80, 0.10); --good-line: rgba(63, 185, 80, 0.26);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d1117; --sunk: #0a0e14; --card: #161b22;
+    --line: #2a313c; --line-soft: #21272f;
+    --ink: #e9eef5; --ink-2: #b6c0cc; --muted: #8b96a5;
+    --accent: #4d94ff; --accent-soft: rgba(77,148,255,0.14);
+    --crit: #ff7b72; --crit-soft: rgba(255,123,114,0.10); --crit-line: rgba(255,123,114,0.30);
+    --warn: #e3a008; --warn-soft: rgba(227,160,8,0.10); --warn-line: rgba(227,160,8,0.28);
+    --good: #3fb950; --good-soft: rgba(63,185,80,0.10); --good-line: rgba(63,185,80,0.26);
+  }
+  :root[data-theme="light"] {
+    --ground: #ffffff; --sunk: #f6f8fa; --card: #ffffff;
+    --line: #dfe3e8; --line-soft: #eceff2;
+    --ink: #12161c; --ink-2: #414b58; --muted: #6b7684;
+    --accent: #2f81f7; --accent-soft: rgba(47,129,247,0.10);
+    --crit: #d92d20; --crit-soft: #fef3f2; --crit-line: rgba(217,45,32,0.28);
+    --warn: #b54708; --warn-soft: #fffaeb; --warn-line: rgba(181,71,8,0.26);
+    --good: #067647; --good-soft: #ecfdf3; --good-line: rgba(6,118,71,0.24);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--sunk);
+    color: var(--ink);
+    font: 400 var(--fs-body)/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 20px 64px; }
+
+  /* ---------- mockup chrome ---------- */
+  .chrome { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .chrome h1 { font-size: var(--fs-lg); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .chrome .note { color: var(--muted); font-size: var(--fs-small); max-width: 68ch; }
+  .toggle {
+    margin-left: auto; display: inline-flex; border: 1px solid var(--line);
+    border-radius: 999px; overflow: hidden; background: var(--card); flex: none;
+  }
+  .toggle button {
+    appearance: none; border: 0; background: none; cursor: pointer;
+    font: 600 var(--fs-small)/1 inherit; color: var(--muted); padding: 9px 16px;
+  }
+  .toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .call {
+    display: flex; gap: 10px; align-items: flex-start; margin: 10px 0 22px;
+    border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 11px 14px;
+    font-size: var(--fs-small); color: var(--ink-2);
+  }
+  .call code { background: var(--sunk); border: 1px solid var(--line-soft); border-radius: 4px; padding: 0 4px; font-size: 12px; }
+
+  .rulermark {
+    display: flex; align-items: center; gap: 8px; margin: 4px 0 10px;
+    font-size: var(--fs-micro); color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  }
+  .rulermark .rule { flex: 1; height: 1px; background: var(--line); }
+
+  /* ---------- queue card ---------- */
+  .queue { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); overflow: hidden; max-width: 680px; }
+  .qhead { padding: 20px 22px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .qhead .t { font-size: var(--fs-lg); font-weight: 700; }
+  .qhead .t .c { color: var(--muted); font-weight: 500; }
+  .selectrow { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--muted); font-size: var(--fs-small); }
+  .btn-primary {
+    background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+    font-size: var(--fs-body); font-weight: 700; padding: 10px 16px; cursor: pointer; white-space: nowrap;
+  }
+  .scopehint {
+    margin: 10px 0 0; font-size: var(--fs-small); color: var(--muted);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .scopehint svg { flex: none; opacity: .8; }
+
+  .counts { display: flex; flex-wrap: wrap; gap: 10px 22px; padding: 16px 22px; border-top: 1px solid var(--line-soft); font-size: var(--fs-small); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .counts b { color: var(--ink); font-weight: 800; }
+
+  .band { padding: 22px 10px 10px 22px; display: flex; align-items: center; gap: 10px; font-size: var(--fs-caption); font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+  .band[data-tone="crit"] { color: var(--crit); }
+  .band[data-tone="muted"] { color: var(--muted); }
+  .band .rule { flex: 1; height: 1px; background: currentColor; opacity: .22; margin-right: 8px; }
+
+  .row {
+    display: grid; grid-template-columns: 20px 1fr auto; gap: 14px; align-items: start;
+    padding: 16px 22px 16px 19px; border-left: 3px solid transparent;
+  }
+  .row + .row { border-top: 1px solid var(--line-soft); }
+  .row[data-tone="crit"] { border-left-color: var(--crit); }
+  .row[data-tone="muted"] { border-left-color: var(--line); }
+
+  .box { width: 17px; height: 17px; border: 1.5px solid var(--line); border-radius: 4px; margin-top: 2px; flex: none; }
+  .ring { width: 16px; height: 16px; border: 1.5px solid var(--border, var(--line)); border-radius: 999px; margin-top: 2px; flex: none; }
+
+  /* v5: contextual rows get a marker that cannot be mistaken for a checkbox */
+  .ctxmark {
+    width: 17px; height: 17px; border-radius: 5px; margin-top: 2px; flex: none;
+    background: var(--sunk); border: 1px solid var(--line-soft);
+    display: grid; place-items: center; color: var(--muted); font-size: 10px; font-weight: 800; font-style: italic;
+  }
+
+  .title-line { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .title-cur { font-size: var(--fs-body); font-weight: 600; line-height: 1.5; }
+  .title-v5 {
+    font-size: var(--fs-body); font-weight: 600; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto;
+  }
+  .why {
+    border: 0; background: none; color: var(--muted); font: 500 var(--fs-caption)/1 inherit;
+    cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; flex: none;
+  }
+  .more-badge {
+    flex: none; border: 1px solid var(--line); background: var(--sunk); color: var(--ink-2);
+    font-size: var(--fs-micro); font-weight: 700; border-radius: 5px; padding: 2px 7px; cursor: pointer;
+  }
+  /* Grid-rows trick: the wrapper's track animates 0fr → 1fr (a real height
+     transition with no JS measuring), while .detail-inner clips the content
+     that's overflowing the collapsed track. */
+  .detail {
+    display: grid; grid-template-rows: 0fr; max-width: 58ch;
+    transition: grid-template-rows .22s ease;
+  }
+  .detail.open { grid-template-rows: 1fr; }
+  .detail-inner {
+    overflow: hidden;
+    font-size: var(--fs-small); color: var(--ink-2); line-height: 1.6;
+  }
+  /* Padding lives here, not on .detail-inner unconditionally — a collapsed
+     0fr row still respects its child's padding even with overflow:hidden, so
+     an unconditional padding-top would leave a permanent sliver. */
+  .detail.open .detail-inner { padding-top: 10px; }
+  .detail .full { display: block; color: var(--ink); font-weight: 500; margin-bottom: 7px; }
+  .fix { border: 0; background: none; color: var(--accent); font: 700 var(--fs-small)/1 inherit; cursor: pointer; white-space: nowrap; }
+
+  .ctxnote {
+    padding: 9px 14px 12px 14px; font-size: var(--fs-caption); color: var(--muted); line-height: 1.5;
+  }
+
+  /* Visibility for before/after is toggled by JS setting inline style.display
+     directly (see script at the bottom) — that always wins regardless of any
+     class's own display value (e.g. .scopehint needs flex, not block), so it
+     can't lose a specificity fight the way a class-based toggle can. These
+     rules are just the resting "block" layout for the row-level wrappers;
+     .scopehint and .ctxnote already declare their own display via their class. */
+  .before-only, .after-only { display: block; }
+  /* Higher-specificity overrides for toggled elements that need a non-block
+     display — two classes beats the one-class rule above regardless of
+     source order, so these can't silently lose the layout they need. */
+  .scopehint.after-only { display: flex; }
+  .ctxmark.after-only { display: grid; }
+
+  .notes { margin-top: 36px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .note { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--card); padding: 16px 18px; }
+  .note h4 { margin: 0 0 5px; font-size: var(--fs-small); font-weight: 800; letter-spacing: -0.005em; }
+  .note p { margin: 0; font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="chrome">
+    <div>
+      <h1>Tailor match-gaps queue &mdash; mockup v5</h1>
+      <div class="note">Long titles wrap, the bulk-fix count disagrees with the review count, and the context row's circle looks like a checkbox.</div>
+    </div>
+    <div class="toggle" role="group" aria-label="Compare designs">
+      <button type="button" id="b-before" aria-pressed="false">Current</button>
+      <button type="button" id="b-after" aria-pressed="true">Proposed</button>
+    </div>
+  </div>
+
+  <div class="call">
+    <span>&#9888;&#65039;</span>
+    <span>Real data from your screenshot, not demo strings.</span>
+  </div>
+
+  <div class="rulermark">Match gaps card, at its real width<span class="rule"></span></div>
+
+  <div class="queue">
+
+    <div class="qhead">
+      <div>
+        <div class="t">Match gaps <span class="c">&middot; 3 to review</span></div>
+        <label class="selectrow"><input type="checkbox" disabled> Select all gaps</label>
+        <!-- PROPOSED: name the scope so the button's smaller number stops looking like a bug -->
+        <div class="scopehint after-only">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.1"/><path d="M6 5.3v3M6 3.7v.01" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+          1 employer-context item below isn&rsquo;t included
+        </div>
+      </div>
+      <button class="btn-primary" type="button"><span class="before-only">Improve all 2</span><span class="after-only">Improve 2 blockers</span></button>
+    </div>
+
+    <div class="counts"><span><b>0</b> added</span><span><b>0</b> need review</span><span><b>0</b> left out</span><span><b>3</b> to review</span></div>
+
+    <div class="band" data-tone="crit"><span>Could get you filtered out</span><span style="letter-spacing:0">&middot; 2</span><span class="rule"></span></div>
+
+    <!-- ROW 1 -->
+    <div class="row" data-tone="crit">
+      <span class="box" aria-hidden="true"></span>
+      <span style="min-width:0">
+        <!-- CURRENT: raw title, wraps to 2+ lines -->
+        <span class="before-only">
+          <span class="title-cur">Review code developed by other developers and provide feedback to ensure best practices (e.g., style guidelines, checking code in, accuracy, testability, and efficiency).</span>
+          <div><button class="why" type="button">Why this matters</button></div>
+        </span>
+        <!-- PROPOSED: clamped to one line, full text one click away -->
+        <span class="after-only">
+          <span class="title-line">
+            <span class="title-v5" title="Review code developed by other developers and provide feedback to ensure best practices (e.g., style guidelines, checking code in, accuracy, testability, and efficiency).">Review code developed by other developers and provide feedback to ensure best practices&hellip;</span>
+            <button class="more-badge" type="button" data-toggle="d1">More</button>
+            <button class="why" type="button" data-toggle="d1">Why this matters</button>
+          </span>
+          <span class="detail" id="d1"><span class="detail-inner">
+            <span class="full">Review code developed by other developers and provide feedback to ensure best practices (e.g., style guidelines, checking code in, accuracy, testability, and efficiency).</span>
+            A hard requirement in the posting. Your r&eacute;sum&eacute; shows delivery ownership, not the review process itself.
+          </span></span>
+        </span>
+      </span>
+      <button class="fix" type="button">Review fix</button>
+    </div>
+
+    <!-- ROW 2 -->
+    <div class="row" data-tone="crit">
+      <span class="box" aria-hidden="true"></span>
+      <span style="min-width:0">
+        <span class="before-only">
+          <span class="title-cur">Contribute to existing documentation or educational content and adapt content based on product/program updates and user feedback.</span>
+          <div><button class="why" type="button">Why this matters</button></div>
+        </span>
+        <span class="after-only">
+          <span class="title-line">
+            <span class="title-v5" title="Contribute to existing documentation or educational content and adapt content based on product/program updates and user feedback.">Contribute to existing documentation or educational content and adapt content&hellip;</span>
+            <button class="more-badge" type="button" data-toggle="d2">More</button>
+            <button class="why" type="button" data-toggle="d2">Why this matters</button>
+          </span>
+          <span class="detail" id="d2"><span class="detail-inner">
+            <span class="full">Contribute to existing documentation or educational content and adapt content based on product/program updates and user feedback.</span>
+            Listed as a responsibility. Nothing in your bullets currently mentions docs or educational content.
+          </span></span>
+        </span>
+      </span>
+      <button class="fix" type="button">Review fix</button>
+    </div>
+
+    <div class="band" data-tone="muted"><span>About the employer</span><span style="letter-spacing:0">&middot; 1</span><span class="rule"></span></div>
+
+    <!-- CONTEXTUAL ROW -->
+    <div class="row" data-tone="muted">
+      <span class="ring before-only" aria-hidden="true"></span>
+      <span class="ctxmark after-only" aria-hidden="true" title="Context, not a selectable gap">i</span>
+      <span style="min-width:0">
+        <span class="title-line">
+          <span class="title-cur before-only">object-oriented programming</span>
+          <span class="title-v5 after-only" style="flex:none">object-oriented programming</span>
+          <button class="why" type="button" data-toggle="d3">Why this matters</button>
+        </span>
+        <span class="detail" id="d3"><span class="detail-inner">A word about the employer&rsquo;s business, not a skill. Worth adding only if you&rsquo;ve genuinely worked in that area.</span></span>
+      </span>
+      <button class="fix" type="button">What&rsquo;s this?</button>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h4>One-line titles, always</h4>
+      <p>Long titles get an ellipsis. <b>More</b> shows the rest.</p>
+    </div>
+    <div class="note">
+      <h4>The button names its own scope</h4>
+      <p><b>Improve 2 blockers</b>, not <b>Improve all 2</b>. The caption above it says why 1 item is missing.</p>
+    </div>
+    <div class="note">
+      <h4>Context rows can't be mistaken for checkboxes</h4>
+      <p>A small &ldquo;i&rdquo; square, not a circle the same weight as the real ones.</p>
+    </div>
+    <div class="note">
+      <h4>Copy and layout only</h4>
+      <p>No logic changed &mdash; <code>tailorWorkQueue.ts</code> already excluded contextual items from bulk fixes on purpose.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var body = document.body;
+    var before = document.getElementById("b-before");
+    var after = document.getElementById("b-after");
+    function set(view) {
+      body.setAttribute("data-view", view);
+      before.setAttribute("aria-pressed", String(view === "before"));
+      after.setAttribute("aria-pressed", String(view === "after"));
+      // Inline style.display always wins over any class's own display value
+      // (e.g. .scopehint's flex), so this can't lose a CSS specificity fight.
+      Array.prototype.forEach.call(document.querySelectorAll(".before-only"), function (el) {
+        el.style.display = view === "before" ? "" : "none";
+      });
+      Array.prototype.forEach.call(document.querySelectorAll(".after-only"), function (el) {
+        el.style.display = view === "after" ? "" : "none";
+      });
+    }
+    before.addEventListener("click", function () { set("before"); });
+    after.addEventListener("click", function () { set("after"); });
+    set("after");
+
+    Array.prototype.forEach.call(document.querySelectorAll("[data-toggle]"), function (b) {
+      b.addEventListener("click", function () {
+        var id = b.getAttribute("data-toggle");
+        var d = document.getElementById(id);
+        if (!d) return;
+        // Class-based, not [hidden]: [hidden] forces display:none, which
+        // can't be transitioned. The grid-rows trick on .detail needs the
+        // element to stay laid out (rows just collapse to 0) the whole time.
+        var opening = !d.classList.contains("open");
+        d.classList.toggle("open", opening);
+        Array.prototype.forEach.call(document.querySelectorAll('[data-toggle="' + id + '"]'), function (btn) {
+          if (btn.classList.contains("more-badge")) btn.textContent = opening ? "Less" : "More";
+          if (btn.classList.contains("why")) btn.textContent = opening ? "Hide" : "Why this matters";
+        });
+      });
+    });
+  })();
+</script>
+</body>
+</html>
