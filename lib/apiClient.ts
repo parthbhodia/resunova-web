@@ -147,10 +147,25 @@ export interface ScanLimitStatus {
   used: number | null;
   remaining: number | null;
   resetAt: string | null;
+  /** Sum of résumé scans over the last 7 UTC days (dashboard / Plan & usage). */
+  usedLast7Days: number | null;
+  /** Per-day buckets for a mini sparkline — oldest → newest. */
+  dailyUsage: Array<{ date: string; count: number }> | null;
 }
 
 export function scanLimitFrom(body: unknown): ScanLimitStatus {
   const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const dailyRaw = Array.isArray(b.dailyUsage) ? b.dailyUsage : null;
+  const dailyUsage = dailyRaw
+    ? dailyRaw
+        .map((row) => {
+          const r = (row && typeof row === "object" ? row : {}) as Record<string, unknown>;
+          const date = typeof r.date === "string" ? r.date : "";
+          const count = typeof r.count === "number" && Number.isFinite(r.count) ? r.count : 0;
+          return date ? { date, count: Math.max(0, Math.floor(count)) } : null;
+        })
+        .filter((x): x is { date: string; count: number } => !!x)
+    : null;
   return {
     enforced: !!b.enforced,
     unlimited: !!b.unlimited,
@@ -159,6 +174,8 @@ export function scanLimitFrom(body: unknown): ScanLimitStatus {
     used: num(b.used),
     remaining: num(b.remaining),
     resetAt: typeof b.resetAt === "string" ? b.resetAt : null,
+    usedLast7Days: num(b.usedLast7Days),
+    dailyUsage,
   };
 }
 
