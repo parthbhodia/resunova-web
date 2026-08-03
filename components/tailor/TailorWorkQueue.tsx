@@ -189,7 +189,6 @@ export function TailorWorkQueue({
   // so rather than leaving the user to notice the count not adding up.
   const contextualOpen = filtered.filter((it) => it.status === "queued" && it.kind === "contextual").length;
   const selected = selectable.filter((it) => selectedIds.has(it.id));
-  const allSelected = selectable.length > 0 && selected.length === selectable.length;
 
   const toggleSelected = (id: string) => {
     setSelectedIds((current) => {
@@ -200,9 +199,6 @@ export function TailorWorkQueue({
     });
   };
 
-  const toggleAll = () => {
-    setSelectedIds(allSelected ? new Set() : new Set(selectable.map((it) => it.id)));
-  };
 
   const toggleDetail = (id: string) => {
     setDetailIds((current) => {
@@ -229,22 +225,6 @@ export function TailorWorkQueue({
               · {c.open ? `${c.open} to review` : "all reviewed"}
             </span>
           </div>
-          {/* A live control, so it gets real contrast. At the same size and
-              shade of grey as the note under it the two fused into one block
-              and nothing said which part you could click. */}
-          {selectable.length > 0 ? (
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 12, color: "var(--text)", fontSize: FS.body, fontWeight: FW.semibold, cursor: "pointer" }}>
-              <input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ flexShrink: 0 }} />
-              {/* The text needs its own element. As a bare child of an
-                  inline-flex label it becomes an anonymous flex item, which
-                  shrinks to its longest word — "Select all gaps" rendered as
-                  three stacked lines next to the checkbox even with 400px of
-                  free space in the row. */}
-              <span style={{ whiteSpace: "nowrap" }}>
-                {allSelected ? `All ${selectable.length} selected` : "Select all gaps"}
-              </span>
-            </label>
-          ) : null}
           {/* Its own tag, not a third stacked line of the same grey, so it
               reads as an annotation on the control above rather than as more
               of it. Says what "all" leaves out, because a pass that silently
