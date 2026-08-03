@@ -1,34 +1,90 @@
 import { describe, expect, it } from "vitest";
 import {
-  groupQueueByKind,
-  QUEUE_KIND_ORDER,
+  groupQueueBySeverity,
+  QUEUE_BAND_ORDER,
   type QueueItem,
 } from "@/lib/tailorWorkQueue";
 
-const item = (id: string, kind: QueueItem["kind"]): QueueItem => ({
-  id, name: id, kind, status: "queued", detail: "",
-});
+const item = (
+  id: string,
+  kind: QueueItem["kind"],
+  status: QueueItem["status"] = "queued",
+): QueueItem => ({ id, name: id, kind, status, detail: "" });
 
-describe("groupQueueByKind", () => {
-  it("orders groups by leverage, not by input order", () => {
-    const g = groupQueueByKind([
+describe("groupQueueBySeverity", () => {
+  it("bands by what the gap costs, not by which rater field it came from", () => {
+    // Qualifications and responsibilities read the same to a screener: a hard
+    // requirement you do not evidence. Splitting them apart is the taxonomy
+    // leaking into the UI.
+    const g = groupQueueBySeverity([
       item("k", "keyword"),
       item("c", "contextual"),
       item("q", "qualification"),
       item("r", "responsibility"),
     ]);
-    expect(g.map((x) => x.kind)).toEqual(["qualification", "responsibility", "keyword", "contextual"]);
+    expect(g.map((x) => x.band)).toEqual(["blocker", "boost", "context"]);
+    expect(g[0].items.map((i) => i.id).sort()).toEqual(["q", "r"]);
   });
 
-  it("drops empty groups rather than rendering a header with nothing under it", () => {
-    const g = groupQueueByKind([item("q", "qualification")]);
-    expect(g.map((x) => x.kind)).toEqual(["qualification"]);
+  it("orders bands by consequence, not by input order", () => {
+    const g = groupQueueBySeverity([item("c", "contextual"), item("q", "qualification")]);
+    expect(g.map((x) => x.band)).toEqual(["blocker", "context"]);
   });
 
-  it("keeps arrival order inside a group", () => {
+  it("counts what is still open, not the size of the band", () => {
+    // A header that says four things could filter you out, when you have
+    // already handled three, is the same overcounting the queue exists to end.
+    const g = groupQueueBySeverity([
+      item("a", "qualification", "applied"),
+      item("b", "qualification", "ignored"),
+      item("c", "qualification", "queued"),
+    ]);
+    expect(g[0].open).toBe(1);
+    expect(g[0].items).toHaveLength(3);
+  });
+
+  it("counts needs_review as still open", () => {
+    // A change landed but carries a claim the user has not verified. That is
+    // not done, and calling it done is exactly the wrong direction to be wrong.
+    const g = groupQueueBySeverity([item("a", "qualification", "needs_review")]);
+    expect(g[0].open).toBe(1);
+    expect(g[0].tone).toBe("crit");
+  });
+
+  it("turns a fully handled band good instead of leaving it accusing", () => {
+    const g = groupQueueBySeverity([
+      item("a", "qualification", "applied"),
+      item("b", "responsibility", "not_coverable"),
+    ]);
+    expect(g[0].open).toBe(0);
+    expect(g[0].tone).toBe("good");
+  });
+
+  it("keeps a handled band visible rather than dropping it", () => {
+    // Rows must not vanish from under the user as they fix them.
+    const g = groupQueueBySeverity([item("a", "keyword", "applied")]);
+    expect(g).toHaveLength(1);
+    expect(g[0].items.map((i) => i.id)).toEqual(["a"]);
+  });
+
+  it("tones open bands by severity", () => {
+    const g = groupQueueBySeverity([
+      item("q", "qualification"),
+      item("k", "keyword"),
+      item("c", "contextual"),
+    ]);
+    expect(g.map((x) => x.tone)).toEqual(["crit", "warn", "muted"]);
+  });
+
+  it("drops empty bands rather than rendering a header with nothing under it", () => {
+    const g = groupQueueBySeverity([item("q", "qualification")]);
+    expect(g.map((x) => x.band)).toEqual(["blocker"]);
+  });
+
+  it("keeps arrival order inside a band", () => {
     // The rater already returns these in priority order; regrouping must not
     // shuffle them.
-    const g = groupQueueByKind([
+    const g = groupQueueBySeverity([
       item("first", "keyword"), item("second", "keyword"), item("third", "keyword"),
     ]);
     expect(g[0].items.map((i) => i.id)).toEqual(["first", "second", "third"]);
@@ -41,18 +97,21 @@ describe("groupQueueByKind", () => {
       item("a", "qualification"), item("b", "keyword"),
       item("c", "contextual"), item("d", "responsibility"), item("e", "keyword"),
     ];
-    const flat = groupQueueByKind(items).flatMap((g) => g.items);
+    const flat = groupQueueBySeverity(items).flatMap((g) => g.items);
     expect(flat).toHaveLength(items.length);
     expect(new Set(flat.map((i) => i.id))).toEqual(new Set(items.map((i) => i.id)));
   });
 
   it("returns nothing for an empty queue", () => {
-    expect(groupQueueByKind([])).toEqual([]);
+    expect(groupQueueBySeverity([])).toEqual([]);
   });
 
-  it("covers every kind the queue can produce", () => {
-    // A new QueueKind without an entry here would render ungrouped and vanish.
-    const one = QUEUE_KIND_ORDER.map((k) => item(k, k));
-    expect(groupQueueByKind(one)).toHaveLength(QUEUE_KIND_ORDER.length);
+  it("covers every band the queue can produce", () => {
+    // A kind mapped to no band would render ungrouped and vanish.
+    const all = [
+      item("q", "qualification"), item("r", "responsibility"),
+      item("k", "keyword"), item("c", "contextual"),
+    ];
+    expect(groupQueueBySeverity(all)).toHaveLength(QUEUE_BAND_ORDER.length);
   });
 });

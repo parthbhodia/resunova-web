@@ -50,28 +50,49 @@ describe("TailorWorkQueue working state", () => {
 });
 
 /**
- * Grouping by kind, which replaced the required/preferred split after that
- * split was measured and found unusable: 94.6% of concepts come back
- * "required", and 9 of 15 production scans had no non-required concept at all.
+ * Grouping by consequence. Two earlier axes were tried and dropped: the
+ * required/preferred split, killed by measurement (94.6% of concepts come back
+ * "required", and 9 of 15 production scans had no non-required concept at
+ * all), and kind, which named the rater's field at the user instead of telling
+ * them what the gap costs.
  */
-describe("the queue groups by kind", () => {
+describe("the queue groups by what the gap costs", () => {
   const items: QueueItem[] = [
     { id: "k:go", name: "Go", kind: "keyword", status: "queued", detail: "" },
     { id: "q:degree", name: "Master's degree", kind: "qualification", status: "queued", detail: "" },
     { id: "r:review", name: "Review code", kind: "responsibility", status: "queued", detail: "" },
   ];
 
-  it("shows a header for each kind present", () => {
+  it("heads each band with its consequence, not its source field", () => {
     render(<TailorWorkQueue items={items} />);
-    expect(screen.getByText("Qualifications")).toBeInTheDocument();
-    expect(screen.getByText("What the role does")).toBeInTheDocument();
-    expect(screen.getByText("Keywords")).toBeInTheDocument();
+    expect(screen.getByText("Could get you filtered out")).toBeInTheDocument();
+    expect(screen.getByText("Worth adding")).toBeInTheDocument();
+    // The taxonomy words are gone from the headers.
+    expect(screen.queryByText("Qualifications")).toBeNull();
+    expect(screen.queryByText("What the role does")).toBeNull();
   });
 
-  it("shows no header for a kind with nothing in it", () => {
+  it("puts hard requirements in one band, however the rater filed them", () => {
+    // A qualification and a responsibility read the same to a screener.
+    render(<TailorWorkQueue items={items} />);
+    expect(screen.getAllByText("Could get you filtered out")).toHaveLength(1);
+    expect(screen.getByText("· 2")).toBeInTheDocument();
+  });
+
+  it("shows no header for a band with nothing in it", () => {
     render(<TailorWorkQueue items={[items[0]]} />);
-    expect(screen.queryByText("Qualifications")).toBeNull();
-    expect(screen.getByText("Keywords")).toBeInTheDocument();
+    expect(screen.queryByText("Could get you filtered out")).toBeNull();
+    expect(screen.getByText("Worth adding")).toBeInTheDocument();
+  });
+
+  it("counts what is open, so a handled band stops accusing you", () => {
+    render(
+      <TailorWorkQueue
+        items={[{ ...items[1], status: "applied" }, { ...items[2], status: "ignored" }]}
+      />,
+    );
+    expect(screen.getByText("Could get you filtered out")).toBeInTheDocument();
+    expect(screen.getByText("· all set")).toBeInTheDocument();
   });
 
   it("still renders every row", () => {

@@ -13,7 +13,7 @@
 import React, { useState } from "react";
 import { FS, FW } from "@/lib/typography";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
-import { groupQueueByKind, queueCounts } from "@/lib/tailorWorkQueue";
+import { groupQueueBySeverity, queueCounts, type QueueTone } from "@/lib/tailorWorkQueue";
 
 /** What the row's trailing action says, per state. Null = no action. */
 export type QueueItemAction =
@@ -32,6 +32,15 @@ export function itemAction(it: QueueItem): QueueItemAction | null {
   return it.kind === "contextual" ? "whats_this" : "fix";
 }
 
+/** Severity tones. The fallbacks matter: these vars are defined per theme, and
+ *  a missing one would otherwise render the stripe transparent. */
+const TONE_COLOR: Record<QueueTone, string> = {
+  crit: "var(--red-ink, #b42318)",
+  warn: "var(--amber-ink, #b45309)",
+  muted: "var(--muted)",
+  good: "var(--green-ink, #16a34a)",
+};
+
 const ACTION_LABEL: Record<QueueItemAction, string> = {
   view_change: "See it",
   review: "Review",
@@ -42,6 +51,8 @@ const ACTION_LABEL: Record<QueueItemAction, string> = {
 };
 
 function StatusDot({ status, working }: { status: QueueItem["status"]; working: boolean }) {
+  // `tq-dot` transitions the colours, so a row going queued → applied changes
+  // state visibly instead of teleporting.
   const base: React.CSSProperties = {
     width: 16,
     height: 16,
@@ -59,40 +70,40 @@ function StatusDot({ status, working }: { status: QueueItem["status"]; working: 
     return (
       <span
         aria-label="working"
-        className="rn-queue-spin"
+        className="rn-queue-spin tq-dot"
         style={{ ...base, borderColor: "var(--accent)", borderTopColor: "transparent" }}
       />
     );
   }
   if (status === "applied") {
     return (
-      <span aria-label="applied" style={{ ...base, background: "var(--green-ink, #16a34a)", borderColor: "var(--green-ink, #16a34a)", color: "#fff" }}>
+      <span aria-label="applied" className="tq-dot" style={{ ...base, background: "var(--green-ink, #16a34a)", borderColor: "var(--green-ink, #16a34a)", color: "#fff" }}>
         ✓
       </span>
     );
   }
   if (status === "needs_review") {
     return (
-      <span aria-label="needs review" style={{ ...base, borderColor: "var(--amber-ink, #b45309)", color: "var(--amber-ink, #b45309)" }}>
+      <span aria-label="needs review" className="tq-dot" style={{ ...base, borderColor: "var(--amber-ink, #b45309)", color: "var(--amber-ink, #b45309)" }}>
         !
       </span>
     );
   }
   if (status === "not_coverable") {
     return (
-      <span aria-label="not coverable" style={{ ...base, color: "var(--muted)" }}>
+      <span aria-label="not coverable" className="tq-dot" style={{ ...base, color: "var(--muted)" }}>
         –
       </span>
     );
   }
   if (status === "ignored") {
     return (
-      <span aria-label="ignored" style={{ ...base, color: "var(--muted)", opacity: 0.7 }}>
+      <span aria-label="ignored" className="tq-dot" style={{ ...base, color: "var(--muted)", opacity: 0.7 }}>
         –
       </span>
     );
   }
-  return <span aria-label="queued" style={base} />;
+  return <span aria-label="queued" className="tq-dot" style={base} />;
 }
 
 export function TailorWorkQueue({
@@ -248,54 +259,66 @@ export function TailorWorkQueue({
             Nothing to add here. You&rsquo;re already covered.
           </li>
         ) : null}
-        {groupQueueByKind(shown).map((group) => (
-          <li key={`g:${group.kind}`} style={{ listStyle: "none" }}>
-            {/* Grouped by kind, not by requirement importance. Importance was
-                measured at 94.6% "required" across production scans, with 9 of
-                15 having no non-required concept at all, so it would put
-                everything in one bucket for most users. Kind is how the rest
-                of the surface already talks and cannot collapse. */}
+        {groupQueueBySeverity(shown).map((group) => (
+          <li key={`g:${group.band}`} style={{ listStyle: "none" }}>
+            {/* Grouped by what the gap costs you, not by which rater field it
+                came out of. The header carries the band's tone and the count
+                of what is still OPEN, so a band you have cleared reads as
+                cleared instead of still accusing you. */}
             <div
+              className="tq-band"
               style={{
                 display: "flex",
-                alignItems: "baseline",
+                alignItems: "center",
                 gap: 8,
-                padding: "10px 8px 4px",
+                padding: "12px 8px 5px",
                 fontSize: FS.micro,
                 fontWeight: FW.bold,
                 letterSpacing: "0.07em",
                 textTransform: "uppercase",
-                color: "var(--muted)",
+                color: TONE_COLOR[group.tone],
               }}
             >
               <span>{group.label}</span>
-              <span style={{ fontWeight: FW.semibold, letterSpacing: 0 }}>
-                {group.items.length}
+              <span style={{ letterSpacing: 0 }}>
+                · {group.open > 0 ? group.open : "all set"}
               </span>
+              {/* Carries the tone across the full width, so the band reads as a
+                  band at a glance rather than as one coloured word. */}
+              <span aria-hidden style={{ flex: 1, height: 1, background: "currentColor", opacity: 0.22 }} />
             </div>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {group.items.map((it) => {
+        {group.items.map((it, rowIndex) => {
           const expanded = it.id === expandedId;
           const action = expanded ? null : itemAction(it);
           const working = it.id === workingId || Boolean(workingIds?.has(it.id));
           const detailOpen = detailIds.has(it.id);
           const canSelect = it.status === "queued" && it.kind !== "contextual";
-          const severityColor =
-            it.kind === "qualification" || it.kind === "responsibility"
-              ? "var(--red-ink, #b42318)"
-              : it.kind === "keyword"
-                ? "var(--amber-ink, #b45309)"
-                : "var(--muted)";
           return (
-            <li key={it.id} data-status={it.status} style={{ borderRadius: 9 }}>
+            <li
+              key={it.id}
+              data-status={it.status}
+              className="tq-row"
+              // Capped stagger: past a handful of rows the delay stops reading
+              // as sequence and starts reading as lag.
+              style={{ borderRadius: 9, animationDelay: `${Math.min(rowIndex, 5) * 0.03}s` }}
+            >
             <div
+              className="tq-rowbody"
               style={{
                 display: "grid",
                 gridTemplateColumns: "20px 1fr auto",
                 gap: 10,
                 alignItems: "start",
-                padding: "9px 8px",
-                borderRadius: 9,
+                padding: "9px 8px 9px 9px",
+                // Square on the stripe side: a 9px radius bends the stripe into
+                // a bracket instead of a bar.
+                borderRadius: "0 9px 9px 0",
+                // Severity in form, not only in colour: the stripe survives a
+                // greyscale print and colour-blind vision, where a tinted word
+                // does not. State stays with the status dot so the two never
+                // have to share one signal.
+                borderLeft: `3px solid ${TONE_COLOR[group.tone]}`,
                 background: working ? "var(--accent-soft, rgba(37,99,235,0.08))" : undefined,
               }}
             >
@@ -312,15 +335,16 @@ export function TailorWorkQueue({
               )}
               <span style={{ minWidth: 0 }}>
                 <span
+                  className="tq-title"
                   style={{
                     fontSize: FS.body,
                     fontWeight: FW.semibold,
+                    // Plain ink. Severity is the stripe now, and colouring the
+                    // title too made every row shout at the same volume.
                     color:
-                      it.status === "not_coverable"
+                      it.status === "not_coverable" || it.status === "ignored"
                         ? "var(--muted)"
-                        : it.status === "needs_review"
-                          ? "var(--amber-ink, #b45309)"
-                          : severityColor,
+                        : "var(--text)",
                   }}
                 >
                   {it.name}
@@ -364,7 +388,7 @@ export function TailorWorkQueue({
                 <span />
               )}
             </div>
-            {expanded ? expansion : null}
+            {expanded ? <div className="tq-expand">{expansion}</div> : null}
             </li>
           );
         })}

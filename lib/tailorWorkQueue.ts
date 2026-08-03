@@ -205,49 +205,89 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
 /**
  * Grouping for the queue.
  *
- * The v3 design groups the work so a long list reads as a few short ones. The
- * original plan grouped by requirement importance (required vs preferred), but
- * that was dropped after measuring the real data: across 277 concepts from 15
- * production scans, importance is 94.6% "required", and 9 of those 15 scans
- * had ZERO non-required concepts. Grouping on it would put everything in one
- * bucket for most users, which is not a grouping.
+ * The v3 design groups the work so a long list reads as a few short ones, and
+ * it groups on CONSEQUENCE — "could get you filtered out" — rather than on the
+ * taxonomy the rater happens to use. A header saying "Qualifications" tells a
+ * user which LLM field the item came out of; a header saying what the item
+ * costs them tells them whether to care.
  *
- * Kind is the honest axis instead. It is already how the rest of the surface
- * talks (the dimension chips read Qualifications / Responsibilities /
- * Keywords), it needs no join between two independent LLM outputs, and it
- * cannot collapse.
+ * Two axes were considered and rejected before this one:
  *
- * Order is by leverage: a missing qualification costs more than a missing
- * keyword, and contextual items are last because they are usually best left
- * uncovered.
+ *  - Requirement importance (required vs preferred). Killed by measurement:
+ *    across 277 concepts from 15 production scans, importance is 94.6%
+ *    "required", and 9 of those 15 had ZERO non-required concepts. It would
+ *    put everything in one bucket for most users, which is not a grouping.
+ *  - Kind alone. Shipped briefly and it is what the mockup does not do: four
+ *    grey headers naming the source field, with qualifications and
+ *    responsibilities split apart even though they carry the same stakes.
+ *
+ * Band is derived from kind, so it needs no join between two independent LLM
+ * outputs and cannot collapse to one bucket the way importance does.
  */
-export const QUEUE_KIND_ORDER: readonly QueueKind[] = [
-  "qualification",
-  "responsibility",
-  "keyword",
-  "contextual",
-] as const;
+export type QueueBand = "blocker" | "boost" | "context";
 
-export const QUEUE_KIND_LABEL: Record<QueueKind, string> = {
-  qualification: "Qualifications",
-  responsibility: "What the role does",
-  keyword: "Keywords",
-  contextual: "About the employer",
+/** Ordered by what it costs to leave the band unaddressed. */
+export const QUEUE_BAND_ORDER: readonly QueueBand[] = ["blocker", "boost", "context"] as const;
+
+/** Hard requirements read as pass/fail to a screener; keywords are upside;
+ *  employer-domain words are usually best left alone. */
+const BAND_OF_KIND: Record<QueueKind, QueueBand> = {
+  qualification: "blocker",
+  responsibility: "blocker",
+  keyword: "boost",
+  contextual: "context",
+};
+
+export const QUEUE_BAND_LABEL: Record<QueueBand, string> = {
+  blocker: "Could get you filtered out",
+  boost: "Worth adding",
+  context: "About the employer",
+};
+
+/** Severity, not state. State is the row's own status dot, so the two stay
+ *  independently readable (and survive a greyscale print). */
+export type QueueTone = "crit" | "warn" | "muted" | "good";
+
+const BAND_TONE: Record<QueueBand, QueueTone> = {
+  blocker: "crit",
+  boost: "warn",
+  context: "muted",
 };
 
 export interface QueueGroup {
-  kind: QueueKind;
+  band: QueueBand;
   label: string;
+  tone: QueueTone;
+  /** Items still awaiting a decision. The header counts THIS, not the group
+   *  size: once you have handled a row, saying it could still filter you out
+   *  is the same overcounting the queue exists to end. */
+  open: number;
   items: QueueItem[];
 }
 
-/** Group in QUEUE_KIND_ORDER, dropping empties. Order within a group is the
- *  order the items arrived, which is already priority order from the rater. */
-export function groupQueueByKind(items: readonly QueueItem[]): QueueGroup[] {
+const isOpen = (it: QueueItem) => it.status === "queued" || it.status === "needs_review";
+
+/**
+ * Group in QUEUE_BAND_ORDER, dropping empties. Order within a band is the order
+ * the items arrived, which is already priority order from the rater.
+ *
+ * A band whose items are all resolved turns `good` rather than disappearing:
+ * the work is worth showing as done, and dropping it would make rows vanish
+ * from under the user as they fix them.
+ */
+export function groupQueueBySeverity(items: readonly QueueItem[]): QueueGroup[] {
   const out: QueueGroup[] = [];
-  for (const kind of QUEUE_KIND_ORDER) {
-    const inKind = items.filter((it) => it.kind === kind);
-    if (inKind.length) out.push({ kind, label: QUEUE_KIND_LABEL[kind], items: inKind });
+  for (const band of QUEUE_BAND_ORDER) {
+    const inBand = items.filter((it) => BAND_OF_KIND[it.kind] === band);
+    if (!inBand.length) continue;
+    const open = inBand.filter(isOpen).length;
+    out.push({
+      band,
+      label: QUEUE_BAND_LABEL[band],
+      tone: open === 0 ? "good" : BAND_TONE[band],
+      open,
+      items: inBand,
+    });
   }
   return out;
 }
