@@ -211,3 +211,68 @@ describe("the bands say what kind of problem each row is", () => {
     expect(row!.querySelector('input[type="checkbox"]')).toBeNull();
   });
 });
+
+describe("a row says what we are claiming about it", () => {
+  it("does not call a requirement missing when the resume shows it", async () => {
+    // The rater vouched for Kubernetes; the scanner cannot see it in the words
+    // used. Telling that user "Not evidenced" is telling them they lack
+    // something their own resume demonstrates, which is the credibility
+    // failure this whole surface is built to avoid.
+    vi.mocked(apiFetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        before: 38, after: 38, matchedBefore: 9, matched: 9, total: 24,
+        gained: [], lost: [], applied: 0, truncated: {}, reason: "",
+        unmatched: [
+          { id: "c0", canonical: "Python", importance: "required", type: "technical_skill" },
+        ],
+      }),
+    } as never);
+    render(
+      <TailorQueuePanel
+        ratings={{ ...ratings,
+          qualifications: { score: 40, missing: [], covered: [{ text: "Python", context: "Built ETL in Python." }] },
+        } as never}
+        addressedGaps={new Set()} fixAllBusy={false} onFixAll={vi.fn()}
+        fetchFixSuggestions={vi.fn().mockResolvedValue([])}
+        applyFixSuggestion={vi.fn().mockResolvedValue(undefined)}
+        ignoredNames={new Set()} onToggleIgnored={vi.fn()}
+        stale={false} onRecheck={vi.fn()} recheckBusy={false}
+        requirementConcepts={[{ id: "c0", canonical: "Python" }]}
+        currentResumeText={"Built ETL in Python at Acme."}
+      />,
+    );
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(screen.getByText("Partial match")).toBeInTheDocument());
+    // Scoped to the row under test: the fixture's other rater gap is a real
+    // "Not evidenced" and asserting globally would pass or fail for the wrong
+    // reason.
+    const row = screen.getByText("Python").closest("li");
+    expect(row!.textContent).toContain("Partial match");
+    expect(row!.textContent).not.toContain("Not evidenced");
+  });
+
+  it("asks you to add a keyword rather than to fix it", async () => {
+    // "Fix this" on a row whose entire content is the word `Kubernetes`
+    // overstates the work. Nothing is broken.
+    renderPanel();
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
+    const row = screen.getByText("Terraform").closest("li");
+    expect(row!.textContent).toContain("Add");
+    expect(row!.textContent).not.toContain("Fix this");
+  });
+
+  it("gives a contextual row no verdict word", async () => {
+    // It already carries an information mark and an explainer; a third label
+    // competing for the same glance is how all of them stop being read.
+    renderPanel();
+    await vi.advanceTimersByTimeAsync(600);
+    await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /show \d+ more/i }));
+    const row = screen.getByText("dimensional modeling").closest("li");
+    for (const v of ["Partial match", "Not evidenced", "Keyword · fits an existing bullet"]) {
+      expect(row!.textContent).not.toContain(v);
+    }
+  });
+});

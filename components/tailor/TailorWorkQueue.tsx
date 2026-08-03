@@ -14,6 +14,7 @@ import React, { useState } from "react";
 import { FS, FW } from "@/lib/typography";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import { groupQueueBySeverity, queueCounts, type QueueTone } from "@/lib/tailorWorkQueue";
+import type { QueueVerdict, SourcedQueueItem } from "@/lib/tailorRequirementQueue";
 
 /** What the row's trailing action says, per state. Null = no action. */
 export type QueueItemAction =
@@ -76,9 +77,42 @@ const ACTION_LABEL: Record<QueueItemAction, string> = {
   view_change: "See it",
   review: "Review",
   add_to_summary: "Add to summary",
-  fix: "Review fix",
+  fix: "Fix this",
   whats_this: "What's this?",
   reconsider: "Reconsider",
+};
+
+/**
+ * A keyword is a different job from a gap, so it gets a different verb.
+ *
+ * "Fix this" on a row whose whole content is the word `gRPC` overstates the
+ * work: nothing is broken, a term is missing from a bullet that already
+ * describes the work. "Add" says the size of it.
+ */
+function actionLabel(action: QueueItemAction, it: QueueItem): string {
+  if (action === "fix" && it.kind === "keyword") return "Add";
+  return ACTION_LABEL[action];
+}
+
+/** The claim, in the user's words. */
+const VERDICT_LABEL: Record<QueueVerdict, string> = {
+  partial: "Partial match",
+  not_evidenced: "Not evidenced",
+  keyword: "Keyword · fits an existing bullet",
+};
+
+/**
+ * Verdict tint.
+ *
+ * `partial` is deliberately NOT red. It means the résumé already demonstrates
+ * the requirement and only the wording is off, which is the best news any open
+ * row can carry; printing it in the band's alarm colour would tell someone they
+ * are missing something they have.
+ */
+const VERDICT_COLOR: Record<QueueVerdict, string> = {
+  partial: "var(--amber-ink, #b45309)",
+  not_evidenced: "var(--muted)",
+  keyword: "var(--muted)",
 };
 
 function StatusDot({ status, working }: { status: QueueItem["status"]; working: boolean }) {
@@ -367,6 +401,10 @@ export function TailorWorkQueue({
         {group.items.map((it, rowIndex) => {
           const expanded = it.id === expandedId;
           const action = expanded ? null : itemAction(it);
+          // Present only on rows the union produced; a plain QueueItem
+          // (a restored payload, a legacy caller) simply has no claim to
+          // make and renders without one.
+          const verdict = (it as Partial<SourcedQueueItem>).verdict;
           const working = it.id === workingId || Boolean(workingIds?.has(it.id));
           const detailOpen = detailIds.has(it.id);
           const canSelect = it.status === "queued" && it.kind !== "contextual";
@@ -469,20 +507,53 @@ export function TailorWorkQueue({
                   >
                     {it.name}
                   </span>
-                  {it.detail ? (
-                    <button
-                      type="button"
-                      aria-expanded={detailOpen}
-                      onClick={() => toggleDetail(it.id)}
-                      style={{ border: 0, background: "none", color: "var(--muted)", padding: 0, fontSize: FS.caption, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, whiteSpace: "nowrap", flex: "none" }}
-                    >
-                      {/* A cut-off title makes this "show me the rest"; an
-                          intact one makes it "explain". Same control, and the
-                          label should not claim the wrong one. */}
-                      {detailOpen ? "Hide" : isLongTitle(it.name) ? "More" : "Why this matters"}
-                    </button>
-                  ) : null}
                 </span>
+                {/* The verdict and the reason toggle share the second line.
+                 *
+                 * A row used to be one line, which kept seven on screen. The
+                 * cost was that the row said WHAT the requirement is and never
+                 * what we are claiming about it, so "Kubernetes" and "Master's
+                 * degree in CS" read as the same kind of problem when one is a
+                 * word to add and the other is a credential you either hold or
+                 * do not. The verdict is that missing sentence, in two or three
+                 * words. Height stays predictable because the title above is
+                 * still clipped to one line — that clip is what stopped a
+                 * 150-character JD responsibility from filling the rail, and it
+                 * is untouched. */}
+                {(verdict || it.detail) ? (
+                  <span style={{ display: "flex", alignItems: "baseline", gap: 9, marginTop: 2, minWidth: 0 }}>
+                    {verdict ? (
+                      <span
+                        style={{
+                          fontSize: FS.caption,
+                          fontWeight: FW.semibold,
+                          // Tinted to its own meaning, not to the band: a
+                          // "you have this, reword it" row inside a blocker
+                          // band is good news and should not be printed in the
+                          // same red as the requirement above it.
+                          color: VERDICT_COLOR[verdict],
+                          whiteSpace: "nowrap",
+                          flex: "none",
+                        }}
+                      >
+                        {VERDICT_LABEL[verdict]}
+                      </span>
+                    ) : null}
+                    {it.detail ? (
+                      <button
+                        type="button"
+                        aria-expanded={detailOpen}
+                        onClick={() => toggleDetail(it.id)}
+                        style={{ border: 0, background: "none", color: "var(--muted)", padding: 0, fontSize: FS.caption, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, whiteSpace: "nowrap", flex: "none" }}
+                      >
+                        {/* A cut-off title makes this "show me the rest"; an
+                            intact one makes it "explain". Same control, and the
+                            label should not claim the wrong one. */}
+                        {detailOpen ? "Hide" : isLongTitle(it.name) ? "More" : "Why this matters"}
+                      </button>
+                    ) : null}
+                  </span>
+                ) : null}
                 {/* Expanding a clipped row has to give back the words the clip
                     took, or "More" leads somewhere that does not contain what
                     was hidden. */}
@@ -512,7 +583,7 @@ export function TailorWorkQueue({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {ACTION_LABEL[action]}
+                  {actionLabel(action, it)}
                 </button>
               ) : (
                 <span />

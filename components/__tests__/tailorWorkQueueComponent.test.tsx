@@ -46,7 +46,7 @@ describe("TailorWorkQueue working state", () => {
     fireEvent.click(screen.getByRole("button", { name: "Improve selected (1)" }));
     expect(onFixSelected).toHaveBeenCalledWith([items[0]]);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Review fix" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Fix this" })[0]);
     expect(onItemAction).toHaveBeenCalledWith(items[0], "fix");
   });
 });

@@ -121,10 +121,31 @@ export function queueKindForRequirementType(type: string | undefined): QueueKind
  */
 export type QueueSource = "both" | "scorer" | "rater";
 
+/**
+ * What we are actually claiming about this requirement, in the user's terms.
+ *
+ * `source` says which pipeline flagged the row, which is bookkeeping. This says
+ * what to TELL someone, and the two are not the same sentence: a row the
+ * scorer missed but the rater vouched for is not "you lack this", it is "you
+ * have this and the scanner cannot see it", and those call for opposite advice.
+ *
+ * Computed here rather than in the component on purpose. The last time a
+ * renderer re-derived a classification from text it disagreed with the
+ * producer, and the fix was to make the producer authoritative and have the
+ * view trust it verbatim. Same rule.
+ */
+export type QueueVerdict = "partial" | "not_evidenced" | "keyword";
+
 export interface SourcedQueueItem extends QueueItem {
   source: QueueSource;
   /** True when closing this row moves the coverage percentage. */
   movesScore: boolean;
+  /**
+   * The claim to render. Absent on contextual rows: those already carry an
+   * information mark and an explainer, and a verdict word on top would be a
+   * third label competing for one glance.
+   */
+  verdict?: QueueVerdict;
 }
 
 /** Detail line for a requirement the résumé evidences in different words. */
@@ -208,6 +229,21 @@ export function raterView(ratings: unknown): RaterView {
 }
 
 /**
+ * The claim a row makes, from what we know about it.
+ *
+ * Order matters. `raterCovered` wins over kind because it is the strongest
+ * thing we know: the rater read the résumé and vouched for this requirement,
+ * so whatever type it is, the honest line is that the evidence is there and
+ * the wording is not. Getting this backwards would tell someone they lack
+ * something their own résumé demonstrates.
+ */
+function verdictFor(kind: QueueKind, raterCovered: boolean): QueueVerdict | undefined {
+  if (kind === "contextual") return undefined;
+  if (raterCovered) return "partial";
+  return kind === "keyword" ? "keyword" : "not_evidenced";
+}
+
+/**
  * Build the queue rows the deterministic scorer is complaining about.
  *
  * Returns ONLY the scorer-derived rows. The caller merges them with
@@ -264,6 +300,7 @@ export function deriveScorerQueue(
       source: raterMissing ? "both" : "scorer",
       // Both classes are unmatched by the scorer, so both move the number.
       movesScore: true,
+      verdict: verdictFor(kind, raterCovered),
     });
   }
   return out;
@@ -292,6 +329,10 @@ export function mergeQueues(
       ...it,
       source: "rater",
       movesScore: false,
+      // The scanner already matched the term; the rater judged the claim
+      // behind it unevidenced. From the reader's side that is the same
+      // sentence as any other gap, so it carries the same word.
+      verdict: verdictFor(it.kind, false),
       detail: it.detail
         ? `${it.detail} ${NO_SCORE_MOVE_NOTE}`
         : NO_SCORE_MOVE_NOTE,
