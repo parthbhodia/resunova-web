@@ -250,7 +250,6 @@ export function TailorWorkQueue({
   onInterviewPrep,
   expandedId,
   expansion,
-  visibleIds,
 }: {
   items: readonly QueueItem[];
   /** Item currently being processed by the pass, if any. */
@@ -270,10 +269,6 @@ export function TailorWorkQueue({
   /** Row whose inline fix flow is open; `expansion` renders under it. */
   expandedId?: string | null;
   expansion?: React.ReactNode;
-  /** Dimension filter: only these ids render as rows. Counts, the progress
-   *  bar and the Fix-everything button stay whole-queue — a chip is a view,
-   *  not a different queue. */
-  visibleIds?: ReadonlySet<string> | null;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [detailIds, setDetailIds] = useState<Set<string>>(() => new Set());
@@ -285,7 +280,7 @@ export function TailorWorkQueue({
   const workTotal = Math.max(1, c.total - c.covered);
   const seg = (n: number) => `${(n / workTotal) * 100}%`;
   const finished = Boolean(passRan) && c.open === 0;
-  const filtered = visibleIds ? items.filter((it) => visibleIds.has(it.id)) : items;
+  const filtered = items;
   // Band FIRST, cap SECOND. The old order sliced the flat list to five rows
   // before grouping, so a posting with seven blockers rendered two of them and
   // printed "2" in the header, and the other two bands did not exist until you

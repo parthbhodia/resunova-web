@@ -41,11 +41,7 @@ import { FS, FW } from "@/lib/typography";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { useLiveCoverage } from "@/components/tailor/useLiveCoverage";
 import { TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
-import {
-  DIMENSION_KINDS,
-  TailorDimensionChips,
-  type TailorDimension,
-} from "@/components/tailor/TailorDimensionChips";
+import { TailorTitleNote } from "@/components/tailor/TailorTitleNote";
 import {
   TailorFixExpansion,
   type FixExpansionState,
@@ -371,15 +367,6 @@ export function TailorQueuePanel({
 
   const { displayItems, revealWorkingId, revealing } = useStaggeredReveal(items);
 
-  // Dimension filter: a chip narrows which ROWS render; counts, the progress
-  // bar and Fix everything stay whole-queue.
-  const [activeDim, setActiveDim] = useState<TailorDimension | null>(null);
-  const visibleIds = useMemo(() => {
-    if (!activeDim) return null;
-    const kinds = new Set(DIMENSION_KINDS[activeDim]);
-    return new Set(displayItems.filter((it) => kinds.has(it.kind)).map((it) => it.id));
-  }, [activeDim, displayItems]);
-
   // Rows whose batch is still generating spin; the set shrinks wave by wave.
   // During a reveal, the walking spinner takes over for the next row to land.
   const workingIds = useMemo(() => {
@@ -488,10 +475,12 @@ export function TailorQueuePanel({
         onRecheck={onRecheck}
         recheckBusy={recheckBusy}
       />
-      <TailorDimensionChips ratings={ratings} active={activeDim} onPick={setActiveDim} />
+      {/* The chip row is gone: it grouped the same rows by rater category while
+          the bands group them by consequence, and the band headers now carry
+          true counts. Title had nowhere else to live, so it stays as a line. */}
+      <TailorTitleNote ratings={ratings} />
       <TailorWorkQueue
         items={displayItems}
-        visibleIds={visibleIds}
         workingIds={workingIds}
         passRan={passRan && !revealing}
         fixAllBusy={fixAllBusy || revealing}
