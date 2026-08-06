@@ -290,7 +290,32 @@ export interface QueueGroup {
    *  is the same overcounting the queue exists to end. */
   open: number;
   items: QueueItem[];
+  /** Rows collapsed out of `items` by the per-band cap.
+   *
+   *  Zero for the bands that matter. A blocker you cannot see is a blocker you
+   *  will not fix, so those never collapse; only the two advisory bands do. */
+  hidden: number;
 }
+
+/**
+ * How many rows a band shows before collapsing.
+ *
+ * `Infinity` for the work bands is the whole point. The queue used to slice the
+ * flat list to five rows BEFORE grouping, which on a 24-requirement posting
+ * rendered two bands out of four and — worse — printed each band's count from
+ * the surviving slice, so "COULD GET YOU FILTERED OUT · 2" sat above seven real
+ * blockers. Hiding work is bad; under-reporting it while looking complete is
+ * the failure this queue was built to end.
+ *
+ * The advisory bands still collapse: neither asks the user to do anything, so
+ * length there is cost without benefit.
+ */
+export const BAND_ROW_CAP: Record<QueueBand, number> = {
+  blocker: Infinity,
+  boost: Infinity,
+  context: 3,
+  covered: 3,
+};
 
 const isOpen = (it: QueueItem) => it.status === "queued" || it.status === "needs_review";
 
@@ -312,7 +337,11 @@ const isResolvedWell = (it: QueueItem) => it.status === "applied" || it.status =
  * the work is worth showing as done, and dropping it would make rows vanish
  * from under the user as they fix them.
  */
-export function groupQueueBySeverity(items: readonly QueueItem[]): QueueGroup[] {
+export function groupQueueBySeverity(
+  items: readonly QueueItem[],
+  /** Expand every band regardless of its cap. */
+  showAll = false,
+): QueueGroup[] {
   const out: QueueGroup[] = [];
   for (const band of QUEUE_BAND_ORDER) {
     // Status wins over kind for `covered`: what a covered requirement IS
@@ -326,12 +355,16 @@ export function groupQueueBySeverity(items: readonly QueueItem[]): QueueGroup[] 
     // Green only when every row ended somewhere the user chose. A band of
     // "not coverable" has nothing open and is not remotely all set.
     const allWell = inBand.every(isResolvedWell);
+    // Counts come from the FULL band, never from what survives the cap.
+    const cap = showAll ? Infinity : BAND_ROW_CAP[band];
+    const shown = Number.isFinite(cap) ? inBand.slice(0, cap) : inBand;
     out.push({
       band,
       label: QUEUE_BAND_LABEL[band],
       tone: open === 0 && allWell ? "good" : BAND_TONE[band],
       open,
-      items: inBand,
+      items: shown,
+      hidden: inBand.length - shown.length,
     });
   }
   return out;
