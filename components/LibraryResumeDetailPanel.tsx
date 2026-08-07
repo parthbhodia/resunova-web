@@ -7,7 +7,7 @@ import type { ResumeRecord } from "@/lib/types";
 import { apiUrl } from "@/lib/utils";
 import { displayPdfUrlForResume } from "@/lib/displayResumePdfUrl";
 import { getSupabaseClient } from "@/lib/supabase";
-import { type LibraryFeedItem } from "@/lib/libraryFeed";
+import { type LibraryItem } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,12 +65,8 @@ export default function LibraryResumeDetailPanel({
   onOpenInBuilder,
   onDeleteBuilder,
   onDeleteCoverLetter,
-  onEditVersion,
-  onTailorVersion,
-  onBoostVersion,
-  onUseVersionAsMyResume,
 }: {
-  item: LibraryFeedItem | null;
+  item: LibraryItem | null;
   loading: boolean;
   notFound: boolean;
   onClose: () => void;
@@ -81,10 +77,6 @@ export default function LibraryResumeDetailPanel({
   onOpenInBuilder: () => void;
   onDeleteBuilder: () => void;
   onDeleteCoverLetter?: () => void;
-  onEditVersion?: () => void;
-  onTailorVersion?: () => void;
-  onBoostVersion?: () => void;
-  onUseVersionAsMyResume?: () => void;
 }) {
   const [user, setUser] = useState<User | null>(null);
 
@@ -112,7 +104,7 @@ export default function LibraryResumeDetailPanel({
     ? new Date(createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
     : "—";
 
-  const titleShort = item?.kind === "analyzed" || item?.kind === "builder" || item?.kind === "version"
+  const titleShort = item?.kind === "analyzed" || item?.kind === "builder"
     ? item.title
     : meta
     ? `${meta.company}${meta.role ? ` · ${abbrevRole(meta.role)}` : ""}`
@@ -192,44 +184,6 @@ export default function LibraryResumeDetailPanel({
           <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55, margin: 0 }}>
             This résumé is not in your library. It may have been removed or the link is outdated.
           </p>
-        )}
-
-        {!loading && !notFound && item?.kind === "version" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
-              <span style={{ fontWeight: 600, color: "var(--text)" }}>{item.title}</span>
-              <br />
-              {item.score != null ? <>Score {item.score}/100 · </> : null}
-              Updated {dateShort}
-              {item.versionCount > 1 ? <> · {item.versionCount} saved edits</> : null}
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <Button type="button" onClick={onEditVersion} style={{ background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8 }}>
-                ✎ Edit résumé
-              </Button>
-              <Button type="button" variant="outline" onClick={onTailorVersion} style={{ fontSize: 12, fontWeight: 600 }}>
-                Tailor to a job
-              </Button>
-              <Button type="button" variant="outline" onClick={onBoostVersion} style={{ fontSize: 12, fontWeight: 600 }}>
-                Boost for jobs
-              </Button>
-            </div>
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-                Job matching
-              </div>
-              <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 10px" }}>
-                {item.isDefault
-                  ? "This is the résumé Jobs and Boost currently match against."
-                  : "Make this the résumé Jobs and Boost match against."}
-              </p>
-              {!item.isDefault && (
-                <Button type="button" variant="outline" onClick={onUseVersionAsMyResume} style={{ fontSize: 12, fontWeight: 600 }}>
-                  ★ Use as my résumé
-                </Button>
-              )}
-            </div>
-          </div>
         )}
 
         {!loading && !notFound && item?.kind === "cover_letter" && (

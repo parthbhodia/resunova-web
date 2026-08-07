@@ -77,7 +77,6 @@ function HeroTile({
   color,
   target,
   footLeft,
-  footLeftFlag,
   footRight,
 }: {
   eyebrow: React.ReactNode;
@@ -89,7 +88,6 @@ function HeroTile({
   /** 0..1 marker on the meter, e.g. the grade worth aiming at. */
   target?: number;
   footLeft?: React.ReactNode;
-  footLeftFlag?: boolean;
   footRight?: React.ReactNode;
 }) {
   return (
@@ -162,8 +160,8 @@ function HeroTile({
           <span
             style={{
               fontSize: FS.small,
-              color: footLeftFlag ? "var(--amber-ink, #b45309)" : "var(--muted)",
-              fontWeight: footLeftFlag ? FW.semibold : FW.normal,
+              color: "var(--muted)",
+              fontWeight: FW.normal,
             }}
           >
             {footLeft}
@@ -178,7 +176,6 @@ function HeroTile({
 export function TailorScoreboard({
   found,
   total,
-  unit = "keywords",
   live = false,
   lost = 0,
   grade,
@@ -187,12 +184,10 @@ export function TailorScoreboard({
   onRecheck,
   recheckBusy,
 }: {
-  /** Deterministic requirement coverage. */
+  /** Deterministic coverage. Always drives the percentage and the meter; the
+   *  raw counts render only when `live`, see the note at the tile. */
   found: number;
   total: number;
-  /** What `found`/`total` count. Must match where they came from: the live
-   *  recount scores JD requirements, the scan fallback counts rater keywords. */
-  unit?: "requirements" | "keywords";
   /** True only when these counts came from recounting the CURRENT text via
    *  /api/tailor/score-preview. Without it these are the last scan's numbers
    *  and the label must not claim otherwise. */
@@ -210,24 +205,52 @@ export function TailorScoreboard({
   recheckBusy?: boolean;
 }) {
   const ratio = total > 0 ? found / total : null;
-  const openCount = total > 0 ? total - found : 0;
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {/* The count is shown ONLY when `live`, and the two halves of that rule
+         * are separate decisions.
+         *
+         * WHY IT IS EVER HIDDEN (user-directed 2026-08-07: "it is not holding
+         * any value"): on the fallback path `found`/`total` are the rater's
+         * KEYWORD counts, while the queue below lists what the rater filed as
+         * MISSING. Nothing makes those agree, so the tile could read "21
+         * unmatched" above a queue offering three rows. A count the user cannot
+         * reconcile with the list beneath it is worse than no count.
+         *
+         * WHY IT COMES BACK WHEN LIVE: a recount scores the JD's extracted
+         * requirements, which is the same set the queue is built from — the
+         * disagreement is a property of the FALLBACK, not of counting. And a
+         * bare "83%" is unfalsifiable: 83% of 6 and 83% of 200 are different
+         * situations, and the queue's own count uses a different denominator,
+         * so nothing else lets the user tell which they are in.
+         *
+         * This is also why no `unit` prop is needed. It existed to say WHICH
+         * dataset a count came from, after requirements and keywords both
+         * shipped labelled "keywords". Gating on `live` leaves exactly one
+         * possible source, so the word is a constant.
+         *
+         * NOT restored: the "N unmatched" flag. Even live it is a worklist
+         * claim, and the queue's count is legitimately larger (it merges
+         * rater-only rows), so the two can still disagree. `found/total`
+         * explains the percentage above it and claims nothing about the work. */}
         <HeroTile
           eyebrow={live ? "ATS match · live" : "ATS match"}
           value={ratio === null ? "—" : Math.round(ratio * 100)}
           suffix={ratio === null ? "" : "%"}
           ratio={ratio}
           color={ratio === null ? "var(--text)" : coverageColor(ratio)}
-          footLeft={openCount > 0 ? `${openCount} unmatched` : null}
-          footLeftFlag={openCount > 0}
           footRight={
-            total > 0 ? (
+            live && total > 0 ? (
               <span
                 role="img"
-                aria-label={`${found} of ${total} ${unit} matched`}
-                style={{ fontSize: FS.small, fontWeight: FW.bold, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}
+                aria-label={`${found} of ${total} requirements matched`}
+                style={{
+                  fontSize: FS.small,
+                  fontWeight: FW.bold,
+                  color: "var(--text)",
+                  fontVariantNumeric: "tabular-nums",
+                }}
               >
                 {found}/{total}
               </span>

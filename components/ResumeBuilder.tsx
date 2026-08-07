@@ -123,7 +123,7 @@ import type { FixSuggestion } from "@/components/tailor/TailorFixExpansion";
 import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
 import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
-import { structuredToPlainText } from "@/lib/resumeVersions";
+import { structuredToPlainText } from "@/lib/structuredResumeText";
 import { apiFetch } from "@/lib/apiClient";
 
 const TailoredPdfPreview = dynamic(

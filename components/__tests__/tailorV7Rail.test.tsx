@@ -116,7 +116,7 @@ describe("the score tiles", () => {
     // redesign is a visual language, not permission to stop saying this.
     render(<TailorScoreboard {...base} found={22} total={23} />);
     expect(screen.getByText(/counted from your last scan/i)).toBeInTheDocument();
-    render(<TailorScoreboard {...base} found={22} total={23} unit="requirements" live />);
+    render(<TailorScoreboard {...base} found={22} total={23} live />);
     expect(screen.getByText(/recounted as you edit/i)).toBeInTheDocument();
   });
 

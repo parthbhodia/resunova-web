@@ -118,22 +118,16 @@ describe("the confirm step", () => {
 describe("the ATS meter", () => {
   const base = { grade: 85, gradedAtLabel: "2:41 PM", stale: false };
 
-  it("shows what is still open, which is the part you can act on", () => {
-    render(<TailorScoreboard {...base} found={40} total={43} />);
-    expect(screen.getByText(/3 unmatched/i)).toBeInTheDocument();
-  });
+  // "shows what is still open" lived here and is gone with the unmatched flag
+  // (user-directed 2026-08-07). The claim it defended -- that the tile names
+  // the part you can act on -- was the problem: that number disagreed with the
+  // queue that actually lists the work. The found/total ratio survives on the
+  // live path only; `tailorLiveCoverage.test.tsx` owns that rule. What is left
+  // here is the METER, unchanged.
 
-  it("says nothing about unmatched requirements when there are none", () => {
-    render(<TailorScoreboard {...base} found={43} total={43} />);
+  it("says nothing about unmatched requirements", () => {
+    render(<TailorScoreboard {...base} found={40} total={43} />);
     expect(screen.queryByText(/unmatched/i)).toBeNull();
-  });
-
-  it("exposes the meter to assistive tech as counts, not as a bar", () => {
-    // The unit follows the data source; unset means the scan's keyword counts.
-    render(<TailorScoreboard {...base} found={40} total={43} />);
-    expect(screen.getByLabelText("40 of 43 keywords matched")).toBeInTheDocument();
-    render(<TailorScoreboard {...base} found={9} total={24} unit="requirements" live />);
-    expect(screen.getByLabelText("9 of 24 requirements matched")).toBeInTheDocument();
   });
 
   it("draws no threshold line", () => {
