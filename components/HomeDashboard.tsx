@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { tailorHref } from "@/lib/tailorRoute";
 import { useRouter } from "next/navigation";
 import {
   getSupabaseClient,
@@ -279,7 +280,7 @@ export default function HomeDashboard() {
       {
         label: "Tailor a résumé to a job",
         done: derived.hasTailored,
-        go: () => router.push("/?view=builder&flow=tailor"),
+        go: () => router.push(tailorHref()),
       },
       {
         label: "Track a job application",

@@ -167,7 +167,8 @@ describe("CSS variables the tailor surfaces reference", () => {
   const TAILOR = ["components/tailor/TailorWorkQueue.tsx",
                   "components/tailor/TailorFixExpansion.tsx",
                   "components/tailor/TailorScoreboard.tsx",
-                  "components/tailor/TailorDimensionChips.tsx"]
+                  "components/tailor/TailorChangeLog.tsx",
+                  "components/tailor/TailorTitleNote.tsx"]
     .map((f) => readFileSync(f, "utf8")).join("\n");
 
   /** Vars the app defines inline on an element rather than in globals.css. */

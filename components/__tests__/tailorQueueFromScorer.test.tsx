@@ -138,12 +138,11 @@ describe("the queue accounts for what the percentage is complaining about", () =
     renderPanel();
     await vi.advanceTimersByTimeAsync(600);
     await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
-    // The queue shows its top 5 and offers the rest behind one control, so the
-    // count lives on that button. Six unmatched requirements plus the covered
-    // reassurance row the fixture carries, five shown.
-    const more = screen.getByRole("button", { name: /show \d+ more/i });
-    expect(more).toBeInTheDocument();
-    fireEvent.click(more);
+    // Every unmatched requirement is on screen with NO click. The queue used to
+    // slice the flat list to five before banding, so a real posting rendered a
+    // third of its gaps and hid the rest behind one control. Deliberately
+    // asserted without touching the toggle: a test that clicks first cannot
+    // tell "visible" from "reachable".
     for (const name of SCORED_UNMATCHED) {
       expect(screen.getByText(name)).toBeInTheDocument();
     }
@@ -192,7 +191,6 @@ describe("the bands say what kind of problem each row is", () => {
     renderPanel();
     await vi.advanceTimersByTimeAsync(600);
     await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /show \d+ more/i }));
 
     // The band HEADER specifically. The gap-count banner above the tiles
     // carries the same phrase by design (it summarises the band it points at),
@@ -209,7 +207,6 @@ describe("the bands say what kind of problem each row is", () => {
     renderPanel();
     await vi.advanceTimersByTimeAsync(600);
     await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /show \d+ more/i }));
 
     const row = screen.getByText("dimensional modeling").closest("li");
     expect(row).not.toBeNull();
@@ -274,7 +271,6 @@ describe("a row says what we are claiming about it", () => {
     renderPanel();
     await vi.advanceTimersByTimeAsync(600);
     await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /show \d+ more/i }));
     const row = screen.getByText("dimensional modeling").closest("li");
     for (const v of ["Partial match", "Not evidenced", "Keyword · fits an existing bullet"]) {
       expect(row!.textContent).not.toContain(v);

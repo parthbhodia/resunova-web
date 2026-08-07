@@ -41,11 +41,7 @@ import { FS, FW } from "@/lib/typography";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { useLiveCoverage } from "@/components/tailor/useLiveCoverage";
 import { TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
-import {
-  DIMENSION_KINDS,
-  TailorDimensionChips,
-  type TailorDimension,
-} from "@/components/tailor/TailorDimensionChips";
+import { TailorTitleNote } from "@/components/tailor/TailorTitleNote";
 import {
   TailorFixExpansion,
   type FixExpansionState,
@@ -53,6 +49,8 @@ import {
 } from "@/components/tailor/TailorFixExpansion";
 import type { ConfirmedFact } from "@/lib/tailorConfirmFacts";
 import { TailorStrengthsCard } from "@/components/tailor/TailorStrengthsCard";
+import { TailorChangeLog } from "@/components/tailor/TailorChangeLog";
+import { deriveResumeChanges, type ResumeChange } from "@/lib/tailorChangeLog";
 
 const NOT_COVERED_DETAIL =
   "This one couldn't be written from your real experience. Try Fix on it alone, or leave it out.";
@@ -154,6 +152,9 @@ export function TailorQueuePanel({
   ignoredNames,
   onToggleIgnored,
   onSeeItem,
+  lineOverrides,
+  bulletAnalysis,
+  onUndoChange,
   stale,
   onRecheck,
   recheckBusy,
@@ -190,6 +191,14 @@ export function TailorQueuePanel({
   onToggleIgnored: (item: QueueItem, ignored: boolean) => void;
   /** "See it" on an applied row: frame the preview bullet the fix landed on. */
   onSeeItem?: (item: QueueItem) => void;
+  /** The applied-fix map the preview renders from. The change log is derived
+   *  from THIS rather than kept as its own list, so the receipt and the
+   *  document cannot drift apart. */
+  lineOverrides?: Record<number, string>;
+  /** Original bullet text, for the "before" side of each change. */
+  bulletAnalysis?: ReadonlyArray<{ originalBullet?: string } | undefined>;
+  /** Revert one change. Absent ⇒ the log renders read-only. */
+  onUndoChange?: (change: ResumeChange) => void;
   stale: boolean;
   onRecheck: () => void;
   recheckBusy: boolean;
@@ -277,6 +286,13 @@ export function TailorQueuePanel({
     attemptedNames,
   ]);
 
+  // Derived, never stored: a second list of "what changed" would be one more
+  // thing that can disagree with the preview, and the preview is what ships.
+  const changes = useMemo(
+    () => deriveResumeChanges(items, addressedGapActions ?? [], lineOverrides ?? {}, bulletAnalysis ?? []),
+    [items, addressedGapActions, lineOverrides, bulletAnalysis],
+  );
+
   const grade =
     typeof ratings.overall_score === "number"
       ? ratings.overall_score
@@ -350,15 +366,6 @@ export function TailorQueuePanel({
   };
 
   const { displayItems, revealWorkingId, revealing } = useStaggeredReveal(items);
-
-  // Dimension filter: a chip narrows which ROWS render; counts, the progress
-  // bar and Fix everything stay whole-queue.
-  const [activeDim, setActiveDim] = useState<TailorDimension | null>(null);
-  const visibleIds = useMemo(() => {
-    if (!activeDim) return null;
-    const kinds = new Set(DIMENSION_KINDS[activeDim]);
-    return new Set(displayItems.filter((it) => kinds.has(it.kind)).map((it) => it.id));
-  }, [activeDim, displayItems]);
 
   // Rows whose batch is still generating spin; the set shrinks wave by wave.
   // During a reveal, the walking spinner takes over for the next row to land.
@@ -468,10 +475,12 @@ export function TailorQueuePanel({
         onRecheck={onRecheck}
         recheckBusy={recheckBusy}
       />
-      <TailorDimensionChips ratings={ratings} active={activeDim} onPick={setActiveDim} />
+      {/* The chip row is gone: it grouped the same rows by rater category while
+          the bands group them by consequence, and the band headers now carry
+          true counts. Title had nowhere else to live, so it stays as a line. */}
+      <TailorTitleNote ratings={ratings} />
       <TailorWorkQueue
         items={displayItems}
-        visibleIds={visibleIds}
         workingIds={workingIds}
         passRan={passRan && !revealing}
         fixAllBusy={fixAllBusy || revealing}
@@ -503,6 +512,18 @@ export function TailorQueuePanel({
             />
           ) : null
         }
+      />
+      {/* Above the strengths card on purpose: this is the record of work the
+          user just did, and it is what they came back to check. Reassurance
+          sits under it. Renders nothing until there IS a change. */}
+      <TailorChangeLog
+        changes={changes}
+        onUndo={(c) => onUndoChange?.(c)}
+        onSee={onSeeItem ? (c) => {
+          const first = c.requirements[0];
+          const row = items.find((it) => it.name === first);
+          if (row) onSeeItem(row);
+        } : undefined}
       />
       <TailorStrengthsCard
         verdict={ratings.verdict}

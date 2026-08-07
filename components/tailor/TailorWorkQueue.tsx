@@ -250,7 +250,6 @@ export function TailorWorkQueue({
   onInterviewPrep,
   expandedId,
   expansion,
-  visibleIds,
 }: {
   items: readonly QueueItem[];
   /** Item currently being processed by the pass, if any. */
@@ -270,10 +269,6 @@ export function TailorWorkQueue({
   /** Row whose inline fix flow is open; `expansion` renders under it. */
   expandedId?: string | null;
   expansion?: React.ReactNode;
-  /** Dimension filter: only these ids render as rows. Counts, the progress
-   *  bar and the Fix-everything button stay whole-queue — a chip is a view,
-   *  not a different queue. */
-  visibleIds?: ReadonlySet<string> | null;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [detailIds, setDetailIds] = useState<Set<string>>(() => new Set());
@@ -285,9 +280,21 @@ export function TailorWorkQueue({
   const workTotal = Math.max(1, c.total - c.covered);
   const seg = (n: number) => `${(n / workTotal) * 100}%`;
   const finished = Boolean(passRan) && c.open === 0;
-  const filtered = visibleIds ? items.filter((it) => visibleIds.has(it.id)) : items;
-  const shown = showAll ? filtered : filtered.slice(0, 5);
-  const hiddenCount = Math.max(0, filtered.length - shown.length);
+  const filtered = items;
+  // Band FIRST, cap SECOND. The old order sliced the flat list to five rows
+  // before grouping, so a posting with seven blockers rendered two of them and
+  // printed "2" in the header, and the other two bands did not exist until you
+  // found a button. Every work row is now visible by default; only the two
+  // advisory bands collapse, each behind its own control.
+  const groups = groupQueueBySeverity(filtered, showAll);
+  const shown = groups.flatMap((g) => g.items);
+  const hiddenCount = groups.reduce((n, g) => n + g.hidden, 0);
+  // Rows the collapse control governs. Only ever the advisory bands, so the
+  // "collapse" affordance disappears when there is nothing to collapse rather
+  // than offering to hide work.
+  const collapsibleTotal = filtered.filter(
+    (it) => it.status === "covered" || it.kind === "contextual",
+  ).length;
   const selectable = filtered.filter((it) => it.status === "queued" && it.kind !== "contextual");
   // Open rows a bulk pass deliberately skips. Named here so the header can say
   // so rather than leaving the user to notice the count not adding up.
@@ -440,7 +447,7 @@ export function TailorWorkQueue({
             Nothing to add here. You&rsquo;re already covered.
           </li>
         ) : null}
-        {groupQueueBySeverity(shown).map((group) => (
+        {groups.map((group) => (
           <li key={`g:${group.band}`} style={{ listStyle: "none" }}>
             {/* Grouped by what the gap costs you, not by which rater field it
                 came out of. The header carries the band's tone and the count
@@ -500,6 +507,11 @@ export function TailorWorkQueue({
             <li
               key={it.id}
               data-status={it.status}
+              // Rows and their BAND are both <li>, so a text-based locator
+              // silently resolves to the band wrapper and drives the wrong row.
+              // A browser check that cannot see the row it thinks it clicked is
+              // indistinguishable from a working feature.
+              data-queue-row={it.name}
               className="tq-row"
               // Capped stagger: past a handful of rows the delay stops reading
               // as sequence and starts reading as lag.
@@ -691,15 +703,18 @@ export function TailorWorkQueue({
           onClick={() => setShowAll(true)}
           style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
         >
-          Show {hiddenCount} more lower-priority gaps
+          {/* Names the bands, not a bare count. What is behind this is context
+              and reassurance, never a blocker, and saying so is the difference
+              between a control you can skip and one you have to open to know. */}
+          Show {hiddenCount} more from About the employer and Already covered
         </button>
-      ) : filtered.length > 5 ? (
+      ) : showAll && collapsibleTotal > 0 ? (
         <button
           type="button"
           onClick={() => setShowAll(false)}
           style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
         >
-          Show top 5 only
+          Collapse the advisory rows
         </button>
       ) : null}
 

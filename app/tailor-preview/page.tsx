@@ -102,6 +102,21 @@ const DEMO_RESUME_TEXT = [
 
 /** Scripted rewrite options per item, keyed by normalized name. */
 const DEMO_SUGGESTIONS: Record<string, FixSuggestion[]> = {
+  // A SECOND fixture on purpose. The change log's hardest case is two fixes
+  // merging into one bullet — that is where a per-requirement undo silently
+  // destroys the other one — and it cannot be reviewed here with only one
+  // item that produces a suggestion.
+  "build systems (bazel-class)": [
+    {
+      id: "d3",
+      section: "Adds build tooling to this bullet",
+      original: "Built the internal IPT tool dashboard used by four teams.",
+      suggested:
+        "Built the internal IPT tool dashboard used by four teams, standardising its build and release on a shared toolchain.",
+      reason: "Based on the dashboard you already shipped. Nothing invented.",
+      priority: "high",
+    },
+  ],
   "ci/cd pipeline experience": [
     {
       id: "d1",
@@ -173,11 +188,49 @@ export default function TailorPreviewPage() {
     [],
   );
 
+  /**
+   * Applying here has to record the SAME state the live builder records —
+   * the override map and the applied-gap action — or the change log has
+   * nothing to derive from and the harness would show a surface the real app
+   * has while claiming "what you review here is what ships".
+   *
+   * Two fixes deliberately land on bullet 0 so the merged-bullet undo warning
+   * is reviewable: that is the case a per-requirement undo would get wrong.
+   */
+/** Which résumé line each demo fix rewrites. Two share bullet 0 on purpose. */
+const DEMO_BULLETS = [
+  { originalBullet: "Built and shipped the release tooling the team runs on." },
+  { originalBullet: "Led the migration of the reporting service." },
+  { originalBullet: "Partnered with three product teams on developer workflow." },
+];
+const DEMO_BULLET_FOR = new Map<string, number>([
+  // Both land on bullet 0: the merged-bullet case the undo confirm must warn
+  // about.
+  ["CI/CD pipeline experience", 0],
+  ["Build systems (Bazel-class)", 0],
+  ["Kubernetes", 1],
+  ["Improve developer workflows", 2],
+]);
+
+  const [overrides, setOverrides] = useState<Record<number, string>>({});
+  const [actions, setActions] = useState<
+    { id: string; label: string; type: "keyword"; appliedText?: string }[]
+  >([]);
+
   const applyFixSuggestion = useCallback(
-    (item: QueueItem) =>
+    (item: QueueItem, suggestion: { suggested?: string }, editedText: string | null) =>
       new Promise<void>((resolve) => {
         timers.current.push(
           setTimeout(() => {
+            const idx = DEMO_BULLET_FOR.get(item.name) ?? 0;
+            const text = (editedText ?? suggestion?.suggested ?? "").trim()
+              || `${DEMO_BULLETS[idx].originalBullet} Now covers ${item.name}.`;
+            setOverrides((prev) => ({
+              ...prev,
+              // Merge, the way applyGapFixes does, instead of overwriting.
+              [idx]: prev[idx] ? `${prev[idx]} Also covers ${item.name}.` : text,
+            }));
+            setActions((prev) => [...prev, { id: item.id, label: item.name, type: "keyword" as const, appliedText: text }]);
             setAddressed((prev) => new Set([...prev, item.name]));
             bumpFound(1);
             resolve();
@@ -186,6 +239,18 @@ export default function TailorPreviewPage() {
       }),
     [bumpFound],
   );
+
+  const undoChange = useCallback((change: { bulletIndex: number; requirements: string[] }) => {
+    setOverrides((prev) => {
+      const next = { ...prev };
+      delete next[change.bulletIndex];
+      return next;
+    });
+    const undone = new Set(change.requirements);
+    setActions((prev) => prev.filter((a) => !undone.has(a.label)));
+    setAddressed((prev) => new Set([...prev].filter((g) => !undone.has(g))));
+    bumpFound(-change.requirements.length);
+  }, [bumpFound]);
 
   const onToggleIgnored = useCallback((item: QueueItem, ign: boolean) => {
     setIgnored((prev) => {
@@ -265,6 +330,10 @@ export default function TailorPreviewPage() {
           recheckBusy={false}
           requirementConcepts={DEMO_CONCEPTS}
           currentResumeText={DEMO_RESUME_TEXT}
+          addressedGapActions={actions}
+          lineOverrides={overrides}
+          bulletAnalysis={DEMO_BULLETS}
+          onUndoChange={undoChange}
           onInterviewPrep={() => window.alert("Opens interview prep with this resume and JD carried over.")}
         />
       </div>

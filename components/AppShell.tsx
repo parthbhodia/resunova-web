@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState, useCallback, type CSSProperties, type ReactNode } from "react";
+import { tailorHref } from "@/lib/tailorRoute";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { UmbcProvider } from "@/contexts/UmbcContext";
@@ -270,7 +271,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
       }
     }
     if (flow === "tailor") {
-      router.push("/tailor-2/?flow=tailor&intent=job");
+      router.push(tailorHref({ intentJob: true }));
     } else {
       router.push(`/?view=builder&flow=${flow}`);
     }
@@ -378,7 +379,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
                       /* ignore */
                     }
                     router.push(
-                      `/?view=builder&flow=tailor&base=${encodeURIComponent(folder)}&intent=job`,
+                      tailorHref({ base: folder, intentJob: true }),
                     );
                     setHistoryOpen(false);
                   }}

@@ -173,3 +173,48 @@ describe("the covered band", () => {
     expect(groups[0].open).toBe(0);
   });
 });
+
+describe("no work row is hidden, and no header undercounts", () => {
+  // The reported bug: on a 24-requirement posting the queue rendered five rows
+  // across two bands and printed "COULD GET YOU FILTERED OUT · 2" above seven
+  // real blockers, because the flat list was sliced BEFORE grouping. Hiding
+  // work is bad; under-reporting it while looking complete is worse.
+  const many = (kind: QueueItem["kind"], n: number) =>
+    Array.from({ length: n }, (_, i) => item(`${kind}${i}`, kind));
+
+  it("shows every blocker and every keyword without an expand", () => {
+    const g = groupQueueBySeverity([...many("qualification", 7), ...many("keyword", 13)]);
+    const blocker = g.find((x) => x.band === "blocker")!;
+    const boost = g.find((x) => x.band === "boost")!;
+    expect(blocker.items).toHaveLength(7);
+    expect(boost.items).toHaveLength(13);
+    expect(blocker.hidden).toBe(0);
+    expect(boost.hidden).toBe(0);
+  });
+
+  it("counts the whole band in the header, not the rows that survived a cap", () => {
+    const g = groupQueueBySeverity(many("contextual", 6));
+    const ctx = g.find((x) => x.band === "context")!;
+    expect(ctx.open).toBe(6); // the header number
+    expect(ctx.items).toHaveLength(3); // what is rendered
+    expect(ctx.hidden).toBe(3);
+  });
+
+  it("collapses only the advisory bands", () => {
+    const g = groupQueueBySeverity([
+      ...many("qualification", 6),
+      ...many("keyword", 6),
+      ...many("contextual", 6),
+    ]);
+    const hiddenByBand = Object.fromEntries(g.map((x) => [x.band, x.hidden]));
+    expect(hiddenByBand.blocker).toBe(0);
+    expect(hiddenByBand.boost).toBe(0);
+    expect(hiddenByBand.context).toBeGreaterThan(0);
+  });
+
+  it("expands everything when asked", () => {
+    const g = groupQueueBySeverity(many("contextual", 6), true);
+    expect(g[0].items).toHaveLength(6);
+    expect(g[0].hidden).toBe(0);
+  });
+});

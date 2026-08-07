@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useCallback, useRef, useEffect, useLayoutEffect, useId, useMemo, type CSSProperties, type ReactNode } from "react";
+import { tailorHref } from "@/lib/tailorRoute";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -115,6 +116,7 @@ import {
   feedbackToastMeta,
 } from "@/components/FeedbackToastCard";
 import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/components/TailorSaveStatus";
+import { deriveResumeChanges, type ResumeChange } from "@/lib/tailorChangeLog";
 import { TailorQueuePanel } from "@/components/tailor/TailorQueuePanel";
 import { normalizeQueueName, type QueueItem } from "@/lib/tailorWorkQueue";
 import type { FixSuggestion } from "@/components/tailor/TailorFixExpansion";
@@ -1093,7 +1095,7 @@ export default function ResumeBuilder({
       setStudioHandoff(false);
       const baseQ = sp.get("base");
       const styleRef = sp.get("styleRef");
-      let next = "/?view=builder&flow=tailor";
+      let next = tailorHref();
       if (baseQ) next += `&base=${encodeURIComponent(baseQ)}`;
       if (styleRef) next += `&styleRef=${encodeURIComponent(styleRef)}`;
       router.replace(next);
@@ -2509,10 +2511,24 @@ export default function ResumeBuilder({
         ...(prof ? { candidate_profile: prof } : {}),
       }),
     });
-    const data = await resp.json() as { suggestions?: unknown[]; error?: string };
+    const data = await resp.json() as {
+      suggestions?: unknown[];
+      error?: string;
+      emptyReason?: string;
+    };
     if (!resp.ok || data.error) throw new Error(data.error ?? "Couldn't write suggestions. Try again.");
     const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as FixSuggestion[];
-    return list.filter((s) => s.original?.trim() && s.suggested?.trim());
+    const usable = list.filter((s) => s.original?.trim() && s.suggested?.trim());
+    // An empty list has three causes and only one of them is a verdict about
+    // the résumé. `no_llm_output` means the provider chain failed and returned
+    // a 200 anyway, which is exactly how this feature went dark twice while
+    // telling users their experience could not support a requirement. Raise it
+    // so the row shows the error state with a retry instead of a confident
+    // sentence we have no basis for.
+    if (!usable.length && data.emptyReason === "no_llm_output") {
+      throw new Error("Couldn't reach the writer just now. Try again in a moment.");
+    }
+    return usable;
   }, [jd, effectiveCandidateProfile, tailorStructuredResume, tailorBulletAnalysis,
       tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
 
@@ -2523,6 +2539,47 @@ export default function ResumeBuilder({
     const idx = findAppliedBulletIndex(item.name, addressedGapActions, tailorLineOverrides);
     if (idx !== null) setTailorSelection({ kind: "bullet", idx });
   }, [addressedGapActions, tailorLineOverrides, setTailorSelection]);
+
+  /**
+   * Take one change back.
+   *
+   * Dropping the override is the whole revert: the preview, the download and
+   * the score-preview text all render from that map, so removing the entry puts
+   * the original line back everywhere at once. The queue rows for every
+   * requirement riding on that bullet reopen with it — they were only "applied"
+   * because of the text we just removed, and leaving them green would be the
+   * queue claiming coverage the document no longer has.
+   */
+  const undoResumeChange = useCallback((change: ResumeChange) => {
+    // Rebuilt rather than copy-and-`delete`: the compiler cannot see through a
+    // mutation here and bails out of memoizing the whole component.
+    setTailorLineOverrides((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([k]) => Number(k) !== change.bulletIndex),
+      ),
+    );
+    setTailorAppliedBulletIndices((prev) =>
+      new Set([...prev].filter((i) => i !== change.bulletIndex)),
+    );
+    setAppliedPillPairs((prev) =>
+      prev.filter((p) => p.applied.trim() !== change.applied.trim()),
+    );
+    const undone = new Set(change.requirements.map((r) => r.trim().toLowerCase()));
+    if (undone.size > 0) {
+      setAddressedGaps((prev) =>
+        new Set([...prev].filter((g) => !undone.has(g.trim().toLowerCase()))),
+      );
+      setAddressedGapActions((prev) =>
+        prev.filter((a) => !undone.has(a.label.trim().toLowerCase())),
+      );
+    }
+    // The deterministic count was computed against text that no longer exists.
+    // Marking it stale is honest; silently keeping the higher number is not.
+    setScoreStale(true);
+    // `setScoreStale` is not a bare useState setter here, so the compiler
+    // cannot infer it as stable; leaving it out skips optimizing this whole
+    // component.
+  }, [setScoreStale]);
 
   /** Apply exactly one picked (possibly user-edited) suggestion from the queue. */
   const applyFixSuggestion = useCallback(async (
@@ -4481,6 +4538,9 @@ export default function ResumeBuilder({
                         onInterviewPrep={openInterviewPrep}
                         requirementConcepts={requirementConcepts}
                         currentResumeText={effectiveCandidateProfile}
+                        lineOverrides={tailorLineOverrides}
+                        bulletAnalysis={tailorBulletAnalysis}
+                        onUndoChange={undoResumeChange}
                       />
                     )}
                     {scoreStale && !gapApplyBusy && !queueUi && (
@@ -4976,7 +5036,7 @@ function TemplateCustomizePostResult({
       ) : null}
 
       <nav aria-label="Breadcrumb" style={{ fontSize: 12, color: "var(--dim)", marginBottom: 14 }}>
-        <Link href="/?view=builder&flow=tailor&intent=job" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
+        <Link href={tailorHref({ intentJob: true })} style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>
           Resume Builder
         </Link>
         <span style={{ margin: "0 8px", opacity: 0.45 }} aria-hidden>›</span>
