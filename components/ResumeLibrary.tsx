@@ -26,18 +26,7 @@ function resolvePdfUrl(raw: string | null | undefined): string | null {
 }
 import { stashTailorPrefillFromLibrary } from "@/lib/tailorPrefill";
 import { displayPdfUrlForResume } from "@/lib/displayResumePdfUrl";
-import { deleteBuilderResume, getSupabaseClient, type LibraryItem } from "@/lib/supabase";
-import { fetchLibraryFeed, type LibraryFeedItem, type VersionLibraryItem } from "@/lib/libraryFeed";
-import { VersionEditor, type VersionEditorHandlers } from "@/components/versions/VersionEditor";
-import {
-  duplicateVersion,
-  listScansForVersion,
-  scoreVersionInPlace,
-  setVersionAsMyResume,
-  type ResumeVersionGroup,
-} from "@/lib/resumeVersions";
-import { stashVersionForTailor, VERSION_TAILOR_URL } from "@/lib/versionTailorPrefill";
-import { stashVersionForBoost, BOOST_JOBS_URL } from "@/lib/versionBoostPrefill";
+import { deleteBuilderResume, fetchLibraryItems, getSupabaseClient, type LibraryItem } from "@/lib/supabase";
 import { RESUME_LIBRARY_CHANGED_EVENT } from "@/lib/resumeLibraryEvents";
 import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
 import { stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/templateBuilderPrefill";
@@ -104,8 +93,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
   const selectedBuilderId = (searchParams?.get("builder") ?? "").trim();
   const selectedCoverLetterId = (searchParams?.get("cl") ?? "").trim();
   const selectedVersionId = (searchParams?.get("version") ?? "").trim();
-  const [items, setItems] = useState<LibraryFeedItem[]>([]);
-  const [groups, setGroups] = useState<ResumeVersionGroup[]>([]);
+  const [items, setItems] = useState<LibraryItem[]>([]);
   /** In-pane deep editor for a résumé version (M3) — replaces the grid while set. */
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -134,13 +122,10 @@ export default function ResumeLibrary({ onUseAsBase }: {
       setSignedIn(!!session?.user?.id);
       setLoading(true);
       try {
-        const feed = await fetchLibraryFeed();
-        if (!cancelled) {
-          setItems(feed.items);
-          setGroups(feed.groups);
-        }
+        const feed = await fetchLibraryItems();
+        if (!cancelled) setItems(feed);
       } catch (e: unknown) {
-        console.error("[library] fetchLibraryFeed", e);
+        console.error("[library] fetchLibraryItems", e);
         if (!cancelled) {
           setItems([]);
           setLoadError(e instanceof Error ? e.message : String(e));
@@ -171,9 +156,6 @@ export default function ResumeLibrary({ onUseAsBase }: {
   }, []);
 
   const selectedItem = useMemo(() => {
-    if (selectedVersionId) {
-      return items.find(item => item.kind === "version" && item.id === selectedVersionId) ?? null;
-    }
     if (selectedAnalysisId) {
       return items.find(item => item.kind === "analyzed" && item.id === selectedAnalysisId) ?? null;
     }
@@ -192,12 +174,9 @@ export default function ResumeLibrary({ onUseAsBase }: {
   const filtered = useMemo(() => {
     const f = filter.trim().toLowerCase();
     let arr = items.filter(item => {
-      // Versions bucket with what they ARE: a Boost/tailor version sits with
-      // Job Tailored; everything else is a base résumé.
-      const versionIsTailored = item.kind === "version" && item.version.origin === "tailor";
-      if (kindFilter === "base" && item.kind !== "analyzed" && item.kind !== "builder" && !(item.kind === "version" && !versionIsTailored)) return false;
+      if (kindFilter === "base" && item.kind !== "analyzed" && item.kind !== "builder") return false;
       if (kindFilter === "analyzed" && item.kind !== "analyzed") return false;
-      if (kindFilter === "tailored" && item.kind !== "tailored" && !versionIsTailored) return false;
+      if (kindFilter === "tailored" && item.kind !== "tailored") return false;
       if (kindFilter === "builder" && item.kind !== "builder") return false;
       if (kindFilter === "cover_letter" && item.kind !== "cover_letter") return false;
       if (kindFilter === "default" && !item.isDefault) return false;
@@ -215,11 +194,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
     return arr;
   }, [items, filter, kindFilter, sort]);
 
-  const openItem = (item: LibraryFeedItem) => {
-    if (item.kind === "version") {
-      router.push(`/?view=library&version=${encodeURIComponent(item.id)}`);
-      return;
-    }
+  const openItem = (item: LibraryItem) => {
     if (item.kind === "analyzed") {
       router.push(`/?view=library&analysis=${encodeURIComponent(item.id)}`);
       return;
@@ -239,7 +214,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
     router.push("/?view=library");
   };
 
-  const applyResumeAsBase = (item: LibraryFeedItem) => {
+  const applyResumeAsBase = (item: LibraryItem) => {
     if (item.kind !== "tailored") return;
     const r = item.record;
     onUseAsBase?.(r.folder);
@@ -250,12 +225,12 @@ export default function ResumeLibrary({ onUseAsBase }: {
     router.push(tailorHref({ base: r.folder, intentJob: true }));
   };
 
-  const openAnalysis = (item: LibraryFeedItem) => {
+  const openAnalysis = (item: LibraryItem) => {
     if (item.kind !== "analyzed") return;
     router.push(`/?view=analyze&analysis=${encodeURIComponent(item.id)}`);
   };
 
-  const tailorFromAnalysis = (item: LibraryFeedItem) => {
+  const tailorFromAnalysis = (item: LibraryItem) => {
     if (item.kind !== "analyzed") return;
     const text = getAnalysisExtractedText(item);
     try {
@@ -265,7 +240,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
     router.push(tailorHref({ fromAnalyze: true }));
   };
 
-  const editAnalysisInTemplateBuilder = (item: LibraryFeedItem) => {
+  const editAnalysisInTemplateBuilder = (item: LibraryItem) => {
     if (item.kind !== "analyzed") return;
     try {
       stashTemplateBuilderStructuredPrefillFromAnalysisResult(item.analysis.result);
@@ -276,12 +251,12 @@ export default function ResumeLibrary({ onUseAsBase }: {
     router.push("/template-builder/");
   };
 
-  const openBuilderDraft = (item: LibraryFeedItem) => {
+  const openBuilderDraft = (item: LibraryItem) => {
     if (item.kind !== "builder") return;
     router.push(`/template-builder/?builder=${encodeURIComponent(item.id)}`);
   };
 
-  const deleteBuilderItem = async (item: LibraryFeedItem) => {
+  const deleteBuilderItem = async (item: LibraryItem) => {
     if (item.kind !== "builder") return;
     setConfirmConfig({
       title: "Delete Resume Draft",
@@ -301,7 +276,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
     setConfirmOpen(true);
   };
 
-  const deleteCoverLetterItem = async (item: LibraryFeedItem) => {
+  const deleteCoverLetterItem = async (item: LibraryItem) => {
     if (item.kind !== "cover_letter") return;
     setConfirmConfig({
       title: "Delete Cover Letter",
@@ -321,72 +296,6 @@ export default function ResumeLibrary({ onUseAsBase }: {
     });
     setConfirmOpen(true);
   };
-
-  /* ── Résumé versions in the hub (M3) ─────────────────────────────── */
-
-  const editingVersion = editingVersionId
-    ? groups.flatMap(g => g.versions).find(v => v.id === editingVersionId) ?? null
-    : null;
-
-  const openVersionEditor = (item: LibraryFeedItem) => {
-    if (item.kind !== "version") return;
-    setEditingVersionId(item.version.id);
-  };
-
-  const tailorFromVersion = (item: LibraryFeedItem) => {
-    if (item.kind !== "version") return;
-    if (stashVersionForTailor(item.version)) router.push(VERSION_TAILOR_URL);
-  };
-
-  const useVersionAsMyResume = async (item: LibraryFeedItem) => {
-    if (item.kind !== "version") return;
-    await setVersionAsMyResume(item.version);
-  };
-
-  const boostFromVersion = (item: LibraryFeedItem) => {
-    if (item.kind !== "version") return;
-    if (stashVersionForBoost(item.version)) router.push(BOOST_JOBS_URL);
-  };
-
-  const editorHandlers: VersionEditorHandlers = {
-    onSwitch: v => setEditingVersionId(v.id),
-    // The hub keeps creation flows elsewhere (Analyze / Boost / Import); "new"
-    // inside the deep editor means "branch from here".
-    onNewVersion: () => {
-      if (!editingVersion) return;
-      void duplicateVersion(editingVersion).then(nv => { if (nv) setEditingVersionId(nv.id); });
-    },
-    onScore: async structured => {
-      if (!editingVersion) return { score: null };
-      return scoreVersionInPlace({
-        id: editingVersion.id,
-        name: editingVersion.name,
-        structured,
-        extractedText: editingVersion.extractedText,
-      });
-    },
-    onViewReport: aid => router.push(`/?view=analyze&analysis=${encodeURIComponent(aid)}`),
-    onLoadScans: vid => listScansForVersion(vid),
-    onTailor: v => { if (stashVersionForTailor(v)) router.push(VERSION_TAILOR_URL); },
-    onBoost: v => { if (stashVersionForBoost(v)) router.push(BOOST_JOBS_URL); },
-    onDuplicate: v => { void duplicateVersion(v); },
-  };
-
-  if (editingVersion) {
-    return (
-      <div
-        className="library-page fade-in"
-        style={{ flex: 1, minHeight: 0, width: "100%", overflowY: "auto", padding: "18px 22px" }}
-      >
-        <div style={{ marginBottom: 12 }}>
-          <Button type="button" onClick={() => setEditingVersionId(null)} style={actionBtnGhost}>
-            ← Back to your résumés
-          </Button>
-        </div>
-        <VersionEditor version={editingVersion} groups={groups} handlers={editorHandlers} />
-      </div>
-    );
-  }
 
   return (
     <div
@@ -857,9 +766,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                           ? selectedBuilderId === item.id
                           : item.kind === "cover_letter"
                             ? selectedCoverLetterId === item.id
-                            : item.kind === "version"
-                              ? selectedVersionId === item.id
-                              : selectedFolder === item.record.folder
+                            : selectedFolder === item.record.folder
                     }
                     stagger={Math.min(i % 5, 4)}
                     onOpen={() => openItem(item)}
@@ -868,8 +775,6 @@ export default function ResumeLibrary({ onUseAsBase }: {
                     onTailorAnalysis={() => tailorFromAnalysis(item)}
                     onEditInTemplateBuilder={() => editAnalysisInTemplateBuilder(item)}
                     onOpenInBuilder={() => openBuilderDraft(item)}
-                    onEditVersion={() => openVersionEditor(item)}
-                    onTailorVersion={() => tailorFromVersion(item)}
                   />
                 ))}
                 <CreateNewCard onClick={() => router.push("/?view=content-source")} />
@@ -904,18 +809,6 @@ export default function ResumeLibrary({ onUseAsBase }: {
             }}
             onDeleteCoverLetter={() => {
               if (selectedItem) void deleteCoverLetterItem(selectedItem);
-            }}
-            onEditVersion={() => {
-              if (selectedItem) openVersionEditor(selectedItem);
-            }}
-            onTailorVersion={() => {
-              if (selectedItem) tailorFromVersion(selectedItem);
-            }}
-            onBoostVersion={() => {
-              if (selectedItem) boostFromVersion(selectedItem);
-            }}
-            onUseVersionAsMyResume={() => {
-              if (selectedItem) void useVersionAsMyResume(selectedItem);
             }}
           />
         ) : null}
@@ -1066,10 +959,8 @@ function ResumeCard({
   onTailorAnalysis,
   onEditInTemplateBuilder,
   onOpenInBuilder,
-  onEditVersion,
-  onTailorVersion,
 }: {
-  item: LibraryFeedItem;
+  item: LibraryItem;
   isSelected?: boolean;
   stagger: number;
   onOpen: () => void;
@@ -1078,8 +969,6 @@ function ResumeCard({
   onTailorAnalysis: () => void;
   onEditInTemplateBuilder: () => void;
   onOpenInBuilder: () => void;
-  onEditVersion: () => void;
-  onTailorVersion: () => void;
 }) {
   const displayPdf = useMemo(
     () => item.kind === "tailored" ? displayPdfUrlForResume(item.record) : null,
@@ -1092,9 +981,7 @@ function ResumeCard({
       resolvePdfUrl(
         item.kind === "analyzed"
           ? item.analysis.sourcePdfUrl
-          : item.kind === "version"
-            ? item.version.sourcePdfUrl
-            : item.kind === "tailored" ? displayPdf : null,
+          : item.kind === "tailored" ? displayPdf : null,
       ),
     [item, displayPdf],
   );
@@ -1138,7 +1025,6 @@ function ResumeCard({
           e.stopPropagation();
           if (item.kind === "analyzed") onOpenAnalysis();
           else if (item.kind === "builder") onOpenInBuilder();
-          else if (item.kind === "version") onEditVersion();
           else onOpen();
         }}
         style={actionBtnPrimary}
@@ -1149,29 +1035,9 @@ function ResumeCard({
             ? "Open in Builder"
             : item.kind === "cover_letter"
               ? "Open in Builder"
-              : item.kind === "version"
-                ? "Edit"
-                : "Details"}
+              : "Details"}
       </Button>
-      {item.kind === "version" ? (
-        <>
-          <Button
-            type="button"
-            onClick={e => { e.stopPropagation(); onTailorVersion(); }}
-            title="Tailor this résumé to a job"
-            style={actionBtnGhost}
-          >
-            Tailor
-          </Button>
-          <Button
-            type="button"
-            onClick={e => { e.stopPropagation(); onOpen(); }}
-            style={actionBtnGhost}
-          >
-            Details
-          </Button>
-        </>
-      ) : item.kind === "builder" || item.kind === "cover_letter" ? (
+      {item.kind === "builder" || item.kind === "cover_letter" ? (
         <Button
           type="button"
           onClick={e => {
@@ -1319,32 +1185,6 @@ function ResumeCard({
             </div>
             <Badge variant="outline" style={{ fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
               Improvement plan saved
-            </Badge>
-          </div>
-        ) : item.kind === "version" ? (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              padding: 18,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              background:
-                "radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 20%, transparent), transparent 46%), linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-              <Badge variant="secondary" style={kindBadgeTailored}>{item.isDefault ? "My résumé" : "Résumé"}</Badge>
-              {scoreBadge}
-            </div>
-            <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ height: 6, width: "82%", borderRadius: 99, background: "var(--border)" }} />
-              <div style={{ height: 6, width: "64%", borderRadius: 99, background: "var(--border)" }} />
-              <div style={{ height: 6, width: "90%", borderRadius: 99, background: "var(--border)" }} />
-            </div>
-            <Badge variant="outline" style={{ fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-              Editable — no re-scan needed
             </Badge>
           </div>
         ) : (

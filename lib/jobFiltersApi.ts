@@ -1,6 +1,6 @@
 /**
  * Saved job-feed filter sets ("Your Saved Filters") API client.
- * Mirrors lib/referralsApi.ts: Supabase bearer auth via authHeaders.
+ * Supabase bearer auth via authHeaders.
  *
  * The `filters` blob is owned by JobsFeed (FilterSnapshot below) — the backend
  * persists it opaquely.

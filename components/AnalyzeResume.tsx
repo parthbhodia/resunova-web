@@ -35,7 +35,6 @@ import {
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan, takeAnalyzeJd } from "@/lib/anonScan";
 import { logClientEvent, stashPrewallEvent, flushPrewallEvents } from "@/lib/clientEvents";
-import { upsertEditedVersion, syncVersionAfterRescore, findVersionBySourceRoot } from "@/lib/resumeVersions";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { useUpgradeDialog } from "@/components/UpgradeDialog";
 import { shouldShowJobActivation } from "@/components/JobSearchActivationWidget";
@@ -116,7 +115,6 @@ export default function AnalyzeResume() {
   const [activeEditDraftId, setActiveEditDraftId] = useState<string | null>(null);
   const [editDraftStatus, setEditDraftStatus] = useState<string | null>(null);
   /** The editable version mirroring the active analyses lineage (re-entry chip). */
-  const [hasEditedVersion, setHasEditedVersion] = useState(false);
   // Edit-at-score funnel (M2): dedupe report_view/delta_view per draft; detect
   // edit_bounce (clicked Edit, changed nothing, left).
   const editClickedRef = useRef(false);
@@ -322,19 +320,6 @@ export default function AnalyzeResume() {
       setFeedbackToast("Score updated — your fixes are saved and future job matching uses the fixed résumé.");
       const candidateName = res.resumeHeader?.[0]?.trim() || res.structuredResume?.full_name?.trim();
       void persistResult(candidateName || "Updated résumé", resWithMeta, draftId);
-      // Reconciliation rule (M2): the verified score also lands on the linked
-      // editable version, so it never holds a stale estimate or stale text.
-      const parentRec = parentAnalysisId ? azHistory.find((r) => r.id === parentAnalysisId) : undefined;
-      const rescoreSourceRoot =
-        (res as { analysisRootId?: string | null }).analysisRootId ?? parentRec?.rootId ?? parentAnalysisId ?? null;
-      if (rescoreSourceRoot) {
-        void syncVersionAfterRescore({
-          sourceRootId: rescoreSourceRoot,
-          score: typeof res.overallScore === "number" ? res.overallScore : null,
-          structured: patch.patchedStructured ?? undefined,
-          extractedText: patch.patchedText,
-        });
-      }
     } catch (e: unknown) {
       setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : "Unknown error"));
     } finally {
@@ -382,19 +367,6 @@ export default function AnalyzeResume() {
     reportViewLoggedForRef.current = activeEditDraftId;
     void logClientEvent("report_view", { analysis_id: activeEditDraftId });
   }, [result, userId, activeEditDraftId]);
-
-  // Re-entry: does the active analyses lineage already have an edited version?
-  useEffect(() => {
-    let cancelled = false;
-    setHasEditedVersion(false);
-    if (!userId || !result || !activeEditDraftId || activeEditDraftId.startsWith("local_")) return;
-    const rec = azHistory.find((r) => r.id === activeEditDraftId);
-    const sourceRootId = rec?.rootId ?? rec?.id ?? activeEditDraftId;
-    void findVersionBySourceRoot(sourceRootId).then((v) => {
-      if (!cancelled && v) setHasEditedVersion(true);
-    });
-    return () => { cancelled = true; };
-  }, [userId, result, activeEditDraftId, azHistory]);
 
   const applyAnalyzeOutcome = useCallback((outcome: AnalyzeOutcome) => {
     const { ok, status, json, fileName } = outcome;
@@ -1345,36 +1317,6 @@ export default function AnalyzeResume() {
         bulletMap: versionResult.bulletMap,
       });
       setEditDraftStatus("Saved — your edits are in this résumé's history.");
-
-      // Dual-write (M2): mirror the save onto the ONE editable version for this
-      // lineage. Isolated on purpose — the analyses child above is already
-      // committed, so a version failure must not turn the save into an error
-      // (it logs, and the next save self-heals via the source_root_id lookup).
-      const sourceRootId = created.rootId ?? parent.rootId ?? parent.id;
-      const structuredForVersion = patch.patchedStructured ?? st.structuredResume;
-      if (structuredForVersion) {
-        try {
-          const up = await upsertEditedVersion({
-            sourceRootId,
-            analysisId: created.id,
-            name: parent.label || "",
-            structured: structuredForVersion,
-            extractedText: patch.patchedText,
-            projectedScore: typeof scoreEstimate?.projected === "number" ? scoreEstimate.projected : null,
-          });
-          if (up) {
-            setHasEditedVersion(true);
-            void logClientEvent("version_save", {
-              version_id: up.version.id,
-              created: up.created,
-              linked: up.linked,
-              analysis_id: created.id,
-            });
-          }
-        } catch {
-          void logClientEvent("version_write_failed", { analysis_id: created.id });
-        }
-      }
     } catch {
       setEditDraftStatus("Saved locally; couldn't add a cloud version this time.");
     } finally {
@@ -1398,7 +1340,7 @@ export default function AnalyzeResume() {
 
   /* ── Shared sidebar: pinned strip (score / recent header) + scrollable body ─── */
   const sidebarPinned = (
-    <AnalyzeSidebarPinned result={result} onEditResume={startEditFlow} hasEditedVersion={hasEditedVersion} />
+    <AnalyzeSidebarPinned result={result} onEditResume={startEditFlow} />
   );
 
   const sidebarScroll = !result ? (
@@ -2052,7 +1994,7 @@ export default function AnalyzeResume() {
                     fontSize: 12, fontWeight: 700, cursor: "pointer",
                     whiteSpace: "nowrap", flexShrink: 0, marginRight: 8,
                   }}
-                >✎ {hasEditedVersion ? "Keep editing" : "Edit"}</button>
+                >✎ Edit</button>
                 <button
                   type="button"
                   onClick={() => {

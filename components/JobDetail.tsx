@@ -24,7 +24,6 @@ import { goToFreeScan, stashAnalyzeJd } from "@/lib/anonScan";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import BoostPanel from "@/components/BoostPanel";
 import CompanyLogo from "@/components/CompanyLogo";
-import InsiderPanel from "@/components/InsiderPanel";
 import { apiFetch } from "@/lib/apiClient";
 
 type LoadState =
@@ -691,7 +690,6 @@ function JobBody({
         <MatchPanel job={job} onBoost={onBoost} signedIn={signedIn} />
         <PrepCard job={job} onPrep={onPrep} prepStatus={prepStatus} prepLaunching={prepLaunching} />
         {signedIn === false ? <LockedHiringContacts onSignIn={onContactSignIn} /> : <ContactHiringCard job={job} />}
-        <InsiderPanel postingId={job.id} company={job.company} />
       </div>
     </div>
   );
