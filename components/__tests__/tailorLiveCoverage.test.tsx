@@ -51,43 +51,44 @@ describe("the scoreboard label tracks whether a recount happened", () => {
     expect(screen.getByText(/graded by ai at 2:41 pm/i)).toBeInTheDocument();
   });
 
-  it("shows the raw counts so the percentage stays checkable", () => {
-    // v7 leads with the percentage and keeps the counts beside it as "42/43",
-    // still on screen rather than only in the accessible name.
+  it("shows the percentage, and only the percentage", () => {
     render(<TailorScoreboard {...base} found={42} total={43} live />);
-    expect(screen.getByText("42/43")).toBeInTheDocument();
-    expect(screen.getByLabelText("42 of 43 keywords matched")).toBeInTheDocument();
     expect(screen.getByText(/98/)).toBeInTheDocument();
   });
 });
 
 /**
- * The tile and the dimension chip render DIFFERENT datasets: the live recount
- * scores the JD's extracted requirementConcepts with a deterministic matcher,
- * the chip shows the rater's keyword list. Both said "keywords", so a real
- * screenshot showed "38% · 9 of 24 keywords · 15 still unmatched" directly
- * above a chip reading "Keywords 22/23". Worse, the tile FALLS BACK to the
- * chip's dataset, so one label covered two sources that disagree.
+ * The raw counts are GONE from this tile (user-directed 2026-08-07: "it is not
+ * holding any value"), and this block pins their absence.
+ *
+ * Why a removal gets its own tests: the counts were not merely noise, they
+ * DISAGREED with the queue beneath them. The fallback counts the rater's
+ * keywords; the queue lists what the rater filed as missing. Nothing makes
+ * those agree, so the tile could read "21 unmatched" above three rows to fix.
+ * The old `unit` prop existed to label WHICH dataset a count came from — a fix
+ * for the symptom. Deleting the count removes the disagreement itself, and the
+ * obvious "improvement" a later edit makes is to put a helpful count back.
  */
-describe("the tile names the dataset it is showing", () => {
+describe("the ATS tile carries no raw counts", () => {
   const base = { grade: 85, gradedAtLabel: "2:41 PM", stale: false };
 
-  it("says requirements when the live recount supplied the numbers", () => {
-    // The unit lives in the accessible name now that the visible counts are
-    // a bare "9/24"; the claim it guards is the same one — the tile must never
-    // label the recount's dataset with the fallback's word.
-    render(<TailorScoreboard {...base} found={9} total={24} unit="requirements" live />);
-    expect(screen.getByLabelText("9 of 24 requirements matched")).toBeInTheDocument();
-    expect(screen.queryByLabelText("9 of 24 keywords matched")).toBeNull();
+  it("does not print an unmatched count", () => {
+    render(<TailorScoreboard {...base} found={9} total={24} live />);
+    expect(screen.queryByText(/unmatched/i)).toBeNull();
+    expect(screen.queryByText(/15/)).toBeNull();
   });
 
-  it("says keywords when it fell back to the scan's keyword counts", () => {
-    render(<TailorScoreboard {...base} found={22} total={23} unit="keywords" />);
-    expect(screen.getByLabelText("22 of 23 keywords matched")).toBeInTheDocument();
+  it("does not print found-of-total, on screen or to assistive tech", () => {
+    render(<TailorScoreboard {...base} found={9} total={24} live />);
+    expect(screen.queryByText("9/24")).toBeNull();
+    expect(screen.queryByLabelText(/9 of 24/i)).toBeNull();
+    expect(screen.queryByLabelText(/matched/i)).toBeNull();
   });
 
-  it("names the same dataset to assistive tech as it does on screen", () => {
-    render(<TailorScoreboard {...base} found={9} total={24} unit="requirements" live />);
-    expect(screen.getByLabelText("9 of 24 requirements matched")).toBeInTheDocument();
+  it("still shows the percentage the meter is drawn from", () => {
+    // The figure survives; it is a direction, not a worklist. Removing it too
+    // would leave the rail with no deterministic signal at all.
+    render(<TailorScoreboard {...base} found={9} total={24} live />);
+    expect(screen.getByText(/38/)).toBeInTheDocument();
   });
 });
