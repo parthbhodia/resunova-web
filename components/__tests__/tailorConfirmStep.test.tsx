@@ -118,13 +118,12 @@ describe("the confirm step", () => {
 describe("the ATS meter", () => {
   const base = { grade: 85, gradedAtLabel: "2:41 PM", stale: false };
 
-  // "shows what is still open" and the assistive-tech count test lived here and
-  // are gone with the counts themselves (user-directed 2026-08-07). The claim
-  // they defended -- that the tile names the part you can act on -- turned out
-  // to be the problem: the number it named disagreed with the queue that
-  // actually lists the work. `tailorLiveCoverage.test.tsx` now pins the
-  // absence. What survives here is everything about the METER, which is
-  // unchanged.
+  // "shows what is still open" lived here and is gone with the unmatched flag
+  // (user-directed 2026-08-07). The claim it defended -- that the tile names
+  // the part you can act on -- was the problem: that number disagreed with the
+  // queue that actually lists the work. The found/total ratio survives on the
+  // live path only; `tailorLiveCoverage.test.tsx` owns that rule. What is left
+  // here is the METER, unchanged.
 
   it("says nothing about unmatched requirements", () => {
     render(<TailorScoreboard {...base} found={40} total={43} />);

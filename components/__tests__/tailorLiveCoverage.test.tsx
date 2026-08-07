@@ -51,44 +51,60 @@ describe("the scoreboard label tracks whether a recount happened", () => {
     expect(screen.getByText(/graded by ai at 2:41 pm/i)).toBeInTheDocument();
   });
 
-  it("shows the percentage, and only the percentage", () => {
+  it("leads with the percentage", () => {
     render(<TailorScoreboard {...base} found={42} total={43} live />);
     expect(screen.getByText(/98/)).toBeInTheDocument();
   });
 });
 
 /**
- * The raw counts are GONE from this tile (user-directed 2026-08-07: "it is not
- * holding any value"), and this block pins their absence.
+ * The raw counts render ONLY on the live path, and both halves are load-bearing.
  *
- * Why a removal gets its own tests: the counts were not merely noise, they
- * DISAGREED with the queue beneath them. The fallback counts the rater's
- * keywords; the queue lists what the rater filed as missing. Nothing makes
- * those agree, so the tile could read "21 unmatched" above three rows to fix.
- * The old `unit` prop existed to label WHICH dataset a count came from — a fix
- * for the symptom. Deleting the count removes the disagreement itself, and the
- * obvious "improvement" a later edit makes is to put a helpful count back.
+ * Hidden on the fallback because there `found`/`total` are the rater's KEYWORD
+ * counts while the queue lists what the rater filed as MISSING -- nothing makes
+ * those agree, and the tile once read "21 unmatched" above three rows to fix.
+ * Shown when live because a recount scores the same requirement set the queue
+ * is built from, and a bare percentage is unfalsifiable: 83% of 6 and 83% of
+ * 200 are different situations and nothing else on screen separates them.
+ *
+ * Pinned in BOTH directions. The obvious later edit is to "simplify" this into
+ * always-on or always-off, and each of those reintroduces one of the two bugs.
  */
-describe("the ATS tile carries no raw counts", () => {
+describe("the ATS tile shows counts only when it recounted", () => {
   const base = { grade: 85, gradedAtLabel: "2:41 PM", stale: false };
 
-  it("does not print an unmatched count", () => {
-    render(<TailorScoreboard {...base} found={9} total={24} live />);
-    expect(screen.queryByText(/unmatched/i)).toBeNull();
-    expect(screen.queryByText(/15/)).toBeNull();
-  });
-
-  it("does not print found-of-total, on screen or to assistive tech", () => {
-    render(<TailorScoreboard {...base} found={9} total={24} live />);
-    expect(screen.queryByText("9/24")).toBeNull();
-    expect(screen.queryByLabelText(/9 of 24/i)).toBeNull();
+  it("hides the counts when the numbers came from the last scan", () => {
+    render(<TailorScoreboard {...base} found={22} total={23} />);
+    expect(screen.queryByText("22/23")).toBeNull();
     expect(screen.queryByLabelText(/matched/i)).toBeNull();
   });
 
-  it("still shows the percentage the meter is drawn from", () => {
-    // The figure survives; it is a direction, not a worklist. Removing it too
-    // would leave the rail with no deterministic signal at all.
+  it("shows them once a recount has landed", () => {
     render(<TailorScoreboard {...base} found={9} total={24} live />);
+    expect(screen.getByText("9/24")).toBeInTheDocument();
+  });
+
+  it("calls them requirements, because live can only be the recount", () => {
+    // The old `unit` prop existed to disambiguate two sources. Gating on live
+    // leaves one, so the word is a constant rather than a caller's choice.
+    render(<TailorScoreboard {...base} found={9} total={24} live />);
+    expect(screen.getByLabelText("9 of 24 requirements matched")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/keywords matched/i)).toBeNull();
+  });
+
+  it("never prints an unmatched count, live or not", () => {
+    // Deliberately NOT restored with the ratio. Even live it is a worklist
+    // claim, and the queue's count is legitimately larger -- it merges
+    // rater-only rows -- so the two can still disagree. found/total explains
+    // the percentage above it and claims nothing about the work.
+    render(<TailorScoreboard {...base} found={9} total={24} live />);
+    expect(screen.queryByText(/unmatched/i)).toBeNull();
+    render(<TailorScoreboard {...base} found={9} total={24} />);
+    expect(screen.queryByText(/unmatched/i)).toBeNull();
+  });
+
+  it("shows the percentage on both paths", () => {
+    render(<TailorScoreboard {...base} found={9} total={24} />);
     expect(screen.getByText(/38/)).toBeInTheDocument();
   });
 });
