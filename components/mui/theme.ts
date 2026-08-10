@@ -69,9 +69,16 @@ export function makeTheme(mode: ThemeMode): Theme {
     },
     palette: {
       mode,
-      // contrastText follows the mode, because --accent does. White measured
-      // 5.19:1 on the light accent and 2.53:1 on the dark one, so a fixed value
-      // is readable in exactly one theme. Mirrors --on-fill in globals.css.
+      // contrastText is per-mode because the accent flips lightness: #0969da
+      // in light takes white (5.19:1), but dark's #58a6ff is a LIGHT blue and
+      // white on it measures 2.53:1 — a WCAG AA failure on every contained
+      // Button in dark mode. Dark ink on it is 7.49:1.
+      //
+      // Named rather than derived inline (this was `mode === "dark" ? t.bg :
+      // "#ffffff"`, the same two values): it is the SAME colour the CSS calls
+      // --on-fill, which every filled control outside MUI uses, and routing
+      // both through one name is what stops the two palettes disagreeing about
+      // it. theme.test.ts pins the token to the CSS and the pair to WCAG AA.
       primary: { main: t.accent, dark: t.accentHover, contrastText: t.onFill },
       background: { default: t.bg, paper: t.surface },
       text: { primary: t.text, secondary: t.muted },

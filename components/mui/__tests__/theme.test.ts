@@ -106,3 +106,32 @@ describe("MUI theme encodes the polish invariants", () => {
     expect(makeTheme("dark").typography.fontFamily).not.toMatch(/Roboto/i);
   });
 });
+
+/**
+ * A contained Button paints palette.primary.contrastText on primary.main. The
+ * accent flips lightness between modes, so a single contrastText cannot serve
+ * both: white on dark-mode #58a6ff measured 2.53:1 in a browser, on every MUI
+ * button in the app. This asserts the pair, not the literal value, so a future
+ * accent change is caught by the same test.
+ */
+describe("primary contrast", () => {
+  const srgb = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const luminance = (hex: string) => {
+    const h = hex.replace("#", "");
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+    return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b);
+  };
+  const ratio = (a: string, b: string) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  for (const mode of ["light", "dark"] as const) {
+    it(`${mode} button label meets WCAG AA on the primary fill`, () => {
+      const theme = makeTheme(mode);
+      const fg = theme.palette.primary.contrastText;
+      const bg = theme.palette.primary.main;
+      expect(ratio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+});
