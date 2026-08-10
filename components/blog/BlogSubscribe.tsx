@@ -44,9 +44,14 @@ export default function BlogSubscribe({
     try {
       await subscribeToBlog(email, source);
       setStatus("done");
-      // Same copy whether or not they were already on the list — the RPC does
-      // not tell us, on purpose.
-      setMessage("You're on the list. We'll send the next one.");
+      // Says "check your email", NOT "you're on the list" — this is double
+      // opt-in, so nothing is subscribed until they click the link, and telling
+      // them otherwise would be a false confirmation they never get corrected on.
+      //
+      // Same copy whether the address is new, already pending, already
+      // confirmed, or opted out: the endpoint deliberately does not tell us
+      // which, so that it cannot be used to test whether someone is subscribed.
+      setMessage("Check your email for a link to confirm. It should arrive in a minute.");
       setEmail("");
     } catch {
       setStatus("error");

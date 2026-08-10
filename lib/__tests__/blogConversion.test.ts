@@ -177,6 +177,13 @@ describe("rss feed", () => {
 });
 
 describe("subscribe input validation", () => {
+  it("is checked client-side only as a courtesy; the server re-validates", () => {
+    // Pinning the relationship, not the regex: if this guard ever gets STRICTER
+    // than normalize_email in resunova-api, it silently rejects addresses the
+    // backend would have accepted, and nobody finds out.
+    expect(isLikelyEmail("a@b.co")).toBe(true);
+  });
+
   it("accepts ordinary addresses", () => {
     for (const ok of ["a@b.co", "First.Last+tag@sub.example.com", "  MixedCase@Example.COM  "]) {
       expect(isLikelyEmail(ok), ok).toBe(true);
