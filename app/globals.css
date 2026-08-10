@@ -91,6 +91,7 @@
   --accent:      #58a6ff;
   --accent-h:    #79c0ff;
   --accent-bg:   rgba(88,166,255,0.15);
+  --accent-ink:  #58a6ff;   /* text on --accent-bg (dark tint) */
   --amber:       #fbbf24;
   --amber-h:     #fcd34d;
   --amber-bg:    rgba(251,191,36,0.16);
@@ -134,6 +135,7 @@
   --accent:      #0969da;
   --accent-h:    #0559c7;
   --accent-bg:   rgba(9,105,218,0.11);
+  --accent-ink:  #0559c7;   /* text on --accent-bg; --accent is 4.46:1 there */
   --amber:       #b45309;
   --amber-h:     #92400e;
   --amber-bg:    rgba(180,83,9,0.12);
@@ -859,6 +861,7 @@ select option { background: var(--surface); }
   --accent:      #58a6ff;
   --accent-h:    #79c0ff;
   --accent-bg:   rgba(88,166,255,0.15);
+  --accent-ink:  #58a6ff;   /* text on --accent-bg (dark tint) */
   --amber:       #fbbf24;
   --amber-h:     #fcd34d;
   --amber-bg:    rgba(251,191,36,0.16);
@@ -916,6 +919,7 @@ select option { background: var(--surface); }
   --accent:      #0969da;
   --accent-h:    #0559c7;
   --accent-bg:   rgba(9,105,218,0.11);
+  --accent-ink:  #0559c7;   /* text on --accent-bg; --accent is 4.46:1 there */
   --amber:       #b45309;
   --amber-h:     #92400e;
   --amber-bg:    rgba(180,83,9,0.12);
@@ -1739,4 +1743,89 @@ select option { background: var(--surface); }
 
 @media (prefers-reduced-motion: reduce) {
   .md-state-layer::after { transition-duration: 0.01ms; }
+}
+
+/* ─── /pricing ────────────────────────────────────────────────────────────
+   Direction 3 "Statement": the brand blue promoted to a full colour field,
+   display type knocked out of it, and the plan panel overlapping the field
+   boundary so the page has real depth instead of three flat cards.
+
+   The field is a BLOCK that sizes to its own content, never a fixed height.
+   A fixed height plus variable text is how white-on-blue copy ends up on the
+   light background below it: the first build of this page did exactly that
+   and the lede went pale-on-pale. Overlap is produced by the panel hanging
+   BELOW the field via a negative bottom margin, so the field's height is
+   max(text, panel - overlap) and both always land on blue.
+
+   Page-scoped `.pr-*` classes follow the `.lp-*` convention used by the
+   landing page: bespoke marketing layout needing media queries and
+   pseudo-elements, which inline styles cannot express. */
+.pr-page {
+  min-height: 100dvh; background: var(--bg); color: var(--text);
+  /* How far the panel hangs below the blue field. The clearance under it is
+     derived from this, never guessed: the panel can overhang by at most
+     (header height + this value), which happens when the panel is taller than
+     the hero copy, so that sum is the clearance that cannot collide. */
+  --pr-overhang: 180px;
+  --pr-head-h: 64px;
+}
+.pr-hero { position: relative; background: #0d3fa8; }
+[data-theme="dark"] .pr-hero { background: #0a2f7d; }
+/* Grain breaks the digital flatness of a large solid field. Self-contained,
+   no network, pointer-events:none so it never eats a click. */
+.pr-hero::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E");
+}
+.pr-wrap { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+.pr-head { display: flex; align-items: center; justify-content: space-between; height: var(--pr-head-h); }
+.pr-back { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #dbe6fb; font-size: 14px; }
+.pr-back:hover { color: #fff; }
+.pr-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #a8c4f5; margin: 30px 0 0; }
+.pr-disp { font-size: 56px; font-weight: 700; letter-spacing: -0.038em; line-height: 1.04; color: #fff; margin: 14px 0 0; max-width: 15ch; text-wrap: balance; }
+.pr-disp em { font-style: italic; font-weight: 400; letter-spacing: -0.02em; }
+.pr-lede { color: #dbe6fb; font-size: 16px; line-height: 1.65; max-width: 40ch; margin: 22px 0 40px; }
+.pr-body { display: grid; grid-template-columns: 1fr 420px; gap: 56px; align-items: start; }
+.pr-panel {
+  border-radius: var(--md-shape-lg); padding: 28px 30px 26px;
+  /* Hangs below the field: this is what creates the overlap, and what keeps
+     the field's height tied to content rather than to a magic number. */
+  margin-bottom: calc(-1 * var(--pr-overhang));
+  /* Elevation is the six defined Material levels, not an ad-hoc box-shadow.
+     The tinted shadow the comp used was dropped for this on purpose. */
+  box-shadow: var(--md-elevation-3);
+}
+/* Clears the hanging panel so the legal copy cannot collide with it. */
+.pr-after {
+  max-width: 1080px; margin: 0 auto;
+  padding: calc(var(--pr-overhang) + var(--pr-head-h) + 28px) 32px 72px;
+}
+.pr-legal { font-size: 12px; line-height: 1.7; color: var(--muted); max-width: 62ch; margin: 0; }
+.pr-legal a { color: var(--muted); }
+
+@media (max-width: 960px) {
+  .pr-body { grid-template-columns: 1fr; gap: 26px; }
+  .pr-disp { font-size: 38px; max-width: 20ch; }
+  .pr-lede { max-width: none; margin-bottom: 30px; }
+  /* Stacked: the panel sits in normal flow, so no overhang and no clearance. */
+  .pr-panel { margin-bottom: 0; }
+  .pr-after { padding: 40px 20px 56px; }
+  .pr-wrap { padding: 0 20px; }
+}
+@media (max-width: 560px) {
+  .pr-disp { font-size: 31px; }
+  .pr-panel { padding: 22px 20px 20px; }
+}
+
+/* Entrance for the pricing hero and panel. Motion comes from the Material
+   scale (--md-easing-decelerate / --md-duration-long); the stagger is set
+   per-element with an inline animation-delay. Reduced motion removes it
+   outright rather than shortening it, so nothing moves at all. */
+@keyframes pr-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.pr-rise { animation: pr-rise var(--md-duration-long) var(--md-easing-decelerate) both; }
+@media (prefers-reduced-motion: reduce) {
+  .pr-rise { animation: none; opacity: 1; transform: none; }
 }
