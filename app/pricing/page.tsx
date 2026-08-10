@@ -37,12 +37,12 @@ export default function PricingPage() {
 
           <div className="pr-body">
             <div>
-              <p className="pr-eyebrow">Resunova Pro</p>
-              <h1 className="pr-disp">
+              <p className="pr-eyebrow pr-rise">Resunova Pro</p>
+              <h1 className="pr-disp pr-rise" style={{ animationDelay: "60ms" }}>
                 Tailor every application,{" "}
                 <em className={newsreader.className}>not just the first three.</em>
               </h1>
-              <p className="pr-lede">
+              <p className="pr-lede pr-rise" style={{ animationDelay: "110ms" }}>
                 Free stops at {FREE_SCAN_DAILY_LIMIT} résumé scans a day. Pro raises every cap to{" "}
                 {PRO_SCAN_DAILY_LIMIT}, so the day you find ten roles worth applying to is not the
                 day you run out.
