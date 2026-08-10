@@ -164,12 +164,12 @@ describe("CSS variables the tailor surfaces reference", () => {
    * The theme already had alpha-based `--red-bg` / `--amber-bg` / `--green-bg`
    * defined per theme; the call sites simply used names that were not there.
    */
-  const TAILOR = ["components/tailor/TailorWorkQueue.tsx",
-                  "components/tailor/TailorFixExpansion.tsx",
-                  "components/tailor/TailorScoreboard.tsx",
-                  "components/tailor/TailorChangeLog.tsx",
-                  "components/tailor/TailorTitleNote.tsx"]
-    .map((f) => readFileSync(f, "utf8")).join("\n");
+  const TAILOR_FILES = ["components/tailor/TailorWorkQueue.tsx",
+                        "components/tailor/TailorFixExpansion.tsx",
+                        "components/tailor/TailorScoreboard.tsx",
+                        "components/tailor/TailorChangeLog.tsx",
+                        "components/tailor/TailorTitleNote.tsx"];
+  const TAILOR = TAILOR_FILES.map((f) => readFileSync(f, "utf8")).join("\n");
 
   /** Vars the app defines inline on an element rather than in globals.css. */
   const INLINE_DEFINED = new Set(["--surface-2"]);
@@ -193,5 +193,55 @@ describe("CSS variables the tailor surfaces reference", () => {
     const bad = [...TAILOR.matchAll(/var\(--[a-z0-9-]+-(?:bg|soft),\s*(#[0-9a-fA-F]{3,8})\)/g)]
       .map((m) => m[1]);
     expect(bad, `opaque hex tint fallbacks: ${bad.join(", ")}`).toEqual([]);
+  });
+
+  /**
+   * White text on an `--*-ink` FILL, which is a dark-mode contrast failure.
+   *
+   * ⚠️ The comment on the test above says an opaque `--green-ink` fill "is fine
+   * … white text sits on it either way". MEASURED IN A BROWSER, THAT IS FALSE.
+   * The ink colours INVERT between themes, so white on them reads:
+   *
+   *     --green-ink   #047857 light  5.48:1   |  #6ee7b7 dark  1.52:1
+   *     --amber-ink   #92400e light  7.09:1   |  #fcd34d dark  1.44:1
+   *     --red-ink     #991b1b light  8.31:1   |  #fca5a5 dark  1.90:1
+   *
+   * The scoreboard's blocker badge was built this way and measured 1.9:1 dark;
+   * it now uses tint fill + ink text (6.9:1 light, 7.2:1 dark), which is the
+   * pairing the band strips already use.
+   *
+   * The three below are PRE-EXISTING and deliberately NOT fixed here: they are
+   * the flow's primary buttons and the applied dot, and fixing them properly
+   * needs an on-accent text token that does not exist yet — a theme decision,
+   * not a scoreboard change. This is a ratchet so no FOURTH one appears while
+   * that is outstanding. A fill carrying no text (the progress segments) is not
+   * affected and never matches, because the pattern requires the `color`.
+   */
+  const KNOWN_WHITE_ON_INK = [
+    "components/tailor/TailorFixExpansion.tsx", // "Add to resume" primary button
+    "components/tailor/TailorWorkQueue.tsx", // applied status dot
+    "components/tailor/TailorWorkQueue.tsx", // Download button
+  ];
+
+  it("grows no new white-on-ink fills", () => {
+    const found: string[] = [];
+    for (const f of TAILOR_FILES) {
+      const src = readFileSync(f, "utf8");
+      // Two tolerances, both found by mutation rather than by reading:
+      //  - a bounded window, not "immediately after": the applied dot puts a
+      //    borderColor between the fill and the colour;
+      //  - an optional expression before the value: the scoreboard's badge
+      //    picks its fill with a ternary, so a pattern anchored to `: "var(`
+      //    could not see the one file this was written for.
+      for (const m of src.matchAll(
+        /background(?:Color)?\s*:\s*[^";\n]*"var\(--[a-z0-9-]+-ink[^"]*"[^}]{0,240}?color\s*:\s*[^";\n]*"#fff"/g,
+      )) {
+        void m;
+        found.push(f);
+      }
+    }
+    expect(found.sort(), `white-on-ink fills: ${found.join(", ")}`).toEqual(
+      [...KNOWN_WHITE_ON_INK].sort(),
+    );
   });
 });
