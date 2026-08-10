@@ -38,10 +38,21 @@ export function usePageOverflow(ref: RefObject<HTMLElement | null>, enabled = tr
     if (!el || !enabled || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       const h = entries[0]?.contentRect.height ?? 0;
-      setFit({
-        overflowPx: h > PAGE_HEIGHT_PX ? Math.round(h - PAGE_HEIGHT_PX) : 0,
-        fillPct: Math.round((h / PAGE_HEIGHT_PX) * 100),
-      });
+      const overflowPx = h > PAGE_HEIGHT_PX ? Math.round(h - PAGE_HEIGHT_PX) : 0;
+      const fillPct = Math.round((h / PAGE_HEIGHT_PX) * 100);
+      // Return the PREVIOUS object when nothing changed. React bails out of a
+      // re-render only on Object.is equality, so setting a fresh literal here
+      // re-rendered the host on every observation — and the host is the whole
+      // annotated résumé panel, whose highlight overlays measure and
+      // reposition as they render. That fed the next observation, and the
+      // Analyze workspace died with React #185, maximum update depth.
+      //
+      // Rounding does the rest: sub-pixel reflow settles to the same integers,
+      // so an oscillation of less than a pixel can no longer drive a render.
+      setFit((prev) =>
+        prev.overflowPx === overflowPx && prev.fillPct === fillPct
+          ? prev
+          : { overflowPx, fillPct });
     });
     ro.observe(el);
     return () => ro.disconnect();
