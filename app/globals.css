@@ -91,6 +91,7 @@
   --accent:      #58a6ff;
   --accent-h:    #79c0ff;
   --accent-bg:   rgba(88,166,255,0.15);
+  --accent-ink:  #58a6ff;   /* text on --accent-bg (dark tint) */
   --amber:       #fbbf24;
   --amber-h:     #fcd34d;
   --amber-bg:    rgba(251,191,36,0.16);
@@ -134,6 +135,7 @@
   --accent:      #0969da;
   --accent-h:    #0559c7;
   --accent-bg:   rgba(9,105,218,0.11);
+  --accent-ink:  #0559c7;   /* text on --accent-bg; --accent is 4.46:1 there */
   --amber:       #b45309;
   --amber-h:     #92400e;
   --amber-bg:    rgba(180,83,9,0.12);
@@ -859,6 +861,7 @@ select option { background: var(--surface); }
   --accent:      #58a6ff;
   --accent-h:    #79c0ff;
   --accent-bg:   rgba(88,166,255,0.15);
+  --accent-ink:  #58a6ff;   /* text on --accent-bg (dark tint) */
   --amber:       #fbbf24;
   --amber-h:     #fcd34d;
   --amber-bg:    rgba(251,191,36,0.16);
@@ -916,6 +919,7 @@ select option { background: var(--surface); }
   --accent:      #0969da;
   --accent-h:    #0559c7;
   --accent-bg:   rgba(9,105,218,0.11);
+  --accent-ink:  #0559c7;   /* text on --accent-bg; --accent is 4.46:1 there */
   --amber:       #b45309;
   --amber-h:     #92400e;
   --amber-bg:    rgba(180,83,9,0.12);
@@ -1783,13 +1787,14 @@ select option { background: var(--surface); }
 .pr-lede { color: #dbe6fb; font-size: 16px; line-height: 1.65; max-width: 40ch; margin: 22px 0 40px; }
 .pr-body { display: grid; grid-template-columns: 1fr 420px; gap: 56px; align-items: start; }
 .pr-panel {
-  background: var(--surface); border-radius: 16px; padding: 28px 30px 26px;
+  border-radius: var(--md-shape-lg); padding: 28px 30px 26px;
   /* Hangs below the field: this is what creates the overlap, and what keeps
      the field's height tied to content rather than to a magic number. */
   margin-bottom: calc(-1 * var(--pr-overhang));
-  box-shadow: 0 34px 70px -26px rgba(13, 63, 168, 0.42), 0 3px 10px rgba(15, 23, 42, 0.08);
+  /* Elevation is the six defined Material levels, not an ad-hoc box-shadow.
+     The tinted shadow the comp used was dropped for this on purpose. */
+  box-shadow: var(--md-elevation-3);
 }
-[data-theme="dark"] .pr-panel { box-shadow: 0 34px 70px -26px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--border); }
 /* Clears the hanging panel so the legal copy cannot collide with it. */
 .pr-after {
   max-width: 1080px; margin: 0 auto;
@@ -1810,4 +1815,17 @@ select option { background: var(--surface); }
 @media (max-width: 560px) {
   .pr-disp { font-size: 31px; }
   .pr-panel { padding: 22px 20px 20px; }
+}
+
+/* Entrance for the pricing hero and panel. Motion comes from the Material
+   scale (--md-easing-decelerate / --md-duration-long); the stagger is set
+   per-element with an inline animation-delay. Reduced motion removes it
+   outright rather than shortening it, so nothing moves at all. */
+@keyframes pr-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.pr-rise { animation: pr-rise var(--md-duration-long) var(--md-easing-decelerate) both; }
+@media (prefers-reduced-motion: reduce) {
+  .pr-rise { animation: none; opacity: 1; transform: none; }
 }

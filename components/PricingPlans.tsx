@@ -14,11 +14,29 @@
  * keys, and the feature rows state the free→Pro delta directly. Every number
  * is interpolated from the limit constants, so a limit change cannot leave a
  * stale claim on a public page.
+ *
+ * Built on MUI per AGENTS.md ("new chrome goes to MUI"): the segmented control
+ * is a real ToggleButtonGroup, so grouping semantics, pressed state, the 44px
+ * tap floor and the ripple come from the theme rather than being re-decided on
+ * two bare <button>s. Note it does NOT add roving arrow-key focus — each
+ * option is its own tab stop, verified in a browser. The provider is scoped
+ * here, the same shape as BoostPanel, so only this route pays for Emotion.
+ *
+ * Motion is CSS on the Material scale (--md-easing-* / --md-duration-*), not a
+ * new animation runtime: `motion` is in package.json but no component imports
+ * it, and one marketing page is a poor place to introduce that.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import Paper from "@mui/material/Paper";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Typography from "@mui/material/Typography";
+import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
 import {
   FREE_INTERVIEW_DAILY_LIMIT,
   FREE_SCAN_DAILY_LIMIT,
@@ -31,8 +49,8 @@ import {
   type BillingPriceKey,
 } from "@/lib/billingApi";
 
-/** `delta` rows are what you are buying; `flat` rows are deliberately shown as
- *  NOT a differentiator, so the three that are read as credible. */
+/** `delta` rows are what you are buying; the `flat` row is deliberately shown
+ *  as NOT a differentiator, which is what makes the other three credible. */
 const FEATURES: { label: string; value: string; kind: "delta" | "flat" }[] = [
   {
     label: "Résumé and ATS checks with AI fixes",
@@ -57,7 +75,7 @@ const TOGGLE: { key: BillingPriceKey; label: string }[] = [
   { key: "pro_quarterly", label: "Quarterly" },
 ];
 
-export default function PricingPlans() {
+function PricingPlansInner() {
   const router = useRouter();
   const [selected, setSelected] = useState<BillingPriceKey>("pro_monthly");
   const [busy, setBusy] = useState(false);
@@ -102,105 +120,106 @@ export default function PricingPlans() {
   const savingsNote = PLAN_PRICE_LABELS.pro_quarterly.note;
 
   return (
-    <div className="pr-panel">
+    <Paper elevation={0} className="pr-panel pr-rise" style={{ animationDelay: "160ms" }}>
       {notice ? (
-        <p
-          role="status"
-          style={{
-            margin: "0 0 18px",
-            fontSize: 13,
-            lineHeight: 1.6,
-            color: "var(--amber-ink)",
-            background: "var(--amber-bg)",
-            borderRadius: 10,
-            padding: "10px 12px",
-          }}
-        >
+        <Alert severity="info" sx={{ mb: 2.25, fontSize: 13, alignItems: "center" }}>
           {notice}
-        </p>
+        </Alert>
       ) : null}
 
-      <div
-        role="group"
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={selected}
         aria-label="Billing period"
-        style={{
-          display: "inline-flex",
-          gap: 2,
-          padding: 4,
+        onChange={(_, next: BillingPriceKey | null) => {
+          // Exclusive groups emit null when the pressed button is clicked
+          // again. Ignoring it keeps a plan always selected — there is no
+          // "neither" state to price.
+          if (next) setSelected(next);
+        }}
+        sx={{
+          mb: 2.75,
           borderRadius: 999,
           background: "var(--surface2)",
-          marginBottom: 22,
+          p: 0.5,
+          "& .MuiToggleButton-root": {
+            border: 0,
+            borderRadius: "999px !important",
+            px: 2.25,
+            minHeight: 40,
+            fontSize: 13,
+            color: "var(--muted)",
+            transition: "background var(--md-duration-medium) var(--md-easing-standard), color var(--md-duration-medium) var(--md-easing-standard)",
+          },
+          // `backgroundColor`, not the `background` shorthand: MUI's own
+          // Mui-selected rule sets backgroundColor and wins over it, which
+          // rendered the selected pill grey instead of raised.
+          "& .MuiToggleButton-root.Mui-selected, & .MuiToggleButton-root.Mui-selected:hover": {
+            backgroundColor: "var(--surface)",
+            color: "var(--text)",
+            boxShadow: "var(--md-elevation-1)",
+          },
         }}
       >
-        {TOGGLE.map((t) => {
-          const active = selected === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setSelected(t.key)}
-              style={{
-                border: 0,
-                cursor: "pointer",
-                font: "inherit",
-                fontSize: 13,
-                fontWeight: 600,
-                padding: "8px 18px",
-                borderRadius: 999,
-                background: active ? "var(--surface)" : "transparent",
-                color: active ? "var(--text)" : "var(--muted)",
-                boxShadow: active ? "0 1px 3px rgba(15,23,42,0.16)" : "none",
-                transition: "background 180ms ease, color 180ms ease",
-              }}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+        {TOGGLE.map((t) => (
+          <ToggleButton key={t.key} value={t.key}>
+            {t.label}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
 
-      <p
-        style={{
+      <Typography
+        component="p"
+        sx={{
           fontSize: 62,
           fontWeight: 700,
           letterSpacing: "-0.045em",
           lineHeight: 1,
-          margin: 0,
           fontVariantNumeric: "tabular-nums",
+          color: "var(--text)",
         }}
       >
         {plan.price}
-      </p>
-      <p style={{ fontSize: 14, color: "var(--muted)", margin: "8px 0 0" }}>
+      </Typography>
+      <Typography component="p" sx={{ fontSize: 14, color: "var(--muted)", mt: 1 }}>
         {selected === "pro_monthly" ? "per month, billed monthly" : "billed every 3 months"}
-      </p>
+      </Typography>
 
-      {selected === "pro_monthly" && savingsNote ? (
-        <button
-          type="button"
-          onClick={() => setSelected("pro_quarterly")}
-          style={{
-            marginTop: 14,
-            border: 0,
-            cursor: "pointer",
-            font: "inherit",
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--accent)",
-            background: "var(--accent-bg)",
-            borderRadius: 6,
-            padding: "5px 10px",
-          }}
-        >
-          Quarterly is {savingsNote}
-        </button>
-      ) : (
-        <p style={{ margin: "14px 0 0", fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>
-          {savingsNote}
-        </p>
-      )}
+      {savingsNote ? (
+        selected === "pro_monthly" ? (
+          <Chip
+            label={`Quarterly is ${savingsNote}`}
+            onClick={() => setSelected("pro_quarterly")}
+            size="small"
+            sx={{
+              mt: 1.75,
+              fontWeight: 600,
+              fontSize: 13,
+              // MUI Chip centres its label by fixed height with no vertical
+              // inset, which reads flush against a tinted fill. Real padding.
+              height: "auto",
+              py: 0.75,
+              "& .MuiChip-label": { px: 1.25 },
+              // -ink, not --accent: --accent on --accent-bg is 4.46:1 in light.
+              color: "var(--accent-ink)",
+              background: "var(--accent-bg)",
+              borderRadius: "var(--md-shape-xs)",
+            }}
+          />
+        ) : (
+          <Typography
+            component="p"
+            sx={{ mt: 1.75, fontSize: 13, fontWeight: 600, color: "var(--accent-ink)" }}
+          >
+            {savingsNote}
+          </Typography>
+        )
+      ) : null}
 
+      {/* Static markup: plain list elements rather than Stack. MUI is here for
+          the interactive, themed pieces; wrapping inert rows in it buys an
+          Emotion class and nothing else. */}
       <ul style={{ listStyle: "none", padding: 0, margin: "24px 0 0", display: "grid", gap: 12 }}>
         {FEATURES.map((f) => (
           <li
@@ -231,12 +250,26 @@ export default function PricingPlans() {
         ))}
       </ul>
 
-      <Button className="w-full mt-6" onClick={startCheckout} disabled={busy}>
+      <Button
+        variant="contained"
+        fullWidth
+        onClick={startCheckout}
+        disabled={busy}
+        sx={{ mt: 3, minHeight: 50, fontSize: 15, borderRadius: "var(--md-shape-sm)" }}
+      >
         {busy ? "Opening checkout…" : "Upgrade to Pro"}
       </Button>
-      <p style={{ fontSize: 12, color: "var(--dim)", margin: "12px 0 0", lineHeight: 1.6 }}>
+      <Typography component="p" sx={{ fontSize: 12, color: "var(--dim)", mt: 1.5, lineHeight: 1.6 }}>
         Cancel any time. You keep Pro until the end of the period you paid for.
-      </p>
-    </div>
+      </Typography>
+    </Paper>
+  );
+}
+
+export default function PricingPlans() {
+  return (
+    <MuiThemeRegistry>
+      <PricingPlansInner />
+    </MuiThemeRegistry>
   );
 }
