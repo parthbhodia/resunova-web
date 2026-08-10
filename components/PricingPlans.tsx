@@ -1,12 +1,19 @@
 "use client";
 
 /**
- * PricingPlans — the interactive plan cards on the public /pricing/ page.
+ * PricingPlans — the Pro panel on the public /pricing/ page.
  *
- * Signed-in + checkout live → the Pro CTAs open Stripe Checkout directly.
+ * Signed-in + checkout live → the CTA opens Stripe Checkout directly.
  * Signed out (or Supabase env unset on a local marketing build, or checkout
  * flag off) → the CTA routes into the app to sign in first. The page itself
  * stays fully renderable with zero auth configuration.
+ *
+ * Three plan towers were replaced by one plan and a billing toggle: the plans
+ * only ever differed by a number, so three near-identical feature lists made
+ * the reader do the diffing. The toggle maps 1:1 onto the two Stripe price
+ * keys, and the feature rows state the free→Pro delta directly. Every number
+ * is interpolated from the limit constants, so a limit change cannot leave a
+ * stale claim on a public page.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -24,42 +31,36 @@ import {
   type BillingPriceKey,
 } from "@/lib/billingApi";
 
-const FREE_FEATURES = [
-  `${FREE_SCAN_DAILY_LIMIT} résumé & ATS scans per day`,
-  `${FREE_INTERVIEW_DAILY_LIMIT} interview-prep scans per day`,
-  "Full job feed, match scores & application tracker",
-  "AI rewrites & clean PDF export",
+/** `delta` rows are what you are buying; `flat` rows are deliberately shown as
+ *  NOT a differentiator, so the three that are read as credible. */
+const FEATURES: { label: string; value: string; kind: "delta" | "flat" }[] = [
+  {
+    label: "Résumé and ATS checks with AI fixes",
+    value: `${FREE_SCAN_DAILY_LIMIT} → ${PRO_SCAN_DAILY_LIMIT} a day`,
+    kind: "delta",
+  },
+  {
+    label: "Job-match scores and tailored résumés",
+    value: `${FREE_SCAN_DAILY_LIMIT} → ${PRO_SCAN_DAILY_LIMIT} a day`,
+    kind: "delta",
+  },
+  {
+    label: "Interview-prep runs",
+    value: `${FREE_INTERVIEW_DAILY_LIMIT} → ${PRO_INTERVIEW_DAILY_LIMIT} a day`,
+    kind: "delta",
+  },
+  { label: "Clean PDF downloads", value: "On every plan", kind: "flat" },
 ];
 
-const PRO_FEATURES = [
-  `${PRO_SCAN_DAILY_LIMIT} résumé & ATS checks + AI fixes per day`,
-  `${PRO_SCAN_DAILY_LIMIT} job-match scores & tailored résumés per day`,
-  `${PRO_INTERVIEW_DAILY_LIMIT} interview-prep scans per day`,
-  "Clean PDF downloads included",
+const TOGGLE: { key: BillingPriceKey; label: string }[] = [
+  { key: "pro_monthly", label: "Monthly" },
+  { key: "pro_quarterly", label: "Quarterly" },
 ];
-
-const CheckIcon = (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M20 6 9 17l-5-5" />
-  </svg>
-);
-
-function FeatureList({ items }: { items: string[] }) {
-  return (
-    <ul style={{ listStyle: "none", padding: 0, margin: "0 0 22px", display: "flex", flexDirection: "column", gap: 10 }}>
-      {items.map((f) => (
-        <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 14, lineHeight: 1.5, color: "var(--text)" }}>
-          <span style={{ color: "var(--green-ink)", marginTop: 2, flexShrink: 0 }}>{CheckIcon}</span>
-          {f}
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export default function PricingPlans() {
   const router = useRouter();
-  const [busyKey, setBusyKey] = useState<BillingPriceKey | null>(null);
+  const [selected, setSelected] = useState<BillingPriceKey>("pro_monthly");
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   // Stripe cancel_url lands here with ?checkout=cancelled. Read from
@@ -68,16 +69,16 @@ export default function PricingPlans() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (new URLSearchParams(window.location.search).get("checkout") === "cancelled") {
-      setNotice("Checkout was cancelled — no charge was made. You can upgrade any time.");
+      setNotice("Checkout was cancelled and no charge was made. You can upgrade any time.");
     }
   }, []);
 
-  const startCheckout = useCallback(async (priceKey: BillingPriceKey) => {
-    if (busyKey) return;
-    setBusyKey(priceKey);
+  const startCheckout = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
     setNotice(null);
     try {
-      const result = await createCheckoutSession(priceKey);
+      const result = await createCheckoutSession(selected);
       if ("url" in result) {
         window.location.assign(result.url);
         return;
@@ -89,79 +90,153 @@ export default function PricingPlans() {
       }
       setNotice(
         result.error === "checkout_unavailable"
-          ? "Checkout isn't open quite yet — it's launching shortly. Everything free stays free."
+          ? "Checkout isn't open quite yet. It's launching shortly, and everything free stays free."
           : "Something went wrong starting checkout. Please try again in a moment.",
       );
     } finally {
-      setBusyKey(null);
+      setBusy(false);
     }
-  }, [busyKey, router]);
+  }, [busy, router, selected]);
 
-  const cardStyle: React.CSSProperties = {
-    borderRadius: "var(--radius-xl)",
-    border: "1px solid var(--border)",
-    background: "var(--surface)",
-    boxShadow: "var(--shadow-card)",
-    padding: "26px 26px 24px",
-    display: "flex",
-    flexDirection: "column",
-  };
+  const plan = PLAN_PRICE_LABELS[selected];
+  const savingsNote = PLAN_PRICE_LABELS.pro_quarterly.note;
 
   return (
-    <div>
+    <div className="pr-panel">
       {notice ? (
-        <p role="status" style={{
-          margin: "0 auto 24px", maxWidth: 560, textAlign: "center",
-          fontSize: 13, lineHeight: 1.6, color: "var(--amber-ink)",
-          background: "var(--amber-bg)", border: "1px solid var(--amber-bg)",
-          borderRadius: 10, padding: "10px 14px",
-        }}>
+        <p
+          role="status"
+          style={{
+            margin: "0 0 18px",
+            fontSize: 13,
+            lineHeight: 1.6,
+            color: "var(--amber-ink)",
+            background: "var(--amber-bg)",
+            borderRadius: 10,
+            padding: "10px 12px",
+          }}
+        >
           {notice}
         </p>
       ) : null}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 18 }}>
-        {/* Free */}
-        <section style={cardStyle} aria-label="Free plan">
-          <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px" }}>Free</h2>
-          <p style={{ fontSize: 30, fontWeight: 800, letterSpacing: -1, margin: "0 0 2px" }}>$0</p>
-          <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 18px" }}>forever</p>
-          <FeatureList items={FREE_FEATURES} />
-          <Button variant="outline" className="w-full mt-auto" onClick={() => router.push("/")}>
-            Start scanning free
-          </Button>
-        </section>
-
-        {/* Pro monthly */}
-        <section style={{ ...cardStyle, border: "1.5px solid var(--accent)" }} aria-label="Pro Monthly plan">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{PLAN_PRICE_LABELS.pro_monthly.title}</h2>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent-foreground, #fff)", background: "var(--accent)", borderRadius: 999, padding: "3px 9px" }}>
-              Popular
-            </span>
-          </div>
-          <p style={{ fontSize: 30, fontWeight: 800, letterSpacing: -1, margin: "0 0 2px" }}>{PLAN_PRICE_LABELS.pro_monthly.price}</p>
-          <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 18px" }}>{PLAN_PRICE_LABELS.pro_monthly.cadence}</p>
-          <FeatureList items={PRO_FEATURES} />
-          <Button className="w-full mt-auto" onClick={() => startCheckout("pro_monthly")} disabled={busyKey !== null}>
-            {busyKey === "pro_monthly" ? "Opening checkout…" : "Upgrade to Pro"}
-          </Button>
-        </section>
-
-        {/* Pro quarterly */}
-        <section style={cardStyle} aria-label="Pro Quarterly plan">
-          <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px" }}>{PLAN_PRICE_LABELS.pro_quarterly.title}</h2>
-          <p style={{ fontSize: 30, fontWeight: 800, letterSpacing: -1, margin: "0 0 2px" }}>{PLAN_PRICE_LABELS.pro_quarterly.price}</p>
-          <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 18px" }}>
-            {PLAN_PRICE_LABELS.pro_quarterly.cadence}
-            {PLAN_PRICE_LABELS.pro_quarterly.note ? ` · ${PLAN_PRICE_LABELS.pro_quarterly.note}` : ""}
-          </p>
-          <FeatureList items={PRO_FEATURES} />
-          <Button variant="outline" className="w-full mt-auto" onClick={() => startCheckout("pro_quarterly")} disabled={busyKey !== null}>
-            {busyKey === "pro_quarterly" ? "Opening checkout…" : "Get Pro Quarterly"}
-          </Button>
-        </section>
+      <div
+        role="group"
+        aria-label="Billing period"
+        style={{
+          display: "inline-flex",
+          gap: 2,
+          padding: 4,
+          borderRadius: 999,
+          background: "var(--surface2)",
+          marginBottom: 22,
+        }}
+      >
+        {TOGGLE.map((t) => {
+          const active = selected === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setSelected(t.key)}
+              style={{
+                border: 0,
+                cursor: "pointer",
+                font: "inherit",
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "8px 18px",
+                borderRadius: 999,
+                background: active ? "var(--surface)" : "transparent",
+                color: active ? "var(--text)" : "var(--muted)",
+                boxShadow: active ? "0 1px 3px rgba(15,23,42,0.16)" : "none",
+                transition: "background 180ms ease, color 180ms ease",
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
       </div>
+
+      <p
+        style={{
+          fontSize: 62,
+          fontWeight: 700,
+          letterSpacing: "-0.045em",
+          lineHeight: 1,
+          margin: 0,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {plan.price}
+      </p>
+      <p style={{ fontSize: 14, color: "var(--muted)", margin: "8px 0 0" }}>
+        {selected === "pro_monthly" ? "per month, billed monthly" : "billed every 3 months"}
+      </p>
+
+      {selected === "pro_monthly" && savingsNote ? (
+        <button
+          type="button"
+          onClick={() => setSelected("pro_quarterly")}
+          style={{
+            marginTop: 14,
+            border: 0,
+            cursor: "pointer",
+            font: "inherit",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--accent)",
+            background: "var(--accent-bg)",
+            borderRadius: 6,
+            padding: "5px 10px",
+          }}
+        >
+          Quarterly is {savingsNote}
+        </button>
+      ) : (
+        <p style={{ margin: "14px 0 0", fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>
+          {savingsNote}
+        </p>
+      )}
+
+      <ul style={{ listStyle: "none", padding: 0, margin: "24px 0 0", display: "grid", gap: 12 }}>
+        {FEATURES.map((f) => (
+          <li
+            key={f.label}
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+              gap: 14,
+              fontSize: 14,
+              lineHeight: 1.45,
+            }}
+          >
+            <span style={{ color: f.kind === "delta" ? "var(--text)" : "var(--muted)" }}>
+              {f.label}
+            </span>
+            <span
+              style={{
+                flexShrink: 0,
+                fontWeight: f.kind === "delta" ? 700 : 500,
+                fontVariantNumeric: "tabular-nums",
+                color: f.kind === "delta" ? "var(--text)" : "var(--dim)",
+              }}
+            >
+              {f.value}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <Button className="w-full mt-6" onClick={startCheckout} disabled={busy}>
+        {busy ? "Opening checkout…" : "Upgrade to Pro"}
+      </Button>
+      <p style={{ fontSize: 12, color: "var(--dim)", margin: "12px 0 0", lineHeight: 1.6 }}>
+        Cancel any time. You keep Pro until the end of the period you paid for.
+      </p>
     </div>
   );
 }

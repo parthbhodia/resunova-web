@@ -39,7 +39,7 @@ export type BillingStatus = {
  * runbook: keep these in sync with the configured Price IDs). */
 export const PLAN_PRICE_LABELS: Record<BillingPriceKey, { title: string; price: string; cadence: string; note?: string }> = {
   pro_monthly: { title: "Pro Monthly", price: "$19", cadence: "per month" },
-  pro_quarterly: { title: "Pro Quarterly", price: "$39", cadence: "every 3 months", note: "$13/mo — save 32%" },
+  pro_quarterly: { title: "Pro Quarterly", price: "$39", cadence: "every 3 months", note: "$13/mo, save 32%" },
 };
 
 async function accessToken(): Promise<string | null> {
