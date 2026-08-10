@@ -40,7 +40,7 @@ const CLEAN_SURFACES = [
  * Biggest remaining: LandingPage, ResumeBuilder, the tailor blog post,
  * competitorComparison, and the new resume-examples pages.
  */
-const BASELINE = 366;
+const BASELINE = 347;
 
 function walk(dir: string, out: string[] = []): string[] {
   let entries: string[];
