@@ -5,9 +5,10 @@ it is actually shipped, which of the two design tools to reach for, and the
 process that keeps a redesign honest.
 
 > **This does not override [`AGENTS.md` § Material Design](AGENTS.md#material-design).**
-> App chrome is Material Design 3 with MUI, and new chrome goes to MUI. That
-> section wins wherever the two touch. This file covers the *public marketing
-> surfaces*, the *shared token vocabulary*, and the *process*.
+> Chrome is Material Design 3 with MUI, and that section wins wherever the two
+> touch — **including marketing pages**, which is now settled (see §3). This
+> file covers the shared token vocabulary, the marketing conventions, and the
+> process.
 
 ---
 
@@ -96,17 +97,24 @@ not in the export stylesheet.
 
 `/pricing`, the landing page, `/resume-examples`, `/cover-letter`, the SEO pages.
 
-These are **hand-built, page-scoped CSS**, not MUI: `.lp-*` for landing, `.pr-*`
-for pricing, in `app/globals.css`. Two reasons, and they are the same reason the
-MUI provider is scoped rather than global — this is a static export of ~1,076
-prerendered pages, and a marketing page should not carry an Emotion runtime; and
-these layouts need media queries and pseudo-elements that inline styles cannot
-express.
+**Settled: marketing counts as chrome, so components are MUI.** `/pricing` is the
+worked example — `ToggleButtonGroup` for the billing switch, `Button`, `Chip`,
+`Alert`, and a `Paper` on `--md-shape-lg` with `--md-elevation-3`. The provider
+is scoped to the panel (the `BoostPanel` shape), so only that route pays for
+Emotion.
 
-⚠️ **This is a deliberate reading of the Material rule, not an exemption granted
-by it.** `AGENTS.md` says new *chrome* goes to MUI and does not name marketing
-pages either way. If the team decides marketing is chrome, `/pricing` is the
-first thing to migrate.
+**Layout and art direction stay page-scoped CSS** — `.lp-*` for landing, `.pr-*`
+for pricing, in `app/globals.css`. Colour fields, display type and overlap need
+media queries and pseudo-elements that `sx` and inline styles cannot express,
+and there is no component there to reuse.
+
+The dividing line: **if it is a control, it is MUI; if it is a canvas, it is
+CSS.** Static list rows are neither, and stayed plain elements — wrapping inert
+markup in `Stack` buys an Emotion class and nothing else.
+
+Motion is CSS on the Material scale (`--md-easing-*`, `--md-duration-*`), not
+the `motion` package: it is in `package.json` but no component imports it.
+Entrances are removed outright under `prefers-reduced-motion`, not shortened.
 
 ### Invariants learned the hard way on `/pricing`
 
@@ -123,6 +131,11 @@ first thing to migrate.
    of someone about to pay.
 4. **Do not put an unverifiable stat on a public page.** Corpus sizes and
    outcome claims need a source you can check today, or they do not ship.
+5. **A palette that flips lightness needs a per-mode contrast pair.** One
+   `contrastText` served both modes and produced 2.53:1 on every dark-mode MUI
+   button. `theme.test.ts` now asserts the ratio rather than the literal.
+6. **Text on a tint uses `-ink`.** `--accent` on `--accent-bg` is 4.46:1 in
+   light, which is why `--accent-ink` exists alongside the green/amber/red ones.
 
 ---
 
