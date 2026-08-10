@@ -307,18 +307,18 @@ const RESUME_TEMPLATES: TemplateDef[] = [
         <line x1="18" y1="45" x2="182" y2="45" stroke="#1a1a1a" strokeWidth="0.7" />
         <text x="18" y="59" fontFamily="Times New Roman, Times, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="0.8">EDUCATION</text>
         <text x="18" y="71" fontFamily="Times New Roman, Times, serif" fontSize="6.3" fontWeight="700" fill="#1a1a1a">Ph.D. Candidate, History</text>
-        <text x="182" y="71" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2021 – Present</text>
-        <text x="18" y="79" fontFamily="Times New Roman, Times, serif" fontSize="5.2" fontStyle="italic" fill="#3f3f3f">Yale University — New Haven, CT</text>
+        <text x="182" y="71" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2021–Present</text>
+        <text x="18" y="79" fontFamily="Times New Roman, Times, serif" fontSize="5.2" fontStyle="italic" fill="#3f3f3f">Yale University · New Haven, CT</text>
         <text x="18" y="91" fontFamily="Times New Roman, Times, serif" fontSize="6.3" fontWeight="700" fill="#1a1a1a">M.A. European History</text>
         <text x="182" y="91" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2021</text>
         <text x="18" y="99" fontFamily="Times New Roman, Times, serif" fontSize="5.2" fontStyle="italic" fill="#3f3f3f">University of Edinburgh</text>
         <text x="18" y="114" fontFamily="Times New Roman, Times, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="0.8">RESEARCH &amp; TEACHING</text>
         <text x="18" y="126" fontFamily="Times New Roman, Times, serif" fontSize="6.3" fontWeight="700" fill="#1a1a1a">Graduate Teaching Fellow</text>
-        <text x="182" y="126" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2022 – Present</text>
+        <text x="182" y="126" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2022–Present</text>
         <text x="20" y="135" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">• Led 4 discussion sections for 90 undergraduates</text>
         <text x="20" y="143" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">• Designed a seminar on archival method, rated 4.8/5</text>
         <text x="18" y="156" fontFamily="Times New Roman, Times, serif" fontSize="6.3" fontWeight="700" fill="#1a1a1a">Archival Research Assistant</text>
-        <text x="182" y="156" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2019 – 2021</text>
+        <text x="182" y="156" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2019–2021</text>
         <text x="20" y="165" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">• Catalogued 3,000+ manuscripts for a digital edition</text>
         <text x="18" y="180" fontFamily="Times New Roman, Times, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="0.8">PUBLICATIONS</text>
         <text x="18" y="192" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">Whitfield, E. (2024). &quot;Paper Empires: Bureaucracy and the</text>
