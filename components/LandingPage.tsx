@@ -294,6 +294,42 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     ),
   },
   {
+    // The one serif in the set, and the reason it earns a card: every other
+    // template is Helvetica, so Classic is the only genuinely different
+    // typeface a visitor can pick. It shipped in the builder without a card
+    // here, which undercounted the set by one.
+    name: "Classic", type: "Résumé", accent: "#1a1a1a", darkAccent: "#d4d4d8", href: "/template-builder/?preset=classic",
+    thumb: (
+      <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
+        <rect width="200" height="264" rx="6" fill="#ffffff" />
+        <text x="100" y="28" textAnchor="middle" fontFamily="Times New Roman, Times, serif" fontSize="13" fontWeight="700" fill="#1a1a1a" letterSpacing="0.6">ELEANOR WHITFIELD</text>
+        <text x="100" y="38" textAnchor="middle" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">Doctoral Candidate, History · e.whitfield@email.edu · New Haven, CT</text>
+        <line x1="18" y1="45" x2="182" y2="45" stroke="#1a1a1a" strokeWidth="0.7" />
+        <text x="18" y="59" fontFamily="Times New Roman, Times, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="0.8">EDUCATION</text>
+        <text x="18" y="71" fontFamily="Times New Roman, Times, serif" fontSize="6.3" fontWeight="700" fill="#1a1a1a">Ph.D. Candidate, History</text>
+        <text x="182" y="71" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2021 – Present</text>
+        <text x="18" y="79" fontFamily="Times New Roman, Times, serif" fontSize="5.2" fontStyle="italic" fill="#3f3f3f">Yale University — New Haven, CT</text>
+        <text x="18" y="91" fontFamily="Times New Roman, Times, serif" fontSize="6.3" fontWeight="700" fill="#1a1a1a">M.A. European History</text>
+        <text x="182" y="91" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2021</text>
+        <text x="18" y="99" fontFamily="Times New Roman, Times, serif" fontSize="5.2" fontStyle="italic" fill="#3f3f3f">University of Edinburgh</text>
+        <text x="18" y="114" fontFamily="Times New Roman, Times, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="0.8">RESEARCH &amp; TEACHING</text>
+        <text x="18" y="126" fontFamily="Times New Roman, Times, serif" fontSize="6.3" fontWeight="700" fill="#1a1a1a">Graduate Teaching Fellow</text>
+        <text x="182" y="126" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2022 – Present</text>
+        <text x="20" y="135" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">• Led 4 discussion sections for 90 undergraduates</text>
+        <text x="20" y="143" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">• Designed a seminar on archival method, rated 4.8/5</text>
+        <text x="18" y="156" fontFamily="Times New Roman, Times, serif" fontSize="6.3" fontWeight="700" fill="#1a1a1a">Archival Research Assistant</text>
+        <text x="182" y="156" textAnchor="end" fontFamily="Times New Roman, Times, serif" fontSize="4.8" fill="#4b4b4b">2019 – 2021</text>
+        <text x="20" y="165" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">• Catalogued 3,000+ manuscripts for a digital edition</text>
+        <text x="18" y="180" fontFamily="Times New Roman, Times, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="0.8">PUBLICATIONS</text>
+        <text x="18" y="192" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">Whitfield, E. (2024). &quot;Paper Empires: Bureaucracy and the</text>
+        <text x="18" y="200" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">Atlantic Trade.&quot; Journal of Modern History, 96(2).</text>
+        <text x="18" y="211" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">Whitfield, E. (2023). &quot;Ledgers as Literature.&quot; Past &amp; Present.</text>
+        <text x="18" y="226" fontFamily="Times New Roman, Times, serif" fontSize="7" fontWeight="700" fill="#1a1a1a" letterSpacing="0.8">LANGUAGES</text>
+        <text x="18" y="238" fontFamily="Times New Roman, Times, serif" fontSize="4.9" fill="#333333">French (fluent) · German (reading) · Latin (reading)</text>
+      </svg>
+    ),
+  },
+  {
     name: "Modern", type: "Résumé", accent: "#0d9488", darkAccent: "#2dd4bf", href: "/template-builder/?preset=modern",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
@@ -1285,7 +1321,7 @@ export default function LandingPage() {
               Clean enough for recruiters. Plain enough for the ATS.
             </h2>
             <p style={{ fontSize: "var(--font-size-lg)", color: "#6b4e1c", lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
-              Pick a technical, creative, or CV layout, tailor it to the job description, and export an ATS-safe PDF. No design skills required.
+              Pick a technical or creative layout, tailor it to the job description, and export an ATS-safe PDF. No design skills required.
             </p>
           </div>
           <Reveal>
