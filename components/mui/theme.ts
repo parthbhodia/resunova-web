@@ -67,7 +67,15 @@ export function makeTheme(mode: ThemeMode): Theme {
     },
     palette: {
       mode,
-      primary: { main: t.accent, dark: t.accentHover, contrastText: "#ffffff" },
+      // contrastText is per-mode because the accent flips lightness: #0969da
+      // in light takes white (5.19:1), but dark's #58a6ff is a LIGHT blue and
+      // white on it measures 2.53:1 — a WCAG AA failure on every contained
+      // Button in dark mode. Dark ink on it is ~8:1. Pinned by theme.test.ts.
+      primary: {
+        main: t.accent,
+        dark: t.accentHover,
+        contrastText: mode === "dark" ? t.bg : "#ffffff",
+      },
       background: { default: t.bg, paper: t.surface },
       text: { primary: t.text, secondary: t.muted },
       divider: t.border,
