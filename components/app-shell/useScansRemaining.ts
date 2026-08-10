@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * The scans-left quota, shared by every nav surface that shows it.
+ * The scans-left quota. One reading, for every surface that shows it.
  *
  * WHY A SHARED STORE
  * ------------------
@@ -9,6 +9,13 @@
  * which one you see, not React. Two components each running their own fetch
  * would mean two requests per paint and two states that can disagree about the
  * same number. One module-level store, one in-flight request, N subscribers.
+ *
+ * Three components used to fetch `/api/scan-limit-status` independently on a
+ * single page load — this nav, `FreeScanWelcomeBanner`, and Analyze's own
+ * session hook — so one screen asked the same question three times and each
+ * answer aged separately. They all read from here now, which is also why a scan
+ * updates the nav badge immediately: `setScansRemaining` writes THROUGH the
+ * store, instead of one component knowing a fresher number than its neighbour.
  *
  * WHY AN EXPLICIT `error` STATE
  * -----------------------------
@@ -22,15 +29,27 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
-import { apiFetch, scanLimitFrom } from "@/lib/apiClient";
+import { apiFetch, scanLimitFrom, type ScanLimitStatus } from "@/lib/apiClient";
 
 export type ScansRemainingState =
-  /** Signed out, or a plan with nothing metered. Nothing to show, no problem. */
+  /** Nothing metered for this caller. Nothing to show, no problem. */
   | { kind: "idle" }
   | { kind: "loading" }
   /** Admin / Pro / university. Deliberately renders nothing — a count of ∞ is noise. */
   | { kind: "unlimited"; plan: string | null }
-  | { kind: "metered"; remaining: number; limit: number; resetAt: string | null }
+  | {
+      kind: "metered";
+      remaining: number;
+      limit: number;
+      resetAt: string | null;
+      /**
+       * A per-IP guest allowance rather than an account quota. Analyze shows
+       * it ("1 free scan remaining today"); the nav badge does not, because
+       * there is no account to budget for yet. Carried on the state so each
+       * surface makes that call explicitly instead of re-deriving it.
+       */
+      anonymous: boolean;
+    }
   /** We asked and could not find out. Renders, so an outage is never silent. */
   | { kind: "error" };
 
@@ -58,46 +77,68 @@ export function scansStateFromStatus(body: unknown): ScansRemainingState {
     remaining: status.remaining,
     limit: status.limit,
     resetAt: status.resetAt,
+    anonymous: status.anonymous,
   };
 }
 
 /* ── store ────────────────────────────────────────────────────── */
 
-type Cached = { state: ScansRemainingState; at: number; owner: string | null };
+type Cached = {
+  state: ScansRemainingState;
+  /** The full payload. Home reads `usedLast7Days` from it; the nav states
+   *  carry only what a badge needs, and widening them for one consumer would
+   *  put a weekly total into a type about today's remaining count. */
+  status: ScanLimitStatus | null;
+  at: number;
+  owner: string | null;
+};
 
 let cached: Cached | null = null;
 let inFlight: Promise<void> | null = null;
 const listeners = new Set<(s: ScansRemainingState) => void>();
 
-function publish(state: ScansRemainingState, owner: string | null): void {
-  cached = { state, at: Date.now(), owner };
+function publish(
+  state: ScansRemainingState,
+  owner: string | null,
+  status: ScanLimitStatus | null = null,
+): void {
+  cached = { state, status, at: Date.now(), owner };
   for (const fn of listeners) fn(state);
 }
 
 /**
  * One round trip.
  *
+ * Runs signed out too: the endpoint answers a guest with their per-IP free-scan
+ * allowance, which Analyze displays. `apiFetch` simply omits the Authorization
+ * header when there is no session, so the guest and account cases are the same
+ * request. The nav decides not to render the guest number; the store does not
+ * decide that for it.
+ *
  * A 401 resolves to `idle`, not `error`: we sent a token and were told it is
  * not good, which means signed out — the same state as never having had one.
  * Painting "unavailable" through every sign-out would cry wolf. Any other
  * non-2xx throws, and the caller turns that into `error`.
  */
-async function fetchState(): Promise<{ state: ScansRemainingState; owner: string | null }> {
-  let session: { access_token?: string; user?: { id?: string } } | null = null;
+async function fetchState(): Promise<{
+  state: ScansRemainingState;
+  owner: string | null;
+  status: ScanLimitStatus | null;
+}> {
+  let owner: string | null = null;
   try {
     const { data } = await getSupabaseClient().auth.getSession();
-    session = data.session ?? null;
+    owner = data.session?.user?.id ?? null;
   } catch {
-    // No Supabase config (marketing-only build) is not an outage — stay quiet.
-    return { state: { kind: "idle" }, owner: null };
+    // No Supabase config (marketing-only build) — no API to ask either.
+    return { state: { kind: "idle" }, owner: null, status: null };
   }
-  if (!session?.access_token) return { state: { kind: "idle" }, owner: null };
 
-  const owner = session.user?.id ?? null;
   const resp = await apiFetch("/api/scan-limit-status");
-  if (resp.status === 401) return { state: { kind: "idle" }, owner: null };
+  if (resp.status === 401) return { state: { kind: "idle" }, owner: null, status: null };
   if (!resp.ok) throw new Error(`scan-limit-status ${resp.status}`);
-  return { state: scansStateFromStatus(await resp.json()), owner };
+  const body = await resp.json();
+  return { state: scansStateFromStatus(body), owner, status: scanLimitFrom(body) };
 }
 
 /** A reading worth keeping through a failed refresh — an actual answer about
@@ -116,8 +157,8 @@ async function load(force: boolean): Promise<void> {
   const hadReading = isRealReading(cached?.state);
   inFlight = (async () => {
     try {
-      const { state, owner } = await fetchState();
-      publish(state, owner);
+      const { state, owner, status } = await fetchState();
+      publish(state, owner, status);
     } catch (err) {
       // House rule (see lib/clientCache.ts): a failed BACKGROUND refresh keeps
       // what is already painted — the last count was real and under a minute
@@ -136,6 +177,41 @@ async function load(force: boolean): Promise<void> {
 export function resetScansRemaining(): void {
   cached = null;
   for (const fn of listeners) fn({ kind: "loading" });
+}
+
+/**
+ * Write a fresh count straight into the store, no refetch.
+ *
+ * A scan response already carries the post-scan remaining count, so re-asking
+ * the server for a number we were just handed is a wasted round trip — and,
+ * worse, until the refetch lands the view that ran the scan and the nav badge
+ * hold different numbers. Writing through means every surface moves together.
+ *
+ * No-ops unless the current reading is metered: an unlimited plan has no count
+ * to lower, and inventing one out of an `error` would replace "we don't know"
+ * with a number we cannot source.
+ */
+export function setScansRemaining(remaining: number | null): void {
+  if (remaining == null || !cached || cached.state.kind !== "metered") return;
+  const next = Math.max(0, remaining);
+  publish(
+    { ...cached.state, remaining: next },
+    cached.owner,
+    cached.status ? { ...cached.status, remaining: next } : null,
+  );
+}
+
+/**
+ * The full payload, awaiting the shared request rather than starting a new one.
+ *
+ * For callers that need more than a badge (Home wants `usedLast7Days`) or that
+ * fetch imperatively alongside other requests, where a hook does not fit.
+ * Returns null when there is nothing to report — a guest with no API, a
+ * marketing build, or a failed lookup.
+ */
+export async function loadScanLimitStatus(): Promise<ScanLimitStatus | null> {
+  await load(false);
+  return cached?.status ?? null;
 }
 
 /* ── hook ─────────────────────────────────────────────────────── */

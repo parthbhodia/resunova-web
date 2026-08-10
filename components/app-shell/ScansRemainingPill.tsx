@@ -33,6 +33,18 @@ const SHINE_CSS = `
   }
 `;
 
+/**
+ * Does the nav show this reading?
+ *
+ * A guest's per-IP allowance is deliberately excluded: there is no account to
+ * budget for yet, and Analyze already tells them about their free scan at the
+ * point it matters. This is the behaviour the nav had before the store started
+ * fetching for signed-out visitors, kept explicit rather than implicit.
+ */
+function navShowsCount(state: ScansRemainingState): state is Extract<ScansRemainingState, { kind: "metered" }> {
+  return state.kind === "metered" && !state.anonymous;
+}
+
 function meterGradient(out: boolean): string {
   return out
     ? "linear-gradient(135deg, #fb923c 0%, #ef4444 100%)"
@@ -124,7 +136,7 @@ export function ScansRemainingPill({ collapsed }: { collapsed: boolean }) {
     );
   }
 
-  if (state.kind !== "metered") return null;
+  if (!navShowsCount(state)) return null;
 
   const { remaining, limit } = state;
   const out = remaining <= 0;
@@ -221,7 +233,7 @@ export function ScansRemainingRow() {
     );
   }
 
-  if (state.kind !== "metered") return null;
+  if (!navShowsCount(state)) return null;
 
   const { remaining, limit } = state;
   const out = remaining <= 0;
@@ -260,7 +272,7 @@ export function ScansTabBadge() {
     );
   }
 
-  if (state.kind !== "metered") return null;
+  if (!navShowsCount(state)) return null;
 
   return (
     <span
@@ -276,7 +288,7 @@ export function ScansTabBadge() {
 /** Screen-reader text for the More tab, so the badge is not visual-only. */
 export function scansTabAriaLabel(state: ScansRemainingState): string {
   if (state.kind === "error") return "More · scan quota unavailable";
-  if (state.kind === "metered") {
+  if (navShowsCount(state)) {
     return state.remaining <= 0
       ? "More · no scans left today"
       : `More · ${state.remaining} of ${state.limit} scans left today`;

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiFetch } from "@/lib/apiClient";
+import { useScansRemaining } from "@/components/app-shell/useScansRemaining";
 
 const FREE_SCAN_BANNER_KEY_PREFIX = "rn-free-scan-banner-dismissed";
 
@@ -16,7 +16,14 @@ export function FreeScanWelcomeBanner({ userId, isUmbc }: FreeScanWelcomeBannerP
   const [dismissed, setDismissed] = useState(true);
   // Real daily-scan limit from the backend — never hardcoded, so the banner
   // can't drift from the actual limit (the exact bug where it still said "3").
-  const [limit, setLimit] = useState<number | null>(null);
+  // Read from the shared store rather than a fetch of its own: this banner was
+  // one of three components asking the same endpoint on one page load.
+  const { state } = useScansRemaining();
+  // Only a metered reading names a number. Unlimited plans have none to quote,
+  // and an unreadable quota must not become a claim about the free tier — in
+  // both cases the banner stays hidden, exactly as it did when its own fetch
+  // failed or returned `unlimited`.
+  const limit = state.kind === "metered" ? state.limit : null;
   const storageKey = useMemo(() => {
     if (!userId) return null;
     return `${FREE_SCAN_BANNER_KEY_PREFIX}:${userId}`;
@@ -33,26 +40,6 @@ export function FreeScanWelcomeBanner({ userId, isUmbc }: FreeScanWelcomeBannerP
       setDismissed(false);
     }
   }, [isUmbc, storageKey]);
-
-  // Fetch the real limit (mirrors ScanUsageCard's /api/scan-limit-status call).
-  useEffect(() => {
-    if (!userId || isUmbc) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await apiFetch("/api/scan-limit-status");
-        const data = (await resp.json()) as { limit?: number; unlimited?: boolean };
-        if (!cancelled && !data.unlimited && typeof data.limit === "number") {
-          setLimit(data.limit);
-        }
-      } catch {
-        /* non-critical — the banner just stays hidden until we know the real limit */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, isUmbc]);
 
   if (!userId || isUmbc || dismissed || limit == null) return null;
 
