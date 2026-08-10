@@ -256,7 +256,7 @@ const OPTIONS: { key: OptionKey; icon: React.ReactNode; title: string; descripti
       </svg>
     ),
     title: "Upload PDF",
-    description: "Import your existing resume — we'll extract the content and reformat it.",
+    description: "Import your existing resume. We'll extract the content and reformat it.",
   },
   {
     key: "history",
