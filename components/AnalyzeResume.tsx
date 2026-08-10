@@ -48,6 +48,7 @@ import {
 import { lsSave, lsPush } from "./analyze/analyzeHistoryStore";
 import { AnalyzeSidebarPinned, AnalyzeHistoryRail } from "./analyze/AnalyzeSidebar";
 import SaveToProfilePrompt from "./analyze/SaveToProfilePrompt";
+import SaveScanPrompt from "./analyze/SaveScanPrompt";
 import TopJobsToast from "./analyze/TopJobsToast";
 import AnalyzeImprovementPlan from "./analyze/AnalyzeImprovementPlan";
 import { useAnalyzeSession } from "./analyze/useAnalyzeSession";
@@ -341,6 +342,12 @@ export default function AnalyzeResume() {
     setActiveEditDraftId(draftId);
     setResult(resWithMeta);
     setFeedbackToast("Report unlocked — saved to your history.");
+    // Capture-funnel numerator. The three prompt events were stashed while
+    // signed out and flush separately; this one closes the loop and can be
+    // logged directly because a session now exists.
+    void logClientEvent("capture_result_saved", {
+      score: typeof res?.overallScore === "number" ? res.overallScore : null,
+    });
     void persistResult(stash.label, resWithMeta, draftId);
     // persistResult is intentionally omitted: this must run exactly once when
     // the session lands, and the stash read is one-shot either way.
@@ -1412,8 +1419,26 @@ export default function AnalyzeResume() {
       })() : null}
 
       {/* After an analysis: one-tap "save this résumé to your Profile" (self-hides
-          when no structured résumé / already saved or dismissed). */}
-      <SaveToProfilePrompt />
+          when no structured résumé / already saved or dismissed). Signed-in only —
+          both account writes no-op without a session, so an anonymous click used
+          to report "Saved to your Profile." having saved nothing. */}
+      <SaveToProfilePrompt signedIn={!isAnon} />
+
+      {/* The anonymous half of that moment: 58% of scan volume signs nothing,
+          and the only sign-in ask used to fire on a SECOND scan — never for the
+          visitor who scans once and leaves. Signing in costs no re-scan: the
+          result is already stashed and is restored below when the session lands. */}
+      <SaveScanPrompt
+        isAnon={isAnon}
+        score={typeof result?.overallScore === "number" ? result.overallScore : null}
+        onSignIn={() =>
+          openSignIn({
+            title: "Save this report",
+            reason:
+              "Create a free account to keep this report in your history — you won't lose it and you won't have to scan again.",
+          })
+        }
+      />
 
       {/* And the payoff: top job matches for the résumé just scanned. Renders
           only when the feed is résumé-ranked for a signed-in user; bottom-right

@@ -38,7 +38,20 @@ function markSeen(fp: string) {
   }
 }
 
-export default function SaveToProfilePrompt() {
+export type SaveToProfilePromptProps = {
+  /**
+   * Signed-in gate. REQUIRED, and not cosmetic: `upsertExtractedProfile` and
+   * `upsertUserProfile` both early-RETURN (no throw) when there is no session,
+   * so a signed-out click used to write localStorage only, skip both account
+   * writes silently, and still render "Saved to your Profile." — a false
+   * success at the exact moment we most want the visitor to make an account.
+   * Signed-out visitors get <SaveScanPrompt> instead, which asks them to save
+   * the report for real.
+   */
+  signedIn: boolean;
+};
+
+export default function SaveToProfilePrompt({ signedIn }: SaveToProfilePromptProps) {
   const sr = useResumeAnalyzeStore((s) => s.structuredResume);
   const fp = sr ? resumeFingerprint(sr) : "";
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -54,6 +67,7 @@ export default function SaveToProfilePrompt() {
     setHidden(fp ? loadSeen().includes(fp) : false);
   }, [fp]);
 
+  if (!signedIn) return null;
   if (!sr || !fp) return null;
   if (hidden && status !== "saved") return null;
 
