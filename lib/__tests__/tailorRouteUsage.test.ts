@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { TAILOR_ROUTE, tailorHref } from "@/lib/tailorRoute";
 
 /**
@@ -44,7 +44,14 @@ describe("every route into Tailor goes through tailorHref()", () => {
     }
     // AppShell keeps ONE literal for non-tailor flows; `flow=tailor` is
     // branched off above it. Anything else is a new hardcoded destination.
-    expect(offenders.filter((o) => !o.startsWith("components/AppShell.tsx"))).toEqual([]);
+    //
+    // `join()` emits the platform separator, so the exemption has to compare
+    // on a normalised path: with a raw `startsWith("components/AppShell.tsx")`
+    // this passed on CI and failed on every Windows checkout, which teaches a
+    // developer that a red local suite is normal — exactly how the uiCopyStyle
+    // failure went unnoticed for two weeks.
+    const normalised = offenders.map((o) => o.split(sep).join("/"));
+    expect(normalised.filter((o) => !o.startsWith("components/AppShell.tsx"))).toEqual([]);
   });
 
   it("points at the redesign, not the classic surface", () => {
