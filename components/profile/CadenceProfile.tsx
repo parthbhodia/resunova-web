@@ -51,6 +51,9 @@ const EEO_KEYS = [
   "eeoWorkUs", "eeoSponsor", "eeoDisability", "eeoVeteran", "eeoGender", "eeoLgbtq",
 ] as const;
 
+/** The four optional questions, as distinct from work-auth and sponsorship. */
+const DEMOGRAPHIC_KEYS = ["eeoDisability", "eeoVeteran", "eeoGender", "eeoLgbtq"] as const;
+
 function splitList(v: string): string[] {
   return (v || "").split(",").map((s) => s.trim()).filter(Boolean);
 }
@@ -63,7 +66,12 @@ export default function CadenceProfile({
   const roles = useMemo(() => splitList(tailorDefaults.roles), [tailorDefaults.roles]);
   const locations = useMemo(() => splitList(tailorDefaults.locations), [tailorDefaults.locations]);
 
-  const eeoAnswered = EEO_KEYS.filter((k) => String(tailorDefaults[k] ?? "").trim()).length;
+  const answered = (k: (typeof EEO_KEYS)[number]) => Boolean(String(tailorDefaults[k] ?? "").trim());
+  const eeoAnswered = EEO_KEYS.filter(answered).length;
+  // Counted directly rather than as `eeoAnswered - 2`: that arithmetic is
+  // only correct when work-auth and sponsorship happen to be answered too,
+  // and reports "1 of 4" for someone who answered three demographics alone.
+  const demographicsAnswered = DEMOGRAPHIC_KEYS.filter(answered).length;
   const setOnceDone = eeoAnswered === EEO_KEYS.length;
 
   const recordCount =
@@ -73,7 +81,13 @@ export default function CadenceProfile({
 
   // The "sealed" band collapses once finished — the page's one authored
   // moment, and the visual form of the promise "we won't ask again".
-  const [sealedOpen, setSealedOpen] = useState(!setOnceDone);
+  //
+  // Tracks the REOPEN, not the open state. Seeding `useState(!setOnceDone)`
+  // froze the answer at mount, and the profile loads asynchronously: the
+  // first render always sees EMPTY_PROFILE, so the band never sealed once
+  // the real data arrived. Deriving it means the seal follows the data.
+  const [reopened, setReopened] = useState(false);
+  const sealed = setOnceDone && !reopened;
 
   const nextAction = !roles.length
     ? { label: "Add a target role", why: "Jobs is ranking every role in the corpus until you do.", go: "jobPrefs" as EditSection }
@@ -121,8 +135,8 @@ export default function CadenceProfile({
           </span>
         </div>
 
-        {setOnceDone && !sealedOpen ? (
-          <button type="button" className="rn-sealed" onClick={() => setSealedOpen(true)}>
+        {sealed ? (
+          <button type="button" className="rn-sealed" onClick={() => setReopened(true)}>
             <Check size={15} aria-hidden style={{ color: "var(--good, #17803d)", flex: "none" }} />
             <span>Answered. We won&rsquo;t ask again.</span>
             <ChevronDown size={15} aria-hidden style={{ marginLeft: "auto", opacity: 0.6 }} />
@@ -134,8 +148,8 @@ export default function CadenceProfile({
             <Row
               k="Demographics"
               v={
-                eeoAnswered >= 3
-                  ? `${eeoAnswered - 2} of 4 answered · always optional`
+                demographicsAnswered
+                  ? `${demographicsAnswered} of 4 answered · always optional`
                   : ""
               }
               placeholder="Optional on every application"
