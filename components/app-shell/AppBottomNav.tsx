@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { isPublicAppView } from "@/lib/anonScan";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { NAV_ICONS } from "./nav-icons";
+import { ScansRemainingRow, ScansTabBadge, scansTabAriaLabel } from "./ScansRemainingPill";
+import { useScansRemaining } from "./useScansRemaining";
 import {
   MOBILE_TAB_VIEWS,
   MOBILE_TAB_LABELS,
@@ -49,6 +51,8 @@ export function AppBottomNav({
 }: Props) {
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
+  // Shared with the desktop sidebar pill — one store, one request, one number.
+  const { state: scans } = useScansRemaining();
 
   // Membership comes from the shared PUBLIC_APP_VIEWS so a tap and a pasted URL
   // always agree. This used to allow only "analyze", which meant Jobs and the
@@ -104,9 +108,9 @@ export function AppBottomNav({
         <button
           type="button"
           data-active={moreOpen}
-          aria-label="More"
+          aria-label={scansTabAriaLabel(scans)}
           className={cn(
-            "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 border-none bg-transparent font-inherit text-[11px] font-medium text-[var(--dim)] transition-[color,transform] duration-200 active:scale-[0.96] [&_.app-nav-icon_svg]:size-[22px]",
+            "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 border-none bg-transparent font-inherit text-[11px] font-medium text-[var(--dim)] transition-[color,transform] duration-200 active:scale-[0.96] [&_.app-nav-icon_svg]:size-[22px]",
             moreOpen && "text-accent [&_.app-nav-icon]:opacity-100",
           )}
           onClick={() => setMoreOpen(true)}
@@ -114,6 +118,7 @@ export function AppBottomNav({
           <span className="app-nav-icon" aria-hidden>
             {NAV_ICONS.more}
           </span>
+          <ScansTabBadge />
           <span>More</span>
         </button>
       </nav>
@@ -153,6 +158,10 @@ export function AppBottomNav({
               </span>
             </button>
           )}
+
+          {/* Scans left — the desktop sidebar pill's mobile home. Renders only
+              on a metered plan (or when the quota can't be read). */}
+          <ScansRemainingRow />
 
           {/* Destination tiles — icon-first grid (was a long text list) */}
           <div className="grid grid-cols-2 gap-2 px-4">
