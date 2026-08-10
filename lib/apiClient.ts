@@ -143,6 +143,14 @@ export interface ScanLimitStatus {
   enforced: boolean;
   unlimited: boolean;
   plan: string | null;
+  /**
+   * The count is a per-IP guest allowance, not an account's quota.
+   *
+   * Surfaces differ on this: Analyze shows a guest their remaining free scan,
+   * the nav badge does not (there is no account to budget for yet). Without the
+   * flag every consumer has to re-derive "is this a real user" from the session.
+   */
+  anonymous: boolean;
   limit: number | null;
   used: number | null;
   remaining: number | null;
@@ -170,6 +178,7 @@ export function scanLimitFrom(body: unknown): ScanLimitStatus {
     enforced: !!b.enforced,
     unlimited: !!b.unlimited,
     plan: typeof b.plan === "string" && b.plan.trim() ? b.plan : null,
+    anonymous: !!b.anonymous,
     limit: num(b.limit),
     used: num(b.used),
     remaining: num(b.remaining),
