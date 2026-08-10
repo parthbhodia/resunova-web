@@ -211,7 +211,7 @@ export default function CadenceProfile({
         ) : (
           <div style={S.emptyScan}>
             <p style={S.emptyText}>
-              Nothing here yet. A résumé scan fills this in — it&rsquo;s faster and more accurate
+              Nothing here yet. A résumé scan fills this in, and it&rsquo;s faster and more accurate
               than typing it.
             </p>
             <Link href="/?view=analyze" className="rn-cta">Scan a résumé</Link>
