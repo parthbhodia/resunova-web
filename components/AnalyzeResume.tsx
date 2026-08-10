@@ -1340,7 +1340,7 @@ export default function AnalyzeResume() {
 
   /* ── Shared sidebar: pinned strip (score / recent header) + scrollable body ─── */
   const sidebarPinned = (
-    <AnalyzeSidebarPinned result={result} onEditResume={startEditFlow} />
+    <AnalyzeSidebarPinned result={result} onEditResume={startEditFlow} history={azHistory} />
   );
 
   const sidebarScroll = !result ? (
