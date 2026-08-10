@@ -34,6 +34,7 @@ export const TOKENS = {
     border: "rgba(230,237,243,0.12)",
     accent: "#58a6ff",
     accentHover: "#79c0ff",
+    onFill: "#0d1117",
   },
   light: {
     bg: "#f7f9fc",
@@ -44,6 +45,7 @@ export const TOKENS = {
     border: "rgba(15,23,42,0.14)",
     accent: "#0969da",
     accentHover: "#0559c7",
+    onFill: "#ffffff",
   },
 } as const;
 
@@ -67,7 +69,10 @@ export function makeTheme(mode: ThemeMode): Theme {
     },
     palette: {
       mode,
-      primary: { main: t.accent, dark: t.accentHover, contrastText: "#ffffff" },
+      // contrastText follows the mode, because --accent does. White measured
+      // 5.19:1 on the light accent and 2.53:1 on the dark one, so a fixed value
+      // is readable in exactly one theme. Mirrors --on-fill in globals.css.
+      primary: { main: t.accent, dark: t.accentHover, contrastText: t.onFill },
       background: { default: t.bg, paper: t.surface },
       text: { primary: t.text, secondary: t.muted },
       divider: t.border,
