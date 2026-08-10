@@ -22,6 +22,16 @@ import {
   FACT_FIELD_MAX,
   type ConfirmedFact,
 } from "@/lib/tailorConfirmFacts";
+import {
+  educationAlreadyPresent,
+  educationDraftFromRequirement,
+  educationDraftToEntry,
+  isEducationDraftValid,
+} from "@/lib/educationEntry";
+import type {
+  StructuredResume,
+  StructuredResumeEducation,
+} from "@/store/resumeAnalyzeStore";
 
 /** One suggestion in the canonical /api/suggest-gap-fix shape. */
 export interface FixSuggestion {
@@ -155,6 +165,40 @@ function SuggestedText({ s }: { s: FixSuggestion }) {
   );
 }
 
+/** One labelled text input for the credential form. */
+function FieldInput({
+  label: text,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label style={{ display: "grid", gap: 3 }}>
+      <span style={{ fontSize: FS.small, color: "var(--muted)", fontWeight: FW.semibold }}>{text}</span>
+      <input
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          padding: "7px 9px",
+          borderRadius: 7,
+          border: "1px solid var(--border)",
+          background: "var(--surface)",
+          color: "var(--text)",
+          fontSize: FS.small,
+          fontFamily: "inherit",
+        }}
+      />
+    </label>
+  );
+}
+
 export function TailorFixExpansion({
   item,
   state,
@@ -164,6 +208,8 @@ export function TailorFixExpansion({
   onTryFix,
   onRewriteWithFacts,
   scoreFix,
+  onAddEducation,
+  structuredResume,
   onClose,
 }: {
   item: QueueItem;
@@ -177,6 +223,11 @@ export function TailorFixExpansion({
   /** Re-run the rewrite grounded in what the user says they actually did.
    *  Absent ⇒ the confirm step does not render and behaviour is unchanged. */
   onRewriteWithFacts?: (fact: ConfirmedFact) => void;
+  /** Write a credential into the résumé's Education section. Absent ⇒ the form
+   *  degrades to instructions, so a caller that cannot write still explains. */
+  onAddEducation?: (entry: StructuredResumeEducation) => Promise<void> | void;
+  /** Only used to warn about a duplicate entry. */
+  structuredResume?: StructuredResume | null;
   /** Recount the deterministic match with this one rewrite applied. */
   scoreFix?: (original: string, suggested: string) => Promise<{ before: number; after: number } | null>;
   onClose: () => void;
@@ -197,6 +248,21 @@ export function TailorFixExpansion({
   const [correction, setCorrection] = useState<ConfirmedFact | null>(null);
   /** The user has agreed with (or corrected) the claim for this expansion. */
   const [confirmed, setConfirmed] = useState(false);
+  // Credential form. Seeded from the requirement so the common case is
+  // confirm-and-save; keyed on item.id so switching rows never carries one
+  // row's typed school onto another's degree.
+  const [eduDraft, setEduDraft] = useState(() => educationDraftFromRequirement(item.name));
+  const [eduSaving, setEduSaving] = useState(false);
+  // No reseed logic here on purpose: the caller keys this component on the row
+  // id, so switching rows remounts it and the initializer above runs fresh.
+  // The alternatives are both worse -- an effect paints one frame of the
+  // previous row's draft, and a render-phase ref write is what the
+  // react-hooks/refs rule exists to stop.
+  const eduValid = isEducationDraftValid(eduDraft);
+  const eduDuplicate =
+    eduValid && structuredResume
+      ? educationAlreadyPresent(structuredResume, educationDraftToEntry(eduDraft))
+      : false;
 
   const suggestions = state.phase === "ready" ? state.suggestions : [];
   const current = suggestions[Math.min(chosen, Math.max(0, suggestions.length - 1))];
@@ -246,17 +312,55 @@ export function TailorFixExpansion({
           <div style={label}>Add this to your education</div>
           <p style={{ margin: "2px 0 10px", fontSize: FS.small, lineHeight: 1.55, color: "var(--text)" }}>
             Your résumé already shows this — the scanner just isn&rsquo;t reading it in the
-            posting&rsquo;s words. No rewrite of a work bullet can evidence a degree, so the fix
-            belongs in your Education section. Write it the way the posting does, e.g.{" "}
-            <strong>&ldquo;{item.name}&rdquo;</strong>, alongside your institution and year.
+            posting&rsquo;s words. No rewrite of a work bullet can evidence a degree, so this goes
+            in your Education section instead.
           </p>
-          <p style={{ margin: "0 0 10px", fontSize: FS.small, lineHeight: 1.55, color: "var(--amber-ink, #b45309)" }}>
+          <p style={{ margin: "0 0 12px", fontSize: FS.small, lineHeight: 1.55, color: "var(--amber-ink, #b45309)" }}>
             Only add a credential you can actually prove. A degree is among the first things an
             employer verifies, so if you don&rsquo;t hold it, leave it off.
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+            <FieldInput label="Degree" value={eduDraft.degree} placeholder="Master&rsquo;s"
+              onChange={(v) => setEduDraft({ ...eduDraft, degree: v })} />
+            <FieldInput label="Field of study" value={eduDraft.field} placeholder="Computer Science"
+              onChange={(v) => setEduDraft({ ...eduDraft, field: v })} />
+            <FieldInput label="School" value={eduDraft.institution} placeholder="University name"
+              onChange={(v) => setEduDraft({ ...eduDraft, institution: v })} />
+            <FieldInput label="Year" value={eduDraft.year} placeholder="2024 (or Expected 2026)"
+              onChange={(v) => setEduDraft({ ...eduDraft, year: v })} />
+          </div>
+          {eduDuplicate ? (
+            <p style={{ margin: "0 0 10px", fontSize: FS.small, color: "var(--muted)" }}>
+              This looks like it&rsquo;s already in your Education. You can still add it.
+            </p>
+          ) : null}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              type="button"
+              style={{ ...primaryBtn, opacity: eduValid && !eduSaving ? 1 : 0.5,
+                cursor: eduValid && !eduSaving ? "pointer" : "not-allowed" }}
+              disabled={!eduValid || eduSaving}
+              onClick={async () => {
+                if (!eduValid || !onAddEducation) return;
+                setEduSaving(true);
+                try {
+                  await onAddEducation(educationDraftToEntry(eduDraft));
+                  onClose();
+                } finally {
+                  setEduSaving(false);
+                }
+              }}
+            >
+              {eduSaving ? "Adding…" : "Add to my résumé"}
+            </button>
             <button type="button" style={ghostBtn} onClick={onIgnore}>Ignore</button>
           </div>
+          {!onAddEducation ? (
+            <p style={{ margin: "8px 0 0", fontSize: FS.small, color: "var(--muted)" }}>
+              Add it in your Education section, written the way the posting does:{" "}
+              <strong>&ldquo;{item.name}&rdquo;</strong>.
+            </p>
+          ) : null}
         </div>
       ) : state.phase === "info" ? (
         <div>
