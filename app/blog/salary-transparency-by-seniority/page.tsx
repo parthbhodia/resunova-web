@@ -1,5 +1,5 @@
 import Link from "next/link";
-import BlogArticleLayout, { Section } from "@/components/blog/BlogArticleLayout";
+import BlogArticleLayout, { Section, TableOfContents, CTACard } from "@/components/blog/BlogArticleLayout";
 import JsonLd from "@/components/seo/JsonLd";
 import { createBlogPostMetadata } from "@/lib/atsBlogPosts";
 
@@ -144,7 +144,18 @@ export default function SalaryTransparencyBySeniorityPage() {
         tells you the pay up front, and who makes you find out the hard way?
       </p>
 
-      <Section title="Disclosure falls with every rung of the ladder">
+      <TableOfContents
+        items={[
+          { id: "disclosure-by-rung", label: "Disclosure by rung" },
+          { id: "controls", label: "We tried to explain it away" },
+          { id: "why", label: "Why senior pay goes dark" },
+          { id: "what-to-do", label: "What to do about it" },
+          { id: "methodology", label: "Methodology" },
+          { id: "faq", label: "FAQ" },
+        ]}
+      />
+
+      <Section id="disclosure-by-rung" title="Disclosure falls with every rung of the ladder">
         <p style={{ margin: "0 0 12px" }}>
           Across <strong>109,159 active US postings</strong>, 41.4% of entry-level roles list a salary figure or
           range. Mid-level and senior roles hover around 28%. Lead and principal roles drop to roughly one in five.
@@ -154,7 +165,7 @@ export default function SalaryTransparencyBySeniorityPage() {
         <SeniorityChart />
       </Section>
 
-      <Section title="We tried to explain it away. It held.">
+      <Section id="controls" title="We tried to explain it away. It held.">
         <p style={{ margin: "0 0 12px" }}>
           The obvious objection: entry-level postings skew toward hourly-wage industries such as healthcare, retail,
           and hospitality, where posting a wage is standard practice. Maybe the ladder effect is really an industry
@@ -172,7 +183,7 @@ export default function SalaryTransparencyBySeniorityPage() {
         </p>
       </Section>
 
-      <Section title="Why senior salaries go dark">
+      <Section id="why" title="Why senior salaries go dark">
         <p style={{ margin: "0 0 12px" }}>
           The data shows the pattern, not the motive, but three explanations fit what we see:
         </p>
@@ -194,7 +205,7 @@ export default function SalaryTransparencyBySeniorityPage() {
         </p>
       </Section>
 
-      <Section title="What this means if you're job hunting">
+      <Section id="what-to-do" title="What this means if you're job hunting">
         <p style={{ margin: "0 0 12px" }}>
           If you are early-career, expect a number and treat its absence as a mild signal: most of your market does
           disclose. If you are senior, the silence is structural, not personal, and the burden of pay discovery
@@ -216,7 +227,14 @@ export default function SalaryTransparencyBySeniorityPage() {
         </p>
       </Section>
 
-      <Section title="Methodology">
+      <CTACard
+        heading="Filter for the postings that name a number"
+        body="Resunova's job board pulls straight from company career sites and shows the disclosed pay wherever a posting provides one. Free to browse, no subscription."
+        href="/jobs/"
+        cta="Browse jobs with posted salaries"
+      />
+
+      <Section id="methodology" title="Methodology">
         <p style={{ margin: "0 0 12px" }}>
           Figures are from Resunova&apos;s jobs corpus: 109,159 US postings active on 2026-07-14 with extracted job
           facts and a classified seniority level. A posting counts as disclosing salary if it carries a pay figure
@@ -224,9 +242,16 @@ export default function SalaryTransparencyBySeniorityPage() {
           from the posting itself. Small rungs (intern, director, executive) are noted with sample sizes in the
           chart; the core gradient rests on rungs with 15,000 to 50,000 postings each.
         </p>
+        <p style={{ margin: 0 }}>
+          Full details on the corpus, extraction, and what it excludes:{" "}
+          <Link href="/blog/methodology/" style={{ color: "var(--accent)" }}>
+            how we measure
+          </Link>
+          .
+        </p>
       </Section>
 
-      <Section title="FAQ">
+      <Section id="faq" title="FAQ">
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           {FAQ_JSONLD.mainEntity.map((f) => (
             <div key={f.name}>

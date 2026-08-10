@@ -2,9 +2,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { LogoFull } from "@/components/BrandLogo";
 import BlogEngagement from "@/components/blog/BlogEngagement";
+import BlogSubscribe from "@/components/blog/BlogSubscribe";
 import JsonLd from "@/components/seo/JsonLd";
 import {
   BLOG_POSTS,
+  blogAuthorName,
   blogPostBySlug,
   blogPostHref,
   createBlogPostJsonLd,
@@ -108,6 +110,10 @@ export default function BlogArticleLayout({
           <div style={{ margin: articleMeta ? "0 0 32px" : "0 0 36px", paddingBottom: 28, borderBottom: "1px solid var(--border)" }} />
         )}
         <article style={{ fontSize: 15, lineHeight: 1.75, color: "var(--muted)" }}>{children}</article>
+        {/* Subscribe sits above "Continue reading" on purpose: a reader who has
+            finished the piece is at peak intent, and the related-posts list is
+            an invitation to leave this page. */}
+        <BlogSubscribe source={slug ?? "article"} />
         {slug ? <RelatedPosts currentSlug={slug} /> : null}
       </main>
     </div>
@@ -128,9 +134,9 @@ function ByLine({
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 13, color: "var(--dim)" }}>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <span style={{ width: 22, height: 22, borderRadius: 6, background: "var(--accent-bg)", color: "var(--accent)", fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }} aria-hidden>
-          R
+          {blogAuthorName().charAt(0).toUpperCase()}
         </span>
-        Resunova Team
+        {blogAuthorName()}
       </span>
       <span aria-hidden>·</span>
       <span>{readMinutes} min read</span>

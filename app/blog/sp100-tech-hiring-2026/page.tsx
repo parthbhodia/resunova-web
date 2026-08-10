@@ -1,5 +1,5 @@
 import Link from "next/link";
-import BlogArticleLayout, { Section } from "@/components/blog/BlogArticleLayout";
+import BlogArticleLayout, { Section, TableOfContents, CTACard } from "@/components/blog/BlogArticleLayout";
 import { createBlogPostMetadata } from "@/lib/atsBlogPosts";
 
 export const metadata = createBlogPostMetadata("sp100-tech-hiring-2026");
@@ -150,7 +150,18 @@ export default function Sp100TechHiringPage() {
         machine-extracted skill requirements. Here is what the data says.
       </p>
 
-      <Section title="1. Remote is three times rarer at the giants">
+      <TableOfContents
+        items={[
+          { id: "remote", label: "Remote is 3x rarer" },
+          { id: "pay-premium", label: "The pay premium is gone" },
+          { id: "dol-gap", label: "Advertised vs. filed wages" },
+          { id: "skills", label: "Python beats the rest combined" },
+          { id: "entry-level", label: "Where entry-level went" },
+          { id: "methodology", label: "Methodology" },
+        ]}
+      />
+
+      <Section id="remote" title="1. Remote is three times rarer at the giants">
         <p style={{ margin: "0 0 12px" }}>
           Of big-company tech postings that state a work model, <strong>78.8% are onsite and only 4.6% are remote</strong>.
           The rest of the market posts 13.7% remote. Four out of five engineering openings at America&apos;s largest
@@ -159,7 +170,7 @@ export default function Sp100TechHiringPage() {
         <WorkModelChart />
       </Section>
 
-      <Section title="2. The big-company pay premium is gone">
+      <Section id="pay-premium" title="2. The big-company pay premium is gone">
         <p style={{ margin: "0 0 12px" }}>
           Median advertised tech salary at the S&P 100 set: <strong>$163,700</strong>. Median for the rest of the market:
           <strong> $162,500</strong>. A rounding error. Scale buys stability now, not a pay premium.
@@ -178,7 +189,7 @@ export default function Sp100TechHiringPage() {
         </ChartCard>
       </Section>
 
-      <Section title="3. Two companies advertise below what they tell the government they pay">
+      <Section id="dol-gap" title="3. Two companies advertise below what they tell the government they pay">
         <p style={{ margin: "0 0 12px" }}>
           Every company that hires on an H-1B visa files its wages with the US Department of Labor, and those filings are
           public. We joined them against the same companies&apos; live posting ranges. Most companies advertise above their
@@ -192,7 +203,7 @@ export default function Sp100TechHiringPage() {
         <DumbbellChart />
       </Section>
 
-      <Section title="4. Python appears in more postings than Java, C++, and JavaScript combined">
+      <Section id="skills" title="4. Python appears in more postings than Java, C++, and JavaScript combined">
         <p style={{ margin: "0 0 12px" }}>
           Across the 2,960 tech postings, Python leads at 28.3%, more than the next three languages combined. One more
           number worth sitting with: AI and machine-learning skills appear in <strong>18.5%</strong> of giant-company tech
@@ -206,7 +217,7 @@ export default function Sp100TechHiringPage() {
         </ChartCard>
       </Section>
 
-      <Section title="5. Entry-level did not die, it moved to the giants">
+      <Section id="entry-level" title="5. Entry-level did not die, it moved to the giants">
         <p style={{ margin: "0 0 12px" }}>
           Of postings with a stated experience level, <strong>21.2% of S&P 100 tech openings are entry-level or intern
           roles, versus 14.6% across the rest of the market</strong>. The &quot;no junior jobs&quot; story is real for
@@ -215,7 +226,14 @@ export default function Sp100TechHiringPage() {
         </p>
       </Section>
 
-      <Section title="Methodology and honest caveats">
+      <CTACard
+        heading="See how you read against these requirements"
+        body="The same extraction that produced the skill counts above runs on any job description you paste in, scored against your own resume: which of its requirements you already evidence, and which you don't. Free to try."
+        href="/"
+        cta="Score my resume free"
+      />
+
+      <Section id="methodology" title="Methodology and honest caveats">
         <p style={{ margin: "0 0 10px" }}>
           <strong>Source.</strong>{" "}
           Live postings pulled directly from each company&apos;s public ATS or career-site API,
@@ -240,6 +258,13 @@ export default function Sp100TechHiringPage() {
         <p style={{ margin: 0 }}>
           <strong>DOL wages.</strong> Median per employer from the public FY2026 H-1B LCA disclosure file (~1M rows).
           Filings are historical while postings are current, so part of any gap is timing and seniority mix.
+        </p>
+        <p style={{ margin: "10px 0 0" }}>
+          <strong>The corpus.</strong> Full details on sourcing, extraction, and exclusions:{" "}
+          <Link href="/blog/methodology/" style={{ color: "var(--accent)" }}>
+            how we measure
+          </Link>
+          .
         </p>
       </Section>
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import BlogArticleLayout, { Section } from "@/components/blog/BlogArticleLayout";
+import BlogArticleLayout, { Section, TableOfContents, CTACard } from "@/components/blog/BlogArticleLayout";
 import JsonLd from "@/components/seo/JsonLd";
 import { createBlogPostMetadata } from "@/lib/atsBlogPosts";
 
@@ -122,7 +122,21 @@ export default function LinkedInApplicantCountPage() {
         That number is doing an enormous amount of damage, and it is not what most people think it is.
       </p>
 
-      <Section title="The badge is counting clicks">
+      <TableOfContents
+        items={[
+          { id: "counting-clicks", label: "The badge counts clicks" },
+          { id: "the-pile", label: "The pile from the other side" },
+          { id: "thirteen-requirements", label: "13 requirements per posting" },
+          { id: "healthcare", label: "Where the gate is a license" },
+          { id: "not-competing", label: "Who isn't competing with you" },
+          { id: "real-number", label: "The real number" },
+          { id: "what-to-do", label: "What to do with this" },
+          { id: "methodology", label: "Methodology" },
+          { id: "faq", label: "FAQ" },
+        ]}
+      />
+
+      <Section id="counting-clicks" title="The badge is counting clicks">
         <p style={{ margin: "0 0 12px" }}>
           There are two ways to apply to a job on LinkedIn, and they behave completely differently.
         </p>
@@ -153,7 +167,7 @@ export default function LinkedInApplicantCountPage() {
         </p>
       </Section>
 
-      <Section title="What the pile looks like from the other side of the desk">
+      <Section id="the-pile" title="What the pile looks like from the other side of the desk">
         <p style={{ margin: "0 0 12px" }}>
           A hiring manager who recruits for specialized healthcare roles described their week publicly, and the numbers
           are worth sitting with. They receive roughly <strong>70 to 90 resumes a week</strong>. Of those, roughly
@@ -173,7 +187,7 @@ export default function LinkedInApplicantCountPage() {
         </p>
       </Section>
 
-      <Section title="The median job posting asks for 13 specific things">
+      <Section id="thirteen-requirements" title="The median job posting asks for 13 specific things">
         <p style={{ margin: "0 0 12px" }}>
           Here is where our own data comes in, because it explains why that 42% is so stubbornly high. We pull job
           postings directly from company ATS APIs and run one extraction pass per posting to pull out its concrete
@@ -192,7 +206,7 @@ export default function LinkedInApplicantCountPage() {
         </p>
       </Section>
 
-      <Section title="In healthcare, the gate is a license, and you either have it or you don't">
+      <Section id="healthcare" title="In healthcare, the gate is a license, and you either have it or you don't">
         <p style={{ margin: "0 0 12px" }}>
           The healthcare hiring manager&apos;s 3-or-4-out-of-90 ratio sounds extreme until you look at what healthcare
           postings actually require. Across <strong>{HEALTHCARE.postings} active US healthcare postings</strong> in our
@@ -208,7 +222,7 @@ export default function LinkedInApplicantCountPage() {
         </p>
       </Section>
 
-      <Section title="A lot of the pile isn't even trying to compete with you">
+      <Section id="not-competing" title="A lot of the pile isn't even trying to compete with you">
         <p style={{ margin: "0 0 12px" }}>
           The same hiring manager made an observation we found more interesting than the AI-written-resume panic
           everyone else is having. In healthcare, they said, they see very little they believe is AI-written. What they
@@ -228,7 +242,7 @@ export default function LinkedInApplicantCountPage() {
         </p>
       </Section>
 
-      <Section title="So what is the real number?">
+      <Section id="real-number" title="So what is the real number?">
         <p style={{ margin: "0 0 12px" }}>
           The hiring manager ran the math themselves, and we want to be careful to present it as what it is: their
           estimate, from their own desk, not a measured statistic. Of 100 people LinkedIn counts as applicants, they
@@ -252,7 +266,7 @@ export default function LinkedInApplicantCountPage() {
         </p>
       </Section>
 
-      <Section title="What to actually do with this">
+      <Section id="what-to-do" title="What to actually do with this">
         <p style={{ margin: "0 0 12px" }}>
           The useful reframe is not &quot;the competition is fake, apply everywhere.&quot; That is the exact behavior
           filling those piles with noise, and it is why the hiring manager above spends their week rejecting people.
@@ -271,7 +285,14 @@ export default function LinkedInApplicantCountPage() {
         </p>
       </Section>
 
-      <Section title="Methodology and honest caveats">
+      <CTACard
+        heading="Let the counting be automatic"
+        body="Paste a job description and Resunova extracts its requirements the same way this analysis did, then shows which ones your resume already evidences and which ones it doesn't. Free, no account needed for the first scan."
+        href="/"
+        cta="Count my requirements free"
+      />
+
+      <Section id="methodology" title="Methodology and honest caveats">
         <p style={{ margin: "0 0 10px" }}>
           <strong>What we measured ourselves.</strong> The requirement-density figures (164,913 active US postings,
           median 13 hard requirements, 88.3% with five or more, 76.4% with eight or more) and the healthcare figures
@@ -308,9 +329,16 @@ export default function LinkedInApplicantCountPage() {
           data with the usual limits. The Robert Half figure is also seven years old, and if anything we would expect
           auto-apply tooling to have pushed it up since.
         </p>
+        <p style={{ margin: "10px 0 0" }}>
+          <strong>The corpus.</strong> Where the postings come from and what they exclude:{" "}
+          <Link href="/blog/methodology/" style={{ color: "var(--accent)" }}>
+            how we measure
+          </Link>
+          .
+        </p>
       </Section>
 
-      <Section title="FAQ">
+      <Section id="faq" title="FAQ">
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           {FAQ_JSONLD.mainEntity.map((f) => (
             <div key={f.name}>
