@@ -50,6 +50,12 @@ const DEMO_RATINGS: RatingsData = {
     covered: [
       { text: "5+ years of software engineering", context: "Senior Fullstack Developer since 2018, across two employers." },
       { text: "Python", context: "LLM enrichment services and LangGraph workflows built in Python." },
+      // A CREDENTIAL the résumé evidences but the scanner cannot see in the
+      // posting's words -- i.e. a `partial` verdict. This is the only row that
+      // opens the education editor, and the harness had none, so that whole
+      // surface could not be reviewed here. Keep it: a design harness missing
+      // the one fixture a feature needs is how the feature ships unlooked-at.
+      { text: "Bachelor's degree in Computer Science", context: "B.Sc listed under Education, worded differently from the posting." },
     ],
     missing: [
       { text: "CI/CD pipeline experience", analysis: "Not on your resume yet. You have related work to draw from." },

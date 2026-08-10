@@ -20,6 +20,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AddressedGapAction, RatingsData } from "@/lib/types";
+import type { StructuredResume, StructuredResumeEducation } from "@/store/resumeAnalyzeStore";
 import {
   CONTEXTUAL_DETAIL,
   IGNORED_DETAIL,
@@ -162,6 +163,8 @@ export function TailorQueuePanel({
   onInterviewPrep,
   requirementConcepts,
   currentResumeText,
+  onAddEducation,
+  structuredResume,
 }: {
   ratings: RatingsData;
   addressedGaps: ReadonlySet<string>;
@@ -204,6 +207,11 @@ export function TailorQueuePanel({
   recheckBusy: boolean;
   /** From the analyze response. Handed straight back to score-preview, which
    *  is why the recount costs no tokens and needs no server-side cache. */
+  /** Write a credential into Education. Absent ⇒ the credential card explains
+   *  what to add instead of writing it, so the panel still works standalone
+   *  (the /tailor-preview harness has no résumé to write to). */
+  onAddEducation?: (entry: StructuredResumeEducation) => Promise<void> | void;
+  structuredResume?: StructuredResume | null;
   requirementConcepts?: readonly unknown[];
   /** Résumé text with applied fixes baked in, i.e. what is being scored. */
   currentResumeText?: string;
@@ -336,7 +344,10 @@ export function TailorQueuePanel({
   const handleItemAction = (item: QueueItem, action: QueueItemAction) => {
     if (action === "fix") openFix(item);
     else if (action === "reconsider") onToggleIgnored(item, false);
-    else if (action === "whats_this" || action === "add_to_summary") {
+    else if (action === "add_education") {
+      setExpandedId(item.id);
+      setExpandState({ phase: "credential" });
+    } else if (action === "whats_this" || action === "add_to_summary") {
       setExpandedId(item.id);
       setExpandState({ phase: "info" });
     } else if (action === "view_change" || action === "review") {
@@ -492,6 +503,7 @@ export function TailorQueuePanel({
         expansion={
           expandedItem ? (
             <TailorFixExpansion
+              key={expandedItem.id}
               item={expandedItem}
               state={expandState}
               applying={applying}
@@ -502,6 +514,8 @@ export function TailorQueuePanel({
               // confirmed facts as a provenance source, so a number the
               // candidate supplied stops reading as unevidenced.
               onRewriteWithFacts={(fact) => openFix(expandedItem, fact)}
+              onAddEducation={onAddEducation}
+              structuredResume={structuredResume}
               // What applying this one rewrite would do to the deterministic
               // number, before committing to it. Same endpoint the scoreboard
               // uses, so it is a recount rather than a projection: zero-token,

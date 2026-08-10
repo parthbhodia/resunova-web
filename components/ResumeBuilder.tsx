@@ -124,6 +124,8 @@ import { TailoringModeModal, TailoringModeSelector } from "@/components/Tailorin
 import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
 import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 import { structuredToPlainText } from "@/lib/structuredResumeText";
+import { appendEducation } from "@/lib/educationEntry";
+import type { StructuredResumeEducation } from "@/store/resumeAnalyzeStore";
 import { apiFetch } from "@/lib/apiClient";
 
 const TailoredPdfPreview = dynamic(
@@ -839,6 +841,25 @@ export default function ResumeBuilder({
     setTailorFieldOverrides((prev) => remapOverlayPaths(prev, op.pathRemap));
     setScoreStale(true);
   }, [setStructuredUpload, setCandidateProfile, setTailorFieldOverrides, setScoreStale]);
+  /** Add a credential to the résumé's Education section.
+   *
+   *  Mirrors applyTailorBulletOp: write the structured doc, re-flatten it into
+   *  candidateProfile so the Hub and the rescore read the same document the
+   *  preview shows, and mark the score stale. Going through structuredUpload
+   *  is what makes the entry reach the preview, the download and the rescore
+   *  at once -- appending to the flat text alone would show in none of them. */
+  const handleAddEducation = useCallback((entry: StructuredResumeEducation) => {
+    let nextProfile: string | null = null;
+    setStructuredUpload((prev) => {
+      if (!prev) return prev;
+      const next = appendEducation(prev.structured, entry);
+      nextProfile = structuredToPlainText(next) || prev.profile;
+      return { profile: nextProfile, structured: next };
+    });
+    if (nextProfile !== null) setCandidateProfile(nextProfile);
+    setScoreStale(true);
+  }, [setStructuredUpload, setCandidateProfile, setScoreStale]);
+
   /** Object URL for the last uploaded PDF — powers true PDF highlights in suggestions (revoked on replace / unmount). */
   const sourcePdfBlobUrlRef = useRef<string | null>(null);
   const [uploadedPdfDataUrl, setUploadedPdfDataUrl] = useState<string | null>(
@@ -4513,6 +4534,8 @@ export default function ResumeBuilder({
                   <div className="tb-split-work-slot">
                     {queueUi && (
                       <TailorQueuePanel
+                        onAddEducation={handleAddEducation}
+                        structuredResume={structuredUpload?.structured ?? null}
                         ratings={displayRatings}
                         addressedGaps={addressedGaps}
                         addressedGapActions={addressedGapActions}
