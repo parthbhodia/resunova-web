@@ -104,6 +104,20 @@
   --red:         #f87171;
   --red-bg:      rgba(248,113,113,0.16);
   --red-ink:     #fca5a5;
+
+  /* Text that sits ON a filled hue (a solid --accent / --green / --red / --amber
+     button, badge or dot) — NOT on a surface.
+
+     Every hue token in this palette is tuned to be readable AS TEXT on the
+     theme's own background, so in dark mode they are all LIGHT colours. That
+     makes them good fills and bad backgrounds for white text: measured on the
+     real controls, #fff on --accent was 2.53:1 and on --green-ink 1.52:1, while
+     light mode passed at 5.19 and 5.48. A control cannot hardcode one foreground
+     and be right in both themes, which is the whole reason this token exists.
+     Near-black on the SAME fills measures 7.5:1 (accent) to 13.1:1 (amber), so
+     the fills were never the problem — the palette was missing this half.
+     `--*-ink` sits on a surface; `--on-fill` sits on a fill. */
+  --on-fill:     #0d1117;
   --orange:      #f59e0b;
   --glass-bg:    rgba(13,17,23,0.90);
   --shadow:      0 4px 32px rgba(0,0,0,0.40);
@@ -149,6 +163,7 @@
   --red:         #dc2626;
   --red-bg:      rgba(220,38,38,0.12);
   --red-ink:     #991b1b;
+  --on-fill:     #ffffff;
   --orange:      #c2410c;
   --glass-bg:    rgba(255,255,255,0.90);
   --shadow:      0 4px 32px rgba(13,17,23,0.10);
@@ -871,6 +886,7 @@ select option { background: var(--surface); }
   --red:         #f87171;
   --red-bg:      rgba(248,113,113,0.16);
   --red-ink:     #fca5a5;
+  --on-fill:     #0d1117;
   --orange:      #f59e0b;
   --glass-bg:    rgba(13,17,23,0.90);
   --shadow:      0 4px 32px rgba(0,0,0,0.44);
@@ -929,6 +945,7 @@ select option { background: var(--surface); }
   --red:         #dc2626;
   --red-bg:      rgba(220,38,38,0.12);
   --red-ink:     #991b1b;
+  --on-fill:     #ffffff;
   --orange:      #c2410c;
   --glass-bg:    rgba(255,255,255,0.90);
   --shadow:      0 14px 40px rgba(15,23,42,0.11);

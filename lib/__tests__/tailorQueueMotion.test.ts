@@ -184,64 +184,59 @@ describe("CSS variables the tailor surfaces reference", () => {
   });
 
   it("uses no opaque hex fallback for a TINT background", () => {
-    // Scoped to the tint family (--*-bg / --*-soft) on purpose. A solid fill
-    // like `var(--green-ink, #16a34a)` on the primary button is fine with an
-    // opaque fallback: it is meant to be a solid colour, and white text sits on
-    // it either way. The failure mode is specific to a TRANSLUCENT tint, which
-    // must composite over the theme behind it rather than pin a light-mode hex
-    // under text that adapts.
+    // Scoped to the tint family (--*-bg / --*-soft) on purpose: a TRANSLUCENT
+    // tint must composite over the theme behind it rather than pin a light-mode
+    // hex under text that adapts. An opaque fallback on a SOLID fill is a
+    // different question and is fine — the fill is meant to be a solid colour.
+    //
+    // ⚠️ This comment used to add "and white text sits on it either way".
+    // MEASURED ON THE REAL CONTROLS, THAT WAS FALSE, and the test below is what
+    // replaced the assumption. Do not reintroduce the claim.
     const bad = [...TAILOR.matchAll(/var\(--[a-z0-9-]+-(?:bg|soft),\s*(#[0-9a-fA-F]{3,8})\)/g)]
       .map((m) => m[1]);
     expect(bad, `opaque hex tint fallbacks: ${bad.join(", ")}`).toEqual([]);
   });
 
   /**
-   * White text on an `--*-ink` FILL, which is a dark-mode contrast failure.
+   * A filled control may not hardcode its own foreground.
    *
-   * ⚠️ The comment on the test above says an opaque `--green-ink` fill "is fine
-   * … white text sits on it either way". MEASURED IN A BROWSER, THAT IS FALSE.
-   * The ink colours INVERT between themes, so white on them reads:
+   * Every hue token here is tuned to be readable AS TEXT on the theme's own
+   * background, so in dark mode they are all LIGHT. Measured on the real
+   * controls, driven into their real states:
    *
-   *     --green-ink   #047857 light  5.48:1   |  #6ee7b7 dark  1.52:1
-   *     --amber-ink   #92400e light  7.09:1   |  #fcd34d dark  1.44:1
-   *     --red-ink     #991b1b light  8.31:1   |  #fca5a5 dark  1.90:1
+   *                              light        dark
+   *     "Improve N gaps"   --accent    5.19:1    2.53:1   (#fff)
+   *     "Add to resume"    --green-ink 5.48:1    1.52:1   (#fff)
+   *     applied dot        --green-ink 5.48:1    1.52:1   (#fff)
    *
-   * The scoreboard's blocker badge was built this way and measured 1.9:1 dark;
-   * it now uses tint fill + ink text (6.9:1 light, 7.2:1 dark), which is the
-   * pairing the band strips already use.
+   * One hardcoded foreground CANNOT be right in both themes, which is why
+   * `--on-fill` exists. Near-black on those same fills measures 7.5:1 (accent)
+   * to 13.1:1 (amber), so the fills were never wrong — the palette was missing
+   * the other half of the pair.
    *
-   * The three below are PRE-EXISTING and deliberately NOT fixed here: they are
-   * the flow's primary buttons and the applied dot, and fixing them properly
-   * needs an on-accent text token that does not exist yet — a theme decision,
-   * not a scoreboard change. This is a ratchet so no FOURTH one appears while
-   * that is outstanding. A fill carrying no text (the progress segments) is not
-   * affected and never matches, because the pattern requires the `color`.
+   * Baseline is ZERO, not a known-bad list: the six sites this used to allow
+   * are fixed. Deliberately NOT matched: a fill carrying no text (the progress
+   * segments), since the pattern requires a `color`.
    */
-  const KNOWN_WHITE_ON_INK = [
-    "components/tailor/TailorFixExpansion.tsx", // "Add to resume" primary button
-    "components/tailor/TailorWorkQueue.tsx", // applied status dot
-    "components/tailor/TailorWorkQueue.tsx", // Download button
-  ];
-
-  it("grows no new white-on-ink fills", () => {
+  it("lets no filled control hardcode a white foreground", () => {
     const found: string[] = [];
     for (const f of TAILOR_FILES) {
       const src = readFileSync(f, "utf8");
-      // Two tolerances, both found by mutation rather than by reading:
+      // Three tolerances, each added because a mutant slipped past without it:
       //  - a bounded window, not "immediately after": the applied dot puts a
       //    borderColor between the fill and the colour;
       //  - an optional expression before the value: the scoreboard's badge
       //    picks its fill with a ternary, so a pattern anchored to `: "var(`
-      //    could not see the one file this was written for.
+      //    could not see the one file this was written for;
+      //  - any hue token, not just `-ink`: --accent was the worst-trafficked
+      //    offender and an -ink-only rule declared it clean.
       for (const m of src.matchAll(
-        /background(?:Color)?\s*:\s*[^";\n]*"var\(--[a-z0-9-]+-ink[^"]*"[^}]{0,240}?color\s*:\s*[^";\n]*"#fff"/g,
+        /background(?:Color)?\s*:\s*[^";\n]*"var\(--(?:accent|green|red|amber|yellow|orange)[a-z0-9-]*[^"]*"[^}]{0,240}?color\s*:\s*"#f{3,6}"/gi,
       )) {
         void m;
         found.push(f);
       }
     }
-    expect(found.sort(), `white-on-ink fills: ${found.join(", ")}`).toEqual(
-      [...KNOWN_WHITE_ON_INK].sort(),
-    );
+    expect(found, `filled controls hardcoding #fff: ${found.join(", ")}`).toEqual([]);
   });
 });

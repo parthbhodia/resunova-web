@@ -227,7 +227,7 @@ function StatusDot({ status, working }: { status: QueueItem["status"]; working: 
   }
   if (status === "applied") {
     return (
-      <span aria-label="applied" className="tq-dot" style={{ ...base, background: "var(--green-ink, #16a34a)", borderColor: "var(--green-ink, #16a34a)", color: "#fff" }}>
+      <span aria-label="applied" className="tq-dot" style={{ ...base, background: "var(--green-ink, #16a34a)", borderColor: "var(--green-ink, #16a34a)", color: "var(--on-fill, #fff)" }}>
         ✓
       </span>
     );
@@ -410,7 +410,7 @@ export function TailorWorkQueue({
             disabled={fixAllBusy || c.open === 0}
             style={{
               background: "var(--accent)",
-              color: "#fff",
+              color: "var(--on-fill, #fff)",
               border: 0,
               borderRadius: 8,
               fontSize: FS.body,
@@ -753,7 +753,7 @@ export function TailorWorkQueue({
                 onClick={onDownload}
                 style={{
                   background: "var(--green-ink, #16a34a)",
-                  color: "#fff",
+                  color: "var(--on-fill, #fff)",
                   border: 0,
                   borderRadius: 8,
                   fontSize: FS.body,
@@ -771,7 +771,7 @@ export function TailorWorkQueue({
                 onClick={onInterviewPrep}
                 style={{
                   background: "var(--accent)",
-                  color: "#fff",
+                  color: "var(--on-fill, #fff)",
                   border: 0,
                   borderRadius: 8,
                   fontSize: FS.body,
