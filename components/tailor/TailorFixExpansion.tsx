@@ -43,6 +43,7 @@ export type FixExpansionState =
   | { phase: "loading" }
   | { phase: "ready"; suggestions: FixSuggestion[] }
   | { phase: "info" } // contextual "What's this?" explainer
+  | { phase: "credential" } // degree/licence: belongs in Education, not a bullet
   | { phase: "error"; message: string };
 
 const label: React.CSSProperties = {
@@ -238,6 +239,23 @@ export function TailorFixExpansion({
           <p style={{ margin: "2px 0 10px", fontSize: FS.small, color: "var(--text)" }}>{state.message}</p>
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" style={ghostBtn} onClick={onClose}>Close</button>
+          </div>
+        </div>
+      ) : state.phase === "credential" ? (
+        <div>
+          <div style={label}>Add this to your education</div>
+          <p style={{ margin: "2px 0 10px", fontSize: FS.small, lineHeight: 1.55, color: "var(--text)" }}>
+            Your résumé already shows this — the scanner just isn&rsquo;t reading it in the
+            posting&rsquo;s words. No rewrite of a work bullet can evidence a degree, so the fix
+            belongs in your Education section. Write it the way the posting does, e.g.{" "}
+            <strong>&ldquo;{item.name}&rdquo;</strong>, alongside your institution and year.
+          </p>
+          <p style={{ margin: "0 0 10px", fontSize: FS.small, lineHeight: 1.55, color: "var(--amber-ink, #b45309)" }}>
+            Only add a credential you can actually prove. A degree is among the first things an
+            employer verifies, so if you don&rsquo;t hold it, leave it off.
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" style={ghostBtn} onClick={onIgnore}>Ignore</button>
           </div>
         </div>
       ) : state.phase === "info" ? (

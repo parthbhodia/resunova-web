@@ -336,7 +336,10 @@ export function TailorQueuePanel({
   const handleItemAction = (item: QueueItem, action: QueueItemAction) => {
     if (action === "fix") openFix(item);
     else if (action === "reconsider") onToggleIgnored(item, false);
-    else if (action === "whats_this" || action === "add_to_summary") {
+    else if (action === "add_education") {
+      setExpandedId(item.id);
+      setExpandState({ phase: "credential" });
+    } else if (action === "whats_this" || action === "add_to_summary") {
       setExpandedId(item.id);
       setExpandState({ phase: "info" });
     } else if (action === "view_change" || action === "review") {
