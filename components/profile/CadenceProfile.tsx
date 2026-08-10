@@ -159,13 +159,13 @@ export default function CadenceProfile({
           <ChipRow
             k="Target roles"
             items={roles}
-            empty="No target yet — Jobs is ranking every role"
+            empty="No target yet · Jobs is ranking every role"
             onAdd={() => onOpenEdit?.("jobPrefs")}
           />
           <ChipRow
             k="Locations"
             items={locations}
-            empty="Not set — the feed spans every US metro"
+            empty="Not set · the feed spans every US metro"
             onAdd={() => onOpenEdit?.("jobPrefs")}
           />
           <Row
@@ -276,11 +276,11 @@ function ChipRow({
 const S: Record<string, React.CSSProperties> = {
   page: { maxWidth: 760, margin: "0 auto", padding: "36px 20px 96px", width: "100%" },
   head: { marginBottom: 34 },
-  h1: { fontSize: 27, fontWeight: 780, letterSpacing: -0.7, margin: "0 0 10px", color: "var(--text)" },
-  lede: { fontSize: 14.5, lineHeight: 1.62, color: "var(--muted)", margin: "0 0 20px", maxWidth: "62ch" },
+  h1: { fontSize: 24, fontWeight: 780, letterSpacing: -0.7, margin: "0 0 10px", color: "var(--text)" },
+  lede: { fontSize: 14, lineHeight: 1.62, color: "var(--muted)", margin: "0 0 20px", maxWidth: "62ch" },
   nextLabel: { fontWeight: 650, fontSize: 14, color: "var(--text)" },
-  nextWhy: { fontSize: 12.5, color: "var(--muted)", flex: 1 },
-  allSet: { display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "var(--muted)", margin: 0 },
+  nextWhy: { fontSize: 12, color: "var(--muted)", flex: 1 },
+  allSet: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--muted)", margin: 0 },
 
   band: {
     border: "1px solid var(--border)", borderRadius: 12,
@@ -289,14 +289,14 @@ const S: Record<string, React.CSSProperties> = {
   bandHead: { padding: "16px 18px 14px", display: "grid", gap: 4, position: "relative" },
   bandTitle: { display: "flex", alignItems: "center", gap: 8 },
   bandIcon: { color: "var(--dim)", flex: "none" },
-  h2: { fontSize: 15.5, fontWeight: 700, letterSpacing: -0.2, margin: 0, color: "var(--text)" },
+  h2: { fontSize: 16, fontWeight: 700, letterSpacing: -0.2, margin: 0, color: "var(--text)" },
   promise: { fontSize: 13, color: "var(--muted)", margin: 0, maxWidth: "58ch", lineHeight: 1.55 },
   stateDone: {
-    position: "absolute", top: 16, right: 18, fontSize: 11.5, fontWeight: 650,
+    position: "absolute", top: 16, right: 18, fontSize: 11, fontWeight: 650,
     color: "var(--good, #17803d)",
   },
   stateOpen: {
-    position: "absolute", top: 16, right: 18, fontSize: 11.5, fontWeight: 650,
+    position: "absolute", top: 16, right: 18, fontSize: 11, fontWeight: 650,
     color: "var(--muted)", fontVariantNumeric: "tabular-nums",
   },
 
@@ -304,13 +304,13 @@ const S: Record<string, React.CSSProperties> = {
     display: "flex", gap: 14, alignItems: "baseline",
     padding: "11px 18px", borderTop: "1px solid var(--border)",
   },
-  rowK: { fontSize: 12.5, color: "var(--dim)", width: 150, flex: "none" },
+  rowK: { fontSize: 12, color: "var(--dim)", width: 150, flex: "none" },
   rowV: { fontSize: 14, color: "var(--text)", flex: 1, minWidth: 0 },
-  rowEmpty: { fontSize: 13.5, color: "var(--muted)", flex: 1, minWidth: 0, fontStyle: "italic" },
+  rowEmpty: { fontSize: 13, color: "var(--muted)", flex: 1, minWidth: 0, fontStyle: "italic" },
 
   chips: { display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" },
   chip: {
-    fontSize: 12.5, padding: "3px 10px", borderRadius: 999,
+    fontSize: 12, padding: "3px 10px", borderRadius: 999,
     background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)",
   },
 
@@ -319,13 +319,13 @@ const S: Record<string, React.CSSProperties> = {
     padding: "11px 18px", borderTop: "1px solid var(--border)",
   },
   entryTitle: { fontSize: 14, color: "var(--text)", fontWeight: 550, minWidth: 0 },
-  entryMeta: { fontSize: 12.5, color: "var(--dim)", flex: "none", fontVariantNumeric: "tabular-nums" },
+  entryMeta: { fontSize: 12, color: "var(--dim)", flex: "none", fontVariantNumeric: "tabular-nums" },
 
   emptyScan: {
     padding: "18px", borderTop: "1px solid var(--border)",
     display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap",
   },
-  emptyText: { fontSize: 13.5, color: "var(--muted)", margin: 0, flex: 1, minWidth: "24ch", lineHeight: 1.55 },
+  emptyText: { fontSize: 13, color: "var(--muted)", margin: 0, flex: 1, minWidth: "24ch", lineHeight: 1.55 },
 };
 
 const CSS = `
@@ -345,7 +345,7 @@ const CSS = `
   /* The one authored moment: the sealed band settling shut. */
   .rn-sealed {
     display: flex; align-items: center; gap: 9px; width: 100%;
-    font: inherit; font-size: 13.5px; color: var(--muted); cursor: pointer;
+    font: inherit; font-size: 13px; color: var(--muted); cursor: pointer;
     padding: 12px 18px; border: 0; border-top: 1px solid var(--border);
     background: transparent; text-align: left;
     animation: rnSeal .42s cubic-bezier(.16,1,.3,1);
@@ -358,7 +358,7 @@ const CSS = `
   }
 
   .rn-edit {
-    font: inherit; font-size: 12.5px; font-weight: 620; color: var(--accent);
+    font: inherit; font-size: 12px; font-weight: 620; color: var(--accent);
     background: none; border: 0; padding: 0; cursor: pointer; flex: none;
   }
   .rn-edit:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -366,7 +366,7 @@ const CSS = `
 
   .rn-chip-add {
     display: inline-flex; align-items: center; gap: 4px;
-    font: inherit; font-size: 12.5px; color: var(--muted); cursor: pointer;
+    font: inherit; font-size: 12px; color: var(--muted); cursor: pointer;
     padding: 3px 10px; border-radius: 999px;
     border: 1px dashed var(--border); background: transparent;
   }
