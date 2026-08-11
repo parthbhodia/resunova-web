@@ -52,15 +52,39 @@ Everything else below is fair game.
 ## 01. The gold gradient effect
 
 **Mechanism.** Warm metallic gradients read as premium before a single word is
-processed, because gold maps to rarity and achievement.
+processed, because gold maps to rarity and achievement. The source is specific
+that the *gradient* is doing the work: depth and shine are what separate it
+from a flat warm colour.
 
-**On Resunova.** We already own this cue: amber `#c4793a` on the navy gradient
-in `marketing/html/base.css`. The discipline is reserving it. Amber should
-mark the one thing per surface that carries the value, the headline stat on a
-blog OG card, the score ring, the Pro tier, and nothing else.
+**Where we actually are.** We own the warm accent and not the gradient.
+`marketing/html/base.css` has `--amber: #c4793a` and `--amber-h: #e09050`, both
+flat. Amber appears as a gradient only in the stage background (a 16% radial
+wash plus a 10% dot pattern), which is atmosphere, not accent. The one gradient
+that fills an element is blue: `linear-gradient(135deg, #2563eb, #1d4ed8)` on
+the CTA. So the premium cue currently rests on a flat square (`BrandLogo.tsx`
+draws the mark as flat `#c4793a`) and the blue button gets the shine.
+
+**Two hard scoping rules.**
+
+1. **Marketing templates only.** In the app, `--amber` is a *status* token, one
+   of `--green --amber --red --yellow` (`DESIGN.md`). Brand is `--accent`,
+   `#0969da`. Amber on an app surface reads as caution, so never propose it as
+   a premium cue on the score ring, a tier badge, or anything else in-product.
+   The warm-equals-valuable reading holds inside `marketing/html/` and on the
+   logo mark, and nowhere past that boundary.
+2. **One per asset.** Amber marks the single element carrying the value:
+   the headline stat on an OG card, the Pro line in a pricing asset, the
+   milestone in a launch graphic.
+
+**If we want the real thing.** `--amber` to `--amber-h` is already the two-stop
+ramp a warm-metallic gradient needs. The source's own strongest use is
+milestone moments (Spotify Wrapped turning a stats recap into something worth
+sharing), which maps cleanly onto launch day, a PH feature, or a corpus
+milestone. That is an asset-level experiment, worth proposing on a specific
+graphic rather than applied as a blanket token change.
 
 **Guardrail.** Amber on six elements is amber on zero. If an asset has more
-than one gold accent, one of them is decoration.
+than one warm accent, one of them is decoration.
 
 ## 02. Von Restorff effect
 
