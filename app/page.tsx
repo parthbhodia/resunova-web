@@ -5,9 +5,12 @@ import { FAQ_ITEMS } from "@/lib/faqContent";
 const SITE_URL = "https://www.resunova.io";
 
 export const metadata: Metadata = {
-  title: "Free AI Resume Builder — Tailor Your Resume to Any Job | Resunova",
+  // Keeps the existing head term and adds the frame the h1 now leads on. It
+  // deliberately does NOT reuse "ATS Resume Checker": /ats-resume-checker owns
+  // that exact match, and two pages bidding on one phrase split the result.
+  title: "Free AI Resume Builder: Get Past the ATS | Resunova",
   description:
-    "Free AI resume builder for students and the job-seeking community. Create your resume, score it across 8 dimensions, tailor it to any job description, and download an ATS-friendly PDF in under a minute. Start free, upgrade anytime.",
+    "Score your resume against the 8 checks that decide whether an ATS passes it on. Honest rewrites, a tailored PDF, and your first scan free with no account.",
   alternates: {
     canonical: `${SITE_URL}/`,
   },
