@@ -12,6 +12,7 @@ import {
   type UnmatchedRequirement,
 } from "@/lib/tailorRequirementQueue";
 import { deriveWorkQueue } from "@/lib/tailorWorkQueue";
+import { itemAction } from "@/components/tailor/TailorWorkQueue";
 
 /**
  * The reported failure, as data: a scan reporting 24 requirements with 9
@@ -492,5 +493,102 @@ describe("a degree the résumé holds is not a gap", () => {
       deriveScorerQueue(degrees, rater, new Set(), undefined, ""),
     );
     expect(deriveScorerQueue(degrees, rater)).toHaveLength(2);
+  });
+});
+
+/**
+ * A keyword scanner's miss is not a verdict on a person.
+ *
+ * The field report: a candidate who leads teams was shown "technical leadership
+ * — Not evidenced". Nothing had read their résumé to conclude that. The row came
+ * from `match_requirement`, which tries the canonical phrase, up to four aliases
+ * the extraction model wrote WITHOUT SEEING THE RÉSUMÉ, a generated abbreviation,
+ * a six-entry synonym table and a stemmed all-token check. "Mentored four
+ * engineers and owned the platform roadmap" matches none of those layers.
+ *
+ * ⚠️ Every one of these went GREEN against the shipped behaviour before they
+ * were written — the suite had no assertion on a non-degree scorer verdict at
+ * all, so the bug was invisible to it. Mutation-verified after: forcing the
+ * old `absenceEstablished = true` turns them red.
+ */
+describe("only a real check on the résumé may claim absence", () => {
+  const typed = (canonical: string, type: string): UnmatchedRequirement[] =>
+    [{ id: "t0", canonical, importance: "required", type }];
+
+  it("does not tell someone they have not evidenced a capability the scanner merely missed", () => {
+    const resume = "EXPERIENCE\nMentored four engineers and owned the platform roadmap.";
+    for (const [name, type] of [
+      ["technical leadership", "experience"],
+      ["full stack development", "experience"],
+    ] as const) {
+      const [row] = deriveScorerQueue(typed(name, type), EMPTY_RATER, new Set(), undefined, resume);
+      expect(row.verdict).toBe("not_found");
+    }
+  });
+
+  it("keeps the claim for a degree, where the hierarchy check actually read the résumé", () => {
+    // The one place absence is established: requiredDegreeLevel recognised a
+    // level, degreeRequirementSatisfied read the text and found nothing at or
+    // above it. Losing this would let the education editor offer to type in a
+    // degree the person does not hold.
+    const [row] = deriveScorerQueue(
+      degreeReqs(["Bachelor's degree"]), EMPTY_RATER, new Set(), undefined,
+      "EXPERIENCE\nSoftware Developer.",
+    );
+    expect(row.verdict).toBe("not_evidenced");
+  });
+
+  it("does NOT claim absence for a certification, which nothing checked", () => {
+    // isCredentialRequirement groups certifications with degrees for ROUTING,
+    // and that grouping is not evidence: degreeRequirementSatisfied returns
+    // false for them without looking ("not ours to answer"). All we know is the
+    // phrase is missing.
+    const [row] = deriveScorerQueue(
+      typed("AWS certification", "certification"), EMPTY_RATER, new Set(), undefined,
+      "EXPERIENCE\nRan the platform on AWS for four years.",
+    );
+    expect(row.verdict).toBe("not_found");
+  });
+
+  it("still refuses to write a certification in, whatever the chip says", () => {
+    // The routing must not move with the wording. A credential that is not
+    // partial/covered goes to the refusal either way.
+    expect(itemAction({ id: "x", name: "AWS certification", kind: "qualification", status: "queued", detail: "" }, "not_found"))
+      .toBe("no_fabrication");
+  });
+
+  it("keeps the rater's judgement, which IS a reading of the résumé", () => {
+    // The scanner matched the term; the model read the document and judged the
+    // claim behind it unevidenced. That is the one non-degree row entitled to
+    // the word, and the easy over-correction is to soften it too.
+    const merged = mergeQueues(
+      [],
+      deriveWorkQueue(
+        {
+          overall_score: 40,
+          job_title: { matched: false, jd_title: "", resume_title: "", score: 0 },
+          qualifications: {
+            score: 40,
+            covered: [],
+            missing: [{ text: "5 years of Python", analysis: "One mention." }],
+          },
+          responsibilities: { score: 40, covered: [], missing: [] },
+          keywords: {
+            direct_skills: { found: [], missing: [] },
+            contextual: { found: [], missing: [] },
+            found_count: 1,
+            total_count: 2,
+          },
+        } as never,
+        new Set(),
+      ),
+    );
+    expect(merged.find((r) => r.name === "5 years of Python")?.verdict).toBe("not_evidenced");
+  });
+
+  it("says what the scanner knows, and names the mechanism", () => {
+    // The detail line and the chip used to make different claims on one row.
+    expect(SCORER_ONLY_DETAIL).toMatch(/keyword scanner/i);
+    expect(SCORER_ONLY_DETAIL).not.toMatch(/\bnot evidenced\b/i);
   });
 });

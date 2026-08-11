@@ -57,7 +57,7 @@
  */
 
 import type { AddressedGapAction } from "@/lib/types";
-import { degreeRequirementSatisfied, isCredentialRequirement } from "@/lib/degreeRequirement";
+import { degreeRequirementSatisfied, isCredentialRequirement, requiredDegreeLevel } from "@/lib/degreeRequirement";
 import { isGapAddressed } from "@/lib/tailorGapFix";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import {
@@ -137,7 +137,7 @@ export type QueueSource = "both" | "scorer" | "rater";
  * producer, and the fix was to make the producer authoritative and have the
  * view trust it verbatim. Same rule.
  */
-export type QueueVerdict = "partial" | "not_evidenced" | "keyword" | "covered";
+export type QueueVerdict = "partial" | "not_evidenced" | "not_found" | "keyword" | "covered";
 
 export interface SourcedQueueItem extends QueueItem {
   source: QueueSource;
@@ -155,9 +155,18 @@ export interface SourcedQueueItem extends QueueItem {
 export const WORDING_DETAIL =
   "Your résumé shows this, but not in words the scanner matches. Using the posting's phrasing on the bullet below is enough.";
 
-/** Detail line for a requirement neither pipeline found. */
+/**
+ * Detail line for a requirement neither pipeline found.
+ *
+ * Says what a keyword scanner knows, because that is what produced this row.
+ * It used to read "The scanner did not find this anywhere in your résumé",
+ * which is accurate but sat under a chip reading "Not evidenced" — two claims
+ * on one row, only the smaller one supported. Naming the mechanism is also the
+ * more useful half: a real ATS matches on strings too, so "this phrase is not
+ * in your document" is the finding, and it is fixable by wording.
+ */
 export const SCORER_ONLY_DETAIL =
-  "The scanner did not find this anywhere in your résumé.";
+  "A keyword scanner matching on exact phrases won't find this in your résumé. If you do this work, say it in the posting's words on the bullet below.";
 
 /**
  * Detail for a credential the résumé does not evidence.
@@ -251,11 +260,65 @@ export function raterView(ratings: unknown): RaterView {
  * so whatever type it is, the honest line is that the evidence is there and
  * the wording is not. Getting this backwards would tell someone they lack
  * something their own résumé demonstrates.
+ *
+ * ⚠️ `not_evidenced` IS A CLAIM ABOUT A PERSON, so it needs evidence we
+ * actually have. Read what produces the input to this function before widening
+ * it: the scorer's "unmatched" comes from `match_requirement`, which tries the
+ * canonical phrase, up to four aliases the extraction model wrote WITHOUT EVER
+ * SEEING THE RÉSUMÉ, a generated abbreviation, a six-entry synonym table, and a
+ * stemmed all-token check. That is a keyword scanner. It cannot tell that
+ * "mentored four engineers and owned the platform roadmap" is technical
+ * leadership, and it was never able to — so a miss from it means THE WORDS ARE
+ * NOT IN THE DOCUMENT, which is a useful thing to say and a different sentence
+ * from "you have not done this".
+ *
+ * So exactly one thing reaches it: a DEGREE requirement. `requiredDegreeLevel`
+ * recognised a level in the requirement, and `degreeRequirementSatisfied` then
+ * read the résumé with degree hierarchy and found nothing at or above it. That
+ * is a real check against the document, so "not evidenced" is a claim we have
+ * earned — and it is also the one place the claim has to be made, because
+ * offering to write in a degree someone lacks is the one thing this product
+ * must never do.
+ *
+ * ⚠️ NOT certifications, licences or clearances, even though
+ * `isCredentialRequirement` groups them with degrees for ROUTING. That grouping
+ * is about where the row goes (never to the bullet fixer); it is not evidence.
+ * `degreeRequirementSatisfied` returns false for them WITHOUT LOOKING — its own
+ * comment says "not a degree requirement, not ours to answer" — so all we know
+ * about an unmatched "AWS certification" is that the phrase is missing. They
+ * take `not_found` with everything else, and their routing is unaffected:
+ * `itemAction` sends any credential that is not `partial`/`covered` to the
+ * refusal, so we still decline to write one in.
+ *
+ * The path that used to reach `not_evidenced` for an ordinary capability was an
+ * UNTYPED row falling back to the rater's list membership: extraction sent no
+ * `type`, the rater happened to file it under qualifications, and a phrase like
+ * "technical leadership" was rendered as a failed hard requirement. That is an
+ * LLM's filing decision deciding whether we call someone unqualified.
  */
-function verdictFor(kind: QueueKind, raterCovered: boolean): QueueVerdict | undefined {
+function verdictFor(
+  kind: QueueKind,
+  raterCovered: boolean,
+  /**
+   * True only when something ACTUALLY READ THE RÉSUMÉ and concluded the
+   * requirement is not met. Exactly two things qualify:
+   *
+   *  - a degree requirement whose hierarchy check ran against the text and
+   *    found nothing at or above the required level;
+   *  - a rater row, where the model read the résumé and judged the claim
+   *    behind an already-matched term unevidenced ("5 years of Python" against
+   *    one mention).
+   *
+   * A keyword scanner missing a phrase is NOT one of them, and passing `true`
+   * for the scorer's ordinary rows is how this screen came to tell qualified
+   * people they had not evidenced their own experience.
+   */
+  absenceEstablished: boolean,
+): QueueVerdict | undefined {
   if (kind === "contextual") return undefined;
   if (raterCovered) return "partial";
-  return kind === "keyword" ? "keyword" : "not_evidenced";
+  if (kind === "keyword") return "keyword";
+  return absenceEstablished ? "not_evidenced" : "not_found";
 }
 
 /**
@@ -354,7 +417,12 @@ export function deriveScorerQueue(
       source: raterMissing ? "both" : "scorer",
       // Both classes are unmatched by the scorer, so both move the number.
       movesScore: true,
-      verdict: verdictFor(kind, raterCovered),
+      // Reaching here with a degree level means the guard at the top of the
+      // loop already ran `degreeRequirementSatisfied` and it came back false —
+      // i.e. we read the résumé and found nothing at or above that level. That
+      // is the evidence behind the only claim this row is allowed to make about
+      // the candidate. See verdictFor.
+      verdict: verdictFor(kind, raterCovered, requiredDegreeLevel(name) !== null),
     });
   }
   return out;
@@ -457,10 +525,11 @@ export function mergeQueues(
       ...it,
       source: "rater",
       movesScore: false,
-      // The scanner already matched the term; the rater judged the claim
-      // behind it unevidenced. From the reader's side that is the same
-      // sentence as any other gap, so it carries the same word.
-      verdict: verdictFor(it.kind, false),
+      // The scanner already matched the term; the rater READ THE RÉSUMÉ and
+      // judged the claim behind it unevidenced. That is the one gap class where
+      // a model, not a regex, is the source — so it is also the one non-degree
+      // row entitled to say "Not evidenced".
+      verdict: verdictFor(it.kind, false, true),
       detail: it.detail
         ? `${it.detail} ${NO_SCORE_MOVE_NOTE}`
         : NO_SCORE_MOVE_NOTE,

@@ -155,10 +155,18 @@ describe("the queue heads itself with the ranking", () => {
     // A count on its own is pressure; a count plus an ordering is a plan.
     renderPanel();
     expect(screen.getByText("Start with the blockers")).toBeInTheDocument();
-    expect(
-      screen.getByText(/2 hard requirements the posting asks for that your résumé does not evidence yet\./i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/2 hard requirements this posting screens on\./i)).toBeInTheDocument();
     expect(screen.getByText(/the other 3 can wait/i)).toBeInTheDocument();
+  });
+
+  it("makes no claim about the candidate that the rows themselves refuse to make", () => {
+    // The header used to read "...that your résumé does not evidence yet",
+    // asserting for a whole band what a keyword scanner cannot establish for
+    // one row. A header cannot say what the rows under it are declining to say.
+    renderPanel();
+    const header = screen.getByText(/hard requirements this posting screens on/i)
+      .closest("div")?.textContent ?? "";
+    expect(header).not.toMatch(/does not evidence|you lack|not evidenced/i);
   });
 
   it("gives an instruction above a strip that gives a label, never the same sentence twice", () => {

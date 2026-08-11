@@ -284,7 +284,7 @@ describe("the queue reports what is already covered", () => {
     // way to see what they already meet, so the page only ever said what was
     // wrong. They must not inflate that N either.
     renderPanel();
-    const header = screen.getByText(/hard requirements the posting asks for/i).textContent ?? "";
+    const header = screen.getByText(/hard requirements this posting screens on/i).textContent ?? "";
     expect(screen.getByText("Already covered")).toBeInTheDocument();
     expect(screen.getByText("Python")).toBeInTheDocument();
     expect(screen.getByText("You have this")).toBeInTheDocument();

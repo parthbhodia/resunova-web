@@ -129,7 +129,16 @@ function actionLabel(action: QueueItemAction, it: QueueItem): string {
 /** The claim, in the user's words. */
 const VERDICT_LABEL: Record<QueueVerdict, string> = {
   partial: "Partial match",
+  // Reserved for a credential extraction itself typed as one, where
+  // degreeRequirementSatisfied has separately read the résumé and found nothing
+  // that qualifies. That is a claim about the candidate and it is earned.
   not_evidenced: "Not evidenced",
+  // Everything else the keyword scanner missed. It is a statement about the
+  // DOCUMENT, not the person: a phrase-boundary regex over four aliases written
+  // by a model that never saw the résumé cannot tell that "mentored four
+  // engineers and owned the platform roadmap" is technical leadership. Saying
+  // "Not evidenced" there tells a qualified candidate they are not.
+  not_found: "Scanner didn't find it",
   keyword: "Keyword · fits an existing bullet",
   covered: "You have this",
 };
@@ -145,6 +154,10 @@ const VERDICT_LABEL: Record<QueueVerdict, string> = {
 const VERDICT_TONE: Record<QueueVerdict, "crit" | "warn" | "good"> = {
   partial: "warn",
   not_evidenced: "crit",
+  // Amber, not crit, for the same reason `partial` is. Red is reserved for a
+  // claim we have actually established; a scanner missing a phrase is a wording
+  // problem until something that read the résumé says otherwise.
+  not_found: "warn",
   keyword: "warn",
   covered: "good",
 };
@@ -401,7 +414,14 @@ export function TailorWorkQueue({
   const headlineDetail = c.open === 0
     ? null
     : blockersOpen > 0
-      ? `${blockersOpen} hard requirement${blockersOpen === 1 ? "" : "s"} the posting asks for that your résumé does not evidence yet.${
+      // Describes the POSTING, not the candidate.
+      //
+      // This read "...that your résumé does not evidence yet", which makes the
+      // exact claim the row chips are no longer allowed to make — and made it
+      // for the whole band at once, including rows where all we know is that a
+      // keyword scanner missed a phrase. A header cannot assert what the rows
+      // under it are refusing to assert.
+      ? `${blockersOpen} hard requirement${blockersOpen === 1 ? "" : "s"} this posting screens on.${
           otherOpen > 0 ? ` The other ${otherOpen} can wait.` : ""
         }`
       // "Could get you filtered out" is a claim about hard requirements.
