@@ -1026,24 +1026,24 @@ export default function LandingPage() {
             color: C.ink, margin: "0 0 28px",
           }}>
             <span className="lp-hero-sub-full">
-              Score your résumé.<br />
-              Fix the weak bullets.<br />
-              Tailor it to any job.<br />
-              <span style={{ color: T.blue }}>Start free. Upgrade anytime.</span>
+              Eight things decide<br />
+              whether your résumé<br />
+              gets read.<br />
+              <span style={{ color: T.blue }}>You are guessing at all eight.</span>
             </span>
             <span className="lp-hero-sub-short">
-              Score, fix, and tailor<br />your résumé.{" "}
-              <span style={{ color: T.blue }}>Start free.</span>
+              Eight things decide<br />if your résumé gets read.{" "}
+              <span style={{ color: T.blue }}>You are guessing.</span>
             </span>
           </h1>
 
           <p style={{ fontSize: "var(--font-size-xl)", color: C.muted, lineHeight: 1.72, maxWidth: 480, margin: "0 0 44px", letterSpacing: -0.15 }}>
             {/* Full copy on desktop; trimmed on phones. Key phrases highlighted. */}
             <span className="lp-hero-sub-full">
-              Upload your résumé, get an <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>honest bullet-by-bullet rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
+              See all <b style={{ color: T.blue, fontWeight: 700 }}>8 scores</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>, with <b style={{ color: T.blue, fontWeight: 700 }}>honest rewrites</b> and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b>. Every score under 95 shows its reasoning, so you know which one to fix first.{" "}
             </span>
             <span className="lp-hero-sub-short">
-              An <b style={{ color: T.blue, fontWeight: 700 }}>8-dimension score</b>, <b style={{ color: T.blue, fontWeight: 700 }}>honest rewrites</b>, and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>.{" "}
+              All <b style={{ color: T.blue, fontWeight: 700 }}>8 scores</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>, with <b style={{ color: T.blue, fontWeight: 700 }}>honest rewrites</b> and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b>.{" "}
             </span>
             <strong style={{ color: C.ink, fontWeight: 700 }}>No account.</strong>{" "}
             <strong style={{ color: "#16a34a", fontWeight: 700 }}>No credit card.</strong>
