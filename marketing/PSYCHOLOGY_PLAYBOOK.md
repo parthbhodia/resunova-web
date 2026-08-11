@@ -88,18 +88,51 @@ than one warm accent, one of them is decoration.
 
 ## 02. Von Restorff effect
 
-**Mechanism.** The item that looks different from its neighbours is the item
-that gets remembered.
+**Mechanism.** In a carousel or grid, make *one* slide, *one* CTA, or *one*
+product visually different, and that is the one people remember and click. The
+count is the whole principle. A sea of sameness gets scanned and forgotten, and
+the single break in the pattern gets processed deeply.
 
-**On Resunova.** `lib/atsBlogPosts.ts` already builds this in: posts with a
-`stat` get a stat-led card on the blog index and everything else gets a plain
-row, so a real finding stands out from a guide by shape, not by shouting. Use
-the same move inside a post (one chart styled unlike the rest is the one that
-gets screenshotted into a Reddit comment) and across a PH gallery (the honesty
-slide should not look like the other four).
+**A set property, not an item property.** This is the trap, and we walked into
+it. Von Restorff describes an item's relationship to its neighbours, so it can
+only be decided by looking at the whole set. A per-item field can never encode
+it: applying a predicate across a collection yields a *partition*, and a
+partition has no odd one out.
 
-**Guardrail.** The comment on `hasFinding` is the rule: never invent a stat to
-fill the slot. An empty slot beats a decorated one.
+`hasFinding()` in `lib/atsBlogPosts.ts` is exactly that. It keys off whether a
+post has a `stat`, and the split today is 4 with, 5 without.
+`app/blog/page.tsx` then renders them as two labelled sections, `research` and
+`guides`. Two groups of comparable size in separate sections is a taxonomy, and
+a good one, but nothing in it is isolated. Worse, the arrow points the wrong
+way: data posts are the main weekly lane, so the stat-card group only grows.
+Once it is the clear majority, the *guides* become the isolates and inherit the
+memory advantage, which is the opposite of what we want clicked.
+
+**Where the isolate actually goes.** One per set, chosen at the set level:
+
+- **Blog index.** Exactly one post gets the different treatment, the current
+  lead finding, picked by index position rather than by whether it has a stat.
+  That is a separate decision from `hasFinding` and complements it.
+- **Inside a post.** One chart styled unlike the others. That is the one that
+  gets screenshotted into a Reddit comment.
+- **PH gallery.** Five slides is a real grid, and it is the clearest case we
+  have. Right now the warm accent sits on `ph-01-hero` and `ph-03-rewrites`,
+  two of five, so there is no isolate. Meanwhile `ph-02-honest` is built
+  entirely from status red and green, which makes the differentiator slide read
+  as a diff table rather than as the break in the pattern. `LAUNCH_KIT.md`
+  argues the honesty claim is the one nobody else can copy. If one slide breaks
+  the pattern, its own reasoning says slide 2.
+
+**Co-presence is required.** The items have to be seen at once. A carousel, a
+grid, a gallery, a pricing table: yes. The four Google Ads sizes in
+`render_gads.py` go to different placements and are never seen together, so
+there is no set to stand out from. Differentiate *within* one ad, never across
+artefacts nobody views side by side.
+
+**Guardrail.** Two rules now. Never invent a stat to fill the slot; the comment
+on `hasFinding` is right that an empty slot beats a decorated one. And never
+call a category an isolate: if the different-looking thing appears more than
+once in the set, the effect is not running.
 
 ## 03. Framing effect
 
