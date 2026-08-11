@@ -1,5 +1,5 @@
 import Link from "next/link";
-import BlogArticleLayout, { Section, List } from "@/components/blog/BlogArticleLayout";
+import BlogArticleLayout, { Section, List, CTACard } from "@/components/blog/BlogArticleLayout";
 import {
   ATS_GUIDE_ATTRIBUTION,
   ATS_GUIDE_DONTS,
@@ -38,6 +38,13 @@ export default function OptimizingResumesForAtsPage() {
       <Section title="Don’t">
         <List items={ATS_GUIDE_DONTS.map((item) => ({ text: item.text }))} />
       </Section>
+
+      <CTACard
+        heading="Check your resume against these rules"
+        body="Resunova's free ATS checker reads your PDF the way a parser does and flags the formatting, heading, and keyword problems on this page. No account needed."
+        href="/ats-resume-checker/"
+        cta="Run a free ATS check"
+      />
 
       <p style={{ fontSize: 13, color: "var(--dim)", marginTop: 24 }}>
         Source:{" "}

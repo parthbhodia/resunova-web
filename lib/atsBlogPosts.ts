@@ -187,9 +187,40 @@ export const BLOG_POSTS: BlogPostMeta[] = [
   },
 ];
 
+export type BlogAuthor = {
+  name: string;
+  /** Shown after the name in the byline, e.g. "Data, Resunova". */
+  role?: string;
+  /** An author page or profile. Becomes the Person's `url` in JSON-LD. */
+  url?: string;
+};
+
+/**
+ * The human credited on every post, or `null` to credit the organization.
+ *
+ * ⚠️ INTENTIONALLY NULL. A named, credentialed author is a real ranking and
+ * trust signal for career advice, and every competitor in this space runs one —
+ * but the fix is for a real person to put their name here, not for this file to
+ * invent one. A fabricated byline on posts whose whole selling point is
+ * measured honesty would be the single worst thing on the site.
+ *
+ * Set it to `{ name: "..." }` and the byline, the article JSON-LD, and every
+ * future post pick it up at once; that is the only reason this is one constant
+ * rather than a field repeated on all nine posts.
+ */
+export const BLOG_AUTHOR: BlogAuthor | null = null;
+
+/** Byline display name — the author when one is set, else the organization. */
+export function blogAuthorName(): string {
+  return BLOG_AUTHOR?.name ?? "Resunova Team";
+}
+
 export function blogPostHref(slug: string): string {
   return `/blog/${slug}/`;
 }
+
+/** Absolute URL of the blog's RSS feed (app/blog/rss.xml/route.ts). */
+export const BLOG_RSS_URL = `${SITE_URL}/blog/rss.xml`;
 
 export function blogPostBySlug(slug: string): BlogPostMeta | undefined {
   return BLOG_POSTS.find((p) => p.slug === slug);
@@ -216,7 +247,12 @@ export function createBlogPostMetadata(slug: string): Metadata {
     title: post.title,
     description: post.seoDescription,
     robots: { index: true, follow: true },
-    alternates: { canonical },
+    alternates: {
+      canonical,
+      // Feed discovery from every post, not just the index: readers and
+      // aggregators land on an article far more often than on /blog/.
+      types: { "application/rss+xml": BLOG_RSS_URL },
+    },
     openGraph: {
       type: "article",
       url: canonical,
@@ -250,7 +286,17 @@ export function createBlogPostJsonLd(slug: string): object[] {
       image: `${canonical}opengraph-image.png`,
       datePublished: post.publishedAt,
       dateModified: post.modifiedAt,
-      author: { "@type": "Organization", name: "Resunova", url: SITE_URL },
+      // A Person once someone is credited, the Organization until then. Emitting
+      // a Person with the org's own name would be worse than the Organization
+      // it replaced: it claims a human author that does not exist.
+      author: BLOG_AUTHOR
+        ? {
+            "@type": "Person",
+            name: BLOG_AUTHOR.name,
+            ...(BLOG_AUTHOR.role ? { jobTitle: BLOG_AUTHOR.role } : {}),
+            ...(BLOG_AUTHOR.url ? { url: BLOG_AUTHOR.url } : {}),
+          }
+        : { "@type": "Organization", name: "Resunova", url: SITE_URL },
       publisher: { "@id": `${SITE_URL}/#org` },
       mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
     },

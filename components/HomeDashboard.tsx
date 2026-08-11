@@ -5,7 +5,8 @@
  *
  * A single activation/retention surface instead of dropping returning users
  * straight into the Analyze uploader: a personal greeting, a KPI row, quick
- * actions, a recent-résumés strip, and a "Get set up" onboarding checklist.
+ * actions, a recent-résumés strip, and a right rail that starts as a "Get set
+ * up" checklist and becomes a progress card once that checklist is done.
  *
  * Everything reads from data the app already stores — fetchLibraryItems()
  * (résumés + analyses + builder drafts), GET /api/applications (tracker), and
@@ -27,6 +28,13 @@ import { useUpgradeDialog } from "@/components/UpgradeDialog";
 import { readCache, writeCache } from "@/lib/clientCache";
 import { apiFetch, type ScanLimitStatus } from "@/lib/apiClient";
 import { loadScanLimitStatus } from "@/components/app-shell/useScansRemaining";
+import {
+  computeScoreProgress,
+  formatScoreProgress,
+  scoreProgressTone,
+  shortDate,
+  type ScoreProgress,
+} from "@/components/analyze/scoreProgress";
 
 type AppStats = {
   saved: number;
@@ -159,6 +167,117 @@ const CheckGlyph = (
   </svg>
 );
 
+type ChecklistItem = { label: string; done: boolean; go: null | (() => void) };
+
+/** The rail while there is still setup to do. Verbatim extraction, so the two
+ *  rail states read as siblings rather than as one branch buried in the other. */
+function SetupChecklist({ items, doneCount }: { items: ChecklistItem[]; doneCount: number }) {
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold text-[var(--text)]">Get set up</h2>
+        <span className="text-[12px] font-medium text-[var(--muted)]">
+          {doneCount}/{items.length}
+        </span>
+      </div>
+      <p className="mt-1 text-[13px] text-[var(--muted)]">
+        Finish these to get the most out of Resunova.
+      </p>
+
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface2)]">
+        <div
+          className="h-full rounded-full bg-accent transition-all"
+          style={{ width: `${(doneCount / items.length) * 100}%` }}
+        />
+      </div>
+
+      <ul className="mt-4 flex flex-col gap-1">
+        {items.map((c) => (
+          <li key={c.label}>
+            <button
+              type="button"
+              disabled={c.done || !c.go}
+              onClick={() => c.go?.()}
+              className={
+                "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13px] transition-colors " +
+                (c.done ? "text-[var(--dim)]" : "text-[var(--text)] hover:bg-[var(--surface2)]")
+              }
+            >
+              <span
+                className={
+                  "flex size-5 shrink-0 items-center justify-center rounded-full border " +
+                  (c.done
+                    ? "border-transparent bg-accent text-accent-foreground"
+                    : "border-[var(--border)] text-transparent")
+                }
+              >
+                {CheckGlyph}
+              </span>
+              <span className={c.done ? "line-through" : ""}>{c.label}</span>
+              {!c.done && c.go ? <span className="ml-auto text-[var(--muted)]">→</span> : null}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * What the rail shows once there is no setup left: movement, not inventory.
+ *
+ * Deliberately thin, and deliberately NOT a restatement of the KPI row above
+ * it. Those are five counts of what exists right now; this is the only thing
+ * on the page that says anything changed. Padding it out with "3 tailored
+ * versions" would print the same fact twice on one screen, which is how a
+ * dashboard stops being read.
+ *
+ * With one scan on record there is no arc to draw, so the card says what
+ * produces one. That is the whole retention question in a sentence: more than
+ * half the people who scan never come back for a second one, and nothing in
+ * the product had ever told them the second scan is where the value is.
+ */
+function ProgressCard({
+  progress,
+  firstScanAt,
+  onScan,
+}: {
+  progress: ScoreProgress | null;
+  firstScanAt: string | null;
+  onScan: () => void;
+}) {
+  const since = firstScanAt ? shortDate(firstScanAt) : null;
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+      <h2 className="text-[15px] font-semibold text-[var(--text)]">Your progress</h2>
+
+      {progress ? (
+        <>
+          <p
+            className="mt-2 text-[20px] font-bold leading-tight"
+            style={{ color: scoreProgressTone(progress) }}
+          >
+            {formatScoreProgress(progress)}
+          </p>
+          <p className="mt-1 text-[13px] text-[var(--muted)]">
+            Across {progress.runs} scored scans.
+          </p>
+        </>
+      ) : (
+        <p className="mt-2 text-[13px] leading-snug text-[var(--muted)]">
+          {since
+            ? `You've scanned once, on ${since}. Scan again after your next edit and this will show what moved.`
+            : "Scan a résumé and this will start tracking how your score moves."}
+        </p>
+      )}
+
+      <Button size="sm" variant="outline" className="mt-4 w-full" onClick={onScan}>
+        {progress ? "Scan again" : "Run a scan"}
+      </Button>
+    </div>
+  );
+}
+
 /* ---------- snapshot cache ----------
    Home is remounted on every `?view=` switch. Holding the last render above
    the component tree turns the return trip into an instant paint instead of
@@ -244,20 +363,43 @@ export default function HomeDashboard() {
     const resumeLike = items.filter((i) => i.kind === "tailored" || i.kind === "builder");
     const analyzed = items.filter((i) => i.kind === "analyzed");
     const tailored = items.filter((i) => i.kind === "tailored");
-    const scored = items
-      .map((i) => i.score)
-      .filter((s): s is number => typeof s === "number");
-    const bestScore = scored.length ? Math.max(...scored) : null;
+
+    // MEASURED ATS grades only, and this is two separate refusals.
+    //
+    // (1) A tailored row's `score` is `ratings.match_score` — how well the
+    // résumé covers ONE job description. An analysis row's is the general
+    // quality grade. Maxing across both put a 91% JD match under the heading
+    // "Best ATS score", which is a different number wearing this one's name;
+    // the same never-blend rule the Tailor scoreboard follows.
+    //
+    // (2) `scoreSource === 'estimate'` is the deterministic projection written
+    // when edits are saved, not a grade the analyzer produced. A headline
+    // "best" built on a projection is unfalsifiable.
+    const measured = analyzed
+      .filter((i) => i.kind === "analyzed" && i.analysis.scoreSource !== "estimate")
+      .map((i) => ({ score: i.score, createdAt: i.createdAt }))
+      .filter((e): e is { score: number; createdAt: string } => typeof e.score === "number");
+    const bestScore = measured.length ? Math.max(...measured.map((e) => e.score)) : null;
+
     return {
       totalResumes: resumeLike.length,
       analyzedCount: analyzed.length,
       tailoredCount: tailored.length,
       bestScore,
+      measured,
       hasResume: resumeLike.length > 0 || analyzed.length > 0,
       hasAnalyzed: analyzed.length > 0 || bestScore !== null,
       hasTailored: tailored.length > 0,
     };
   }, [items]);
+
+  /** The arc across measured scans, or null when there is no trend to claim. */
+  const progress = useMemo(() => computeScoreProgress(derived.measured), [derived.measured]);
+  /** When they started, for the "you have been at this a while" line. */
+  const firstScanAt = useMemo(() => {
+    const dates = derived.measured.map((e) => e.createdAt).filter(Boolean).sort();
+    return dates[0] ?? null;
+  }, [derived.measured]);
 
   const savedJobs = stats?.saved ?? 0;
   const trackedTotal = stats?.total ?? 0;
@@ -309,8 +451,12 @@ export default function HomeDashboard() {
             {greeting(new Date().getHours())},{" "}
             <span className="text-accent">{name}</span>
           </h1>
+          {/* "Pick up where you left off" needs somewhere to pick up FROM.
+              On a fresh account it names a history that does not exist. */}
           <p className="mt-1 text-[14px] text-[var(--muted)]">
-            Let&apos;s get you your dream job — pick up where you left off.
+            {derived.hasAnalyzed
+              ? "Pick up where you left off."
+              : "Start with a scan to see where your résumé stands."}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -478,62 +624,20 @@ export default function HomeDashboard() {
           </section>
         </div>
 
-        {/* Onboarding checklist */}
+        {/* The rail: setup while there IS setup, then what you've built.
+            A finished checklist is five struck-through lines telling a
+            returning user they have nothing to do, in the most persistent slot
+            on the page. Once it is done it has said everything it can. */}
         <aside className="lg:sticky lg:top-4 lg:self-start">
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[15px] font-semibold text-[var(--text)]">Get set up</h2>
-              <span className="text-[12px] font-medium text-[var(--muted)]">
-                {doneCount}/{checklist.length}
-              </span>
-            </div>
-            <p className="mt-1 text-[13px] text-[var(--muted)]">
-              {allDone
-                ? "You're all set — go land your dream job."
-                : "Finish these to get the most out of Resunova."}
-            </p>
-
-            {/* Progress bar */}
-            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface2)]">
-              <div
-                className="h-full rounded-full bg-accent transition-all"
-                style={{ width: `${(doneCount / checklist.length) * 100}%` }}
-              />
-            </div>
-
-            <ul className="mt-4 flex flex-col gap-1">
-              {checklist.map((c) => (
-                <li key={c.label}>
-                  <button
-                    type="button"
-                    disabled={c.done || !c.go}
-                    onClick={() => c.go?.()}
-                    className={
-                      "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13px] transition-colors " +
-                      (c.done
-                        ? "text-[var(--dim)]"
-                        : "text-[var(--text)] hover:bg-[var(--surface2)]")
-                    }
-                  >
-                    <span
-                      className={
-                        "flex size-5 shrink-0 items-center justify-center rounded-full border " +
-                        (c.done
-                          ? "border-transparent bg-accent text-accent-foreground"
-                          : "border-[var(--border)] text-transparent")
-                      }
-                    >
-                      {CheckGlyph}
-                    </span>
-                    <span className={c.done ? "line-through" : ""}>{c.label}</span>
-                    {!c.done && c.go ? (
-                      <span className="ml-auto text-[var(--muted)]">→</span>
-                    ) : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {allDone ? (
+            <ProgressCard
+              progress={progress}
+              firstScanAt={firstScanAt}
+              onScan={() => router.push("/?view=analyze")}
+            />
+          ) : (
+            <SetupChecklist items={checklist} doneCount={doneCount} />
+          )}
         </aside>
       </div>
     </div>

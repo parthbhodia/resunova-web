@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, lastModified: new Date(), changeFrequency: "weekly", priority: 1.0 },
     { url: `${SITE_URL}/blog/`, lastModified: new Date(BLOG_LAST_MODIFIED), changeFrequency: "weekly", priority: 0.9 },
+    { url: `${SITE_URL}/blog/methodology/`, lastModified: new Date(BLOG_LAST_MODIFIED), changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE_URL}/resume-examples/`, lastModified: new Date(ROLE_DATA_LAST_UPDATED), changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE_URL}/ats-resume-checker/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/cover-letter/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },

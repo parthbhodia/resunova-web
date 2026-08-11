@@ -16,7 +16,15 @@ export type ClientEventName =
   | "delta_view"
   | "edit_bounce"
   | "link_failed"
-  | "version_write_failed";
+  | "version_write_failed"
+  // Anonymous-scan capture funnel. All three fire while signed OUT, so they can
+  // only travel via stashPrewallEvent → flushPrewallEvents; a direct
+  // logClientEvent would silently return false (client_events RLS keys on
+  // auth.uid()). Conversion = capture_result_saved / capture_prompt_shown.
+  | "capture_prompt_shown"
+  | "capture_prompt_dismissed"
+  | "capture_signin_started"
+  | "capture_result_saved";
 
 const PREWALL_KEY = "rn_prewall_events_v1";
 
