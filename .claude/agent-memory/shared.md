@@ -14,3 +14,8 @@ older than 90 days when you touch the file.
   2026-07-15; re-verify claims after 2026-10-15.
 - 2026-07-15: Ghost-jobs post committed on branch blog/ghost-jobs-duplicate-postings,
   not yet shipped. Do not reference it in published content until live.
+- 2026-08-11: marketing/PSYCHOLOGY_PLAYBOOK.md added (21 persuasion principles
+  mapped to our surfaces, plus a nine-item pre-publish pass). Read it before
+  drafting copy. New hard rule 6 in the marketing-agent file: no fake
+  scarcity/urgency, no fake anchors, no loss framing aimed at a reader's odds
+  or worth.

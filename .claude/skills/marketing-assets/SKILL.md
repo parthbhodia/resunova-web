@@ -12,7 +12,12 @@ description: Rules and pipeline for producing Resunova marketing assets — Goog
    visible in a screenshot. Restructure into separate sentences, commas, or
    parentheses instead. Hyphens inside compound words (role-aware, dead-letter)
    are fine.
-2. **Annotation callouts must never cover the content they explain.** The red
+2. **One gold accent per asset.** The amber mark (`#c4793a`) is the premium
+   cue and the contrast cue at once, so it marks the single element carrying
+   the value and nothing else. Amber on six elements is amber on zero. See
+   `marketing/PSYCHOLOGY_PLAYBOOK.md` (gold gradient effect, von Restorff) for
+   the reasoning and the rest of the visual principles.
+3. **Annotation callouts must never cover the content they explain.** The red
    highlight box outlines the feature; the comment box goes in adjacent
    whitespace (below the box, over less important content, or in an empty
    column). If the highlighted element spans most of the viewport width, place
