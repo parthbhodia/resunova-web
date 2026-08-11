@@ -21,16 +21,32 @@
  * Secondary means DEMOTED, NOT DELETED. The grade keeps its own meter, its own
  * target marker and its own dated provenance — it is quieter, not less honest.
  *
- * WHY THE SCORE CARRIES THE WAY INTO THE QUEUE.
+ * WHY THE BLOCKER COUNT IS NO LONGER HERE.
  *
- * The open-work count used to be a free-standing banner above the tiles. A
- * percentage the user cannot act on is a verdict, and the count sitting apart
- * from it made the connection theirs to draw. Folding it into the match block
- * makes the score the entry point: here is the number, here is what it is made
- * of, here is the way in. It stays well clear of the queue's own band headers,
- * which is what the banner's placement note was protecting (rendered inside the
- * queue card it sat directly on "Could get you filtered out" and printed that
- * sentence twice in a row).
+ * It has been three things: a free-standing banner above the tiles, then an
+ * entry row folded into the match block, and now the work queue's own header.
+ * Each move was chasing the same problem — a red sentence sitting in the block
+ * that is supposed to orient you.
+ *
+ * This block answers "where do I stand". The queue answers "what do I do".
+ * Putting the failure count in the first one meant the first strong thing on
+ * the page was red, and the moment the user actually arrived for (a tailored
+ * résumé, ready) was the quietest thing on screen. The count belongs at the top
+ * of the work, because that is where the work is. See TailorWorkQueue's header.
+ *
+ * The placement constraint that survives all three versions: the sentence must
+ * not sit adjacent to the "Could get you filtered out" band strip, or the page
+ * prints one idea twice in a row. The queue header therefore gives an
+ * INSTRUCTION ("Start with the blockers") above a strip that gives a LABEL —
+ * two different jobs, no repetition.
+ *
+ * WHY THIS IS ONE CARD AND NOT TWO.
+ *
+ * Two bordered cards read as two things to decide between, which is what the
+ * hierarchy note above is arguing against — and the demotion was being fought
+ * by the frame around it. One card with two rows keeps every disclosure (both
+ * provenance lines, the stale note, the target marker, the re-check control)
+ * and stops the grade looking like a second option.
  */
 
 import React from "react";
@@ -58,7 +74,10 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        fontSize: FS.micro,
+        // 11, not 10. Both are ladder steps, but 10px uppercase with 0.07em
+        // tracking is under the legibility floor, and this label is what tells
+        // the user WHICH of the two numbers they are looking at.
+        fontSize: FS.caption,
         fontWeight: FW.bold,
         letterSpacing: "0.07em",
         textTransform: "uppercase",
@@ -128,133 +147,6 @@ function Meter({
   );
 }
 
-/**
- * The way into the queue, under the number it explains.
- *
- * Renders nothing when there is no open work — a finished queue has its own
- * finish state and does not need a second one here. When blockers exist it
- * keeps the banner's copy verbatim (a count PLUS an ordering: nothing else on
- * the rail ranks the bands); when only smaller gaps remain it drops the red,
- * because "could get you filtered out" is a claim about hard requirements and
- * repeating it for the rest would be the tinting-everything-red failure the
- * queue's own bands exist to avoid.
- */
-function QueueEntry({
-  blockersOpen,
-  otherOpen,
-  onEnterQueue,
-}: {
-  blockersOpen: number;
-  otherOpen: number;
-  onEnterQueue?: () => void;
-}) {
-  if (blockersOpen <= 0 && otherOpen <= 0) return null;
-  const critical = blockersOpen > 0;
-  const headline = critical
-    ? `${blockersOpen} gap${blockersOpen === 1 ? "" : "s"} could get you filtered out`
-    : `${otherOpen} gap${otherOpen === 1 ? "" : "s"} left to review`;
-  const detail = critical
-    ? `Hard requirements the posting asks for that your résumé does not evidence yet.${
-        otherOpen > 0 ? ` The other ${otherOpen} can wait.` : ""
-      }`
-    : "Smaller gaps. Worth closing, none of them a hard requirement.";
-
-  const body = (
-    <>
-      <span
-        aria-hidden
-        style={{
-          flex: "none",
-          width: 20,
-          height: 20,
-          marginTop: 1,
-          borderRadius: 6,
-          display: "grid",
-          placeItems: "center",
-          // Tint for the fill, ink for the glyph — never the reverse. `--red-ink`
-          // is the opaque TEXT colour and is a LIGHT red in dark mode, so the
-          // solid-red-with-white-glyph badge this inherited measured 1.9:1
-          // there. Same rule the queue's band strips follow.
-          background: critical ? "var(--red-bg, rgba(220,38,38,0.14))" : "var(--surface-2, rgba(127,127,127,0.14))",
-          color: critical ? "var(--red-ink, #b42318)" : "var(--muted)",
-          fontSize: FS.micro,
-          fontWeight: FW.extrabold,
-        }}
-      >
-        {critical ? "!" : "›"}
-      </span>
-      <span style={{ minWidth: 0, flex: 1 }}>
-        <span
-          style={{
-            display: "block",
-            fontSize: FS.body,
-            fontWeight: FW.bold,
-            color: critical ? "var(--red-ink, #b42318)" : "var(--text)",
-          }}
-        >
-          {headline}
-        </span>
-        <span
-          style={{
-            display: "block",
-            fontSize: FS.small,
-            color: "var(--muted)",
-            marginTop: 2,
-            lineHeight: 1.45,
-          }}
-        >
-          {detail}
-        </span>
-      </span>
-      {onEnterQueue ? (
-        // NOT aria-hidden: this is the only word naming what the control does,
-        // and a button whose accessible name is just a count is the same
-        // "nobody can see it" bug the scans badge hit. Only the arrow is
-        // decoration.
-        <span
-          style={{
-            flex: "none",
-            alignSelf: "center",
-            fontSize: FS.small,
-            fontWeight: FW.semibold,
-            color: "var(--muted)",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Review <span aria-hidden>→</span>
-        </span>
-      ) : null}
-    </>
-  );
-
-  // Longhand only: a `border: 0` reset for the button would also wipe the
-  // divider set beside it, and the two orders render differently.
-  const frame: React.CSSProperties = {
-    display: "flex",
-    gap: 10,
-    alignItems: "flex-start",
-    width: "100%",
-    textAlign: "left",
-    margin: "12px 0 0",
-    padding: "12px 0 0",
-    background: "none",
-    borderWidth: "1px 0 0",
-    borderStyle: "solid",
-    borderColor: "var(--border)",
-    font: "inherit",
-    color: "inherit",
-  };
-
-  // Without a handler this is still worth showing, just not pressable — the
-  // /tailor-preview harness and any read-only mount land here.
-  if (!onEnterQueue) return <div style={frame}>{body}</div>;
-  return (
-    <button type="button" onClick={onEnterQueue} style={{ ...frame, cursor: "pointer" }}>
-      {body}
-    </button>
-  );
-}
-
 export function TailorScoreboard({
   found,
   total,
@@ -265,9 +157,6 @@ export function TailorScoreboard({
   stale,
   onRecheck,
   recheckBusy,
-  blockersOpen = 0,
-  otherOpen = 0,
-  onEnterQueue,
 }: {
   /** Deterministic coverage. Always drives the percentage and the meter; the
    *  raw counts render only when `live`, see the note at the tile. */
@@ -288,21 +177,16 @@ export function TailorScoreboard({
   stale: boolean;
   onRecheck?: () => void;
   recheckBusy?: boolean;
-  /** Open rows in the blocker band, and everything else still open. Both
-   *  default to 0 so a caller that does not pass them renders no entry row. */
-  blockersOpen?: number;
-  otherOpen?: number;
-  /** Take the user to the queue. Absent ⇒ the entry row renders unpressable. */
-  onEnterQueue?: () => void;
 }) {
   const ratio = total > 0 ? found / total : null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {/* ── PRIMARY: the deterministic match, and the way into the queue ────
-       * `data-score` exists for the tests and the browser drive: which card a
+    <div style={{ ...CARD, padding: "15px 16px 13px" }}>
+      {/* ── PRIMARY: the deterministic match ───────────────────────────────
+       * `data-score` exists for the tests and the browser drive: which block a
        * marker landed in is the whole claim of the hierarchy, and a check that
-       * cannot tell them apart cannot fail. */}
-      <div data-score="match" style={{ ...CARD, padding: "16px 17px 14px" }}>
+       * cannot tell them apart cannot fail. It survived the two cards becoming
+       * one for exactly that reason. */}
+      <div data-score="match">
         <Eyebrow>{live ? "ATS match · live" : "ATS match"}</Eyebrow>
         {/* The count is shown ONLY when `live`, and the two halves of that rule
          * are separate decisions.
@@ -398,13 +282,21 @@ export function TailorScoreboard({
               ? "Fixes applied · not recounted yet."
               : "Counted from your last scan."}
         </div>
-        <QueueEntry blockersOpen={blockersOpen} otherOpen={otherOpen} onEnterQueue={onEnterQueue} />
       </div>
 
       {/* ── SECONDARY: the graded judgement ────────────────────────────────
        * Quieter by scale, not by disclosure: it keeps its meter, its target
-       * marker, its timestamp and its own stale note. */}
-      <div data-score="grade" style={{ ...CARD, padding: "11px 14px 12px" }}>
+       * marker, its timestamp and its own stale note. A hairline rather than a
+       * second border — the two numbers are one orientation, read top to
+       * bottom, not two cards to pick between. */}
+      <div
+        data-score="grade"
+        style={{
+          marginTop: 12,
+          paddingTop: 11,
+          borderTop: "1px solid var(--border)",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
           <Eyebrow>Quality grade</Eyebrow>
           {onRecheck ? (

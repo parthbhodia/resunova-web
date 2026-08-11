@@ -307,9 +307,6 @@ export function TailorQueuePanel({
         ? ratings.match_score
         : null;
 
-  // Scroll target for the score's entry row.
-  const queueRef = useRef<HTMLDivElement | null>(null);
-
   // ---- Inline fix expansion -------------------------------------------------
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandState, setExpandState] = useState<FixExpansionState>({ phase: "loading" });
@@ -394,15 +391,6 @@ export function TailorQueuePanel({
     return ids.size > 0 ? ids : undefined;
   }, [fixAllBusy, pendingGapNames, displayItems, revealWorkingId]);
 
-  // Split the open work by band so the banner can rank it: blockers are what a
-  // screener fails you on, everything else is upside.
-  const bandCounts = useMemo(() => {
-    const counts = queueCounts(items);
-    const blockerOpen = groupQueueBySeverity(items).find((g) => g.band === "blocker")?.open ?? 0;
-    return { blockerOpen, smallerOpen: Math.max(0, counts.open - blockerOpen) };
-  }, [items]);
-  const { blockerOpen, smallerOpen } = bandCounts;
-
   /**
    * Score one pending rewrite against the current résumé.
    *
@@ -423,32 +411,14 @@ export function TailorQueuePanel({
     [requirementConcepts, currentResumeText],
   );
 
-  // The score's way into the queue. Motion is opt-out, matching the reveal
-  // stagger: a smooth jump is the one thing on this rail that moves the page
-  // under someone who asked it not to.
-  const enterQueue = useCallback(() => {
-    const el = queueRef.current;
-    if (!el) return;
-    const reduce =
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // Optional call: jsdom does not implement scrollIntoView, and a panel that
-    // throws on a click is a worse bug than one that does not scroll.
-    el.scrollIntoView?.({ behavior: reduce ? "auto" : "smooth", block: "start" });
-  }, []);
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 12px 0" }}>
-      {/* The gap count no longer stands alone above the tiles — it lives inside
-       * the match block as the way into the queue. See the hierarchy note in
-       * TailorScoreboard: a percentage the user cannot act on is a verdict, and
-       * the count sitting apart from it left the connection theirs to draw.
+      {/* This block orients; it no longer carries the failure count.
        *
-       * The placement constraint it shipped with still holds, and by more:
-       * rendered inside the queue card this sentence sat directly on the "Could
-       * get you filtered out" band header and printed twice in a row. It is now
-       * two cards and the title note further away than it was. */}
+       * The count has been a free-standing banner, then an entry row inside the
+       * match block, and is now the work queue's own header — see the note in
+       * TailorScoreboard. The scroll-to-queue affordance went with it: the
+       * sentence is the queue's heading now, so there is nowhere to jump to. */}
       <TailorScoreboard
         found={coverage.found}
         total={coverage.total}
@@ -459,15 +429,12 @@ export function TailorQueuePanel({
         stale={stale}
         onRecheck={onRecheck}
         recheckBusy={recheckBusy}
-        blockersOpen={blockerOpen}
-        otherOpen={smallerOpen}
-        onEnterQueue={enterQueue}
       />
       {/* The chip row is gone: it grouped the same rows by rater category while
           the bands group them by consequence, and the band headers now carry
           true counts. Title had nowhere else to live, so it stays as a line. */}
       <TailorTitleNote ratings={ratings} />
-      <div ref={queueRef}>
+      <div>
         <TailorWorkQueue
           items={displayItems}
           workingIds={workingIds}

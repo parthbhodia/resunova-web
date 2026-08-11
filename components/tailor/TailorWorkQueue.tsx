@@ -176,7 +176,11 @@ function verdictChipStyle(v: QueueVerdict): React.CSSProperties {
   const tone = VERDICT_TONE[v];
   const ink = VERDICT_INK[tone];
   return {
-    fontSize: FS.micro,
+    // 11px, not 10. This chip is the row's entire claim — whether the user has
+    // the thing, nearly has it, or does not — and 10px is under the legibility
+    // floor for functional text. Being on the size ramp does not exempt it:
+    // that argument launders the token, not the problem.
+    fontSize: FS.caption,
     fontWeight: FW.bold,
     borderRadius: 5,
     padding: "2px 7px",
@@ -334,6 +338,77 @@ export function TailorWorkQueue({
   const contextualOpen = filtered.filter((it) => it.status === "queued" && it.kind === "contextual").length;
   const selected = selectable.filter((it) => selectedIds.has(it.id));
 
+  /**
+   * The ranking, which used to live up in the score card.
+   *
+   * Two counts, two different jobs. `blockersOpen` is what the BAND has open
+   * and is what the header's sentence describes; `blockerTargets` is what a
+   * bulk pass will actually attempt, and is what the BUTTON counts. They can
+   * differ — a credential is an open blocker no rewrite can evidence — and the
+   * honest split is that a label describes the situation while a control names
+   * what it will do. Reconciling them by picking one number for both would
+   * either promise work we will not attempt or hide a blocker from the count.
+   *
+   * The blocker band's cap is Infinity, so `group.items` is the whole band.
+   */
+  const blockerGroup = groups.find((g) => g.band === "blocker");
+  const blockersOpen = blockerGroup?.open ?? 0;
+  const otherOpen = Math.max(0, c.open - blockersOpen);
+  const blockerIds = new Set((blockerGroup?.items ?? []).map((it) => it.id));
+  const blockerTargets = selectable.filter((it) => blockerIds.has(it.id));
+
+  /**
+   * One decision at a time.
+   *
+   * The queue routinely opens with nineteen rows, nineteen checkboxes and
+   * nineteen Fix buttons, all rendered at the same weight — so the first thing
+   * asked of someone who has just arrived is to triage. Nothing is hidden to
+   * fix that (hiding work is the bug this queue exists to end); instead the
+   * primary control targets the band that can actually cost you the screen, and
+   * only widens to the rest once those are handled. The per-row actions and the
+   * selection path are untouched, so nothing is taken away.
+   */
+  const bulkTarget = selected.length > 0
+    ? selected
+    : blockerTargets.length > 0
+      ? blockerTargets
+      : selectable;
+  const bulkCount = selectable.length || c.open;
+  const bulkLabel = fixAllBusy
+    ? "Improving…"
+    : selected.length > 0
+      ? `Improve selected (${selected.length})`
+      // "Blockers" was a lie while this button covered the blocker AND keyword
+      // bands — it sat above a blocker band of two saying it would improve six.
+      // It is true now because the target set IS the blocker band. Do not widen
+      // the target without widening the word back to "gaps".
+      : blockerTargets.length > 0
+        ? `Fix ${blockerTargets.length} blocker${blockerTargets.length === 1 ? "" : "s"}`
+        : `Improve ${bulkCount} gap${bulkCount === 1 ? "" : "s"}`;
+
+  // An instruction, deliberately not the band's label. The same sentence in the
+  // header and in the strip directly beneath it is the twice-in-a-row failure
+  // that moved this count out of the queue card in the first place; a header
+  // that says what to do above a strip that says what the rows are gives the
+  // two elements different jobs.
+  const headline = c.open === 0
+    ? "All reviewed"
+    : blockersOpen > 0
+      // Same word as the button, singular and plural alike. Two spellings of
+      // one idea on one screen is its own bug.
+      ? `Start with the blocker${blockersOpen === 1 ? "" : "s"}`
+      : `${otherOpen} gap${otherOpen === 1 ? "" : "s"} left to review`;
+  const headlineDetail = c.open === 0
+    ? null
+    : blockersOpen > 0
+      ? `${blockersOpen} hard requirement${blockersOpen === 1 ? "" : "s"} the posting asks for that your résumé does not evidence yet.${
+          otherOpen > 0 ? ` The other ${otherOpen} can wait.` : ""
+        }`
+      // "Could get you filtered out" is a claim about hard requirements.
+      // Reusing it for the rest would tint everything red, which is what the
+      // bands exist to avoid.
+      : "Smaller gaps. Worth closing, none of them a hard requirement.";
+
   const toggleSelected = (id: string) => {
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -374,14 +449,16 @@ export function TailorWorkQueue({
        * twice in a row, which is the restatement the v7 note above is about.
        * Adjacency is what turned information into noise, so the fix was
        * distance rather than different words. */}
-      <div style={{ padding: "17px 16px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: FS.body, fontWeight: FW.bold }}>
-            Match gaps{" "}
-            <span style={{ color: "var(--muted)", fontWeight: FW.medium }}>
-              · {c.open ? `${c.open} to review` : "all reviewed"}
-            </span>
+      <div style={{ padding: "16px 16px 15px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0, flex: "1 1 220px" }}>
+          <div style={{ fontSize: FS.bodyLg, fontWeight: FW.bold, letterSpacing: "-0.01em" }}>
+            {headline}
           </div>
+          {headlineDetail ? (
+            <p style={{ margin: "3px 0 0", fontSize: FS.small, color: "var(--muted)", lineHeight: 1.45, maxWidth: "46ch" }}>
+              {headlineDetail}
+            </p>
+          ) : null}
           {/* Its own tag, not a third stacked line of the same grey, so it
               reads as an annotation on the control above rather than as more
               of it. Says what "all" leaves out, because a pass that silently
@@ -417,8 +494,7 @@ export function TailorWorkQueue({
             // re-derive the work from a NARROWER list than the one on screen,
             // so "Improve 19 blockers" attempted three.
             onClick={() => {
-              const target = selected.length > 0 ? selected : selectable;
-              if (onFixSelected && target.length > 0) onFixSelected(target);
+              if (onFixSelected && bulkTarget.length > 0) onFixSelected(bulkTarget);
               else onFixAll();
             }}
             disabled={fixAllBusy || c.open === 0}
@@ -436,18 +512,9 @@ export function TailorWorkQueue({
           >
             {/* "all" was a lie whenever a contextual row was open: the pass
                 skips those by design. Naming what it actually operates on
-                keeps the button honest without needing a footnote.
-                "Blockers" was the next version of the same lie, and only
-                looked right while every scored row was banded as one — this
-                button covers the blocker AND keyword bands, so it sat above a
-                blocker band of two saying it would improve six. "Gaps" is what
-                the set actually is, and the exclusion tag beside it already
-                names what is left out. */}
-            {fixAllBusy
-              ? "Improving…"
-              : selected.length > 0
-                ? `Improve selected (${selected.length})`
-                : `Improve ${selectable.length || c.open} gap${(selectable.length || c.open) === 1 ? "" : "s"}`}
+                keeps the button honest without needing a footnote. See
+                `bulkLabel` for why "blockers" is true again. */}
+            {bulkLabel}
           </button>
         ) : null}
       </div>
@@ -565,11 +632,19 @@ export function TailorWorkQueue({
                 // Square on the stripe side: a 9px radius bends the stripe into
                 // a bracket instead of a bar.
                 borderRadius: "0 9px 9px 0",
-                // Severity in form, not only in colour: the stripe survives a
-                // greyscale print and colour-blind vision, where a tinted word
-                // does not. State stays with the status dot so the two never
-                // have to share one signal.
-                borderLeft: `3px solid ${expanded ? "var(--accent)" : TONE_COLOR[group.tone]}`,
+                // ONE stripe on screen at a time, and it means "this row is
+                // what you are doing now".
+                //
+                // It used to run down every row in the tone of its band. The
+                // justification was that severity should survive greyscale and
+                // colour-blind vision — but a red 3px bar versus an amber 3px
+                // bar in the same position is still colour-only, so it never
+                // did that job. What actually carries severity without colour
+                // is the labelled band the row sits in, and the verdict chip's
+                // words. The stripe was a third copy of one idea, repeated
+                // nineteen times, and it is most of why this screen read as a
+                // wall of alarm.
+                borderLeft: working || expanded ? "3px solid var(--accent)" : "3px solid transparent",
                 // An open row is tinted and takes the accent stripe, so the
                 // confirm flow below it reads as belonging to that row rather
                 // than floating between two. Same treatment as `working`,
@@ -738,7 +813,7 @@ export function TailorWorkQueue({
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
+          style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent-ink, #0559c7)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
         >
           {/* Names the bands, not a bare count. What is behind this is context
               and reassurance, never a blocker, and saying so is the difference
@@ -749,7 +824,7 @@ export function TailorWorkQueue({
         <button
           type="button"
           onClick={() => setShowAll(false)}
-          style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
+          style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent-ink, #0559c7)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
         >
           Collapse the advisory rows
         </button>

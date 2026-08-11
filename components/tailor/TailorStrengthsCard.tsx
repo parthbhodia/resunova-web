@@ -101,7 +101,11 @@ export function TailorStrengthsCard({
             padding: "4px 0 0",
             fontSize: FS.small,
             fontWeight: FW.semibold,
-            color: "var(--accent)",
+            // --accent-ink, not --accent. This card sits on a green tint, where
+            // the raw accent measures 4.28:1 in light mode — an AA failure on
+            // the one control in the card. The ink token exists for exactly
+            // this: accent-coloured text on a tinted ground.
+            color: "var(--accent-ink, #0559c7)",
             cursor: "pointer",
           }}
         >
