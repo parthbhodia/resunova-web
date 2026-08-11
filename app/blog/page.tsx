@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LogoFull } from "@/components/BrandLogo";
+import BlogSubscribe from "@/components/blog/BlogSubscribe";
 import {
   BLOG_POSTS,
+  BLOG_RSS_URL,
   blogPostHref,
   formatPublishedAt,
   hasFinding,
@@ -15,7 +17,10 @@ export const metadata: Metadata = {
   description:
     "Original research from a live corpus of about 270,000 job postings pulled straight from company hiring systems, plus practical guides to the software reading your résumé.",
   robots: { index: true, follow: true },
-  alternates: { canonical: "/blog/" },
+  alternates: {
+    canonical: "/blog/",
+    types: { "application/rss+xml": BLOG_RSS_URL },
+  },
   openGraph: {
     type: "website",
     url: "/blog/",
@@ -82,7 +87,15 @@ export default function BlogIndexPage() {
           actually say. Plus practical guides to the software reading your résumé.
         </p>
         <p style={{ fontSize: 12, color: "var(--dim)", margin: "0 0 40px" }}>
-          Every figure below is measured from that corpus. Methodology and caveats are published with each post.
+          Every figure below is measured from that corpus. Methodology and caveats are published with each post. See{" "}
+          <Link href="/blog/methodology/" style={{ color: "var(--accent)" }}>
+            how we measure
+          </Link>
+          , or subscribe by{" "}
+          <a href={BLOG_RSS_URL} style={{ color: "var(--accent)" }}>
+            RSS
+          </a>
+          .
         </p>
 
         <SectionHeading>Original research</SectionHeading>
@@ -126,6 +139,8 @@ export default function BlogIndexPage() {
             </ul>
           </>
         ) : null}
+
+        <BlogSubscribe source="index" />
       </main>
     </div>
   );

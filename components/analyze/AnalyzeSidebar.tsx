@@ -1,9 +1,11 @@
 // Presentational sidebar pieces for the Analyze flow, extracted from
 // AnalyzeResume.tsx (Slice 3 of docs/ANALYZE_REFACTOR_PLAN.md).
 //
-// SCOPE: only the genuinely presentational, side-effect-free rail — the pinned
-// header (Recent-Analyses label OR score ring + tenure) and the pre-result
-// history list (skeleton / empty / rows). The RESULT-state "Improvement Plan"
+// SCOPE: only the genuinely presentational rail — the pinned header
+// (Recent-Analyses label OR score ring + tenure) and the pre-result
+// history list (skeleton / empty / rows). Neither owns state; the one fetch in
+// here is `ScoreStandingLine`, a self-contained child that renders nothing
+// until it has an answer. The RESULT-state "Improvement Plan"
 // panel (category selection, save-version, bullet fix cards) stays in
 // AnalyzeResume because it is wired into the edit/rescore state machine; that
 // interactive extraction is Slice 4 and is gated on live browser verification.
@@ -13,8 +15,16 @@
 import React from "react";
 import ScoreRing from "../ScoreRing";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FS, FW } from "@/lib/typography";
 import type { AnalysisResult } from "./analyzeTypes";
 import { scoreColor, scoreLabel, formatExperienceTenureChip } from "./analyzeViewHelpers";
+import {
+  computeScoreProgress,
+  formatScoreProgress,
+  scoreProgressTone,
+  type ScoreProgressEntry,
+} from "./scoreProgress";
+import ScoreStandingLine from "./ScoreStandingLine";
 
 /** Pinned (non-scrolling) sidebar header. Before an analysis: a "Recent
  * Analyses" label. After: the overall score ring + label + tenure chip, plus
@@ -24,11 +34,15 @@ export function AnalyzeSidebarPinned({
   result,
   onEditResume,
   hasEditedVersion = false,
+  history = [],
 }: {
   result: AnalysisResult | null;
   onEditResume?: () => void;
   hasEditedVersion?: boolean;
+  /** Past runs, for the progress line under the ring. Safe to omit. */
+  history?: readonly ScoreProgressEntry[];
 }) {
+  const progress = computeScoreProgress(history);
   if (!result) {
     return (
       <>
@@ -50,6 +64,30 @@ export function AnalyzeSidebarPinned({
       <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: scoreColor(result.overallScore) }}>
         {scoreLabel(result.overallScore)}
       </div>
+      {/* ONE line of context under the ring, never two.
+          The arc wins when there is one: "up 12 since Jun 10" is about this
+          person's own work, which beats any comparison against strangers. With
+          only one scan on record there is no arc yet — and that is exactly the
+          visit where a bare number means least, and exactly the cohort that
+          scans once and never returns, so the percentile takes the slot.
+          Deliberately quiet either way: a second bold figure here would compete
+          with the ring for the same glance, and the ring is the reading. */}
+      {progress ? (
+        <div
+          style={{
+            marginTop: 4,
+            fontSize: FS.caption,
+            fontWeight: FW.semibold,
+            color: scoreProgressTone(progress),
+            textAlign: "center",
+            lineHeight: 1.45,
+          }}
+        >
+          {formatScoreProgress(progress)}
+        </div>
+      ) : (
+        <ScoreStandingLine score={result.overallScore} />
+      )}
       {onEditResume && (
         <button
           type="button"

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import BlogArticleLayout, { Section } from "@/components/blog/BlogArticleLayout";
+import BlogArticleLayout, { Section, TableOfContents, CTACard } from "@/components/blog/BlogArticleLayout";
 import JsonLd from "@/components/seo/JsonLd";
 import { createBlogPostMetadata } from "@/lib/atsBlogPosts";
 
@@ -105,7 +105,18 @@ export default function GhostJobsDuplicatePostingsPage() {
         increase. Good news, until we looked closer at what had actually come in.
       </p>
 
-      <Section title="Thirty-eight percent of the new postings were the same job">
+      <TableOfContents
+        items={[
+          { id: "the-finding", label: "38% were the same job" },
+          { id: "one-company", label: "One JD, 800 locations" },
+          { id: "byte-identical", label: "Why exact matching won" },
+          { id: "ongoing", label: "The cleanup never stops" },
+          { id: "methodology", label: "Methodology" },
+          { id: "faq", label: "FAQ" },
+        ]}
+      />
+
+      <Section id="the-finding" title="Thirty-eight percent of the new postings were the same job">
         <p style={{ margin: "0 0 12px" }}>
           Of the roughly 34,000 raw postings ingested that run, about <strong>13,000, or 38%, were byte-for-byte
           identical</strong> to another posting ingested in the same batch. Same title, same body text, same
@@ -115,7 +126,7 @@ export default function GhostJobsDuplicatePostingsPage() {
         <DuplicateRateChart />
       </Section>
 
-      <Section title="One company, one job description, about 800 locations">
+      <Section id="one-company" title="One company, one job description, about 800 locations">
         <p style={{ margin: "0 0 12px" }}>
           The single biggest contributor was a security-staffing company, Securitas, which had reposted one job
           description across roughly 800 different locations. Same guard-post listing, same requirements paragraph,
@@ -130,7 +141,7 @@ export default function GhostJobsDuplicatePostingsPage() {
         </p>
       </Section>
 
-      <Section title="Byte-identical, not 'looks similar': why the stricter signal won">
+      <Section id="byte-identical" title="Byte-identical, not 'looks similar': why the stricter signal won">
         <p style={{ margin: "0 0 12px" }}>
           Our dedupe pass runs after every scan and keeps one row per identical job-description body (favoring the
           copy with extracted skill data, then the one with a salary, then the newest), deactivating the rest so
@@ -146,7 +157,7 @@ export default function GhostJobsDuplicatePostingsPage() {
         </p>
       </Section>
 
-      <Section title="The spam never stops. Neither does the cleanup.">
+      <Section id="ongoing" title="The spam never stops. Neither does the cleanup.">
         <p style={{ margin: "0 0 12px" }}>
           Here is the part we did not expect: the fix is not a one-time cleanup, it is a treadmill. The source boards
           never stop listing those duplicates, so every fresh crawl re-activates them, and the pass at the end of the
@@ -168,7 +179,14 @@ export default function GhostJobsDuplicatePostingsPage() {
         </p>
       </Section>
 
-      <Section title="Methodology and honest caveats">
+      <CTACard
+        heading="A job board that collapses the copies"
+        body="The dedupe pass described above runs on Resunova's board after every scan, several times a day. Browse the postings that survive it: free, no subscription, straight from company career sites."
+        href="/jobs/"
+        cta="Browse deduplicated jobs"
+      />
+
+      <Section id="methodology" title="Methodology and honest caveats">
         <p style={{ margin: "0 0 10px" }}>
           <strong>The surge numbers.</strong> ~530 to ~3,700 last-24h US postings, ~34,000 raw ingested, ~13,000
           (38%) exact duplicates, and the Securitas figure are all from the single provider-activation run on
@@ -191,11 +209,15 @@ export default function GhostJobsDuplicatePostingsPage() {
         <p style={{ margin: 0 }}>
           <strong>Source.</strong>{" "}
           Postings pulled directly from each company&apos;s public ATS or career-site API.
-          Deduping runs server-side after every scan, several times a day.
+          Deduping runs server-side after every scan, several times a day. Full corpus details:{" "}
+          <Link href="/blog/methodology/" style={{ color: "var(--accent)" }}>
+            how we measure
+          </Link>
+          .
         </p>
       </Section>
 
-      <Section title="FAQ">
+      <Section id="faq" title="FAQ">
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           {FAQ_JSONLD.mainEntity.map((f) => (
             <div key={f.name}>
