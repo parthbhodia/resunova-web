@@ -45,7 +45,7 @@ Everything else below is fair game.
 | Comparison pages (`/compare/[slug]`) | Framing, choice architecture, processing fluency, pratfall |
 | Promo and lifecycle email (`marketing/drafts/`) | Fresh start, Zeigarnik, commitment and consistency, endowment, reciprocity, loss aversion |
 | Image assets (`marketing/html/`) | Gold gradient, von Restorff, processing fluency, vibe branding |
-| Product surfaces (flag only, do not edit) | Choice overload, decoy effect, choice architecture defaults |
+| Product surfaces (flag only, do not edit) | Choice overload, decoy effect, choice architecture defaults, von Restorff (see the note under 02) |
 
 ---
 
@@ -133,6 +133,27 @@ artefacts nobody views side by side.
 on `hasFinding` is right that an empty slot beats a decorated one. And never
 call a category an isolate: if the different-looking thing appears more than
 once in the set, the effect is not running.
+
+**Flagged on product surfaces (not this agent's lane, recorded so it is not
+lost).** The same partition pattern runs through the three surfaces that carry
+the most decision weight, because each of them colours every item independently
+from that item's own score:
+
+- Analysis, the 8 category tiles: `analyzeViewHelpers.tsx` bands green at 80,
+  yellow at 60, red below. Three groups, no isolate.
+- Analysis, "Top Fixes": `AnalyzeResume.tsx` filters categories scoring under
+  70 and sorts ascending, then `AnalyzeImprovementPlan.tsx` renders every entry
+  with the same `--surface2` fill and `--border`. Row one is the single highest
+  value action in the product and looks exactly like row four.
+- Tailor: `TailorScoreboard.tsx` bands by ratio at 0.9 and 0.6, and
+  `TailorWorkQueue.tsx` runs crit/warn/good tones.
+
+Severity banding is a good status system and answers "how bad is each item?".
+Von Restorff answers a different question, "which one do I look at first?", and
+sorting cannot answer it either: position is ordering, not contrast. Note also
+that whatever marks the isolate cannot be amber, since that channel is already
+spoken for by status (see 01). Any change here belongs to `DESIGN.md` and the
+impeccable plus redesign skills, not to this agent.
 
 ## 03. Framing effect
 

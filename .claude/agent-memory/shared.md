@@ -14,6 +14,12 @@ older than 90 days when you touch the file.
   2026-07-15; re-verify claims after 2026-10-15.
 - 2026-07-15: Ghost-jobs post committed on branch blog/ghost-jobs-duplicate-postings,
   not yet shipped. Do not reference it in published content until live.
+- 2026-08-11: Flagged for design, not acted on: analyze and tailor both colour
+  every item independently by its own score (analyzeViewHelpers 80/60 bands,
+  TailorScoreboard 0.9/0.6, TailorWorkQueue crit/warn/good), so no surface has
+  a visual isolate. topFixCategories[0] is the highest-value action in the
+  product and renders identically to the rows under it. Needs DESIGN.md plus
+  impeccable, and the isolate cannot be amber (status channel).
 - 2026-08-11: marketing/PSYCHOLOGY_PLAYBOOK.md added (21 persuasion principles
   mapped to our surfaces, plus a nine-item pre-publish pass). Read it before
   drafting copy. New hard rule 6 in the marketing-agent file: no fake
