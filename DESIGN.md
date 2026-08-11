@@ -61,9 +61,31 @@ adapt. Always go through a token.
 | text | `--text` / `--muted` / `--dim` | `#0f172a` / `#475569` / `#64748b` |
 | brand | `--accent` / `--accent-h` / `--accent-bg` | `#0969da` |
 | status | `--green` `--amber` `--red` `--yellow` + `-bg` / `-ink` | |
+| on a fill | `--on-fill` | `#ffffff` (dark: `#0d1117`) |
+
+**There are three places text can sit, and each has its own token.** Getting
+these confused is the single most common contrast bug in this repo.
+
+| text sits on | use | example |
+|---|---|---|
+| a surface | `--text` / `--muted` / `--dim` | body copy on a card |
+| a **tint** (`--*-bg`) | `--*-ink` | a green chip, a band strip |
+| a **solid fill** (`--accent`, `--green`, `--*-ink` used as a background) | `--on-fill` | a primary button, a status dot |
 
 **`-ink` variants exist for text on a tint.** `--green` on `--green-bg` is ~2:1;
 `--green-ink` is ~7:1. Text on a tinted chip uses `-ink`, always.
+
+**`--on-fill` exists for text on a solid fill, and is one token rather than one
+per hue on purpose.** Every hue token here is tuned to be readable *as text* on
+the theme's background, so in dark mode they are all light — which makes them
+good fills and bad backgrounds for white text. Measured on the shipped controls:
+`#fff` was 2.53:1 on `--accent` and 1.52:1 on `--green-ink`, while light passed
+at 5.19 and 5.48. One hardcoded foreground cannot be right in both themes. The
+rule is a property of the family, so one token states it; a hue that ever breaks
+it can earn its own. The fills are deliberately unchanged — near-black on them
+measures 7.49:1 to 13.12:1, whereas darkening the fills to a colour white can
+sit on reaches only 4.63:1 *and* costs the button its presence against the card
+(6.85:1 → 3.73:1).
 
 **Type is a ladder, not free numbers.** `lib/typography.ts` and the `--fs-*`
 custom properties, kept in sync by a test:
@@ -136,6 +158,19 @@ Entrances are removed outright under `prefers-reduced-motion`, not shortened.
    button. `theme.test.ts` now asserts the ratio rather than the literal.
 6. **Text on a tint uses `-ink`.** `--accent` on `--accent-bg` is 4.46:1 in
    light, which is why `--accent-ink` exists alongside the green/amber/red ones.
+7. **A filled control never hardcodes its foreground.** `color: "#fff"` on a
+   hue-token background is readable in exactly one theme; use `--on-fill`.
+   `tailorQueueMotion.test.ts` fails the build on the pairing, at baseline zero.
+   The rule generalises the MUI `contrastText` fix in 5 to every filled control,
+   and both now route through the same colour so the two palettes cannot
+   disagree about it.
+8. **One palette per theme.** `globals.css` defined both palettes twice under
+   identical selectors, so the later copy silently won and the earlier was dead
+   code — which had already drifted on three shadow tokens, meaning an edit to
+   it produced no effect and no error. `themeTokens.test.ts` fails on any
+   property declared twice under one selector. Deliberately narrow: shadcn's
+   `:root` defaults being overridden by the app palette is a cascade, not a
+   duplicate.
 
 ---
 

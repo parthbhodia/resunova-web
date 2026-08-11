@@ -38,7 +38,6 @@ import {
   scoreMovingCount,
 } from "@/lib/tailorRequirementQueue";
 import { fetchLiveCoverage } from "@/lib/tailorLiveCoverage";
-import { FS, FW } from "@/lib/typography";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { useLiveCoverage } from "@/components/tailor/useLiveCoverage";
 import { TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
@@ -308,6 +307,9 @@ export function TailorQueuePanel({
         ? ratings.match_score
         : null;
 
+  // Scroll target for the score's entry row.
+  const queueRef = useRef<HTMLDivElement | null>(null);
+
   // ---- Inline fix expansion -------------------------------------------------
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandState, setExpandState] = useState<FixExpansionState>({ phase: "loading" });
@@ -421,59 +423,32 @@ export function TailorQueuePanel({
     [requirementConcepts, currentResumeText],
   );
 
+  // The score's way into the queue. Motion is opt-out, matching the reveal
+  // stagger: a smooth jump is the one thing on this rail that moves the page
+  // under someone who asked it not to.
+  const enterQueue = useCallback(() => {
+    const el = queueRef.current;
+    if (!el) return;
+    const reduce =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Optional call: jsdom does not implement scrollIntoView, and a panel that
+    // throws on a click is a worse bug than one that does not scroll.
+    el.scrollIntoView?.({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  }, []);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 12px 0" }}>
-      {/* Above the tiles, per the mockup.
+      {/* The gap count no longer stands alone above the tiles — it lives inside
+       * the match block as the way into the queue. See the hierarchy note in
+       * TailorScoreboard: a percentage the user cannot act on is a verdict, and
+       * the count sitting apart from it left the connection theirs to draw.
        *
-       * It belongs here rather than inside the queue card: sitting directly on
-       * top of the "Could get you filtered out" band header it printed that
-       * sentence twice in a row, which is exactly the restatement the queue's
-       * own v7 note warns about. Distance is what makes it information again.
-       *
-       * This is NOT the "Keep every claim true" banner returning. That was a
-       * warning repeating the row stripes; this is a count and an ordering —
-       * how many rows are pass/fail and that the rest can wait. Nothing else
-       * ranks the bands. It renders nothing at zero blockers. */}
-      {blockerOpen > 0 ? (
-        <div
-          style={{
-            display: "flex",
-            gap: 11,
-            alignItems: "flex-start",
-            margin: "16px 16px 0",
-            padding: "12px 14px",
-            borderRadius: 10,
-            background: "var(--red-bg, rgba(220,38,38,0.10))",
-            border: "1px solid color-mix(in srgb, var(--red-ink, #b42318) 26%, transparent)",
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              flex: "none", width: 22, height: 22, borderRadius: 7,
-              display: "grid", placeItems: "center",
-              background: "var(--red-ink, #b42318)", color: "#fff",
-              fontSize: FS.caption, fontWeight: FW.extrabold,
-            }}
-          >
-            !
-          </span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: FS.body, fontWeight: FW.bold, color: "var(--red-ink, #b42318)" }}>
-              {blockerOpen} gap{blockerOpen === 1 ? "" : "s"} could get you filtered out
-            </div>
-            <div style={{ fontSize: FS.small, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>
-              {/* Naming what can wait is the point. A count on its own is
-                  pressure; a count plus an ordering is a plan. */}
-              Hard requirements the posting asks for that your resume does not
-              evidence yet.
-              {smallerOpen > 0
-                ? ` The other ${smallerOpen} can wait.`
-                : ""}
-            </div>
-          </div>
-        </div>
-      ) : null}
+       * The placement constraint it shipped with still holds, and by more:
+       * rendered inside the queue card this sentence sat directly on the "Could
+       * get you filtered out" band header and printed twice in a row. It is now
+       * two cards and the title note further away than it was. */}
       <TailorScoreboard
         found={coverage.found}
         total={coverage.total}
@@ -484,48 +459,53 @@ export function TailorQueuePanel({
         stale={stale}
         onRecheck={onRecheck}
         recheckBusy={recheckBusy}
+        blockersOpen={blockerOpen}
+        otherOpen={smallerOpen}
+        onEnterQueue={enterQueue}
       />
       {/* The chip row is gone: it grouped the same rows by rater category while
           the bands group them by consequence, and the band headers now carry
           true counts. Title had nowhere else to live, so it stays as a line. */}
       <TailorTitleNote ratings={ratings} />
-      <TailorWorkQueue
-        items={displayItems}
-        workingIds={workingIds}
-        passRan={passRan && !revealing}
-        fixAllBusy={fixAllBusy || revealing}
-        onFixAll={onFixAll}
-        onFixSelected={onFixSelected}
-        onItemAction={handleItemAction}
-        onDownload={onDownload}
-        onInterviewPrep={onInterviewPrep}
-        expandedId={expandedId}
-        expansion={
-          expandedItem ? (
-            <TailorFixExpansion
-              key={expandedItem.id}
-              item={expandedItem}
-              state={expandState}
-              applying={applying}
-              onApply={(s, edited) => { void handleApply(s, edited); }}
-              onIgnore={handleIgnore}
-              onTryFix={() => openFix(expandedItem)}
-              // A corrected fact is worth a second call: the API treats
-              // confirmed facts as a provenance source, so a number the
-              // candidate supplied stops reading as unevidenced.
-              onRewriteWithFacts={(fact) => openFix(expandedItem, fact)}
-              onAddEducation={onAddEducation}
-              structuredResume={structuredResume}
-              // What applying this one rewrite would do to the deterministic
-              // number, before committing to it. Same endpoint the scoreboard
-              // uses, so it is a recount rather than a projection: zero-token,
-              // no LLM, and it can honestly report no movement or a drop.
-              scoreFix={scoreFix}
-              onClose={closeExpansion}
-            />
-          ) : null
-        }
-      />
+      <div ref={queueRef}>
+        <TailorWorkQueue
+          items={displayItems}
+          workingIds={workingIds}
+          passRan={passRan && !revealing}
+          fixAllBusy={fixAllBusy || revealing}
+          onFixAll={onFixAll}
+          onFixSelected={onFixSelected}
+          onItemAction={handleItemAction}
+          onDownload={onDownload}
+          onInterviewPrep={onInterviewPrep}
+          expandedId={expandedId}
+          expansion={
+            expandedItem ? (
+              <TailorFixExpansion
+                key={expandedItem.id}
+                item={expandedItem}
+                state={expandState}
+                applying={applying}
+                onApply={(s, edited) => { void handleApply(s, edited); }}
+                onIgnore={handleIgnore}
+                onTryFix={() => openFix(expandedItem)}
+                // A corrected fact is worth a second call: the API treats
+                // confirmed facts as a provenance source, so a number the
+                // candidate supplied stops reading as unevidenced.
+                onRewriteWithFacts={(fact) => openFix(expandedItem, fact)}
+                onAddEducation={onAddEducation}
+                structuredResume={structuredResume}
+                // What applying this one rewrite would do to the deterministic
+                // number, before committing to it. Same endpoint the scoreboard
+                // uses, so it is a recount rather than a projection: zero-token,
+                // no LLM, and it can honestly report no movement or a drop.
+                scoreFix={scoreFix}
+                onClose={closeExpansion}
+              />
+            ) : null
+          }
+        />
+      </div>
       {/* Above the strengths card on purpose: this is the record of work the
           user just did, and it is what they came back to check. Reassurance
           sits under it. Renders nothing until there IS a change. */}
