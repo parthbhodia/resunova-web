@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import ResumeUpload from "./ResumeUpload";
+import TargetsEditor from "./TargetsEditor";
 import { ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "../../lib/resumeExtractorService";
 import {
   ChevronRight,
@@ -34,6 +35,9 @@ export default function ProfilePage() {
   const [tailorDefaults, setTailorDefaults] = useState<ProfileFormState>(EMPTY_PROFILE);
   const [tdBaseline, setTdBaseline] = useState<string>("");
   const [tdSaving, setTdSaving] = useState(false);
+  // Targets had no editor at all: the button below was rendered with no
+  // onClick, so a user could not change what Jobs ranks against.
+  const [editingTargets, setEditingTargets] = useState(false);
   const tdSaveTimerRef = useRef<number | null>(null);
 
   const dirty = typeof window !== "undefined" && baseline !== "" && baseline !== JSON.stringify(extractedData);
@@ -448,13 +452,34 @@ export default function ProfilePage() {
                 label="You"
                 icon={<Target size={14} />}
               >
-                <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
-                  {tailorDefaults.roles || "No target roles set. Edit your preferences to help Resunova tailor applications."}
-                </p>
-                <div className="cm-inline-actions">
-                  <span className="cm-source-note">Source: your preferences</span>
-                  <button className="cm-text-btn" type="button">Edit target roles</button>
-                </div>
+                {editingTargets ? (
+                  <TargetsEditor
+                    value={tailorDefaults}
+                    onChange={setTailorDefaults}
+                    onDone={() => setEditingTargets(false)}
+                  />
+                ) : (
+                  <>
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+                      {tailorDefaults.roles || "No target roles set, so Jobs is ranking every role in the corpus."}
+                    </p>
+                    {tailorDefaults.locations && (
+                      <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
+                        {tailorDefaults.locations}
+                      </p>
+                    )}
+                    <div className="cm-inline-actions">
+                      <span className="cm-source-note">Source: your preferences</span>
+                      <button
+                        className="cm-text-btn"
+                        type="button"
+                        onClick={() => setEditingTargets(true)}
+                      >
+                        {tailorDefaults.roles ? "Edit target roles" : "Set target roles"}
+                      </button>
+                    </div>
+                  </>
+                )}
               </LedgerSection>
 
               <LedgerSection
