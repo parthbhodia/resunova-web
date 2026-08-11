@@ -85,7 +85,7 @@ function StepLabel({ n, children }: { n: number; children: React.ReactNode }) {
           display: "inline-grid",
           placeItems: "center",
           background: "var(--accent)",
-          color: "#fff",
+          color: "var(--on-fill, #fff)",
           fontSize: FS.micro,
           fontWeight: FW.extrabold,
           letterSpacing: 0,
@@ -120,7 +120,7 @@ const ghostBtn: React.CSSProperties = {
 
 const primaryBtn: React.CSSProperties = {
   background: "var(--green-ink, #16a34a)",
-  color: "#fff",
+  color: "var(--on-fill, #fff)",
   border: 0,
   borderRadius: 8,
   fontSize: FS.body,

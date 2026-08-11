@@ -75,96 +75,11 @@
   --radius-4xl:         calc(var(--radius) * 2.6);
 }
 
-/* ── Dark theme (default) ────────────────────────────────────── */
-/*    Cool navy-black — removes the muddy warm tint               */
-:root,
-[data-theme="dark"] {
-  --bg:          #0d1117;
-  --surface:     #161b22;
-  --surface2:    #1e2329;
-  --surface3:    #252c37;
-  --border:      rgba(230,237,243,0.12);
-  --border-h:    rgba(230,237,243,0.22);
-  --text:        #f0f6fc;
-  --muted:       rgba(240,246,252,0.74);
-  --dim:         rgba(240,246,252,0.54);
-  --accent:      #58a6ff;
-  --accent-h:    #79c0ff;
-  --accent-bg:   rgba(88,166,255,0.15);
-  --accent-ink:  #58a6ff;   /* text on --accent-bg (dark tint) */
-  --amber:       #fbbf24;
-  --amber-h:     #fcd34d;
-  --amber-bg:    rgba(251,191,36,0.16);
-  --amber-ink:   #fcd34d;
-  --green:       #34d399;
-  --green-h:     #6ee7b7;
-  --green-bg:    rgba(52,211,153,0.16);
-  --green-ink:   #6ee7b7;
-  --yellow:      #fbbf24;
-  --yellow-bg:   rgba(251,191,36,0.15);
-  --red:         #f87171;
-  --red-bg:      rgba(248,113,113,0.16);
-  --red-ink:     #fca5a5;
-  --orange:      #f59e0b;
-  --glass-bg:    rgba(13,17,23,0.90);
-  --shadow:      0 4px 32px rgba(0,0,0,0.40);
-  --shadow-sm:   0 1px 4px rgba(0,0,0,0.24);
-  --shadow-card: 0 1px 4px rgba(0,0,0,0.24);
-  --radius:      8px;
-  --radius-lg:   12px;
-  --radius-xl:   14px;
-  --radius-pill: 99px;
-  --sidebar-w:   232px;
-  --sidebar-w-compact: 84px;
-  --app-bottom-nav-h: 56px;
-  --transition:  0.18s cubic-bezier(0.4,0,0.2,1);
-}
-
-/* ── Light theme ─────────────────────────────────────────────── */
-/*    Cool slate-white — removes the warm beige/cream look        */
-[data-theme="light"] {
-  --bg:          #f7f9fc;
-  --surface:     #ffffff;
-  --surface2:    #eef3f8;
-  --surface3:    #dbe4ee;
-  --border:      rgba(15,23,42,0.14);
-  --border-h:    rgba(15,23,42,0.26);
-  --text:        #0f172a;
-  --muted:       #475569;
-  --dim:         #64748b;
-  --accent:      #0969da;
-  --accent-h:    #0559c7;
-  --accent-bg:   rgba(9,105,218,0.11);
-  --accent-ink:  #0559c7;   /* text on --accent-bg; --accent is 4.46:1 there */
-  --amber:       #b45309;
-  --amber-h:     #92400e;
-  --amber-bg:    rgba(180,83,9,0.12);
-  --amber-ink:   #92400e;
-  --green:       #059669;
-  --green-h:     #047857;
-  --green-bg:    rgba(5,150,105,0.12);
-  /* Tinted-chip text on light backgrounds needs darker green for WCAG AA
-     contrast on the green tint; keep --green for solid swatches. */
-  --green-ink:   #047857;
-  --yellow:      #a16207;
-  --yellow-bg:   rgba(161,98,7,0.12);
-  --red:         #dc2626;
-  --red-bg:      rgba(220,38,38,0.12);
-  --red-ink:     #991b1b;
-  --orange:      #c2410c;
-  --glass-bg:    rgba(255,255,255,0.90);
-  --shadow:      0 4px 32px rgba(13,17,23,0.10);
-  --shadow-sm:   0 1px 4px rgba(0,0,0,0.08);
-  --shadow-card: 0 1px 4px rgba(0,0,0,0.08);
-  --radius:      8px;
-  --radius-lg:   12px;
-  --radius-xl:   14px;
-  --radius-pill: 99px;
-  --sidebar-w:   232px;
-  --sidebar-w-compact: 84px;
-  --app-bottom-nav-h: 56px;
-  --transition:  0.18s cubic-bezier(0.4,0,0.2,1);
-}
+/* The dark and light palettes used to live here, duplicated verbatim further
+   down the file. The copies below won on source order, so these were dead, and
+   they had already drifted on three shadow tokens. The single definition of
+   each palette is now in the "shadcn semantic colors" section near the end;
+   themeTokens.test.ts stops a second copy reappearing. */
 
 /* Typography scale — centralized font sizes, weights, and line-heights.
  *
@@ -254,6 +169,17 @@
 :root,
 [data-theme="dark"],
 [data-theme="light"] {
+  /* Geometry and motion — identical in every theme, so they live in the
+     shared block rather than being repeated in each palette. */
+  --app-bottom-nav-h: 56px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 99px;
+  --radius-xl: 14px;
+  --sidebar-w: 232px;
+  --sidebar-w-compact: 84px;
+  --transition: 0.18s cubic-bezier(0.4,0,0.2,1);
+
   --resume-paper-bg:       #ffffff;
   --resume-paper-ink:      #0f172a;
   --resume-paper-muted:    #475569;
@@ -848,6 +774,8 @@ select option { background: var(--surface); }
    authoritative, then map shadcn semantic colors onto the same palette. */
 :root,
 [data-theme="dark"] {
+  --green-h:     #6ee7b7;
+
   color-scheme: dark;
   --bg:          #0d1117;
   --surface:     #161b22;
@@ -874,6 +802,7 @@ select option { background: var(--surface); }
   --red:         #f87171;
   --red-bg:      rgba(248,113,113,0.16);
   --red-ink:     #fca5a5;
+  --on-fill:     #0d1117;
   --orange:      #f59e0b;
   --glass-bg:    rgba(13,17,23,0.90);
   --shadow:      0 4px 32px rgba(0,0,0,0.44);
@@ -933,6 +862,7 @@ select option { background: var(--surface); }
   --red:         #dc2626;
   --red-bg:      rgba(220,38,38,0.12);
   --red-ink:     #991b1b;
+  --on-fill:     #ffffff;
   --orange:      #c2410c;
   --glass-bg:    rgba(255,255,255,0.90);
   --shadow:      0 14px 40px rgba(15,23,42,0.11);

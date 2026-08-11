@@ -9,14 +9,49 @@ import { TOKENS, makeTheme, PHONE_BREAKPOINT } from "../theme";
  * `var(--accent)`. Duplication is the right call there, but only if it cannot
  * drift — so this reads globals.css and fails when it does.
  */
+/**
+ * Resolves a token the way the cascade does: every block that applies to the
+ * mode, in source order, later declarations winning.
+ *
+ * The previous version took the FIRST block whose selector contained
+ * `[data-theme="<mode>"]` and read only that. That was two assumptions — that
+ * exactly one block matters, and that it is the first — and both were wrong:
+ * the shared `:root, [data-theme="dark"], [data-theme="light"]` block matches
+ * the same substring, so once the duplicated palette was removed the parser
+ * silently started reading a block with no colours in it and compared the MUI
+ * palette against `undefined`. A drift guard that reads the wrong block is a
+ * guard that cannot see.
+ */
 function tokensFromCss(mode: "light" | "dark"): Record<string, string> {
   const css = readFileSync(join(process.cwd(), "app/globals.css"), "utf8");
-  const block = css.match(new RegExp(`\\[data-theme="${mode}"\\]\\s*\\{([\\s\\S]*?)\\n\\}`));
-  if (!block) throw new Error(`no [data-theme="${mode}"] block in globals.css`);
   const out: Record<string, string> = {};
-  for (const m of block[1].matchAll(/--([\w-]+):\s*([^;]+);/g)) {
-    out[m[1]] = m[2].trim();
+  let depth = 0;
+  let selStart = 0;
+  let bodyStart = 0;
+  let applies = false;
+  for (let i = 0; i < css.length; i++) {
+    const c = css[i];
+    if (c === "{") {
+      if (depth === 0) {
+        const sel = css.slice(selStart, i).replace(/\/\*[\s\S]*?\*\//g, " ");
+        // `:root` also paints the mode the app defaults to when nothing is set.
+        applies = sel.includes(`[data-theme="${mode}"]`);
+        bodyStart = i + 1;
+      }
+      depth++;
+    } else if (c === "}") {
+      depth--;
+      if (depth === 0) {
+        if (applies) {
+          for (const m of css.slice(bodyStart, i).matchAll(/--([\w-]+):\s*([^;]+);/g)) {
+            out[m[1]] = m[2].trim();
+          }
+        }
+        selStart = i + 1;
+      }
+    }
   }
+  if (!Object.keys(out).length) throw new Error(`no [data-theme="${mode}"] declarations found`);
   return out;
 }
 
@@ -33,6 +68,15 @@ describe("MUI theme tokens track globals.css", () => {
       expect(t.border).toBe(css["border"]);
       expect(t.accent).toBe(css["accent"]);
       expect(t.accentHover).toBe(css["accent-h"]);
+      // The label on a filled control. MUI needs a literal for the same reason
+      // the rest of this palette is duplicated, so it is pinned to the CSS.
+      expect(t.onFill).toBe(css["on-fill"]);
+    });
+
+    it(`${mode} contrastText is the on-fill colour, not a hardcoded white`, () => {
+      // White is 5.19:1 on the light accent and 2.53:1 on the dark one, so a
+      // fixed contrastText is readable in exactly one theme.
+      expect(makeTheme(mode).palette.primary.contrastText).toBe(TOKENS[mode].onFill);
     });
   }
 });
