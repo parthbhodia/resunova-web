@@ -500,17 +500,33 @@ export default function ResumeBuilder({
     }
   }, []);
   const lastSaveArgsRef = useRef<Parameters<typeof saveTailorMatchToLibrary>[0] | null>(null);
+  /**
+   * Depend on the individual callbacks, NOT the `saveStatus` object.
+   *
+   * `useTailorSaveStatus` returns a fresh object literal every render, so
+   * `[saveStatus]` gave this a new identity on every render — including the one
+   * caused by its own `setState("saved")`. The debounced Hub-save effect below
+   * lists `persistTailorMatch` in its deps and is guarded only by `scoreStale`,
+   * which a save does not clear (only a re-score does). So one applied fix
+   * started a permanent loop: save → re-render → new identity → effect re-runs
+   * → save. The pill strobing "Saved to My Resumes" was the visible half; the
+   * invisible half was writing to the library on a timer forever.
+   *
+   * The three callbacks are `useCallback`s over a `[]`-dep helper, so they are
+   * genuinely stable and the effect now settles. Pinned in tailorSaveStatus.test.
+   */
+  const { beginSave, saveSucceeded, saveFailed } = saveStatus;
   const persistTailorMatch = useCallback(async (args: Parameters<typeof saveTailorMatchToLibrary>[0]) => {
     lastSaveArgsRef.current = args;
-    saveStatus.beginSave();
+    beginSave();
     try {
       await saveTailorMatchToLibrary(args);
-      saveStatus.saveSucceeded();
+      saveSucceeded();
     } catch (e) {
       console.warn("saveTailorMatchToLibrary failed", e);
-      saveStatus.saveFailed();
+      saveFailed();
     }
-  }, [saveStatus]);
+  }, [beginSave, saveSucceeded, saveFailed]);
   const retryTailorSave = useCallback(() => {
     if (lastSaveArgsRef.current) void persistTailorMatch(lastSaveArgsRef.current);
   }, [persistTailorMatch]);
