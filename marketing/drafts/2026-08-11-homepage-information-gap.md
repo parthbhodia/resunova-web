@@ -49,13 +49,13 @@ converts, and a single placement is not a test.
 
 | Surface | Copy |
 |---|---|
-| Hero H1 | Eight things decide whether your résumé gets read. You are guessing at all eight. |
-| OG / social card | Eight things decide whether your résumé gets read. |
-| Meta description | Eight checks decide whether your résumé gets read by a human. See all eight scores for your résumé in about 60 seconds. Free, no account. |
-| PH tagline (44 chars) | Eight things decide if your résumé gets read |
+| Hero H1 (shipped) | Eight things decide whether an ATS passes your résumé on. You are guessing at all eight. |
+| OG / social card | Eight things decide whether an ATS passes your résumé on. |
+| Meta description (shipped) | See the 8 checks that decide whether an ATS passes your resume on. Honest rewrites, a tailored PDF, and 3 free scans a day. Start with no account. |
+| PH tagline (48 chars) | Eight things decide if an ATS passes you on |
 | Display ad, landscape | Eight checks decide. You have seen none of your scores. |
-| Search ad headlines | `8 checks decide. See yours.` / `Your résumé fails 2 of 8.` / `See all 8 scores, free` |
-| Reddit (r/jobs) | Eight things decide whether your résumé gets read. Most people can only name three. |
+| Search ad headlines | `8 checks decide. See yours.` / `Your résumé fails 2 of 8.` / `3 free ATS scans a day` |
+| Reddit (r/jobs) | Eight things decide whether an ATS passes your résumé on. Most people can only name three. |
 | Email 1 subject | Your résumé scored 8 ways. Here is the weakest one. |
 | Email 2 subject | One of your eight is still open. |
 | Email 5 subject | Your eight scores are from a résumé you have since changed. |

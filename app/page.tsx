@@ -9,8 +9,11 @@ export const metadata: Metadata = {
   // deliberately does NOT reuse "ATS Resume Checker": /ats-resume-checker owns
   // that exact match, and two pages bidding on one phrase split the result.
   title: "Free AI Resume Builder: Get Past the ATS | Resunova",
+  // "3 free scans a day" and "no account" sit next to each other but must not
+  // be merged: 3/day is the signed-in free plan, while the no-account offer is
+  // the first scan only (see markAnonScanUsed in lib/anonScan.ts).
   description:
-    "Score your resume against the 8 checks that decide whether an ATS passes it on. Honest rewrites, a tailored PDF, and your first scan free with no account.",
+    "See the 8 checks that decide whether an ATS passes your resume on. Honest rewrites, a tailored PDF, and 3 free scans a day. Start with no account.",
   alternates: {
     canonical: `${SITE_URL}/`,
   },

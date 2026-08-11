@@ -230,6 +230,12 @@ title and gives the reader nothing to click for.
    cheaper the close, the harder the hook pulls, which is why our free tier is
    a copywriting asset and not just a pricing decision.
 
+**State the recurring offer, not the trial.** The free plan is 3 scans a day,
+every day (`FREE_SCAN_DAILY_LIMIT`), and writing "your first scan free" shrinks
+that to a single shot in the reader's head. Two facts that sit next to each
+other and must never be merged: 3 a day is the signed-in free plan, and the
+no-account offer covers the first scan only. Both true, one sentence each.
+
 **The one-line test.** After reading it, can the reader state the exact question
 they now want answered? If they cannot name the question, it is vague rather
 than curious. If the line already answers it, the loop is shut.
