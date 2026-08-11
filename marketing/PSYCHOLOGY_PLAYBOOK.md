@@ -258,14 +258,52 @@ reader. Worked example with a full surface family:
 **Mechanism.** People value what feels like theirs, and giving it up registers
 as a loss even when nothing was paid.
 
-**On Resunova.** The free scan does this work already: by the time someone has
-a scored résumé, applied bullet rewrites, and a saved version, the artefact is
-theirs. Copy should name the thing they built ("your 8-dimension score", "the
-three fixes still open on your résumé") rather than describe our features.
+**We inherit this one instead of manufacturing it, and that is a strategic
+advantage.** Every example in the source (Notion, Canva Pro, free trials) is a
+product that has to get you to *build* something before day 14 so cancelling
+feels like a loss. Our artefact is the user's résumé, the most identity-laden
+document a job seeker owns, and they arrive already owning it. So the job is
+not "make them build something." It is: take custody of something they already
+own, make it visibly better, and make the improved version the one they will
+not go back from.
 
-**Guardrail.** Only for users who actually have the artefact. The retention
-sequence is scoped to users with at least one completed scan for exactly this
-reason.
+**Stage 1: possession has to be felt, not just implemented.** The mechanic
+already works. An anonymous scan is stashed in localStorage
+(`ANON_ANALYSIS_STASH_KEY`), survives the OAuth redirect, and is restored into
+the user's history on sign-in. But endowment requires *awareness* of
+possession, and a visitor who closes the tab not knowing the report was kept
+has none of it, however good the code is. Saying so is the cheapest win
+available: name the artefact at the moment it exists.
+
+**Stage 2: co-authorship is the real ownership moment.** A score is something
+we did *to* their résumé. An applied rewrite is something they did *with* us,
+in their own words. That is the crossing from "I got a report" to "this is my
+improved résumé." Retention email 2 exists precisely because the top fix often
+goes unapplied, which means a large share of users never cross. Getting one
+rewrite applied in the first session is the highest-value endowment action in
+the product.
+
+**Stage 3: naming.** Users cannot name a version. Labels are derived
+(`resumeHeader?.[0]`, then `full_name`, then "Resume") and `ResumeLibrary`
+offers categories rather than rename. Letting someone call a version "Stripe
+PM, v2" is the classic endowment multiplier and it is the one clear gap. A
+product ask, flagged not acted on.
+
+**What is already right, do not break it.** The full first report is free and
+unlocked before any ask, which is exactly the source's prescription: let people
+build before you sell. And the sign-in prompts are already possession-framed
+("keep your report history", "saved to your history") rather than toll-framed.
+Someone understood this before the playbook existed.
+
+**Copy that follows from it.** Name what they have, never what we offer:
+"saved on this device" beats "create an account to save"; "your report is saved
+here, sign in to keep it when you close this tab" beats "sign in to rescore",
+because the first protects a possession and the second sells a feature.
+
+**Guardrail.** Only for users who actually hold the artefact. The retention
+sequence is scoped to users with at least one completed scan for this reason.
+Claiming someone owns something they have not made is the one way this
+backfires.
 
 ## 07. Peak-end rule
 

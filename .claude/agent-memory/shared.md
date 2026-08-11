@@ -14,6 +14,13 @@ older than 90 days when you touch the file.
   2026-07-15; re-verify claims after 2026-10-15.
 - 2026-07-15: Ghost-jobs post committed on branch blog/ghost-jobs-duplicate-postings,
   not yet shipped. Do not reference it in published content until live.
+- 2026-08-11: Endowment gaps flagged for product, not acted on: users cannot
+  name a résumé version (labels derived from resumeHeader/full_name;
+  ResumeLibrary has categories, no rename), and the anonymous scan is stashed
+  without ever telling the visitor it was kept. Also two small defects found
+  while reading: AnalyzeResume:284 has an em dash in a user-facing toast (:300
+  is the cleaned twin), and the lib/anonScan.ts header still describes the old
+  locked-report behaviour though the first scan is now fully unlocked.
 - 2026-08-11: Flagged for design, not acted on: analyze and tailor both colour
   every item independently by its own score (analyzeViewHelpers 80/60 bands,
   TailorScoreboard 0.9/0.6, TailorWorkQueue crit/warn/good), so no surface has
