@@ -52,6 +52,33 @@ Other tells worth avoiding: "seamlessly", "effortlessly", "unlock the power of",
 "in today's fast-paced", and rule-of-three padding ("fast, simple, and
 reliable").
 
+## Design work
+
+**Read [`DESIGN.md`](DESIGN.md) before any visual change.** It carries the
+shipped token vocabulary, the type ladder, the marketing-surface conventions,
+and the process.
+
+Two skills are installed under `.claude/skills/` and they are **used together,
+never one alone**:
+
+- **`impeccable`** — deterministic 59-rule detector plus a design hook on UI
+  edits. The verifier.
+- **`redesign-existing-projects`** — audit checklist and upgrade techniques.
+  The art direction. (`imagegen-frontend-web` produces reference comps.)
+
+They catch disjoint sets. On `/pricing` the detector found zero issues on a page
+the taste audit found eight in; the detector then caught three real defects in
+the taste-driven rebuild, two of them WCAG AA failures that would have shipped.
+Art direction proposes, the detector disposes.
+
+```bash
+npx impeccable detect app/pricing/    # full fidelity
+```
+
+⚠️ The hook's bundled detector runs in **DEGRADED regex mode** in this project
+(missing `htmlparser2`, `css-select`, `domutils`), so its clean results are an
+undercount. Trust `npx impeccable detect`.
+
 ## Material Design
 
 New UI follows **Material Design 3**, and **MUI (`@mui/material`) is the

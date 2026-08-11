@@ -15,6 +15,7 @@ import { FS, FW } from "@/lib/typography";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import { groupQueueBySeverity, queueCounts, type QueueTone } from "@/lib/tailorWorkQueue";
 import type { QueueVerdict, SourcedQueueItem } from "@/lib/tailorRequirementQueue";
+import { isCredentialRequirement } from "@/lib/degreeRequirement";
 
 /** What the row's trailing action says, per state. Null = no action. */
 export type QueueItemAction =
@@ -23,10 +24,15 @@ export type QueueItemAction =
   | "add_to_summary"
   | "fix"
   | "whats_this"
+  | "add_education"
   | "reconsider"
   | "no_action";
 
-export function itemAction(it: QueueItem): QueueItemAction | null {
+export function itemAction(
+  it: QueueItem,
+  /** Present on scorer rows. Absent ⇒ unchanged behaviour for legacy callers. */
+  verdict?: QueueVerdict,
+): QueueItemAction | null {
   // A covered requirement has nothing to do to it, and the mockup says so out
   // loud rather than leaving an empty gutter where every other row has a
   // control — the same reason the contextual rows carry an information mark.
@@ -35,7 +41,19 @@ export function itemAction(it: QueueItem): QueueItemAction | null {
   if (it.status === "needs_review") return "review";
   if (it.status === "ignored") return "reconsider";
   if (it.status === "not_coverable") return it.kind === "contextual" ? "whats_this" : null;
-  return it.kind === "contextual" ? "whats_this" : "fix";
+  if (it.kind === "contextual") return "whats_this";
+  // A credential cannot be evidenced by rewriting an experience bullet, so it
+  // never goes to the bullet fixer. Offered a degree, the model does not
+  // decline -- it rewrites something unrelated and invents a justification.
+  // Which side of the line the row falls on is the whole honesty question:
+  // `partial` means the résumé HAS it and the scanner cannot see the wording,
+  // so surfacing it in Education is true. `not_evidenced` means they do not
+  // have it, and offering to add it would be offering to fabricate a
+  // credential -- the one thing this product must never do.
+  if (isCredentialRequirement(it.name)) {
+    return verdict === "partial" || verdict === "covered" ? "add_education" : "no_action";
+  }
+  return "fix";
 }
 
 /** Severity tones. The fallbacks matter: these vars are defined per theme, and
@@ -84,6 +102,7 @@ const ACTION_LABEL: Record<QueueItemAction, string> = {
   add_to_summary: "Add to summary",
   fix: "Fix this",
   whats_this: "What's this?",
+  add_education: "Add to education",
   reconsider: "Reconsider",
   no_action: "No action",
 };
@@ -208,7 +227,7 @@ function StatusDot({ status, working }: { status: QueueItem["status"]; working: 
   }
   if (status === "applied") {
     return (
-      <span aria-label="applied" className="tq-dot" style={{ ...base, background: "var(--green-ink, #16a34a)", borderColor: "var(--green-ink, #16a34a)", color: "#fff" }}>
+      <span aria-label="applied" className="tq-dot" style={{ ...base, background: "var(--green-ink, #16a34a)", borderColor: "var(--green-ink, #16a34a)", color: "var(--on-fill, #fff)" }}>
         ✓
       </span>
     );
@@ -391,7 +410,7 @@ export function TailorWorkQueue({
             disabled={fixAllBusy || c.open === 0}
             style={{
               background: "var(--accent)",
-              color: "#fff",
+              color: "var(--on-fill, #fff)",
               border: 0,
               borderRadius: 8,
               fontSize: FS.body,
@@ -495,11 +514,11 @@ export function TailorWorkQueue({
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
         {group.items.map((it, rowIndex) => {
           const expanded = it.id === expandedId;
-          const action = expanded ? null : itemAction(it);
+          const verdict = (it as Partial<SourcedQueueItem>).verdict;
+          const action = expanded ? null : itemAction(it, verdict);
           // Present only on rows the union produced; a plain QueueItem
           // (a restored payload, a legacy caller) simply has no claim to
           // make and renders without one.
-          const verdict = (it as Partial<SourcedQueueItem>).verdict;
           const working = it.id === workingId || Boolean(workingIds?.has(it.id));
           const detailOpen = detailIds.has(it.id);
           const canSelect = it.status === "queued" && it.kind !== "contextual";
@@ -734,7 +753,7 @@ export function TailorWorkQueue({
                 onClick={onDownload}
                 style={{
                   background: "var(--green-ink, #16a34a)",
-                  color: "#fff",
+                  color: "var(--on-fill, #fff)",
                   border: 0,
                   borderRadius: 8,
                   fontSize: FS.body,
@@ -752,7 +771,7 @@ export function TailorWorkQueue({
                 onClick={onInterviewPrep}
                 style={{
                   background: "var(--accent)",
-                  color: "#fff",
+                  color: "var(--on-fill, #fff)",
                   border: 0,
                   borderRadius: 8,
                   fontSize: FS.body,

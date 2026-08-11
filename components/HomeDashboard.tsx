@@ -25,7 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUpgradeDialog } from "@/components/UpgradeDialog";
 import { readCache, writeCache } from "@/lib/clientCache";
-import { apiFetch } from "@/lib/apiClient";
+import { apiFetch, type ScanLimitStatus } from "@/lib/apiClient";
+import { loadScanLimitStatus } from "@/components/app-shell/useScansRemaining";
 
 type AppStats = {
   saved: number;
@@ -37,16 +38,13 @@ type AppStats = {
   total: number;
 };
 
-type ScanStatus = {
-  enforced?: boolean;
-  unlimited?: boolean;
-  /** "pro" | "institution" for unlimited tiers; absent on the metered tier. */
-  plan?: string | null;
-  limit?: number;
-  used?: number;
-  remaining?: number;
-  usedLast7Days?: number | null;
-};
+/**
+ * The scan quota comes from the shared store, not a fetch of Home's own — this
+ * dashboard was one of three components asking `/api/scan-limit-status` on a
+ * single page load. `ScanLimitStatus` replaces a local near-duplicate of the
+ * same shape.
+ */
+type ScanStatus = ScanLimitStatus;
 
 /** Deep-link a library item to its detail panel (mirrors ResumeLibrary.openItem). */
 function hrefForItem(item: LibraryItem): string {
@@ -212,7 +210,7 @@ export default function HomeDashboard() {
         fetchUserProfile(),
         fetchLibraryItems(),
         json<{ stats?: AppStats }>("/api/applications"),
-        json<ScanStatus>("/api/scan-limit-status"),
+        loadScanLimitStatus(),
       ]);
       if (!alive) return;
 

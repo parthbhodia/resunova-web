@@ -13,10 +13,19 @@
 import { useEffect, useState } from "react";
 import { getSupabaseClient, fetchAnalyses, type AnalyzeRecord } from "@/lib/supabase";
 import { lsLoad, lsSave } from "./analyzeHistoryStore";
-import { apiFetch } from "@/lib/apiClient";
+import {
+  useScansRemaining,
+  setScansRemaining as writeScansRemaining,
+} from "@/components/app-shell/useScansRemaining";
 
 export function useAnalyzeSession() {
-  const [scansRemaining, setScansRemaining] = useState<number | null>(null);
+  // The quota comes from the shared store, not a fetch of this hook's own —
+  // this was the third of three components asking `/api/scan-limit-status` on
+  // one page load. Guests are included on purpose: the endpoint answers them
+  // with the per-IP free-scan allowance, which is what the count under the
+  // upload button is showing.
+  const { state: scanState } = useScansRemaining();
+  const scansRemaining = scanState.kind === "metered" ? scanState.remaining : null;
   const [azHistory, setAzHistory]           = useState<AnalyzeRecord[]>([]);
   const [userId, setUserId]                 = useState<string | null>(null);
   const [userEmail, setUserEmail]           = useState<string | null>(null);
@@ -31,15 +40,6 @@ export function useAnalyzeSession() {
       if (!user?.id) {
         setIsAnon(true);
         setLoadingHistory(false);
-        // Anonymous quota (per-IP) so the remaining count still shows.
-        apiFetch("/api/scan-limit-status")
-          .then(r => r.json())
-          .then((data: Record<string, unknown>) => {
-            if (data.enforced && !data.unlimited && typeof data.remaining === "number") {
-              setScansRemaining(data.remaining as number);
-            }
-          })
-          .catch(() => { /* non-critical */ });
         return;
       }
       setIsAnon(false);
@@ -47,15 +47,6 @@ export function useAnalyzeSession() {
       setUserEmail(user.email ?? null);
       // Seed from localStorage immediately so UI isn't empty while fetching
       setAzHistory(lsLoad(user.id));
-      // Fetch scan quota so remaining count shows before the first scan
-      apiFetch("/api/scan-limit-status")
-        .then(r => r.json())
-        .then((data: Record<string, unknown>) => {
-          if (data.enforced && !data.unlimited && typeof data.remaining === "number") {
-            setScansRemaining(data.remaining as number);
-          }
-        })
-        .catch(() => { /* non-critical */ });
       try {
         const rows = await fetchAnalyses(25);   // higher: version chains share the list
         setAzHistory(rows);
@@ -76,6 +67,11 @@ export function useAnalyzeSession() {
     setAzHistory,
     loadingHistory,
     scansRemaining,
-    setScansRemaining,
+    // A scan response already carries the post-scan count, so this writes it
+    // straight through the store instead of triggering a refetch. Same call
+    // signature as the useState setter it replaces, and the nav badge now
+    // moves with the count under the upload button rather than lagging it
+    // until the next window focus.
+    setScansRemaining: writeScansRemaining,
   };
 }
