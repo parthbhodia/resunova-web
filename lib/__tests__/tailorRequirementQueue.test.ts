@@ -419,3 +419,78 @@ describe("covered rows are reassurance, and never a second copy of work", () => 
     expect(deriveCoveredQueue(null)).toEqual([]);
   });
 });
+
+/**
+ * The reported failure, as data: one résumé listing a Bachelor of Engineering
+ * and two Master of Science degrees, against a posting asking for both. The
+ * rater filed the bachelor's as covered and the master's as missing, so the
+ * page told a man with two master's degrees that he had not evidenced one.
+ *
+ * The scorer matches by phrase and knows nothing about degree hierarchy, so it
+ * reports both unmatched. Nothing downstream consulted the résumé, even though
+ * lib/degreeRequirement.ts existed and was tested — it had zero call sites.
+ */
+/** Degree rows carry `type: "degree"` from extraction, which is what bands them
+ *  as a blocker. The generic `unmatched()` helper omits type, so these would
+ *  otherwise fall back to `keyword` and not exercise the real path. */
+const degreeReqs = (names: string[]): UnmatchedRequirement[] =>
+  names.map((canonical, i) => ({ id: `d${i}`, canonical, importance: "required", type: "degree" }));
+
+const RESUME_WITH_DEGREES = [
+  "EDUCATION",
+  "Monroe Kings Graduate College — Master of Science, AI and Data Science",
+  "University of Maryland, Baltimore County — Master of Science, Computer Science",
+  "University of Mumbai — Bachelor of Engineering, Information Technology",
+].join("\n");
+
+describe("a degree the résumé holds is not a gap", () => {
+  const degrees = degreeReqs(["Bachelor's degree", "Master's degree"]);
+  // Verbatim from the failing run: the rater disagreed with itself.
+  const rater = { missing: ["Master's degree"], covered: ["Bachelor's degree"] };
+
+  it("drops both degree rows when the résumé evidences them", () => {
+    const items = deriveScorerQueue(degrees, rater, new Set(), undefined, RESUME_WITH_DEGREES);
+    expect(items).toHaveLength(0);
+  });
+
+  it("beats the rater, which called the master's missing", () => {
+    const items = deriveScorerQueue(degrees, rater, new Set(), undefined, RESUME_WITH_DEGREES);
+    expect(items.some((i) => i.name === "Master's degree")).toBe(false);
+  });
+
+  it("counts a higher degree as satisfying a lower ask", () => {
+    const onlyMasters = "EDUCATION\nMaster of Science, Computer Science";
+    const items = deriveScorerQueue(
+      degreeReqs(["Bachelor's degree"]), EMPTY_RATER, new Set(), undefined, onlyMasters,
+    );
+    expect(items).toHaveLength(0);
+  });
+
+  /**
+   * The control. Without it this suite passes if the code simply drops every
+   * credential row, which would hide real gaps instead of fixing a false one.
+   */
+  it("KEEPS a degree the résumé does not evidence", () => {
+    const noDegree = "EXPERIENCE\nSoftware Developer, Tata Communications Ltd.";
+    const items = deriveScorerQueue(
+      degreeReqs(["Bachelor's degree"]), EMPTY_RATER, new Set(), undefined, noDegree,
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0].verdict).toBe("not_evidenced");
+  });
+
+  it("keeps non-credential requirements untouched", () => {
+    const items = deriveScorerQueue(
+      unmatched(["Golang"]), EMPTY_RATER, new Set(), undefined, RESUME_WITH_DEGREES,
+    );
+    expect(items).toHaveLength(1);
+  });
+
+  /** Version-skew safety: the argument is new, so omitting it must change nothing. */
+  it("is byte-identical for callers that pass no résumé", () => {
+    expect(deriveScorerQueue(degrees, rater)).toEqual(
+      deriveScorerQueue(degrees, rater, new Set(), undefined, ""),
+    );
+    expect(deriveScorerQueue(degrees, rater)).toHaveLength(2);
+  });
+});

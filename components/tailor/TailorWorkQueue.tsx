@@ -314,7 +314,14 @@ export function TailorWorkQueue({
   const collapsibleTotal = filtered.filter(
     (it) => it.status === "covered" || it.kind === "contextual",
   ).length;
-  const selectable = filtered.filter((it) => it.status === "queued" && it.kind !== "contextual");
+  // Credentials are excluded for the same reason contextual rows are: the pass
+  // skips them by design (no bullet rewrite can evidence a degree), so counting
+  // them makes the button promise work it will not attempt. Ticking a degree
+  // and pressing Improve did nothing at all, which reads as a dead button.
+  // Their own "Add to education" action is unaffected.
+  const selectable = filtered.filter(
+    (it) => it.status === "queued" && it.kind !== "contextual" && !isCredentialRequirement(it.name),
+  );
   // Open rows a bulk pass deliberately skips. Named here so the header can say
   // so rather than leaving the user to notice the count not adding up.
   const contextualOpen = filtered.filter((it) => it.status === "queued" && it.kind === "contextual").length;

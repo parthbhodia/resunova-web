@@ -57,6 +57,7 @@
  */
 
 import type { AddressedGapAction } from "@/lib/types";
+import { degreeRequirementSatisfied, isCredentialRequirement } from "@/lib/degreeRequirement";
 import { isGapAddressed } from "@/lib/tailorGapFix";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import {
@@ -263,12 +264,40 @@ export function deriveScorerQueue(
   rater: RaterView,
   addressed: ReadonlySet<string> = new Set(),
   actions?: readonly AddressedGapAction[],
+  /**
+   * The résumé being scored, for the deterministic credential check below.
+   *
+   * Optional and defaulted so every existing caller and test is byte-unchanged:
+   * omitting it reproduces the pre-wiring behaviour exactly.
+   */
+  resumeText = "",
 ): SourcedQueueItem[] {
   const out: SourcedQueueItem[] = [];
   const seen = new Set<string>();
   for (const req of unmatched) {
     const name = String(req?.canonical ?? "").trim();
     if (!name) continue;
+
+    /**
+     * A degree the résumé actually holds is not a gap, whatever the rater said.
+     *
+     * The scorer matches requirements by phrase and knows nothing about degree
+     * hierarchy, so "Bachelor's degree" comes back unmatched for someone with
+     * two Master's. The rater is a second opinion and misses it too often: on
+     * the run this was found from, it filed "Bachelor's degree" as covered and
+     * "Master's degree" as missing, from ONE résumé listing a Bachelor of
+     * Engineering and two Master of Science degrees. So the row said a man with
+     * two Master's had not evidenced a Master's.
+     *
+     * This check outranks the rater because it is evidence rather than an
+     * opinion: the qualifying degree is literally in the text. It can only ever
+     * REMOVE a row — it never invents coverage — and `degreeRequirementSatisfied`
+     * is conservative in the direction that matters (a blank résumé satisfies
+     * nothing; bare BS/BA/MS/MA never match, so "Boston, MA" cannot register a
+     * Master of Arts; certifications and licences return null and fall through
+     * to the behaviour below unchanged).
+     */
+    if (isCredentialRequirement(name) && degreeRequirementSatisfied(name, resumeText)) continue;
     // Extraction's own type first: it is a claim about what the requirement
     // IS. The rater's list membership is only where it filed the comparison,
     // so it fills the gap rather than overriding. `keyword` last, because a
