@@ -154,7 +154,7 @@ function QueueEntry({
     ? `${blockersOpen} gap${blockersOpen === 1 ? "" : "s"} could get you filtered out`
     : `${otherOpen} gap${otherOpen === 1 ? "" : "s"} left to review`;
   const detail = critical
-    ? `Hard requirements the posting asks for that your resume does not evidence yet.${
+    ? `Hard requirements the posting asks for that your résumé does not evidence yet.${
         otherOpen > 0 ? ` The other ${otherOpen} can wait.` : ""
       }`
     : "Smaller gaps. Worth closing, none of them a hard requirement.";
@@ -457,8 +457,13 @@ export function TailorScoreboard({
           {grade === null
             ? "Not graded yet"
             : gradedAtLabel
-              ? `Graded by AI at ${gradedAtLabel}`
-              : "Graded by AI"}
+              // Not "Graded by AI". The differentiator of this product is that
+              // the model's output is checked and its false claims deleted, so
+              // labelling the number with the thing a sceptical job seeker
+              // distrusts argues against ourselves. Naming what the grade is
+              // measured AGAINST does the same job and states the position.
+              ? `Graded against this posting's requirements, ${gradedAtLabel}`
+              : "Graded against this posting's requirements"}
         </div>
         {stale ? (
           <div style={{ marginTop: 3, fontSize: FS.caption, color: "var(--amber-ink, #b45309)" }}>

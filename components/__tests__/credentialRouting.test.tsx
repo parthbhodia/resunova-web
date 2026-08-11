@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { itemAction } from "@/components/tailor/TailorWorkQueue";
+import { ACTION_LABEL, itemAction } from "@/components/tailor/TailorWorkQueue";
+import { CREDENTIAL_REFUSAL_DETAIL } from "@/lib/tailorRequirementQueue";
 import type { QueueItem } from "@/lib/tailorWorkQueue";
 
 /**
@@ -31,7 +32,7 @@ describe("a credential never routes to the bullet fixer", () => {
 
   it("offers NOTHING to add when the credential is not evidenced", () => {
     // Never "add_education" here: that is an offer to fabricate a degree.
-    expect(itemAction(item(), "not_evidenced")).toBe("no_action");
+    expect(itemAction(item(), "not_evidenced")).toBe("no_fabrication");
   });
 
   it("never returns fix for a degree, whatever the verdict", () => {
@@ -41,8 +42,8 @@ describe("a credential never routes to the bullet fixer", () => {
   });
 
   it("covers certifications and licences, not just degrees", () => {
-    expect(itemAction(item({ name: "AWS certification" }), "not_evidenced")).toBe("no_action");
-    expect(itemAction(item({ name: "Active security clearance" }), "not_evidenced")).toBe("no_action");
+    expect(itemAction(item({ name: "AWS certification" }), "not_evidenced")).toBe("no_fabrication");
+    expect(itemAction(item({ name: "Active security clearance" }), "not_evidenced")).toBe("no_fabrication");
   });
 
   it("leaves ordinary skill rows on the fixer", () => {
@@ -55,5 +56,27 @@ describe("a credential never routes to the bullet fixer", () => {
   it("keeps the terminal states ahead of the credential rule", () => {
     expect(itemAction(item({ status: "ignored" }), "partial")).toBe("reconsider");
     expect(itemAction(item({ status: "applied" }), "partial")).toBe("view_change");
+  });
+});
+
+/**
+ * The refusal is the trust moment, so it says what is happening.
+ *
+ * A credential the résumé does not evidence used to render a grey "No action"
+ * beside the generic "the scanner did not find this" — indistinguishable from a
+ * tooling shortfall. What is actually happening is that the product declines to
+ * claim a qualification the candidate does not hold, which is the one thing it
+ * must never do. Said out loud, the constraint reads as the reason to trust the
+ * rest of the page.
+ */
+describe("an unevidenced credential states the refusal", () => {
+  it("does not reuse the generic 'No action' label", () => {
+    expect(ACTION_LABEL.no_fabrication).not.toBe(ACTION_LABEL.no_action);
+    expect(ACTION_LABEL.no_fabrication.toLowerCase()).toContain("won't");
+  });
+
+  it("explains the refusal rather than blaming the scanner", () => {
+    expect(CREDENTIAL_REFUSAL_DETAIL.toLowerCase()).toContain("won't claim");
+    expect(CREDENTIAL_REFUSAL_DETAIL).not.toMatch(/scanner did not find/i);
   });
 });

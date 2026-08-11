@@ -26,7 +26,8 @@ export type QueueItemAction =
   | "whats_this"
   | "add_education"
   | "reconsider"
-  | "no_action";
+  | "no_action"
+  | "no_fabrication";
 
 export function itemAction(
   it: QueueItem,
@@ -51,7 +52,7 @@ export function itemAction(
   // have it, and offering to add it would be offering to fabricate a
   // credential -- the one thing this product must never do.
   if (isCredentialRequirement(it.name)) {
-    return verdict === "partial" || verdict === "covered" ? "add_education" : "no_action";
+    return verdict === "partial" || verdict === "covered" ? "add_education" : "no_fabrication";
   }
   return "fix";
 }
@@ -96,7 +97,8 @@ export function isLongTitle(name: string): boolean {
   return name.trim().length > LONG_TITLE_CHARS;
 }
 
-const ACTION_LABEL: Record<QueueItemAction, string> = {
+/** Exported so the refusal copy can be pinned; see credentialRouting.test. */
+export const ACTION_LABEL: Record<QueueItemAction, string> = {
   view_change: "See it",
   review: "Review",
   add_to_summary: "Add to summary",
@@ -105,6 +107,11 @@ const ACTION_LABEL: Record<QueueItemAction, string> = {
   add_education: "Add to education",
   reconsider: "Reconsider",
   no_action: "No action",
+  // Not "No action". This row is the honesty pipeline made visible: the product
+  // is declining to fabricate a credential, which is the one thing it must
+  // never do. Rendered as a dead grey "No action" it read as a limitation of
+  // the tool rather than the reason to trust it.
+  no_fabrication: "We won't add this",
 };
 
 /**
@@ -460,9 +467,13 @@ export function TailorWorkQueue({
        * panel, including later when it does carry news. */}
       {c.applied + c.needsReview + c.notCoverable + c.ignored > 0 ? (
         <div style={{ display: "flex", gap: 14, padding: "7px 14px 0", fontSize: FS.caption, color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-          <span><b style={{ color: "var(--text)" }}>{c.applied}</b> added</span>
-          <span><b style={{ color: "var(--text)" }}>{c.needsReview}</b> need review</span>
-          <span><b style={{ color: "var(--text)" }}>{c.notCoverable + c.ignored}</b> left out</span>
+          {/* Each slot appears only once it has news. The row used to spend
+              three of its four slots on zeroes the moment ANY one of them went
+              nonzero, so "1 added" arrived flanked by "0 need review · 0 left
+              out" — noise in the one place progress should read. */}
+          {c.applied > 0 ? <span><b style={{ color: "var(--text)" }}>{c.applied}</b> added</span> : null}
+          {c.needsReview > 0 ? <span><b style={{ color: "var(--text)" }}>{c.needsReview}</b> need review</span> : null}
+          {c.notCoverable + c.ignored > 0 ? <span><b style={{ color: "var(--text)" }}>{c.notCoverable + c.ignored}</b> left out</span> : null}
           <span><b style={{ color: "var(--text)" }}>{c.open}</b> to review</span>
         </div>
       ) : null}
@@ -695,12 +706,12 @@ export function TailorWorkQueue({
                   </span>
                 ) : null}
               </span>
-              {action === "no_action" ? (
+              {action === "no_action" || action === "no_fabrication" ? (
                 // Deliberately not a button. There is nothing to press, and a
                 // bordered control that does nothing when clicked is worse
                 // than plain text saying so.
                 <span style={{ fontSize: FS.small, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  {ACTION_LABEL.no_action}
+                  {ACTION_LABEL[action]}
                 </span>
               ) : action && onItemAction ? (
                 <button
@@ -793,7 +804,7 @@ export function TailorWorkQueue({
           </div>
           {onInterviewPrep ? (
             <p style={{ margin: "7px 0 0", fontSize: FS.caption, color: "var(--muted)" }}>
-              Your tailored resume and this job carry over.
+              Your tailored résumé and this job carry over.
             </p>
           ) : null}
         </div>

@@ -38,7 +38,7 @@ describe("the match leads and the grade follows", () => {
     render(<TailorScoreboard {...base} onRecheck={vi.fn()} />);
     expect(screen.getByText("75")).toBeInTheDocument();
     expect(screen.getByText("/100")).toBeInTheDocument();
-    expect(screen.getByText(/graded by ai at 2:41 pm/i)).toBeInTheDocument();
+    expect(screen.getByText(/graded against this posting's requirements, 2:41 pm/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /re-check/i })).toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe("the match leads and the grade follows", () => {
     expect(document.querySelector('[data-score="match"]')?.textContent).toMatch(
       /recounted as you edit/i,
     );
-    expect(document.querySelector('[data-score="grade"]')?.textContent).toMatch(/graded by ai/i);
+    expect(document.querySelector('[data-score="grade"]')?.textContent).toMatch(/graded against this posting/i);
   });
 });
 

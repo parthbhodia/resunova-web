@@ -25,7 +25,7 @@ describe("the change log", () => {
 
   it("counts the changes in its heading", () => {
     render(<TailorChangeLog changes={[ONE, SHARED]} onUndo={vi.fn()} />);
-    expect(screen.getByText("2 changes to your resume")).toBeInTheDocument();
+    expect(screen.getByText("2 changes to your résumé")).toBeInTheDocument();
   });
 
   it("names what each change covers without expanding it", () => {

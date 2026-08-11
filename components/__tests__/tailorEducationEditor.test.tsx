@@ -29,7 +29,7 @@ describe("who gets offered the education editor", () => {
 
   it("NEVER offers it for a credential the résumé does not evidence", () => {
     // Offering a form here is offering to type in a degree you do not hold.
-    expect(itemAction(item(), "not_evidenced")).toBe("no_action");
+    expect(itemAction(item(), "not_evidenced")).toBe("no_fabrication");
   });
 
   it("still sends an ordinary skill row to the bullet fixer", () => {

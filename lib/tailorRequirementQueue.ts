@@ -153,11 +153,23 @@ export interface SourcedQueueItem extends QueueItem {
 
 /** Detail line for a requirement the résumé evidences in different words. */
 export const WORDING_DETAIL =
-  "Your resume shows this, but not in words the scanner matches. Using the posting's phrasing on the bullet below is enough.";
+  "Your résumé shows this, but not in words the scanner matches. Using the posting's phrasing on the bullet below is enough.";
 
 /** Detail line for a requirement neither pipeline found. */
 export const SCORER_ONLY_DETAIL =
-  "The scanner did not find this anywhere in your resume.";
+  "The scanner did not find this anywhere in your résumé.";
+
+/**
+ * Detail for a credential the résumé does not evidence.
+ *
+ * "The scanner did not find this" is true but reads as a tooling shortfall, and
+ * the row's right-hand slot then said "No action" — a grey dead end. What is
+ * actually happening is that the product is refusing to claim a qualification
+ * the candidate does not hold, which is the single thing it must never do. Said
+ * plainly, the constraint becomes the reason to trust the rest of the page.
+ */
+export const CREDENTIAL_REFUSAL_DETAIL =
+  "We won't claim a credential you don't have. A degree is among the first things an employer verifies, so this one is yours to earn, not ours to write.";
 
 /** Appended to rater-only rows so nobody expects the number to move. */
 export const NO_SCORE_MOVE_NOTE =
@@ -334,7 +346,11 @@ export function deriveScorerQueue(
       // keywords are already handled as.
       detail: kind === "contextual"
         ? CONTEXTUAL_DETAIL
-        : raterCovered ? WORDING_DETAIL : SCORER_ONLY_DETAIL,
+        : raterCovered
+          ? WORDING_DETAIL
+          : isCredentialRequirement(name)
+            ? CREDENTIAL_REFUSAL_DETAIL
+            : SCORER_ONLY_DETAIL,
       source: raterMissing ? "both" : "scorer",
       // Both classes are unmatched by the scorer, so both move the number.
       movesScore: true,

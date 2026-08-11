@@ -387,7 +387,7 @@ export function TailorFixExpansion({
         <div>
           <div style={label}>Nothing honest to write</div>
           <p style={{ margin: "2px 0 10px", fontSize: FS.small, color: "var(--text)" }}>
-            Your resume doesn&rsquo;t have work this can be written from. Better to leave it out than
+            Your résumé doesn&rsquo;t have work this can be written from. Better to leave it out than
             stretch the truth.
           </p>
           <div style={{ display: "flex", gap: 8 }}>
@@ -449,7 +449,7 @@ export function TailorFixExpansion({
           >
             {claimSentence(correction ?? draft)}
             <span style={{ display: "block", marginTop: 5, fontSize: FS.caption, color: "var(--muted)" }}>
-              Read from your resume. Nothing here was invented, and only what you
+              Read from your résumé. Nothing here was invented, and only what you
               confirm gets used.
             </span>
           </blockquote>
@@ -609,7 +609,7 @@ export function TailorFixExpansion({
               disabled={applying}
               onClick={() => onApply(current, null)}
             >
-              {applying ? "Adding…" : "Add to resume"}
+              {applying ? "Adding…" : "Add to résumé"}
             </button>
             <button
               type="button"

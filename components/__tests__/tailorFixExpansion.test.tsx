@@ -24,7 +24,7 @@ const sugg = (over: Partial<FixSuggestion> = {}): FixSuggestion => ({
 });
 
 describe("TailorFixExpansion", () => {
-  it("offers Add to resume / Edit first / Ignore on a ready suggestion", () => {
+  it("offers Add to résumé / Edit first / Ignore on a ready suggestion", () => {
     const onApply = vi.fn();
     render(
       <TailorFixExpansion
@@ -35,7 +35,7 @@ describe("TailorFixExpansion", () => {
         onClose={() => undefined}
       />,
     );
-    fireEvent.click(screen.getByText("Add to resume"));
+    fireEvent.click(screen.getByText("Add to résumé"));
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ id: "s1" }), null);
     expect(screen.getByText("Edit first")).toBeTruthy();
     expect(screen.getByText("Ignore")).toBeTruthy();
@@ -55,7 +55,7 @@ describe("TailorFixExpansion", () => {
     );
     expect(screen.getByText("Pick a version")).toBeTruthy();
     fireEvent.click(screen.getByText("Shorter rewrite"));
-    fireEvent.click(screen.getByText("Add to resume"));
+    fireEvent.click(screen.getByText("Add to résumé"));
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ id: "s2" }), null);
   });
 

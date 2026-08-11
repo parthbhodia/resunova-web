@@ -49,14 +49,14 @@ describe("the confirm step", () => {
     // is the résumé bullet in a frame. If that ever stops being true this copy
     // has to go with it.
     renderExpansion({ onRewriteWithFacts: vi.fn() });
-    expect(screen.getByText(/read from your resume/i)).toBeInTheDocument();
+    expect(screen.getByText(/read from your résumé/i)).toBeInTheDocument();
   });
 
   it("costs zero typing on the default path", () => {
     renderExpansion({ onRewriteWithFacts: vi.fn() });
     expect(screen.queryByRole("textbox")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /yes, that's right/i }));
-    expect(screen.getByRole("button", { name: /add to resume/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add to résumé/i })).toBeInTheDocument();
   });
 
   it("does not spend a call when the user simply agrees", () => {
@@ -103,7 +103,7 @@ describe("the confirm step", () => {
     // No handler ⇒ no confirm step, and the flow is byte-identical to before.
     renderExpansion();
     expect(screen.queryByText(/check this is true/i)).toBeNull();
-    expect(screen.getByRole("button", { name: /add to resume/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add to résumé/i })).toBeInTheDocument();
   });
 
   it("is skipped when there is no résumé bullet to quote", () => {

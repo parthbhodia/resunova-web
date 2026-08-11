@@ -48,7 +48,7 @@ describe("the scoreboard label tracks whether a recount happened", () => {
   it("keeps the two numbers separate and dated", () => {
     render(<TailorScoreboard {...base} found={42} total={43} live />);
     expect(screen.getByText(/quality grade/i)).toBeInTheDocument();
-    expect(screen.getByText(/graded by ai at 2:41 pm/i)).toBeInTheDocument();
+    expect(screen.getByText(/graded against this posting's requirements, 2:41 pm/i)).toBeInTheDocument();
   });
 
   it("leads with the percentage", () => {
