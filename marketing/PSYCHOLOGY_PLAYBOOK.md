@@ -353,10 +353,44 @@ admission with no fix behind it is just bad news.
 **Mechanism.** People buy a feeling and a self-image before they buy a feature
 list, especially younger audiences.
 
-**On Resunova.** Our three words are honest, exact, unhurried. That is what
-the navy-and-amber palette, DM Sans, and the no-em-dash rule in `AGENTS.md` are
-collectively defending. The vibe is the reason the copy rules exist: a page
-selling fact-checked AI cannot read as machine-written.
+**Our three words: candid, exact, direct.** Derived from the shipped artefacts
+rather than chosen, because `DESIGN.md` declares a token system and a type
+ladder but never a voice. Evidence for each:
+
+- **Candid**, not "honest". Honest is a claim we make; candid is a behaviour we
+  perform. The product's defining act is deleting its own output. Every score
+  under 95 shows its reasoning, so there is "never a mystery number". The docs
+  name their own failures: `DESIGN.md` has a section called "Invariants learned
+  the hard way", and `AGENTS.md` volunteers that its own detector runs in
+  degraded mode and its clean results are an undercount.
+- **Exact.** `statLabel` exists because "a number without its unit is not a
+  finding, it's a decoration". Colour goes through tokens. The em-dash rule
+  insists on a per-sentence fix and rejects a blanket swap, because that "would
+  replace one tell with a worse one".
+- **Direct.** Short declaratives, no padding. "Upload your résumé. We do the
+  rest." "Free stops at 3 résumé scans a day." `AGENTS.md` bans "seamlessly",
+  "effortlessly", and rule-of-three filler outright.
+
+**The house rhetorical move: define by contrast with the lazy alternative.**
+This is the most consistent pattern in the existing copy and it is reusable as
+a formula. "The questions reflect the job you're actually applying for instead
+of a generic bank." "Most AI résumé tools invent problems to look smart." "An
+honest score. Not AI flattery." Nearly every strong line is shaped as *not the
+thing you expected*. When a claim feels flat, name the lazy version it is not.
+
+**Two registers, and the split is correct.** Marketing is bold: display type
+from 48px to 72px, a hot amber CTA with a glow, the navy gradient field. It has
+to win a click against thirty competitors. The product is quiet: blue accent,
+everything through tokens, the `motion` package sitting in `package.json`
+unimported, entrances removed outright under reduced motion rather than
+shortened. Marketing wins attention, the product earns trust. Do not flatten
+one into the other.
+
+**Correction worth keeping.** An earlier version of this entry claimed the
+third word was "unhurried". The artefacts contradict it: the pitch is about 60
+seconds and the pricing page argues "the day you find ten roles worth applying
+to is not the day you run out". The quality that word was reaching for is that
+we do not pressure, and that already lives inside candid.
 
 **Guardrail.** Vibe is consistency, not mood-per-post. If an asset needs a
 different tone to work, the asset is wrong.
