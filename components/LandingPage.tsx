@@ -1027,12 +1027,12 @@ export default function LandingPage() {
           }}>
             <span className="lp-hero-sub-full">
               Eight things decide<br />
-              whether your résumé<br />
-              gets read.<br />
+              whether an ATS passes<br />
+              your résumé on.<br />
               <span style={{ color: T.blue }}>You are guessing at all eight.</span>
             </span>
             <span className="lp-hero-sub-short">
-              Eight things decide<br />if your résumé gets read.{" "}
+              Eight things decide<br />if an ATS passes you on.{" "}
               <span style={{ color: T.blue }}>You are guessing.</span>
             </span>
           </h1>
