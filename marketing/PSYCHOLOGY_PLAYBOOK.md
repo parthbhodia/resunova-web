@@ -214,15 +214,44 @@ architecture that makes a bad choice *harder to notice* is not.
 **Mechanism.** Awareness of a gap between what you know and what you want to
 know creates a discomfort the brain will act to close.
 
-**On Resunova.** This is the single highest-leverage principle for the data
-lane, because our corpus produces facts nobody can look up. Open with the gap,
-not the answer. "We checked which seniority level actually posts salary" opens
-a loop. "Entry-level roles disclose salary 41.4% of the time" closes it in the
+**This is the house default.** Not one of 21, the lead technique. Open with the
+gap, not the answer, on every surface: hero, blog title, ad, email subject,
+Reddit post. "We checked which seniority level actually posts salary" opens a
+loop. "Entry-level roles disclose salary 41.4% of the time" closes it in the
 title and gives the reader nothing to click for.
 
-**Guardrail.** The gap has to close inside the post, and close bigger than the
-hook promised. A title that withholds a payoff we do not have is a clickbait
-tax we pay on the next post.
+**The formula.** Three parts. Drop one and it stops working.
+
+1. **A specific, finite unknown.** "Eight things" is countable and closed.
+   "Transform your career" is vague, and vague does not itch.
+2. **Stakes the reader already accepts.** "Whether your résumé gets read" needs
+   no argument. If you have to explain why it matters, the line is too long.
+3. **A close they can reach now.** About 60 seconds, free, no account. The
+   cheaper the close, the harder the hook pulls, which is why our free tier is
+   a copywriting asset and not just a pricing decision.
+
+**The one-line test.** After reading it, can the reader state the exact question
+they now want answered? If they cannot name the question, it is vague rather
+than curious. If the line already answers it, the loop is shut.
+
+**Where our gaps come from.** Every one is something the product or the corpus
+computes and the reader does not know: which of the 8 dimensions their résumé
+fails, which single bullet is doing the least work, which keywords from a
+specific job post are missing, what an ATS actually extracts from their file,
+how they rank against the live postings. Each item on that list is a headline,
+an email, and an ad. Mine it rather than inventing intrigue.
+
+**The SEO tension, resolved.** Gap titles and search pull opposite ways on the
+blog: search wants the number in the title, the gap wants it withheld. Split
+the slots rather than choosing. The h1 and the social share open the gap; the
+meta description, the OG card, and the `stat` field in `lib/atsBlogPosts.ts`
+carry the number.
+
+**Guardrail (a growth rule, not a scruple).** The gap has to close, and close
+bigger than the hook promised. A hook that does not pay off spends the next
+post's clickthrough, so the tax lands on the campaign rather than on the
+reader. Worked example with a full surface family:
+`marketing/drafts/2026-08-11-homepage-information-gap.md`.
 
 ## 06. Endowment effect
 

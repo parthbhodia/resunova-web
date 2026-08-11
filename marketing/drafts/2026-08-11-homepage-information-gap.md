@@ -1,129 +1,13 @@
-# Homepage taglines, rebuilt on information gap theory
+# Homepage: the gap hero, and the campaign built on it
 
-Status: DRAFT for human review. Nothing here is live. Applies principle 05 from
+Status: DRAFT for human review. Applies principle 05 from
 `marketing/PSYCHOLOGY_PLAYBOOK.md`.
 
-Style rules applied: no em or en dashes, no fabricated numbers. Every figure
-used below is one we already publish (8 dimensions, about 60 seconds, free,
-no account, 3 scans a day on free).
+**Decision: A2 is the hero.** Everything below builds the campaign around it.
 
 ---
 
-## What the homepage says today
-
-H1 (`components/LandingPage.tsx`):
-
-> Score your résumé. Fix the weak bullets. Tailor it to any job.
-> Start free. Upgrade anytime.
-
-Sub: "Upload your résumé, get an 8-dimension score, honest bullet-by-bullet
-rewrites, and a tailored PDF in about 60 seconds."
-
-**Diagnosis.** Three imperatives describing what the tool does, then a price.
-Nothing is left open. The source's test is that a hook should create a gap
-rather than close one, and this closes every loop in the first line: it names
-the input, the process, and the output before the reader has formed a question
-they care about. The subhead is a feature list.
-
-The five LAUNCH_KIT taglines have the same shape. "The AI resume checker that
-can't lie to you", "Resume feedback that's fact-checked before you see it",
-"The resume checker that deletes its own bad advice". Strong positioning, zero
-open loops. Every one is a statement about us.
-
-## The strategic move
-
-**Our best gap is not curiosity about us. It is curiosity about them.**
-
-Every visitor already arrives carrying an unresolved question: why is my résumé
-not working? We do not need to manufacture a loop. We need to name the one they
-walked in with, then close it faster than they expect.
-
-This also solves the honesty problem the playbook flags. The source's own
-example ("what happened next surprised everyone") withholds a payoff to earn a
-click, which is exactly the tactic our positioning forbids. The distinction to
-hold:
-
-| | Withholds | Closes |
-|---|---|---|
-| Clickbait gap | something we know | after a signup wall, or never |
-| Honest gap | something *they* do not know about *their own* résumé | in about 60 seconds, free, no account |
-
-**Confidence is the close, not the tease.** A tool that hedges makes you create
-an account before it will tell you anything. Opening a loop and then closing it
-for free, immediately, is the strongest confidence signal available to us, and
-competitors structurally cannot copy it while they gate the answer.
-
-Gaps we can open honestly, because the product actually computes each answer:
-which bullet is weakest, which of the 8 dimensions the résumé fails, which
-keywords from a job post are missing.
-
----
-
-## Option set A: the gap is about their résumé
-
-**A1**
-> One line on your résumé is doing the least work.
-> We will tell you which one. Free, no account.
-
-Opens on a specific unknown, closes with an unusually cheap answer. "Doing the
-least work" is defensible because it is what the lowest-scoring bullet means.
-
-**A2**
-> Eight things decide whether your résumé gets read.
-> You are guessing at all eight. Stop in about 60 seconds.
-
-The number creates the gap (which eight?) and the product is literally the
-answer. Strongest fit with what we already sell.
-
-**A3**
-> Your résumé is being scored right now, by software, against a job you want.
-> You have never seen the score. Now you can.
-
-Names a real thing happening off-screen. The gap is the reader's own missing
-information, not a teaser.
-
-**A4**
-> There is a version of your résumé that scores higher than this one.
-> It is about 60 seconds away.
-
-Implies a specific, reachable, unknown state. Pairs the loop with the speed.
-
-## Option set B: the gap is about the AI
-
-**B1**
-> Ask an AI to review your résumé and it will find problems.
-> Some of them are not real. We drop those before you see them.
-
-Opens a loop most people have felt but never named (which advice was made up?)
-and closes it on the differentiator. Best fit with the honesty pipeline slide.
-
-**B2**
-> Most résumé tools tell you what you want to hear.
-> Find out what yours would say if it could not.
-
-Confident, slightly adversarial, and the payoff is immediate.
-
-## Option set C: confidence through the close
-
-**C1**
-> We will tell you what is wrong with your résumé before you make an account.
-
-Single line. Opens the gap (what is wrong?) and answers the objection in the
-same breath. My pick if only one line ships.
-
-**C2**
-> No account. No card. No pitch until you have the score.
-> Then decide whether we were worth it.
-
-Inverts the usual order and reads as earned confidence rather than a claim.
-
----
-
-## Full hero pairings
-
-Taglines do not ship alone. Three complete replacements, H1 plus subhead.
-
-**Pairing 1 (recommended, closest to current voice)**
+## The hero
 
 > ### Eight things decide whether your résumé gets read.
 > ### You are guessing at all eight.
@@ -131,48 +15,104 @@ Taglines do not ship alone. Three complete replacements, H1 plus subhead.
 > Upload it and see all 8 scores in about 60 seconds. Every score under 95
 > shows its reasoning, so you know which fix moves the number. Free, no account.
 
-Keeps the 8-dimension asset, converts it from a feature into a question. The
-subhead closes the loop and adds the honesty proof (score rationale) rather
-than repeating the feature list.
+Replaces:
 
-**Pairing 2 (leads on the differentiator)**
+> Score your résumé. Fix the weak bullets. Tailor it to any job. Start free.
 
-> ### Ask an AI to fix your résumé and it will invent problems.
-> ### Ours deletes its own bad advice first.
->
-> Every AI claim is checked against your actual résumé text, and the false ones
-> are dropped before they reach you. Score, rewrites, and a tailored PDF in
-> about 60 seconds. Free.
+## Why this one converts
 
-The claim nobody else can copy, in gap form. Line 1 makes the reader ask "does
-mine do that?", line 2 answers.
+**It sells an asset we already own.** The 8-dimension score is our most
+concrete differentiator and it was sitting in the subhead as a spec. Moving it
+into the headline turns a feature into a question the reader cannot answer
+about themselves.
 
-**Pairing 3 (shortest, highest confidence)**
+**There is no friction between the curiosity and the payoff.** The line opens a
+loop and the product closes it in about 60 seconds for free with no account.
+Most funnels put a signup between the question and the answer, which is where
+curiosity dies.
 
-> ### We will tell you what is wrong with your résumé
-> ### before you make an account.
->
-> An 8-dimension score, bullet-by-bullet rewrites, and a tailored PDF. About 60
-> seconds. Three résumé scans a day, free, for as long as you want.
+**Competitors cannot run this line.** Not because they lack the idea, but
+because their answer sits behind a wall. A gap headline only works if the close
+is instant, so our pricing model is what makes the copy defensible. That is a
+positioning moat, not a style choice.
 
-Weakest on specificity, strongest on nerve. Good A/B partner for pairing 1.
+**The current hero is not weak, it is closed.** Three imperatives naming input,
+process, and output before the reader has formed a question they care about.
+Nothing is left unresolved, so nothing pulls.
 
 ---
 
-## Do not ship
+## Ship it everywhere (rule of 7)
 
-- Anything that withholds the payoff to earn the click. "You will not believe
-  what your résumé is missing" is the BuzzFeed pattern and it costs the honesty
-  position for one session of traffic.
-- Causal claims we cannot verify. "This line is costing you interviews" asserts
-  something no query supports. "This line is doing the least work" says what we
-  actually measure.
-- Opening a gap the free tier cannot close. If the answer sits behind signup,
-  the loop is a wall and the confidence claim collapses.
+One message, every touchpoint, same eight. Repetition across formats is what
+converts, and a single placement is not a test.
 
-## Suggested test
+| Surface | Copy |
+|---|---|
+| Hero H1 | Eight things decide whether your résumé gets read. You are guessing at all eight. |
+| OG / social card | Eight things decide whether your résumé gets read. |
+| Meta description | Eight checks decide whether your résumé gets read by a human. See all eight scores for your résumé in about 60 seconds. Free, no account. |
+| PH tagline (44 chars) | Eight things decide if your résumé gets read |
+| Display ad, landscape | Eight checks decide. You have seen none of your scores. |
+| Search ad headlines | `8 checks decide. See yours.` / `Your résumé fails 2 of 8.` / `See all 8 scores, free` |
+| Reddit (r/jobs) | Eight things decide whether your résumé gets read. Most people can only name three. |
+| Email 1 subject | Your résumé scored 8 ways. Here is the weakest one. |
+| Email 2 subject | One of your eight is still open. |
+| Email 5 subject | Your eight scores are from a résumé you have since changed. |
+| Win-back subject | You never saw two of your eight. |
 
-Pairing 1 against the current hero, one variable, H1 and subhead together. The
-current copy is the control and it is not weak, it is simply closed. If the gap
-version wins, the next test is pairing 3, which trades specificity for nerve
-and tells us which of the two is carrying the result.
+The email lines reuse merge data the retention sequence already computes, so
+each one names the reader's own specific unknown rather than a generic hook.
+
+---
+
+## The method, so you can write more of these
+
+A gap needs three parts. Drop one and it stops working.
+
+1. **A specific, finite unknown.** "Eight things" works because it is countable
+   and closed. "Transform your career" is vague, and vague does not itch.
+2. **Stakes the reader already accepts.** "Whether your résumé gets read" needs
+   no argument. If you have to explain why it matters, the line is too long.
+3. **A close they can reach now.** About 60 seconds, free, no account. The
+   cheaper the close, the harder the hook pulls.
+
+**The one-line test.** After reading it, can the reader state the exact question
+they now want answered? If they cannot name the question, it is vague rather
+than curious. If the line already answers it, the loop is shut. "Here are 3
+résumé mistakes" fails on the second count. "Eight things decide whether your
+résumé gets read" passes: the question is *which eight, and how do I score?*
+
+**Where the gaps come from.** Every one is something the product computes and
+the reader does not know:
+
+- which of the 8 dimensions their résumé fails
+- which single bullet is doing the least work
+- which keywords from a specific job post are missing
+- what an ATS actually extracts from their file
+- how they rank against the live postings in the corpus
+
+That list is the raw material. Each item is a headline, an email, and an ad.
+
+---
+
+## One tension worth knowing about
+
+Gap-shaped titles and SEO pull in opposite directions on the blog: search wants
+the number in the title, the gap wants it withheld. Do not choose, split the
+slots. The h1 and the social share open the gap; the meta description, the OG
+card stat, and the `stat` field in `lib/atsBlogPosts.ts` carry the number.
+Different slots, different jobs, and the post still ranks.
+
+---
+
+## Test plan
+
+Ship the hero against the current copy, one variable, H1 and subhead together.
+The current copy is the control.
+
+If it wins, the next test is nerve versus specificity: run
+*"We will tell you what is wrong with your résumé before you make an account"*
+against the eight-things hero. That tells you which half is carrying the
+result, the specific unknown or the instant free close, and whichever wins
+becomes the spine of the next quarter of copy.

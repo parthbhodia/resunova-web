@@ -44,11 +44,17 @@ below decide *what* the claim is; the playbook decides how it gets said. Read
 it before a post, a comparison batch, or a promo draft, and run its
 nine-item pre-publish pass over the finished draft.
 
-The four that carry the most weight in this project: open with an information
-gap rather than the answer, write every headline number three ways before
-picking one (framing), give each piece one designated peak and one designated
-last line (peak-end rule), and simplify until the finding is believed on one
-read (processing fluency).
+**Information gap is the house default**, not one of twenty-one. Open with the
+gap rather than the answer on every surface: hero, blog title, ad, email
+subject, Reddit post. The playbook carries the formula, the one-line test, and
+the list of gaps our own data can open;
+marketing/drafts/2026-08-11-homepage-information-gap.md is the worked example
+with a full surface family.
+
+Three more carry most of the remaining weight: write every headline number
+three ways before picking one (framing), give each piece one designated peak
+and one designated last line (peak-end rule), and simplify until the finding is
+believed on one read (processing fluency).
 
 ## Data post recipe (the main weekly lane)
 
