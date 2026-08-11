@@ -171,17 +171,43 @@ agent file, not framing.
 
 ## 04. Choice architecture
 
-**Mechanism.** Order, defaults, and visual hierarchy quietly decide the
-outcome more than the options themselves do.
+**Mechanism.** Four levers decide the outcome more than the options do: order,
+defaults, *number of options*, and visual hierarchy. The source's instruction
+is blunt: pre-highlight the one you want most people to pick, and do not leave
+the choice neutral. A neutral layout is not a neutral act, it just hands the
+decision to whichever option happens to be first or easiest to compare.
 
-**On Resunova.** Applies to how we present what already exists. In a post,
-put the internal link to the product page at the point of highest conviction,
-right after the finding lands, not in a footer. In an email, one primary
-action and one muted secondary, never two equals.
+**In the marketing lane.** Put the internal link to the product page at the
+point of highest conviction, right after the finding lands, never in a footer.
+One primary action per email with a muted secondary, never two equals.
 
-**Guardrail.** Changing defaults inside the product (pre-selected plans,
-opt-out checkboxes) is a product decision. Note it in shared memory and leave
-it.
+**The pricing case, where this principle collides with 08.** The source says to
+highlight one of three tiers. We did something different and better, and the
+reasoning is recorded in the `PricingPlans.tsx` header: three plan towers were
+replaced by one plan and a billing toggle, because the plans only ever differed
+by a number, so three near-identical feature lists "made the reader do the
+diffing." That is choice overload solving what choice architecture would have
+patched. The lesson to carry: when options differ on one axis, cutting the
+comparison beats decorating it. Reach for a highlight only when the options
+genuinely differ.
+
+**The defaults case, and the best in-house example of the honesty line.** The
+most consequential choice in the product is tailoring mode, `honest` or
+`aggressive` (`lib/tailoringMode.ts`). Choice architecture predicts a default
+would carry most users, and the source's own Netflix example is the dark
+version of that: autoplay means you must actively choose to *stop*. This
+product inverts it three times. The modal is blocking by design, so no default
+rides silently on a setting that "shapes every rewrite from then on." The
+pre-selected option is the conservative one, not the one that would inflate
+keyword coverage. And the API's anti-fabrication floor is identical in both
+modes, so the architecture *bounds* the riskier option instead of merely
+labelling it. When a draft needs to show what honest marketing looks like in
+practice, this is the example, and it is already shipped.
+
+**Guardrail.** Defaults, pre-selection, and opt-out checkboxes inside the
+product are product decisions. Flag them in shared memory and leave them. The
+boundary is sharp: architecture that makes a good choice *easier* is fair,
+architecture that makes a bad choice *harder to notice* is not.
 
 ## 05. Information gap theory
 
@@ -235,7 +261,10 @@ or three subject lines per email. One next action per asset. Applies to
 information as much as options: a post with nine findings has none.
 
 **Guardrail.** Fewer options for the reader, not less rigour for us. Run the
-eight variants, ship the three.
+eight variants, ship the three. And three is a ceiling, not a target: when the
+options differ on a single axis, one is the right number. See the pricing case
+under 04, where three tiers collapsed to one plan and a toggle for exactly that
+reason.
 
 ## 09. The pratfall effect
 
