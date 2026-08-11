@@ -1435,7 +1435,7 @@ export default function AnalyzeResume() {
           openSignIn({
             title: "Save this report",
             reason:
-              "Create a free account to keep this report in your history — you won't lose it and you won't have to scan again.",
+              "Create a free account to keep this report in your history. You won't lose it, and you won't have to scan again.",
           })
         }
       />

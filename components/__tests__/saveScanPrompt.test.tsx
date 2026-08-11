@@ -39,14 +39,14 @@ beforeEach(() => {
   upsertUserProfile.mockClear();
 });
 
-describe("SaveScanPrompt — anonymous capture", () => {
+describe("SaveScanPrompt · anonymous capture", () => {
   it("asks an anonymous visitor to save the report they just got", () => {
     render(<SaveScanPrompt isAnon score={72} onSignIn={() => {}} />);
     expect(screen.getByTestId("save-scan-prompt")).toBeTruthy();
     expect(screen.getByText(/Your score of 72 lives only in this browser/)).toBeTruthy();
   });
 
-  it("renders nothing for a signed-in user — there is nothing to capture", () => {
+  it("renders nothing for a signed-in user, who has nothing to capture", () => {
     render(<SaveScanPrompt isAnon={false} score={72} onSignIn={() => {}} />);
     expect(screen.queryByTestId("save-scan-prompt")).toBeNull();
   });
@@ -122,7 +122,7 @@ describe("SaveScanPrompt — anonymous capture", () => {
   });
 });
 
-describe("SaveToProfilePrompt — the false-success guard", () => {
+describe("SaveToProfilePrompt · the false-success guard", () => {
   // The shipped bug: upsertExtractedProfile / upsertUserProfile both early-return
   // without a session, so a signed-out click wrote localStorage only and still
   // rendered "Saved to your Profile." This is the regression that must stay dead.
