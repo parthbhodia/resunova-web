@@ -62,6 +62,7 @@ import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToSt
 import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
 import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, planQueueRuns, keepFirstRewritePerBullet } from "@/lib/fixEverything";
 import { tailorResultHeadline } from "@/lib/tailorResultHeadline";
+import { gapFixEmptyError } from "@/lib/gapFixEmptyReason";
 import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
 import { prefillPrepFromTailor } from "@/lib/interviewPrepLaunch";
 import type { AddressedGapAction } from "@/lib/types";
@@ -2557,14 +2558,12 @@ export default function ResumeBuilder({
     if (!resp.ok || data.error) throw new Error(data.error ?? "Couldn't write suggestions. Try again.");
     const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as FixSuggestion[];
     const usable = list.filter((s) => s.original?.trim() && s.suggested?.trim());
-    // An empty list has three causes and only one of them is a verdict about
-    // the résumé. `no_llm_output` means the provider chain failed and returned
-    // a 200 anyway, which is exactly how this feature went dark twice while
-    // telling users their experience could not support a requirement. Raise it
-    // so the row shows the error state with a retry instead of a confident
-    // sentence we have no basis for.
-    if (!usable.length && data.emptyReason === "no_llm_output") {
-      throw new Error("Couldn't reach the writer just now. Try again in a moment.");
+    // An empty list has four causes and NONE of them earns a verdict about the
+    // résumé — the routing and the reasoning live in lib/gapFixEmptyReason.ts,
+    // where they are pinned by tests.
+    if (!usable.length) {
+      const failure = gapFixEmptyError(data.emptyReason);
+      if (failure) throw new Error(failure);
     }
     return usable;
   }, [jd, effectiveCandidateProfile, tailorStructuredResume, tailorBulletAnalysis,

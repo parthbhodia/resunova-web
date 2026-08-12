@@ -291,8 +291,8 @@ export function TailorWorkQueue({
   onItemAction,
   onDownload,
   onInterviewPrep,
-  expandedId,
-  expansion,
+  expandedIds,
+  renderExpansion,
 }: {
   items: readonly QueueItem[];
   /** Item currently being processed by the pass, if any. */
@@ -309,9 +309,12 @@ export function TailorWorkQueue({
   onDownload?: () => void;
   /** Finish-line handoff into interview prep, carrying this run's resume + JD. */
   onInterviewPrep?: () => void;
-  /** Row whose inline fix flow is open; `expansion` renders under it. */
-  expandedId?: string | null;
-  expansion?: React.ReactNode;
+  /** Rows whose inline fix flows are open — PLURAL. One slot meant opening a
+   *  second row's fix silently destroyed the first row's loaded suggestions. */
+  expandedIds?: ReadonlySet<string>;
+  /** Render the expansion for one open row. Called only for ids in
+   *  `expandedIds`, so each row's flow keeps its own state. */
+  renderExpansion?: (item: QueueItem) => React.ReactNode;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [detailIds, setDetailIds] = useState<Set<string>>(() => new Set());
@@ -618,7 +621,7 @@ export function TailorWorkQueue({
             </div>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
         {group.items.map((it, rowIndex) => {
-          const expanded = it.id === expandedId;
+          const expanded = Boolean(expandedIds?.has(it.id));
           const verdict = (it as Partial<SourcedQueueItem>).verdict;
           const action = expanded ? null : itemAction(it, verdict);
           // Present only on rows the union produced; a plain QueueItem
@@ -820,7 +823,7 @@ export function TailorWorkQueue({
                 <span />
               )}
             </div>
-            {expanded ? <div className="tq-expand">{expansion}</div> : null}
+            {expanded && renderExpansion ? <div className="tq-expand">{renderExpansion(it)}</div> : null}
             </li>
           );
         })}

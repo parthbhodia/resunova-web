@@ -254,10 +254,61 @@ describe("banding comes from the requirement's own type", () => {
   });
 
   it("bands credentials and tenure as blockers", () => {
-    for (const t of ["degree", "certification", "license", "experience"]) {
+    for (const t of ["degree", "certification", "license"]) {
       expect(deriveScorerQueue([typed("x y z", t)], EMPTY_RATER)[0].kind)
         .toBe("qualification");
     }
+    // Tenure means a THRESHOLD. "5+ years of x" is a screening question;
+    expect(deriveScorerQueue([typed("5+ years of x", "experience")], EMPTY_RATER)[0].kind)
+      .toBe("qualification");
+  });
+
+  it("does not band a duty as a blocker just because extraction typed it experience", () => {
+    // The `experience` type catches both "5+ years of X" and duties like
+    // "Experience developing accessible technologies". Filing the duties as
+    // blockers is how a user opened this screen to ten red rows of which two
+    // were actual knockouts — a band that says "could get you filtered out"
+    // may only hold rows we can name the filter for.
+    for (const duty of [
+      "Experience developing accessible technologies",
+      "technical leadership",
+      "software maintenance",
+    ]) {
+      expect(deriveScorerQueue([typed(duty, "experience")], EMPTY_RATER)[0].kind)
+        .toBe("keyword");
+    }
+  });
+
+  it("reads the extraction's own ranking: a preferred threshold is not a hard filter", () => {
+    // importance (required|preferred|nice_to_have) was collected and never
+    // consulted, so a "preferred" tenure line sat under the same red heading
+    // as a hard minimum. "Preferred" and "filters you out" are different
+    // claims.
+    const preferred = [{ id: "t0", canonical: "5+ years of x", importance: "preferred", type: "experience" }];
+    expect(deriveScorerQueue(preferred, EMPTY_RATER)[0].kind).toBe("keyword");
+  });
+
+  it("never renders the posting's title as a fixable requirement", () => {
+    // Extraction emits the title as `req:job-title` so the scorer can grade
+    // title match. Rendered as a row it became red "Senior Software Engineer ·
+    // Fix this" — offering to rewrite the user's own job title, directly under
+    // the title note that already reports the same comparison.
+    const rows = deriveScorerQueue(
+      [{ id: "req:job-title", canonical: "Senior Software Engineer", importance: "required", type: "experience" }],
+      EMPTY_RATER,
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it("says WHY a blocker can block, ahead of what the scanner found", () => {
+    // "Why this matters" opened on a restatement of the chip — what happened,
+    // never why it matters — leaving the band's own claim unsourced.
+    const [years] = deriveScorerQueue([typed("5+ years of x", "experience")], EMPTY_RATER);
+    expect(years.detail).toMatch(/form question that screens applications/i);
+    const [degree] = deriveScorerQueue(degreeReqs(["Bachelor's degree"]), EMPTY_RATER);
+    expect(degree.detail).toMatch(/yes\/no question on the application form/i);
+    // The refusal stays — the reason joins it, it does not replace it.
+    expect(degree.detail).toMatch(/we won't claim a credential/i);
   });
 
   it("bands named skills, tools and duties as keywords", () => {
@@ -302,17 +353,33 @@ describe("the merge combines the two lists rather than discarding one", () => {
     // SCORER's row and drops the rater's for a requirement on both lists, so
     // an untyped scorer row was demoting a requirement the rater had filed as
     // a qualification down to a keyword — the merge losing information it was
-    // supposed to be combining.
+    // supposed to be combining. The filing survives where the band can justify
+    // it: a years threshold is a real screening question.
     const ratings = {
-      qualifications: { missing: [{ text: "Kubernetes" }], covered: [] },
+      qualifications: { missing: [{ text: "5 years of Kubernetes" }], covered: [] },
       responsibilities: { missing: [{ text: "mentor engineers" }], covered: [] },
       keywords: {},
     };
     const rows = deriveScorerQueue(
-      unmatched(["Kubernetes", "mentor engineers"]), // no `type` on either
+      unmatched(["5 years of Kubernetes", "mentor engineers"]), // no `type` on either
       raterView(ratings),
     );
     expect(rows.map((r) => r.kind)).toEqual(["qualification", "responsibility"]);
+  });
+
+  it("does not let the rater's filing alone make something a blocker", () => {
+    // The technical-leadership bug one level up: extraction sent no type, the
+    // rater happened to file the row under qualifications, and a capability
+    // rendered as a failed hard requirement. The filing is consulted — but the
+    // blocker band needs a filter we can name, and "the model filed it there"
+    // is not one.
+    const ratings = {
+      qualifications: { missing: [{ text: "technical leadership" }], covered: [] },
+      responsibilities: { missing: [], covered: [] },
+      keywords: {},
+    };
+    const rows = deriveScorerQueue(unmatched(["technical leadership"]), raterView(ratings));
+    expect(rows[0].kind).toBe("keyword");
   });
 
   it("lets extraction's type win over where the rater filed it", () => {
@@ -516,13 +583,17 @@ describe("only a real check on the résumé may claim absence", () => {
     [{ id: "t0", canonical, importance: "required", type }];
 
   it("does not tell someone they have not evidenced a capability the scanner merely missed", () => {
+    // Evolved: these rows no longer merely soften the chip — they leave the
+    // pass/fail band entirely. A capability the scanner missed is a wording
+    // job ("fits an existing bullet"), not a knockout.
     const resume = "EXPERIENCE\nMentored four engineers and owned the platform roadmap.";
     for (const [name, type] of [
       ["technical leadership", "experience"],
       ["full stack development", "experience"],
     ] as const) {
       const [row] = deriveScorerQueue(typed(name, type), EMPTY_RATER, new Set(), undefined, resume);
-      expect(row.verdict).toBe("not_found");
+      expect(row.kind).toBe("keyword");
+      expect(row.verdict).toBe("keyword");
     }
   });
 

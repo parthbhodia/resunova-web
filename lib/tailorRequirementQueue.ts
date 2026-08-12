@@ -169,6 +169,58 @@ export const SCORER_ONLY_DETAIL =
   "A keyword scanner matching on exact phrases won't find this in your résumé. If you do this work, say it in the posting's words on the bullet below.";
 
 /**
+ * WHY a row sits in the band that says it could get you filtered out.
+ *
+ * The band makes a claim, and until this nothing on the row supported it: the
+ * "Why this matters" control rendered a restatement of the chip — "the scanner
+ * did not find this" — which is WHAT HAPPENED, not why it matters. A control
+ * that promises a reason and repeats the finding teaches people to stop opening
+ * it, and it leaves the band's own sentence unsourced.
+ *
+ * Each reason names the mechanism that screens on that requirement TYPE, which
+ * is the only thing we actually know. None of them claims knowledge of a given
+ * employer's process.
+ *
+ * ⚠️ A type with no entry here does NOT belong in this band. If we cannot say
+ * why something would filter someone out, we must not put it under a heading
+ * that says it will — which is how duties like "Participate in design reviews"
+ * came to sit under "Could get you filtered out" in the first place.
+ */
+export const BLOCKER_REASON: Readonly<Record<string, string>> = {
+  degree:
+    "A degree is usually a yes/no question on the application form, answered before anyone reads your résumé.",
+  certification:
+    "Named certifications are usually a form question, and get verified if you are hired.",
+  license:
+    "A licence is a legal requirement for the role. It is checked, not weighed against the rest of your application.",
+  clearance:
+    "A clearance is a hard eligibility requirement. It is checked, not weighed against the rest of your application.",
+  experience:
+    "Minimum-years requirements are often a form question that screens applications automatically.",
+};
+
+/** Years threshold ("5+ years", "1 year of..."). What separates a screening
+ *  criterion from a duty that happens to be typed `experience`. */
+const YEARS_RE = /\b\d{1,2}\s*\+?\s*(?:years?|yrs?)\b/i;
+
+/**
+ * The reason this requirement can screen someone out, or null when we cannot
+ * name one — in which case the row must not sit under a heading that says it
+ * will.
+ */
+export function blockerReasonFor(name: string, type?: string): string | null {
+  if (requiredDegreeLevel(name) !== null) return BLOCKER_REASON.degree;
+  if (/\bcertif/i.test(name)) return BLOCKER_REASON.certification;
+  if (/\blicen[sc]e/i.test(name)) return BLOCKER_REASON.license;
+  if (/\bclearance\b/i.test(name)) return BLOCKER_REASON.clearance;
+  if (YEARS_RE.test(name)) return BLOCKER_REASON.experience;
+  const t = String(type ?? "").trim();
+  return t === "degree" || t === "certification" || t === "license"
+    ? BLOCKER_REASON[t]
+    : null;
+}
+
+/**
  * Detail for a credential the résumé does not evidence.
  *
  * "The scanner did not find this" is true but reads as a tooling shortfall, and
@@ -373,14 +425,45 @@ export function deriveScorerQueue(
      * to the behaviour below unchanged).
      */
     if (isCredentialRequirement(name) && degreeRequirementSatisfied(name, resumeText)) continue;
+
+    // The posting's title is not a requirement row. Extraction emits it as one
+    // (`req:job-title`, type=experience) so the scorer can grade title match —
+    // but rendered here it became a red "Fix this" row offering to rewrite the
+    // user's own job title, directly under the title note that already reports
+    // the same comparison. One fact, one surface.
+    if (String(req?.id ?? "").trim() === "req:job-title") continue;
+
     // Extraction's own type first: it is a claim about what the requirement
     // IS. The rater's list membership is only where it filed the comparison,
     // so it fills the gap rather than overriding. `keyword` last, because a
     // row we know nothing about should not be shouting.
-    const kind =
+    let kind =
       queueKindForRequirementType(req?.type)
       ?? rater.kindOf?.get(normalizeQueueName(name))
       ?? "keyword";
+
+    // A row may sit under "Could get you filtered out" ONLY if we can name the
+    // mechanism that filters (see BLOCKER_REASON). The `experience` type
+    // catches both "5+ years of X" — a real screening question — and duties
+    // like "Experience developing accessible technologies", and filing the
+    // duties as blockers is how a user opened this screen to ten red rows of
+    // which two were actual knockouts. A credential keeps its band regardless
+    // (its refusal machinery lives there); everything else needs an explicit
+    // years threshold, and needs to be stated as REQUIRED — the extraction's
+    // own high/medium/low ranking, which this screen collected and then never
+    // read. "Preferred" and a hard filter are different claims.
+    // Credential by NAME or by extraction's own TYPE — either is a nameable
+    // filter (BLOCKER_REASON has an entry for both routes). Name alone is not
+    // enough: "MS in Computer Science" deliberately fails the name check (bare
+    // MS never matches, or "Boston, MA" is a Master of Arts), while extraction
+    // typing it `degree` is a claim about what it IS.
+    const credential =
+      isCredentialRequirement(name) ||
+      ["degree", "certification", "license"].includes(String(req?.type ?? "").trim());
+    if (kind === "qualification" && !credential) {
+      const required = String(req?.importance ?? "required") === "required";
+      if (!YEARS_RE.test(name) || !required) kind = "keyword";
+    }
     const id = queueItemId(kind, name);
     if (seen.has(id)) continue;
     seen.add(id);
@@ -407,13 +490,18 @@ export function deriveScorerQueue(
       // employer-domain word the honest answer is that writing it in is
       // usually the wrong move — the same class the rater's contextual
       // keywords are already handled as.
+      // A blocker row's detail LEADS with why it can filter you out. "Why this
+      // matters" used to open on a restatement of the chip — what happened,
+      // never why it matters — which left the band's own claim unsourced.
       detail: kind === "contextual"
         ? CONTEXTUAL_DETAIL
         : raterCovered
           ? WORDING_DETAIL
-          : isCredentialRequirement(name)
-            ? CREDENTIAL_REFUSAL_DETAIL
-            : SCORER_ONLY_DETAIL,
+          : credential
+            ? [blockerReasonFor(name, req?.type), CREDENTIAL_REFUSAL_DETAIL].filter(Boolean).join(" ")
+            : kind === "qualification"
+              ? [blockerReasonFor(name, req?.type), SCORER_ONLY_DETAIL].filter(Boolean).join(" ")
+              : SCORER_ONLY_DETAIL,
       source: raterMissing ? "both" : "scorer",
       // Both classes are unmatched by the scorer, so both move the number.
       movesScore: true,

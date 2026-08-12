@@ -50,7 +50,13 @@ describe("what v7 removed stays removed", () => {
     expect(stripes.every((s) => s.includes("transparent"))).toBe(true);
 
     rerender(
-      <TailorWorkQueue items={items} onFixAll={vi.fn()} fixAllBusy={false} expandedId="q:docs" expansion={<div />} />,
+      <TailorWorkQueue
+        items={items}
+        onFixAll={vi.fn()}
+        fixAllBusy={false}
+        expandedIds={new Set(["q:docs"])}
+        renderExpansion={() => <div />}
+      />,
     );
     const after = Array.from(container.querySelectorAll<HTMLElement>(".tq-rowbody"))
       .map((el) => el.style.borderLeft);

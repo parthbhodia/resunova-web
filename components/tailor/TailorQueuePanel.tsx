@@ -307,26 +307,44 @@ export function TailorQueuePanel({
         ? ratings.match_score
         : null;
 
-  // ---- Inline fix expansion -------------------------------------------------
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [expandState, setExpandState] = useState<FixExpansionState>({ phase: "loading" });
-  const [applying, setApplying] = useState(false);
-  // Guards a slow response from an earlier row overwriting the current one.
-  const fetchSeq = useRef(0);
+  // ---- Inline fix expansions ------------------------------------------------
+  //
+  // Plural, and that is the fix. This was one `expandedId` + one state slot, so
+  // opening a second row's fix silently closed the first — destroying loaded
+  // suggestions the user had just waited a 5-30s model call for, and any
+  // version they had picked. From the user's side: click Fix on row two and
+  // row one's work vanishes. Every row now owns its expansion; opening another
+  // adds, it never evicts. Closing is the user's act (Close/Ignore/apply), not
+  // a side effect of looking at something else.
+  const [expansions, setExpansions] = useState<ReadonlyMap<string, FixExpansionState>>(new Map());
+  // One in-flight apply at a time: two concurrent applies race on the preview
+  // override map. Other expansions stay OPEN, their Add buttons just no-op
+  // until the first apply settles.
+  const [applyingId, setApplyingId] = useState<string | null>(null);
+  // Per-row: a slow response from a superseded fetch must not overwrite a
+  // newer one, but rows no longer supersede EACH OTHER.
+  const fetchSeqs = useRef(new Map<string, number>());
 
-  const expandedItem = expandedId ? items.find((it) => it.id === expandedId) ?? null : null;
+  const setExpansion = (id: string, state: FixExpansionState | null) => {
+    setExpansions((prev) => {
+      const next = new Map(prev);
+      if (state === null) next.delete(id);
+      else next.set(id, state);
+      return next;
+    });
+  };
 
   const openFix = (item: QueueItem, facts?: ConfirmedFact) => {
-    setExpandedId(item.id);
-    setExpandState({ phase: "loading" });
-    const seq = ++fetchSeq.current;
+    setExpansion(item.id, { phase: "loading" });
+    const seq = (fetchSeqs.current.get(item.id) ?? 0) + 1;
+    fetchSeqs.current.set(item.id, seq);
     fetchFixSuggestions(item, facts).then(
       (suggestions) => {
-        if (fetchSeq.current === seq) setExpandState({ phase: "ready", suggestions });
+        if (fetchSeqs.current.get(item.id) === seq) setExpansion(item.id, { phase: "ready", suggestions });
       },
       (e: unknown) => {
-        if (fetchSeq.current === seq) {
-          setExpandState({
+        if (fetchSeqs.current.get(item.id) === seq) {
+          setExpansion(item.id, {
             phase: "error",
             message: e instanceof Error ? e.message : "Couldn't write suggestions. Try again.",
           });
@@ -335,44 +353,38 @@ export function TailorQueuePanel({
     );
   };
 
-  const closeExpansion = () => {
-    fetchSeq.current++;
-    setExpandedId(null);
+  const closeExpansion = (id: string) => {
+    fetchSeqs.current.set(id, (fetchSeqs.current.get(id) ?? 0) + 1);
+    setExpansion(id, null);
   };
 
   const handleItemAction = (item: QueueItem, action: QueueItemAction) => {
     if (action === "fix") openFix(item);
     else if (action === "reconsider") onToggleIgnored(item, false);
-    else if (action === "add_education") {
-      setExpandedId(item.id);
-      setExpandState({ phase: "credential" });
-    } else if (action === "whats_this" || action === "add_to_summary") {
-      setExpandedId(item.id);
-      setExpandState({ phase: "info" });
-    } else if (action === "view_change" || action === "review") {
-      onSeeItem?.(item);
-    }
+    else if (action === "add_education") setExpansion(item.id, { phase: "credential" });
+    else if (action === "whats_this" || action === "add_to_summary") setExpansion(item.id, { phase: "info" });
+    else if (action === "view_change" || action === "review") onSeeItem?.(item);
   };
 
-  const handleApply = async (suggestion: FixSuggestion, editedText: string | null) => {
-    if (!expandedItem) return;
-    setApplying(true);
+  const handleApply = async (item: QueueItem, suggestion: FixSuggestion, editedText: string | null) => {
+    if (applyingId !== null) return;
+    setApplyingId(item.id);
     try {
-      await applyFixSuggestion(expandedItem, suggestion, editedText);
-      closeExpansion();
+      await applyFixSuggestion(item, suggestion, editedText);
+      closeExpansion(item.id);
     } catch (e: unknown) {
-      setExpandState({
+      setExpansion(item.id, {
         phase: "error",
         message: e instanceof Error ? e.message : "Couldn't add that. Try again.",
       });
     } finally {
-      setApplying(false);
+      setApplyingId(null);
     }
   };
 
-  const handleIgnore = () => {
-    if (expandedItem) onToggleIgnored(expandedItem, true);
-    closeExpansion();
+  const handleIgnore = (item: QueueItem) => {
+    onToggleIgnored(item, true);
+    closeExpansion(item.id);
   };
 
   const { displayItems, revealWorkingId, revealing } = useStaggeredReveal(items);
@@ -445,21 +457,23 @@ export function TailorQueuePanel({
           onItemAction={handleItemAction}
           onDownload={onDownload}
           onInterviewPrep={onInterviewPrep}
-          expandedId={expandedId}
-          expansion={
-            expandedItem ? (
+          expandedIds={new Set(expansions.keys())}
+          renderExpansion={(item) => {
+            const state = expansions.get(item.id);
+            if (!state) return null;
+            return (
               <TailorFixExpansion
-                key={expandedItem.id}
-                item={expandedItem}
-                state={expandState}
-                applying={applying}
-                onApply={(s, edited) => { void handleApply(s, edited); }}
-                onIgnore={handleIgnore}
-                onTryFix={() => openFix(expandedItem)}
+                key={item.id}
+                item={item}
+                state={state}
+                applying={applyingId === item.id}
+                onApply={(s, edited) => { void handleApply(item, s, edited); }}
+                onIgnore={() => handleIgnore(item)}
+                onTryFix={() => openFix(item)}
                 // A corrected fact is worth a second call: the API treats
                 // confirmed facts as a provenance source, so a number the
                 // candidate supplied stops reading as unevidenced.
-                onRewriteWithFacts={(fact) => openFix(expandedItem, fact)}
+                onRewriteWithFacts={(fact) => openFix(item, fact)}
                 onAddEducation={onAddEducation}
                 structuredResume={structuredResume}
                 // What applying this one rewrite would do to the deterministic
@@ -467,10 +481,10 @@ export function TailorQueuePanel({
                 // uses, so it is a recount rather than a projection: zero-token,
                 // no LLM, and it can honestly report no movement or a drop.
                 scoreFix={scoreFix}
-                onClose={closeExpansion}
+                onClose={() => closeExpansion(item.id)}
               />
-            ) : null
-          }
+            );
+          }}
         />
       </div>
       {/* Above the strengths card on purpose: this is the record of work the

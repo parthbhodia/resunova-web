@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { TailorQueuePanel } from "@/components/tailor/TailorQueuePanel";
 
@@ -200,6 +200,21 @@ describe("the queue heads itself with the ranking", () => {
       "Kubernetes in production",
       "5 years of Python",
     ]);
+  });
+
+  it("keeps the first fix open when a second one is opened", async () => {
+    // Field report, verbatim: "when i click on fix this and click second one
+    // the first one goes away". One expandedId slot meant opening row two
+    // evicted row one — destroying suggestions the user had waited a 5-30s
+    // model call for, and any version they had picked. Opening adds; only the
+    // user closes.
+    renderPanel();
+    const fixButtons = screen.getAllByRole("button", { name: "Fix this" });
+    fireEvent.click(fixButtons[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Fix this" })[0]);
+    await waitFor(() => {
+      expect(document.querySelectorAll(".tq-expand")).toHaveLength(2);
+    });
   });
 
   it("keeps the rest of the work on screen while it is not the primary path", () => {
