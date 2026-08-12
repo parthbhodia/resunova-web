@@ -304,6 +304,15 @@ export function TailorFixExpansion({
           <div style={label}>Something went wrong</div>
           <p style={{ margin: "2px 0 10px", fontSize: FS.small, color: "var(--text)" }}>{state.message}</p>
           <div style={{ display: "flex", gap: 8 }}>
+            {/* A failure with no retry is a dead end wearing an apology. This
+                phase covers transient causes — a provider hiccup, a filtered
+                batch — and a second pass genuinely can succeed, so the way to
+                try again has to be here, not back at the row's Fix button. */}
+            {onTryFix ? (
+              <button type="button" style={{ ...primaryBtn, background: "var(--accent)" }} onClick={onTryFix}>
+                Try again
+              </button>
+            ) : null}
             <button type="button" style={ghostBtn} onClick={onClose}>Close</button>
           </div>
         </div>
@@ -385,12 +394,35 @@ export function TailorFixExpansion({
         </div>
       ) : suggestions.length === 0 ? (
         <div>
-          <div style={label}>Nothing honest to write</div>
-          <p style={{ margin: "2px 0 10px", fontSize: FS.small, color: "var(--text)" }}>
-            Your resume doesn&rsquo;t have work this can be written from. Better to leave it out than
-            stretch the truth.
+          {/* An empty result is OUR shortfall until something proves otherwise.
+           *
+           * This used to read "Nothing honest to write — your résumé doesn't
+           * have work this can be written from." That is a verdict about the
+           * candidate, and the thing that usually produced it was not the
+           * candidate: production logs show the model writing usable rewrites
+           * and our validators dropping every one (`all_filtered`), and a
+           * single model pass coming back empty (`none_proposed`) is one
+           * sample, not a finding. Telling a paying user their experience
+           * cannot support a requirement because our filter over-fired is the
+           * exact dishonesty the honesty pipeline exists to prevent — pointed
+           * at the user instead of at the model.
+           *
+           * So the copy owns the failure, and the primary action is another
+           * attempt. "We won't pad your résumé" keeps the one true claim the
+           * old copy was reaching for: whatever happened, the answer is never
+           * stuffing. */}
+          <div style={label}>We couldn&rsquo;t write this one</div>
+          <p style={{ margin: "2px 0 10px", fontSize: FS.small, lineHeight: 1.55, color: "var(--text)" }}>
+            That&rsquo;s a miss on our side, not a verdict on your experience — we only suggest
+            wording we can trace to your résumé, and this pass didn&rsquo;t produce one that
+            qualifies. Try again, or if you&rsquo;ve done this work, add it in your own words.
           </p>
           <div style={{ display: "flex", gap: 8 }}>
+            {onTryFix ? (
+              <button type="button" style={{ ...primaryBtn, background: "var(--accent)" }} onClick={onTryFix}>
+                Try again
+              </button>
+            ) : null}
             <button type="button" style={ghostBtn} onClick={onIgnore}>Ignore</button>
             <button type="button" style={ghostBtn} onClick={onClose}>Close</button>
           </div>
@@ -449,7 +481,7 @@ export function TailorFixExpansion({
           >
             {claimSentence(correction ?? draft)}
             <span style={{ display: "block", marginTop: 5, fontSize: FS.caption, color: "var(--muted)" }}>
-              Read from your resume. Nothing here was invented, and only what you
+              Read from your résumé. Nothing here was invented, and only what you
               confirm gets used.
             </span>
           </blockquote>
@@ -609,7 +641,7 @@ export function TailorFixExpansion({
               disabled={applying}
               onClick={() => onApply(current, null)}
             >
-              {applying ? "Adding…" : "Add to resume"}
+              {applying ? "Adding…" : "Add to résumé"}
             </button>
             <button
               type="button"

@@ -55,7 +55,7 @@ export function TailorChangeLog({
       <div style={{ padding: "13px 16px 11px", borderBottom: "1px solid var(--border)" }}>
         {/* Counted, so the heading is a fact rather than a label. */}
         <div style={{ fontSize: FS.bodyLg, fontWeight: FW.extrabold }}>
-          {changes.length} change{changes.length === 1 ? "" : "s"} to your resume
+          {changes.length} change{changes.length === 1 ? "" : "s"} to your résumé
         </div>
         <p style={{ margin: "3px 0 0", fontSize: FS.small, color: "var(--muted)" }}>
           Every edit that will be in the file you download. Undo any of them.

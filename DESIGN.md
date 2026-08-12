@@ -32,8 +32,15 @@ shipped.
 
 So: **art direction proposes, the detector disposes.** Never run only one.
 
+Confirmed again on the tailor results rail: the taste pass produced the
+rearrangement (deliver, orient, work) that the detector has no rule for, and the
+detector then found two WCAG AA failures and a per-row treatment that was most
+of why the screen read as a wall of alarm — 15 findings down to 3. Point it at
+the **built** page, not the source, so computed styles are real:
+
 ```bash
-npx impeccable detect app/pricing/          # full fidelity, resolves its own deps
+npx impeccable detect app/pricing/                 # full fidelity, resolves its own deps
+npx impeccable detect out/tailor-preview/index.html # or a built page, for computed styles
 ```
 
 ⚠️ The **bundled** detector (the one the hook runs) is in **DEGRADED regex
@@ -174,6 +181,49 @@ Entrances are removed outright under `prefers-reduced-motion`, not shortened.
 
 ---
 
+## 3b. In-app surfaces
+
+The signed-in workspace: Analyze, Tailor, Jobs, the queue rail. Denser than
+marketing, and the pressure here is the opposite one — not "is this bland" but
+"is everything shouting at once".
+
+**Redundant severity is noise, not accessibility.** The tailor queue rendered
+nine rows each with a 3px coloured left-bar in its band's tone. The comment
+defended them as severity surviving greyscale and colour-blind vision. It did
+not: a red bar against an amber bar in the same position is still colour-only.
+The band a row sits in and the words in its verdict chip are what carry severity
+without colour, and the stripe was a third copy of one idea repeated down the
+list. A stripe now means one thing — *this row is what you are working* — and
+at most one is on screen. Before adding a per-row accent, ask which channel it
+adds that the grouping and the words do not.
+
+**One primary action per screen, aimed at a subset.** A queue of nineteen rows
+with nineteen equally-weighted controls asks the user to triage before they can
+start. The fix is to aim the primary control at the band that matters and widen
+it once that is clear — **not** to collapse the rest. Hiding work is a worse
+bug: it shipped once and printed a band header counting the rows that survived
+the cap.
+
+**A control that names a count must attempt that set.** The label and the target
+come from one list, and a test drives the click and asserts what was handed
+over. Asserting only the label passes while the button quietly runs five rows
+behind a promise of two — that mutation went green here first time.
+
+**State the outcome before asking for work, and only what is true.** The tailor
+results page opened with a red count and a grey page title; the moment the user
+came for was the quietest thing on screen. Stating it is half the fix — the
+other half is that the sentence has to track what actually happened, which is
+why `lib/tailorResultHeadline.ts` exists as a pure function with its own test
+rather than a ternary in the header. "Your tailored résumé" before a single fix
+is applied is the same class of overclaim as a score labelled "live" while
+nothing recounts.
+
+**A number's provenance survives every redesign.** Both score lines keep the
+sentence saying where the figure came from, and both directions are pinned. The
+cheap way to "fix" an over-promising label is to promise it again.
+
+---
+
 ## 4. Running a design pass
 
 1. **Read the brief and say what you think it is** in one line before touching
@@ -209,3 +259,14 @@ assert the edit landed before trusting the result.
 **Drive the real surface, and enumerate the buttons.** Several bugs in this
 repo's history were "broken feature" reports from a drive that skipped a confirm
 step. After each click, look at what the UI actually offers next.
+
+**Match the leaf, not the wrapper.** A DOM query for text can resolve to a
+parent whose `textContent` happens to be identical — a chip inside a flex
+wrapper with no siblings, a row inside its band `<li>`. Both have produced a
+check reading an empty `style` and reporting a pass. Constrain to the element
+that carries what you are measuring (`children.length === 0`, a `data-` hook).
+
+**Say what you did not verify.** A surface that needs a signed-in session and a
+completed analysis cannot be driven from a static export. Unit tests plus a comp
+measurement is a real level of evidence; it is not the same as having seen it
+run, and the difference belongs in the commit.

@@ -78,7 +78,7 @@ const textColor: Record<TailorSaveState, string> = {
 const label: Record<TailorSaveState, string> = {
   idle: "Not yet saved",
   saving: "Saving…",
-  saved: "Saved to My Resumes",
+  saved: "Saved to My Résumés",
   error: "Save failed",
 };
 
@@ -221,7 +221,7 @@ export function TailorSaveToast({
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: "0 0 1px", fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
-          {isError ? "Couldn't save this match" : "Saved to My Resumes"}
+          {isError ? "Couldn't save this match" : "Saved to My Résumés"}
         </p>
         <p style={{ margin: 0, fontSize: 12, color: "var(--muted, #8c7d68)" }}>
           {isError ? (

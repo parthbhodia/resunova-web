@@ -57,6 +57,7 @@
  */
 
 import type { AddressedGapAction } from "@/lib/types";
+import { degreeRequirementSatisfied, isCredentialRequirement, requiredDegreeLevel } from "@/lib/degreeRequirement";
 import { isGapAddressed } from "@/lib/tailorGapFix";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import {
@@ -136,7 +137,7 @@ export type QueueSource = "both" | "scorer" | "rater";
  * producer, and the fix was to make the producer authoritative and have the
  * view trust it verbatim. Same rule.
  */
-export type QueueVerdict = "partial" | "not_evidenced" | "keyword" | "covered";
+export type QueueVerdict = "partial" | "not_evidenced" | "not_found" | "keyword" | "covered";
 
 export interface SourcedQueueItem extends QueueItem {
   source: QueueSource;
@@ -152,11 +153,84 @@ export interface SourcedQueueItem extends QueueItem {
 
 /** Detail line for a requirement the résumé evidences in different words. */
 export const WORDING_DETAIL =
-  "Your resume shows this, but not in words the scanner matches. Using the posting's phrasing on the bullet below is enough.";
+  "Your résumé shows this, but not in words the scanner matches. Using the posting's phrasing on the bullet below is enough.";
 
-/** Detail line for a requirement neither pipeline found. */
+/**
+ * Detail line for a requirement neither pipeline found.
+ *
+ * Says what a keyword scanner knows, because that is what produced this row.
+ * It used to read "The scanner did not find this anywhere in your résumé",
+ * which is accurate but sat under a chip reading "Not evidenced" — two claims
+ * on one row, only the smaller one supported. Naming the mechanism is also the
+ * more useful half: a real ATS matches on strings too, so "this phrase is not
+ * in your document" is the finding, and it is fixable by wording.
+ */
 export const SCORER_ONLY_DETAIL =
-  "The scanner did not find this anywhere in your resume.";
+  "A keyword scanner matching on exact phrases won't find this in your résumé. If you do this work, say it in the posting's words on the bullet below.";
+
+/**
+ * WHY a row sits in the band that says it could get you filtered out.
+ *
+ * The band makes a claim, and until this nothing on the row supported it: the
+ * "Why this matters" control rendered a restatement of the chip — "the scanner
+ * did not find this" — which is WHAT HAPPENED, not why it matters. A control
+ * that promises a reason and repeats the finding teaches people to stop opening
+ * it, and it leaves the band's own sentence unsourced.
+ *
+ * Each reason names the mechanism that screens on that requirement TYPE, which
+ * is the only thing we actually know. None of them claims knowledge of a given
+ * employer's process.
+ *
+ * ⚠️ A type with no entry here does NOT belong in this band. If we cannot say
+ * why something would filter someone out, we must not put it under a heading
+ * that says it will — which is how duties like "Participate in design reviews"
+ * came to sit under "Could get you filtered out" in the first place.
+ */
+export const BLOCKER_REASON: Readonly<Record<string, string>> = {
+  degree:
+    "A degree is usually a yes/no question on the application form, answered before anyone reads your résumé.",
+  certification:
+    "Named certifications are usually a form question, and get verified if you are hired.",
+  license:
+    "A licence is a legal requirement for the role. It is checked, not weighed against the rest of your application.",
+  clearance:
+    "A clearance is a hard eligibility requirement. It is checked, not weighed against the rest of your application.",
+  experience:
+    "Minimum-years requirements are often a form question that screens applications automatically.",
+};
+
+/** Years threshold ("5+ years", "1 year of..."). What separates a screening
+ *  criterion from a duty that happens to be typed `experience`. */
+const YEARS_RE = /\b\d{1,2}\s*\+?\s*(?:years?|yrs?)\b/i;
+
+/**
+ * The reason this requirement can screen someone out, or null when we cannot
+ * name one — in which case the row must not sit under a heading that says it
+ * will.
+ */
+export function blockerReasonFor(name: string, type?: string): string | null {
+  if (requiredDegreeLevel(name) !== null) return BLOCKER_REASON.degree;
+  if (/\bcertif/i.test(name)) return BLOCKER_REASON.certification;
+  if (/\blicen[sc]e/i.test(name)) return BLOCKER_REASON.license;
+  if (/\bclearance\b/i.test(name)) return BLOCKER_REASON.clearance;
+  if (YEARS_RE.test(name)) return BLOCKER_REASON.experience;
+  const t = String(type ?? "").trim();
+  return t === "degree" || t === "certification" || t === "license"
+    ? BLOCKER_REASON[t]
+    : null;
+}
+
+/**
+ * Detail for a credential the résumé does not evidence.
+ *
+ * "The scanner did not find this" is true but reads as a tooling shortfall, and
+ * the row's right-hand slot then said "No action" — a grey dead end. What is
+ * actually happening is that the product is refusing to claim a qualification
+ * the candidate does not hold, which is the single thing it must never do. Said
+ * plainly, the constraint becomes the reason to trust the rest of the page.
+ */
+export const CREDENTIAL_REFUSAL_DETAIL =
+  "We won't claim a credential you don't have. A degree is among the first things an employer verifies, so this one is yours to earn, not ours to write.";
 
 /** Appended to rater-only rows so nobody expects the number to move. */
 export const NO_SCORE_MOVE_NOTE =
@@ -238,11 +312,65 @@ export function raterView(ratings: unknown): RaterView {
  * so whatever type it is, the honest line is that the evidence is there and
  * the wording is not. Getting this backwards would tell someone they lack
  * something their own résumé demonstrates.
+ *
+ * ⚠️ `not_evidenced` IS A CLAIM ABOUT A PERSON, so it needs evidence we
+ * actually have. Read what produces the input to this function before widening
+ * it: the scorer's "unmatched" comes from `match_requirement`, which tries the
+ * canonical phrase, up to four aliases the extraction model wrote WITHOUT EVER
+ * SEEING THE RÉSUMÉ, a generated abbreviation, a six-entry synonym table, and a
+ * stemmed all-token check. That is a keyword scanner. It cannot tell that
+ * "mentored four engineers and owned the platform roadmap" is technical
+ * leadership, and it was never able to — so a miss from it means THE WORDS ARE
+ * NOT IN THE DOCUMENT, which is a useful thing to say and a different sentence
+ * from "you have not done this".
+ *
+ * So exactly one thing reaches it: a DEGREE requirement. `requiredDegreeLevel`
+ * recognised a level in the requirement, and `degreeRequirementSatisfied` then
+ * read the résumé with degree hierarchy and found nothing at or above it. That
+ * is a real check against the document, so "not evidenced" is a claim we have
+ * earned — and it is also the one place the claim has to be made, because
+ * offering to write in a degree someone lacks is the one thing this product
+ * must never do.
+ *
+ * ⚠️ NOT certifications, licences or clearances, even though
+ * `isCredentialRequirement` groups them with degrees for ROUTING. That grouping
+ * is about where the row goes (never to the bullet fixer); it is not evidence.
+ * `degreeRequirementSatisfied` returns false for them WITHOUT LOOKING — its own
+ * comment says "not a degree requirement, not ours to answer" — so all we know
+ * about an unmatched "AWS certification" is that the phrase is missing. They
+ * take `not_found` with everything else, and their routing is unaffected:
+ * `itemAction` sends any credential that is not `partial`/`covered` to the
+ * refusal, so we still decline to write one in.
+ *
+ * The path that used to reach `not_evidenced` for an ordinary capability was an
+ * UNTYPED row falling back to the rater's list membership: extraction sent no
+ * `type`, the rater happened to file it under qualifications, and a phrase like
+ * "technical leadership" was rendered as a failed hard requirement. That is an
+ * LLM's filing decision deciding whether we call someone unqualified.
  */
-function verdictFor(kind: QueueKind, raterCovered: boolean): QueueVerdict | undefined {
+function verdictFor(
+  kind: QueueKind,
+  raterCovered: boolean,
+  /**
+   * True only when something ACTUALLY READ THE RÉSUMÉ and concluded the
+   * requirement is not met. Exactly two things qualify:
+   *
+   *  - a degree requirement whose hierarchy check ran against the text and
+   *    found nothing at or above the required level;
+   *  - a rater row, where the model read the résumé and judged the claim
+   *    behind an already-matched term unevidenced ("5 years of Python" against
+   *    one mention).
+   *
+   * A keyword scanner missing a phrase is NOT one of them, and passing `true`
+   * for the scorer's ordinary rows is how this screen came to tell qualified
+   * people they had not evidenced their own experience.
+   */
+  absenceEstablished: boolean,
+): QueueVerdict | undefined {
   if (kind === "contextual") return undefined;
   if (raterCovered) return "partial";
-  return kind === "keyword" ? "keyword" : "not_evidenced";
+  if (kind === "keyword") return "keyword";
+  return absenceEstablished ? "not_evidenced" : "not_found";
 }
 
 /**
@@ -263,20 +391,79 @@ export function deriveScorerQueue(
   rater: RaterView,
   addressed: ReadonlySet<string> = new Set(),
   actions?: readonly AddressedGapAction[],
+  /**
+   * The résumé being scored, for the deterministic credential check below.
+   *
+   * Optional and defaulted so every existing caller and test is byte-unchanged:
+   * omitting it reproduces the pre-wiring behaviour exactly.
+   */
+  resumeText = "",
 ): SourcedQueueItem[] {
   const out: SourcedQueueItem[] = [];
   const seen = new Set<string>();
   for (const req of unmatched) {
     const name = String(req?.canonical ?? "").trim();
     if (!name) continue;
+
+    /**
+     * A degree the résumé actually holds is not a gap, whatever the rater said.
+     *
+     * The scorer matches requirements by phrase and knows nothing about degree
+     * hierarchy, so "Bachelor's degree" comes back unmatched for someone with
+     * two Master's. The rater is a second opinion and misses it too often: on
+     * the run this was found from, it filed "Bachelor's degree" as covered and
+     * "Master's degree" as missing, from ONE résumé listing a Bachelor of
+     * Engineering and two Master of Science degrees. So the row said a man with
+     * two Master's had not evidenced a Master's.
+     *
+     * This check outranks the rater because it is evidence rather than an
+     * opinion: the qualifying degree is literally in the text. It can only ever
+     * REMOVE a row — it never invents coverage — and `degreeRequirementSatisfied`
+     * is conservative in the direction that matters (a blank résumé satisfies
+     * nothing; bare BS/BA/MS/MA never match, so "Boston, MA" cannot register a
+     * Master of Arts; certifications and licences return null and fall through
+     * to the behaviour below unchanged).
+     */
+    if (isCredentialRequirement(name) && degreeRequirementSatisfied(name, resumeText)) continue;
+
+    // The posting's title is not a requirement row. Extraction emits it as one
+    // (`req:job-title`, type=experience) so the scorer can grade title match —
+    // but rendered here it became a red "Fix this" row offering to rewrite the
+    // user's own job title, directly under the title note that already reports
+    // the same comparison. One fact, one surface.
+    if (String(req?.id ?? "").trim() === "req:job-title") continue;
+
     // Extraction's own type first: it is a claim about what the requirement
     // IS. The rater's list membership is only where it filed the comparison,
     // so it fills the gap rather than overriding. `keyword` last, because a
     // row we know nothing about should not be shouting.
-    const kind =
+    let kind =
       queueKindForRequirementType(req?.type)
       ?? rater.kindOf?.get(normalizeQueueName(name))
       ?? "keyword";
+
+    // A row may sit under "Could get you filtered out" ONLY if we can name the
+    // mechanism that filters (see BLOCKER_REASON). The `experience` type
+    // catches both "5+ years of X" — a real screening question — and duties
+    // like "Experience developing accessible technologies", and filing the
+    // duties as blockers is how a user opened this screen to ten red rows of
+    // which two were actual knockouts. A credential keeps its band regardless
+    // (its refusal machinery lives there); everything else needs an explicit
+    // years threshold, and needs to be stated as REQUIRED — the extraction's
+    // own high/medium/low ranking, which this screen collected and then never
+    // read. "Preferred" and a hard filter are different claims.
+    // Credential by NAME or by extraction's own TYPE — either is a nameable
+    // filter (BLOCKER_REASON has an entry for both routes). Name alone is not
+    // enough: "MS in Computer Science" deliberately fails the name check (bare
+    // MS never matches, or "Boston, MA" is a Master of Arts), while extraction
+    // typing it `degree` is a claim about what it IS.
+    const credential =
+      isCredentialRequirement(name) ||
+      ["degree", "certification", "license"].includes(String(req?.type ?? "").trim());
+    if (kind === "qualification" && !credential) {
+      const required = String(req?.importance ?? "required") === "required";
+      if (!YEARS_RE.test(name) || !required) kind = "keyword";
+    }
     const id = queueItemId(kind, name);
     if (seen.has(id)) continue;
     seen.add(id);
@@ -303,13 +490,27 @@ export function deriveScorerQueue(
       // employer-domain word the honest answer is that writing it in is
       // usually the wrong move — the same class the rater's contextual
       // keywords are already handled as.
+      // A blocker row's detail LEADS with why it can filter you out. "Why this
+      // matters" used to open on a restatement of the chip — what happened,
+      // never why it matters — which left the band's own claim unsourced.
       detail: kind === "contextual"
         ? CONTEXTUAL_DETAIL
-        : raterCovered ? WORDING_DETAIL : SCORER_ONLY_DETAIL,
+        : raterCovered
+          ? WORDING_DETAIL
+          : credential
+            ? [blockerReasonFor(name, req?.type), CREDENTIAL_REFUSAL_DETAIL].filter(Boolean).join(" ")
+            : kind === "qualification"
+              ? [blockerReasonFor(name, req?.type), SCORER_ONLY_DETAIL].filter(Boolean).join(" ")
+              : SCORER_ONLY_DETAIL,
       source: raterMissing ? "both" : "scorer",
       // Both classes are unmatched by the scorer, so both move the number.
       movesScore: true,
-      verdict: verdictFor(kind, raterCovered),
+      // Reaching here with a degree level means the guard at the top of the
+      // loop already ran `degreeRequirementSatisfied` and it came back false —
+      // i.e. we read the résumé and found nothing at or above that level. That
+      // is the evidence behind the only claim this row is allowed to make about
+      // the candidate. See verdictFor.
+      verdict: verdictFor(kind, raterCovered, requiredDegreeLevel(name) !== null),
     });
   }
   return out;
@@ -412,10 +613,11 @@ export function mergeQueues(
       ...it,
       source: "rater",
       movesScore: false,
-      // The scanner already matched the term; the rater judged the claim
-      // behind it unevidenced. From the reader's side that is the same
-      // sentence as any other gap, so it carries the same word.
-      verdict: verdictFor(it.kind, false),
+      // The scanner already matched the term; the rater READ THE RÉSUMÉ and
+      // judged the claim behind it unevidenced. That is the one gap class where
+      // a model, not a regex, is the source — so it is also the one non-degree
+      // row entitled to say "Not evidenced".
+      verdict: verdictFor(it.kind, false, true),
       detail: it.detail
         ? `${it.detail} ${NO_SCORE_MOVE_NOTE}`
         : NO_SCORE_MOVE_NOTE,

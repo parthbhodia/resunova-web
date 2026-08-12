@@ -61,6 +61,8 @@ import {
 import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToStructured";
 import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
 import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, planQueueRuns, keepFirstRewritePerBullet } from "@/lib/fixEverything";
+import { tailorResultHeadline } from "@/lib/tailorResultHeadline";
+import { gapFixEmptyError } from "@/lib/gapFixEmptyReason";
 import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
 import { prefillPrepFromTailor } from "@/lib/interviewPrepLaunch";
 import type { AddressedGapAction } from "@/lib/types";
@@ -500,17 +502,33 @@ export default function ResumeBuilder({
     }
   }, []);
   const lastSaveArgsRef = useRef<Parameters<typeof saveTailorMatchToLibrary>[0] | null>(null);
+  /**
+   * Depend on the individual callbacks, NOT the `saveStatus` object.
+   *
+   * `useTailorSaveStatus` returns a fresh object literal every render, so
+   * `[saveStatus]` gave this a new identity on every render — including the one
+   * caused by its own `setState("saved")`. The debounced Hub-save effect below
+   * lists `persistTailorMatch` in its deps and is guarded only by `scoreStale`,
+   * which a save does not clear (only a re-score does). So one applied fix
+   * started a permanent loop: save → re-render → new identity → effect re-runs
+   * → save. The pill strobing "Saved to My Resumes" was the visible half; the
+   * invisible half was writing to the library on a timer forever.
+   *
+   * The three callbacks are `useCallback`s over a `[]`-dep helper, so they are
+   * genuinely stable and the effect now settles. Pinned in tailorSaveStatus.test.
+   */
+  const { beginSave, saveSucceeded, saveFailed } = saveStatus;
   const persistTailorMatch = useCallback(async (args: Parameters<typeof saveTailorMatchToLibrary>[0]) => {
     lastSaveArgsRef.current = args;
-    saveStatus.beginSave();
+    beginSave();
     try {
       await saveTailorMatchToLibrary(args);
-      saveStatus.saveSucceeded();
+      saveSucceeded();
     } catch (e) {
       console.warn("saveTailorMatchToLibrary failed", e);
-      saveStatus.saveFailed();
+      saveFailed();
     }
-  }, [saveStatus]);
+  }, [beginSave, saveSucceeded, saveFailed]);
   const retryTailorSave = useCallback(() => {
     if (lastSaveArgsRef.current) void persistTailorMatch(lastSaveArgsRef.current);
   }, [persistTailorMatch]);
@@ -2540,14 +2558,12 @@ export default function ResumeBuilder({
     if (!resp.ok || data.error) throw new Error(data.error ?? "Couldn't write suggestions. Try again.");
     const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as FixSuggestion[];
     const usable = list.filter((s) => s.original?.trim() && s.suggested?.trim());
-    // An empty list has three causes and only one of them is a verdict about
-    // the résumé. `no_llm_output` means the provider chain failed and returned
-    // a 200 anyway, which is exactly how this feature went dark twice while
-    // telling users their experience could not support a requirement. Raise it
-    // so the row shows the error state with a retry instead of a confident
-    // sentence we have no basis for.
-    if (!usable.length && data.emptyReason === "no_llm_output") {
-      throw new Error("Couldn't reach the writer just now. Try again in a moment.");
+    // An empty list has four causes and NONE of them earns a verdict about the
+    // résumé — the routing and the reasoning live in lib/gapFixEmptyReason.ts,
+    // where they are pinned by tests.
+    if (!usable.length) {
+      const failure = gapFixEmptyError(data.emptyReason);
+      if (failure) throw new Error(failure);
     }
     return usable;
   }, [jd, effectiveCandidateProfile, tailorStructuredResume, tailorBulletAnalysis,
@@ -4285,9 +4301,50 @@ export default function ResumeBuilder({
                   flexWrap: "wrap",
                 }}
               >
-                <div style={{ minWidth: 0 }}>
+                <div style={{ minWidth: 0, display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  {/* The peak, and it used to be the quietest thing on the page.
+                   *
+                   * Someone arrives here having just got a tailored résumé, and
+                   * what read first was a red count of what is wrong down in the
+                   * rail — the delivery was a grey page title above it. This tick
+                   * is the whole of the fix on this line: the outcome is stated
+                   * as an outcome, once, before anything asks for work. Nothing
+                   * red belongs in this bar.
+                   *
+                   * Tint for the fill, ink for the glyph. `--green-ink` is the
+                   * opaque TEXT colour and is a LIGHT green in dark mode, so a
+                   * solid-green badge with a white tick measures ~1.9:1 there. */}
+                  {queueUi && !generating ? (
+                    <span
+                      aria-hidden
+                      style={{
+                        flex: "none",
+                        width: 26,
+                        height: 26,
+                        marginTop: 1,
+                        borderRadius: 999,
+                        display: "grid",
+                        placeItems: "center",
+                        background: "var(--green-bg, rgba(22,163,74,0.14))",
+                        color: "var(--green-ink, #16a34a)",
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    </span>
+                  ) : null}
+                  <div style={{ minWidth: 0 }}>
                   <h2 id="rb-results-heading" style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.5, color: "var(--text)", margin: 0, lineHeight: 1.2 }}>
-                    {generating ? "Building your PDF…" : result?.folder ? "Your tailored résumé is ready" : "Analysis ready — review gaps & download PDF"}
+                    {/* Both states are true at the moment they are shown, and
+                     * the rule lives in lib/tailorResultHeadline.ts so the
+                     * claim is pinned rather than buried in a ternary here. */}
+                    {tailorResultHeadline({
+                      generating,
+                      queueUi,
+                      hasFolder: Boolean(result?.folder),
+                      appliedCount: addressedGaps.size,
+                    })}
                   </h2>
                   <p style={{ fontSize: 13, color: "var(--muted)", margin: "2px 0 0", letterSpacing: -0.1, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <span>{[role, company].map((s) => s.trim()).filter(Boolean).join(" · ") || "Match results"}</span>
@@ -4295,6 +4352,7 @@ export default function ResumeBuilder({
                       <TailorSaveStatusPill state={saveStatus.state} onRetry={retryTailorSave} />
                     )}
                   </p>
+                  </div>
                 </div>
                 {/* Header action buttons */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>

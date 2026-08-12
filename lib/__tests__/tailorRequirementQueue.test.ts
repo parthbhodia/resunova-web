@@ -12,6 +12,7 @@ import {
   type UnmatchedRequirement,
 } from "@/lib/tailorRequirementQueue";
 import { deriveWorkQueue } from "@/lib/tailorWorkQueue";
+import { itemAction } from "@/components/tailor/TailorWorkQueue";
 
 /**
  * The reported failure, as data: a scan reporting 24 requirements with 9
@@ -253,10 +254,61 @@ describe("banding comes from the requirement's own type", () => {
   });
 
   it("bands credentials and tenure as blockers", () => {
-    for (const t of ["degree", "certification", "license", "experience"]) {
+    for (const t of ["degree", "certification", "license"]) {
       expect(deriveScorerQueue([typed("x y z", t)], EMPTY_RATER)[0].kind)
         .toBe("qualification");
     }
+    // Tenure means a THRESHOLD. "5+ years of x" is a screening question;
+    expect(deriveScorerQueue([typed("5+ years of x", "experience")], EMPTY_RATER)[0].kind)
+      .toBe("qualification");
+  });
+
+  it("does not band a duty as a blocker just because extraction typed it experience", () => {
+    // The `experience` type catches both "5+ years of X" and duties like
+    // "Experience developing accessible technologies". Filing the duties as
+    // blockers is how a user opened this screen to ten red rows of which two
+    // were actual knockouts — a band that says "could get you filtered out"
+    // may only hold rows we can name the filter for.
+    for (const duty of [
+      "Experience developing accessible technologies",
+      "technical leadership",
+      "software maintenance",
+    ]) {
+      expect(deriveScorerQueue([typed(duty, "experience")], EMPTY_RATER)[0].kind)
+        .toBe("keyword");
+    }
+  });
+
+  it("reads the extraction's own ranking: a preferred threshold is not a hard filter", () => {
+    // importance (required|preferred|nice_to_have) was collected and never
+    // consulted, so a "preferred" tenure line sat under the same red heading
+    // as a hard minimum. "Preferred" and "filters you out" are different
+    // claims.
+    const preferred = [{ id: "t0", canonical: "5+ years of x", importance: "preferred", type: "experience" }];
+    expect(deriveScorerQueue(preferred, EMPTY_RATER)[0].kind).toBe("keyword");
+  });
+
+  it("never renders the posting's title as a fixable requirement", () => {
+    // Extraction emits the title as `req:job-title` so the scorer can grade
+    // title match. Rendered as a row it became red "Senior Software Engineer ·
+    // Fix this" — offering to rewrite the user's own job title, directly under
+    // the title note that already reports the same comparison.
+    const rows = deriveScorerQueue(
+      [{ id: "req:job-title", canonical: "Senior Software Engineer", importance: "required", type: "experience" }],
+      EMPTY_RATER,
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it("says WHY a blocker can block, ahead of what the scanner found", () => {
+    // "Why this matters" opened on a restatement of the chip — what happened,
+    // never why it matters — leaving the band's own claim unsourced.
+    const [years] = deriveScorerQueue([typed("5+ years of x", "experience")], EMPTY_RATER);
+    expect(years.detail).toMatch(/form question that screens applications/i);
+    const [degree] = deriveScorerQueue(degreeReqs(["Bachelor's degree"]), EMPTY_RATER);
+    expect(degree.detail).toMatch(/yes\/no question on the application form/i);
+    // The refusal stays — the reason joins it, it does not replace it.
+    expect(degree.detail).toMatch(/we won't claim a credential/i);
   });
 
   it("bands named skills, tools and duties as keywords", () => {
@@ -301,17 +353,33 @@ describe("the merge combines the two lists rather than discarding one", () => {
     // SCORER's row and drops the rater's for a requirement on both lists, so
     // an untyped scorer row was demoting a requirement the rater had filed as
     // a qualification down to a keyword — the merge losing information it was
-    // supposed to be combining.
+    // supposed to be combining. The filing survives where the band can justify
+    // it: a years threshold is a real screening question.
     const ratings = {
-      qualifications: { missing: [{ text: "Kubernetes" }], covered: [] },
+      qualifications: { missing: [{ text: "5 years of Kubernetes" }], covered: [] },
       responsibilities: { missing: [{ text: "mentor engineers" }], covered: [] },
       keywords: {},
     };
     const rows = deriveScorerQueue(
-      unmatched(["Kubernetes", "mentor engineers"]), // no `type` on either
+      unmatched(["5 years of Kubernetes", "mentor engineers"]), // no `type` on either
       raterView(ratings),
     );
     expect(rows.map((r) => r.kind)).toEqual(["qualification", "responsibility"]);
+  });
+
+  it("does not let the rater's filing alone make something a blocker", () => {
+    // The technical-leadership bug one level up: extraction sent no type, the
+    // rater happened to file the row under qualifications, and a capability
+    // rendered as a failed hard requirement. The filing is consulted — but the
+    // blocker band needs a filter we can name, and "the model filed it there"
+    // is not one.
+    const ratings = {
+      qualifications: { missing: [{ text: "technical leadership" }], covered: [] },
+      responsibilities: { missing: [], covered: [] },
+      keywords: {},
+    };
+    const rows = deriveScorerQueue(unmatched(["technical leadership"]), raterView(ratings));
+    expect(rows[0].kind).toBe("keyword");
   });
 
   it("lets extraction's type win over where the rater filed it", () => {
@@ -417,5 +485,181 @@ describe("covered rows are reassurance, and never a second copy of work", () => 
   it("returns nothing when the rater covered nothing", () => {
     expect(deriveCoveredQueue({ qualifications: { missing: [], covered: [] }, keywords: {} })).toEqual([]);
     expect(deriveCoveredQueue(null)).toEqual([]);
+  });
+});
+
+/**
+ * The reported failure, as data: one résumé listing a Bachelor of Engineering
+ * and two Master of Science degrees, against a posting asking for both. The
+ * rater filed the bachelor's as covered and the master's as missing, so the
+ * page told a man with two master's degrees that he had not evidenced one.
+ *
+ * The scorer matches by phrase and knows nothing about degree hierarchy, so it
+ * reports both unmatched. Nothing downstream consulted the résumé, even though
+ * lib/degreeRequirement.ts existed and was tested — it had zero call sites.
+ */
+/** Degree rows carry `type: "degree"` from extraction, which is what bands them
+ *  as a blocker. The generic `unmatched()` helper omits type, so these would
+ *  otherwise fall back to `keyword` and not exercise the real path. */
+const degreeReqs = (names: string[]): UnmatchedRequirement[] =>
+  names.map((canonical, i) => ({ id: `d${i}`, canonical, importance: "required", type: "degree" }));
+
+const RESUME_WITH_DEGREES = [
+  "EDUCATION",
+  "Monroe Kings Graduate College — Master of Science, AI and Data Science",
+  "University of Maryland, Baltimore County — Master of Science, Computer Science",
+  "University of Mumbai — Bachelor of Engineering, Information Technology",
+].join("\n");
+
+describe("a degree the résumé holds is not a gap", () => {
+  const degrees = degreeReqs(["Bachelor's degree", "Master's degree"]);
+  // Verbatim from the failing run: the rater disagreed with itself.
+  const rater = { missing: ["Master's degree"], covered: ["Bachelor's degree"] };
+
+  it("drops both degree rows when the résumé evidences them", () => {
+    const items = deriveScorerQueue(degrees, rater, new Set(), undefined, RESUME_WITH_DEGREES);
+    expect(items).toHaveLength(0);
+  });
+
+  it("beats the rater, which called the master's missing", () => {
+    const items = deriveScorerQueue(degrees, rater, new Set(), undefined, RESUME_WITH_DEGREES);
+    expect(items.some((i) => i.name === "Master's degree")).toBe(false);
+  });
+
+  it("counts a higher degree as satisfying a lower ask", () => {
+    const onlyMasters = "EDUCATION\nMaster of Science, Computer Science";
+    const items = deriveScorerQueue(
+      degreeReqs(["Bachelor's degree"]), EMPTY_RATER, new Set(), undefined, onlyMasters,
+    );
+    expect(items).toHaveLength(0);
+  });
+
+  /**
+   * The control. Without it this suite passes if the code simply drops every
+   * credential row, which would hide real gaps instead of fixing a false one.
+   */
+  it("KEEPS a degree the résumé does not evidence", () => {
+    const noDegree = "EXPERIENCE\nSoftware Developer, Tata Communications Ltd.";
+    const items = deriveScorerQueue(
+      degreeReqs(["Bachelor's degree"]), EMPTY_RATER, new Set(), undefined, noDegree,
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0].verdict).toBe("not_evidenced");
+  });
+
+  it("keeps non-credential requirements untouched", () => {
+    const items = deriveScorerQueue(
+      unmatched(["Golang"]), EMPTY_RATER, new Set(), undefined, RESUME_WITH_DEGREES,
+    );
+    expect(items).toHaveLength(1);
+  });
+
+  /** Version-skew safety: the argument is new, so omitting it must change nothing. */
+  it("is byte-identical for callers that pass no résumé", () => {
+    expect(deriveScorerQueue(degrees, rater)).toEqual(
+      deriveScorerQueue(degrees, rater, new Set(), undefined, ""),
+    );
+    expect(deriveScorerQueue(degrees, rater)).toHaveLength(2);
+  });
+});
+
+/**
+ * A keyword scanner's miss is not a verdict on a person.
+ *
+ * The field report: a candidate who leads teams was shown "technical leadership
+ * — Not evidenced". Nothing had read their résumé to conclude that. The row came
+ * from `match_requirement`, which tries the canonical phrase, up to four aliases
+ * the extraction model wrote WITHOUT SEEING THE RÉSUMÉ, a generated abbreviation,
+ * a six-entry synonym table and a stemmed all-token check. "Mentored four
+ * engineers and owned the platform roadmap" matches none of those layers.
+ *
+ * ⚠️ Every one of these went GREEN against the shipped behaviour before they
+ * were written — the suite had no assertion on a non-degree scorer verdict at
+ * all, so the bug was invisible to it. Mutation-verified after: forcing the
+ * old `absenceEstablished = true` turns them red.
+ */
+describe("only a real check on the résumé may claim absence", () => {
+  const typed = (canonical: string, type: string): UnmatchedRequirement[] =>
+    [{ id: "t0", canonical, importance: "required", type }];
+
+  it("does not tell someone they have not evidenced a capability the scanner merely missed", () => {
+    // Evolved: these rows no longer merely soften the chip — they leave the
+    // pass/fail band entirely. A capability the scanner missed is a wording
+    // job ("fits an existing bullet"), not a knockout.
+    const resume = "EXPERIENCE\nMentored four engineers and owned the platform roadmap.";
+    for (const [name, type] of [
+      ["technical leadership", "experience"],
+      ["full stack development", "experience"],
+    ] as const) {
+      const [row] = deriveScorerQueue(typed(name, type), EMPTY_RATER, new Set(), undefined, resume);
+      expect(row.kind).toBe("keyword");
+      expect(row.verdict).toBe("keyword");
+    }
+  });
+
+  it("keeps the claim for a degree, where the hierarchy check actually read the résumé", () => {
+    // The one place absence is established: requiredDegreeLevel recognised a
+    // level, degreeRequirementSatisfied read the text and found nothing at or
+    // above it. Losing this would let the education editor offer to type in a
+    // degree the person does not hold.
+    const [row] = deriveScorerQueue(
+      degreeReqs(["Bachelor's degree"]), EMPTY_RATER, new Set(), undefined,
+      "EXPERIENCE\nSoftware Developer.",
+    );
+    expect(row.verdict).toBe("not_evidenced");
+  });
+
+  it("does NOT claim absence for a certification, which nothing checked", () => {
+    // isCredentialRequirement groups certifications with degrees for ROUTING,
+    // and that grouping is not evidence: degreeRequirementSatisfied returns
+    // false for them without looking ("not ours to answer"). All we know is the
+    // phrase is missing.
+    const [row] = deriveScorerQueue(
+      typed("AWS certification", "certification"), EMPTY_RATER, new Set(), undefined,
+      "EXPERIENCE\nRan the platform on AWS for four years.",
+    );
+    expect(row.verdict).toBe("not_found");
+  });
+
+  it("still refuses to write a certification in, whatever the chip says", () => {
+    // The routing must not move with the wording. A credential that is not
+    // partial/covered goes to the refusal either way.
+    expect(itemAction({ id: "x", name: "AWS certification", kind: "qualification", status: "queued", detail: "" }, "not_found"))
+      .toBe("no_fabrication");
+  });
+
+  it("keeps the rater's judgement, which IS a reading of the résumé", () => {
+    // The scanner matched the term; the model read the document and judged the
+    // claim behind it unevidenced. That is the one non-degree row entitled to
+    // the word, and the easy over-correction is to soften it too.
+    const merged = mergeQueues(
+      [],
+      deriveWorkQueue(
+        {
+          overall_score: 40,
+          job_title: { matched: false, jd_title: "", resume_title: "", score: 0 },
+          qualifications: {
+            score: 40,
+            covered: [],
+            missing: [{ text: "5 years of Python", analysis: "One mention." }],
+          },
+          responsibilities: { score: 40, covered: [], missing: [] },
+          keywords: {
+            direct_skills: { found: [], missing: [] },
+            contextual: { found: [], missing: [] },
+            found_count: 1,
+            total_count: 2,
+          },
+        } as never,
+        new Set(),
+      ),
+    );
+    expect(merged.find((r) => r.name === "5 years of Python")?.verdict).toBe("not_evidenced");
+  });
+
+  it("says what the scanner knows, and names the mechanism", () => {
+    // The detail line and the chip used to make different claims on one row.
+    expect(SCORER_ONLY_DETAIL).toMatch(/keyword scanner/i);
+    expect(SCORER_ONLY_DETAIL).not.toMatch(/\bnot evidenced\b/i);
   });
 });

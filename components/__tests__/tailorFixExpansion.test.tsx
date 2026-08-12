@@ -24,7 +24,7 @@ const sugg = (over: Partial<FixSuggestion> = {}): FixSuggestion => ({
 });
 
 describe("TailorFixExpansion", () => {
-  it("offers Add to resume / Edit first / Ignore on a ready suggestion", () => {
+  it("offers Add to résumé / Edit first / Ignore on a ready suggestion", () => {
     const onApply = vi.fn();
     render(
       <TailorFixExpansion
@@ -35,7 +35,7 @@ describe("TailorFixExpansion", () => {
         onClose={() => undefined}
       />,
     );
-    fireEvent.click(screen.getByText("Add to resume"));
+    fireEvent.click(screen.getByText("Add to résumé"));
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ id: "s1" }), null);
     expect(screen.getByText("Edit first")).toBeTruthy();
     expect(screen.getByText("Ignore")).toBeTruthy();
@@ -55,7 +55,7 @@ describe("TailorFixExpansion", () => {
     );
     expect(screen.getByText("Pick a version")).toBeTruthy();
     fireEvent.click(screen.getByText("Shorter rewrite"));
-    fireEvent.click(screen.getByText("Add to resume"));
+    fireEvent.click(screen.getByText("Add to résumé"));
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ id: "s2" }), null);
   });
 
@@ -77,20 +77,48 @@ describe("TailorFixExpansion", () => {
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ id: "s1" }), "My own wording.");
   });
 
-  it("zero suggestions is an honest ending, not a blank card", () => {
+  it("zero suggestions owns the miss instead of judging the candidate", () => {
+    // This used to read "Nothing honest to write — your résumé doesn't have
+    // work this can be written from." A verdict about the person, and the
+    // thing that usually produced it was our own validators dropping every
+    // rewrite the model wrote. Paying users read it as "you are not qualified",
+    // and said so.
     const onIgnore = vi.fn();
+    const onTryFix = vi.fn();
     render(
       <TailorFixExpansion
         item={item()}
         state={{ phase: "ready", suggestions: [] }}
         onApply={() => undefined}
         onIgnore={onIgnore}
+        onTryFix={onTryFix}
         onClose={() => undefined}
       />,
     );
-    expect(screen.getByText("Nothing honest to write")).toBeTruthy();
+    expect(screen.getByText("We couldn’t write this one")).toBeTruthy();
+    expect(screen.getByText(/miss on our side, not a verdict on your experience/i)).toBeTruthy();
+    expect(screen.queryByText(/doesn't have work this can be written from/i)).toBeNull();
+    // A dead end with no way to retry is the other half of the complaint.
+    fireEvent.click(screen.getByText("Try again"));
+    expect(onTryFix).toHaveBeenCalled();
     fireEvent.click(screen.getByText("Ignore"));
     expect(onIgnore).toHaveBeenCalled();
+  });
+
+  it("a failed fetch offers Try again, not only Close", () => {
+    const onTryFix = vi.fn();
+    render(
+      <TailorFixExpansion
+        item={item()}
+        state={{ phase: "error", message: "Couldn't reach the writer just now." }}
+        onApply={() => undefined}
+        onIgnore={() => undefined}
+        onTryFix={onTryFix}
+        onClose={() => undefined}
+      />,
+    );
+    fireEvent.click(screen.getByText("Try again"));
+    expect(onTryFix).toHaveBeenCalled();
   });
 
   it("contextual info card explains and offers Try a fix / Ignore", () => {

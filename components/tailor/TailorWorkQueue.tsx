@@ -26,7 +26,8 @@ export type QueueItemAction =
   | "whats_this"
   | "add_education"
   | "reconsider"
-  | "no_action";
+  | "no_action"
+  | "no_fabrication";
 
 export function itemAction(
   it: QueueItem,
@@ -51,7 +52,7 @@ export function itemAction(
   // have it, and offering to add it would be offering to fabricate a
   // credential -- the one thing this product must never do.
   if (isCredentialRequirement(it.name)) {
-    return verdict === "partial" || verdict === "covered" ? "add_education" : "no_action";
+    return verdict === "partial" || verdict === "covered" ? "add_education" : "no_fabrication";
   }
   return "fix";
 }
@@ -96,7 +97,8 @@ export function isLongTitle(name: string): boolean {
   return name.trim().length > LONG_TITLE_CHARS;
 }
 
-const ACTION_LABEL: Record<QueueItemAction, string> = {
+/** Exported so the refusal copy can be pinned; see credentialRouting.test. */
+export const ACTION_LABEL: Record<QueueItemAction, string> = {
   view_change: "See it",
   review: "Review",
   add_to_summary: "Add to summary",
@@ -105,6 +107,11 @@ const ACTION_LABEL: Record<QueueItemAction, string> = {
   add_education: "Add to education",
   reconsider: "Reconsider",
   no_action: "No action",
+  // Not "No action". This row is the honesty pipeline made visible: the product
+  // is declining to fabricate a credential, which is the one thing it must
+  // never do. Rendered as a dead grey "No action" it read as a limitation of
+  // the tool rather than the reason to trust it.
+  no_fabrication: "We won't add this",
 };
 
 /**
@@ -122,7 +129,16 @@ function actionLabel(action: QueueItemAction, it: QueueItem): string {
 /** The claim, in the user's words. */
 const VERDICT_LABEL: Record<QueueVerdict, string> = {
   partial: "Partial match",
+  // Reserved for a credential extraction itself typed as one, where
+  // degreeRequirementSatisfied has separately read the résumé and found nothing
+  // that qualifies. That is a claim about the candidate and it is earned.
   not_evidenced: "Not evidenced",
+  // Everything else the keyword scanner missed. It is a statement about the
+  // DOCUMENT, not the person: a phrase-boundary regex over four aliases written
+  // by a model that never saw the résumé cannot tell that "mentored four
+  // engineers and owned the platform roadmap" is technical leadership. Saying
+  // "Not evidenced" there tells a qualified candidate they are not.
+  not_found: "Scanner didn't find it",
   keyword: "Keyword · fits an existing bullet",
   covered: "You have this",
 };
@@ -138,6 +154,10 @@ const VERDICT_LABEL: Record<QueueVerdict, string> = {
 const VERDICT_TONE: Record<QueueVerdict, "crit" | "warn" | "good"> = {
   partial: "warn",
   not_evidenced: "crit",
+  // Amber, not crit, for the same reason `partial` is. Red is reserved for a
+  // claim we have actually established; a scanner missing a phrase is a wording
+  // problem until something that read the résumé says otherwise.
+  not_found: "warn",
   keyword: "warn",
   covered: "good",
 };
@@ -169,7 +189,11 @@ function verdictChipStyle(v: QueueVerdict): React.CSSProperties {
   const tone = VERDICT_TONE[v];
   const ink = VERDICT_INK[tone];
   return {
-    fontSize: FS.micro,
+    // 11px, not 10. This chip is the row's entire claim — whether the user has
+    // the thing, nearly has it, or does not — and 10px is under the legibility
+    // floor for functional text. Being on the size ramp does not exempt it:
+    // that argument launders the token, not the problem.
+    fontSize: FS.caption,
     fontWeight: FW.bold,
     borderRadius: 5,
     padding: "2px 7px",
@@ -267,8 +291,8 @@ export function TailorWorkQueue({
   onItemAction,
   onDownload,
   onInterviewPrep,
-  expandedId,
-  expansion,
+  expandedIds,
+  renderExpansion,
 }: {
   items: readonly QueueItem[];
   /** Item currently being processed by the pass, if any. */
@@ -285,9 +309,12 @@ export function TailorWorkQueue({
   onDownload?: () => void;
   /** Finish-line handoff into interview prep, carrying this run's resume + JD. */
   onInterviewPrep?: () => void;
-  /** Row whose inline fix flow is open; `expansion` renders under it. */
-  expandedId?: string | null;
-  expansion?: React.ReactNode;
+  /** Rows whose inline fix flows are open — PLURAL. One slot meant opening a
+   *  second row's fix silently destroyed the first row's loaded suggestions. */
+  expandedIds?: ReadonlySet<string>;
+  /** Render the expansion for one open row. Called only for ids in
+   *  `expandedIds`, so each row's flow keeps its own state. */
+  renderExpansion?: (item: QueueItem) => React.ReactNode;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [detailIds, setDetailIds] = useState<Set<string>>(() => new Set());
@@ -314,11 +341,96 @@ export function TailorWorkQueue({
   const collapsibleTotal = filtered.filter(
     (it) => it.status === "covered" || it.kind === "contextual",
   ).length;
-  const selectable = filtered.filter((it) => it.status === "queued" && it.kind !== "contextual");
+  // Credentials are excluded for the same reason contextual rows are: the pass
+  // skips them by design (no bullet rewrite can evidence a degree), so counting
+  // them makes the button promise work it will not attempt. Ticking a degree
+  // and pressing Improve did nothing at all, which reads as a dead button.
+  // Their own "Add to education" action is unaffected.
+  const selectable = filtered.filter(
+    (it) => it.status === "queued" && it.kind !== "contextual" && !isCredentialRequirement(it.name),
+  );
   // Open rows a bulk pass deliberately skips. Named here so the header can say
   // so rather than leaving the user to notice the count not adding up.
   const contextualOpen = filtered.filter((it) => it.status === "queued" && it.kind === "contextual").length;
   const selected = selectable.filter((it) => selectedIds.has(it.id));
+
+  /**
+   * The ranking, which used to live up in the score card.
+   *
+   * Two counts, two different jobs. `blockersOpen` is what the BAND has open
+   * and is what the header's sentence describes; `blockerTargets` is what a
+   * bulk pass will actually attempt, and is what the BUTTON counts. They can
+   * differ — a credential is an open blocker no rewrite can evidence — and the
+   * honest split is that a label describes the situation while a control names
+   * what it will do. Reconciling them by picking one number for both would
+   * either promise work we will not attempt or hide a blocker from the count.
+   *
+   * The blocker band's cap is Infinity, so `group.items` is the whole band.
+   */
+  const blockerGroup = groups.find((g) => g.band === "blocker");
+  const blockersOpen = blockerGroup?.open ?? 0;
+  const otherOpen = Math.max(0, c.open - blockersOpen);
+  const blockerIds = new Set((blockerGroup?.items ?? []).map((it) => it.id));
+  const blockerTargets = selectable.filter((it) => blockerIds.has(it.id));
+
+  /**
+   * One decision at a time.
+   *
+   * The queue routinely opens with nineteen rows, nineteen checkboxes and
+   * nineteen Fix buttons, all rendered at the same weight — so the first thing
+   * asked of someone who has just arrived is to triage. Nothing is hidden to
+   * fix that (hiding work is the bug this queue exists to end); instead the
+   * primary control targets the band that can actually cost you the screen, and
+   * only widens to the rest once those are handled. The per-row actions and the
+   * selection path are untouched, so nothing is taken away.
+   */
+  const bulkTarget = selected.length > 0
+    ? selected
+    : blockerTargets.length > 0
+      ? blockerTargets
+      : selectable;
+  const bulkCount = selectable.length || c.open;
+  const bulkLabel = fixAllBusy
+    ? "Improving…"
+    : selected.length > 0
+      ? `Improve selected (${selected.length})`
+      // "Blockers" was a lie while this button covered the blocker AND keyword
+      // bands — it sat above a blocker band of two saying it would improve six.
+      // It is true now because the target set IS the blocker band. Do not widen
+      // the target without widening the word back to "gaps".
+      : blockerTargets.length > 0
+        ? `Fix ${blockerTargets.length} blocker${blockerTargets.length === 1 ? "" : "s"}`
+        : `Improve ${bulkCount} gap${bulkCount === 1 ? "" : "s"}`;
+
+  // An instruction, deliberately not the band's label. The same sentence in the
+  // header and in the strip directly beneath it is the twice-in-a-row failure
+  // that moved this count out of the queue card in the first place; a header
+  // that says what to do above a strip that says what the rows are gives the
+  // two elements different jobs.
+  const headline = c.open === 0
+    ? "All reviewed"
+    : blockersOpen > 0
+      // Same word as the button, singular and plural alike. Two spellings of
+      // one idea on one screen is its own bug.
+      ? `Start with the blocker${blockersOpen === 1 ? "" : "s"}`
+      : `${otherOpen} gap${otherOpen === 1 ? "" : "s"} left to review`;
+  const headlineDetail = c.open === 0
+    ? null
+    : blockersOpen > 0
+      // Describes the POSTING, not the candidate.
+      //
+      // This read "...that your résumé does not evidence yet", which makes the
+      // exact claim the row chips are no longer allowed to make — and made it
+      // for the whole band at once, including rows where all we know is that a
+      // keyword scanner missed a phrase. A header cannot assert what the rows
+      // under it are refusing to assert.
+      ? `${blockersOpen} hard requirement${blockersOpen === 1 ? "" : "s"} this posting screens on.${
+          otherOpen > 0 ? ` The other ${otherOpen} can wait.` : ""
+        }`
+      // "Could get you filtered out" is a claim about hard requirements.
+      // Reusing it for the rest would tint everything red, which is what the
+      // bands exist to avoid.
+      : "Smaller gaps. Worth closing, none of them a hard requirement.";
 
   const toggleSelected = (id: string) => {
     setSelectedIds((current) => {
@@ -360,14 +472,16 @@ export function TailorWorkQueue({
        * twice in a row, which is the restatement the v7 note above is about.
        * Adjacency is what turned information into noise, so the fix was
        * distance rather than different words. */}
-      <div style={{ padding: "17px 16px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: FS.body, fontWeight: FW.bold }}>
-            Match gaps{" "}
-            <span style={{ color: "var(--muted)", fontWeight: FW.medium }}>
-              · {c.open ? `${c.open} to review` : "all reviewed"}
-            </span>
+      <div style={{ padding: "16px 16px 15px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0, flex: "1 1 220px" }}>
+          <div style={{ fontSize: FS.bodyLg, fontWeight: FW.bold, letterSpacing: "-0.01em" }}>
+            {headline}
           </div>
+          {headlineDetail ? (
+            <p style={{ margin: "3px 0 0", fontSize: FS.small, color: "var(--muted)", lineHeight: 1.45, maxWidth: "46ch" }}>
+              {headlineDetail}
+            </p>
+          ) : null}
           {/* Its own tag, not a third stacked line of the same grey, so it
               reads as an annotation on the control above rather than as more
               of it. Says what "all" leaves out, because a pass that silently
@@ -403,8 +517,7 @@ export function TailorWorkQueue({
             // re-derive the work from a NARROWER list than the one on screen,
             // so "Improve 19 blockers" attempted three.
             onClick={() => {
-              const target = selected.length > 0 ? selected : selectable;
-              if (onFixSelected && target.length > 0) onFixSelected(target);
+              if (onFixSelected && bulkTarget.length > 0) onFixSelected(bulkTarget);
               else onFixAll();
             }}
             disabled={fixAllBusy || c.open === 0}
@@ -422,18 +535,9 @@ export function TailorWorkQueue({
           >
             {/* "all" was a lie whenever a contextual row was open: the pass
                 skips those by design. Naming what it actually operates on
-                keeps the button honest without needing a footnote.
-                "Blockers" was the next version of the same lie, and only
-                looked right while every scored row was banded as one — this
-                button covers the blocker AND keyword bands, so it sat above a
-                blocker band of two saying it would improve six. "Gaps" is what
-                the set actually is, and the exclusion tag beside it already
-                names what is left out. */}
-            {fixAllBusy
-              ? "Improving…"
-              : selected.length > 0
-                ? `Improve selected (${selected.length})`
-                : `Improve ${selectable.length || c.open} gap${(selectable.length || c.open) === 1 ? "" : "s"}`}
+                keeps the button honest without needing a footnote. See
+                `bulkLabel` for why "blockers" is true again. */}
+            {bulkLabel}
           </button>
         ) : null}
       </div>
@@ -453,9 +557,13 @@ export function TailorWorkQueue({
        * panel, including later when it does carry news. */}
       {c.applied + c.needsReview + c.notCoverable + c.ignored > 0 ? (
         <div style={{ display: "flex", gap: 14, padding: "7px 14px 0", fontSize: FS.caption, color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-          <span><b style={{ color: "var(--text)" }}>{c.applied}</b> added</span>
-          <span><b style={{ color: "var(--text)" }}>{c.needsReview}</b> need review</span>
-          <span><b style={{ color: "var(--text)" }}>{c.notCoverable + c.ignored}</b> left out</span>
+          {/* Each slot appears only once it has news. The row used to spend
+              three of its four slots on zeroes the moment ANY one of them went
+              nonzero, so "1 added" arrived flanked by "0 need review · 0 left
+              out" — noise in the one place progress should read. */}
+          {c.applied > 0 ? <span><b style={{ color: "var(--text)" }}>{c.applied}</b> added</span> : null}
+          {c.needsReview > 0 ? <span><b style={{ color: "var(--text)" }}>{c.needsReview}</b> need review</span> : null}
+          {c.notCoverable + c.ignored > 0 ? <span><b style={{ color: "var(--text)" }}>{c.notCoverable + c.ignored}</b> left out</span> : null}
           <span><b style={{ color: "var(--text)" }}>{c.open}</b> to review</span>
         </div>
       ) : null}
@@ -513,7 +621,7 @@ export function TailorWorkQueue({
             </div>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
         {group.items.map((it, rowIndex) => {
-          const expanded = it.id === expandedId;
+          const expanded = Boolean(expandedIds?.has(it.id));
           const verdict = (it as Partial<SourcedQueueItem>).verdict;
           const action = expanded ? null : itemAction(it, verdict);
           // Present only on rows the union produced; a plain QueueItem
@@ -547,11 +655,19 @@ export function TailorWorkQueue({
                 // Square on the stripe side: a 9px radius bends the stripe into
                 // a bracket instead of a bar.
                 borderRadius: "0 9px 9px 0",
-                // Severity in form, not only in colour: the stripe survives a
-                // greyscale print and colour-blind vision, where a tinted word
-                // does not. State stays with the status dot so the two never
-                // have to share one signal.
-                borderLeft: `3px solid ${expanded ? "var(--accent)" : TONE_COLOR[group.tone]}`,
+                // ONE stripe on screen at a time, and it means "this row is
+                // what you are doing now".
+                //
+                // It used to run down every row in the tone of its band. The
+                // justification was that severity should survive greyscale and
+                // colour-blind vision — but a red 3px bar versus an amber 3px
+                // bar in the same position is still colour-only, so it never
+                // did that job. What actually carries severity without colour
+                // is the labelled band the row sits in, and the verdict chip's
+                // words. The stripe was a third copy of one idea, repeated
+                // nineteen times, and it is most of why this screen read as a
+                // wall of alarm.
+                borderLeft: working || expanded ? "3px solid var(--accent)" : "3px solid transparent",
                 // An open row is tinted and takes the accent stripe, so the
                 // confirm flow below it reads as belonging to that row rather
                 // than floating between two. Same treatment as `working`,
@@ -688,12 +804,12 @@ export function TailorWorkQueue({
                   </span>
                 ) : null}
               </span>
-              {action === "no_action" ? (
+              {action === "no_action" || action === "no_fabrication" ? (
                 // Deliberately not a button. There is nothing to press, and a
                 // bordered control that does nothing when clicked is worse
                 // than plain text saying so.
                 <span style={{ fontSize: FS.small, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  {ACTION_LABEL.no_action}
+                  {ACTION_LABEL[action]}
                 </span>
               ) : action && onItemAction ? (
                 <button
@@ -707,7 +823,7 @@ export function TailorWorkQueue({
                 <span />
               )}
             </div>
-            {expanded ? <div className="tq-expand">{expansion}</div> : null}
+            {expanded && renderExpansion ? <div className="tq-expand">{renderExpansion(it)}</div> : null}
             </li>
           );
         })}
@@ -720,7 +836,7 @@ export function TailorWorkQueue({
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
+          style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent-ink, #0559c7)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
         >
           {/* Names the bands, not a bare count. What is behind this is context
               and reassurance, never a blocker, and saying so is the difference
@@ -731,7 +847,7 @@ export function TailorWorkQueue({
         <button
           type="button"
           onClick={() => setShowAll(false)}
-          style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
+          style={{ width: "100%", border: 0, borderTop: "1px solid var(--border)", background: "var(--surface-2, rgba(127,127,127,0.06))", padding: "10px 14px", color: "var(--accent-ink, #0559c7)", fontSize: FS.small, fontWeight: FW.semibold, cursor: "pointer" }}
         >
           Collapse the advisory rows
         </button>
@@ -786,7 +902,7 @@ export function TailorWorkQueue({
           </div>
           {onInterviewPrep ? (
             <p style={{ margin: "7px 0 0", fontSize: FS.caption, color: "var(--muted)" }}>
-              Your tailored resume and this job carry over.
+              Your tailored résumé and this job carry over.
             </p>
           ) : null}
         </div>

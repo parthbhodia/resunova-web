@@ -36,6 +36,47 @@ describe("what v7 removed stays removed", () => {
     expect(screen.queryByText(/keep every claim true/i)).toBeNull();
   });
 
+  it("puts a stripe on the row you are working, and on no other", () => {
+    // Every row used to carry a 3px bar in its band's tone. The stated reason
+    // was that severity should survive greyscale and colour-blind vision — but
+    // a red bar against an amber bar in the same position is still colour-only,
+    // so it never did that job. The labelled band and the verdict chip carry
+    // severity in words; the stripe was a third copy of one idea repeated down
+    // the whole list, which is most of why this screen read as a wall of alarm.
+    // It now means one thing: this row is what you are doing.
+    const { container, rerender } = renderQueue();
+    const stripes = Array.from(container.querySelectorAll<HTMLElement>(".tq-rowbody"))
+      .map((el) => el.style.borderLeft);
+    expect(stripes.every((s) => s.includes("transparent"))).toBe(true);
+
+    rerender(
+      <TailorWorkQueue
+        items={items}
+        onFixAll={vi.fn()}
+        fixAllBusy={false}
+        expandedIds={new Set(["q:docs"])}
+        renderExpansion={() => <div />}
+      />,
+    );
+    const after = Array.from(container.querySelectorAll<HTMLElement>(".tq-rowbody"))
+      .map((el) => el.style.borderLeft);
+    expect(after.filter((s) => s.includes("--accent"))).toHaveLength(1);
+  });
+
+  it("keeps the verdict chip above the legibility floor", () => {
+    // 10px on the three words that say whether you have the thing. Being on the
+    // size ramp is not an exemption — that launders the token, not the problem.
+    const withVerdict = [{ ...items[1], verdict: "not_evidenced" as const, source: "scorer" as const }];
+    const { container } = renderQueue({ items: withVerdict as never });
+    // The chip's flex wrapper has the same textContent when the row carries no
+    // reason toggle, and it comes first in document order — so match on the
+    // LEAF, or this reads the wrapper's empty fontSize and proves nothing.
+    const chip = Array.from(container.querySelectorAll<HTMLElement>("span")).find(
+      (el) => el.textContent === "Not evidenced" && el.children.length === 0,
+    );
+    expect(Number.parseFloat(chip!.style.fontSize)).toBeGreaterThanOrEqual(11);
+  });
+
   it("hides the outcome counts until one of them is nonzero", () => {
     // On a fresh scan the row read "0 added · 0 need review · 0 left out",
     // which is three zeroes above a header that already said "3 to review".
@@ -52,15 +93,30 @@ describe("what v7 removed stays removed", () => {
 describe("the queue header says what the pass will actually do", () => {
   it("counts what the pass covers, not everything on screen", () => {
     // "Improve all 3" was false: a bulk pass skips contextual rows by design.
-    // "blockers" was false too once rows band by their own type — the pass
-    // covers the blocker and keyword bands both.
+    // "Blockers" was false too for a while — it read right only while every
+    // scored row banded as one, and the button covered the keyword band as
+    // well. It is true again because the target set IS the blocker band.
     renderQueue();
-    expect(screen.getByRole("button", { name: /improve 2 gaps/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fix 2 blockers" })).toBeInTheDocument();
   });
 
-  it("uses the singular for one gap", () => {
+  it("uses the singular for one blocker", () => {
     renderQueue({ items: [items[0], items[2]] });
-    expect(screen.getByRole("button", { name: /improve 1 gap$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fix 1 blocker" })).toBeInTheDocument();
+  });
+
+  it("widens to the remaining gaps once no blocker is open", () => {
+    // The other half of the aimed-control rule, and the half a later edit
+    // drops: with nothing hard left, "blockers" would be a count of zero and
+    // the keyword band would lose its bulk path entirely.
+    renderQueue({
+      items: [
+        { id: "k:go", name: "Go", kind: "keyword", status: "queued", detail: "" },
+        { id: "k:grpc", name: "gRPC", kind: "keyword", status: "queued", detail: "" },
+      ],
+    });
+    expect(screen.getByRole("button", { name: "Improve 2 gaps" })).toBeInTheDocument();
+    expect(screen.getByText("2 gaps left to review")).toBeInTheDocument();
   });
 
   it("names what a pass leaves out instead of letting the count not add up", () => {

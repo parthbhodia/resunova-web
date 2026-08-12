@@ -206,7 +206,7 @@ describe("CSS variables the tailor surfaces reference", () => {
    *
    *                              light        dark
    *     "Improve N gaps"   --accent    5.19:1    2.53:1   (#fff)
-   *     "Add to resume"    --green-ink 5.48:1    1.52:1   (#fff)
+   *     "Add to résumé"    --green-ink 5.48:1    1.52:1   (#fff)
    *     applied dot        --green-ink 5.48:1    1.52:1   (#fff)
    *
    * One hardcoded foreground CANNOT be right in both themes, which is why

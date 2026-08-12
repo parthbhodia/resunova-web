@@ -1,17 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { TailorQueuePanel } from "@/components/tailor/TailorQueuePanel";
 
 /**
- * The approved hierarchy: match primary, grade secondary, and the score is the
- * entry point into the queue.
+ * The approved hierarchy: match primary, grade secondary, one orientation block
+ * — and the failure count lives with the work, not with the numbers.
  *
  * Aimed at the DECISIONS, not the pixels. The rail shipped as two equal tiles
- * with the gap count floating above them, and every part of this change is the
- * kind a later edit undoes by accident — by "balancing" the two numbers again,
- * by deleting the demoted one's meter because it looks redundant, or by
- * pulling the count back out into its own banner. Each of those has a test.
+ * with the gap count floating above them, then as two tiles with the count
+ * folded into the first, and every part of this is the kind a later edit undoes
+ * by accident — by "balancing" the two numbers again, by deleting the demoted
+ * one's meter because it looks redundant, or by pulling the count back up into
+ * the block that is supposed to orient rather than alarm. Each of those has a
+ * test.
  */
 
 const base = { grade: 75, gradedAtLabel: "2:41 PM", stale: false, found: 9, total: 24 };
@@ -38,7 +40,7 @@ describe("the match leads and the grade follows", () => {
     render(<TailorScoreboard {...base} onRecheck={vi.fn()} />);
     expect(screen.getByText("75")).toBeInTheDocument();
     expect(screen.getByText("/100")).toBeInTheDocument();
-    expect(screen.getByText(/graded by ai at 2:41 pm/i)).toBeInTheDocument();
+    expect(screen.getByText(/graded against this posting's requirements, 2:41 pm/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /re-check/i })).toBeInTheDocument();
   });
 
@@ -58,64 +60,41 @@ describe("the match leads and the grade follows", () => {
     expect(container.querySelector('[data-score="match"] [style*="opacity: 0.35"]')).toBeNull();
   });
 
-  it("keeps each number's provenance in its own card", () => {
+  it("keeps each number's provenance with the number it is about", () => {
     render(<TailorScoreboard {...base} live />);
     expect(document.querySelector('[data-score="match"]')?.textContent).toMatch(
       /recounted as you edit/i,
     );
-    expect(document.querySelector('[data-score="grade"]')?.textContent).toMatch(/graded by ai/i);
+    expect(document.querySelector('[data-score="grade"]')?.textContent).toMatch(/graded against this posting/i);
+  });
+
+  it("reads as one orientation block, not two cards to pick between", () => {
+    // The demotion was being fought by the frame around it: a second border
+    // says "here is another thing to decide about". The obvious undo is to
+    // give the grade its own card back for symmetry.
+    const { container } = render(<TailorScoreboard {...base} />);
+    const match = container.querySelector('[data-score="match"]') as HTMLElement;
+    const grade = container.querySelector('[data-score="grade"]') as HTMLElement;
+    expect(match.parentElement).toBe(grade.parentElement);
+    expect(match.style.border).toBe("");
+    expect(grade.style.border).toBe("");
   });
 });
 
-describe("the score is the way into the queue", () => {
-  it("carries the blocker count and the ordering under the number", () => {
-    // A count on its own is pressure; a count plus an ordering is a plan.
-    render(<TailorScoreboard {...base} blockersOpen={7} otherOpen={13} onEnterQueue={vi.fn()} />);
-    expect(screen.getByText("7 gaps could get you filtered out")).toBeInTheDocument();
-    expect(screen.getByText(/the other 13 can wait/i)).toBeInTheDocument();
+describe("the orientation block does not carry the failure count", () => {
+  // The peak was buried under it. Someone arrives having just got a tailored
+  // résumé, and the first strong thing on the page was a red count of what is
+  // wrong — inside the block whose job is "where do I stand". The count belongs
+  // at the top of the work; see the queue header tests below.
+  it("says nothing about blockers or gaps left", () => {
+    const text = render(<TailorScoreboard {...base} />).container.textContent ?? "";
+    expect(text).not.toMatch(/filtered out/i);
+    expect(text).not.toMatch(/blocker/i);
+    expect(text).not.toMatch(/left to review/i);
   });
 
-  it("uses the singular for one blocker", () => {
-    render(<TailorScoreboard {...base} blockersOpen={1} otherOpen={0} onEnterQueue={vi.fn()} />);
-    expect(screen.getByText("1 gap could get you filtered out")).toBeInTheDocument();
-  });
-
-  it("drops the filtered-out claim when nothing is a hard requirement", () => {
-    // "Could get you filtered out" is a claim about hard requirements. Reusing
-    // it for the rest would tint everything red, which is what the bands exist
-    // to avoid.
-    render(<TailorScoreboard {...base} blockersOpen={0} otherOpen={13} onEnterQueue={vi.fn()} />);
-    expect(screen.getByText("13 gaps left to review")).toBeInTheDocument();
-    expect(screen.queryByText(/filtered out/i)).toBeNull();
-  });
-
-  it("says nothing when there is no open work", () => {
-    // A finished queue has its own finish state; a second one here would be an
-    // empty row where the user expects a summary.
-    render(<TailorScoreboard {...base} blockersOpen={0} otherOpen={0} onEnterQueue={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /review/i })).toBeNull();
-    expect(screen.queryByText(/left to review/i)).toBeNull();
-  });
-
-  it("takes the user to the queue when pressed", () => {
-    const onEnterQueue = vi.fn();
-    render(<TailorScoreboard {...base} blockersOpen={7} otherOpen={13} onEnterQueue={onEnterQueue} />);
-    fireEvent.click(screen.getByRole("button", { name: /could get you filtered out/i }));
-    expect(onEnterQueue).toHaveBeenCalledTimes(1);
-  });
-
-  it("names the action in the button, not only the count", () => {
-    // A control whose accessible name is a number tells a screen-reader user
-    // what is wrong and not what to do about it.
-    render(<TailorScoreboard {...base} blockersOpen={7} otherOpen={13} onEnterQueue={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /review/i })).toBeInTheDocument();
-  });
-
-  it("still shows the count when there is nowhere to send the user", () => {
-    // The design harness and any read-only mount pass no handler. The count is
-    // information either way; only the affordance depends on the callback.
-    render(<TailorScoreboard {...base} blockersOpen={7} otherOpen={13} />);
-    expect(screen.getByText("7 gaps could get you filtered out")).toBeInTheDocument();
+  it("offers no second way into a queue that is already the next thing on screen", () => {
+    render(<TailorScoreboard {...base} />);
     expect(screen.queryByRole("button", { name: /review/i })).toBeNull();
   });
 });
@@ -152,13 +131,14 @@ const ratings = {
   verdict: "",
 };
 
-function renderPanel() {
+function renderPanel(onFixSelected?: (items: readonly { name: string }[]) => void) {
   return render(
     <TailorQueuePanel
       ratings={ratings as never}
       addressedGaps={new Set()}
       fixAllBusy={false}
       onFixAll={vi.fn()}
+      onFixSelected={onFixSelected as never}
       fetchFixSuggestions={vi.fn().mockResolvedValue([])}
       applyFixSuggestion={vi.fn().mockResolvedValue(undefined)}
       ignoredNames={new Set()}
@@ -170,31 +150,79 @@ function renderPanel() {
   );
 }
 
-describe("the panel wires the score to the queue", () => {
-  it("counts the blockers and names what can wait", () => {
+describe("the queue heads itself with the ranking", () => {
+  it("tells the user where to start and what can wait", () => {
+    // A count on its own is pressure; a count plus an ordering is a plan.
     renderPanel();
-    expect(screen.getByText("2 gaps could get you filtered out")).toBeInTheDocument();
+    expect(screen.getByText("Start with the blockers")).toBeInTheDocument();
+    expect(screen.getByText(/2 hard requirements this posting screens on\./i)).toBeInTheDocument();
     expect(screen.getByText(/the other 3 can wait/i)).toBeInTheDocument();
   });
 
-  it("states the count once, not once as a banner and once as an entry row", () => {
-    // The free-standing banner is GONE. Restoring it alongside the entry row
-    // prints the same sentence twice, which is the restatement the queue's own
-    // design notes keep warning about.
+  it("makes no claim about the candidate that the rows themselves refuse to make", () => {
+    // The header used to read "...that your résumé does not evidence yet",
+    // asserting for a whole band what a keyword scanner cannot establish for
+    // one row. A header cannot say what the rows under it are declining to say.
     renderPanel();
-    expect(screen.getAllByText(/gaps could get you filtered out/)).toHaveLength(1);
-    // The band header below is a different string and stays: it labels a
-    // group, it does not repeat the count.
+    const header = screen.getByText(/hard requirements this posting screens on/i)
+      .closest("div")?.textContent ?? "";
+    expect(header).not.toMatch(/does not evidence|you lack|not evidenced/i);
+  });
+
+  it("gives an instruction above a strip that gives a label, never the same sentence twice", () => {
+    // This is the constraint that has survived all three homes for this count:
+    // a header repeating the band strip directly beneath it printed one idea
+    // twice in a row. An instruction and a label are different jobs.
+    renderPanel();
+    expect(screen.getAllByText(/could get you filtered out/i)).toHaveLength(1);
     expect(screen.getByText("Could get you filtered out")).toBeInTheDocument();
   });
 
-  it("scrolls the queue into view when the entry row is pressed", () => {
-    const scrollIntoView = vi.fn();
-    // jsdom does not implement it; the panel calls it optionally so a missing
-    // implementation is a no-op rather than a thrown click.
-    Element.prototype.scrollIntoView = scrollIntoView;
+  it("aims the primary control at the blockers, not at all nineteen rows", () => {
+    // The screen opens with every row at the same weight, so the first thing
+    // asked of someone who just arrived is to triage. Nothing is hidden to fix
+    // that — the control is aimed instead.
     renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: /could get you filtered out/i }));
-    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Fix 2 blockers" })).toBeInTheDocument();
+  });
+
+  it("attempts exactly the set it counted", () => {
+    // The button names a count, so it has to hand over that set. This repo has
+    // shipped the other version: "Improve 19 blockers" attempted three, because
+    // the label and the target were computed from different lists. Aiming the
+    // control at the blockers without aiming the label with it is the same bug
+    // pointing the other way — a promise of two that quietly runs five.
+    const onFixSelected = vi.fn();
+    renderPanel(onFixSelected);
+    fireEvent.click(screen.getByRole("button", { name: "Fix 2 blockers" }));
+    expect(onFixSelected).toHaveBeenCalledTimes(1);
+    expect(onFixSelected.mock.calls[0][0].map((i: { name: string }) => i.name)).toEqual([
+      "Kubernetes in production",
+      "5 years of Python",
+    ]);
+  });
+
+  it("keeps the first fix open when a second one is opened", async () => {
+    // Field report, verbatim: "when i click on fix this and click second one
+    // the first one goes away". One expandedId slot meant opening row two
+    // evicted row one — destroying suggestions the user had waited a 5-30s
+    // model call for, and any version they had picked. Opening adds; only the
+    // user closes.
+    renderPanel();
+    const fixButtons = screen.getAllByRole("button", { name: "Fix this" });
+    fireEvent.click(fixButtons[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Fix this" })[0]);
+    await waitFor(() => {
+      expect(document.querySelectorAll(".tq-expand")).toHaveLength(2);
+    });
+  });
+
+  it("keeps the rest of the work on screen while it is not the primary path", () => {
+    // The tempting version of "one decision at a time" is to collapse the
+    // keyword band. Hiding work is the bug this queue exists to end.
+    renderPanel();
+    for (const name of ["Terraform", "Snowflake", "dbt"]) {
+      expect(screen.getByText(name)).toBeInTheDocument();
+    }
   });
 });
