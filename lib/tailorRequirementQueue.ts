@@ -137,7 +137,21 @@ export type QueueSource = "both" | "scorer" | "rater";
  * producer, and the fix was to make the producer authoritative and have the
  * view trust it verbatim. Same rule.
  */
-export type QueueVerdict = "partial" | "not_evidenced" | "not_found" | "keyword" | "covered";
+export type QueueVerdict =
+  | "partial"
+  | "not_evidenced"
+  | "not_found"
+  | "keyword"
+  | "covered"
+  /**
+   * The MIRROR of `partial`. Partial = the résumé has the substance and the
+   * scanner cannot see the wording; `unbacked` = the wording is present (the
+   * scanner counts it) and the rater judged the substance behind it thin.
+   * It got rendered as "Not evidenced" next to a note saying "the scanner
+   * already counts this as matched" — a flat contradiction on one card, and a
+   * user asked exactly the right question about it: is it matched or not?
+   */
+  | "unbacked";
 
 export interface SourcedQueueItem extends QueueItem {
   source: QueueSource;
@@ -232,9 +246,19 @@ export function blockerReasonFor(name: string, type?: string): string | null {
 export const CREDENTIAL_REFUSAL_DETAIL =
   "We won't claim a credential you don't have. A degree is among the first things an employer verifies, so this one is yours to earn, not ours to write.";
 
-/** Appended to rater-only rows so nobody expects the number to move. */
+/**
+ * Appended to rater-only rows so nobody expects the number to move.
+ *
+ * Rewritten from "The scanner already counts this as matched, so covering it
+ * will not change the percentage." — which explained our bookkeeping and
+ * answered a question nobody had asked yet, at the cost of making the fix look
+ * pointless ("then what is the use of fixing it?", quoted from the field).
+ * The note now says what fixing it is FOR: the match % counts keywords and
+ * this term is already counted; the fix is for the human who reads the bullet
+ * and goes looking for the proof.
+ */
 export const NO_SCORE_MOVE_NOTE =
-  "The scanner already counts this as matched, so covering it will not change the percentage.";
+  "A keyword scan already finds this term, so the match % won't move. This fix is for the recruiter reading the bullet, who will look for the proof behind the words.";
 
 const MIN_CONTAINMENT_LEN = 6;
 
@@ -613,11 +637,34 @@ export function mergeQueues(
       ...it,
       source: "rater",
       movesScore: false,
-      // The scanner already matched the term; the rater READ THE RÉSUMÉ and
-      // judged the claim behind it unevidenced. That is the one gap class where
-      // a model, not a regex, is the source — so it is also the one non-degree
-      // row entitled to say "Not evidenced".
-      verdict: verdictFor(it.kind, false, true),
+      /**
+       * The scanner already matched the TERM; the rater read the résumé and
+       * judged the CLAIM behind it thin. Both of those are true at once, and
+       * for a while this row said "Not evidenced" above a note saying "the
+       * scanner already counts this as matched" — a contradiction a paying
+       * user quoted back verbatim. The verdict is the mirror of `partial`:
+       * mentioned, not proven.
+       *
+       * Applied rows keep their applied state and no verdict chip — a ✓ and a
+       * chip arguing with each other is the same contradiction again.
+       */
+      verdict: it.status === "queued" ? "unbacked" : undefined,
+      /**
+       * The band, overridden — for OPEN rows only. `kind` says qualification,
+       * and qualification bands as "Could get you filtered out" — but no screen
+       * can filter on a term that IS PRESENT in the document. Per the ATS
+       * research, a thin claim bites at the human read, not the keyword gate,
+       * so the row is upside, not a blocker. This also keeps it out of the
+       * "Fix N blockers" target set, which must never promise work that cannot
+       * move a screen.
+       *
+       * An APPLIED row keeps its kind band: it is a receipt, and it must sit
+       * where the user pressed Fix. A recount can flip a term to matched right
+       * after an apply, which turns the row rater-only mid-session — letting
+       * the override move the ✓ to a different band at that moment is the
+       * "where did it go?" disappearance again, one band over.
+       */
+      band: it.status === "queued" ? "boost" : undefined,
       detail: it.detail
         ? `${it.detail} ${NO_SCORE_MOVE_NOTE}`
         : NO_SCORE_MOVE_NOTE,

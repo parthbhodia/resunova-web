@@ -103,3 +103,57 @@ describe("requirements no rewrite can ever close", () => {
     expect(uncoverableReason("launching software products")).toBeNull();
   });
 });
+
+describe("a run's notes describe its own gap, never its siblings", () => {
+  /**
+   * The 2026-08-13 field failure, verbatim shape: the rater's keyword batch
+   * note enumerated every missing keyword, so each per-keyword call shipped
+   * the word "Go" — and the server refused SEVEN fixable keywords ("Cursor",
+   * "EKS", "S3", …) because the résumé lacks Go. One unfixable keyword
+   * poisoned every sibling. The enumeration also invited the model to weave
+   * in terms the validators then rejected.
+   */
+  const KEYWORDS = ["Go", "Cursor", "EKS", "EC2", "S3", "CDK", "CloudFormation", "VPC"];
+  const keywordBatch: GapBatch[] = [
+    {
+      type: "keyword",
+      label: "keywords",
+      gaps: [...KEYWORDS],
+      notes: `These keywords from the posting are missing: ${KEYWORDS.join(", ")}.`,
+    },
+  ];
+
+  it("does not ship the sibling enumeration on a per-keyword run", () => {
+    const { runs } = planQueueRuns(["Cursor"], keywordBatch);
+    expect(runs).toHaveLength(1);
+    expect(runs[0].notes).not.toContain("Go");
+    expect(runs[0].notes).toContain("Cursor");
+  });
+
+  it("no run in a pass names another run's gap", () => {
+    const { runs } = planQueueRuns(KEYWORDS, keywordBatch);
+    for (const run of runs) {
+      const own = run.gaps[0];
+      for (const other of KEYWORDS) {
+        if (other === own) continue;
+        expect(run.notes).not.toContain(other);
+      }
+    }
+  });
+
+  it("still carries the rater's own line for THIS gap from a multi-gap batch", () => {
+    // Qual/resp batch notes are per-gap "gap: analysis" lines; the line that
+    // names this gap is genuine bridge material and must survive the cut.
+    const batches: GapBatch[] = [
+      {
+        type: "qualification",
+        label: "qualifications",
+        gaps: ["Kubernetes", "mentor engineers"],
+        notes: "Kubernetes: no container work shown\nmentor engineers: no mentoring evidence",
+      },
+    ];
+    const { runs } = planQueueRuns(["Kubernetes"], batches);
+    expect(runs[0].notes).toBe("Kubernetes: no container work shown");
+    expect(runs[0].notes).not.toContain("mentor");
+  });
+});

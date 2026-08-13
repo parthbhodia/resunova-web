@@ -141,6 +141,11 @@ const VERDICT_LABEL: Record<QueueVerdict, string> = {
   not_found: "Scanner didn't find it",
   keyword: "Keyword · fits an existing bullet",
   covered: "You have this",
+  // The mirror of "Partial match": the words are in the résumé (the scanner
+  // counts them), the substance behind them is thin. It shipped as
+  // "Not evidenced" beside a note saying the scanner already matched it — a
+  // contradiction a paying user quoted straight back at us.
+  unbacked: "Mentioned, not proven",
 };
 
 /**
@@ -160,6 +165,10 @@ const VERDICT_TONE: Record<QueueVerdict, "crit" | "warn" | "good"> = {
   not_found: "warn",
   keyword: "warn",
   covered: "good",
+  // Amber: the term is present and counted — the work is strengthening a
+  // claim, not closing a screen-out risk. Red here restates the exact
+  // over-alarm the band move takes away.
+  unbacked: "warn",
 };
 
 /**

@@ -192,12 +192,40 @@ export function planQueueRuns(
   detailOf?: (name: string) => string,
 ): QueueRunPlan {
   const norm = (s: string) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+  /**
+   * The slice of a batch's notes that is about ONE gap.
+   *
+   * A run carries a single gap, so it must never carry the whole batch's
+   * notes. Field-found: the keyword batch note reads "These keywords from
+   * the posting are missing: Go, Cursor, EKS, …", so every per-keyword call
+   * shipped the word "Go" — and the server's refusal guard read that as
+   * "this gap needs Go", refusing SEVEN fixable keywords because the résumé
+   * lacks one unfixable one. The sibling list also invited the model to
+   * weave in terms the validators then rejected.
+   *
+   * Single-gap batches own their notes outright. Multi-gap qual/resp notes
+   * are per-gap "gap: analysis" lines, so only this gap's line rides along;
+   * the keyword enumeration has no per-gap line and contributes nothing.
+   */
+  const perGapNote = (b: GapBatch, gap: string): string => {
+    const notes = (b.notes ?? "").trim();
+    if (!notes) return "";
+    if (b.gaps.length === 1) return notes;
+    const key = norm(gap);
+    const line = notes
+      .split("\n")
+      .find((ln) => norm(ln.split(":")[0] ?? "") === key);
+    return line?.trim() ?? "";
+  };
+
   const typeByName = new Map<string, GapType>();
   const noteByName = new Map<string, string>();
   for (const b of known) {
     for (const g of b.gaps) {
       typeByName.set(norm(g), b.type);
-      if (b.notes) noteByName.set(norm(g), b.notes);
+      const note = perGapNote(b, g);
+      if (note) noteByName.set(norm(g), note);
     }
   }
 
@@ -224,7 +252,13 @@ export function planQueueRuns(
       type: typeByName.get(key) ?? "qualification",
       label: "requirement",
       gaps: [name],
-      notes: noteByName.get(key) || (detail ? `${name}: ${detail}` : name),
+      // Per-gap notes only — see perGapNote above for why the shared batch
+      // notes must never ride on a single-gap run.
+      notes:
+        noteByName.get(key) ||
+        (detail
+          ? `${name}: ${detail}`
+          : `This requirement from the posting is not evidenced yet: ${name}.`),
     });
   }
 
