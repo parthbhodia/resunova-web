@@ -49,6 +49,17 @@ export interface QueueItem {
   status: QueueStatus;
   /** Queued: the analysis/bridge text. Terminal: the outcome reason. */
   detail: string;
+  /**
+   * Where the row renders when its `kind` would put it in the wrong place.
+   *
+   * Exists for exactly one class so far: a rater row whose TERM the scanner
+   * already matched (`unbacked`). Its kind is `qualification`, and
+   * qualifications band as "Could get you filtered out" — but nothing can
+   * filter on a term that is present in the document, so the honest home is
+   * the upside band. Optional and absent everywhere else: an unset override
+   * is byte-identical old behaviour.
+   */
+  band?: QueueBand;
 }
 
 /** Employer-domain words are a different honesty class from skills: the right
@@ -163,6 +174,42 @@ export function deriveWorkQueue(
   for (const it of ratings.responsibilities.missing) {
     push("responsibility", requirementText(it), detailOf(it));
   }
+  /**
+   * Rows the user already fixed STAY ON SCREEN, in the band they were fixed in.
+   *
+   * The reported bug: applying a fix on a rater row made it vanish from the
+   * panel entirely. `applyOptimisticGapAddressed` moves the gap from `missing`
+   * into `resolved_by_user` — and this function read only `missing`, while
+   * `deriveCoveredQueue` reads only `covered`, so an applied row had no home
+   * anywhere on the queue surface. The user watched their own work disappear,
+   * which is the exact "silently vanishing queue item" this queue's first
+   * invariant forbids. Scorer rows never had this hole (their source list is
+   * immutable), which is why only rater rows vanished — an asymmetry, not a
+   * design.
+   *
+   * `status: "applied"` (never re-derived from `addressed`): the row IS the
+   * record that a fix landed, with the ✓ and "See it" every other applied row
+   * gets, and `queueCounts` keeps it out of `open` so nothing re-counts it as
+   * work.
+   */
+  const pushResolved = (kind: QueueKind, list: unknown) => {
+    if (!Array.isArray(list)) return;
+    for (const it of list) {
+      const name = requirementText(it);
+      const id = queueItemId(kind, name);
+      if (!name.trim() || seen.has(id)) continue;
+      seen.add(id);
+      items.push({
+        id,
+        name: name.trim(),
+        kind,
+        status: "applied",
+        detail: detailOf(it) || "Fix applied. Re-check to confirm.",
+      });
+    }
+  };
+  pushResolved("qualification", ratings.qualifications.resolved_by_user);
+  pushResolved("responsibility", ratings.responsibilities.resolved_by_user);
   const kw = ratings.keywords;
   for (const name of kw.direct_skills?.missing ?? kw.missing ?? []) {
     push("keyword", requirementText(name), "Missing from your resume. Fits an existing bullet.");
@@ -348,7 +395,11 @@ export function groupQueueBySeverity(
     // (a degree, a tool) stops mattering once the résumé satisfies it, and
     // filing it by kind would scatter reassurance through the work bands.
     const inBand = items.filter((it) =>
-      it.status === "covered" ? band === "covered" : band !== "covered" && BAND_OF_KIND[it.kind] === band,
+      it.status === "covered"
+        ? band === "covered"
+        // The row's own override outranks its kind — see QueueItem.band. An
+        // unset override reproduces the old mapping exactly.
+        : band !== "covered" && (it.band ?? BAND_OF_KIND[it.kind]) === band,
     );
     if (!inBand.length) continue;
     const open = inBand.filter(isOpen).length;

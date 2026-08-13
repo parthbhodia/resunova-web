@@ -1390,7 +1390,7 @@ export default function ResumeBuilder({
 
       const effCompany = company.trim() || "—";
       const effRole = role.trim() || "—";
-      const folder = result.folder ?? tailorMatchFolder(effCompany, effRole);
+      const folder = result.folder ?? tailorMatchFolder(effCompany, effRole, jd.trim());
       void persistTailorMatch({
         folder,
         company: effCompany,
@@ -1525,7 +1525,7 @@ export default function ResumeBuilder({
       const effRole = role.trim() || "—";
       const conceptsFromScan = raw.requirementConcepts ?? raw.requirement_concepts;
       setRequirementConcepts(Array.isArray(conceptsFromScan) ? conceptsFromScan : []);
-      const matchFolder = tailorMatchFolder(effCompany, effRole);
+      const matchFolder = tailorMatchFolder(effCompany, effRole, effJd);
       const nextResult: GenerationResult = {
         ...EMPTY_RESULT,
         ratings: data.ratings,
@@ -1638,7 +1638,7 @@ export default function ResumeBuilder({
       );
 
       const matchFolder =
-        result?.folder ?? tailorMatchFolder(company.trim() || "—", role.trim() || "—");
+        result?.folder ?? tailorMatchFolder(company.trim() || "—", role.trim() || "—", jd.trim());
       if (user?.id && matchFolder) {
         const sr = normalizeStructuredResume(
           (raw.structuredResume ?? raw.structured_resume) as StructuredResume | null,

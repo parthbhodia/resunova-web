@@ -628,10 +628,15 @@ describe("only a real check on the résumé may claim absence", () => {
       .toBe("no_fabrication");
   });
 
-  it("keeps the rater's judgement, which IS a reading of the résumé", () => {
-    // The scanner matched the term; the model read the document and judged the
-    // claim behind it unevidenced. That is the one non-degree row entitled to
-    // the word, and the easy over-correction is to soften it too.
+  it("renders the rater's judgement as its own claim, never as absence", () => {
+    // REVERSED from asserting "not_evidenced" here, after a paying user quoted
+    // the contradiction back verbatim: the chip said "Not evidenced" while the
+    // note on the same card said "the scanner already counts this as matched".
+    // Both halves were true — term present, substance thin — and the verdict
+    // vocabulary had no word for it. Now it does: `unbacked`, the mirror of
+    // `partial`. The earlier reasoning ("the rater read the résumé, so it may
+    // claim absence") missed that ABSENCE is false at the term level, and a
+    // chip that contradicts its own card is worse than a softer word.
     const merged = mergeQueues(
       [],
       deriveWorkQueue(
@@ -654,7 +659,37 @@ describe("only a real check on the résumé may claim absence", () => {
         new Set(),
       ),
     );
-    expect(merged.find((r) => r.name === "5 years of Python")?.verdict).toBe("not_evidenced");
+    const row = merged.find((r) => r.name === "5 years of Python");
+    expect(row?.verdict).toBe("unbacked");
+    // And out of the red band: nothing can filter on a term that is present
+    // in the document, so this class is upside, not a blocker.
+    expect(row?.band).toBe("boost");
+  });
+
+  it("gives an applied unbacked row no verdict chip at all", () => {
+    // A ✓ applied state and a verdict chip arguing with each other is the
+    // same one-card contradiction this class already shipped once.
+    const merged = mergeQueues(
+      [],
+      [{ id: "qualification:x", name: "5 years of Python", kind: "qualification",
+         status: "applied", detail: "done" }],
+    );
+    expect(merged[0].verdict).toBeUndefined();
+    // And no band override either: the ✓ is a receipt, and it must stay in
+    // the band where the user pressed Fix. A recount can flip a term to
+    // matched right after an apply — letting the override relocate the row at
+    // that moment is the "where did it go?" disappearance again, one band
+    // over.
+    expect(merged[0].band).toBeUndefined();
+  });
+
+  it("says what fixing an already-counted term is FOR", () => {
+    // The old note explained our bookkeeping ("the scanner already counts
+    // this as matched") and made the fix look pointless — quoted from the
+    // field: "then what is the use of fixing it?". The note must name the
+    // beneficiary: the human reading the bullet.
+    expect(NO_SCORE_MOVE_NOTE).toMatch(/recruiter|human|reading/i);
+    expect(NO_SCORE_MOVE_NOTE).not.toMatch(/counts this as matched/i);
   });
 
   it("says what the scanner knows, and names the mechanism", () => {

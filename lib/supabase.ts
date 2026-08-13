@@ -136,6 +136,14 @@ function formatSupabaseWriteError(err: { message?: string; details?: string; hin
   return parts.join(" — ") || "Database request failed.";
 }
 
+/** Postgres unique-violation, as PostgREST reports it (code 23505 / HTTP 409). */
+export function isDuplicateKeyError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as { code?: unknown; message?: unknown };
+  if (String(e.code ?? "") === "23505") return true;
+  return String(e.message ?? "").toLowerCase().includes("duplicate key");
+}
+
 /**
  * Retry `resumes` write without `job_description` when PostgREST/Postgres rejects that field
  * (add column: `web/db/migrations/002_resumes_job_description.sql`).
@@ -218,8 +226,16 @@ export async function upsertResume(
   };
 
   /**
-   * Prefer explicit select → update / insert over `.upsert(..., onConflict: "user_id,folder")`.
-   * Some PostgREST / constraint setups return 400 on composite upsert even when a matching unique index exists.
+   * Explicit select → update / insert, kept over `.upsert()` because the
+   * update leg also owns the bumpCreatedAt behaviour.
+   *
+   * History worth knowing: `resumes.folder` was GLOBALLY unique until
+   * 2026-08-13 (043_resumes_user_folder_unique.sql), so a deterministic
+   * folder like `tailor_match_google_software-engineer` collided across
+   * users — the second user's select (scoped to their user_id) saw nothing,
+   * the insert hit the global unique, and every save for that job 409'd
+   * forever. The unique is per-(user_id, folder) now; the insert-conflict
+   * recovery below handles the remaining honest race (two tabs, one user).
    */
   const { data: existing, error: selErr } = await db
     .from("resumes")
@@ -232,26 +248,46 @@ export async function upsertResume(
     throw new Error(`Library save failed: ${formatSupabaseWriteError(selErr)}`);
   }
 
+  const updateRowById = async (id: string, payload: Record<string, unknown>): Promise<string> => {
+    const updatePayload = opts?.bumpCreatedAt
+      ? { ...payload, created_at: new Date().toISOString() }
+      : payload;
+    const { data: upd, error: upErr } = await db
+      .from("resumes")
+      .update(updatePayload)
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (upErr) throw upErr;
+    return upd!.id as string;
+  };
+
   const persistResumeRow = async (payload: Record<string, unknown>): Promise<string> => {
     if (existing?.id) {
-      const updatePayload = opts?.bumpCreatedAt
-        ? { ...payload, created_at: new Date().toISOString() }
-        : payload;
-      const { data: upd, error: upErr } = await db
-        .from("resumes")
-        .update(updatePayload)
-        .eq("id", existing.id as string)
-        .select("id")
-        .single();
-      if (upErr) throw upErr;
-      return upd!.id as string;
+      return updateRowById(existing.id as string, payload);
     }
     const { data: ins, error: inErr } = await db
       .from("resumes")
       .insert(payload)
       .select("id")
       .single();
-    if (inErr) throw inErr;
+    if (inErr) {
+      // Duplicate key = the row appeared between our select and this insert
+      // (a second tab, a rescore racing the autosave). The row is OURS —
+      // the unique is (user_id, folder) — so the honest recovery is to
+      // update it, not to surface "Save failed" and hand the user a Retry
+      // that re-runs the same doomed insert.
+      if (isDuplicateKeyError(inErr)) {
+        const { data: raced } = await db
+          .from("resumes")
+          .select("id")
+          .eq("user_id", user_id)
+          .eq("folder", String(payload.folder ?? ""))
+          .maybeSingle();
+        if (raced?.id) return updateRowById(raced.id as string, payload);
+      }
+      throw inErr;
+    }
     return ins!.id as string;
   };
 
