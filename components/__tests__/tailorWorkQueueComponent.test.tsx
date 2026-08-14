@@ -103,3 +103,67 @@ describe("the queue groups by what the gap costs", () => {
     for (const it of items) expect(screen.getByText(it.name)).toBeInTheDocument();
   });
 });
+
+/**
+ * Select all, per band. Field-asked ("add select all option for both the
+ * sections"): ticking fourteen keyword rows one checkbox at a time to feed
+ * "Improve selected" is busywork. The control is BAND-scoped in both
+ * directions, and it governs only rows the bulk pass would actually attempt —
+ * a checked row the button ignores is a lie.
+ */
+describe("select all per band", () => {
+  const bandItems: QueueItem[] = [
+    { id: "qualification:q1", name: "Production observability", kind: "qualification", status: "queued", detail: "" },
+    { id: "qualification:q2", name: "Distributed systems", kind: "qualification", status: "queued", detail: "" },
+    // A credential renders a checkbox but the pass skips it by design, so
+    // select-all must leave it alone.
+    { id: "qualification:phd", name: "PhD", kind: "qualification", status: "queued", detail: "" },
+    { id: "keyword:k1", name: "Golang", kind: "keyword", status: "queued", detail: "" },
+    { id: "keyword:k2", name: "TypeScript", kind: "keyword", status: "queued", detail: "" },
+    { id: "keyword:k3", name: "CSS", kind: "keyword", status: "queued", detail: "" },
+    // Finished work is a receipt, not a target.
+    { id: "keyword:done", name: "Terraform", kind: "keyword", status: "applied", detail: "" },
+    { id: "contextual:ctx", name: "advertisers", kind: "contextual", status: "queued", detail: "" },
+  ];
+
+  it("selects only its own band's selectable rows", () => {
+    render(<TailorWorkQueue items={bandItems} onFixAll={vi.fn()} onFixSelected={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText("Select all in Could get you filtered out"));
+    // Two real qualifications; the credential stays out, and no keyword moves.
+    expect(screen.getByRole("button", { name: "Improve selected (2)" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Select PhD")).not.toBeChecked();
+    expect(screen.getByLabelText("Select Golang")).not.toBeChecked();
+  });
+
+  it("hands the bulk pass exactly the band it selected", () => {
+    const onFixSelected = vi.fn();
+    render(<TailorWorkQueue items={bandItems} onFixAll={vi.fn()} onFixSelected={onFixSelected} />);
+    fireEvent.click(screen.getByLabelText("Select all in Worth adding"));
+    fireEvent.click(screen.getByRole("button", { name: "Improve selected (3)" }));
+    expect(onFixSelected).toHaveBeenCalledWith([bandItems[3], bandItems[4], bandItems[5]]);
+  });
+
+  it("clears only its own band, keeping the other band's selection", () => {
+    render(<TailorWorkQueue items={bandItems} onFixAll={vi.fn()} onFixSelected={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText("Select all in Could get you filtered out"));
+    fireEvent.click(screen.getByLabelText("Select all in Worth adding"));
+    expect(screen.getByRole("button", { name: "Improve selected (5)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Clear selection in Could get you filtered out"));
+    expect(screen.getByRole("button", { name: "Improve selected (3)" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Select Golang")).toBeChecked();
+  });
+
+  it("does not offer select-all where there is nothing worth batching", () => {
+    // One selectable row has its own checkbox; advisory bands have none.
+    const thin: QueueItem[] = [
+      { id: "qualification:q1", name: "Production observability", kind: "qualification", status: "queued", detail: "" },
+      { id: "keyword:k1", name: "Golang", kind: "keyword", status: "queued", detail: "" },
+      { id: "keyword:k2", name: "TypeScript", kind: "keyword", status: "queued", detail: "" },
+      { id: "contextual:ctx", name: "advertisers", kind: "contextual", status: "queued", detail: "" },
+    ];
+    render(<TailorWorkQueue items={thin} onFixAll={vi.fn()} />);
+    const selectAlls = screen.getAllByRole("button", { name: /Select all in/ });
+    expect(selectAlls).toHaveLength(1);
+    expect(selectAlls[0]).toHaveAccessibleName("Select all in Worth adding");
+  });
+});

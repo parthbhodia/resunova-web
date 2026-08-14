@@ -107,11 +107,13 @@ export const ACTION_LABEL: Record<QueueItemAction, string> = {
   add_education: "Add to education",
   reconsider: "Reconsider",
   no_action: "No action",
-  // Not "No action". This row is the honesty pipeline made visible: the product
-  // is declining to fabricate a credential, which is the one thing it must
-  // never do. Rendered as a dead grey "No action" it read as a limitation of
-  // the tool rather than the reason to trust it.
-  no_fabrication: "We won't add this",
+  // Not "No action", and not "We won't add this" either. This row is the
+  // honesty pipeline made visible: the product declines to fabricate a
+  // credential, which is the one thing it must never do. The first label said
+  // exactly that and read as a scolding (founder, verbatim: "why tf are you
+  // being so direct"). The refusal is non-negotiable; the WORDS frame it as
+  // what it is, a protection. The detail line under the row carries the why.
+  no_fabrication: "Skipped to protect you",
 };
 
 /**
@@ -355,9 +357,9 @@ export function TailorWorkQueue({
   // them makes the button promise work it will not attempt. Ticking a degree
   // and pressing Improve did nothing at all, which reads as a dead button.
   // Their own "Add to education" action is unaffected.
-  const selectable = filtered.filter(
-    (it) => it.status === "queued" && it.kind !== "contextual" && !isCredentialRequirement(it.name),
-  );
+  const isSelectable = (it: QueueItem) =>
+    it.status === "queued" && it.kind !== "contextual" && !isCredentialRequirement(it.name);
+  const selectable = filtered.filter(isSelectable);
   // Open rows a bulk pass deliberately skips. Named here so the header can say
   // so rather than leaving the user to notice the count not adding up.
   const contextualOpen = filtered.filter((it) => it.status === "queued" && it.kind === "contextual").length;
@@ -446,6 +448,21 @@ export function TailorWorkQueue({
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  };
+
+  // Band-scoped, both directions. Selecting all in "Worth adding" must not
+  // touch a blocker the user deliberately left unticked, and its "Clear" must
+  // not throw away a selection made in another band — per-band control is the
+  // entire point of putting the switch on the band instead of the card.
+  const setBandSelected = (rows: readonly QueueItem[], on: boolean) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const it of rows) {
+        if (on) next.add(it.id);
+        else next.delete(it.id);
+      }
       return next;
     });
   };
@@ -611,6 +628,42 @@ export function TailorWorkQueue({
               }}
             >
               <span>{group.label}</span>
+              {/* Select all, per band. Field-asked: ticking fourteen keyword
+                  rows one checkbox at a time to feed "Improve selected" is
+                  busywork. Rendered only when the band has at least two
+                  selectable rows (one row's own checkbox already covers it),
+                  and it flips to Clear when the whole band is selected. It
+                  governs only SELECTABLE rows — applied receipts, covered
+                  rows, contextual info rows and credentials stay out, because
+                  the bulk pass would skip them anyway and a checked row the
+                  button ignores is a lie. */}
+              {(() => {
+                const bandSelectable = group.items.filter(isSelectable);
+                if (bandSelectable.length < 2) return null;
+                const allSelected = bandSelectable.every((it) => selectedIds.has(it.id));
+                return (
+                  <button
+                    type="button"
+                    aria-label={`${allSelected ? "Clear selection" : "Select all"} in ${group.label}`}
+                    onClick={() => setBandSelected(bandSelectable, !allSelected)}
+                    style={{
+                      border: 0,
+                      background: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      color: "inherit",
+                      font: "inherit",
+                      fontWeight: FW.bold,
+                      letterSpacing: 0,
+                      textTransform: "none",
+                      textDecoration: "underline",
+                      textUnderlineOffset: 3,
+                    }}
+                  >
+                    {allSelected ? "Clear" : "Select all"}
+                  </button>
+                );
+              })()}
               {/* "all set" is only true when the endings were the user's. A
                   band that merely has nothing OPEN can be nineteen rows we
                   failed to write, and calling that all set is the lie the

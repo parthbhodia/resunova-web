@@ -240,11 +240,17 @@ export function blockerReasonFor(name: string, type?: string): string | null {
  * "The scanner did not find this" is true but reads as a tooling shortfall, and
  * the row's right-hand slot then said "No action" — a grey dead end. What is
  * actually happening is that the product is refusing to claim a qualification
- * the candidate does not hold, which is the single thing it must never do. Said
- * plainly, the constraint becomes the reason to trust the rest of the page.
+ * the candidate does not hold, which is the single thing it must never do.
+ *
+ * TONE, founder-directed 2026-08-13: the first version said "We won't claim a
+ * credential you don't have … yours to earn, not ours to write" — honest, and
+ * it read as the product scolding a paying user. The refusal itself is
+ * non-negotiable; the VOICE is protective, not preachy. Lead with what the
+ * refusal does FOR them (background checks are where an invented credential
+ * detonates), then point their energy somewhere it can win.
  */
 export const CREDENTIAL_REFUSAL_DETAIL =
-  "We won't claim a credential you don't have. A degree is among the first things an employer verifies, so this one is yours to earn, not ours to write.";
+  "Credentials get verified in background checks, so writing one in could cost you an offer down the line. We keep your résumé safe on this one; every other gap here is fair game.";
 
 /**
  * Appended to rater-only rows so nobody expects the number to move.
