@@ -72,11 +72,20 @@ describe("a credential never routes to the bullet fixer", () => {
 describe("an unevidenced credential states the refusal", () => {
   it("does not reuse the generic 'No action' label", () => {
     expect(ACTION_LABEL.no_fabrication).not.toBe(ACTION_LABEL.no_action);
-    expect(ACTION_LABEL.no_fabrication.toLowerCase()).toContain("won't");
+    // REVOICED, founder-directed 2026-08-13: "We won't add this" was honest
+    // and read as a scolding. The label now frames the same refusal as the
+    // protection it is. The refusal must still be FELT as deliberate — the
+    // label names the user as the one being protected.
+    expect(ACTION_LABEL.no_fabrication.toLowerCase()).toMatch(/protect/);
+    expect(ACTION_LABEL.no_fabrication.toLowerCase()).not.toMatch(/won't|refuse|never/);
   });
 
   it("explains the refusal rather than blaming the scanner", () => {
-    expect(CREDENTIAL_REFUSAL_DETAIL.toLowerCase()).toContain("won't claim");
+    // The reason is the user's OWN stake (background checks), not our rules.
+    expect(CREDENTIAL_REFUSAL_DETAIL.toLowerCase()).toMatch(/background check/);
+    expect(CREDENTIAL_REFUSAL_DETAIL.toLowerCase()).toMatch(/safe/);
     expect(CREDENTIAL_REFUSAL_DETAIL).not.toMatch(/scanner did not find/i);
+    // And the scold-words stay gone.
+    expect(CREDENTIAL_REFUSAL_DETAIL).not.toMatch(/won't claim|yours to earn/i);
   });
 });

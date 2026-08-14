@@ -308,7 +308,8 @@ describe("banding comes from the requirement's own type", () => {
     const [degree] = deriveScorerQueue(degreeReqs(["Bachelor's degree"]), EMPTY_RATER);
     expect(degree.detail).toMatch(/yes\/no question on the application form/i);
     // The refusal stays — the reason joins it, it does not replace it.
-    expect(degree.detail).toMatch(/we won't claim a credential/i);
+    // (Revoiced 2026-08-13: protective framing, same non-negotiable refusal.)
+    expect(degree.detail).toMatch(/keep your résumé safe/i);
   });
 
   it("bands named skills, tools and duties as keywords", () => {
