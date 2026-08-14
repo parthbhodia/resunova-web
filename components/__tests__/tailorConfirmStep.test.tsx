@@ -56,12 +56,16 @@ describe("the confirm step", () => {
     expect(screen.getByRole("button", { name: /add to résumé/i })).toBeInTheDocument();
   });
 
-  it("says where the rewrite's source came from", () => {
-    // The claim "nothing here was invented" is only safe because the shown
-    // bullet is read out of the résumé. If that ever stops being true this
-    // copy has to go with it.
+  it("does not narrate the implicit", () => {
+    // "Read from your résumé. Nothing here was invented." was cut on founder
+    // direction: the bullet shown IS visibly the user's own words, and
+    // captioning that talks down to people. Pinned as an absence because a
+    // removal is exactly what a later edit quietly restores. The correction
+    // link keeps its place without the preamble.
     renderExpansion({ onRewriteWithFacts: vi.fn() });
-    expect(screen.getByText(/read from your résumé/i)).toBeInTheDocument();
+    expect(screen.queryByText(/nothing here was invented/i)).toBeNull();
+    expect(screen.queryByText(/read from your résumé/i)).toBeNull();
+    expect(screen.getByRole("button", { name: /not quite/i })).toBeInTheDocument();
   });
 
   it("costs zero typing and zero extra clicks on the default path", () => {

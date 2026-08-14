@@ -62,7 +62,7 @@ import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToSt
 import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
 import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, planQueueRuns, keepFirstRewritePerBullet } from "@/lib/fixEverything";
 import { tailorResultHeadline } from "@/lib/tailorResultHeadline";
-import { gapFixEmptyError } from "@/lib/gapFixEmptyReason";
+import { gapFixEmptyError, withOneRetryOnFailure } from "@/lib/gapFixEmptyReason";
 import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
 import { prefillPrepFromTailor } from "@/lib/interviewPrepLaunch";
 import type { AddressedGapAction } from "@/lib/types";
@@ -2526,46 +2526,52 @@ export default function ResumeBuilder({
         ? item.detail
         : `This keyword is missing from the resume. Rewrite one of the most relevant existing bullets to naturally incorporate "${item.name}" without fabricating experience.`;
     const confirmed = normalizeConfirmedFacts(facts ? [facts] : []);
-    const resp = await apiFetch("/api/suggest-gap-fix", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tailoring_mode: tailoringMode ?? "honest",
-        gap_name: item.name,
-        gap_notes: notes,
-        job_description: jd.trim(),
-        // Provenance, not permission: the API uses confirmed facts to decide
-        // whether an added number is evidenced, never to withhold a rewrite.
-        // Omitted entirely when absent so the request is byte-identical to
-        // before the confirm step existed.
-        ...(confirmed.length ? { confirmed_facts: confirmed } : {}),
-        // Patched doc, same as handleFixGap: the eligible-bullets whitelist
-        // must reflect already-applied fixes or a later apply overwrites them.
-        ...(tailorStructuredResume ? {
-          structured_resume: applyFieldOverridesToStructured(
-            patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
-            tailorFieldOverrides,
-          ),
-        } : {}),
-        ...(prof ? { candidate_profile: prof } : {}),
-      }),
-    });
-    const data = await resp.json() as {
-      suggestions?: unknown[];
-      error?: string;
-      emptyReason?: string;
+    const attemptFetch = async (): Promise<{ usable: FixSuggestion[]; failure: string | null }> => {
+      const resp = await apiFetch("/api/suggest-gap-fix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tailoring_mode: tailoringMode ?? "honest",
+          gap_name: item.name,
+          gap_notes: notes,
+          job_description: jd.trim(),
+          // Provenance, not permission: the API uses confirmed facts to decide
+          // whether an added number is evidenced, never to withhold a rewrite.
+          // Omitted entirely when absent so the request is byte-identical to
+          // before the confirm step existed.
+          ...(confirmed.length ? { confirmed_facts: confirmed } : {}),
+          // Patched doc, same as handleFixGap: the eligible-bullets whitelist
+          // must reflect already-applied fixes or a later apply overwrites them.
+          ...(tailorStructuredResume ? {
+            structured_resume: applyFieldOverridesToStructured(
+              patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
+              tailorFieldOverrides,
+            ),
+          } : {}),
+          ...(prof ? { candidate_profile: prof } : {}),
+        }),
+      });
+      const data = await resp.json() as {
+        suggestions?: unknown[];
+        error?: string;
+        emptyReason?: string;
+      };
+      if (!resp.ok || data.error) throw new Error(data.error ?? "Couldn't write suggestions. Try again.");
+      const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as FixSuggestion[];
+      const usable = list.filter((s) => s.original?.trim() && s.suggested?.trim());
+      // An empty list has four causes and NONE of them earns a verdict about
+      // the résumé — the routing and the reasoning live in
+      // lib/gapFixEmptyReason.ts, where they are pinned by tests.
+      return { usable, failure: usable.length ? null : gapFixEmptyError(data.emptyReason) };
     };
-    if (!resp.ok || data.error) throw new Error(data.error ?? "Couldn't write suggestions. Try again.");
-    const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as FixSuggestion[];
-    const usable = list.filter((s) => s.original?.trim() && s.suggested?.trim());
-    // An empty list has four causes and NONE of them earns a verdict about the
-    // résumé — the routing and the reasoning live in lib/gapFixEmptyReason.ts,
-    // where they are pinned by tests.
-    if (!usable.length) {
-      const failure = gapFixEmptyError(data.emptyReason);
-      if (failure) throw new Error(failure);
-    }
-    return usable;
+
+    // The server already retries internally with its validators' own reasons;
+    // withOneRetryOnFailure (lib/gapFixEmptyReason.ts, where it is test-pinned)
+    // adds one fresh client pass on a retryable empty before anything reaches
+    // the screen.
+    const out = await withOneRetryOnFailure(attemptFetch);
+    if (!out.usable.length && out.failure) throw new Error(out.failure);
+    return out.usable;
   }, [jd, effectiveCandidateProfile, tailorStructuredResume, tailorBulletAnalysis,
       tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
 

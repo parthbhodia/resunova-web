@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gapFixEmptyError } from "@/lib/gapFixEmptyReason";
+import { gapFixEmptyError, withOneRetryOnFailure } from "@/lib/gapFixEmptyReason";
 
 /**
  * Which empty gap-fix responses are OUR failures, and which are honest ends.
@@ -30,5 +30,55 @@ describe("gapFixEmptyError", () => {
     expect(gapFixEmptyError("not_evidenced")).toBeNull();
     expect(gapFixEmptyError(undefined)).toBeNull();
     expect(gapFixEmptyError("")).toBeNull();
+  });
+});
+
+/**
+ * The client's own retry: founder-directed 2026-08-14, "we should retry on
+ * our own till we pass it and not leave on to the users". One fresh pass on
+ * a retryable empty, never on a verdict, never more than one.
+ */
+describe("withOneRetryOnFailure", () => {
+  const attempts = <T,>(results: T[]) => {
+    let i = 0;
+    const fn = async () => results[Math.min(i++, results.length - 1)];
+    return { fn, calls: () => i };
+  };
+
+  it("retries a retryable empty once and returns the recovery", async () => {
+    const { fn, calls } = attempts([
+      { usable: [], failure: "our miss" },
+      { usable: ["fix"], failure: null },
+    ]);
+    const out = await withOneRetryOnFailure(fn);
+    expect(calls()).toBe(2);
+    expect(out.usable).toEqual(["fix"]);
+    expect(out.failure).toBeNull();
+  });
+
+  it("does not touch a first-pass success", async () => {
+    const { fn, calls } = attempts([{ usable: ["fix"], failure: null }]);
+    await withOneRetryOnFailure(fn);
+    expect(calls()).toBe(1);
+  });
+
+  it("never re-argues a verdict empty", async () => {
+    // failure null + nothing usable = none_proposed / not_evidenced. The
+    // model saying nothing IS an answer; a retry here burns money to argue.
+    const { fn, calls } = attempts([{ usable: [], failure: null }]);
+    const out = await withOneRetryOnFailure(fn);
+    expect(calls()).toBe(1);
+    expect(out.failure).toBeNull();
+  });
+
+  it("stops after the one retry, surfacing the failure", async () => {
+    const { fn, calls } = attempts([
+      { usable: [], failure: "our miss" },
+      { usable: [], failure: "our miss again" },
+      { usable: ["never reached"], failure: null },
+    ]);
+    const out = await withOneRetryOnFailure(fn);
+    expect(calls()).toBe(2);
+    expect(out.failure).toBe("our miss again");
   });
 });

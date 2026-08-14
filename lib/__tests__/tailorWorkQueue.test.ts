@@ -87,6 +87,60 @@ describe("deriveWorkQueue", () => {
   });
 });
 
+describe("one row per requirement name, across kinds", () => {
+  it("an applied receipt swallows the same requirement filed again as a keyword", () => {
+    // Field screenshot 2026-08-14: "5 years of experience with data
+    // structures and algorithms" sat in qualifications.resolved_by_user AND
+    // in the keyword missing list, so one applied fix rendered as TWO rows —
+    // a ✓ receipt and, above it, a queued copy still asking for the work.
+    // The per-kind ids cannot catch a cross-kind duplicate; the name-level
+    // dedupe does, and the receipt wins because receipts push first.
+    const dsa = "5 years of experience with data structures and algorithms";
+    const r = ratings({
+      qualifications: {
+        score: 40,
+        covered: [],
+        missing: [],
+        resolved_by_user: [{ text: dsa, analysis: "Woven into the systems bullet." }],
+      } as never,
+      keywords: {
+        direct_skills: { found: [], missing: [dsa, "Kubernetes"] },
+        contextual: { found: [], missing: [] },
+        found_count: 1,
+        total_count: 3,
+      },
+    });
+    const q = deriveWorkQueue(r, new Set());
+    const rows = q.filter((i) => i.name === dsa);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe("applied");
+    expect(rows[0].kind).toBe("qualification");
+    // The genuinely-different keyword is untouched by the dedupe.
+    expect(q.some((i) => i.name === "Kubernetes" && i.status === "queued")).toBe(true);
+  });
+
+  it("dedupe folds case and whitespace, not meaning", () => {
+    const r = ratings({
+      qualifications: {
+        score: 40,
+        covered: [],
+        missing: [{ text: "Data  Structures", analysis: "" }],
+      },
+      keywords: {
+        direct_skills: { found: [], missing: ["data structures", "data structure design"] },
+        contextual: { found: [], missing: [] },
+        found_count: 0,
+        total_count: 2,
+      },
+    });
+    const q = deriveWorkQueue(r, new Set());
+    expect(q.filter((i) => /^data\s+structures$/i.test(i.name))).toHaveLength(1);
+    // A longer, different requirement is NOT merged — timid matching, same
+    // reason sameRequirement is timid: a wrong merge hides real work.
+    expect(q.some((i) => i.name === "data structure design")).toBe(true);
+  });
+});
+
 describe("withStatus / queueCounts", () => {
   it("every item ends in an explicit terminal state and the counts agree", () => {
     let q = deriveWorkQueue(ratings(), new Set());

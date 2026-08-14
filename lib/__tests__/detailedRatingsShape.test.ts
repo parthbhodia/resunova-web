@@ -192,16 +192,20 @@ describe("an object-shaped requirement is read, not dropped", () => {
   });
 
   it("puts an object-shaped missing keyword into the queue", () => {
-    // The exact production symptom: the third gap must appear.
+    // The exact production symptom: the third gap must appear. Named
+    // Terraform, not Kubernetes: the base fixture files Kubernetes as a
+    // qualification, and the queue now keeps ONE row per requirement name
+    // across kinds — a colliding fixture would test the dedupe, not the
+    // object-shape reading this guards.
     const r = ratings({
       keywords: {
         found_count: 22,
         total_count: 23,
-        direct_skills: { found: [], missing: [{ keyword: "Kubernetes" }] },
+        direct_skills: { found: [], missing: [{ keyword: "Terraform" }] },
         contextual: { found: [], missing: [] },
       },
     });
     const names = deriveWorkQueue(r, NONE).filter((i) => i.kind === "keyword").map((i) => i.name);
-    expect(names).toEqual(["Kubernetes"]);
+    expect(names).toEqual(["Terraform"]);
   });
 });

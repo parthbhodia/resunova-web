@@ -12,10 +12,38 @@
 
 import React, { useState } from "react";
 import { FS, FW } from "@/lib/typography";
+import { gapFixAppendDelta } from "@/lib/gapFixAppendDelta";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import { groupQueueBySeverity, queueCounts, type QueueTone } from "@/lib/tailorWorkQueue";
 import type { QueueVerdict, SourcedQueueItem } from "@/lib/tailorRequirementQueue";
 import { isCredentialRequirement } from "@/lib/degreeRequirement";
+
+/** The applied line, with the added words highlighted when it is a clean
+ *  append — the same treatment the fix flow's version picker uses, so the
+ *  receipt reads like the thing the user approved. */
+function AppliedChangeText({ change }: { change: { before: string; after: string } }) {
+  const delta = gapFixAppendDelta(change.before, change.after);
+  if (delta.kind !== "append") return <>{change.after}</>;
+  return (
+    <>
+      {change.after.slice(0, delta.addedStart)}
+      <mark
+        style={{
+          background: "var(--green-bg, rgba(5,150,105,0.12))",
+          color: "inherit",
+          borderRadius: 5,
+          padding: "0 3px",
+          fontWeight: FW.semibold,
+          boxDecorationBreak: "clone",
+          WebkitBoxDecorationBreak: "clone",
+        }}
+      >
+        {change.after.slice(delta.addedStart, delta.addedEnd)}
+      </mark>
+      {change.after.slice(delta.addedEnd)}
+    </>
+  );
+}
 
 /** What the row's trailing action says, per state. Null = no action. */
 export type QueueItemAction =
@@ -304,6 +332,7 @@ export function TailorWorkQueue({
   onInterviewPrep,
   expandedIds,
   renderExpansion,
+  appliedChangeFor,
 }: {
   items: readonly QueueItem[];
   /** Item currently being processed by the pass, if any. */
@@ -326,6 +355,17 @@ export function TailorWorkQueue({
   /** Render the expansion for one open row. Called only for ids in
    *  `expandedIds`, so each row's flow keeps its own state. */
   renderExpansion?: (item: QueueItem) => React.ReactNode;
+  /**
+   * The actual change behind an applied row, when the caller can locate it.
+   * Drives two honesty features on the receipt: the expanded detail shows the
+   * before/after instead of a bare "Fix applied", and "See it" renders only
+   * when there is something to see — a button that silently no-ops was the
+   * field report ("it says applied but when i click on it i cant find it").
+   * `null` = this fix's text is no longer independently visible (a later fix
+   * rewrote the same line); `undefined` (prop absent) = legacy caller, render
+   * as before.
+   */
+  appliedChangeFor?: (name: string) => { before: string; after: string } | null;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [detailIds, setDetailIds] = useState<Set<string>>(() => new Set());
@@ -627,43 +667,44 @@ export function TailorWorkQueue({
                 background: TONE_BAND_BG[group.tone],
               }}
             >
-              <span>{group.label}</span>
-              {/* Select all, per band. Field-asked: ticking fourteen keyword
-                  rows one checkbox at a time to feed "Improve selected" is
-                  busywork. Rendered only when the band has at least two
-                  selectable rows (one row's own checkbox already covers it),
-                  and it flips to Clear when the whole band is selected. It
-                  governs only SELECTABLE rows — applied receipts, covered
-                  rows, contextual info rows and credentials stay out, because
-                  the bulk pass would skip them anyway and a checked row the
-                  button ignores is a lie. */}
+              {/* Select all, per band — a CHECKBOX aligned over the rows' own
+                  checkbox column with "All" beside it (founder-directed; the
+                  first version was an underlined "Select all" text link).
+                  Rendered only when the band has at least two selectable rows
+                  (one row's own checkbox already covers it). It governs only
+                  SELECTABLE rows — applied receipts, covered rows, contextual
+                  info rows and credentials stay out, because the bulk pass
+                  would skip them anyway and a checked row the button ignores
+                  is a lie. */}
               {(() => {
                 const bandSelectable = group.items.filter(isSelectable);
                 if (bandSelectable.length < 2) return null;
                 const allSelected = bandSelectable.every((it) => selectedIds.has(it.id));
                 return (
-                  <button
-                    type="button"
-                    aria-label={`${allSelected ? "Clear selection" : "Select all"} in ${group.label}`}
-                    onClick={() => setBandSelected(bandSelectable, !allSelected)}
+                  <label
                     style={{
-                      border: 0,
-                      background: "none",
-                      padding: 0,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
                       cursor: "pointer",
-                      color: "inherit",
-                      font: "inherit",
-                      fontWeight: FW.bold,
-                      letterSpacing: 0,
-                      textTransform: "none",
-                      textDecoration: "underline",
-                      textUnderlineOffset: 3,
+                      // Line the box up over the row checkboxes below: rows pad
+                      // 9px and this strip pads 16px, so pull back the difference.
+                      marginLeft: -7,
+                      marginRight: 2,
                     }}
                   >
-                    {allSelected ? "Clear" : "Select all"}
-                  </button>
+                    <input
+                      type="checkbox"
+                      aria-label={`${allSelected ? "Clear selection" : "Select all"} in ${group.label}`}
+                      checked={allSelected}
+                      onChange={() => setBandSelected(bandSelectable, !allSelected)}
+                      style={{ width: 15, height: 15, margin: 0, accentColor: "var(--accent)", cursor: "pointer" }}
+                    />
+                    <span style={{ letterSpacing: 0, textTransform: "none", fontWeight: FW.bold }}>All</span>
+                  </label>
                 );
               })()}
+              <span>{group.label}</span>
               {/* "all set" is only true when the endings were the user's. A
                   band that merely has nothing OPEN can be nineteen rows we
                   failed to write, and calling that all set is the lie the
@@ -842,7 +883,12 @@ export function TailorWorkQueue({
                             label should not claim the wrong one. */}
                         {detailOpen
                         ? "Hide"
-                        : it.status === "covered"
+                        : it.status === "applied" && appliedChangeFor
+                          // A receipt's expansion shows the edit itself, and
+                          // the label should promise exactly that — "Why this
+                          // matters" on finished work reads like a nag.
+                          ? "What changed"
+                          : it.status === "covered"
                           // On a covered row the detail IS the evidence, and
                           // "Why this matters" would promise an explanation of
                           // a problem the user does not have.
@@ -860,7 +906,37 @@ export function TailorWorkQueue({
                     {it.name}
                   </span>
                 ) : null}
-                {it.detail && detailOpen ? (
+                {detailOpen && it.status === "applied" && appliedChangeFor ? (
+                  // The receipt says WHAT changed, not just that something did.
+                  // Field-asked: "More should give more detail on what we
+                  // applied and changed". The change is derived from the same
+                  // override map the preview renders, so this can never
+                  // disagree with the document.
+                  (() => {
+                    const change = appliedChangeFor(it.name);
+                    if (!change) {
+                      return (
+                        <span style={{ display: "block", fontSize: FS.small, color: "var(--muted)", marginTop: 4, maxWidth: "52ch", lineHeight: 1.45 }}>
+                          A later fix rewrote the same line, so this one&rsquo;s exact text
+                          is no longer separately visible. The requirement stays counted;
+                          run Fix again if you want its wording back.
+                        </span>
+                      );
+                    }
+                    return (
+                      <span style={{ display: "block", fontSize: FS.small, marginTop: 5, maxWidth: "56ch", lineHeight: 1.5 }}>
+                        {change.before ? (
+                          <span style={{ display: "block", color: "var(--muted)" }}>
+                            <b style={{ fontWeight: FW.bold }}>Was:</b> {change.before}
+                          </span>
+                        ) : null}
+                        <span style={{ display: "block", color: "var(--text)", marginTop: 3 }}>
+                          <b style={{ fontWeight: FW.bold }}>Now:</b> <AppliedChangeText change={change} />
+                        </span>
+                      </span>
+                    );
+                  })()
+                ) : it.detail && detailOpen ? (
                   <span style={{ display: "block", fontSize: FS.small, color: "var(--muted)", marginTop: 4, maxWidth: "52ch", lineHeight: 1.45 }}>
                     {it.detail}
                   </span>
@@ -873,6 +949,12 @@ export function TailorWorkQueue({
                 <span style={{ fontSize: FS.small, color: "var(--muted)", whiteSpace: "nowrap" }}>
                   {ACTION_LABEL[action]}
                 </span>
+              ) : action === "view_change" && appliedChangeFor && appliedChangeFor(it.name) === null ? (
+                // A "See it" that silently does nothing is worse than none:
+                // the change this receipt records was folded into a line a
+                // later fix rewrote, so there is no frame to scroll to. The
+                // expanded detail explains; the right slot stays quiet.
+                <span />
               ) : action && onItemAction ? (
                 <button
                   type="button"

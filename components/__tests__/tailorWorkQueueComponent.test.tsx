@@ -162,8 +162,22 @@ describe("select all per band", () => {
       { id: "contextual:ctx", name: "advertisers", kind: "contextual", status: "queued", detail: "" },
     ];
     render(<TailorWorkQueue items={thin} onFixAll={vi.fn()} />);
-    const selectAlls = screen.getAllByRole("button", { name: /Select all in/ });
+    const selectAlls = screen.getAllByRole("checkbox", { name: /Select all in/ });
     expect(selectAlls).toHaveLength(1);
     expect(selectAlls[0]).toHaveAccessibleName("Select all in Worth adding");
+  });
+
+  it("is a checkbox labelled All, not a text link", () => {
+    // Field-asked 2026-08-14: "select all should be a checkbox with All
+    // written on the left instead". The control must read as a checkbox row
+    // aligned over the per-row checkboxes, with the word All beside it.
+    render(<TailorWorkQueue items={bandItems} onFixAll={vi.fn()} onFixSelected={vi.fn()} />);
+    const box = screen.getByRole("checkbox", { name: "Select all in Worth adding" });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    expect(
+      screen.getByRole("checkbox", { name: "Clear selection in Worth adding" }),
+    ).toBeChecked();
+    expect(screen.getAllByText("All").length).toBeGreaterThan(0);
   });
 });

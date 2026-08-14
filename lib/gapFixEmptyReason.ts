@@ -31,7 +31,32 @@ export function gapFixEmptyError(emptyReason: string | undefined): string | null
     return "Couldn't reach the writer just now. Try again in a moment.";
   }
   if (emptyReason === "all_filtered") {
-    return "We wrote suggestions for this, but none of them passed our accuracy checks. Try again — a fresh pass usually will.";
+    // By the time this reaches a screen, several automatic passes have
+    // already run: the server retries with its validators' own reasons, and
+    // the client re-requests a retryable empty once more. Say so — "try
+    // again, a fresh pass usually will" was a promise the user found false.
+    return "We made several attempts at this one and none passed our accuracy checks yet. One more try sometimes clears it, or add it in your own words.";
   }
   return null;
+}
+
+/**
+ * Retrying is OUR job before it is the user's (founder-directed 2026-08-14:
+ * "even if it doesnt pass we should retry on our own till we pass it and not
+ * leave on to the users"). A RETRYABLE empty — `failure` non-null, meaning
+ * no_llm_output or all_filtered per the map above — earns exactly one more
+ * fresh attempt before anything reaches a screen. A verdict empty
+ * (`failure` null: none_proposed / not_evidenced) is never re-argued, and a
+ * bound exists because some gaps genuinely cannot pass (a credential, a
+ * refused tech) and an unbounded loop would spin on them forever.
+ *
+ * Lives here, not inline in a 6,000-line component, so deleting the retry
+ * turns a test red instead of nothing.
+ */
+export async function withOneRetryOnFailure<T extends { failure: string | null }>(
+  attempt: () => Promise<T>,
+): Promise<T> {
+  let out = await attempt();
+  if (out.failure) out = await attempt();
+  return out;
 }

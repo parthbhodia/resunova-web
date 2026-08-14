@@ -51,6 +51,7 @@ import type { ConfirmedFact } from "@/lib/tailorConfirmFacts";
 import { TailorStrengthsCard } from "@/components/tailor/TailorStrengthsCard";
 import { TailorChangeLog } from "@/components/tailor/TailorChangeLog";
 import { deriveResumeChanges, type ResumeChange } from "@/lib/tailorChangeLog";
+import { findAppliedBulletIndex } from "@/lib/resumeBulletMatch";
 
 const NOT_COVERED_DETAIL =
   "This one couldn't be written from your real experience. Try Fix on it alone, or leave it out.";
@@ -300,6 +301,24 @@ export function TailorQueuePanel({
     [items, addressedGapActions, lineOverrides, bulletAnalysis],
   );
 
+  /**
+   * The change behind one applied receipt — same derivation the change log
+   * uses, so the row's "Was/Now" can never disagree with the preview. Null
+   * when the fix's text was folded into a line a later fix rewrote; the queue
+   * then says so instead of offering a "See it" that scrolls nowhere.
+   */
+  const appliedChangeFor = useCallback(
+    (name: string): { before: string; after: string } | null => {
+      const idx = findAppliedBulletIndex(name, addressedGapActions ?? [], lineOverrides ?? {});
+      if (idx === null) return null;
+      const after = (lineOverrides ?? {})[idx];
+      if (!after?.trim()) return null;
+      const before = (bulletAnalysis?.[idx]?.originalBullet ?? "").trim();
+      return { before, after: after.trim() };
+    },
+    [addressedGapActions, lineOverrides, bulletAnalysis],
+  );
+
   const grade =
     typeof ratings.overall_score === "number"
       ? ratings.overall_score
@@ -457,6 +476,10 @@ export function TailorQueuePanel({
           onItemAction={handleItemAction}
           onDownload={onDownload}
           onInterviewPrep={onInterviewPrep}
+          // Only when the caller supplied the preview state: without it there
+          // is nothing to locate a change in, and the legacy rendering is the
+          // honest one.
+          appliedChangeFor={lineOverrides ? appliedChangeFor : undefined}
           expandedIds={new Set(expansions.keys())}
           renderExpansion={(item) => {
             const state = expansions.get(item.id);
