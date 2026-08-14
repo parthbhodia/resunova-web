@@ -482,29 +482,27 @@ export function TailorFixExpansion({
         <div>
           <div style={label}>Your bullet</div>
           <div style={{ fontSize: FS.small, color: "var(--muted)", lineHeight: 1.5 }}>{current.original}</div>
-          {/* Provenance without a quiz: the bullet above is what the rewrite
-              is written from, labelled as such, with the correction path one
-              click away instead of a mandatory checkpoint in front of every
-              fix. */}
-          <div style={{ fontSize: FS.caption, color: "var(--muted)", marginTop: 4 }}>
-            Read from your résumé. Nothing here was invented.
-            {canCorrect ? (
-              <>
-                {" "}
-                <button
-                  type="button"
-                  onClick={() => setCorrection({ ...draft! })}
-                  style={{
-                    border: 0, background: "none", padding: 0, cursor: "pointer",
-                    color: "var(--accent-ink, #0559c7)", font: "inherit",
-                    textDecoration: "underline", textUnderlineOffset: 3,
-                  }}
-                >
-                  Not quite? Correct the details
-                </button>
-              </>
-            ) : null}
-          </div>
+          {/* No provenance caption. "Read from your résumé. Nothing here was
+              invented." was cut on founder direction: the bullet above is
+              visibly the user's own words, and narrating the implicit talks
+              down to people ("people are not dumb"). HOUSE RULE: don't state
+              what the surface already shows. The correction path stays, one
+              quiet link, no preamble. */}
+          {canCorrect ? (
+            <div style={{ fontSize: FS.caption, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => setCorrection({ ...draft! })}
+                style={{
+                  border: 0, background: "none", padding: 0, cursor: "pointer",
+                  color: "var(--accent-ink, #0559c7)", font: "inherit",
+                  textDecoration: "underline", textUnderlineOffset: 3,
+                }}
+              >
+                Not quite? Correct the details
+              </button>
+            </div>
+          ) : null}
           <div style={{ ...label, marginTop: 10 }}>
             {suggestions.length > 1 ? "Pick a version" : "Suggested"}
           </div>

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { TailorQueuePanel } from "@/components/tailor/TailorQueuePanel";
 import { deriveWorkQueue } from "@/lib/tailorWorkQueue";
 import { applyOptimisticGapAddressed } from "@/lib/tailorGapFix";
@@ -127,6 +127,70 @@ describe("an applied fix stays on screen", () => {
     expect(applied?.status).toBe("applied");
     // Same band it was fixed in — the user watched it there.
     expect(applied?.kind).toBe("qualification");
+  });
+});
+
+/**
+ * The receipt says WHAT changed. Field-asked 2026-08-14: "more should give
+ * more detail on what we applied and changed and why?" and "it says 5 years
+ * applied but when i click on it i cant find it". The expansion shows the
+ * edit itself — Was:/Now:, added words highlighted — derived from the same
+ * override map the preview renders, so it can never disagree with the
+ * document. When a later fix rewrote the same line, the receipt says so
+ * instead of offering a "See it" that scrolls nowhere.
+ */
+describe("the applied receipt shows the edit", () => {
+  const GAP = "Ownership of complex production systems";
+  const BEFORE = "Built and maintained the payments backend for enterprise clients.";
+  const AFTER =
+    "Built and maintained the payments backend for enterprise clients, taking ownership of complex production systems end to end.";
+
+  const appliedProps = {
+    addressedGapActions: [
+      { label: `Fixed: ${GAP}`, appliedText: AFTER, kind: "qualification" },
+    ],
+    lineOverrides: { 2: AFTER },
+    bulletAnalysis: [undefined, undefined, { originalBullet: BEFORE }],
+  };
+
+  function renderApplied(extra: Record<string, unknown> = {}) {
+    const after = applyOptimisticGapAddressed(ratings, GAP, "qualification");
+    renderPanel(after, { ...appliedProps, ...extra });
+    return rowFor(GAP)!;
+  }
+
+  it("What changed opens Was/Now with the added words marked", () => {
+    // Scoped to the row: the change-log panel below the queue offers its own
+    // "What changed" toggle, and an unscoped query resolves ambiguously (the
+    // DESIGN.md leaf-vs-wrapper trap, sibling-control flavour).
+    const row = renderApplied();
+    fireEvent.click(within(row).getByRole("button", { name: "What changed" }));
+    expect(row.textContent).toContain("Was:");
+    expect(row.textContent).toContain(BEFORE);
+    expect(row.textContent).toContain("Now:");
+    // The appended clause is highlighted the way the version picker showed it.
+    const mark = row.querySelector("mark");
+    expect(mark).not.toBeNull();
+    expect(mark!.textContent).toContain("ownership of complex production systems");
+  });
+
+  it("a receipt whose line a later fix rewrote explains itself instead of offering See it", () => {
+    // The override at every index no longer contains this fix's text — the
+    // exact "i cant find it" report: the button scrolled to nothing.
+    const row = renderApplied({
+      lineOverrides: { 2: "A completely different later rewrite of that same line." },
+    });
+    expect(row.textContent).not.toContain("See it");
+    fireEvent.click(within(row).getByRole("button", { name: "What changed" }));
+    expect(row.textContent).toContain("A later fix rewrote the same line");
+  });
+
+  it("without the override map the legacy See it survives", () => {
+    // Callers that pass no lineOverrides (older surfaces) keep the old row
+    // verbatim — the detail upgrade must not strip their only affordance.
+    const after = applyOptimisticGapAddressed(ratings, GAP, "qualification");
+    renderPanel(after);
+    expect(rowFor(GAP)!.textContent).toContain("See it");
   });
 });
 

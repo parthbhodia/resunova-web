@@ -146,11 +146,23 @@ export function deriveWorkQueue(
   if (!ratings || !isDetailedRatings(ratings)) return [];
   const items: QueueItem[] = [];
   const seen = new Set<string>();
+  /**
+   * ONE row per requirement NAME, across kinds. The rater files the same
+   * requirement in more than one place — "5 years of experience with data
+   * structures and algorithms" sat in `qualifications.resolved_by_user` AND in
+   * the keyword missing list, so one applied fix rendered as two identical ✓
+   * receipts (field screenshot). The per-kind `seen` ids cannot catch that;
+   * this name-level set does. First filing wins, which keeps the rater's
+   * strongest classification (qualifications are pushed first).
+   */
+  const seenNames = new Set<string>();
+  const nameKey = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
 
   const push = (kind: QueueKind, name: string, detail: string) => {
     const id = queueItemId(kind, name);
-    if (!name.trim() || seen.has(id)) return;
+    if (!name.trim() || seen.has(id) || seenNames.has(nameKey(name))) return;
     seen.add(id);
+    seenNames.add(nameKey(name));
     items.push({
       id,
       name: name.trim(),
@@ -197,8 +209,9 @@ export function deriveWorkQueue(
     for (const it of list) {
       const name = requirementText(it);
       const id = queueItemId(kind, name);
-      if (!name.trim() || seen.has(id)) continue;
+      if (!name.trim() || seen.has(id) || seenNames.has(nameKey(name))) continue;
       seen.add(id);
+      seenNames.add(nameKey(name));
       items.push({
         id,
         name: name.trim(),
