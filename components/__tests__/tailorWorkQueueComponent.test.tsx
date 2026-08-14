@@ -88,13 +88,41 @@ describe("the queue groups by what the gap costs", () => {
   });
 
   it("counts what is open, so a handled band stops accusing you", () => {
+    // Field 2026-08-14: "if this is already added why it still says could
+    // get you filtered out?" — a strip of ✓ receipts must not keep naming
+    // the risk its rows no longer carry. The done form names the set; the
+    // strip's own "all set" carries the state.
     render(
       <TailorWorkQueue
         items={[{ ...items[1], status: "applied" }, { ...items[2], status: "ignored" }]}
       />,
     );
-    expect(screen.getByText("Could get you filtered out")).toBeInTheDocument();
+    expect(screen.getByText("Hard requirements")).toBeInTheDocument();
+    expect(screen.queryByText(/filtered out/i)).toBeNull();
     expect(screen.getByText("all set")).toBeInTheDocument();
+  });
+
+  it("an open blocker band keeps the risk label", () => {
+    render(<TailorWorkQueue items={items} />);
+    expect(screen.getByText("Could get you filtered out")).toBeInTheDocument();
+  });
+
+  it("the header, the button and the bands agree once context rows stop counting", () => {
+    // The "N employer-context items below aren't included" chip is GONE:
+    // the numbers are honest instead of annotated.
+    const mixed: QueueItem[] = [
+      { id: "keyword:go", name: "Golang", kind: "keyword", status: "queued", detail: "" },
+      { id: "keyword:ts", name: "TypeScript", kind: "keyword", status: "queued", detail: "" },
+      { id: "contextual:a", name: "advertisers", kind: "contextual", status: "queued", detail: "" },
+      { id: "contextual:b", name: "publishers", kind: "contextual", status: "queued", detail: "" },
+    ];
+    render(<TailorWorkQueue items={mixed} onFixAll={vi.fn()} onFixSelected={vi.fn()} />);
+    expect(screen.getByText("2 gaps left to review")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Improve 2 gaps" })).toBeInTheDocument();
+    expect(screen.queryByText(/aren't included|isn't included/)).toBeNull();
+    // The rows themselves stay on screen, in their advisory band.
+    expect(screen.getByText("advertisers")).toBeInTheDocument();
+    expect(screen.getByText("About the employer")).toBeInTheDocument();
   });
 
   it("still renders every row", () => {

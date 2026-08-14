@@ -107,4 +107,34 @@ describe("mergeGapFixSuggestions", () => {
     expect(mergeGapFixSuggestions(base, [base, base])).toBeNull();
     expect(mergeGapFixSuggestions(base, [])).toBeNull();
   });
+
+  describe("mid-sentence insertions land mid-sentence", () => {
+    // Field screenshot 2026-08-14: the applied bullet ended "…for clients.
+    // And Golang, and C++ ✓" — both suggestions had woven their tech INTO
+    // "a serverless Python … backend", and the merge flattened them onto the
+    // tail as a fragment. The words go where the writer put them.
+    const BULLET =
+      "Developed a personalized knowledge assistant chatbot leveraging LLMs via "
+      + "Amazon Bedrock and Pinecone vector database, with a serverless Python "
+      + "backend (AWS Lambda + API Gateway) and AWS Amplify frontend, reducing "
+      + "time-to-information retrieval by 50% for clients.";
+    const GOLANG = BULLET.replace("serverless Python backend", "serverless Python and Golang backend");
+    const CPP = BULLET.replace("serverless Python backend", "serverless Python and C++ backend");
+
+    it("stacks two insertions at their shared point, never as a tail fragment", () => {
+      const merged = mergeGapFixSuggestions(BULLET, [GOLANG, CPP]);
+      expect(merged).toBeTruthy();
+      expect(merged!).toContain("Python and Golang and C++ backend");
+      expect(merged!).not.toMatch(/clients\.\s*And /);
+      expect(merged!).toMatch(/for clients\.$/);
+    });
+
+    it("a mid insertion and an end addition each keep their own place", () => {
+      const tail = BULLET.replace(/\.$/, ", serving three federal programs.");
+      const merged = mergeGapFixSuggestions(BULLET, [CPP, tail]);
+      expect(merged).toBeTruthy();
+      expect(merged!).toContain("Python and C++ backend");
+      expect(merged!).toMatch(/serving three federal programs\.?$/i);
+    });
+  });
 });

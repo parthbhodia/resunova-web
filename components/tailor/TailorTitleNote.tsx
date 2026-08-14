@@ -41,8 +41,12 @@ export function TailorTitleNote({ ratings }: { ratings: RatingsData }) {
         color: "var(--muted)",
       }}
     >
+      {/* Not "Your title matches": that verb beside a low percentage read as
+          a contradiction ("it does say Senior fullstack developer?"). The
+          line states what is being compared, and the number names its unit so
+          it can be checked against the two titles printed beside it. */}
       <span style={{ fontWeight: FW.semibold, color: "var(--text)" }}>
-        {jt.matched ? "Your title matches" : "Title match"}
+        Your title vs the posting&rsquo;s
       </span>
       {mine && jd ? (
         <span>
@@ -53,7 +57,7 @@ export function TailorTitleNote({ ratings }: { ratings: RatingsData }) {
           asked to close by rewriting a bullet, so colouring it like one would
           put a task next to something nobody should act on. */}
       <span style={{ fontWeight: FW.semibold, color: "var(--text)" }}>
-        {Math.round(jt.score)}%
+        {Math.round(jt.score)}% overlap
       </span>
     </div>
   );

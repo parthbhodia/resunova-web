@@ -194,6 +194,17 @@ describe("the applied receipt shows the edit", () => {
   });
 });
 
+describe("the grade carries its dimension breakdown on the real panel", () => {
+  it("renders the rater's sub-scores from the ratings it was given", () => {
+    renderPanel(ratings);
+    const row = screen.getByTestId("grade-dimensions");
+    expect(row.textContent).toContain("Qualifications");
+    expect(row.textContent).toContain("40");
+    expect(row.textContent).toContain("Title");
+    expect(row.textContent).toContain("67");
+  });
+});
+
 /**
  * The contradiction only exists on the MERGED queue: `unbacked` is the verdict
  * for a rater gap whose term the scanner already counts, and the scanner's
@@ -277,6 +288,11 @@ describe("the mentioned-not-proven card is coherent", () => {
     expect(row!.getAttribute("data-status")).toBe("applied");
     expect(row!.textContent).not.toContain("Mentioned, not proven");
     const band = row!.parentElement!.closest("li");
-    expect(band?.textContent).toContain("Could get you filtered out");
+    // The BLOCKER band under either of its labels: "Could get you filtered
+    // out" while work is open, "Hard requirements" once every row in it
+    // ended well. The claim here is the row's band membership, not the
+    // band's open-state wording.
+    expect(band?.textContent).toMatch(/Hard requirements|Could get you filtered out/);
+    expect(band?.textContent).not.toContain("Worth adding");
   });
 });

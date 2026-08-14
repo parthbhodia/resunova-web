@@ -26,16 +26,21 @@ describe("the title note", () => {
   it("states both titles so the number can be checked", () => {
     render(<TailorTitleNote ratings={ratings} />);
     expect(screen.getByText("Software Engineer vs Senior Fullstack Engineer")).toBeInTheDocument();
-    expect(screen.getByText("62%")).toBeInTheDocument();
+    expect(screen.getByText("62% overlap")).toBeInTheDocument();
   });
 
-  it("says so plainly when the title matches", () => {
+  it("never claims a match beside a partial number", () => {
+    // Field 2026-08-14: "Your title matches … 33%" read as a contradiction —
+    // the verb asserts, the number hedges ("it does say Senior fullstack
+    // developer?"). The line now states the comparison and the unit, in both
+    // matched and unmatched states alike.
     const matched = {
       ...ratings,
       job_title: { ...(ratings as never as { job_title: object }).job_title, matched: true },
     } as unknown as RatingsData;
     render(<TailorTitleNote ratings={matched} />);
-    expect(screen.getByText("Your title matches")).toBeInTheDocument();
+    expect(screen.getByText("Your title vs the posting’s")).toBeInTheDocument();
+    expect(screen.queryByText(/title matches/i)).toBeNull();
   });
 });
 
