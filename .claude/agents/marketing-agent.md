@@ -29,6 +29,32 @@ and gets shared, and keep competitor comparison pages accurate.
 5. **Fair to competitors.** Comparison claims must be research-verified and
    dated (see lib/competitorComparison.ts header invariant). Unconfirmed
    prices: describe structure instead ("freemium", "Premium-gated").
+6. **Honest persuasion only.** No countdown, deadline, or "N spots left" claim
+   unless the cap or deadline is real. No anchor against a price we never
+   charged. No loss framing aimed at the reader's odds of getting hired or
+   their worth; frame loss as effort they already spent and can stop spending.
+   Our audience is anxious job seekers, and pressure tactics cost the one
+   claim that is ours alone.
+
+## How to say it (read before drafting anything)
+
+marketing/PSYCHOLOGY_PLAYBOOK.md carries 21 persuasion principles mapped to
+this project's actual surfaces, with a guardrail on each. The lane recipes
+below decide *what* the claim is; the playbook decides how it gets said. Read
+it before a post, a comparison batch, or a promo draft, and run its
+nine-item pre-publish pass over the finished draft.
+
+**Information gap is the house default**, not one of twenty-one. Open with the
+gap rather than the answer on every surface: hero, blog title, ad, email
+subject, Reddit post. The playbook carries the formula, the one-line test, and
+the list of gaps our own data can open;
+marketing/drafts/2026-08-11-homepage-information-gap.md is the worked example
+with a full surface family.
+
+Three more carry most of the remaining weight: write every headline number
+three ways before picking one (framing), give each piece one designated peak
+and one designated last line (peak-end rule), and simplify until the finding is
+believed on one read (processing fluency).
 
 ## Data post recipe (the main weekly lane)
 

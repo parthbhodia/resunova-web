@@ -30,6 +30,13 @@ blue `#2563eb`/`#58a6ff`, navy gradient, DM Sans) live in `html/base.css`.
 The logo mark SVG is copied verbatim from `components/BrandLogo.tsx` — keep
 them in sync if the mark changes.
 
+## Copy strategy
+
+`PSYCHOLOGY_PLAYBOOK.md` holds the persuasion principles behind the copy and
+layout choices in these templates (why one amber accent, why one peak per
+asset, why the honest scarcity claim is the free-tier cap and nothing else).
+Read it before rewriting copy in `html/`.
+
 Claims used in the copy (keep honest, update when stale):
 - 160k+ live US postings / 8,000+ company boards — jobs corpus as of 2026-07
 - 400+ early users — landing-page social proof figure
