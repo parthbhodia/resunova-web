@@ -367,28 +367,41 @@ export function TailorScoreboard({
           </div>
         ) : null}
         {/* The grade's own breakdown (founder-asked 2026-08-14: the previous
-         * design scored per dimension "for users to make it easy"). These are
-         * the RATER's sub-scores, so they live inside the grade block — same
-         * provenance, one disclosure line covers them. Read-only on purpose:
-         * the old dimension CHIPS died for being a second filter taxonomy on
-         * one list, and nothing here is pressable, so that mistake cannot
-         * regrow from this row. */}
+         * design scored per dimension "for users to make it easy"; chip FORM
+         * founder-asked the same day). These are the RATER's sub-scores, so
+         * they live inside the grade block — same provenance, one disclosure
+         * line covers them. Chip is the VISUAL only: the old dimension CHIPS
+         * died for being a second filter taxonomy on one list, and nothing
+         * here is pressable, so that mistake cannot regrow from this row.
+         * Neutral fill, deliberately not tinted by score — three coloured
+         * pills under an already-tinted grade figure is the everything-
+         * shouting failure DESIGN.md §3b exists to stop. */}
         {dimensions && dimensions.length > 0 ? (
           <div
             data-testid="grade-dimensions"
             style={{
               display: "flex",
               flexWrap: "wrap",
-              columnGap: 14,
-              rowGap: 3,
-              marginTop: 8,
-              fontSize: FS.caption,
-              color: "var(--muted)",
+              gap: 6,
+              marginTop: 9,
             }}
           >
             {dimensions.map((d) => (
-              <span key={d.label} style={{ whiteSpace: "nowrap" }}>
-                {d.label}{" "}
+              <span
+                key={d.label}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "baseline",
+                  gap: 5,
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  background: "var(--surface-2, rgba(127,127,127,0.08))",
+                  fontSize: FS.caption,
+                  color: "var(--muted)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {d.label}
                 <b style={{ fontWeight: FW.bold, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>
                   {Math.round(d.score)}
                 </b>
