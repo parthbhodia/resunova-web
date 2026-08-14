@@ -16,7 +16,6 @@ import { FS, FW } from "@/lib/typography";
 import { gapFixAppendDelta } from "@/lib/gapFixAppendDelta";
 import type { QueueItem } from "@/lib/tailorWorkQueue";
 import {
-  claimSentence,
   draftFactFromSuggestion,
   factDiffersFromDraft,
   FACT_FIELD_MAX,
@@ -64,40 +63,6 @@ const label: React.CSSProperties = {
   color: "var(--muted)",
   marginBottom: 3,
 };
-
-/**
- * A numbered step heading.
- *
- * The confirm flow is two or three screens deep inside one row, and an
- * unnumbered eyebrow gives no sense of where you are or how much is left — the
- * mockup numbers them for exactly that reason. The badge carries the number so
- * the label stays a label.
- */
-function StepLabel({ n, children }: { n: number; children: React.ReactNode }) {
-  return (
-    <div style={{ ...label, display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
-      <span
-        aria-hidden
-        style={{
-          width: 16,
-          height: 16,
-          borderRadius: 4,
-          display: "inline-grid",
-          placeItems: "center",
-          background: "var(--accent)",
-          color: "var(--on-fill, #fff)",
-          fontSize: FS.micro,
-          fontWeight: FW.extrabold,
-          letterSpacing: 0,
-          flex: "none",
-        }}
-      >
-        {n}
-      </span>
-      {children}
-    </div>
-  );
-}
 
 const card: React.CSSProperties = {
   margin: "0 8px 10px 30px",
@@ -246,8 +211,6 @@ export function TailorFixExpansion({
 
   /** null = not correcting; an object = the correction form is open. */
   const [correction, setCorrection] = useState<ConfirmedFact | null>(null);
-  /** The user has agreed with (or corrected) the claim for this expansion. */
-  const [confirmed, setConfirmed] = useState(false);
   // Credential form. Seeded from the requirement so the common case is
   // confirm-and-save; keyed on item.id so switching rows never carries one
   // row's typed school onto another's degree.
@@ -290,10 +253,15 @@ export function TailorFixExpansion({
       ? delta
       : null;
   const draft = draftFactFromSuggestion(current);
-  // The confirm step only appears when there is a real résumé bullet to quote.
-  // Asking someone to vouch for a sentence we invented would be the opposite of
-  // the point.
-  const needsConfirm = Boolean(onRewriteWithFacts) && !confirmed && draft !== null;
+  // Correcting is OFFERED, never gated on. This used to be a blocking step —
+  // the suggestion sat fully generated behind a card that quoted the user's
+  // own résumé back at them and asked "Check this is true", whose Yes button
+  // did nothing but dismiss itself. Founder, verbatim: "if it is mentioned in
+  // the resume it is obv true." The two real functions survive as affordances
+  // on the result: provenance (the bullet is shown, labelled as read from the
+  // résumé) and the correct-it path (extraction CAN misread a document, and a
+  // corrected fact re-grounds the rewrite and lowers its risk badge).
+  const canCorrect = Boolean(onRewriteWithFacts) && draft !== null;
 
   return (
     <div style={card} data-testid="fix-expansion">
@@ -461,91 +429,82 @@ export function TailorFixExpansion({
             <button type="button" style={ghostBtn} onClick={() => setEditText(null)}>Back</button>
           </div>
         </div>
-      ) : needsConfirm && draft ? (
-        /* Step one: agree with a sentence, or correct it. The default path is
-           one click and no typing, because the sentence is read out of the
-           résumé rather than written for the user. */
+      ) : correction && draft ? (
+        /* The correct-it path, reached by choice from the results — never a
+           gate. Submitting a CHANGED fact re-runs the rewrite grounded in the
+           user's own words; an unchanged form just closes. */
         <div>
-          <StepLabel n={1}>Check this is true</StepLabel>
-          <blockquote
-            style={{
-              margin: "4px 0 0",
-              padding: "9px 11px",
-              borderLeft: "3px solid var(--green-ink, #16a34a)",
-              background: "var(--green-bg, rgba(5,150,105,0.12))",
-              borderRadius: "0 8px 8px 0",
-              fontSize: FS.body,
-              lineHeight: 1.55,
-              color: "var(--text)",
-            }}
-          >
-            {claimSentence(correction ?? draft)}
-            <span style={{ display: "block", marginTop: 5, fontSize: FS.caption, color: "var(--muted)" }}>
-              Read from your résumé. Nothing here was invented, and only what you
-              confirm gets used.
-            </span>
-          </blockquote>
-
-          {correction ? (
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-              {([
-                ["where", "Where did you do this?", false],
-                ["what", "What did you do?", true],
-                ["outcome", "What changed? (optional, a number lands harder)", false],
-              ] as const).map(([key, lbl, required]) => (
-                <label key={key} style={{ display: "block", fontSize: FS.caption, color: "var(--muted)" }}>
-                  {lbl}
-                  <textarea
-                    value={correction[key]}
-                    maxLength={FACT_FIELD_MAX}
-                    rows={key === "where" ? 1 : 2}
-                    required={required}
-                    onChange={(e) => setCorrection({ ...correction, [key]: e.target.value })}
-                    style={{
-                      display: "block", width: "100%", marginTop: 3, font: "inherit",
-                      fontSize: FS.small, lineHeight: 1.5, color: "var(--text)",
-                      background: "var(--card)", border: "1px solid var(--border)",
-                      borderRadius: 8, padding: 7, resize: "vertical", boxSizing: "border-box",
-                    }}
-                  />
-                </label>
-              ))}
-            </div>
-          ) : null}
-
+          <div style={label}>Correct the details</div>
+          <div style={{ marginTop: 6, display: "grid", gap: 8 }}>
+            {([
+              ["where", "Where did you do this?", false],
+              ["what", "What did you do?", true],
+              ["outcome", "What changed? (optional, a number lands harder)", false],
+            ] as const).map(([key, lbl, required]) => (
+              <label key={key} style={{ display: "block", fontSize: FS.caption, color: "var(--muted)" }}>
+                {lbl}
+                <textarea
+                  value={correction[key]}
+                  maxLength={FACT_FIELD_MAX}
+                  rows={key === "where" ? 1 : 2}
+                  required={required}
+                  onChange={(e) => setCorrection({ ...correction, [key]: e.target.value })}
+                  style={{
+                    display: "block", width: "100%", marginTop: 3, font: "inherit",
+                    fontSize: FS.small, lineHeight: 1.5, color: "var(--text)",
+                    background: "var(--card)", border: "1px solid var(--border)",
+                    borderRadius: 8, padding: 7, resize: "vertical", boxSizing: "border-box",
+                  }}
+                />
+              </label>
+            ))}
+          </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
             <button
               type="button"
               style={primaryBtn}
               onClick={() => {
                 // Only spend a call when the user actually changed something.
-                // Agreeing with a sentence read out of the résumé tells the
-                // model nothing it did not already have.
-                if (correction && onRewriteWithFacts && factDiffersFromDraft(draft, correction)) {
+                if (onRewriteWithFacts && factDiffersFromDraft(draft, correction)) {
                   onRewriteWithFacts(correction);
                 }
-                setConfirmed(true);
                 setCorrection(null);
               }}
             >
-              {correction ? "Use this and rewrite" : "Yes, that's right"}
+              Use this and rewrite
             </button>
-            {correction ? (
-              <button type="button" style={ghostBtn} onClick={() => setCorrection(null)}>
-                Back
-              </button>
-            ) : (
-              <button type="button" style={ghostBtn} onClick={() => setCorrection({ ...draft })}>
-                Not quite, let me correct it
-              </button>
-            )}
-            <button type="button" style={ghostBtn} onClick={onIgnore}>Skip for now</button>
+            <button type="button" style={ghostBtn} onClick={() => setCorrection(null)}>
+              Back
+            </button>
           </div>
         </div>
       ) : current ? (
         <div>
-          <StepLabel n={2}>Your bullet</StepLabel>
+          <div style={label}>Your bullet</div>
           <div style={{ fontSize: FS.small, color: "var(--muted)", lineHeight: 1.5 }}>{current.original}</div>
+          {/* Provenance without a quiz: the bullet above is what the rewrite
+              is written from, labelled as such, with the correction path one
+              click away instead of a mandatory checkpoint in front of every
+              fix. */}
+          <div style={{ fontSize: FS.caption, color: "var(--muted)", marginTop: 4 }}>
+            Read from your résumé. Nothing here was invented.
+            {canCorrect ? (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={() => setCorrection({ ...draft! })}
+                  style={{
+                    border: 0, background: "none", padding: 0, cursor: "pointer",
+                    color: "var(--accent-ink, #0559c7)", font: "inherit",
+                    textDecoration: "underline", textUnderlineOffset: 3,
+                  }}
+                >
+                  Not quite? Correct the details
+                </button>
+              </>
+            ) : null}
+          </div>
           <div style={{ ...label, marginTop: 10 }}>
             {suggestions.length > 1 ? "Pick a version" : "Suggested"}
           </div>

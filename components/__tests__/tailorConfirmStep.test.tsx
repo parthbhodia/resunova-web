@@ -37,35 +37,49 @@ function renderExpansion(props: Partial<React.ComponentProps<typeof TailorFixExp
   );
 }
 
+/**
+ * REVERSED 2026-08-14, founder-directed ("why do we ask if this is true? if
+ * it is mentioned in the resume it is obv true"): the confirm GATE is gone.
+ * It quoted the user's own résumé back at them and asked them to vouch for
+ * it, and its Yes button did nothing but dismiss itself — the suggestions
+ * were already generated behind it. What survives, as optional affordances
+ * on the result: provenance (the bullet is shown and labelled as read from
+ * the résumé) and the correct-it path (extraction can misread a document,
+ * and a corrected fact re-grounds the rewrite).
+ */
 describe("the confirm step", () => {
-  it("asks the user to agree with a sentence built from their own bullet", () => {
+  it("never asks the user to vouch for their own résumé", () => {
     renderExpansion({ onRewriteWithFacts: vi.fn() });
-    expect(screen.getByText(/check this is true/i)).toBeInTheDocument();
-    expect(screen.getByText(/at ecclon llc, you led weekly design reviews/i)).toBeInTheDocument();
+    expect(screen.queryByText(/check this is true/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /yes, that's right/i })).toBeNull();
+    // The result is simply THERE — no checkpoint in front of it.
+    expect(screen.getByRole("button", { name: /add to résumé/i })).toBeInTheDocument();
   });
 
-  it("says where the sentence came from", () => {
-    // The claim "nothing here was invented" is only safe because the sentence
-    // is the résumé bullet in a frame. If that ever stops being true this copy
-    // has to go with it.
+  it("says where the rewrite's source came from", () => {
+    // The claim "nothing here was invented" is only safe because the shown
+    // bullet is read out of the résumé. If that ever stops being true this
+    // copy has to go with it.
     renderExpansion({ onRewriteWithFacts: vi.fn() });
     expect(screen.getByText(/read from your résumé/i)).toBeInTheDocument();
   });
 
-  it("costs zero typing on the default path", () => {
+  it("costs zero typing and zero extra clicks on the default path", () => {
     renderExpansion({ onRewriteWithFacts: vi.fn() });
     expect(screen.queryByRole("textbox")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /yes, that's right/i }));
     expect(screen.getByRole("button", { name: /add to résumé/i })).toBeInTheDocument();
   });
 
-  it("does not spend a call when the user simply agrees", () => {
-    // Agreeing with a sentence read out of the résumé tells the model nothing
-    // it did not already have.
+  it("does not spend a call when the correction form is left unchanged", () => {
+    // Same guarantee the old Yes button carried, at the new geometry: an
+    // untouched form tells the model nothing it did not already have.
     const onRewriteWithFacts = vi.fn();
     renderExpansion({ onRewriteWithFacts });
-    fireEvent.click(screen.getByRole("button", { name: /yes, that's right/i }));
+    fireEvent.click(screen.getByRole("button", { name: /not quite/i }));
+    fireEvent.click(screen.getByRole("button", { name: /use this and rewrite/i }));
     expect(onRewriteWithFacts).not.toHaveBeenCalled();
+    // And the form closed back to the result rather than dead-ending.
+    expect(screen.getByRole("button", { name: /add to résumé/i })).toBeInTheDocument();
   });
 
   it("reveals the fields only when the user says it is wrong", () => {
@@ -99,19 +113,18 @@ describe("the confirm step", () => {
     );
   });
 
-  it("is absent entirely when the caller cannot use the facts", () => {
-    // No handler ⇒ no confirm step, and the flow is byte-identical to before.
+  it("offers no correction link when the caller cannot use the facts", () => {
     renderExpansion();
-    expect(screen.queryByText(/check this is true/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /not quite/i })).toBeNull();
     expect(screen.getByRole("button", { name: /add to résumé/i })).toBeInTheDocument();
   });
 
-  it("is skipped when there is no résumé bullet to quote", () => {
+  it("offers no correction link when there is no résumé bullet to ground it", () => {
     renderExpansion({
       onRewriteWithFacts: vi.fn(),
       state: { phase: "ready", suggestions: [{ ...suggestion, original: "" }] },
     });
-    expect(screen.queryByText(/check this is true/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /not quite/i })).toBeNull();
   });
 });
 
