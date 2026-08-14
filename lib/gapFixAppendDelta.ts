@@ -36,8 +36,11 @@ function tokenize(s: string): Token[] {
 }
 
 export type AppendDelta =
-  /** `suggested` keeps `original` and adds words; offsets index into `suggested`. */
-  | { kind: "append"; addedStart: number; addedEnd: number; added: string }
+  /** `suggested` keeps `original` and adds words; offsets index into
+   *  `suggested`. `insertAt` is the TOKEN index in `original` the addition
+   *  belongs before (== the original's token count for a pure end-append) —
+   *  the merge needs it to put a mid-sentence insertion back mid-sentence. */
+  | { kind: "append"; addedStart: number; addedEnd: number; added: string; insertAt: number }
   /** The shared prefix was materially reworded — treat it as a rewrite, not an addition. */
   | { kind: "rewrite" }
   /** Nothing was added. */
@@ -91,6 +94,7 @@ export function gapFixAppendDelta(original: string, suggested: string): AppendDe
     addedStart,
     addedEnd,
     added: suggested.slice(addedStart, addedEnd),
+    insertAt: addedFrom,
   };
 }
 
@@ -112,23 +116,47 @@ export function mergeGapFixSuggestions(original: string, suggestions: string[]):
   if (usable.length === 0) return null;
   if (usable.length === 1) return usable[0];
 
-  let merged = original.trim();
-  if (!merged) return null;
+  const orig = original.trim();
+  if (!orig) return null;
+  const origTokens = tokenize(orig);
 
+  // Each addition keeps its own insertion point. The first version bolted
+  // every addition onto the END of the bullet, so a suggestion that wove
+  // "and C++" into "a serverless Python and C++ backend" mid-sentence came
+  // out as "…for clients. And Golang, and C++" — a fragment tail in the
+  // user's actual document (field: "how tf this make sense?"). A merge that
+  // cannot respect where the writer put the words has no business combining
+  // them.
+  const insertions: Array<{ anchor: number; text: string; seq: number }> = [];
   for (const suggested of usable) {
-    const delta = gapFixAppendDelta(original, suggested);
+    const delta = gapFixAppendDelta(orig, suggested);
     if (delta.kind === "noop") continue;
     if (delta.kind !== "append") return null; // a rewrite cannot be stacked
-
     const addition = delta.added.trim();
     if (!addition) continue;
-    // Already carried by an earlier addition (or by the original itself).
-    if (merged.toLowerCase().includes(addition.toLowerCase())) continue;
+    insertions.push({ anchor: delta.insertAt, text: addition, seq: insertions.length });
+  }
+  if (insertions.length === 0) return null;
 
-    merged = joinClause(merged, addition);
+  // Back-to-front so char positions computed on the original stay valid. Two
+  // additions at one point: the LAST one spliced ends up FIRST in the text,
+  // so ties process in reverse seq to keep the given order on screen
+  // ("Python and Golang and C++ backend" from [Golang, C++]).
+  insertions.sort((x, y) => (y.anchor - x.anchor) || (y.seq - x.seq));
+  let merged = orig;
+  for (const ins of insertions) {
+    // Already carried by an earlier addition (or by the original itself).
+    if (merged.toLowerCase().includes(ins.text.toLowerCase())) continue;
+    if (ins.anchor >= origTokens.length) {
+      // A true end-append: clause-join so punctuation and casing stay right.
+      merged = joinClause(merged, ins.text);
+    } else {
+      const at = origTokens[ins.anchor].start;
+      merged = `${merged.slice(0, at)}${ins.text} ${merged.slice(at)}`;
+    }
   }
 
-  return merged === original.trim() ? null : merged;
+  return merged === orig ? null : merged;
 }
 
 /** Append a clause to a sentence without doubling punctuation. */

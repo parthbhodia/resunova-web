@@ -157,6 +157,7 @@ export function TailorScoreboard({
   stale,
   onRecheck,
   recheckBusy,
+  dimensions,
 }: {
   /** Deterministic coverage. Always drives the percentage and the meter; the
    *  raw counts render only when `live`, see the note at the tile. */
@@ -177,6 +178,9 @@ export function TailorScoreboard({
   stale: boolean;
   onRecheck?: () => void;
   recheckBusy?: boolean;
+  /** The rater's per-dimension sub-scores (Qualifications / Responsibilities /
+   *  Title). Display-only orientation under the grade they decompose. */
+  dimensions?: Array<{ label: string; score: number }>;
 }) {
   const ratio = total > 0 ? found / total : null;
   return (
@@ -360,6 +364,36 @@ export function TailorScoreboard({
         {stale ? (
           <div style={{ marginTop: 3, fontSize: FS.caption, color: "var(--amber-ink, #b45309)" }}>
             Résumé changed since grading. Re-check when you&rsquo;re done editing.
+          </div>
+        ) : null}
+        {/* The grade's own breakdown (founder-asked 2026-08-14: the previous
+         * design scored per dimension "for users to make it easy"). These are
+         * the RATER's sub-scores, so they live inside the grade block — same
+         * provenance, one disclosure line covers them. Read-only on purpose:
+         * the old dimension CHIPS died for being a second filter taxonomy on
+         * one list, and nothing here is pressable, so that mistake cannot
+         * regrow from this row. */}
+        {dimensions && dimensions.length > 0 ? (
+          <div
+            data-testid="grade-dimensions"
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              columnGap: 14,
+              rowGap: 3,
+              marginTop: 8,
+              fontSize: FS.caption,
+              color: "var(--muted)",
+            }}
+          >
+            {dimensions.map((d) => (
+              <span key={d.label} style={{ whiteSpace: "nowrap" }}>
+                {d.label}{" "}
+                <b style={{ fontWeight: FW.bold, color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>
+                  {Math.round(d.score)}
+                </b>
+              </span>
+            ))}
           </div>
         ) : null}
       </div>

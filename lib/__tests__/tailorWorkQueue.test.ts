@@ -149,7 +149,9 @@ describe("withStatus / queueCounts", () => {
     q = withStatus(q, queueItemId("contextual", "advertisers"), "not_coverable", "Employer-domain word");
 
     const c = queueCounts(q);
-    expect(c).toEqual({ total: 7, applied: 1, needsReview: 1, notCoverable: 1, ignored: 0, covered: 0, open: 4 });
+    // open = 3, not 4: the still-queued contextual row ("publishers") is
+    // information, not work — see the dedicated describe below.
+    expect(c).toEqual({ total: 7, applied: 1, needsReview: 1, notCoverable: 1, ignored: 0, covered: 0, open: 3 });
     // The reason travels with the state — a skipped item explains itself.
     expect(q.find((i) => i.name === "advertisers")?.detail).toBe("Employer-domain word");
   });
@@ -160,7 +162,8 @@ describe("withStatus / queueCounts", () => {
     const c = queueCounts(q);
     expect(c.ignored).toBe(1);
     expect(c.notCoverable).toBe(0);
-    expect(c.open).toBe(c.total - 1);
+    const contextualQueued = q.filter((i) => i.kind === "contextual" && i.status === "queued").length;
+    expect(c.open).toBe(c.total - 1 - contextualQueued);
   });
 
   it("withStatus is immutable", () => {
@@ -188,7 +191,32 @@ describe("covered requirements are reassurance, never work", () => {
     const c = queueCounts(q);
     expect(c.covered).toBe(1);
     expect(c.open).toBe(before);
-    expect(c.total).toBe(before + queueCounts(q).applied + 1
-      + c.needsReview + c.notCoverable + c.ignored);
+    // The partition still closes — every row is exactly one of: open, a
+    // terminal state, covered, or contextual information.
+    const contextualQueued = q.filter((i) => i.kind === "contextual" && i.status === "queued").length;
+    expect(c.total).toBe(c.open + c.applied + c.covered
+      + c.needsReview + c.notCoverable + c.ignored + contextualQueued);
+  });
+});
+
+describe("employer-context rows are information, never open work", () => {
+  it("contextual rows leave the open count so the header and the button agree", () => {
+    // Field 2026-08-14: the header promised "17 gaps left to review" over a
+    // button offering "Improve 12 gaps", reconciled by a chip announcing
+    // "5 employer-context items below aren't included". The founder's read
+    // is the rule: don't count what nothing acts on, and don't narrate the
+    // exclusion. The rows still render in their advisory band.
+    const q = deriveWorkQueue(ratings(), new Set());
+    const c = queueCounts(q);
+    const contextual = q.filter((i) => i.kind === "contextual").length;
+    expect(contextual).toBeGreaterThan(0);
+    expect(c.open).toBe(q.length - contextual);
+  });
+
+  it("a contextual row the user opted to fix counts as applied like any other", () => {
+    let q = deriveWorkQueue(ratings(), new Set());
+    q = withStatus(q, queueItemId("contextual", "advertisers"), "applied", "Woven in by choice.");
+    const c = queueCounts(q);
+    expect(c.applied).toBe(1);
   });
 });

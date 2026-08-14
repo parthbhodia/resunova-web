@@ -402,7 +402,6 @@ export function TailorWorkQueue({
   const selectable = filtered.filter(isSelectable);
   // Open rows a bulk pass deliberately skips. Named here so the header can say
   // so rather than leaving the user to notice the count not adding up.
-  const contextualOpen = filtered.filter((it) => it.status === "queued" && it.kind === "contextual").length;
   const selected = selectable.filter((it) => selectedIds.has(it.id));
 
   /**
@@ -548,32 +547,12 @@ export function TailorWorkQueue({
               {headlineDetail}
             </p>
           ) : null}
-          {/* Its own tag, not a third stacked line of the same grey, so it
-              reads as an annotation on the control above rather than as more
-              of it. Says what "all" leaves out, because a pass that silently
-              skipped rows is the complaint the queue exists to answer. */}
-          {contextualOpen > 0 ? (
-            <div
-              style={{
-                margin: "8px 0 0",
-                fontSize: FS.caption,
-                fontWeight: FW.semibold,
-                color: "var(--muted)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                background: "var(--surface-2, rgba(127,127,127,0.08))",
-                borderRadius: 999,
-                padding: "5px 11px 5px 9px",
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden style={{ flex: "none", opacity: 0.8 }}>
-                <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.1" />
-                <path d="M6 5.3v3M6 3.7v.01" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-              </svg>
-              {contextualOpen} employer-context item{contextualOpen === 1 ? "" : "s"} below {contextualOpen === 1 ? "isn't" : "aren't"} included
-            </div>
-          ) : null}
+          {/* No "N employer-context items below aren't included" chip here.
+              It narrated bookkeeping: those rows are no longer counted as
+              open (queueCounts), the header and the button therefore agree,
+              and the advisory band below already labels what its rows are.
+              HOUSE RULE: don't announce an exclusion — make the numbers
+              honest and say nothing. */}
         </div>
         {onFixAll ? (
           <button

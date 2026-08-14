@@ -52,6 +52,7 @@ import { TailorStrengthsCard } from "@/components/tailor/TailorStrengthsCard";
 import { TailorChangeLog } from "@/components/tailor/TailorChangeLog";
 import { deriveResumeChanges, type ResumeChange } from "@/lib/tailorChangeLog";
 import { findAppliedBulletIndex } from "@/lib/resumeBulletMatch";
+import { gradeDimensions } from "@/lib/tailorGradeDimensions";
 
 const NOT_COVERED_DETAIL =
   "This one couldn't be written from your real experience. Try Fix on it alone, or leave it out.";
@@ -460,6 +461,7 @@ export function TailorQueuePanel({
         stale={stale}
         onRecheck={onRecheck}
         recheckBusy={recheckBusy}
+        dimensions={gradeDimensions(ratings)}
       />
       {/* The chip row is gone: it grouped the same rows by rater category while
           the bands group them by consequence, and the band headers now carry

@@ -262,12 +262,20 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
   let notCoverable = 0;
   let ignored = 0;
   let covered = 0;
+  let contextual = 0;
   for (const it of items) {
     if (it.status === "applied") applied++;
     else if (it.status === "needs_review") needsReview++;
     else if (it.status === "not_coverable") notCoverable++;
     else if (it.status === "ignored") ignored++;
     else if (it.status === "covered") covered++;
+    // Employer-context rows are information, not gaps anyone closes — no fix
+    // button, no bulk pass, no ending. Counting them as "open" made the
+    // header promise 17 while the button acted on 12, papered over by a chip
+    // announcing the exclusion (field: "if it is not included fucking keep it
+    // to your self"). They render in their own advisory band; they are not
+    // left to review.
+    else if (it.kind === "contextual") contextual++;
   }
   return {
     total: items.length,
@@ -276,7 +284,7 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
     notCoverable,
     ignored,
     covered,
-    open: items.length - applied - needsReview - notCoverable - ignored - covered,
+    open: items.length - applied - needsReview - notCoverable - ignored - covered - contextual,
   };
 }
 
@@ -328,6 +336,19 @@ export const QUEUE_BAND_LABEL: Record<QueueBand, string> = {
   boost: "Worth adding",
   context: "About the employer",
   covered: "Already covered",
+};
+
+/** What a band is called once every row in it ended well. The open-state
+ *  labels describe the RISK of the open rows; keeping "Could get you
+ *  filtered out" over four green ✓ receipts re-threatens finished work
+ *  (field: "if this is already added why it still says could get you
+ *  filtered out?"). The done form names the set, and the strip's own
+ *  "all set" carries the state. */
+export const QUEUE_BAND_LABEL_DONE: Record<QueueBand, string> = {
+  blocker: "Hard requirements",
+  boost: "Keywords",
+  context: QUEUE_BAND_LABEL.context,
+  covered: QUEUE_BAND_LABEL.covered,
 };
 
 /** Severity, not state. State is the row's own status dot, so the two stay
@@ -419,13 +440,16 @@ export function groupQueueBySeverity(
     // Green only when every row ended somewhere the user chose. A band of
     // "not coverable" has nothing open and is not remotely all set.
     const allWell = inBand.every(isResolvedWell);
+    const done = open === 0 && allWell;
     // Counts come from the FULL band, never from what survives the cap.
     const cap = showAll ? Infinity : BAND_ROW_CAP[band];
     const shown = Number.isFinite(cap) ? inBand.slice(0, cap) : inBand;
     out.push({
       band,
-      label: QUEUE_BAND_LABEL[band],
-      tone: open === 0 && allWell ? "good" : BAND_TONE[band],
+      // The label follows the tone: a handled band stops naming the risk its
+      // rows no longer carry.
+      label: done ? QUEUE_BAND_LABEL_DONE[band] : QUEUE_BAND_LABEL[band],
+      tone: done ? "good" : BAND_TONE[band],
       open,
       items: shown,
       hidden: inBand.length - shown.length,

@@ -119,14 +119,13 @@ describe("the queue header says what the pass will actually do", () => {
     expect(screen.getByText("2 gaps left to review")).toBeInTheDocument();
   });
 
-  it("names what a pass leaves out instead of letting the count not add up", () => {
+  it("announces no exclusions — the count adds up by construction", () => {
+    // The chip ("N employer-context items below aren't included") is gone,
+    // founder-directed 2026-08-14: contextual rows left the open count, so
+    // the header and the button agree and there is nothing to narrate. The
+    // count-coherence itself is pinned in tailorWorkQueueComponent.test.
     renderQueue();
-    expect(screen.getByText(/1 employer-context item below isn't included/i)).toBeInTheDocument();
-  });
-
-  it("says nothing about exclusions when there are none", () => {
-    renderQueue({ items: [items[0], items[1]] });
-    expect(screen.queryByText(/isn't included/i)).toBeNull();
+    expect(screen.queryByText(/isn't included|aren't included/i)).toBeNull();
   });
 });
 
@@ -187,6 +186,38 @@ describe("the score tiles", () => {
   it("shows a dash rather than a zero when there is nothing to score", () => {
     render(<TailorScoreboard grade={null} gradedAtLabel={null} stale={false} found={0} total={0} />);
     expect(screen.getAllByText("—").length).toBe(2);
+  });
+
+  it("breaks the grade down by dimension, with nothing pressable", () => {
+    // Founder-asked 2026-08-14: the previous design scored per dimension
+    // "for users to make it easy". The numbers return as a read-only row
+    // under the grade they decompose — the old CHIPS died for being a second
+    // filter taxonomy, so this row must never grow a control.
+    const { container } = render(
+      <TailorScoreboard
+        {...base}
+        found={22}
+        total={23}
+        dimensions={[
+          { label: "Qualifications", score: 40 },
+          { label: "Responsibilities", score: 55 },
+          { label: "Title", score: 67 },
+        ]}
+      />,
+    );
+    const row = screen.getByTestId("grade-dimensions");
+    expect(row.textContent).toContain("Qualifications");
+    expect(row.textContent).toContain("40");
+    expect(row.textContent).toContain("Responsibilities");
+    expect(row.textContent).toContain("Title");
+    expect(row.querySelectorAll("button, a, input")).toHaveLength(0);
+    // Inside the grade block: same provenance, one disclosure line.
+    expect(container.querySelector('[data-score="grade"]')!.contains(row)).toBe(true);
+  });
+
+  it("renders no dimension row when there is nothing to break down", () => {
+    render(<TailorScoreboard {...base} found={22} total={23} />);
+    expect(screen.queryByTestId("grade-dimensions")).toBeNull();
   });
 });
 
