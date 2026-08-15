@@ -99,6 +99,7 @@ import TailorRecentJobs from "./TailorRecentJobs";
 import TailorResumeHistoryPicker from "./TailorResumeHistoryPicker";
 import TailorPreviewPane from "./TailorPreviewPane";
 import TailorAnalyzingLoader from "./TailorAnalyzingLoader";
+import { createTipRotation, useRotatingTip, LOADER_TIP_INTERVAL_MS } from "./useRotatingTip";
 import CategoryFixPanel from "./CategoryFixPanel";
 import { isDetailedRatings } from "@/lib/types";
 import type { DetailedRatingItem } from "@/lib/types";
@@ -762,7 +763,6 @@ export default function ResumeBuilder({
   const [generateLoaderTipIdx, setGenerateLoaderTipIdx] = useState(0);
   const [generateLoaderStepsDone, setGenerateLoaderStepsDone] = useState(0);
   const [uploadLoaderStep, setUploadLoaderStep] = useState(0);
-  const [uploadLoaderTipIdx, setUploadLoaderTipIdx] = useState(0);
   /** Linked selection: click a highlighted résumé line → scroll/highlight matching suggestion card (Analyze-style). */
 
   /** Template handoff — post-compile UI: HTML live paper (instant Style tab) + exported PDF; Save / Download run a fresh compile. */
@@ -1015,18 +1015,15 @@ export default function ResumeBuilder({
   useEffect(() => {
     if (!uploadingPdf) {
       setUploadLoaderStep(0);
-      setUploadLoaderTipIdx(0);
       return;
     }
+    // Tip rotation lives inside BuilderUploadExtractLoader now (useRotatingTip,
+    // 5s random); only the step phases are timed here.
     const stepTicker = setInterval(() => {
       setUploadLoaderStep((s) => Math.min(s + 1, 2));
     }, 2200);
-    const tipTicker = setInterval(() => {
-      setUploadLoaderTipIdx((i) => (i + 1) % UPLOAD_LOADER_TIPS.length);
-    }, 3000);
     return () => {
       clearInterval(stepTicker);
-      clearInterval(tipTicker);
     };
   }, [uploadingPdf]);
 
@@ -3981,7 +3978,7 @@ export default function ResumeBuilder({
                 onMouseLeave={e => { if (!uploadingPdf) { e.currentTarget.style.borderColor = "var(--border-h)"; e.currentTarget.style.background = "var(--surface2)"; }}}
               >
                 {uploadingPdf ? (
-                  <BuilderUploadExtractLoader stepsDone={uploadLoaderStep} tipIdx={uploadLoaderTipIdx} />
+                  <BuilderUploadExtractLoader stepsDone={uploadLoaderStep} />
                 ) : (
                   <>
                     <div style={{
@@ -6788,12 +6785,11 @@ function BuilderWebResearchPanel({
 /** Drop-zone loader while résumé PDF/DOCX is read and text is extracted. */
 function BuilderUploadExtractLoader({
   stepsDone,
-  tipIdx,
 }: {
   stepsDone: number;
-  tipIdx: number;
 }) {
-  const tip = UPLOAD_LOADER_TIPS[tipIdx % UPLOAD_LOADER_TIPS.length];
+  // Mounted only while uploadingPdf, so the rotation's lifetime is the load's.
+  const tip = useRotatingTip(UPLOAD_LOADER_TIPS);
   const stepRow = (label: string, stepIndex: number, isLast: boolean) => {
     const done = stepsDone > stepIndex;
     const active = stepsDone === stepIndex;
@@ -6885,7 +6881,7 @@ function BuilderUploadExtractLoader({
           <div className="rb-upload-skel-line" style={{ width: "64%", height: 6 }} />
         </div>
         <div
-          key={tipIdx}
+          key={tip}
           className="fade-in"
           style={{
             fontSize: 12,
@@ -7228,7 +7224,10 @@ const SUGGEST_TIPS = [
 function GenerateOverlay({ mode = "generate" }: { mode?: "generate" | "suggest" }) {
   const tips = mode === "suggest" ? SUGGEST_TIPS : GENERATE_TIPS;
   const title = mode === "suggest" ? "Analysing your résumé…" : "Building your résumé…";
-  const [tipIdx, setTipIdx] = useState(0);
+  // Random-order 5s rotation (founder-directed 2026-08-15), index-based
+  // because the dot pager below needs the position, not just the text.
+  const [nextTip] = useState(() => createTipRotation(tips.length));
+  const [tipIdx, setTipIdx] = useState(() => nextTip());
   const [visible, setVisible] = useState(false);
 
   // Fade in after 1 frame so the transition is smooth
@@ -7237,11 +7236,10 @@ function GenerateOverlay({ mode = "generate" }: { mode?: "generate" | "suggest" 
     return () => cancelAnimationFrame(id);
   }, []);
 
-  // Cycle tips every 3 s
   useEffect(() => {
-    const id = setInterval(() => setTipIdx((i) => (i + 1) % tips.length), 3000);
+    const id = setInterval(() => setTipIdx(nextTip()), LOADER_TIP_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [tips.length]);
+  }, [nextTip]);
 
   return (
     <div

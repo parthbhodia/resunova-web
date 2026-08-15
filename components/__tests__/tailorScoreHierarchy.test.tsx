@@ -48,10 +48,54 @@ describe("the match leads and the grade follows", () => {
     expect(screen.queryByRole("button", { name: /re-check/i })).toBeNull();
   });
 
-  it("keeps the stale note with the number it is about", () => {
-    render(<TailorScoreboard {...base} stale />);
-    const grade = document.querySelector('[data-score="grade"]');
-    expect(grade?.textContent).toMatch(/résumé changed since grading/i);
+  it("the grade no longer nags about staleness; the match provenance still discloses it", () => {
+    // The grade's "Résumé changed since grading…" line was cut on founder
+    // direction 2026-08-15 ("This is not the idea right ? remove this"). The
+    // DISCLOSURE survives where it belongs: the match block's provenance line
+    // flags un-recounted edits, and the timestamp above dates the grade. This
+    // pins both halves so neither the nag returns nor the disclosure quietly
+    // dies with it.
+    render(<TailorScoreboard {...base} stale onImprove={vi.fn()} />);
+    expect(screen.queryByText(/changed since grading/i)).toBeNull();
+    expect(document.querySelector('[data-score="match"]')?.textContent).toMatch(
+      /fixes applied · not recounted yet/i,
+    );
+  });
+
+  describe("Improve asks before spending a scan", () => {
+    // Founder-directed 2026-08-15: "Improve should open a modal stating user
+    // what is going to happen next and allow to hit scan button if they agree
+    // or else close it." The click costs a daily scan and ends on another
+    // page, so consent comes first — onImprove means the user said yes.
+    it("the link opens the consent modal without firing onImprove", () => {
+      const onImprove = vi.fn();
+      render(<TailorScoreboard {...base} onImprove={onImprove} />);
+      fireEvent.click(screen.getByRole("button", { name: "Improve" }));
+      expect(onImprove).not.toHaveBeenCalled();
+      expect(screen.getByText("Improve with a fresh scan")).toBeInTheDocument();
+      // It states what will happen: the scan of the current text, the report,
+      // the cost. All three are the user's to weigh, so all three are said.
+      expect(screen.getByText(/every applied fix included/i)).toBeInTheDocument();
+      expect(screen.getByText(/full report opens/i)).toBeInTheDocument();
+      expect(screen.getByText(/uses one of your daily scans/i)).toBeInTheDocument();
+    });
+
+    it("Run the scan is the only thing that fires onImprove", () => {
+      const onImprove = vi.fn();
+      render(<TailorScoreboard {...base} onImprove={onImprove} />);
+      fireEvent.click(screen.getByRole("button", { name: "Improve" }));
+      fireEvent.click(screen.getByRole("button", { name: "Run the scan" }));
+      expect(onImprove).toHaveBeenCalledTimes(1);
+    });
+
+    it("Not now closes without running anything", () => {
+      const onImprove = vi.fn();
+      render(<TailorScoreboard {...base} onImprove={onImprove} />);
+      fireEvent.click(screen.getByRole("button", { name: "Improve" }));
+      fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+      expect(onImprove).not.toHaveBeenCalled();
+      expect(screen.queryByText("Improve with a fresh scan")).toBeNull();
+    });
   });
 
   it("puts the one target marker inside the grade card and not the match card", () => {

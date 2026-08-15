@@ -46,6 +46,25 @@ export interface FixSuggestion {
   suggested: string;
   reason: string;
   priority: string;
+  /** Server-set provenance ladder (snake_case: this mirrors the wire shape).
+   *  "high" = the rewrite names tech the résumé doesn't evidence; "medium" =
+   *  an unsourced numeral. Aggressive mode ships these instead of dropping
+   *  them (founder-directed 2026-08-13: "that is why they pay us to use
+   *  aggressive mode") — which only stays honest if the badge is VISIBLE.
+   *  The founder pasted a C++ splice from this picker and asked "Do you think
+   *  this makes sense?": the server had marked it, the card wasn't showing
+   *  the mark. */
+  risk_level?: string;
+  /** The exact words the résumé doesn't back — the candidate's to vouch for. */
+  unverified_terms?: string[];
+  unverified_numerals?: string[];
+}
+
+/** Words the résumé doesn't back, for the caution line. */
+function unverifiedWords(s: FixSuggestion): string[] {
+  return [...(s.unverified_terms ?? []), ...(s.unverified_numerals ?? [])]
+    .map((t) => String(t).trim())
+    .filter(Boolean);
 }
 
 export type FixExpansionState =
@@ -527,10 +546,13 @@ export function TailorFixExpansion({
                   lineHeight: 1.55,
                 }}
               >
-                {suggestions.length > 1 ? (
+                {suggestions.length > 1 || s.risk_level === "high" || s.risk_level === "medium" ? (
                   <span
                     style={{
-                      display: "block",
+                      display: "flex",
+                      alignItems: "baseline",
+                      justifyContent: "space-between",
+                      gap: 8,
                       fontSize: FS.micro,
                       fontWeight: FW.bold,
                       letterSpacing: "0.05em",
@@ -539,7 +561,17 @@ export function TailorFixExpansion({
                       marginBottom: 3,
                     }}
                   >
-                    {s.section || `Option ${i + 1}`}
+                    <span>{s.section || `Option ${i + 1}`}</span>
+                    {/* The server's risk ladder, same vocabulary as the legacy
+                      * card: high = "High risk", medium = "Review". Without
+                      * this, aggressive mode's ship-instead-of-drop design
+                      * shows unevidenced-tech splices looking exactly like
+                      * clean fixes. */}
+                    {s.risk_level === "high" ? (
+                      <span style={{ color: "var(--red-ink, #b42318)", whiteSpace: "nowrap" }}>High risk</span>
+                    ) : s.risk_level === "medium" ? (
+                      <span style={{ color: "var(--amber-ink, #b45309)", whiteSpace: "nowrap" }}>Review</span>
+                    ) : null}
                   </span>
                 ) : null}
                 <SuggestedText s={s} />
@@ -549,6 +581,24 @@ export function TailorFixExpansion({
           {current.reason ? (
             <div style={{ fontSize: FS.caption, color: "var(--muted)", marginTop: 9 }}>
               ↳ {current.reason}
+            </div>
+          ) : null}
+          {/* Name the exact words that ride on the user's word, protector-voice
+            * (HOUSE RULE: this speaks for the user's interests, not the
+            * product's rulebook). The server sends these precisely so a
+            * blanket badge doesn't have to do the explaining. */}
+          {unverifiedWords(current).length > 0 ? (
+            <div
+              data-testid="unverified-terms"
+              style={{
+                fontSize: FS.caption,
+                color: current.risk_level === "high" ? "var(--red-ink, #b42318)" : "var(--amber-ink, #b45309)",
+                lineHeight: 1.5,
+                marginTop: 6,
+              }}
+            >
+              Your résumé doesn&rsquo;t back <strong>{unverifiedWords(current).join(", ")}</strong> anywhere
+              else, so this version rides on your word. Add it only if the work is real; interviewers ask.
             </div>
           ) : null}
           {/* What this specific rewrite does to the number, before committing.

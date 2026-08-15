@@ -273,12 +273,29 @@ export const CREDENTIAL_REFUSAL_DETAIL =
  * will not change the percentage." — which explained our bookkeeping and
  * answered a question nobody had asked yet, at the cost of making the fix look
  * pointless ("then what is the use of fixing it?", quoted from the field).
- * The note now says what fixing it is FOR: the match % counts keywords and
- * this term is already counted; the fix is for the human who reads the bullet
- * and goes looking for the proof.
+ *
+ * The current wording carries the unbacked story in ONE clause — counted but
+ * not spelled out — because this note renders directly after the rater's own
+ * "no X described" analysis, and the previous "A keyword scan already finds
+ * this term" butted against that as a flat contradiction (founder pasted the
+ * pair and asked "What is your thought on this ?"). "This" rather than "this
+ * term": the note also renders on 20-word responsibility rows, where calling
+ * the requirement a term reads absurd.
  */
 export const NO_SCORE_MOVE_NOTE =
-  "A keyword scan already finds this term, so the match % won't move. This fix is for the recruiter reading the bullet, who will look for the proof behind the words.";
+  "Keyword scans already count this even though the work behind it isn't spelled out, so the match % won't move. This fix is for the recruiter reading the bullet, who will look for the proof behind the words.";
+
+/**
+ * End a rater-authored fragment with a period before another sentence follows.
+ * The rater's `analysis` strings don't reliably close with punctuation, and
+ * the composed detail shipped as "…contributions described A keyword scan
+ * already…" — two sentences fused mid-air, straight from a founder screenshot.
+ */
+export function sentenceJoin(detail: string, note: string): string {
+  const lead = detail.trim();
+  if (!lead) return note;
+  return /[.!?…]$/.test(lead) ? `${lead} ${note}` : `${lead}. ${note}`;
+}
 
 const MIN_CONTAINMENT_LEN = 6;
 
@@ -685,9 +702,7 @@ export function mergeQueues(
        * "where did it go?" disappearance again, one band over.
        */
       band: it.status === "queued" ? "boost" : undefined,
-      detail: it.detail
-        ? `${it.detail} ${NO_SCORE_MOVE_NOTE}`
-        : NO_SCORE_MOVE_NOTE,
+      detail: sentenceJoin(it.detail ?? "", NO_SCORE_MOVE_NOTE),
     }));
   return [...scorerItems, ...extra];
 }

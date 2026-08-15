@@ -45,12 +45,21 @@
  * Two bordered cards read as two things to decide between, which is what the
  * hierarchy note above is arguing against — and the demotion was being fought
  * by the frame around it. One card with two rows keeps every disclosure (both
- * provenance lines, the stale note, the target marker, the re-check control)
- * and stops the grade looking like a second option.
+ * provenance lines, the target marker, the Improve control) and stops the
+ * grade looking like a second option.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { FS, FW } from "@/lib/typography";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 /**
  * Meter colour by coverage. The bands are a presentation choice about how much
@@ -174,12 +183,17 @@ export function TailorScoreboard({
   grade: number | null;
   /** e.g. "2:41 PM" — when the grade was computed. */
   gradedAtLabel: string | null;
-  /** The résumé changed since grading. */
+  /** The résumé changed since grading. Tints the match provenance line only;
+   *  the grade's own nag line was removed on founder direction 2026-08-15
+   *  ("This is not the idea right ? remove this") — the consent modal now
+   *  carries the explanation of what Improve does. */
   stale: boolean;
   /** Runs the full ATS analysis on the current text and opens its report —
    *  the grade's action is improvement, not re-measurement (founder-directed
-   *  2026-08-15; this replaced "Re-check"). Costs a scan, like the re-check
-   *  it replaced. */
+   *  2026-08-15; this replaced "Re-check"). Costs a scan, so the button opens
+   *  a consent modal first (same day, same founder: "open a modal stating
+   *  what is going to happen next and allow to hit scan if they agree");
+   *  this callback fires only after the user confirms. */
   onImprove?: () => void;
   improveBusy?: boolean;
   /** The rater's per-dimension sub-scores (Qualifications / Responsibilities /
@@ -187,6 +201,14 @@ export function TailorScoreboard({
   dimensions?: Array<{ label: string; score: number }>;
 }) {
   const ratio = total > 0 ? found / total : null;
+  /**
+   * Consent before spending: Improve costs one daily scan and ends on a
+   * different page, so the click states what happens next and waits for
+   * agreement (founder-directed 2026-08-15). Local state on purpose — the
+   * modal is part of the button's meaning, and callers keep the old contract
+   * (onImprove == the user said yes).
+   */
+  const [confirmOpen, setConfirmOpen] = useState(false);
   return (
     <div style={{ ...CARD, padding: "15px 16px 13px" }}>
       {/* ── PRIMARY: the deterministic match ───────────────────────────────
@@ -294,9 +316,9 @@ export function TailorScoreboard({
 
       {/* ── SECONDARY: the graded judgement ────────────────────────────────
        * Quieter by scale, not by disclosure: it keeps its meter, its target
-       * marker, its timestamp and its own stale note. A hairline rather than a
-       * second border — the two numbers are one orientation, read top to
-       * bottom, not two cards to pick between. */}
+       * marker and its timestamp. A hairline rather than a second border —
+       * the two numbers are one orientation, read top to bottom, not two
+       * cards to pick between. */}
       <div
         data-score="grade"
         style={{
@@ -310,7 +332,7 @@ export function TailorScoreboard({
           {onImprove ? (
             <button
               type="button"
-              onClick={onImprove}
+              onClick={() => setConfirmOpen(true)}
               disabled={improveBusy}
               style={{
                 border: 0,
@@ -365,11 +387,12 @@ export function TailorScoreboard({
               ? `Graded against this posting's requirements, ${gradedAtLabel}`
               : "Graded against this posting's requirements"}
         </div>
-        {stale ? (
-          <div style={{ marginTop: 3, fontSize: FS.caption, color: "var(--amber-ink, #b45309)" }}>
-            Résumé changed since grading. Improve runs a fresh scan when you&rsquo;re done editing.
-          </div>
-        ) : null}
+        {/* No stale nag under the grade. It read "Résumé changed since
+          * grading. Improve runs a fresh scan when you're done editing." and
+          * the founder cut it ("This is not the idea right ? remove this",
+          * 2026-08-15): the timestamp above already dates the grade, the
+          * match block's provenance line already flags un-recounted edits,
+          * and what Improve does is now the consent modal's job to say. */}
         {/* The grade's own breakdown (founder-asked 2026-08-14: the previous
          * design scored per dimension "for users to make it easy"; chip FORM
          * founder-asked the same day). These are the RATER's sub-scores, so
@@ -414,6 +437,47 @@ export function TailorScoreboard({
           </div>
         ) : null}
       </div>
+
+      {/* The consent step. States what will happen, then waits — the primary
+        * action is the only thing that fires onImprove, so a click on the
+        * Improve link alone can never spend a scan or navigate. */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Improve with a fresh scan</DialogTitle>
+            <DialogDescription>Here&rsquo;s what happens when you run it:</DialogDescription>
+          </DialogHeader>
+          <ul
+            style={{
+              margin: "2px 0 0",
+              paddingLeft: 18,
+              display: "grid",
+              gap: 6,
+              fontSize: FS.small,
+              lineHeight: 1.55,
+              color: "var(--text)",
+            }}
+          >
+            <li>We scan your tailored résumé exactly as it reads now, with every applied fix included.</li>
+            <li>The full report opens with fresh per-bullet fixes to work through.</li>
+            <li>The scanned version becomes your working résumé, and it uses one of your daily scans.</li>
+          </ul>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>
+              Not now
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setConfirmOpen(false);
+                onImprove?.();
+              }}
+            >
+              Run the scan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
