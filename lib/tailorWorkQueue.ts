@@ -225,7 +225,17 @@ export function deriveWorkQueue(
   pushResolved("responsibility", ratings.responsibilities.resolved_by_user);
   const kw = ratings.keywords;
   for (const name of kw.direct_skills?.missing ?? kw.missing ?? []) {
-    push("keyword", requirementText(name), "Missing from your resume. Fits an existing bullet.");
+    // Benefit-first (founder-directed 2026-08-15), but with NO match-score
+    // claim: these rows come from the rater alone, and the rater regularly
+    // files terms the deterministic scanner already counts (the `unbacked`
+    // case) — a score promise here would be unsourced and sometimes false.
+    // The scorer-derived strings in tailorRequirementQueue carry that claim
+    // because every one of their rows is movesScore: true.
+    push(
+      "keyword",
+      requirementText(name),
+      "The posting asks for this and your résumé doesn't show it yet. Woven into a real bullet, it reads as experience to the recruiter screening you, not a pasted keyword.",
+    );
   }
   for (const name of kw.contextual?.missing ?? []) {
     push("contextual", requirementText(name), CONTEXTUAL_DETAIL);

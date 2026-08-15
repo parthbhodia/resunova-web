@@ -105,8 +105,8 @@ function renderPanel() {
       ignoredNames={new Set()}
       onToggleIgnored={vi.fn()}
       stale={false}
-      onRecheck={vi.fn()}
-      recheckBusy={false}
+      onImprove={vi.fn()}
+      improveBusy={false}
       requirementConcepts={SCORED_UNMATCHED.map((c, i) => ({ id: `c${i}`, canonical: c }))}
       currentResumeText={"Built ETL in Python at Acme.\nShipped a reporting pipeline."}
     />,
@@ -239,7 +239,7 @@ describe("a row says what we are claiming about it", () => {
         fetchFixSuggestions={vi.fn().mockResolvedValue([])}
         applyFixSuggestion={vi.fn().mockResolvedValue(undefined)}
         ignoredNames={new Set()} onToggleIgnored={vi.fn()}
-        stale={false} onRecheck={vi.fn()} recheckBusy={false}
+        stale={false} onImprove={vi.fn()} improveBusy={false}
         requirementConcepts={[{ id: "c0", canonical: "Python" }]}
         currentResumeText={"Built ETL in Python at Acme."}
       />,
