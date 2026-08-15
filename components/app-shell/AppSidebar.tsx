@@ -228,8 +228,17 @@ export function AppSidebar({
   };
   const handleBuilderClick = () => {
     if (state === "collapsed") {
-      setOpen(true);
-      onBuilderOpenChange(true);
+      // One click = the primary destination, like every other rail icon.
+      // This used to expand the sidebar and open the drawer instead, which
+      // reads as a dead click (field: "it is not clicking the tailor icon
+      // properly") — the icon promises Tailor, so it goes to Tailor. The
+      // drawer's second entry (Template Builder) is reachable after
+      // expanding via the rail's own trigger.
+      if (anonMode) {
+        onSignIn?.();
+        return;
+      }
+      onGoBuilderFlow("tailor");
       return;
     }
     onBuilderOpenChange(!builderOpen);
@@ -240,19 +249,26 @@ export function AppSidebar({
       <SidebarHeader className="gap-0">
         <div className={cn(
           "flex w-full items-center gap-2",
-          state === "collapsed" ? "justify-center" : "flex-row justify-between",
+          state === "collapsed" ? "flex-col justify-center" : "flex-row justify-between",
         )}>
           {state === "collapsed" ? (
-            /* In icon rail: logo click expands sidebar — no separate trigger square */
-            <button
-              type="button"
-              className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 font-inherit"
-              onClick={() => setOpen(true)}
-              title="Expand navigation"
-              aria-label="Expand navigation"
-            >
-              <LogoMark size={30} variant={isUmbc ? "umbc" : "resunova"} />
-            </button>
+            /* In the icon rail the trigger stays VISIBLE. The first version
+               made the logo the only expand control, and a logo does not
+               read as a control — the field report was "the hamburger icon
+               disappears", i.e. the user was stuck collapsed. Logo-click
+               still expands as a bonus; the trigger is the findable way. */
+            <>
+              <button
+                type="button"
+                className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 font-inherit"
+                onClick={() => setOpen(true)}
+                title="Expand navigation"
+                aria-label="Expand navigation"
+              >
+                <LogoMark size={30} variant={isUmbc ? "umbc" : "resunova"} />
+              </button>
+              <SidebarTrigger className="size-8 shrink-0 border border-border bg-[var(--surface2)]" />
+            </>
           ) : (
             <>
               <button
@@ -292,6 +308,10 @@ export function AppSidebar({
                 <SidebarMenuButton
                   isActive={builderActive && !onInterviewPrepPage}
                   tooltip={VIEW_LABELS.builder}
+                  // Collapsed, the icon is aria-hidden and the tooltip only
+                  // appears on hover — without this the button has NO
+                  // accessible name in the rail.
+                  aria-label={VIEW_LABELS.builder}
                   className={cn(showLabels ? HERO_BTN_CLASS : NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
                   onClick={handleBuilderClick}
                 >
