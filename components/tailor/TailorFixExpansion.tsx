@@ -193,6 +193,7 @@ export function TailorFixExpansion({
   onRewriteWithFacts,
   scoreFix,
   onAddEducation,
+  onAddSkill,
   structuredResume,
   onClose,
 }: {
@@ -210,6 +211,13 @@ export function TailorFixExpansion({
   /** Write a credential into the résumé's Education section. Absent ⇒ the form
    *  degrades to instructions, so a caller that cannot write still explains. */
   onAddEducation?: (entry: StructuredResumeEducation) => Promise<void> | void;
+  /** Write a missing keyword into the résumé's Skills section (founder-asked
+   *  2026-08-15: "shouldnt we add it there ? such skills ?"). A bare tool
+   *  keyword makes sense there by construction — no bullet story to disturb —
+   *  while the bullet weave stays the stronger option for the recruiter.
+   *  Returns false when the term is already listed. Keyword rows only;
+   *  absent ⇒ no affordance. */
+  onAddSkill?: (item: { name: string }) => boolean;
   /** Only used to warn about a duplicate entry. */
   structuredResume?: StructuredResume | null;
   /** Recount the deterministic match with this one rewrite applied. */
@@ -281,6 +289,25 @@ export function TailorFixExpansion({
   // résumé) and the correct-it path (extraction CAN misread a document, and a
   // corrected fact re-grounds the rewrite and lowers its risk badge).
   const canCorrect = Boolean(onRewriteWithFacts) && draft !== null;
+
+  /**
+   * The Skills-section route, keyword rows only. A qualification or
+   * responsibility has no one-word form a skills list can carry, so offering
+   * it there would recreate the credential-in-a-bullet category error in the
+   * other direction.
+   */
+  const [skillNote, setSkillNote] = useState<string | null>(null);
+  const canAddSkill = Boolean(onAddSkill) && item.kind === "keyword";
+  const addToSkills = () => {
+    if (!onAddSkill) return;
+    if (onAddSkill({ name: item.name })) {
+      onClose();
+    } else {
+      // Said out loud, never silently pretended: the term is already on the
+      // skills list, so there is nothing to write.
+      setSkillNote("Already listed in your Skills section.");
+    }
+  };
 
   return (
     <div style={card} data-testid="fix-expansion">
@@ -404,15 +431,26 @@ export function TailorFixExpansion({
             wording we can trace to your résumé, and this pass didn&rsquo;t produce one that
             qualifies. Try again, or if you&rsquo;ve done this work, add it in your own words.
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {onTryFix ? (
               <button type="button" style={{ ...primaryBtn, background: "var(--accent)" }} onClick={onTryFix}>
                 Try again
               </button>
             ) : null}
+            {/* When no bullet weave came back, the Skills line is the honest
+                fallback for a bare keyword: it counts the same to a scanner
+                and forces no sentence around it. */}
+            {canAddSkill ? (
+              <button type="button" style={ghostBtn} onClick={addToSkills}>
+                Add to Skills instead
+              </button>
+            ) : null}
             <button type="button" style={ghostBtn} onClick={onIgnore}>Ignore</button>
             <button type="button" style={ghostBtn} onClick={onClose}>Close</button>
           </div>
+          {skillNote ? (
+            <p style={{ margin: "8px 0 0", fontSize: FS.caption, color: "var(--muted)" }}>{skillNote}</p>
+          ) : null}
         </div>
       ) : editText !== null && current ? (
         <div>
@@ -641,7 +679,7 @@ export function TailorFixExpansion({
               </span>
             </div>
           ) : null}
-          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
             <button
               type="button"
               style={{ ...primaryBtn, opacity: applying ? 0.6 : 1 }}
@@ -658,10 +696,18 @@ export function TailorFixExpansion({
             >
               Edit first
             </button>
+            {canAddSkill ? (
+              <button type="button" style={ghostBtn} disabled={applying} onClick={addToSkills}>
+                Add to Skills instead
+              </button>
+            ) : null}
             <button type="button" style={ghostBtn} disabled={applying} onClick={onIgnore}>
               Ignore
             </button>
           </div>
+          {skillNote ? (
+            <p style={{ margin: "8px 0 0", fontSize: FS.caption, color: "var(--muted)" }}>{skillNote}</p>
+          ) : null}
         </div>
       ) : null}
 

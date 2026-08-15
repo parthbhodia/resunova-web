@@ -165,6 +165,7 @@ export function TailorQueuePanel({
   requirementConcepts,
   currentResumeText,
   onAddEducation,
+  onAddSkill,
   structuredResume,
 }: {
   ratings: RatingsData;
@@ -212,6 +213,10 @@ export function TailorQueuePanel({
    *  what to add instead of writing it, so the panel still works standalone
    *  (the /tailor-preview harness has no résumé to write to). */
   onAddEducation?: (entry: StructuredResumeEducation) => Promise<void> | void;
+  /** Write a missing keyword into the résumé's Skills section (founder-asked
+   *  2026-08-15). Returns false when the term is already listed. Absent ⇒ the
+   *  affordance does not render. */
+  onAddSkill?: (item: { name: string }) => boolean;
   structuredResume?: StructuredResume | null;
   requirementConcepts?: readonly unknown[];
   /** Résumé text with applied fixes baked in, i.e. what is being scored. */
@@ -500,6 +505,7 @@ export function TailorQueuePanel({
                 // candidate supplied stops reading as unevidenced.
                 onRewriteWithFacts={(fact) => openFix(item, fact)}
                 onAddEducation={onAddEducation}
+                onAddSkill={onAddSkill}
                 structuredResume={structuredResume}
                 // What applying this one rewrite would do to the deterministic
                 // number, before committing to it. Same endpoint the scoreboard

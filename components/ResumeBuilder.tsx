@@ -128,6 +128,7 @@ import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type Tai
 import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 import { structuredToPlainText } from "@/lib/structuredResumeText";
 import { appendEducation } from "@/lib/educationEntry";
+import { appendSkill } from "@/lib/skillsEntry";
 import type { StructuredResumeEducation } from "@/store/resumeAnalyzeStore";
 import { apiFetch } from "@/lib/apiClient";
 
@@ -877,6 +878,41 @@ export default function ResumeBuilder({
     if (nextProfile !== null) setCandidateProfile(nextProfile);
     setScoreStale(true);
   }, [setStructuredUpload, setCandidateProfile, setScoreStale]);
+
+  /** Add a missing keyword to the résumé's Skills section.
+   *
+   *  Founder-asked 2026-08-15: a bare tool keyword has a natural home in
+   *  Skills — no bullet story to disturb, the scanner counts it the same, and
+   *  the bullet weave stays available as the stronger option. Same structured
+   *  write path as handleAddEducation, PLUS the applied-receipt bookkeeping
+   *  from applyGapFixes: the row must flip to a ✓ where the user pressed the
+   *  button, not vanish on the next recount (the queue's first invariant).
+   *  Returns whether anything was written so the expansion can say "already
+   *  listed" instead of silently pretending. */
+  const handleAddSkill = useCallback((item: { name: string }): boolean => {
+    let nextProfile: string | null = null;
+    let added = false;
+    setStructuredUpload((prev) => {
+      if (!prev) return prev;
+      const res = appendSkill(prev.structured, item.name);
+      if (!res.added) return prev;
+      added = true;
+      nextProfile = structuredToPlainText(res.structured) || prev.profile;
+      return { profile: nextProfile, structured: res.structured };
+    });
+    if (!added) return false;
+    if (nextProfile !== null) setCandidateProfile(nextProfile);
+    setAddressedGaps((prev) => new Set([...prev, item.name]));
+    setAddressedGapActions((prev) => {
+      const id = makeStableGapId(item.name, "keyword");
+      if (prev.some((a) => a.id === id)) return prev;
+      // appliedText = the term itself, so the receipt's "See it" scroll can
+      // find the word where it now lives (the Skills line).
+      return [...prev, { id, label: item.name, type: "keyword", appliedText: item.name }];
+    });
+    setScoreStale(true);
+    return true;
+  }, [setStructuredUpload, setCandidateProfile, setAddressedGaps, setAddressedGapActions, setScoreStale]);
 
   /** Object URL for the last uploaded PDF — powers true PDF highlights in suggestions (revoked on replace / unmount). */
   const sourcePdfBlobUrlRef = useRef<string | null>(null);
@@ -4652,6 +4688,7 @@ export default function ResumeBuilder({
                     {queueUi && (
                       <TailorQueuePanel
                         onAddEducation={handleAddEducation}
+                        onAddSkill={handleAddSkill}
                         structuredResume={structuredUpload?.structured ?? null}
                         ratings={displayRatings}
                         addressedGaps={addressedGaps}
