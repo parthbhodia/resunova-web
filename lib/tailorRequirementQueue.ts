@@ -165,22 +165,36 @@ export interface SourcedQueueItem extends QueueItem {
   verdict?: QueueVerdict;
 }
 
-/** Detail line for a requirement the résumé evidences in different words. */
+/**
+ * Detail line for a requirement the résumé evidences in different words.
+ *
+ * Leads with the payoff (founder-directed 2026-08-15: say what adding this
+ * buys, not how the scanner works). "Counts toward your match score" is honest
+ * here ONLY because every row that renders this string is `movesScore: true` —
+ * the deterministic recount moves when the wording lands. The rater-only
+ * keyword detail (tailorWorkQueue) has no scorer behind it and must never
+ * borrow this claim.
+ */
 export const WORDING_DETAIL =
-  "Your résumé shows this, but not in words the scanner matches. Using the posting's phrasing on the bullet below is enough.";
+  "Free points: your résumé already shows this work, just not in words a scanner matches. Swap in the posting's phrasing on the bullet below and it counts toward your match score.";
 
 /**
  * Detail line for a requirement neither pipeline found.
  *
- * Says what a keyword scanner knows, because that is what produced this row.
- * It used to read "The scanner did not find this anywhere in your résumé",
- * which is accurate but sat under a chip reading "Not evidenced" — two claims
- * on one row, only the smaller one supported. Naming the mechanism is also the
- * more useful half: a real ATS matches on strings too, so "this phrase is not
- * in your document" is the finding, and it is fixable by wording.
+ * Benefit first, mechanics second (same founder directive as WORDING_DETAIL).
+ * The two claims are the two things adding the term actually does: it moves
+ * the deterministic match score (honest because every consumer row is
+ * `movesScore: true`), and it puts the résumé in results when a recruiter
+ * searches the term — recruiter search is the real channel keyword presence
+ * serves (docs/MATCHING_ARCHITECTURE.md; résumé text drives rank and search
+ * visibility, not auto-rejection). The "if you do this work" qualifier is the
+ * honesty floor and survives every rewrite: we never tell someone to claim
+ * work they have not done. Exact magnitude is deliberately absent — the fix
+ * expansion's live recount ("42% → 58%") answers "how much" with a real
+ * number at the moment it can be computed.
  */
 export const SCORER_ONLY_DETAIL =
-  "A keyword scanner matching on exact phrases won't find this in your résumé. If you do this work, say it in the posting's words on the bullet below.";
+  "Adding this counts toward your match score and helps your résumé come up when a recruiter searches the term. If you do this work, say it in the posting's words on the bullet below.";
 
 /**
  * WHY a row sits in the band that says it could get you filtered out.

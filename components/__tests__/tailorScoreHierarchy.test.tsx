@@ -37,11 +37,15 @@ describe("the match leads and the grade follows", () => {
   it("demotes the grade without deleting anything it said", () => {
     // Secondary means quieter, not less honest. The obvious "cleanup" is to
     // reduce this to a bare number once it stops being a hero tile.
-    render(<TailorScoreboard {...base} onRecheck={vi.fn()} />);
+    render(<TailorScoreboard {...base} onImprove={vi.fn()} />);
     expect(screen.getByText("75")).toBeInTheDocument();
     expect(screen.getByText("/100")).toBeInTheDocument();
     expect(screen.getByText(/graded against this posting's requirements, 2:41 pm/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /re-check/i })).toBeInTheDocument();
+    // Founder-directed 2026-08-15: the grade's action is IMPROVEMENT, not
+    // re-measurement — the button runs the full ATS analysis and opens its
+    // report, instead of spending the same scan on a fresher verdict.
+    expect(screen.getByRole("button", { name: "Improve" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /re-check/i })).toBeNull();
   });
 
   it("keeps the stale note with the number it is about", () => {
@@ -144,8 +148,8 @@ function renderPanel(onFixSelected?: (items: readonly { name: string }[]) => voi
       ignoredNames={new Set()}
       onToggleIgnored={vi.fn()}
       stale={false}
-      onRecheck={vi.fn()}
-      recheckBusy={false}
+      onImprove={vi.fn()}
+      improveBusy={false}
     />,
   );
 }

@@ -155,8 +155,8 @@ export function TailorScoreboard({
   grade,
   gradedAtLabel,
   stale,
-  onRecheck,
-  recheckBusy,
+  onImprove,
+  improveBusy,
   dimensions,
 }: {
   /** Deterministic coverage. Always drives the percentage and the meter; the
@@ -176,8 +176,12 @@ export function TailorScoreboard({
   gradedAtLabel: string | null;
   /** The résumé changed since grading. */
   stale: boolean;
-  onRecheck?: () => void;
-  recheckBusy?: boolean;
+  /** Runs the full ATS analysis on the current text and opens its report —
+   *  the grade's action is improvement, not re-measurement (founder-directed
+   *  2026-08-15; this replaced "Re-check"). Costs a scan, like the re-check
+   *  it replaced. */
+  onImprove?: () => void;
+  improveBusy?: boolean;
   /** The rater's per-dimension sub-scores (Qualifications / Responsibilities /
    *  Title). Display-only orientation under the grade they decompose. */
   dimensions?: Array<{ label: string; score: number }>;
@@ -303,11 +307,11 @@ export function TailorScoreboard({
       >
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
           <Eyebrow>Quality grade</Eyebrow>
-          {onRecheck ? (
+          {onImprove ? (
             <button
               type="button"
-              onClick={onRecheck}
-              disabled={recheckBusy}
+              onClick={onImprove}
+              disabled={improveBusy}
               style={{
                 border: 0,
                 background: "none",
@@ -318,11 +322,11 @@ export function TailorScoreboard({
                 textDecoration: "underline",
                 textUnderlineOffset: 3,
                 whiteSpace: "nowrap",
-                cursor: recheckBusy ? "default" : "pointer",
-                opacity: recheckBusy ? 0.6 : 1,
+                cursor: improveBusy ? "default" : "pointer",
+                opacity: improveBusy ? 0.6 : 1,
               }}
             >
-              {recheckBusy ? "Re-checking…" : "Re-check"}
+              {improveBusy ? "Scanning…" : "Improve"}
             </button>
           ) : null}
         </div>
@@ -363,7 +367,7 @@ export function TailorScoreboard({
         </div>
         {stale ? (
           <div style={{ marginTop: 3, fontSize: FS.caption, color: "var(--amber-ink, #b45309)" }}>
-            Résumé changed since grading. Re-check when you&rsquo;re done editing.
+            Résumé changed since grading. Improve runs a fresh scan when you&rsquo;re done editing.
           </div>
         ) : null}
         {/* The grade's own breakdown (founder-asked 2026-08-14: the previous

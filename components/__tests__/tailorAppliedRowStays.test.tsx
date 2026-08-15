@@ -71,8 +71,8 @@ function renderPanel(r: unknown, extra: Record<string, unknown> = {}) {
       ignoredNames={new Set()}
       onToggleIgnored={vi.fn()}
       stale={false}
-      onRecheck={vi.fn()}
-      recheckBusy={false}
+      onImprove={vi.fn()}
+      improveBusy={false}
       {...extra}
     />,
   );

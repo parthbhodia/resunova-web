@@ -1717,6 +1717,52 @@ export default function ResumeBuilder({
     [candidateProfile, tailorBulletAnalysis, tailorLineOverrides],
   );
 
+  /**
+   * The grade's action is IMPROVEMENT, not re-measurement (founder-directed
+   * 2026-08-15: "instead of recheck it should be improve, and call the ats
+   * analysis api directly and lead to that page"). A scan spent re-checking
+   * bought a fresher verdict; the same scan spent here runs the full ATS
+   * analysis on the CURRENT tailored text (applied fixes included) and lands
+   * on the Analyze results page, which is where the per-bullet fixes live.
+   * The persisted row also becomes the working résumé Jobs/Boost rank on.
+   */
+  const [improveBusy, setImproveBusy] = useState(false);
+  const improveViaAnalyze = useCallback(async () => {
+    if (improveBusy) return;
+    setImproveBusy(true);
+    try {
+      const structured = tailorStructuredResume
+        ? applyFieldOverridesToStructured(
+            patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
+            tailorFieldOverrides,
+          )
+        : null;
+      const resp = await apiFetch("/api/analyze-rescore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resume_text: effectiveCandidateProfile,
+          ...(structured ? { structured_resume: structured } : {}),
+          source_filename:
+            [company?.trim(), role?.trim()].filter(Boolean).join(" · ") || "Tailored resume",
+        }),
+      });
+      const data = (await resp.json().catch(() => ({}))) as { analysisId?: string; error?: string };
+      if (!resp.ok) throw new Error(data?.error || "Couldn't run the scan. Try again.");
+      if (!data.analysisId) {
+        // The scan ran but did not persist; without a row there is no report
+        // page to open — say so instead of navigating to nothing.
+        throw new Error("The scan ran but couldn't be saved. Try again.");
+      }
+      router.push(`/?view=analyze&analysis=${encodeURIComponent(data.analysisId)}`);
+    } catch (e) {
+      setAnalyzeError(e instanceof Error ? e.message : "Couldn't run the scan. Try again.");
+    } finally {
+      setImproveBusy(false);
+    }
+  }, [improveBusy, tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides,
+      tailorFieldOverrides, effectiveCandidateProfile, company, role, router]);
+
   const tailorPreviewBullets = tailorBulletAnalysis;
 
   const tailorGapFixHighlights = useMemo(
@@ -4630,8 +4676,8 @@ export default function ResumeBuilder({
                         onToggleIgnored={toggleIgnoredGap}
                         onSeeItem={seeAppliedItem}
                         stale={scoreStale}
-                        onRecheck={() => { void rescoreTailorRatings(); }}
-                        recheckBusy={tailorRescoring}
+                        onImprove={() => { void improveViaAnalyze(); }}
+                        improveBusy={improveBusy}
                         onInterviewPrep={openInterviewPrep}
                         requirementConcepts={requirementConcepts}
                         currentResumeText={effectiveCandidateProfile}

@@ -332,8 +332,8 @@ const DEMO_BULLET_FOR = new Map<string, number>([
           ignoredNames={ignored}
           onToggleIgnored={onToggleIgnored}
           stale={stale}
-          onRecheck={() => setStale(false)}
-          recheckBusy={false}
+          onImprove={() => setStale(false)}
+          improveBusy={false}
           requirementConcepts={DEMO_CONCEPTS}
           currentResumeText={DEMO_RESUME_TEXT}
           addressedGapActions={actions}

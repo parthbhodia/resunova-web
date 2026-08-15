@@ -693,9 +693,55 @@ describe("only a real check on the résumé may claim absence", () => {
     expect(NO_SCORE_MOVE_NOTE).not.toMatch(/counts this as matched/i);
   });
 
-  it("says what the scanner knows, and names the mechanism", () => {
-    // The detail line and the chip used to make different claims on one row.
-    expect(SCORER_ONLY_DETAIL).toMatch(/keyword scanner/i);
+  it("leads with what adding the term buys, not scanner mechanics", () => {
+    // Founder-directed 2026-08-15: "you should be saying how adding this will
+    // benefit your resume, how much value is it adding". The old copy opened
+    // on the scanner's limitations ("A keyword scanner matching on exact
+    // phrases won't find this"), which is what happened, not what fixing it
+    // is worth. Benefit must LEAD: the first sentence of each string names
+    // the value.
+    expect(SCORER_ONLY_DETAIL.split(".")[0]).toMatch(/match score|recruiter/i);
+    expect(WORDING_DETAIL.split(".")[0]).toMatch(/free|already shows/i);
+    // The chip-contradiction guard survives the rewrite.
     expect(SCORER_ONLY_DETAIL).not.toMatch(/\bnot evidenced\b/i);
+  });
+
+  it("the score claim is backed by movesScore, and only these strings make it", () => {
+    // "Counts toward your match score" is honest on the scorer-derived
+    // strings because every row that renders them is movesScore: true (the
+    // deterministic recount moves when the row closes — pinned above by
+    // "every unmatched row moves the number"). The rater-only keyword detail
+    // in tailorWorkQueue has no scorer behind it, so it must never borrow
+    // the claim: the rater regularly files terms the scanner already counts,
+    // and a score promise there would sometimes be false.
+    expect(SCORER_ONLY_DETAIL).toMatch(/match score/i);
+    expect(WORDING_DETAIL).toMatch(/match score/i);
+    const raterQueue = deriveWorkQueue(
+      {
+        overall_score: 40,
+        job_title: { matched: true, score: 67 },
+        qualifications: { score: 40, covered: [], missing: [] },
+        responsibilities: { score: 40, covered: [], missing: [] },
+        keywords: {
+          found_count: 0,
+          total_count: 1,
+          direct_skills: { found: [], missing: ["Terraform"] },
+          contextual: { found: [], missing: [] },
+        },
+      } as never,
+      new Set(),
+    );
+    const kwRow = raterQueue.find((r) => r.kind === "keyword");
+    expect(kwRow).toBeDefined();
+    expect(kwRow!.detail).not.toMatch(/match score|score/i);
+    // It still names its benefit — the reader of the bullet.
+    expect(kwRow!.detail).toMatch(/recruiter|experience/i);
+  });
+
+  it("never tells someone to claim work they have not done", () => {
+    // The honesty qualifier is the floor under the benefit language. A
+    // rewrite that drops "if you do this work" turns benefit-first copy into
+    // an instruction to fabricate.
+    expect(SCORER_ONLY_DETAIL).toMatch(/if you do this work/i);
   });
 });

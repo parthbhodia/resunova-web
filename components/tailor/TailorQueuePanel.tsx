@@ -158,8 +158,8 @@ export function TailorQueuePanel({
   bulletAnalysis,
   onUndoChange,
   stale,
-  onRecheck,
-  recheckBusy,
+  onImprove,
+  improveBusy,
   onDownload,
   onInterviewPrep,
   requirementConcepts,
@@ -204,8 +204,8 @@ export function TailorQueuePanel({
   /** Revert one change. Absent ⇒ the log renders read-only. */
   onUndoChange?: (change: ResumeChange) => void;
   stale: boolean;
-  onRecheck: () => void;
-  recheckBusy: boolean;
+  onImprove: () => void;
+  improveBusy: boolean;
   /** From the analyze response. Handed straight back to score-preview, which
    *  is why the recount costs no tokens and needs no server-side cache. */
   /** Write a credential into Education. Absent ⇒ the credential card explains
@@ -459,8 +459,8 @@ export function TailorQueuePanel({
         grade={grade}
         gradedAtLabel={null}
         stale={stale}
-        onRecheck={onRecheck}
-        recheckBusy={recheckBusy}
+        onImprove={onImprove}
+        improveBusy={improveBusy}
         dimensions={gradeDimensions(ratings)}
       />
       {/* The chip row is gone: it grouped the same rows by rater category while
