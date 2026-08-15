@@ -9,6 +9,7 @@ import {
   raterView,
   sameRequirement,
   scoreMovingCount,
+  sentenceJoin,
   type UnmatchedRequirement,
 } from "@/lib/tailorRequirementQueue";
 import { deriveWorkQueue } from "@/lib/tailorWorkQueue";
@@ -691,6 +692,30 @@ describe("only a real check on the résumé may claim absence", () => {
     // beneficiary: the human reading the bullet.
     expect(NO_SCORE_MOVE_NOTE).toMatch(/recruiter|human|reading/i);
     expect(NO_SCORE_MOVE_NOTE).not.toMatch(/counts this as matched/i);
+  });
+
+  it("the note carries the whole unbacked story in one clause", () => {
+    // It renders directly after the rater's own "no X described" analysis,
+    // and the previous "A keyword scan already finds this term" butted
+    // against that as a flat contradiction — the founder pasted the pair and
+    // asked "What is your thought on this ?". Counted AND unproven must live
+    // in the same sentence, and a 20-word responsibility is not a "term".
+    expect(NO_SCORE_MOVE_NOTE).toMatch(/already count/i);
+    expect(NO_SCORE_MOVE_NOTE).toMatch(/isn't spelled out/i);
+    expect(NO_SCORE_MOVE_NOTE).not.toMatch(/this term/i);
+  });
+
+  it("joins the rater's analysis and the note as two sentences, never a fusion", () => {
+    // Straight from the founder's screenshot: "…contributions described A
+    // keyword scan already…" — the rater's analysis strings don't reliably
+    // end with punctuation, and the composition never added any.
+    expect(sentenceJoin("No documentation contributions described", NO_SCORE_MOVE_NOTE)).toBe(
+      `No documentation contributions described. ${NO_SCORE_MOVE_NOTE}`,
+    );
+    expect(sentenceJoin("Nothing shown.", NO_SCORE_MOVE_NOTE)).toBe(
+      `Nothing shown. ${NO_SCORE_MOVE_NOTE}`,
+    );
+    expect(sentenceJoin("", NO_SCORE_MOVE_NOTE)).toBe(NO_SCORE_MOVE_NOTE);
   });
 
   it("leads with what adding the term buys, not scanner mechanics", () => {

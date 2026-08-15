@@ -3,11 +3,12 @@
 // Loader step/tip progression for the Analyze scan, extracted from
 // AnalyzeResume.tsx (Slice 4 hook step 2 of docs/ANALYZE_REFACTOR_PLAN.md).
 // Owns loadingMsg (step index) + loadingTipIdx (coach tip index) and the timer
-// effect that advances them while a scan runs. Behavior-preserving verbatim
-// move; `loading` and `jd` stay in AnalyzeResume and come in as arguments.
+// effect that advances them while a scan runs; `loading` and `jd` stay in
+// AnalyzeResume and come in as arguments.
 
 import { useEffect, useState } from "react";
 import { ANALYZE_COACH_TIPS } from "@/components/AnalyzeExperience";
+import { createTipRotation, LOADER_TIP_INTERVAL_MS } from "@/components/useRotatingTip";
 
 export function useAnalyzeLoaderProgress(loading: boolean, jd: string) {
   const [loadingMsg, setLoadingMsg]     = useState(0);
@@ -24,7 +25,13 @@ export function useAnalyzeLoaderProgress(loading: boolean, jd: string) {
     // With JD a 5th "keyword matching" step is appended.
     const stepDelays = jd.trim() ? [5000, 13000, 25000, 38000] : [5000, 13000, 26000];
     const stepTimers = stepDelays.map((delay, i) => setTimeout(() => setLoadingMsg(i + 1), delay));
-    const tipIv = setInterval(() => setLoadingTipIdx((t) => (t + 1) % ANALYZE_COACH_TIPS.length), 7000);
+    // Tips walk a shuffled deck at the shared 5s cadence (founder-directed
+    // 2026-08-15: random order, every loader). Index-based so the consumer's
+    // contract is unchanged; the deck starts inside the effect so nothing
+    // random runs at prerender.
+    const nextTip = createTipRotation(ANALYZE_COACH_TIPS.length);
+    setLoadingTipIdx(nextTip());
+    const tipIv = setInterval(() => setLoadingTipIdx(nextTip()), LOADER_TIP_INTERVAL_MS);
     return () => {
       stepTimers.forEach(clearTimeout);
       clearInterval(tipIv);

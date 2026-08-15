@@ -1,12 +1,32 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useRotatingTip } from "@/components/useRotatingTip";
 
 /**
  * Honest indeterminate state for Tailor match analysis. The API is currently
  * one request, so the client cannot truthfully mark individual server stages
  * complete. We show the work included and elapsed time without fake progress.
  */
+
+/**
+ * Coach tips under the loader (founder-directed 2026-08-15: tips below every
+ * loader, rotating every 5s in random order). This scan runs 30-65s, so the
+ * user sees six-plus of these; each one is either a claim the product itself
+ * enforces (strong verb leads, numbers, the posting's wording) or a mechanic
+ * of this page they are about to use. Nothing here promises outcomes we
+ * cannot source — no "75% of résumés get rejected" folklore.
+ */
+export const TAILOR_ANALYZING_TIPS = [
+  "When results land, start with the blocker band. Those are the pass/fail asks; keywords can wait a minute.",
+  "Every fix shows the exact words it adds before you apply it. Nothing lands in your résumé unreviewed.",
+  "Using the posting's own phrasing helps twice: keyword scans count it, and a skimming recruiter recognises it.",
+  "Numbers make bullets concrete. Team size, latency, revenue, volume: pick the one you can stand behind.",
+  "Lead each bullet with the verb that owns the outcome. \"Built the pipeline\" beats \"Was responsible for the pipeline\".",
+  "Recruiters search résumés by keyword. A term you never write is a search you never appear in.",
+  "Applied fixes bake into your download and the score recount. What you see in the preview is what ships.",
+  "Changed your mind? Every applied fix can be undone from the change log.",
+] as const;
 
 type Step = { key: string; label: string; sub: string; icon: ReactNode };
 
@@ -52,6 +72,7 @@ const iconWrap: CSSProperties = {
 
 export default function TailorAnalyzingLoader() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const tip = useRotatingTip(TAILOR_ANALYZING_TIPS);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -152,6 +173,28 @@ export default function TailorAnalyzingLoader() {
             </div>
           );
         })}
+      </div>
+      {/* Rotating coach tip, keyed so each change re-runs the fade. Below the
+        * steps on purpose: the steps say what WE are doing, the tip is for the
+        * reader, and the reading order should end on their side of it. */}
+      <div
+        key={tip}
+        className="fade-in"
+        data-testid="loader-tip"
+        style={{
+          fontSize: 13,
+          color: "var(--accent)",
+          fontWeight: 500,
+          lineHeight: 1.5,
+          letterSpacing: -0.1,
+          padding: "11px 13px",
+          borderRadius: 10,
+          background: "var(--accent-bg)",
+          border: "1px solid color-mix(in srgb, var(--accent) 18%, transparent)",
+        }}
+      >
+        <span style={{ fontWeight: 700, marginRight: 6 }}>Tip:</span>
+        {tip}
       </div>
       {elapsedSeconds >= 45 ? (
         <div style={{ padding: "9px 11px", borderRadius: 9, background: "var(--amber-bg, rgba(180,83,9,0.12))", color: "var(--amber-ink, #92400e)", fontSize: 12, lineHeight: 1.45 }}>
