@@ -1032,7 +1032,7 @@ export default function ResumeBuilder({
 
   // Prefill from Analyze (`fromAnalyze=1`) or Template Studio (`fromTemplateStudio=1`) — run once.
   useEffect(() => {
-    if (typeof window === "undefined" || builderPrefillAppliedRef.current) return;
+    if (typeof window === "undefined") return;
     const sp = new URLSearchParams(searchParams.toString());
     const intentJob = sp.get("intent") === "job";
     const fromAnalyze = sp.get("fromAnalyze") === "1";
@@ -1040,6 +1040,16 @@ export default function ResumeBuilder({
     const flow = (sp.get("flow") || "tailor").toLowerCase();
 
     if (!intentJob && !fromAnalyze && !fromTemplateStudio) return;
+
+    // intent=job must be RE-appliable: the History rail lives INSIDE this
+    // component, so a pick happens while the builder is already mounted —
+    // gated on the run-once ref, the click stashed its data, changed the
+    // URL, and nothing ever read the stash (field: "when i click any past
+    // tailor jobs it is not showing anything or doing anything"). Its real
+    // guard is the stash itself, which is consumed and removed below, so
+    // re-running on an empty stash is a no-op and cannot clear live state.
+    // The Analyze/Template-Studio handoffs keep the one-shot ref.
+    if (!intentJob && builderPrefillAppliedRef.current) return;
 
     builderPrefillAppliedRef.current = true;
 
