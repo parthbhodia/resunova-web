@@ -64,6 +64,7 @@ import {
   CONTEXTUAL_DETAIL,
   normalizeQueueName,
   queueItemId,
+  requirementNature,
   requirementText,
 } from "@/lib/tailorWorkQueue";
 
@@ -535,6 +536,11 @@ export function deriveScorerQueue(
     // claim that should survive the tie.
     const raterCovered = !raterMissing && rater.covered.some((c) => sameRequirement(c, name));
 
+    // What KIND of thing this requirement is (founder-asked: "the chips on why
+    // language, qualification was needed"). Extraction's own type first; the
+    // banding kind as the fallback claim when the type is unknown.
+    const nature = requirementNature(req?.type, kind);
+
     out.push({
       id,
       name,
@@ -562,8 +568,14 @@ export function deriveScorerQueue(
             ? [blockerReasonFor(name, req?.type), CREDENTIAL_REFUSAL_DETAIL].filter(Boolean).join(" ")
             : kind === "qualification"
               ? [blockerReasonFor(name, req?.type), SCORER_ONLY_DETAIL].filter(Boolean).join(" ")
-              : SCORER_ONLY_DETAIL,
+              // The type's own why leads the generic branch (founder-asked):
+              // "Adding this counts toward your match score" said nothing
+              // about WHY the posting needs a language vs a tool vs a duty.
+              // Blockers already lead with BLOCKER_REASON and contextual rows
+              // with CONTEXTUAL_DETAIL — one why per row, never stacked.
+              : [nature?.why, SCORER_ONLY_DETAIL].filter(Boolean).join(" "),
       source: raterMissing ? "both" : "scorer",
+      nature: nature?.label,
       // Both classes are unmatched by the scorer, so both move the number.
       movesScore: true,
       // Reaching here with a degree level means the guard at the top of the
