@@ -247,6 +247,103 @@ const NATURE_CHIP_STYLE: React.CSSProperties = {
   flex: "none",
 };
 
+/**
+ * "×4 in posting" — the employer's own emphasis, counted from the JD (the
+ * Jobscan pattern, founder-approved via the tailor-v8 mockup). Dashed border
+ * separates a MEASUREMENT about the posting from the nature chip's label and
+ * the verdict pill's claim about the résumé.
+ */
+const FREQ_CHIP_STYLE: React.CSSProperties = {
+  fontSize: FS.caption,
+  fontWeight: FW.semibold,
+  fontVariantNumeric: "tabular-nums",
+  borderRadius: 5,
+  padding: "2px 7px",
+  color: "var(--muted)",
+  background: "none",
+  border: "1px dashed var(--border)",
+  whiteSpace: "nowrap",
+  flex: "none",
+};
+
+/**
+ * The Rezi-style checklist strip: the match block's own counted-of-total,
+ * drawn as dots that fill as fixes apply. SAME numbers, one provenance — this
+ * never computes its own count, and the caller must render it only on a LIVE
+ * recount (the fallback path's rater counts are a different dataset, the
+ * two-numbers bug the ATS tile already refuses to mix).
+ *
+ * Dots cap at 48: past that a dot stops being readable as a unit and the
+ * count text carries the fact alone.
+ */
+export function RequirementChecklist({
+  counted,
+  total,
+  working,
+}: {
+  counted: number;
+  total: number;
+  working?: boolean;
+}) {
+  if (!(total > 0) || counted < 0 || counted > total) return null;
+  const drawDots = total <= 48;
+  return (
+    <div
+      data-testid="requirement-checklist"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "8px 11px",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        marginBottom: 10,
+        background: "var(--surface, var(--card))",
+      }}
+    >
+      <span style={{ fontSize: FS.caption, fontWeight: FW.bold, whiteSpace: "nowrap" }}>
+        Requirements
+      </span>
+      {drawDots ? (
+        <span style={{ display: "flex", flexWrap: "wrap", gap: 4, minWidth: 0 }} aria-hidden>
+          {Array.from({ length: total }, (_, i) => {
+            const done = i < counted;
+            // The ring marks "one of these is being worked" — it sits on the
+            // first open dot and claims nothing about WHICH requirement,
+            // because the dots carry no identity.
+            const ringed = Boolean(working) && i === counted;
+            return (
+              <span
+                key={i}
+                data-dot={done ? "done" : ringed ? "working" : "open"}
+                style={{
+                  width: 11,
+                  height: 11,
+                  borderRadius: "50%",
+                  border: done
+                    ? "1.5px solid var(--green-ink, #16a34a)"
+                    : ringed
+                      ? "1.5px solid var(--accent)"
+                      : "1.5px solid var(--border)",
+                  background: done ? "var(--green-bg, rgba(22,163,74,0.10))" : "none",
+                  boxShadow: ringed ? "0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent)" : undefined,
+                  flex: "none",
+                }}
+              />
+            );
+          })}
+        </span>
+      ) : null}
+      <span style={{ marginLeft: "auto", fontSize: FS.caption, color: "var(--muted)", whiteSpace: "nowrap" }}>
+        <b style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>
+          {counted} of {total}
+        </b>{" "}
+        counted
+      </span>
+    </div>
+  );
+}
+
 function verdictChipStyle(v: QueueVerdict): React.CSSProperties {
   const tone = VERDICT_TONE[v];
   const ink = VERDICT_INK[tone];
@@ -356,6 +453,8 @@ export function TailorWorkQueue({
   expandedIds,
   renderExpansion,
   appliedChangeFor,
+  onSeeInResume,
+  canSeeInResume,
 }: {
   items: readonly QueueItem[];
   /** Item currently being processed by the pass, if any. */
@@ -389,6 +488,19 @@ export function TailorWorkQueue({
    * as before.
    */
   appliedChangeFor?: (name: string) => { before: string; after: string } | null;
+  /**
+   * "See it in your résumé →" on rows whose TERM is already in the document
+   * (the Teal pattern, founder-approved via the tailor-v8 mockup). Scrolls
+   * and flashes the preview bullet, reusing the applied-receipt machinery.
+   */
+  onSeeInResume?: (item: QueueItem) => void;
+  /**
+   * Whether a See-it target actually resolves for this row. The link renders
+   * ONLY when true: a link that scrolls nowhere is a dead click, and for a
+   * `partial` row the words genuinely may not be there — that being the row's
+   * whole point. Applied receipts keep their own See-it action instead.
+   */
+  canSeeInResume?: (item: QueueItem) => boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [detailIds, setDetailIds] = useState<Set<string>>(() => new Set());
@@ -876,10 +988,32 @@ export function TailorWorkQueue({
                         {it.nature}
                       </span>
                     ) : null}
+                    {/* A measurement about the posting, between the label and
+                        the claim: "Language · ×4 in posting · Partial match".
+                        No threshold here: the producer stamps `freq` only at
+                        EMPHASIS_MIN or above, and a second copy of that bar
+                        would drift (the two-hand-maintained-copies trap). */}
+                    {typeof it.freq === "number" ? (
+                      <span style={FREQ_CHIP_STYLE} data-freq-chip>
+                        ×{it.freq} in posting
+                      </span>
+                    ) : null}
                     {verdict ? (
                       <span style={verdictChipStyle(verdict)}>
                         {VERDICT_LABEL[verdict]}
                       </span>
+                    ) : null}
+                    {/* Only where a target resolves, and never on a receipt —
+                        applied rows carry their own See-it action. */}
+                    {onSeeInResume && it.status !== "applied" && canSeeInResume?.(it) ? (
+                      <button
+                        type="button"
+                        data-see-in-resume
+                        onClick={() => onSeeInResume(it)}
+                        style={{ border: 0, background: "none", color: "var(--accent-ink, var(--accent))", padding: 0, fontSize: FS.caption, fontWeight: FW.semibold, cursor: "pointer", whiteSpace: "nowrap", flex: "none" }}
+                      >
+                        See it in your résumé →
+                      </button>
                     ) : null}
                     {it.detail ? (
                       <button

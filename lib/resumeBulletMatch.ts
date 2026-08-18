@@ -3,6 +3,7 @@
  * Single index model: `findBulletIndexForLine` maps extract lines to `bulletAnalysis[i]`.
  */
 
+import { foldForTermMatch } from "@/lib/postingEmphasis";
 import { looksLikeStructuredEmploymentLine } from "@/lib/profileFromResumeText";
 import {
   normalizeResumeExtractLine as normalizeExtractLine,
@@ -311,6 +312,35 @@ export function findAppliedBulletIndex(
     if (norm === target || norm.includes(target) || target.includes(norm)) {
       return Number(idxStr);
     }
+  }
+  return null;
+}
+
+// ── "See it": a term already in the résumé → the preview bullet carrying it ─
+
+/**
+ * First preview bullet whose CURRENT text carries the term verbatim, on token
+ * boundaries — [0-9a-z+#.] class, never \b, which cannot see the boundary in
+ * "C++" and finds "Go" inside "Google". Overrides win over originals because
+ * they are what the preview renders.
+ *
+ * Returns null when no bullet carries it, and the caller must then render NO
+ * See-it affordance: a link that scrolls nowhere is a dead click, and for a
+ * `partial` row the words genuinely may not be there — that being the row's
+ * whole point.
+ */
+export function findTermBulletIndex(
+  term: string,
+  bullets: ReadonlyArray<{ originalBullet?: string } | undefined>,
+  overrides: Record<number, string>,
+): number | null {
+  const foldTokens = foldForTermMatch;
+  const t = foldTokens(term).trim();
+  if (!t) return null;
+  const needle = ` ${t} `;
+  for (let i = 0; i < bullets.length; i++) {
+    const text = overrides[i] ?? bullets[i]?.originalBullet ?? "";
+    if (text && foldTokens(text).includes(needle)) return i;
   }
   return null;
 }
