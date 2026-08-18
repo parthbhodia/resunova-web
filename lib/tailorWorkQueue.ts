@@ -50,6 +50,15 @@ export interface QueueItem {
   /** Queued: the analysis/bridge text. Terminal: the outcome reason. */
   detail: string;
   /**
+   * Chip text naming what KIND of thing this requirement is ("Language",
+   * "Degree", "Qualification", …), stamped by the producer from the
+   * requirement's own extraction type — or from `kind` when no type exists
+   * (rater-only rows). Absent when we cannot say anything the row does not
+   * already say: a bare "Keyword" chip beside a keyword verdict is noise.
+   * See requirementNature().
+   */
+  nature?: string;
+  /**
    * Where the row renders when its `kind` would put it in the wrong place.
    *
    * Exists for exactly one class so far: a rater row whose TERM the scanner
@@ -71,6 +80,84 @@ export const CONTEXTUAL_DETAIL =
 
 /** Detail line stamped when the user ignores an item. */
 export const IGNORED_DETAIL = "Ignored. It stays here if you change your mind.";
+
+/**
+ * What KIND of thing a requirement is, in the user's words, and why that kind
+ * matters. Founder-asked 2026-08-15: "add the chips on why language,
+ * qualification was needed here" — a row named "Python" and a row named
+ * "Bachelor's degree" read as the same class of problem unless the row says
+ * what nature of ask each one is. Competitors label this too (Teal tags every
+ * keyword hard/soft skill), and it is the one piece of extraction metadata the
+ * queue collected and then never showed.
+ *
+ * Covers BOTH extractor vocabularies: the tailor path's jd_extractor
+ * (technical_skill · tool · certification · license · degree · experience ·
+ * responsibility · soft_skill · domain_knowledge) and the jobs-pipeline
+ * extractor, whose stored postings also type concepts as language/framework —
+ * a tailor run started from the Jobs feed carries those.
+ *
+ * DISPLAY-ONLY BY DESIGN. The dimension chips died on 2026-08-06 as a second
+ * filter taxonomy over one list; this is row metadata like the verdict pill,
+ * never pressable, never a filter.
+ *
+ * `why` is empty for the types whose row detail already leads with its own
+ * why (credentials lead with BLOCKER_REASON, contextual rows carry
+ * CONTEXTUAL_DETAIL) — one why per row, owned by one branch, never two
+ * hand-maintained copies of the same sentence.
+ */
+export interface RequirementNature {
+  label: string;
+  why: string;
+}
+
+const TYPE_NATURE: Record<string, RequirementNature> = {
+  language: {
+    label: "Language",
+    why: "The posting names this language outright, and keyword scanners match language names word for word.",
+  },
+  framework: {
+    label: "Framework",
+    why: "The posting names this framework, and scanners look for its exact name.",
+  },
+  technical_skill: {
+    label: "Skill",
+    why: "A skill the posting asks for by name. Scanners match it word for word, and recruiters search by it.",
+  },
+  tool: {
+    label: "Tool",
+    why: "A tool the posting asks for by name. Scanners look for the exact name.",
+  },
+  responsibility: {
+    label: "Duty",
+    why: "The posting's own words for the day-to-day work. A bullet showing this reads as experience doing the job.",
+  },
+  certification: { label: "Certification", why: "" },
+  license: { label: "License", why: "" },
+  degree: { label: "Degree", why: "" },
+  experience: { label: "Experience", why: "" },
+  soft_skill: { label: "Soft skill", why: "" },
+  domain_knowledge: { label: "Domain knowledge", why: "" },
+};
+
+/**
+ * Kind fallback for rows with no extraction type (rater-only rows). `keyword`
+ * and `contextual` deliberately have NO entry: a bare "Keyword" chip beside a
+ * keyword verdict restates it, and the contextual band's own header already
+ * labels its rows.
+ */
+const KIND_NATURE: Partial<Record<QueueKind, RequirementNature>> = {
+  qualification: { label: "Qualification", why: "" },
+  responsibility: { label: "Duty", why: "" },
+};
+
+export function requirementNature(
+  type: string | undefined,
+  kind?: QueueKind,
+): RequirementNature | null {
+  return (
+    TYPE_NATURE[String(type ?? "").trim()] ?? (kind && KIND_NATURE[kind]) ?? null
+  );
+}
 
 const norm = (s: string) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
@@ -169,6 +256,9 @@ export function deriveWorkQueue(
       kind,
       status: isGapAddressed(name, addressed, actions) ? "applied" : "queued",
       detail,
+      // Rater rows carry no extraction type; the kind is what the rater's own
+      // filing tells us, so that is what the chip may honestly claim.
+      nature: requirementNature(undefined, kind)?.label,
     });
   };
 
@@ -218,6 +308,7 @@ export function deriveWorkQueue(
         kind,
         status: "applied",
         detail: detailOf(it) || "Fix applied. Re-check to confirm.",
+        nature: requirementNature(undefined, kind)?.label,
       });
     }
   };

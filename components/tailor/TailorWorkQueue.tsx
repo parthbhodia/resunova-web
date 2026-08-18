@@ -224,6 +224,29 @@ const VERDICT_BG = {
   good: "var(--green-bg, rgba(22,163,74,0.10))",
 } as const;
 
+/**
+ * The nature chip: what KIND of ask this row is (Language · Degree ·
+ * Qualification …), from the requirement's own extraction type. Founder-asked
+ * 2026-08-15: "add the chips on why language, qualification was needed here."
+ *
+ * Deliberately QUIET — muted ink, neutral border, no tint — because the
+ * verdict pill beside it carries the row's judgement and two tinted chips on
+ * one line are two claims shouting (the §3b in-app pressure). And it is a
+ * SPAN, never a button: the dimension chips died as a second filter taxonomy,
+ * and this must not grow back into one.
+ */
+const NATURE_CHIP_STYLE: React.CSSProperties = {
+  fontSize: FS.caption,
+  fontWeight: FW.semibold,
+  borderRadius: 5,
+  padding: "2px 7px",
+  color: "var(--muted)",
+  background: "none",
+  border: "1px solid var(--border)",
+  whiteSpace: "nowrap",
+  flex: "none",
+};
+
 function verdictChipStyle(v: QueueVerdict): React.CSSProperties {
   const tone = VERDICT_TONE[v];
   const ink = VERDICT_INK[tone];
@@ -843,8 +866,16 @@ export function TailorWorkQueue({
                  * still clipped to one line — that clip is what stopped a
                  * 150-character JD responsibility from filling the rail, and it
                  * is untouched. */}
-                {(verdict || it.detail) ? (
+                {(verdict || it.detail || it.nature) ? (
                   <span style={{ display: "flex", alignItems: "baseline", gap: 9, marginTop: 2, minWidth: 0 }}>
+                    {/* Nature before verdict: what the ask IS, then what we
+                        claim about it — "Language · Scanner didn't find it"
+                        reads in that order. */}
+                    {it.nature ? (
+                      <span style={NATURE_CHIP_STYLE} data-nature-chip>
+                        {it.nature}
+                      </span>
+                    ) : null}
                     {verdict ? (
                       <span style={verdictChipStyle(verdict)}>
                         {VERDICT_LABEL[verdict]}
