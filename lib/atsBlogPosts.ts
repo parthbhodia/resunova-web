@@ -61,6 +61,22 @@ export function formatPublishedAt(iso: string | undefined): string | null {
 
 export const BLOG_POSTS: BlogPostMeta[] = [
   {
+    slug: "h1b-visa-sponsorship-job-postings",
+    title: "96% of Job Postings Won't Say Whether They Sponsor a Visa",
+    description:
+      "Only 4.3% of 102,857 active US postings address visa sponsorship at all, and 9 in 10 of those raise it to rule it out. Of the postings that say no, 20.2% are at employers holding certified H-1B filings anyway.",
+    seoDescription:
+      "95.7% of active US job postings never mention visa sponsorship. See the data by industry, plus which employers with H-1B filings are hiring now.",
+    readMinutes: 6,
+    tag: "Data",
+    publishedAt: "2026-08-17",
+    modifiedAt: "2026-08-17",
+    // The silence rate, not the 20.2% twist: the twist needs a sentence of
+    // setup to land, and a stat card has no room for one.
+    stat: "95.7%",
+    statLabel: "of US postings say nothing about visa sponsorship",
+  },
+  {
     slug: "linkedin-applicant-count-clicks-not-applications",
     title: "LinkedIn's Applicant Count Is Measuring Clicks, Not Applications",
     description:
