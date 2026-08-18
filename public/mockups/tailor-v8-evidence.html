@@ -1,0 +1,202 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Tailor v8 — evidence mockup: frequency, see-it, checklist</title>
+<style>
+  :root {
+    --bg: #f7f9fc; --surface: #ffffff; --border: rgba(15,23,42,0.14);
+    --text: #0f172a; --muted: #475569; --accent: #0969da; --accent-ink: #0559c7;
+    --amber-bg: rgba(180,83,9,0.12); --amber-ink: #92400e;
+    --green-bg: rgba(5,150,105,0.12); --green-ink: #047857;
+    --red-bg: rgba(220,38,38,0.12); --red-ink: #991b1b;
+    --surface-2: rgba(127,127,127,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 13.5px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; padding: 28px; }
+  .frame { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 17px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 18px; max-width: 88ch; }
+  .cols { display: grid; grid-template-columns: 460px 1fr; gap: 18px; align-items: start; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+
+  /* ③ Rezi-style checklist strip */
+  .check-strip { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; background: var(--surface); }
+  .check-strip .label { font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .dots { display: flex; flex-wrap: wrap; gap: 5px; }
+  .dot { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--border); position: relative; }
+  .dot.done { background: var(--green-bg); border-color: var(--green-ink); }
+  .dot.done::after { content: "✓"; position: absolute; inset: 0; font-size: 9px; line-height: 12px; text-align: center; color: var(--green-ink); font-weight: 700; }
+  .dot.working { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(9,105,218,0.18); }
+  .check-strip .count { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .check-strip .count b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .bandhead { display: flex; align-items: baseline; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 10px; border-radius: 6px; margin: 12px 0 6px; }
+  .bandhead .n { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .band-crit { background: var(--red-bg); color: var(--red-ink); }
+  .band-warn { background: var(--amber-bg); color: var(--amber-ink); }
+
+  ul.q { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  li.row { border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; background: var(--surface); }
+  li.row.hovered { border-color: var(--accent); box-shadow: 0 1px 6px rgba(9,105,218,0.14); }
+  .row .title { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .row .meta { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+  .chip { font-size: 11px; font-weight: 600; border-radius: 5px; padding: 2px 7px; white-space: nowrap; }
+  .nature { color: var(--muted); border: 1px solid var(--border); background: none; }
+  .freq { color: var(--muted); border: 1px dashed var(--border); background: none; font-variant-numeric: tabular-nums; }
+  .verdict-warn { color: var(--amber-ink); background: var(--amber-bg); border: 1px solid rgba(146,64,14,0.30); font-weight: 700; }
+  .verdict-crit { color: var(--red-ink); background: var(--red-bg); border: 1px solid rgba(153,27,27,0.30); font-weight: 700; }
+  .verdict-good { color: var(--green-ink); background: var(--green-bg); border: 1px solid rgba(4,120,87,0.30); font-weight: 700; }
+  .why { font-size: 11px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+  .seeit { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--accent-ink); white-space: nowrap; }
+  .fixbtn { margin-left: auto; font-size: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; background: var(--surface); color: var(--text); font-weight: 600; }
+  .row .open-why { font-size: 12px; color: var(--muted); margin-top: 6px; max-width: 52ch; line-height: 1.45; }
+
+  /* preview pane */
+  .paper { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 26px 30px; font: 10.5px/1.5 Helvetica, Arial, sans-serif; color: #111; box-shadow: 0 1px 4px rgba(15,23,42,0.06); }
+  .paper h2 { font-size: 15px; letter-spacing: 0.02em; }
+  .paper .contact { font-size: 9.5px; color: #444; margin-bottom: 10px; }
+  .paper h3 { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1.5px solid #111; margin: 12px 0 6px; padding-bottom: 2px; }
+  .paper .job { display: flex; justify-content: space-between; font-weight: 700; margin-top: 6px; }
+  .paper ul { margin: 3px 0 0 16px; }
+  .paper li { margin: 2px 0; }
+  .hl { background: var(--amber-bg); outline: 2px solid rgba(146,64,14,0.35); border-radius: 2px; padding: 0 2px; }
+  .hl b { text-decoration: underline; text-underline-offset: 2px; }
+
+  /* annotations */
+  .tag { display: inline-flex; width: 17px; height: 17px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; align-items: center; justify-content: center; flex: none; }
+  .legend { border-left: 3px solid var(--accent); background: var(--surface); border-radius: 0 8px 8px 0; padding: 10px 14px; margin-bottom: 18px; font-size: 12.5px; display: grid; gap: 6px; max-width: 96ch; }
+  .legend .li { display: flex; gap: 9px; align-items: baseline; }
+  .note { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+</style>
+
+<div class="frame">
+  <h1>Tailor v8 mockup — the evidence pass</h1>
+  <p class="sub">Three competitor patterns folded into the existing queue, nothing rearranged. Every number shown is deterministic and already computable client-side; no new API calls, no LLM cost.</p>
+
+  <div class="legend">
+    <div class="li"><span class="tag">1</span><span><b>Frequency as the why (Jobscan).</b> Keyword rows gain <i>×N in posting</i>, counted from the JD text we already hold (term + its aliases, word-boundary). Shown only at ×2 or more — a ×1 on every row is noise. The keyword band orders <b>high-frequency first</b>; ties keep the posting's own order. The row's "Why this matters" gains one sentence: <i>"The posting repeats this 4 times — that's the employer's own emphasis."</i> A claim about the posting, never about ATS internals.</span></div>
+    <div class="li"><span class="tag">2</span><span><b>See it in your résumé (Teal).</b> Rows whose term is already in the document (Partial match · Mentioned, not proven · You have this) get <i>See it →</i> on hover/tap: the preview scrolls to the line and flashes it. Applied receipts already do this; this extends the same affordance to every row that has a location. Rows whose term is absent keep the Fix button — there is nothing to scroll to, and pretending otherwise is a dead click.</span></div>
+    <div class="li"><span class="tag">3</span><span><b>Checklist strip (Rezi).</b> One row of dots above the queue — filled ✓ for requirements the recount already counts, hollow for open, ringed for the row you're working. It is the match block's <b>same 9-of-24</b>, drawn instead of written, and it fills live as fixes apply — the "checkmark flip" is the payoff moment. Display-only; the dots are not a second filter.</span></div>
+    <div class="note">Rendered in the shipped light tokens. Huntr's semantic matching is not a new surface — it is the match ladder already running in shadow, so nothing to mock here.</div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <!-- ③ checklist -->
+      <div class="check-strip">
+        <span class="tag">3</span>
+        <span class="label">Requirements</span>
+        <span class="dots">
+          <span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot done"></span>
+          <span class="dot working"></span>
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        </span>
+        <span class="count"><b>9 of 24</b> counted</span>
+      </div>
+
+      <div class="card">
+        <div class="bandhead band-crit">Hard requirements <span class="n">2</span></div>
+        <ul class="q">
+          <li class="row">
+            <div class="title">Bachelor's degree in Computer Science <button class="fixbtn">Fix this</button></div>
+            <div class="meta">
+              <span class="chip nature">Degree</span>
+              <span class="chip verdict-crit">Not evidenced</span>
+              <span class="why">Why this matters</span>
+            </div>
+          </li>
+          <li class="row">
+            <div class="title">5+ years of backend experience <button class="fixbtn">Fix this</button></div>
+            <div class="meta">
+              <span class="chip nature">Experience</span>
+              <span class="chip verdict-warn">Scanner didn't find it</span>
+              <span class="why">Why this matters</span>
+            </div>
+          </li>
+        </ul>
+
+        <div class="bandhead band-warn">Worth adding <span class="n">5</span></div>
+        <ul class="q">
+          <li class="row">
+            <div class="title">Python <button class="fixbtn">Add</button></div>
+            <div class="meta">
+              <span class="chip nature">Language</span>
+              <span class="chip freq"><span class="tag" style="width:13px;height:13px;font-size:9px;margin-right:3px">1</span>×6 in posting</span>
+              <span class="chip verdict-warn">Scanner didn't find it</span>
+              <span class="why">Why this matters</span>
+            </div>
+            <div class="open-why">The posting repeats this 6 times — that's the employer's own emphasis. The posting names this language outright, and keyword scanners match language names word for word. Adding this counts toward your match score.</div>
+          </li>
+          <li class="row hovered">
+            <div class="title">Kubernetes <span class="seeit"><span class="tag" style="width:13px;height:13px;font-size:9px">2</span> See it in your résumé →</span> <button class="fixbtn" style="margin-left:8px">Add</button></div>
+            <div class="meta">
+              <span class="chip nature">Tool</span>
+              <span class="chip freq">×4 in posting</span>
+              <span class="chip verdict-warn">Partial match</span>
+              <span class="why">Why this matters</span>
+            </div>
+          </li>
+          <li class="row">
+            <div class="title">Terraform <button class="fixbtn">Add</button></div>
+            <div class="meta">
+              <span class="chip nature">Tool</span>
+              <span class="chip freq">×2 in posting</span>
+              <span class="chip verdict-warn">Scanner didn't find it</span>
+              <span class="why">Why this matters</span>
+            </div>
+          </li>
+          <li class="row">
+            <div class="title">CI/CD pipelines <button class="fixbtn">Add</button></div>
+            <div class="meta">
+              <span class="chip nature">Skill</span>
+              <span class="chip verdict-warn">Mentioned, not proven</span>
+              <span class="why">Why this matters</span>
+            </div>
+          </li>
+          <li class="row">
+            <div class="title">GraphQL <button class="fixbtn">Add</button></div>
+            <div class="meta">
+              <span class="chip nature">Framework</span>
+              <span class="chip verdict-warn">Scanner didn't find it</span>
+              <span class="why">Why this matters</span>
+            </div>
+          </li>
+        </ul>
+
+        <div class="bandhead" style="background: var(--green-bg); color: var(--green-ink);">Already covered <span class="n">9</span></div>
+        <ul class="q">
+          <li class="row">
+            <div class="title">PostgreSQL <span class="seeit">See it in your résumé →</span></div>
+            <div class="meta">
+              <span class="chip nature">Tool</span>
+              <span class="chip verdict-good">You have this</span>
+              <span class="why">Show the evidence</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- preview pane, scrolled to the hovered row's line -->
+    <div>
+      <div class="paper">
+        <h2>PARTH B.</h2>
+        <div class="contact">parth@example.com &nbsp;|&nbsp; (555) 010-2266 &nbsp;|&nbsp; linkedin.com/in/parthb</div>
+        <h3>Experience</h3>
+        <div class="job"><span>Software Engineer · Acme Systems</span><span>2022–Present</span></div>
+        <ul>
+          <li>Designed and optimized PostgreSQL schemas for a high-traffic CMS serving 100,000+ users.</li>
+          <li class="hl">Deployed containerized services with <b>Kubernetes</b>, cutting release cycles from weekly to daily.</li>
+          <li>Engineered a JWT-based authentication system with AWS Cognito, API Gateway, and Lambda.</li>
+        </ul>
+        <div class="job"><span>Full-Stack Developer · Northwind Labs</span><span>2019–2022</span></div>
+        <ul>
+          <li>Built internal dashboards with React and TypeScript used by 40 analysts daily.</li>
+          <li>Automated data-quality checks that recovered 12 broken feeds per month.</li>
+        </ul>
+      </div>
+      <p class="note" style="margin-top:8px"><span class="tag" style="width:13px;height:13px;font-size:9px">2</span> Hovering <b>Kubernetes</b> on the left scrolls the preview here and flashes the line that already carries the term — the same flash the applied receipts use today. The amber wash fades after a beat; nothing persists on the document.</p>
+    </div>
+  </div>
+</div>
+</html>
