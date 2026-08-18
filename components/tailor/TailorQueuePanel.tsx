@@ -38,9 +38,11 @@ import {
   scoreMovingCount,
 } from "@/lib/tailorRequirementQueue";
 import { fetchLiveCoverage } from "@/lib/tailorLiveCoverage";
+import { stampPostingEmphasis } from "@/lib/postingEmphasis";
+import { findTermBulletIndex } from "@/lib/resumeBulletMatch";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { useLiveCoverage } from "@/components/tailor/useLiveCoverage";
-import { TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
+import { RequirementChecklist, TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
 import { TailorTitleNote } from "@/components/tailor/TailorTitleNote";
 import {
   TailorFixExpansion,
@@ -164,6 +166,7 @@ export function TailorQueuePanel({
   onInterviewPrep,
   requirementConcepts,
   currentResumeText,
+  jobDescription,
   onAddEducation,
   onAddSkill,
   structuredResume,
@@ -221,6 +224,9 @@ export function TailorQueuePanel({
   requirementConcepts?: readonly unknown[];
   /** Résumé text with applied fixes baked in, i.e. what is being scored. */
   currentResumeText?: string;
+  /** The posting text, for the deterministic ×N-in-posting emphasis count.
+   *  Absent ⇒ no frequency chips and the keyword band keeps extraction order. */
+  jobDescription?: string;
   onDownload?: () => void;
   /** Finish-line handoff into interview prep, carrying this run's resume + JD. */
   onInterviewPrep?: () => void;
@@ -283,12 +289,17 @@ export function TailorQueuePanel({
               : it,
           );
     // The user's explicit Ignore wins over the pass's "not coverable".
-    return withPass.map((it) =>
+    const withIgnores = withPass.map((it) =>
       it.status !== "applied" && it.status !== "needs_review"
         && ignoredNames.has(normalizeQueueName(it.name))
         ? { ...it, status: "ignored" as const, detail: IGNORED_DETAIL }
         : it,
     );
+    // Last, because statuses must be final first: the ×N-in-posting stamp
+    // prepends its sentence only to still-queued keyword rows, and the
+    // high-frequency-first ordering must not move a row the pass or the user
+    // already resolved into a different relative slot than its band shows.
+    return stampPostingEmphasis(withIgnores, requirementConcepts ?? [], jobDescription ?? "");
   }, [
     ratings,
     addressedGaps,
@@ -298,6 +309,8 @@ export function TailorQueuePanel({
     ignoredNames,
     coverage.unmatched,
     attemptedNames,
+    requirementConcepts,
+    jobDescription,
   ]);
 
   // Derived, never stored: a second list of "what changed" would be one more
@@ -473,6 +486,17 @@ export function TailorQueuePanel({
           true counts. Title had nowhere else to live, so it stays as a line. */}
       <TailorTitleNote ratings={ratings} />
       <div>
+        {/* The Rezi-style strip draws the match block's OWN counted-of-total —
+            same numbers, one provenance — so it renders only on a LIVE
+            recount. The fallback path's rater counts are a different dataset,
+            and drawing them here would be the two-numbers bug again. */}
+        {coverage.live ? (
+          <RequirementChecklist
+            counted={coverage.found}
+            total={coverage.total}
+            working={expansions.size > 0}
+          />
+        ) : null}
         <TailorWorkQueue
           items={displayItems}
           workingIds={workingIds}
@@ -487,6 +511,17 @@ export function TailorQueuePanel({
           // is nothing to locate a change in, and the legacy rendering is the
           // honest one.
           appliedChangeFor={lineOverrides ? appliedChangeFor : undefined}
+          // See-it on open rows whose term the document already carries: the
+          // resolver reads the SAME preview state the receipts scroll against,
+          // so the link renders only where a target exists (a link that
+          // scrolls nowhere is a dead click). Legacy callers without preview
+          // state get no links, exactly as before.
+          onSeeInResume={onSeeItem}
+          canSeeInResume={
+            bulletAnalysis
+              ? (it) => findTermBulletIndex(it.name, bulletAnalysis, lineOverrides ?? {}) !== null
+              : undefined
+          }
           expandedIds={new Set(expansions.keys())}
           renderExpansion={(item) => {
             const state = expansions.get(item.id);

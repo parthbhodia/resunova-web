@@ -59,6 +59,12 @@ export interface QueueItem {
    */
   nature?: string;
   /**
+   * How many times the posting repeats this term (max over its spellings),
+   * stamped by stampPostingEmphasis on keyword-band rows at ×2 or more.
+   * Absent below that: a ×1 on every row is noise — repetition is the signal.
+   */
+  freq?: number;
+  /**
    * Where the row renders when its `kind` would put it in the wrong place.
    *
    * Exists for exactly one class so far: a rater row whose TERM the scanner

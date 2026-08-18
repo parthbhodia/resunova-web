@@ -43,6 +43,7 @@ import {
   matchOriginalToBulletIndex,
   applyFieldOverridesToStructured,
   findAppliedBulletIndex,
+  findTermBulletIndex,
   patchStructuredWithOverrides,
   resolveBulletIndexForGapFix,
   synthesizeProfileWithBulletOverrides,
@@ -2664,13 +2665,20 @@ export default function ResumeBuilder({
   }, [jd, effectiveCandidateProfile, tailorStructuredResume, tailorBulletAnalysis,
       tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
 
-  /** "See it" on an applied queue row: frame + scroll the preview bullet the
-   *  fix landed on. Silently no-ops when the fix became a new appended bullet
-   *  we can't map (the preview highlight already marks it). */
+  /** "See it" on a queue row: frame + scroll the preview bullet. An applied
+   *  row resolves through its recorded fix; an open row whose TERM the
+   *  document already carries (unbacked/covered/partial-with-verbatim-term)
+   *  resolves by finding that term in the current bullet text — the Teal
+   *  pattern, founder-approved via the tailor-v8 mockup. Silently no-ops when
+   *  neither maps (the queue only renders the affordance where its own
+   *  resolver found a target, so a no-op here is the applied-append case the
+   *  preview highlight already marks). */
   const seeAppliedItem = useCallback((item: QueueItem) => {
-    const idx = findAppliedBulletIndex(item.name, addressedGapActions, tailorLineOverrides);
+    const idx =
+      findAppliedBulletIndex(item.name, addressedGapActions, tailorLineOverrides)
+      ?? findTermBulletIndex(item.name, tailorBulletAnalysis, tailorLineOverrides);
     if (idx !== null) setTailorSelection({ kind: "bullet", idx });
-  }, [addressedGapActions, tailorLineOverrides, setTailorSelection]);
+  }, [addressedGapActions, tailorLineOverrides, tailorBulletAnalysis, setTailorSelection]);
 
   /**
    * Take one change back.
@@ -4715,6 +4723,7 @@ export default function ResumeBuilder({
                         onInterviewPrep={openInterviewPrep}
                         requirementConcepts={requirementConcepts}
                         currentResumeText={effectiveCandidateProfile}
+                        jobDescription={jd}
                         lineOverrides={tailorLineOverrides}
                         bulletAnalysis={tailorBulletAnalysis}
                         onUndoChange={undoResumeChange}
