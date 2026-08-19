@@ -1,5 +1,6 @@
 "use client";
 
+import { JOBS_ENABLED } from "@/lib/featureFlags";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { FocusEvent } from "react";
 import { useSearchParams } from "next/navigation";
@@ -1443,7 +1444,7 @@ export default function AnalyzeResume() {
       {/* And the payoff: top job matches for the résumé just scanned. Renders
           only when the feed is résumé-ranked for a signed-in user; bottom-right
           so it never collides with the profile prompt. */}
-      <TopJobsToast />
+      {JOBS_ENABLED && <TopJobsToast />}
 
       {/* ── Mobile backdrop (close history drawer) ─── */}
       {historyOpen && (

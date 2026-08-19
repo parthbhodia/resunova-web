@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { JOBS_ENABLED } from "@/lib/featureFlags";
 import { BUILDER_SUBFLOW_ICONS, NAV_ICONS } from "./nav-icons";
 
 export type AppView =
@@ -58,7 +59,8 @@ export const BUILDER_SUBFLOWS = [
 export const MOBILE_TAB_VIEWS: AppView[] = [
   "home",
   "analyze",
-  "jobs",
+  // "jobs" — hidden while the extraction pipeline is off, see JOBS_ENABLED.
+  ...(JOBS_ENABLED ? (["jobs"] as AppView[]) : []),
   "library",
 ];
 

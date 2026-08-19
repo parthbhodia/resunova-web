@@ -1,4 +1,5 @@
 "use client";
+import { JOBS_ENABLED } from "@/lib/featureFlags";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { TAILOR_ROUTE, tailorHref } from "@/lib/tailorRoute";
 import Link from "next/link";
@@ -1208,7 +1209,7 @@ export default function LandingPage() {
         dark={dark}
         accent={T.hotHover}
         items={[
-          { id: "jobs", label: "Jobs", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg> },
+          ...(JOBS_ENABLED ? [{ id: "jobs", label: "Jobs", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg> }] : []),
           { id: "product-rewrite", label: "AI Rewrites", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> },
           { id: "product-tour", label: "Tailor", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg> },
           { id: "templates", label: "Templates", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/></svg> },
@@ -1657,7 +1658,7 @@ export default function LandingPage() {
             <nav className="lp-footer-nav" aria-label="Footer" style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
               {[
                 ["Blog", "/blog"],
-                ["Jobs", "/jobs/"],
+                ...(JOBS_ENABLED ? [["Jobs", "/jobs/"] as [string, string]] : []),
                 ["Resume Examples", "/resume-examples"],
                 ["Skills for Resume", "/skills-for-resume"],
                 ["Cover Letter", "/cover-letter"],

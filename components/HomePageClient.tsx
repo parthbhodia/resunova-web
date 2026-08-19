@@ -15,6 +15,7 @@
  * `output: "export"` build, which can't enumerate runtime-minted IDs.
  */
 
+import { JOBS_ENABLED } from "@/lib/featureFlags";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -146,6 +147,18 @@ function RouterView() {
     );
   }
   if (view === "jobs") {
+    // Hidden while the extraction pipeline is off (see JOBS_ENABLED). Old
+    // bookmarks and any link we missed fall through to Home rather than
+    // hitting a dead view.
+    if (!JOBS_ENABLED) {
+      return (
+        <ViewFill>
+          <ScrollPane>
+            <HomeDashboard />
+          </ScrollPane>
+        </ViewFill>
+      );
+    }
     const jobId = (params?.get("job") || "").trim();
     return (
       <ViewFill>

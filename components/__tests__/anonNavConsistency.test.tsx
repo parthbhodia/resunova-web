@@ -1,3 +1,4 @@
+import { JOBS_ENABLED } from "@/lib/featureFlags";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
 import { PUBLIC_APP_VIEWS, isPublicAppView } from "@/lib/anonScan";
@@ -23,10 +24,13 @@ describe("anonymous access is consistent between URL and navigation", () => {
     }
   });
 
-  it("jobs is browsable signed-out, matching the public-browse contract", () => {
-    // The backend serves an unranked feed to anonymous visitors; the nav must
-    // not contradict that by demanding sign-in first.
-    expect(isPublicAppView("jobs")).toBe(true);
+  it("jobs follows the JOBS_ENABLED flag in BOTH directions", () => {
+    // The backend still serves an unranked feed to anonymous visitors, so when
+    // Jobs is on, the nav must not contradict that by demanding sign-in. While
+    // it is off (extraction pipeline stopped) the view must not be reachable at
+    // all — a public view with no nav entry is the URL/nav disagreement this
+    // whole file exists to prevent, just in the opposite direction.
+    expect(isPublicAppView("jobs")).toBe(JOBS_ENABLED);
   });
 
   it("account-bound views stay locked", () => {
@@ -68,9 +72,20 @@ describe("AppBottomNav honours the shared list", () => {
     const onSignIn = vi.fn();
     const { getByText } = renderNav(onSelect, onSignIn);
 
-    fireEvent.click(getByText("Jobs"));
-    expect(onSelect).toHaveBeenCalledWith("jobs");
+    // Analyze rather than Jobs: Jobs leaves the bottom bar entirely while
+    // JOBS_ENABLED is false, and this test is about the public-view CONTRACT,
+    // not about which tab happens to be public today.
+    fireEvent.click(getByText("Analyze"));
+    expect(onSelect).toHaveBeenCalledWith("analyze");
     expect(onSignIn).not.toHaveBeenCalled();
+  });
+
+  it("hidden views are absent from the bottom bar, not merely inert", () => {
+    // The regression this guards: a tab that renders but no-ops reads as a
+    // broken app rather than a removed feature.
+    const { queryByText } = renderNav(vi.fn(), vi.fn());
+    if (JOBS_ENABLED) expect(queryByText("Jobs")).not.toBeNull();
+    else expect(queryByText("Jobs")).toBeNull();
   });
 
   it("asks for sign-in on a locked view", () => {
