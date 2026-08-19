@@ -14,17 +14,27 @@
  * "Kubernetes" on a bullet that also carries "Terraform" silently drops
  * Terraform too. Grouping by bullet lets a row say exactly what it will undo,
  * and name every requirement that rides on it.
+ *
+ * Three kinds of change, because they undo differently and read differently:
+ * `fix` = a queue fix landed on a bullet; `edit` = an override with no queue
+ * row (a hand edit, or a label that stopped matching); `skill` = a term added
+ * to the Skills section (#267's Add-to-Skills). Skills adds used to be absent
+ * from this list entirely while the header promised "every edit in the file
+ * you download" — an overclaim this closes.
  */
 
 import type { QueueItem } from "@/lib/tailorWorkQueue";
 import { findAppliedBulletIndex } from "@/lib/resumeBulletMatch";
 
 export interface ResumeChange {
-  /** The bullet this change lives on. Stable for undo. */
+  /** Stable row identity for open/confirm state and React keys. */
+  key: string;
+  kind: "fix" | "edit" | "skill";
+  /** The bullet this change lives on. -1 for a Skills-section add. */
   bulletIndex: number;
-  /** The résumé line before any fix touched it. */
+  /** The résumé line before any fix touched it. Empty for a skills add. */
   original: string;
-  /** The line as it now reads. */
+  /** The line as it now reads; for a skills add, the term that was added. */
   applied: string;
   /** Every requirement whose fix landed here, in the order they were applied. */
   requirements: string[];
@@ -33,6 +43,8 @@ export interface ResumeChange {
 interface AppliedAction {
   label: string;
   appliedText?: string;
+  /** "skills" when the fix was an Add-to-Skills, not a bullet rewrite. */
+  via?: string;
 }
 
 /**
@@ -41,6 +53,10 @@ interface AppliedAction {
  * Deliberately derived rather than stored: a second source of truth for "what
  * changed" would be one more thing that can disagree with the preview, and the
  * preview is what the user downloads.
+ *
+ * Order is the display order: queue fixes in résumé order, then skills adds
+ * (the Skills section sits below the bullets it would otherwise interleave
+ * with), then the user's own edits — the component draws the group boundary.
  */
 export function deriveResumeChanges(
   items: readonly QueueItem[],
@@ -49,10 +65,34 @@ export function deriveResumeChanges(
   bullets: ReadonlyArray<{ originalBullet?: string } | undefined>,
 ): ResumeChange[] {
   const byBullet = new Map<number, ResumeChange>();
+  const skillRows: ResumeChange[] = [];
+  const skillSeen = new Set<string>();
 
   // Requirement -> bullet, for every row that reports as applied.
   for (const item of items) {
     if (item.status !== "applied") continue;
+
+    // An Add-to-Skills receipt is its own kind of change: no bullet moved, so
+    // resolving it against the overrides would either miss (row invisible, the
+    // shipped gap) or worse, claim a bullet that merely mentions the term.
+    const action = actionFor(item.name, actions);
+    if (action?.via === "skills") {
+      const term = (action.appliedText ?? item.name).trim();
+      const seenKey = term.toLowerCase();
+      if (term && !skillSeen.has(seenKey)) {
+        skillSeen.add(seenKey);
+        skillRows.push({
+          key: `skill:${seenKey}`,
+          kind: "skill",
+          bulletIndex: -1,
+          original: "",
+          applied: term,
+          requirements: [item.name],
+        });
+      }
+      continue;
+    }
+
     const idx = findAppliedBulletIndex(item.name, actions, overrides);
     if (idx === null) continue;
     const applied = overrides[idx];
@@ -63,6 +103,8 @@ export function deriveResumeChanges(
       continue;
     }
     byBullet.set(idx, {
+      key: `bullet:${idx}`,
+      kind: "fix",
       bulletIndex: idx,
       original: (bullets[idx]?.originalBullet ?? "").trim(),
       applied: applied.trim(),
@@ -79,10 +121,32 @@ export function deriveResumeChanges(
     if (!Number.isInteger(idx) || byBullet.has(idx) || !applied?.trim()) continue;
     const original = (bullets[idx]?.originalBullet ?? "").trim();
     if (!original || original === applied.trim()) continue;
-    byBullet.set(idx, { bulletIndex: idx, original, applied: applied.trim(), requirements: [] });
+    byBullet.set(idx, {
+      key: `bullet:${idx}`,
+      kind: "edit",
+      bulletIndex: idx,
+      original,
+      applied: applied.trim(),
+      requirements: [],
+    });
   }
 
-  return [...byBullet.values()].sort((a, b) => a.bulletIndex - b.bulletIndex);
+  const bulletRows = [...byBullet.values()].sort((a, b) => a.bulletIndex - b.bulletIndex);
+  return [
+    ...bulletRows.filter((c) => c.kind === "fix"),
+    ...skillRows,
+    ...bulletRows.filter((c) => c.kind === "edit"),
+  ];
+}
+
+/** The most recent applied action recorded for this requirement, if any. */
+function actionFor(
+  name: string,
+  actions: readonly AppliedAction[],
+): AppliedAction | undefined {
+  const needle = name.trim().toLowerCase();
+  if (!needle) return undefined;
+  return [...actions].reverse().find((a) => a.label.trim().toLowerCase() === needle);
 }
 
 /**
@@ -103,6 +167,27 @@ export function addedWords(original: string, applied: string): string[] {
     out.push(raw.replace(/^[^\w(]+|[^\w)%]+$/g, ""));
   }
   return out.filter(Boolean);
+}
+
+/**
+ * The applied text split into tokens, each flagged when it is one of the added
+ * words — so the open row can render the new line once with the additions
+ * highlighted in place, instead of asking the reader to diff two paragraphs by
+ * eye. Same token fold as addedWords, so the chips and the highlights can
+ * never disagree about what counts as new.
+ */
+export function markAddedTokens(
+  original: string,
+  applied: string,
+): Array<{ text: string; added: boolean }> {
+  const before = new Set(tokenize(original));
+  return applied
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((text) => {
+      const key = tokenKey(text);
+      return { text, added: Boolean(key) && !before.has(key) };
+    });
 }
 
 /**

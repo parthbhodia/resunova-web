@@ -41,6 +41,26 @@ export function skillAlreadyListed(structured: StructuredResume, term: string): 
  * cost of a suboptimal group is one visible, editable word. With no skills
  * section at all, one is created, titled plainly.
  */
+/**
+ * Remove `term` from whichever skills group carries it, case-folded — the
+ * inverse of appendSkill, for the change log's undo. A group emptied by the
+ * removal is dropped: appendSkill may have created it for exactly this term,
+ * and a bare "Skills" heading over nothing is a visible artifact of an edit
+ * the user just took back. Returns whether anything was removed so a caller
+ * never re-flattens (or claims an undo) over an unchanged document.
+ */
+export function removeSkill(
+  structured: StructuredResume,
+  term: string,
+): { structured: StructuredResume; removed: boolean } {
+  const t = fold(term);
+  if (!t || !skillAlreadyListed(structured, term)) return { structured, removed: false };
+  const skills = (structured.skills ?? [])
+    .map((g) => ({ ...g, items: (g.items ?? []).filter((item) => fold(item) !== t) }))
+    .filter((g) => (g.items ?? []).length > 0);
+  return { structured: { ...structured, skills }, removed: true };
+}
+
 export function appendSkill(
   structured: StructuredResume,
   term: string,

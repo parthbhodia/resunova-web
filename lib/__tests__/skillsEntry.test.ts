@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendSkill, skillAlreadyListed } from "@/lib/skillsEntry";
+import { appendSkill, removeSkill, skillAlreadyListed } from "@/lib/skillsEntry";
 import type { StructuredResume } from "@/store/resumeAnalyzeStore";
 
 /**
@@ -67,5 +67,50 @@ describe("appendSkill", () => {
     const base = doc([{ category: "Skills", items: ["Go"] }]);
     appendSkill(base, "HTML");
     expect(base.skills[0].items).toEqual(["Go"]);
+  });
+});
+
+
+describe("removeSkill (the change log's undo)", () => {
+  it("removes the term case-folded from whichever group carries it", () => {
+    const base = doc([
+      { category: "Languages", items: ["Python"] },
+      { category: "Tools", items: ["terraform", "Docker"] },
+    ]);
+    const res = removeSkill(base, "Terraform");
+    expect(res.removed).toBe(true);
+    expect(res.structured.skills).toEqual([
+      { category: "Languages", items: ["Python"] },
+      { category: "Tools", items: ["Docker"] },
+    ]);
+  });
+
+  it("drops a group the removal empties", () => {
+    // appendSkill may have created the group for exactly this term; a bare
+    // "Skills" heading over nothing would be a visible artifact of an edit
+    // the user just took back.
+    const base = doc([{ category: "Skills", items: ["Terraform"] }]);
+    const res = removeSkill(base, "terraform");
+    expect(res.removed).toBe(true);
+    expect(res.structured.skills).toEqual([]);
+  });
+
+  it("reports a miss instead of pretending", () => {
+    const base = doc([{ category: "Skills", items: ["Go"] }]);
+    const res = removeSkill(base, "Terraform");
+    expect(res.removed).toBe(false);
+    expect(res.structured).toBe(base);
+  });
+
+  it("round-trips an appendSkill", () => {
+    const base = doc([{ category: "Skills", items: ["Go"] }]);
+    const added = appendSkill(base, "Terraform").structured;
+    expect(removeSkill(added, "Terraform").structured).toEqual(base);
+  });
+
+  it("does not mutate the input document", () => {
+    const base = doc([{ category: "Skills", items: ["Go", "Terraform"] }]);
+    removeSkill(base, "Terraform");
+    expect(base.skills[0].items).toEqual(["Go", "Terraform"]);
   });
 });

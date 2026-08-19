@@ -129,7 +129,7 @@ import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type Tai
 import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 import { structuredToPlainText } from "@/lib/structuredResumeText";
 import { appendEducation } from "@/lib/educationEntry";
-import { appendSkill } from "@/lib/skillsEntry";
+import { appendSkill, removeSkill } from "@/lib/skillsEntry";
 import type { StructuredResumeEducation } from "@/store/resumeAnalyzeStore";
 import { apiFetch } from "@/lib/apiClient";
 
@@ -926,8 +926,10 @@ export default function ResumeBuilder({
       const id = makeStableGapId(item.name, "keyword");
       if (prev.some((a) => a.id === id)) return prev;
       // appliedText = the term itself, so the receipt's "See it" scroll can
-      // find the word where it now lives (the Skills line).
-      return [...prev, { id, label: item.name, type: "keyword", appliedText: item.name }];
+      // find the word where it now lives (the Skills line); via marks it for
+      // the change log, which renders and undoes a skills add differently
+      // from a bullet rewrite.
+      return [...prev, { id, label: item.name, type: "keyword", appliedText: item.name, via: "skills" }];
     });
     setScoreStale(true);
     return true;
@@ -2709,6 +2711,30 @@ export default function ResumeBuilder({
    * queue claiming coverage the document no longer has.
    */
   const undoResumeChange = useCallback((change: ResumeChange) => {
+    // A skills add reverts through the structured doc, not the override map —
+    // there is no bullet to put back, only a term to remove. The receipt
+    // clears either way: even if the user already hand-deleted the term, the
+    // queue row must reopen, or the log claims a change the document lost.
+    if (change.kind === "skill") {
+      let nextProfile: string | null = null;
+      setStructuredUpload((prev) => {
+        if (!prev) return prev;
+        const res = removeSkill(prev.structured, change.applied);
+        if (!res.removed) return prev;
+        nextProfile = structuredToPlainText(res.structured) || prev.profile;
+        return { profile: nextProfile, structured: res.structured };
+      });
+      if (nextProfile !== null) setCandidateProfile(nextProfile);
+      const undoneSkills = new Set(change.requirements.map((r) => r.trim().toLowerCase()));
+      setAddressedGaps((prev) =>
+        new Set([...prev].filter((g) => !undoneSkills.has(g.trim().toLowerCase()))),
+      );
+      setAddressedGapActions((prev) =>
+        prev.filter((a) => !undoneSkills.has(a.label.trim().toLowerCase())),
+      );
+      setScoreStale(true);
+      return;
+    }
     // Rebuilt rather than copy-and-`delete`: the compiler cannot see through a
     // mutation here and bails out of memoizing the whole component.
     setTailorLineOverrides((prev) =>
@@ -2736,8 +2762,8 @@ export default function ResumeBuilder({
     setScoreStale(true);
     // `setScoreStale` is not a bare useState setter here, so the compiler
     // cannot infer it as stable; leaving it out skips optimizing this whole
-    // component.
-  }, [setScoreStale]);
+    // component. The structured-write setters joined for the skills branch.
+  }, [setStructuredUpload, setCandidateProfile, setAddressedGaps, setAddressedGapActions, setScoreStale]);
 
   /** Apply exactly one picked (possibly user-edited) suggestion from the queue. */
   const applyFixSuggestion = useCallback(async (
@@ -4757,6 +4783,7 @@ export default function ResumeBuilder({
                         ignoredNames={ignoredGapNames}
                         onToggleIgnored={toggleIgnoredGap}
                         onSeeItem={seeAppliedItem}
+                        onSeeBullet={(idx) => setTailorSelection({ kind: "bullet", idx })}
                         stale={scoreStale}
                         onImprove={() => { void improveViaAnalyze(); }}
                         improveBusy={improveBusy}
