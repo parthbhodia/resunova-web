@@ -40,7 +40,7 @@ const CLEAN_SURFACES = [
  * Biggest remaining: LandingPage, ResumeBuilder, the tailor blog post,
  * competitorComparison, and the new resume-examples pages.
  */
-const BASELINE = 347;
+const BASELINE = 345;
 
 function walk(dir: string, out: string[] = []): string[] {
   let entries: string[];
@@ -60,7 +60,16 @@ function walk(dir: string, out: string[] = []): string[] {
 
 /** Remove block, JSX and line comments so only user-visible text is counted. */
 function stripComments(src: string): string {
+  // Normalise line endings FIRST. `.` in a JS regex does not match a carriage
+  // return (it is a line terminator), so on a CRLF checkout the trailing-line
+  // comment strip below cannot reach end-of-string and a trailing `//` comment
+  // survives, and its em dashes get counted. That is exactly what the docblock
+  // at the top of this file says must not happen, and it made the assertion
+  // platform-dependent: 345 in CI, 359 on a Windows clone of the SAME commit.
+  // A test that only fails on one platform teaches developers to ignore a red
+  // suite, which is how a real failure hides.
   const withoutBlocks = src
+    .replace(/\r\n/g, "\n")
     .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, " ")
     .replace(/\/\*[\s\S]*?\*\//g, " ");
   return withoutBlocks
@@ -84,6 +93,20 @@ function countIn(file: string): number {
 const FILES = ROOTS.flatMap((r) => walk(r));
 
 describe("UI copy style", () => {
+  it("counts the same on CRLF and LF checkouts", () => {
+    // The bug this pins: `.` never matches a carriage return, so on Windows a
+    // TRAILING `//` comment survived stripping and its em dash was counted.
+    // Verbatim from lib/clientCache.ts, the line that first exposed it.
+    const line = "      if (!hit.stale) return; // fresh enough — no network at all";
+    const lf = line + String.fromCharCode(10);
+    const crlf = line + String.fromCharCode(13) + String.fromCharCode(10);
+    const count = (src: string) =>
+      (stripComments(src).match(PROSE_DASH) ?? []).length;
+
+    expect(count(lf)).toBe(0);          // a comment dash is invisible to users
+    expect(count(crlf)).toBe(count(lf)); // and must stay invisible on Windows
+  });
+
   it("finds source files to check", () => {
     expect(FILES.length).toBeGreaterThan(100);
   });
