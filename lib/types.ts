@@ -39,6 +39,11 @@ export interface AddressedGapAction {
   label: string;
   type: "qualification" | "responsibility" | "keyword";
   appliedText?: string;
+  /** "skills" when the fix was an Add-to-Skills, not a bullet rewrite — the
+   *  change log renders and undoes those differently. The api's
+   *  parse_addressed_gaps picks known keys, so the extra field is inert on
+   *  the wire. */
+  via?: "skills";
 }
 
 export interface JobTitleRating {

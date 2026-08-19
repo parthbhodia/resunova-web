@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addedWords, deriveResumeChanges } from "@/lib/tailorChangeLog";
+import { addedWords, deriveResumeChanges, markAddedTokens } from "@/lib/tailorChangeLog";
 import type { QueueItem } from "@/lib/tailorWorkQueue";
 
 const item = (name: string, status: QueueItem["status"] = "applied"): QueueItem => ({
@@ -105,6 +105,98 @@ describe("an edit with no queue row is still an edit", () => {
       BULLETS,
     );
     expect(changes.map((c) => c.bulletIndex)).toEqual([0, 1]);
+  });
+});
+
+describe("a Skills-section add is a change too", () => {
+  // The shipped derive resolved every applied row against the bullet
+  // overrides, so an Add-to-Skills — which moves no bullet — never appeared,
+  // while the panel's header promised "every edit in the file you download".
+  const SKILLS_ACTION = {
+    label: "Terraform",
+    appliedText: "Terraform",
+    via: "skills" as const,
+  };
+
+  it("derives a skill row from a via-marked action", () => {
+    const changes = deriveResumeChanges([item("Terraform")], [SKILLS_ACTION], {}, BULLETS);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({
+      kind: "skill",
+      applied: "Terraform",
+      requirements: ["Terraform"],
+      bulletIndex: -1,
+    });
+  });
+
+  it("never also claims a bullet for it", () => {
+    // A bullet elsewhere may mention the term; a skills add must not be
+    // credited to that bullet, or its undo would rewrite a line the add
+    // never touched.
+    const changes = deriveResumeChanges(
+      [item("Python")],
+      [{ label: "Python", appliedText: "Python", via: "skills" as const }],
+      { 0: "Built and deployed backend services in Python." },
+      BULLETS,
+    );
+    expect(changes.filter((c) => c.kind === "skill")).toHaveLength(1);
+    expect(changes.some((c) => c.kind === "fix")).toBe(false);
+  });
+
+  it("leaves an unmarked legacy action invisible, exactly as before", () => {
+    // Restored sessions predate the `via` marker; their skills adds degrade to
+    // the old behaviour (absent) rather than being guessed at from shape.
+    const changes = deriveResumeChanges(
+      [item("Terraform")],
+      [{ label: "Terraform", appliedText: "Terraform" }],
+      {},
+      BULLETS,
+    );
+    expect(changes).toEqual([]);
+  });
+
+  it("dedupes two applied rows that added the same term", () => {
+    const changes = deriveResumeChanges(
+      [item("Terraform"), { ...item("Terraform"), id: "qualification:terraform" }],
+      [SKILLS_ACTION],
+      {},
+      BULLETS,
+    );
+    expect(changes).toHaveLength(1);
+  });
+
+  it("orders fixes, then skills adds, then the user's own edits", () => {
+    const changes = deriveResumeChanges(
+      [item("Kubernetes"), item("Terraform")],
+      [
+        { label: "Kubernetes", appliedText: "Built and deployed backend services in Python on Kubernetes." },
+        SKILLS_ACTION,
+      ],
+      {
+        0: "Built and deployed backend services in Python on Kubernetes.",
+        1: "Led the billing migration end to end.",
+      },
+      BULLETS,
+    );
+    expect(changes.map((c) => c.kind)).toEqual(["fix", "skill", "edit"]);
+  });
+});
+
+describe("markAddedTokens", () => {
+  it("marks exactly the words addedWords names", () => {
+    // The chips and the in-place highlights fold tokens the same way, so the
+    // two renderings of "what is new" can never disagree.
+    const original = "Built services in Python.";
+    const applied = "Built services in Python and Go.";
+    const marked = markAddedTokens(original, applied)
+      .filter((t) => t.added)
+      .map((t) => t.text.replace(/[^\w)%]+$/g, ""));
+    expect(marked).toEqual(addedWords(original, applied));
+  });
+
+  it("keeps every token of the applied text, in order", () => {
+    const tokens = markAddedTokens("A b.", "A b c.").map((t) => t.text);
+    expect(tokens).toEqual(["A", "b", "c."]);
   });
 });
 

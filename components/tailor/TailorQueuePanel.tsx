@@ -156,6 +156,7 @@ export function TailorQueuePanel({
   ignoredNames,
   onToggleIgnored,
   onSeeItem,
+  onSeeBullet,
   lineOverrides,
   bulletAnalysis,
   onUndoChange,
@@ -199,6 +200,11 @@ export function TailorQueuePanel({
   onToggleIgnored: (item: QueueItem, ignored: boolean) => void;
   /** "See it" on an applied row: frame the preview bullet the fix landed on. */
   onSeeItem?: (item: QueueItem) => void;
+  /** Scroll the preview straight to a bullet index — the change log knows the
+   *  exact bullet it edited, so routing back through a requirement-named queue
+   *  row is a lossy round trip (and a dead click on a hand-edit row, which
+   *  names no requirement at all). */
+  onSeeBullet?: (idx: number) => void;
   /** The applied-fix map the preview renders from. The change log is derived
    *  from THIS rather than kept as its own list, so the receipt and the
    *  document cannot drift apart. */
@@ -559,7 +565,9 @@ export function TailorQueuePanel({
       <TailorChangeLog
         changes={changes}
         onUndo={(c) => onUndoChange?.(c)}
-        onSee={onSeeItem ? (c) => {
+        onSee={onSeeBullet ? (c) => {
+          if (c.bulletIndex >= 0) onSeeBullet(c.bulletIndex);
+        } : onSeeItem ? (c) => {
           const first = c.requirements[0];
           const row = items.find((it) => it.name === first);
           if (row) onSeeItem(row);
