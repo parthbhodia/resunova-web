@@ -1,0 +1,212 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Tailor v9 — change log redesign: the change leads, the sentence follows</title>
+<style>
+  :root {
+    --bg: #f7f9fc; --surface: #ffffff; --border: rgba(15,23,42,0.14);
+    --text: #0f172a; --muted: #475569; --accent: #0969da; --accent-ink: #0559c7;
+    --amber-bg: rgba(180,83,9,0.12); --amber-ink: #92400e;
+    --green-bg: rgba(5,150,105,0.12); --green-ink: #047857;
+    --red-bg: rgba(220,38,38,0.12); --red-ink: #991b1b;
+    --surface-2: rgba(127,127,127,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 13.5px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; padding: 28px; }
+  .frame { max-width: 1240px; margin: 0 auto; }
+  h1 { font-size: 17px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 18px; max-width: 96ch; }
+  .cols { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+  .panelcap { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0 0 7px 2px; }
+  .note { font-size: 11.5px; color: var(--muted); margin: 8px 2px 0; max-width: 62ch; line-height: 1.45; }
+  .note b { color: var(--text); }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .card-head { padding: 13px 16px 11px; border-bottom: 1px solid var(--border); }
+  .card-head .h { font-size: 14.5px; font-weight: 800; }
+  .card-head .p { margin-top: 3px; font-size: 12px; color: var(--muted); }
+
+  /* ── TODAY (compressed recreation) ─────────────────────────── */
+  .old { opacity: 0.92; }
+  .old li { border-top: 1px solid var(--border); padding: 10px 14px; list-style: none; }
+  .old .line { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .old .cap { margin-top: 3px; font-size: 11px; color: var(--muted); }
+  .old .btns { display: flex; gap: 6px; margin-top: 6px; }
+  .old .qb { border: 1px solid var(--border); background: transparent; border-radius: 8px; padding: 3px 9px; font-size: 11px; color: var(--text); }
+
+  /* ── PROPOSED ──────────────────────────────────────────────── */
+  ul.chg { list-style: none; margin: 0; padding: 0; }
+  .group-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 10px 16px 4px; }
+  li.crow { border-top: 1px solid var(--border); padding: 10px 16px; cursor: pointer; }
+  li.crow.hovered { background: var(--surface-2); }
+  .rowline { display: flex; align-items: center; gap: 9px; }
+  .tick { width: 17px; height: 17px; border-radius: 50%; background: var(--green-bg); color: var(--green-ink); font-size: 10.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .tick.edit { background: var(--surface-2); color: var(--muted); }
+  .tick.skill { background: var(--green-bg); color: var(--green-ink); }
+  .rname { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rname .amp { color: var(--muted); font-weight: 600; }
+  .addchips { display: flex; gap: 5px; flex-wrap: nowrap; overflow: hidden; }
+  .aw { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--green-bg); color: var(--green-ink); white-space: nowrap; font-weight: 600; }
+  .aw.more { background: none; border: 1px dashed var(--border); color: var(--muted); font-weight: 600; }
+  .chev { margin-left: auto; color: var(--muted); font-size: 11px; flex-shrink: 0; }
+  .snippet { margin: 4px 0 0 26px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .snippet em { font-style: normal; }
+
+  /* expanded row */
+  li.crow.open { background: var(--surface-2); cursor: default; }
+  .xbody { margin: 9px 0 2px 26px; }
+  .xlabel { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .now { font-size: 12.5px; line-height: 1.55; }
+  .now mark { background: var(--green-bg); color: var(--green-ink); font-weight: 700; border-radius: 3px; padding: 0 2px; }
+  .before { font-size: 12px; line-height: 1.5; color: var(--muted); text-decoration: line-through; margin-top: 7px; }
+  .xactions { display: flex; gap: 12px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .seeit { font-size: 11.5px; font-weight: 600; color: var(--accent-ink); }
+  .qb { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 3px 9px; font-size: 11px; color: var(--text); }
+  .undo-consequence { font-size: 11px; color: var(--text); }
+  .qb.danger { color: var(--red-ink); font-weight: 600; }
+
+  .legend { display: flex; gap: 14px; margin: 14px 2px 0; flex-wrap: wrap; }
+  .legend .it { font-size: 11.5px; color: var(--muted); max-width: 30ch; line-height: 1.45; }
+  .legend .it b { color: var(--text); display: block; font-size: 11.5px; }
+</style>
+
+<div class="frame">
+  <h1>The change log: the change leads, the sentence follows</h1>
+  <p class="sub">
+    Today every row leads with the rewritten bullet — nine truncated sentences that all start alike, with the actual
+    information ("Covers Docker") demoted to a caption, and 18 equal-weight buttons at rest. The redesign flips the
+    hierarchy: a row's identity is <b>what the change did</b> (the requirement it covers + the words it added, visible
+    without a click); the sentence it landed in becomes the caption. One affordance per row — the row itself opens.
+  </p>
+
+  <div class="cols">
+    <!-- ─── TODAY ─── -->
+    <div>
+      <p class="panelcap">Today</p>
+      <div class="card old">
+        <div class="card-head">
+          <div class="h">9 changes to your résumé</div>
+          <div class="p">Every edit that will be in the file you download. Undo any of them.</div>
+        </div>
+        <ul style="margin:0;padding:0">
+          <li>
+            <div class="line">Architected and optimized PostgreSQL schemas for a serverless Python backend, containeri…</div>
+            <div class="cap">Covers Docker</div>
+            <div class="btns"><span class="qb">What changed</span><span class="qb">See it</span></div>
+          </li>
+          <li>
+            <div class="line">Architected and optimized PostgreSQL schemas powering RESTful API design for 40+ enterp…</div>
+            <div class="cap">Covers RESTful API design</div>
+            <div class="btns"><span class="qb">What changed</span><span class="qb">See it</span></div>
+          </li>
+          <li>
+            <div class="line">Automated CI/CD pipelines with GitHub Actions, cutting release lead time for a fullstac…</div>
+            <div class="cap">Covers CI/CD</div>
+            <div class="btns"><span class="qb">What changed</span><span class="qb">See it</span></div>
+          </li>
+          <li>
+            <div class="line">Led migration of legacy services to AWS Lambda, reducing infrastructure spend 31% acros…</div>
+            <div class="cap">Edited directly</div>
+            <div class="btns"><span class="qb">What changed</span><span class="qb">See it</span></div>
+          </li>
+        </ul>
+      </div>
+      <p class="note">
+        Two rows open with the same words ("Architected and optimized PostgreSQL schemas…") and are different changes —
+        leading with the sentence makes distinct edits look like duplicates. And a Skills-section add
+        <b>doesn't appear here at all</b> today, while the header promises "every edit in the file you download".
+      </p>
+    </div>
+
+    <!-- ─── PROPOSED ─── -->
+    <div>
+      <p class="panelcap">Proposed</p>
+      <div class="card">
+        <div class="card-head">
+          <div class="h">9 changes to your résumé</div>
+          <div class="p">Each one is in the file you download. Open a row to compare or undo it.</div>
+        </div>
+
+        <ul class="chg">
+          <!-- collapsed receipt rows -->
+          <li class="crow">
+            <div class="rowline">
+              <span class="tick">✓</span>
+              <span class="rname">Docker</span>
+              <span class="addchips"><span class="aw">containerized</span></span>
+              <span class="chev">▾</span>
+            </div>
+            <div class="snippet">in "Architected and optimized PostgreSQL schemas for a serverless Python backend…"</div>
+          </li>
+
+          <!-- expanded row -->
+          <li class="crow open">
+            <div class="rowline">
+              <span class="tick">✓</span>
+              <span class="rname">RESTful API design</span>
+              <span class="addchips"><span class="aw">RESTful</span><span class="aw">API</span></span>
+              <span class="chev">▴</span>
+            </div>
+            <div class="xbody">
+              <div class="xlabel">Now reads</div>
+              <div class="now">Architected and optimized PostgreSQL schemas powering <mark>RESTful</mark> <mark>API</mark> <mark>design</mark> for 40+ enterprise clients, sustaining sub-100ms query times.</div>
+              <div class="before">Architected and optimized PostgreSQL schemas for 40+ enterprise clients, sustaining sub-100ms query times.</div>
+              <div class="xactions">
+                <span class="seeit">See it in your résumé →</span>
+                <span class="qb">Undo this change</span>
+              </div>
+            </div>
+          </li>
+
+          <!-- expanded row in undo-confirm state -->
+          <li class="crow open">
+            <div class="rowline">
+              <span class="tick">✓</span>
+              <span class="rname">CI/CD <span class="amp">&amp;</span> GitHub Actions</span>
+              <span class="addchips"><span class="aw">CI/CD</span><span class="aw">pipelines</span><span class="aw more">+2 more</span></span>
+              <span class="chev">▴</span>
+            </div>
+            <div class="xbody">
+              <div class="xlabel">Now reads</div>
+              <div class="now">Automated <mark>CI/CD</mark> <mark>pipelines</mark> with <mark>GitHub</mark> <mark>Actions</mark>, cutting release lead time for a fullstack platform from days to hours.</div>
+              <div class="before">Automated release tooling, cutting release lead time for a fullstack platform from days to hours.</div>
+              <div class="xactions">
+                <span class="undo-consequence">Puts the original line back and reopens both requirements.</span>
+                <span class="qb danger">Undo it</span>
+                <span class="qb">Keep it</span>
+              </div>
+            </div>
+          </li>
+
+          <!-- skills add — the class that is missing today -->
+          <li class="crow">
+            <div class="rowline">
+              <span class="tick skill">✓</span>
+              <span class="rname">Terraform</span>
+              <span class="chev">▾</span>
+            </div>
+            <div class="snippet">added to your Skills section</div>
+          </li>
+
+          <!-- own edits, grouped -->
+          <div class="group-label">Your own edits</div>
+          <li class="crow">
+            <div class="rowline">
+              <span class="tick edit">✎</span>
+              <span class="rname" style="font-weight:600">You rewrote a line</span>
+              <span class="addchips"><span class="aw">31%</span></span>
+              <span class="chev">▾</span>
+            </div>
+            <div class="snippet">in "Led migration of legacy services to AWS Lambda, reducing infrastructure spend…"</div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="legend">
+        <div class="it"><b>The requirement is the title.</b> Two edits to similar bullets stop looking like duplicates — their names differ even when their sentences don't.</div>
+        <div class="it"><b>Added words at rest.</b> The green chips answer "what did this actually add?" with zero clicks; a chip that just repeats the title is dropped; the full before/after is one click away.</div>
+        <div class="it"><b>One affordance per row.</b> The row is the toggle. See-it and Undo live inside the open row; Undo keeps its two-step confirm with the named consequence.</div>
+        <div class="it"><b>Nothing missing.</b> Skills-section adds join the log — today they're in the download but absent from this list.</div>
+      </div>
+    </div>
+  </div>
+</div>
