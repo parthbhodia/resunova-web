@@ -668,6 +668,23 @@ describe("only a real check on the résumé may claim absence", () => {
     expect(row?.band).toBe("boost");
   });
 
+  it("leaves CONTEXTUAL rows out of the unbacked machinery entirely", () => {
+    // Field 2026-08-18: five employer-context rows took the band override
+    // into "Worth adding", where the band header counted them — 22 — while
+    // queueCounts.open excludes contextual by design — 17. Two adjacent
+    // numbers, five apart, on one screen. Contextual is its own honesty
+    // class: its band, its explainer, no verdict chip, no bulk-pass — and no
+    // NO_SCORE_MOVE_NOTE stacked onto CONTEXTUAL_DETAIL.
+    const merged = mergeQueues(
+      [],
+      [{ id: "contextual:cicd", name: "CI/CD", kind: "contextual",
+         status: "queued", detail: "About the employer's stack." }],
+    );
+    expect(merged[0].verdict).toBeUndefined();
+    expect(merged[0].band).toBeUndefined();
+    expect(merged[0].detail).toBe("About the employer's stack.");
+  });
+
   it("gives an applied unbacked row no verdict chip at all", () => {
     // A ✓ applied state and a verdict chip arguing with each other is the
     // same one-card contradiction this class already shipped once.

@@ -272,7 +272,7 @@ describe("a row says what we are claiming about it", () => {
     await vi.advanceTimersByTimeAsync(600);
     await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
     const row = screen.getByText("dimensional modeling").closest("li");
-    for (const v of ["Partial match", "Not evidenced", "Keyword · fits an existing bullet"]) {
+    for (const v of ["Partial match", "Not evidenced", "Fits an existing bullet"]) {
       expect(row!.textContent).not.toContain(v);
     }
   });

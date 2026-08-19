@@ -124,6 +124,18 @@ describe("the evidence pass through the real panel", () => {
     expect(screen.getByText(/9 of 24/)).toBeInTheDocument();
   });
 
+  it("the keyword verdict no longer restates the nature chip's taxonomy", async () => {
+    // "Tool" chip + "Keyword · fits an existing bullet" pill was two competing
+    // classifications of one row (field 2026-08-18). The chip owns what the
+    // requirement IS; the pill keeps only the claim.
+    vi.mocked(apiFetch).mockResolvedValue(coverageOk() as never);
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getAllByText("Fits an existing bullet").length).toBeGreaterThan(0);
+    });
+    expect(document.body.textContent).not.toContain("Keyword ·");
+  });
+
   it("draws NO strip without a live recount", async () => {
     vi.mocked(apiFetch).mockRejectedValue(new Error("down"));
     renderPanel();

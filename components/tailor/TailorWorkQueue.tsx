@@ -169,7 +169,10 @@ const VERDICT_LABEL: Record<QueueVerdict, string> = {
   // engineers and owned the platform roadmap" is technical leadership. Saying
   // "Not evidenced" there tells a qualified candidate they are not.
   not_found: "Scanner didn't find it",
-  keyword: "Keyword · fits an existing bullet",
+  // "Keyword · fits an existing bullet" until the nature chips landed: a row
+  // then read "Tool" and "Keyword" side by side — two taxonomies of one item.
+  // The chip owns what the requirement IS; this pill keeps only the claim.
+  keyword: "Fits an existing bullet",
   covered: "You have this",
   // The mirror of "Partial match": the words are in the résumé (the scanner
   // counts them), the substance behind them is thin. It shipped as

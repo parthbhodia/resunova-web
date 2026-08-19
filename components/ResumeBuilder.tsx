@@ -746,6 +746,24 @@ export default function ResumeBuilder({
   }, []);
 
   const builderMainScrollRef = useRef<HTMLElement | null>(null);
+  /** The sticky results header + the results workspace, so the pinned preview
+   *  can sit exactly below the header instead of under a hardcoded offset —
+   *  the header's height moves with viewport width and save-state chips. */
+  const resultsHeaderRef = useRef<HTMLElement | null>(null);
+  const resultsWorkspaceRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const header = resultsHeaderRef.current;
+    const workspace = resultsWorkspaceRef.current;
+    if (!header || !workspace) return;
+    const set = () =>
+      workspace.style.setProperty("--rb-results-header-h", `${header.offsetHeight}px`);
+    set();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(set);
+    ro.observe(header);
+    return () => ro.disconnect();
+    // The refs only attach once the results view mounts.
+  }, [result, queueUi]);
   const scrollBuilderToTop = useCallback((behavior: ScrollBehavior = "auto") => {
     builderMainScrollRef.current?.scrollTo({ top: 0, behavior });
     if (typeof document !== "undefined") {
@@ -4385,6 +4403,7 @@ export default function ResumeBuilder({
 
               {/* ── Results top bar — sticky, full width ── */}
               <header
+                ref={resultsHeaderRef}
                 className="rb-results-header"
                 style={{
                   position: "sticky",
@@ -4567,6 +4586,27 @@ export default function ResumeBuilder({
                 .tb-split-preview-slot .az-resume-paper {
                   width: min(8.5in, 100%);
                 }
+                /* /tailor-2 desktop: the résumé stays pinned with its own
+                   scroll while the queue column scrolls with the page
+                   (field-asked: "the resume should stay stable there ...
+                   it should have its own scroll"). The internal-scroll grid
+                   above only binds when an ancestor bounds its height, which
+                   the shell does not guarantee — so this is the sticky-rail
+                   pattern instead, and the two clippers that would break
+                   position:sticky are opened up in queue mode only. */
+                @media (min-width: 1181px) {
+                  .rb-results-body--queue { overflow: visible; }
+                  .rb-tailor-workspace--queue { overflow: visible; grid-template-rows: none; }
+                  .rb-tailor-workspace--queue .tb-split-work-slot { overflow: visible; }
+                  .rb-tailor-workspace--queue .tb-split-preview-slot {
+                    position: sticky;
+                    top: var(--rb-results-header-h, 72px);
+                    align-self: start;
+                    height: calc(100dvh - var(--rb-results-header-h, 72px));
+                    overflow-y: auto;
+                    overscroll-behavior: contain;
+                  }
+                }
                 @media (max-width: 1180px) {
                   .rb-tailor-workspace {
                     grid-template-columns: 1fr;
@@ -4582,7 +4622,7 @@ export default function ResumeBuilder({
                   .tb-split-preview-slot { min-height: 62vh; max-height: 76vh; }
                 }
               `}</style>
-              <div className="rb-results-body">
+              <div className={`rb-results-body${queueUi ? " rb-results-body--queue" : ""}`}>
               {/* ── Gap-fix apply spinner — shown while a single fix is being applied to the preview ── */}
 
               {/* ── Apply feedback banner — shown above phase3 for visibility (only while busy) ── */}
@@ -4664,7 +4704,7 @@ export default function ResumeBuilder({
                 </div>
               )}
 
-              <section className={`rb-tailor-workspace${queueUi ? " rb-tailor-workspace--queue" : ""}`} aria-labelledby="rb-results-heading" style={{ position: "relative" }}>
+              <section ref={resultsWorkspaceRef} className={`rb-tailor-workspace${queueUi ? " rb-tailor-workspace--queue" : ""}`} aria-labelledby="rb-results-heading" style={{ position: "relative" }}>
               {/* During a queue-UI Fix-everything pass the queue rows are the
                   progress surface — flashing the full overlay once per wave
                   would bury exactly the progression the waves exist to show. */}
