@@ -1,5 +1,6 @@
 "use client";
 
+import { JOBS_ENABLED } from "@/lib/featureFlags";
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -406,13 +407,15 @@ export function AppSidebar({
                 showLabels={showLabels}
                 locked={isLocked("cover-letter")}
               />
-              <NavItem
-                view="jobs"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "jobs"}
-                onClick={gated("jobs")}
-                showLabels={showLabels}
-                locked={isLocked("jobs")}
-              />
+              {JOBS_ENABLED && (
+                <NavItem
+                  view="jobs"
+                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "jobs"}
+                  onClick={gated("jobs")}
+                  showLabels={showLabels}
+                  locked={isLocked("jobs")}
+                />
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

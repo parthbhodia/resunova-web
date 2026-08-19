@@ -37,7 +37,11 @@ export const ANON_ANALYSIS_STASH_KEY = "rn_anon_analysis_v1";
  * loaded fine when you pasted the URL but hit a sign-in wall when you clicked
  * the nav item for it.
  */
-export const PUBLIC_APP_VIEWS: ReadonlySet<string> = new Set(["analyze", "builder", "jobs"]);
+import { JOBS_ENABLED } from "@/lib/featureFlags";
+
+export const PUBLIC_APP_VIEWS: ReadonlySet<string> = new Set(
+  JOBS_ENABLED ? ["analyze", "builder", "jobs"] : ["analyze", "builder"],
+);
 
 /** True when a signed-out visitor is allowed to open this in-app view. */
 export function isPublicAppView(view: string): boolean {
