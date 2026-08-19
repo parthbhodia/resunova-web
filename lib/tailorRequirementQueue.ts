@@ -697,7 +697,17 @@ export function mergeQueues(
        * Applied rows keep their applied state and no verdict chip — a ✓ and a
        * chip arguing with each other is the same contradiction again.
        */
-      verdict: it.status === "queued" ? "unbacked" : undefined,
+      /**
+       * CONTEXTUAL rows are exempt from all three unbacked fields below.
+       * Field 2026-08-18: five employer-context rows ("CI/CD",
+       * "containerization", …) took the band override into "Worth adding",
+       * where the band header counted them — 22 — while queueCounts.open
+       * excludes contextual rows by design — 17. Two adjacent numbers, five
+       * apart, on one screen. Contextual is an honesty class with its own
+       * band, its own explainer and no bulk-pass; a verdict chip and a band
+       * move would re-file it as work.
+       */
+      verdict: it.status === "queued" && it.kind !== "contextual" ? "unbacked" : undefined,
       /**
        * The band, overridden — for OPEN rows only. `kind` says qualification,
        * and qualification bands as "Could get you filtered out" — but no screen
@@ -713,8 +723,10 @@ export function mergeQueues(
        * the override move the ✓ to a different band at that moment is the
        * "where did it go?" disappearance again, one band over.
        */
-      band: it.status === "queued" ? "boost" : undefined,
-      detail: sentenceJoin(it.detail ?? "", NO_SCORE_MOVE_NOTE),
+      band: it.status === "queued" && it.kind !== "contextual" ? "boost" : undefined,
+      detail: it.kind === "contextual"
+        ? it.detail
+        : sentenceJoin(it.detail ?? "", NO_SCORE_MOVE_NOTE),
     }));
   return [...scorerItems, ...extra];
 }
