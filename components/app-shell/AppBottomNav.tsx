@@ -167,6 +167,11 @@ export function AppBottomNav({
           <div className="grid grid-cols-2 gap-2 px-4">
             <Tile icon={NAV_ICONS["cover-letter"]} label="Cover letter" onClick={() => gotoGated("cover-letter")} />
             <Tile
+              icon={NAV_ICONS.templates}
+              label="Templates"
+              onClick={() => { setMoreOpen(false); router.push("/templates/"); }}
+            />
+            <Tile
               icon={NAV_ICONS.interviewPrep}
               label="Interview prep"
               onClick={() => { setMoreOpen(false); router.push("/interview-prep"); }}

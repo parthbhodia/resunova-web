@@ -167,3 +167,17 @@ describe("the greeting", () => {
     await waitFor(() => expect(screen.getByText(/Pick up where you left off/)).toBeInTheDocument());
   });
 });
+
+describe("the template shelf", () => {
+  it("renders on Home, pointing at the templates users could not find", async () => {
+    // Founder-directed after repeated reports that the resume templates were
+    // unfindable: Home carries an explicit section leading to them. The strip
+    // itself is covered in templateGalleryPage.test.tsx; this pins the seam —
+    // that HomeDashboard actually mounts it.
+    setup([]);
+    await waitFor(() =>
+      expect(screen.getByTestId("home-template-strip")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Start from a template")).toBeInTheDocument();
+  });
+});

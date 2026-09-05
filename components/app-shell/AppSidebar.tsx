@@ -67,6 +67,7 @@ function NavIconChip({ isActive, children }: { isActive: boolean; children: Reac
 export type AppSidebarProps = {
   active: AppView;
   onTemplateBuilderPage: boolean;
+  onTemplatesPage: boolean;
   onInterviewPrepPage: boolean;
   onCareerProfilePage?: boolean;
   builderActive: boolean;
@@ -194,6 +195,7 @@ function HeroNavItem({
 export function AppSidebar({
   active,
   onTemplateBuilderPage,
+  onTemplatesPage,
   onInterviewPrepPage,
   onCareerProfilePage = false,
   builderActive,
@@ -293,14 +295,14 @@ export function AppSidebar({
             <SidebarMenu className="gap-0.5 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
               <HeroNavItem
                 view="home"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "home"}
+                isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "home"}
                 onClick={gated("home")}
                 showLabels={showLabels}
                 locked={anonMode}
               />
               <HeroNavItem
                 view="analyze"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "analyze"}
+                isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "analyze"}
                 onClick={() => onSwitchView("analyze")}
                 showLabels={showLabels}
               />
@@ -385,6 +387,27 @@ export function AppSidebar({
                 </Collapsible>
                 ) : null}
               </SidebarMenuItem>
+              {/* Templates is top-level on purpose: it lived only inside the
+                  drawer above, two clicks deep and invisible at rest, and
+                  users reported they could not find the templates at all.
+                  Public like the builder itself, so no sign-in gate. */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={onTemplatesPage}
+                  tooltip="Templates"
+                  aria-label="Templates"
+                  className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
+                  onClick={() => {
+                    router.push("/templates/");
+                    onHistoryOpenChange(false);
+                  }}
+                >
+                  <span className="app-nav-icon" aria-hidden>
+                    {NAV_ICONS.templates}
+                  </span>
+                  {showLabels ? <span className="app-nav-label">Templates</span> : null}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -395,14 +418,14 @@ export function AppSidebar({
             <SidebarMenu className="group-data-[collapsible=icon]:items-center">
               <NavItem
                 view="library"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "library"}
+                isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "library"}
                 onClick={gated("library")}
                 showLabels={showLabels}
                 locked={isLocked("library")}
               />
               <NavItem
                 view="cover-letter"
-                isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "cover-letter"}
+                isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "cover-letter"}
                 onClick={gated("cover-letter")}
                 showLabels={showLabels}
                 locked={isLocked("cover-letter")}
@@ -410,7 +433,7 @@ export function AppSidebar({
               {JOBS_ENABLED && (
                 <NavItem
                   view="jobs"
-                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "jobs"}
+                  isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "jobs"}
                   onClick={gated("jobs")}
                   showLabels={showLabels}
                   locked={isLocked("jobs")}
@@ -440,7 +463,7 @@ export function AppSidebar({
               {advisorAllowed ? (
                 <NavItem
                   view="advisor"
-                  isActive={!onTemplateBuilderPage && !onInterviewPrepPage && !onCareerProfilePage && active === "advisor"}
+                  isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "advisor"}
                   onClick={() => onSwitchView("advisor")}
                   showLabels={showLabels}
                 />

@@ -24,6 +24,7 @@ import {
 } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import HomeTemplateStrip from "@/components/HomeTemplateStrip";
 import { useUpgradeDialog } from "@/components/UpgradeDialog";
 import { readCache, writeCache } from "@/lib/clientCache";
 import { apiFetch, type ScanLimitStatus } from "@/lib/apiClient";
@@ -551,6 +552,10 @@ export default function HomeDashboard() {
               />
             </div>
           </section>
+
+          {/* Start from a template — founder-directed: users could not find
+              the templates, so Home points at them explicitly. */}
+          <HomeTemplateStrip />
 
           {/* Recent résumés */}
           <section>

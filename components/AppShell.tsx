@@ -102,6 +102,8 @@ function AppShellBody({ children }: { children: ReactNode }) {
   const active = useAppView();
   const onTemplateBuilderPage =
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
+  const onTemplatesPage =
+    (pathname ?? "").replace(/\/$/, "") === "/templates";
   const onTailor2Page =
     (pathname ?? "").replace(/\/$/, "") === "/tailor-2";
   const onInterviewPrepPage =
@@ -316,6 +318,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
               <AppSidebar
                 active={active}
                 onTemplateBuilderPage={onTemplateBuilderPage}
+                onTemplatesPage={onTemplatesPage}
                 onInterviewPrepPage={onInterviewPrepPage}
                 onCareerProfilePage={onCareerProfilePage}
                 builderActive={builderActive}
