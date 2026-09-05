@@ -1,0 +1,175 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Nav rail v1: the funnel down the left edge, templates surfaced</title>
+<style>
+  :root {
+    --bg: #f7f9fc; --surface: #ffffff; --border: rgba(15,23,42,0.14);
+    --text: #0f172a; --muted: #475569; --accent: #0969da; --accent-ink: #0559c7;
+    --green-bg: rgba(5,150,105,0.12); --green-ink: #047857;
+    --amber-bg: rgba(180,83,9,0.12); --amber-ink: #92400e;
+    --red-ink: #991b1b;
+    --surface-2: rgba(127,127,127,0.08);
+    --d-bg: #0d1117; --d-surface: #161b22; --d-border: rgba(240,246,252,0.14);
+    --d-text: #e6edf3; --d-muted: #8b949e; --d-accent: #4493f8;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 13.5px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; padding: 28px; }
+  .frame { max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 17px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 20px; max-width: 100ch; }
+  .cols { display: flex; gap: 26px; align-items: flex-start; }
+  .panelcap { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px 2px; }
+  .note { font-size: 11.5px; color: var(--muted); margin: 10px 2px 0; max-width: 30ch; line-height: 1.5; }
+  .note b { color: var(--text); }
+  .callout { color: var(--red-ink); font-weight: 700; }
+
+  /* ── TODAY: the expanded sidebar, compressed ── */
+  .old { width: 236px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 10px; font-size: 12.5px; }
+  .old .grp { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 12px 6px 4px; }
+  .old .it { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 8px; color: var(--text); }
+  .old .it svg { width: 16px; height: 16px; stroke: var(--muted); }
+  .old .it.on { background: var(--surface-2); font-weight: 600; }
+  .old .sub-it { margin-left: 26px; padding: 5px 10px; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .old .buried { outline: 2px dashed var(--red-ink); outline-offset: 2px; border-radius: 6px; }
+  .old .chev { margin-left: auto; color: var(--muted); font-size: 10px; }
+  .old .foot { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 8px; }
+
+  /* ── PROPOSED RAIL ── */
+  .rail { width: 78px; border-radius: 16px; padding: 12px 8px 10px; display: flex; flex-direction: column; align-items: center; min-height: 640px; }
+  .rail.light { background: var(--surface); border: 1px solid var(--border); }
+  .rail.dark { background: var(--d-surface); border: 1px solid var(--d-border); }
+  .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 800; font-size: 19px; display: grid; place-items: center; margin-bottom: 14px; }
+  .rail.dark .logo { background: var(--d-accent); color: #0d1117; }
+
+  .ritem { width: 62px; padding: 8px 2px 7px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 3px; margin-bottom: 2px; cursor: pointer; }
+  .ritem svg { width: 20px; height: 20px; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .ritem .lb { font-size: 11px; font-weight: 600; letter-spacing: 0.01em; }
+  .rail.light .ritem { color: var(--muted); } .rail.light .ritem svg { stroke: var(--muted); }
+  .rail.dark .ritem { color: var(--d-muted); } .rail.dark .ritem svg { stroke: var(--d-muted); }
+  .rail.light .ritem:hover { background: var(--surface-2); }
+
+  .rail.light .ritem.on { background: var(--text); color: var(--bg); box-shadow: 0 2px 8px rgba(15,23,42,0.22); }
+  .rail.light .ritem.on svg { stroke: var(--bg); }
+  .rail.dark .ritem.on { background: var(--d-text); color: var(--d-bg); box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+  .rail.dark .ritem.on svg { stroke: var(--d-bg); }
+
+  .rsep { width: 34px; border-top: 1px solid var(--border); margin: 9px 0; }
+  .rail.dark .rsep { border-color: var(--d-border); }
+  .rspacer { flex: 1; }
+
+  .quota { font-size: 10.5px; font-variant-numeric: tabular-nums; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--amber-bg); color: var(--amber-ink); margin-bottom: 8px; }
+  .up { width: 62px; padding: 7px 2px 6px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--green-bg); color: var(--green-ink); font-weight: 700; }
+  .up svg { width: 18px; height: 18px; stroke: var(--green-ink); fill: none; stroke-width: 1.8; stroke-linejoin: round; }
+  .up .lb { font-size: 10.5px; }
+  .rail.dark .up { background: rgba(63,185,80,0.16); color: #3fb950; } .rail.dark .up svg { stroke: #3fb950; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; background: #475569; color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; margin-top: 10px; }
+
+  /* anatomy column */
+  .anat { max-width: 300px; }
+  .anat .row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 13px; }
+  .anat .row .demo { flex-shrink: 0; }
+  .anat .row p { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 1px; }
+  .anat .row p b { color: var(--text); }
+  .mini { width: 62px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 4px; display: flex; flex-direction: column; align-items: center; }
+</style>
+
+<div class="frame">
+  <h1>The nav becomes a rail: the funnel down the left edge, and Templates stops hiding</h1>
+  <p class="sub">
+    Structure borrowed from the reference, then designed for us: the order is the product's own funnel (score it,
+    tailor it, pick a template, keep your résumés, apply), every control has a visible label at rest, the upgrade
+    is a labeled action instead of an anonymous crown, and the scan quota rides the rail so a metered user always
+    knows where they stand. Two clicks become one everywhere, and the item users can't find today is promoted.
+  </p>
+
+  <div class="cols">
+    <!-- TODAY -->
+    <div>
+      <p class="panelcap">Today</p>
+      <div class="old">
+        <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-7h-6v7H5a2 2 0 01-2-2z"/></svg>Home</div>
+        <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 21a9 9 0 110-18 9 9 0 010 18z"/><path d="M12 12l4-4"/></svg>Analyze</div>
+        <div class="it on"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 19l7-7-4-4-7 7-1 5z"/></svg>Resume Builder<span class="chev">▾</span></div>
+        <div class="sub-it">Tailor to a job</div>
+        <div class="sub-it buried">Template Builder</div>
+        <div class="grp">Library</div>
+        <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M6 3h9l4 4v14H6z"/></svg>My Resumes</div>
+        <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="M4 7l8 6 8-6"/></svg>Cover letter</div>
+        <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 8h16v11H4z"/><path d="M9 8V5h6v3"/></svg>Jobs</div>
+        <div class="grp">Coaching</div>
+        <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 15a3 3 0 003-3V7a3 3 0 10-6 0v5a3 3 0 003 3z"/><path d="M6 11a6 6 0 0012 0M12 17v4"/></svg>Interview Prep</div>
+        <div class="foot">
+          <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 8v5l3 2M12 21a9 9 0 110-18 9 9 0 010 18z"/></svg>History</div>
+          <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Theme · Account · Scans pill</div>
+        </div>
+      </div>
+      <p class="note"><span class="callout">The findability bug:</span> Template Builder only exists <b>inside a closed drawer</b> — you must know to open "Resume Builder" first. Templates never appear at the top level, and the drawer state resets.</p>
+    </div>
+
+    <!-- PROPOSED LIGHT -->
+    <div>
+      <p class="panelcap">Proposed · light</p>
+      <div class="rail light">
+        <div class="logo">R</div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-7h-6v7H5a2 2 0 01-2-2z"/></svg><span class="lb">Home</span></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 110-18 9 9 0 010 18z"/><path d="M12 12l4-4"/></svg><span class="lb">Analyze</span></div>
+        <div class="ritem on"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg><span class="lb">Tailor</span></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="10" rx="1.5"/><rect x="13" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="15" width="8" height="6" rx="1.5"/></svg><span class="lb">Templates</span></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h6"/></svg><span class="lb">Resumes</span></div>
+        <div class="rsep"></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M4 8h16v11H4z"/><path d="M9 8V5h6v3"/></svg><span class="lb">Jobs</span></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 003-3V7a3 3 0 10-6 0v5a3 3 0 003 3z"/><path d="M6 11a6 6 0 0012 0M12 17v4"/></svg><span class="lb">Prep</span></div>
+        <div class="rspacer"></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 01-8.5 8.5c-1.2 0-2.4-.25-3.4-.7L4 21l1.7-5.1a8.5 8.5 0 1115.3-4.4z"/></svg><span class="lb">Feedback</span></div>
+        <div class="rsep"></div>
+        <div class="quota">2 scans left</div>
+        <div class="up"><svg viewBox="0 0 24 24"><path d="M3 8l4 4 5-6 5 6 4-4v9H3z"/></svg><span class="lb">Upgrade</span></div>
+        <div class="avatar">P</div>
+      </div>
+    </div>
+
+    <!-- PROPOSED DARK -->
+    <div>
+      <p class="panelcap">Proposed · dark</p>
+      <div class="rail dark">
+        <div class="logo">R</div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-7h-6v7H5a2 2 0 01-2-2z"/></svg><span class="lb">Home</span></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 110-18 9 9 0 010 18z"/><path d="M12 12l4-4"/></svg><span class="lb">Analyze</span></div>
+        <div class="ritem on"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg><span class="lb">Tailor</span></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="10" rx="1.5"/><rect x="13" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="15" width="8" height="6" rx="1.5"/></svg><span class="lb">Templates</span></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h6"/></svg><span class="lb">Resumes</span></div>
+        <div class="rsep"></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M4 8h16v11H4z"/><path d="M9 8V5h6v3"/></svg><span class="lb">Jobs</span></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 003-3V7a3 3 0 10-6 0v5a3 3 0 003 3z"/><path d="M6 11a6 6 0 0012 0M12 17v4"/></svg><span class="lb">Prep</span></div>
+        <div class="rspacer"></div>
+        <div class="ritem"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 01-8.5 8.5c-1.2 0-2.4-.25-3.4-.7L4 21l1.7-5.1a8.5 8.5 0 1115.3-4.4z"/></svg><span class="lb">Feedback</span></div>
+        <div class="rsep"></div>
+        <div class="up"><svg viewBox="0 0 24 24"><path d="M3 8l4 4 5-6 5 6 4-4v9H3z"/></svg><span class="lb">Upgrade</span></div>
+        <div class="avatar">P</div>
+      </div>
+      <p class="note">Unlimited and admin accounts show <b>no quota pill</b> (the standing rule: your account never sees the badge). An outage keeps the error chip with Retry; guests see no count.</p>
+    </div>
+
+    <!-- ANATOMY -->
+    <div class="anat">
+      <p class="panelcap">What was designed, not copied</p>
+      <div class="row">
+        <div class="demo mini"><div class="ritem on" style="margin:0"><svg viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg><span class="lb" style="font-size:10.5px">Tailor</span></div></div>
+        <p><b>Active is a filled pill, label inside.</b> Ink on the theme's text color, both themes; the label never disappears, so no tooltip hunting and every item keeps an accessible name.</p>
+      </div>
+      <div class="row">
+        <div class="demo mini" style="border-style:dashed"><div class="ritem" style="margin:0"><svg viewBox="0 0 24 24" style="width:18px;height:18px"><rect x="3" y="3" width="8" height="10" rx="1.5"/><rect x="13" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="15" width="8" height="6" rx="1.5"/></svg><span class="lb" style="font-size:10.5px">Templates</span></div></div>
+        <p><b>Templates is promoted to the rail</b> and opens the template gallery directly, one click from anywhere. The Resume Builder drawer dies; Tailor and Templates are both top-level.</p>
+      </div>
+      <div class="row">
+        <div class="demo"><div class="quota" style="margin:0">2 scans left</div></div>
+        <p><b>The quota lives above Upgrade</b>, so the count and the fix for it sit together. Metered accounts only, counting down at rest rather than appearing at zero.</p>
+      </div>
+      <div class="row">
+        <div class="demo"><div class="up" style="width:58px"><svg viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M3 8l4 4 5-6 5 6 4-4v9H3z"/></svg><span class="lb">Upgrade</span></div></div>
+        <p><b>The upgrade says what it is.</b> The reference's bare crown has no label and no accessible name; ours is a labeled action.</p>
+      </div>
+      <p class="note" style="max-width:38ch">Grouping is the funnel: <b>work on the document</b> (Analyze, Tailor, Templates, Resumes) · <b>use it</b> (Jobs, Prep) · <b>meta</b> (Feedback, plan, account). Cover letter, History, theme, Contact and the Advisor view (when allowed) move into the account menu and the surfaces that own them; nothing is deleted. Mobile keeps the bottom tab bar.</p>
+    </div>
+  </div>
+</div>
