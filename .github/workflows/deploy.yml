@@ -69,6 +69,11 @@ jobs:
 
       - name: Build
         env:
+          # The static export is opt-in since the Vercel migration (see
+          # next.config.ts). Without this the build emits a server app and
+          # there is no out/ directory to upload, so Pages would deploy
+          # nothing. This whole workflow retires once DNS points at Vercel.
+          STATIC_EXPORT: "1"
           NEXT_PUBLIC_BASE_PATH: ""
           NEXT_PUBLIC_SITE_URL: https://www.resunova.io
           NEXT_PUBLIC_ASSET_PREFIX: https://www.resunova.io
