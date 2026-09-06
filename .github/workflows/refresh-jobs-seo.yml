@@ -1,0 +1,65 @@
+name: Refresh public jobs snapshot
+
+# The ~1,000 public /jobs/* pages are generated from lib/jobsSeoData.generated.json.
+# Nothing refreshed that file on a schedule: it only changed when a human pushed
+# code, so its contents dated from whenever the last unrelated commit happened to
+# land. This is the cadence — it re-fetches the snapshot daily and commits it when
+# it changed, which lands on main and triggers the normal Pages deploy.
+#
+# Committing (rather than only regenerating inside the deploy build) is the point:
+# it puts every appearance and disappearance of a job page in git history, so a
+# thousand indexed URLs cannot silently rotate out with nobody able to see when or
+# why. The build script refuses to publish a catastrophically smaller set on its
+# own (scripts/jobsSnapshotPolicy.mjs), so a stalled upstream leaves the committed
+# pages in place and says so in the log instead of retiring them.
+#
+# Runs an hour after resunova-api's jobs-discovery.yml (08:30 UTC), so it reads a
+# corpus that was refreshed the same morning.
+
+on:
+  schedule:
+    - cron: "30 9 * * *" # 09:30 UTC daily
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Publish even if the set shrinks past the guard (deliberate reset)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-jobs-seo
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch the snapshot
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.RAILWAY_API_URL }}
+          SEO_JOBS_FORCE: ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '1' || '' }}
+        run: node scripts/build-jobs-seo-data.mjs
+
+      - name: Commit it if it changed
+        run: |
+          if git diff --quiet -- lib/jobsSeoData.generated.json; then
+            echo "Snapshot unchanged — nothing to commit."
+            exit 0
+          fi
+          count=$(node -e "console.log(require('./lib/jobsSeoData.generated.json').jobs.length)")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/jobsSeoData.generated.json
+          git commit -m "Refresh public jobs snapshot (${count} jobs)"
+          git push
