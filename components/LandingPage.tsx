@@ -18,6 +18,7 @@ import {
 import LandingFAQ from "@/components/LandingFAQ";
 import LandingTopCompanies from "@/components/LandingTopCompanies";
 import { FloatingFeatureNav, Reveal, TealScrollStyles } from "@/components/landing/TealScroll";
+import { RESUME_STYLE_PRESETS, type TBStylePreset } from "@/lib/resumeLayout";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 // Cool slate palette — professional SaaS, not warm editorial
@@ -171,12 +172,26 @@ const RESEARCH_PILLARS = [
   },
 ];
 
-// ── Résumé / CV templates (landing showcase) ────────────────────────────────
-type TemplateDef = { name: string; type: "Résumé" | "CV"; accent: string; darkAccent: string; href: string; thumb: React.ReactNode };
+// ── Résumé templates (landing showcase) ─────────────────────────────────────
+//
+// A card names the PRESET it opens; its heading, its role fit and its href are
+// all read back off RESUME_STYLE_PRESETS. Two hand-maintained copies of one
+// template list is how this gallery once advertised a CV layout that does not
+// exist and hid the only serif, and both failures looked exactly like a
+// product with different templates.
+//
+// The badge carries the ROLE the look suits (founder: "instead of classic
+// templates give them option for software roles, etc") rather than the old
+// "Résumé" chip, which said nothing — every card on a résumé gallery is one.
+// ⚠️ It is a fit, not a structure: the presets differ in typography and layout
+// only, which is why the section copy says any template works for any role.
+type TemplateDef = { preset: TBStylePreset; accent: string; darkAccent: string; thumb: React.ReactNode };
+
+const PRESET_BY_ID = new Map(RESUME_STYLE_PRESETS.map((p) => [p.id, p]));
 
 const RESUME_TEMPLATES: TemplateDef[] = [
   {
-    name: "Elise", type: "Résumé", accent: "#0f5561", darkAccent: "#2dd4bf", href: "/template-builder/?preset=creative-teal",
+    preset: "creative-teal", accent: "#0f5561", darkAccent: "#2dd4bf",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -222,7 +237,7 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     ),
   },
   {
-    name: "Harper", type: "Résumé", accent: "#1e3a5f", darkAccent: "#93b3d8", href: "/template-builder/?preset=creative-banner",
+    preset: "creative-banner", accent: "#1e3a5f", darkAccent: "#93b3d8",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -262,7 +277,7 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     ),
   },
   {
-    name: "Executive", type: "Résumé", accent: "#2563eb", darkAccent: "#60a5fa", href: "/template-builder/?preset=executive",
+    preset: "executive", accent: "#2563eb", darkAccent: "#60a5fa",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -299,7 +314,7 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     // template is Helvetica, so Classic is the only genuinely different
     // typeface a visitor can pick. It shipped in the builder without a card
     // here, which undercounted the set by one.
-    name: "Classic", type: "Résumé", accent: "#1a1a1a", darkAccent: "#d4d4d8", href: "/template-builder/?preset=classic",
+    preset: "classic", accent: "#1a1a1a", darkAccent: "#d4d4d8",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -331,7 +346,7 @@ const RESUME_TEMPLATES: TemplateDef[] = [
     ),
   },
   {
-    name: "Modern", type: "Résumé", accent: "#0d9488", darkAccent: "#2dd4bf", href: "/template-builder/?preset=modern",
+    preset: "modern", accent: "#0d9488", darkAccent: "#2dd4bf",
     thumb: (
       <svg viewBox="0 0 200 264" style={{ display: "block", width: "100%", height: "auto" }} aria-hidden="true">
         <rect width="200" height="264" rx="6" fill="#ffffff" />
@@ -364,14 +379,20 @@ const RESUME_TEMPLATES: TemplateDef[] = [
 ];
 
 function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string>; dark: boolean }) {
-  // Card chrome (type badge, "Use this", hover ring) needs a theme-legible accent.
+  // Card chrome (role badge, "Use this", hover ring) needs a theme-legible accent.
   // The print ink colors (navy / bronze) are too dark to read on the dark card surface.
   const a = dark ? t.darkAccent : t.accent;
+  const preset = PRESET_BY_ID.get(t.preset);
+  // A card pointing at a preset that no longer ships should read as obviously
+  // broken, never as a fifth template with a plausible-looking name. The
+  // gallery test is what stops it reaching here.
+  const name = preset?.label ?? t.preset;
+  const bestFor = preset?.bestFor ?? "";
   return (
     <Link
-      href={t.href}
+      href={`/template-builder/?preset=${t.preset}`}
       prefetch={false}
-      aria-label={`Build with the ${t.name} ${t.type} template`}
+      aria-label={`Build with the ${name} template, best for ${bestFor || "any role"}`}
       style={{
         display: "block", textDecoration: "none",
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
@@ -382,13 +403,15 @@ function TemplateCard({ t, C, dark }: { t: TemplateDef; C: Record<string, string
     >
       <div style={{ position: "relative", padding: "20px 20px 0", background: dark ? "rgba(255,255,255,0.03)" : "#eef2f7" }}>
         {/* Solid backing — the badge can overlap dark thumb areas (Elise sidebar, Harper banner). */}
-        <span style={{ position: "absolute", top: 14, right: 14, zIndex: 1, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: a, background: dark ? "rgba(15,23,42,0.92)" : "rgba(255,255,255,0.95)", border: `1px solid ${a}55`, padding: "3px 8px", borderRadius: 6 }}>{t.type}</span>
+        {bestFor && (
+          <span data-template-role style={{ position: "absolute", top: 14, right: 14, zIndex: 1, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", color: a, background: dark ? "rgba(15,23,42,0.92)" : "rgba(255,255,255,0.95)", border: `1px solid ${a}55`, padding: "3px 8px", borderRadius: 6 }}>{bestFor}</span>
+        )}
         <div style={{ filter: "drop-shadow(0 8px 18px rgba(15,23,42,0.16))" }}>
           {t.thumb}
         </div>
       </div>
       <div style={{ padding: "14px 16px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: C.ink, letterSpacing: -0.2 }}>{t.name}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: C.ink, letterSpacing: -0.2 }}>{name}</span>
         <span style={{ fontSize: 13, fontWeight: 600, color: a }}>Use this →</span>
       </div>
     </Link>
@@ -1321,13 +1344,13 @@ export default function LandingPage() {
               Clean enough for recruiters. Plain enough for the ATS.
             </h2>
             <p style={{ fontSize: "var(--font-size-lg)", color: "#6b4e1c", lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
-              Pick a technical or creative layout, tailor it to the job description, and export an ATS-safe PDF. No design skills required.
+              Start from the look that fits your field, tailor it to the job description, and export an ATS-safe PDF. Any template works for any role, so nothing here locks you in.
             </p>
           </div>
           <Reveal>
             <div className="lp-templates-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 22 }}>
               {RESUME_TEMPLATES.map((t) => (
-                <TemplateCard key={t.name} t={t} C={C} dark={dark} />
+                <TemplateCard key={t.preset} t={t} C={C} dark={dark} />
               ))}
             </div>
           </Reveal>

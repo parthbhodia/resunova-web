@@ -28,6 +28,14 @@ export interface ResumeStylePresetOption {
   letterSpacing: number;
   /** Visual category grouping for the Style panel. */
   category?: "technical" | "creative";
+  /**
+   * The kind of role this look suits, and the label every template surface
+   * leads with. It is a FIT, not a structure: presets differ in typography
+   * and layout only, so no template carries role-specific sections and any
+   * of them can hold any resume. Saying "best for" rather than naming a job
+   * title is the difference between guidance and a claim we cannot keep.
+   */
+  bestFor: string;
   /** Forces a specific layout when this preset is active. */
   enforcedLayout?: TBLayout;
 }
@@ -59,7 +67,8 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
   {
     id: "executive",
     label: "Executive",
-    description: "Default polished template with strong hierarchy.",
+    description: "Roomy hierarchy that suits product, program, and leadership resumes.",
+    bestFor: "Product & leadership",
     font: "Helvetica",
     accentColor: "#1e3a5f",
     baseFont: 11,
@@ -79,7 +88,8 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
   {
     id: "modern",
     label: "Modern",
-    description: "Tighter sans-serif layout for dense technical resumes.",
+    description: "Tighter sans-serif that fits dense software and engineering resumes.",
+    bestFor: "Software & engineering",
     font: "Helvetica",
     accentColor: "#0f5561",
     baseFont: 10.5,
@@ -99,7 +109,8 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
   {
     id: "classic",
     label: "Classic",
-    description: "Traditional serif styling for academic or formal roles.",
+    description: "Traditional serif for academic, research, and formal roles.",
+    bestFor: "Academic & research",
     font: "Times-Roman",
     accentColor: "#1a1a1a",
     baseFont: 11,
@@ -119,7 +130,8 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
   {
     id: "creative-teal",
     label: "Elise",
-    description: "Striking dark right sidebar with circular initials and crisp typography.",
+    description: "Dark sidebar and an initials badge, for design and brand roles.",
+    bestFor: "Design & creative",
     font: "Helvetica",
     accentColor: "#0f5561",
     baseFont: 10.5,
@@ -140,7 +152,8 @@ export const RESUME_STYLE_PRESETS: ResumeStylePresetOption[] = [
   {
     id: "creative-banner",
     label: "Harper",
-    description: "Bold top header block with clean two-column main content structure.",
+    description: "Bold header over a two-column body, for data and analytics roles.",
+    bestFor: "Data & analytics",
     font: "Helvetica",
     accentColor: "#1e3a5f",
     baseFont: 10.5,

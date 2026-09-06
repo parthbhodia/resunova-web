@@ -9,6 +9,10 @@
  * applied, and the header links to the full /templates gallery. Derived from
  * the same templateGalleryEntries() the gallery draws, so this shelf and the
  * gallery can never disagree about what exists.
+ *
+ * Cards lead with the role fit for the same reason /templates does: five
+ * proper nouns tell nobody which one is theirs. The name stays on a second
+ * line so someone who picked "Elise" once can find her again.
  */
 
 import { useRouter } from "next/navigation";
@@ -36,12 +40,15 @@ export default function HomeTemplateStrip() {
           <button
             key={t.id}
             type="button"
-            aria-label={`Use the ${t.label} template`}
+            aria-label={`Use the ${t.label} template, best for ${t.bestFor}`}
             onClick={() => router.push(t.builderHref)}
             className="group flex flex-col rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 text-left transition-colors hover:border-[color:var(--accent)]"
           >
             <ResumeThumbnail data={t.data} height={128} zoom={0.18} />
-            <span className="mt-1.5 px-0.5 text-[12px] font-medium text-[var(--text)]">
+            <span className="mt-1.5 px-0.5 text-[12px] font-medium leading-tight text-[var(--text)]">
+              {t.bestFor}
+            </span>
+            <span className="px-0.5 text-[11px] leading-tight text-[var(--muted)]">
               {t.label}
             </span>
           </button>
