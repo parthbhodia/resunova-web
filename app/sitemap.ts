@@ -17,6 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/cover-letter/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/skills-for-resume/`, lastModified: new Date(ROLE_DATA_LAST_UPDATED), changeFrequency: "weekly", priority: 0.8 },
     { url: `${SITE_URL}/template-builder/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE_URL}/templates/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/terms/`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/privacy/`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/contact/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },

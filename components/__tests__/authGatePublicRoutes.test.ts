@@ -18,3 +18,10 @@ describe("AuthGate public job and SEO routes", () => {
     expect(isPublicPath("/my-resumes")).toBe(false);
   });
 });
+
+it("the template gallery is public, like the builder it leads into", () => {
+  // A signup-free funnel entry behind a sign-in wall would be the nav item
+  // navigating to a login page — worse than the buried drawer it replaces.
+  expect(isPublicPath("/templates")).toBe(true);
+  expect(isPublicPath("/templates/")).toBe(true);
+});

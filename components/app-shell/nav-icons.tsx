@@ -2,6 +2,14 @@ import type { ReactNode } from "react";
 
 /** Original Resunova nav glyphs (18×18) — stroke uses currentColor from parent. */
 export const NAV_ICONS = {
+  templates: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2.2" y="2.2" width="5" height="6.4" rx="1" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="8.8" y="2.2" width="5" height="3.6" rx="1" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="8.8" y="7.4" width="5" height="6.4" rx="1" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="2.2" y="10.2" width="5" height="3.6" rx="1" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  ),
   home: (
     <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path

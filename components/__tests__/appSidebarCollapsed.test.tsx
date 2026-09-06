@@ -46,6 +46,7 @@ function renderSidebar(opts: { open: boolean; anonMode?: boolean } & Record<stri
         active="home"
         onSwitchView={onSwitchView}
         onTemplateBuilderPage={false}
+        onTemplatesPage={false}
         onInterviewPrepPage={false}
         builderActive={false}
         builderOpen={false}

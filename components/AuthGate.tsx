@@ -102,6 +102,7 @@ const PUBLIC_ROUTES = new Set<string>([
   "/cover-letter",
   "/skills-for-resume",
   "/template-builder",
+  "/templates",
   "/profile",
   "/reset-password",
 ]);
