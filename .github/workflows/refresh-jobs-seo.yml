@@ -13,6 +13,19 @@ name: Refresh public jobs snapshot
 # own (scripts/jobsSnapshotPolicy.mjs), so a stalled upstream leaves the committed
 # pages in place and says so in the log instead of retiring them.
 #
+# IT OPENS A PULL REQUEST, IT DOES NOT PUSH. The first version of this workflow
+# pushed straight to main and every run died on GH006 ("Changes must be made
+# through a pull request") — main is protected. So the snapshot lands on a fixed
+# branch that is force-pushed each run (the file is a full replacement; branch
+# history of it would be noise) and a single long-lived PR carries whatever the
+# latest fetch produced.
+#
+# ⚠️ A PR opened with GITHUB_TOKEN does not trigger other workflows, by design, so
+# CI does not run on it. If main requires a status check, this PR cannot merge on
+# its own and someone has to close the loop. That is a friction the audit trail
+# costs; the public pages do NOT depend on it, because deploy.yml re-fetches the
+# snapshot at build time and publishes whatever the endpoint returns then.
+#
 # Runs an hour after resunova-api's jobs-discovery.yml (08:30 UTC), so it reads a
 # corpus that was refreshed the same morning.
 
@@ -29,6 +42,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: refresh-jobs-seo
@@ -51,15 +65,39 @@ jobs:
           SEO_JOBS_FORCE: ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '1' || '' }}
         run: node scripts/build-jobs-seo-data.mjs
 
-      - name: Commit it if it changed
+      - name: Open or update the snapshot PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: automation/jobs-snapshot
         run: |
           if git diff --quiet -- lib/jobsSeoData.generated.json; then
-            echo "Snapshot unchanged — nothing to commit."
+            echo "Snapshot unchanged — nothing to propose."
             exit 0
           fi
           count=$(node -e "console.log(require('./lib/jobsSeoData.generated.json').jobs.length)")
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
           git add lib/jobsSeoData.generated.json
           git commit -m "Refresh public jobs snapshot (${count} jobs)"
-          git push
+          # Force: the branch carries one file that is replaced wholesale each run,
+          # so its own history is noise and a fast-forward is not always possible.
+          git push --force origin "$BRANCH"
+          # Ask for OPEN PRs only. `gh pr view <branch>` also resolves a merged or
+          # closed one, so the obvious check would report "already open" forever
+          # after the first merge and the refresh would silently stop proposing.
+          open_prs=$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')
+          if [ "$open_prs" != "0" ]; then
+            echo "PR already open for $BRANCH — the force-push updated it."
+          else
+            gh pr create \
+              --base main --head "$BRANCH" \
+              --title "Refresh public jobs snapshot" \
+              --body "Automated daily refresh of \`lib/jobsSeoData.generated.json\` — the list of URLs that becomes the public /jobs/* pages and their sitemap entries.
+
+          Latest fetch: **${count} jobs**.
+
+          The set is checked by \`scripts/jobsSnapshotPolicy.mjs\` before it is written, so a run that reaches this PR already cleared the floor and the shrink limit. A run that did not clear them leaves the committed snapshot alone and says why in its log.
+
+          This branch is force-pushed on each run, so this PR always shows the most recent fetch rather than accumulating commits."
+          fi
