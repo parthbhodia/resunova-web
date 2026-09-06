@@ -11,6 +11,11 @@
  * Both are the same shape: the gallery is maintained by hand and drifts from
  * the preset list silently, because a missing card looks exactly like a set
  * with one fewer template in it. This is the ratchet.
+ *
+ * The cards now name a preset and read their heading, role badge and href
+ * back off RESUME_STYLE_PRESETS, so the only thing left hand-written per card
+ * is its thumbnail. What a card CLAIMS can no longer drift from what picking
+ * it produces; what remains checkable here is which presets appear at all.
  */
 
 import { describe, expect, it } from "vitest";
@@ -19,13 +24,13 @@ import { RESUME_STYLE_PRESETS } from "@/lib/resumeLayout";
 
 const SRC = readFileSync("components/LandingPage.tsx", "utf8");
 
-/** The gallery block, isolated so a `?preset=` elsewhere on the page can't count. */
+/** The gallery block, isolated so a `preset:` elsewhere on the page can't count. */
 const GALLERY = SRC.slice(
   SRC.indexOf("const RESUME_TEMPLATES"),
   SRC.indexOf("\n];", SRC.indexOf("const RESUME_TEMPLATES")),
 );
 
-const linked = [...GALLERY.matchAll(/\/template-builder\/\?preset=([a-z-]+)/g)].map((m) => m[1]);
+const linked = [...GALLERY.matchAll(/preset:\s*"([a-z-]+)"/g)].map((m) => m[1]);
 
 describe("the landing template gallery", () => {
   it("finds the gallery block", () => {
@@ -49,18 +54,39 @@ describe("the landing template gallery", () => {
     expect(new Set(linked).size).toBe(linked.length);
   });
 
+  /**
+   * The card heading, its role badge and its link used to be three hand-typed
+   * strings sitting beside the preset id. That is the drift surface this file
+   * exists to police, so close it rather than police it: a card carries the
+   * preset and nothing else it could get wrong.
+   */
+  it("reads each card's heading and link off the presets", () => {
+    expect(SRC).toContain("RESUME_STYLE_PRESETS");
+    expect(GALLERY).not.toMatch(/\bname:\s*"/);
+    expect(GALLERY).not.toMatch(/\bhref:\s*"/);
+  });
+
   it("only claims the categories the presets actually have", () => {
     // The copy read "technical, creative, or CV layout". There is no CV
-    // preset, no CV layout, and no CV category — `TBLayout` is
-    // single | twoColumn | rightSidebar | topBannerRightSidebar.
-    const categories = new Set(RESUME_STYLE_PRESETS.map((p) => p.category));
+    // preset, no CV layout and no CV category — `TBLayout` is
+    // single | twoColumn | rightSidebar | topBannerRightSidebar — and no
+    // preset targets federal or academic-CV formatting either.
     const copy = SRC.slice(SRC.indexOf('id="templates"'), SRC.indexOf('id="templates"') + 2500);
-    const promised = copy.match(/Pick a[^.]+layout/)?.[0] ?? "";
+    const promised = copy.match(/Start from[^.]+\./)?.[0] ?? "";
     expect(promised).toBeTruthy();
-    for (const word of ["CV", "academic", "federal"]) {
-      if (!categories.has(word.toLowerCase() as never)) {
-        expect(promised).not.toContain(word);
-      }
+    for (const word of ["CV", "federal", "curriculum vitae"]) {
+      expect(promised.toLowerCase()).not.toContain(word.toLowerCase());
     }
+  });
+
+  /**
+   * ⚠️ The badge names a role fit, which is only honest while the surface also
+   * says the fit is not a restriction: the presets differ in typography and
+   * layout, so nothing here stops a nurse picking Modern. Drop that sentence
+   * and five labels start reading as five different products.
+   */
+  it("says a role fit does not lock anyone out", () => {
+    const copy = SRC.slice(SRC.indexOf('id="templates"'), SRC.indexOf('id="templates"') + 2500);
+    expect(copy).toMatch(/any template works for any role/i);
   });
 });
