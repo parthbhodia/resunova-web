@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "npm ci",
+  "buildCommand": "npx tsc --noEmit && NODE_ENV=test npm test && npm run build:seo-data && npm run build"
+}
