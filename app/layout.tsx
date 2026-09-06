@@ -20,6 +20,23 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const CANONICAL_SITE_URL = SITE_URL.replace(/\/$/, "");
 
 /** Runs before React hydrates so OAuth hash tokens survive github.io → custom domain. */
+/**
+ * pdf.js v5 (via react-pdf) assumes a 2024-era browser and calls URL.parse,
+ * URL.canParse and Promise.withResolvers directly. On Chrome below 126 the
+ * first of those is undefined, so merely OPENING My Résumés — which mounts a
+ * PDF thumbnail for any résumé that has one — threw "URL.parse is not a
+ * function" and took the whole view down to the crash page. Reported from the
+ * field 2026-09-06: the library was dead on desktop and fine on the same
+ * account on mobile, which is the version split, not the data.
+ *
+ * These run before any app chunk, next to the crypto.randomUUID polyfill that
+ * exists for the same reason. Each shim is spec-faithful: URL.parse returns
+ * null rather than throwing (that is the whole point of it over `new URL`),
+ * and canParse answers a boolean. Feature-detected, so a current browser keeps
+ * its own native implementations.
+ */
+const MODERN_API_POLYFILL_SCRIPT = `(function(){try{if(typeof URL!=="undefined"){if(typeof URL.parse!=="function"){URL.parse=function(u,b){try{return b===undefined?new URL(u):new URL(u,b)}catch(e){return null}}}if(typeof URL.canParse!=="function"){URL.canParse=function(u,b){try{b===undefined?new URL(u):new URL(u,b);return true}catch(e){return false}}}}if(typeof Promise!=="undefined"&&typeof Promise.withResolvers!=="function"){Promise.withResolvers=function(){var res,rej;var p=new Promise(function(a,b){res=a;rej=b});return{promise:p,resolve:res,reject:rej}}}}catch(e){}})();`;
+
 const OAUTH_HOST_REDIRECT_SCRIPT = `(function(){try{var site=${JSON.stringify(CANONICAL_SITE_URL)};var base=${JSON.stringify(BASE_PATH)};var h=location.hostname;if(h==="localhost"||h==="127.0.0.1")return;if(h.indexOf(".github.io")===-1)return;var c=new URL(site).hostname;if(h===c)return;var path=location.pathname+location.search+location.hash;if(base&&path.indexOf(base)===0)path=path.slice(base.length)||"/";var target=site+path;if(target!==location.href)location.replace(target);}catch(e){}})();`;
 
 export const metadata: Metadata = {
@@ -140,6 +157,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable, inter.variable, dmSans.variable)}>
       <head>
+        {/* Modern-API shims for pdf.js's browser baseline — must precede every app chunk. */}
+        <script dangerouslySetInnerHTML={{ __html: MODERN_API_POLYFILL_SCRIPT }} />
         {/* Inline theme-init: read localStorage before first paint → no FOUC. Default = light. */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('rn-theme')||'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();` }} />
         {/* OAuth may land on *.github.io; jump to custom domain before React hydrates (keep hash tokens). */}
