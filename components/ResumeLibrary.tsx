@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { apiUrl } from "@/lib/utils";
 import LibraryResumeDetailPanel from "./LibraryResumeDetailPanel";
+import { RenderErrorBoundary } from "./RenderErrorBoundary";
 
 // PDF thumbnail is client-only (react-pdf/pdfjs) — never server-rendered.
 const PdfCardThumbnail = dynamic(() => import("@/components/PdfCardThumbnail"), { ssr: false });
@@ -1137,7 +1138,12 @@ function ResumeCard({
       aria-label={`${item.title}, ${item.subtitle}. Open ${item.kind === "analyzed" ? "analysis" : item.kind === "builder" ? "builder draft" : "resume"}.`}
     >
       <div className="library-card-preview">
-        {thumbUrl ? <PdfCardThumbnail url={thumbUrl} /> : null}
+        {thumbUrl ? (
+          // Contained: a thumbnail must never cost the user their library.
+          <RenderErrorBoundary>
+            <PdfCardThumbnail url={thumbUrl} />
+          </RenderErrorBoundary>
+        ) : null}
         {item.kind === "builder" ? (
           <div
             style={{
