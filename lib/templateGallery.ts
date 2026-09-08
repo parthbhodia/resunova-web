@@ -18,6 +18,15 @@ export interface TemplateGalleryEntry {
   id: string;
   label: string;
   description: string;
+  /**
+   * The role fit every surface leads with, straight off the preset. Founder
+   * ask: the gallery should offer "software roles, etc" rather than five
+   * abstract style names, and the thumbnails were already role-flavoured
+   * while the labels were not. It stays a FIT, never a promise of
+   * role-specific sections, because the presets differ only in type and
+   * layout.
+   */
+  bestFor: string;
   /** Opens the builder with THIS preset applied, via the proven ?preset= path. */
   builderHref: string;
   /** The demo résumé restyled by the preset, for a real rendered thumbnail. */
@@ -48,6 +57,7 @@ export function templateGalleryEntries(): TemplateGalleryEntry[] {
     id: preset.id,
     label: preset.label,
     description: preset.description,
+    bestFor: preset.bestFor,
     builderHref: `/template-builder/?preset=${preset.id}`,
     data: presetPreviewData(preset),
   }));
