@@ -1,0 +1,210 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Template Builder — templates first on a cold open</title>
+<style>
+  :root {
+    --bg: #f7f9fc; --surface: #ffffff; --border: rgba(15,23,42,0.14);
+    --text: #0f172a; --muted: #475569; --dim: #64748b;
+    --accent: #0969da; --accent-ink: #0559c7; --accent-bg: rgba(9,105,218,0.10);
+    --on-fill: #ffffff;
+    --surface-2: rgba(127,127,127,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 13px/1.5 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif; padding: 28px; }
+  .frame { max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 18px; margin-bottom: 5px; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 20px; max-width: 100ch; }
+  .cols { display: grid; grid-template-columns: 400px 1fr; gap: 22px; align-items: start; }
+  .panelcap { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 0 0 7px 2px; }
+  .note { font-size: 11.5px; color: var(--muted); margin: 10px 2px 0; max-width: 70ch; line-height: 1.5; }
+  .note b { color: var(--text); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+
+  /* ── TODAY ─────────────────────────────────────────────── */
+  .today { opacity: .95; }
+  .tb-bar { display:flex; align-items:center; gap:8px; padding:10px 13px; border-bottom:1px solid var(--border); }
+  .tb-mode { font-size:11px; padding:4px 10px; border-radius:7px; border:1px solid var(--border); color:var(--muted); }
+  .tb-mode.on { background:var(--accent); color:var(--on-fill); border-color:transparent; font-weight:600; }
+  .tb-body { display:grid; grid-template-columns: 1fr 150px; gap:12px; padding:13px; }
+  .fld { height:26px; border:1px solid var(--border); border-radius:7px; margin-bottom:7px; background:var(--surface); }
+  .fld.sm { width:60%; }
+  .paper-mini { background:#fff; border:1px solid var(--border); border-radius:4px; padding:9px; }
+  .pl { height:4px; background:var(--surface-2); border-radius:2px; margin-bottom:4px; }
+  .pl.t { height:7px; width:55%; background:rgba(15,23,42,.3); margin-bottom:6px; }
+  .pl.s { width:78%; }
+
+  /* ── PROPOSED ──────────────────────────────────────────── */
+  .pick-head { padding:20px 22px 16px; border-bottom:1px solid var(--border); }
+  .pick-head h2 { font-size:20px; font-weight:800; letter-spacing:-.01em; }
+  .pick-head p { margin-top:6px; font-size:13px; color:var(--muted); max-width:62ch; }
+  .grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; padding:18px 22px 8px; }
+  .t-card { border:1px solid var(--border); border-radius:11px; overflow:hidden; background:var(--surface); cursor:pointer; display:flex; flex-direction:column; }
+  .t-card.hov { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-bg); }
+  .thumb { height:132px; background:#fff; border-bottom:1px solid var(--border); padding:9px; overflow:hidden; position:relative; }
+  .t-meta { padding:9px 10px 11px; }
+  .t-role { font-size:13px; font-weight:700; line-height:1.25; }
+  .t-name { margin-top:2px; font-size:11.5px; color:var(--muted); }
+  .foot { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 22px 18px; }
+  .skip { background:none; border:none; font-size:12.5px; color:var(--accent-ink); text-decoration:underline; cursor:pointer; padding:0; }
+  .caveat { font-size:11.5px; color:var(--muted); }
+
+  /* mini paper renderings, per preset */
+  .mp { font-size:4.5px; line-height:1.5; color:#111; }
+  .mp .nm { font-weight:800; font-size:8px; letter-spacing:.02em; }
+  .mp .ct { color:#666; font-size:4px; margin-top:1px; }
+  .mp .sec { font-weight:700; font-size:5px; text-transform:uppercase; letter-spacing:.08em; margin-top:6px; padding-bottom:1.5px; }
+  .mp .ln { height:2.5px; background:rgba(15,23,42,.16); border-radius:1px; margin-top:2.5px; }
+  .mp .ln.s { width:72%; } .mp .ln.m { width:88%; }
+  .helv { font-family:Helvetica,Arial,sans-serif; }
+  .times { font-family:"Times New Roman",Times,serif; }
+  .two { display:grid; grid-template-columns:1fr 34%; gap:5px; height:100%; }
+  .side { border-radius:2px; padding:5px 4px; }
+  .side .sl { height:2.5px; background:rgba(255,255,255,.55); border-radius:1px; margin-top:3px; }
+  .side .sh { font-size:4px; font-weight:700; color:#fff; text-transform:uppercase; letter-spacing:.06em; }
+  .badge-circ { width:16px; height:16px; border-radius:50%; background:rgba(255,255,255,.25); margin:0 auto 4px; }
+  .banner { border-radius:2px; padding:5px 6px; margin:-9px -9px 6px; }
+  .banner .nm { color:#fff; font-size:7px; font-weight:800; }
+  .banner .ct { color:rgba(255,255,255,.8); }
+</style>
+
+<div class="frame">
+  <h1>Template Builder — show the templates first on a cold open</h1>
+  <p class="sub">
+    Founder: <i>“template builder should show templates first when users sign in.”</i>
+    Today a bare <code>/template-builder/</code> drops you straight into an editor holding a demo résumé, with the
+    template picker buried as cards inside the Style panel — so the one surface that requires no sign-up opens on
+    someone else’s document rather than on the choice you came to make.
+  </p>
+
+  <div class="cols">
+    <!-- ── TODAY ───────────────────────────────────────── -->
+    <div>
+      <p class="panelcap">Today · nav click → /template-builder/</p>
+      <div class="card today">
+        <div class="tb-bar">
+          <span class="tb-mode on">Content</span>
+          <span class="tb-mode">Design</span>
+          <span class="tb-mode">Review</span>
+        </div>
+        <div class="tb-body">
+          <div>
+            <div class="fld"></div><div class="fld sm"></div>
+            <div class="fld"></div><div class="fld"></div><div class="fld sm"></div>
+          </div>
+          <div class="paper-mini">
+            <div class="pl t"></div><div class="pl s"></div>
+            <div class="pl"></div><div class="pl"></div><div class="pl s"></div>
+            <div class="pl"></div><div class="pl m"></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">
+        You land inside <b>a demo résumé you didn’t write</b>, styled in whichever preset happens to be first.
+        Choosing a template means finding the Design tab and scrolling a two-column list of style names — which is
+        exactly the “templates are unfindable” report that <b>/templates</b> was built to answer, still true one
+        click further in.
+      </p>
+    </div>
+
+    <!-- ── PROPOSED ────────────────────────────────────── -->
+    <div>
+      <p class="panelcap">Proposed · same URL, nothing to resume</p>
+      <div class="card">
+        <div class="pick-head">
+          <h2>Pick a look to start</h2>
+          <p>Every one exports an ATS-safe PDF, free and without an account. You can switch template at any point without losing what you’ve written.</p>
+        </div>
+
+        <div class="grid">
+          <!-- Modern -->
+          <div class="t-card hov">
+            <div class="thumb"><div class="mp helv">
+              <div class="nm">Alex Chen</div><div class="ct">alex@mail.com · San Jose, CA</div>
+              <div class="sec" style="border-bottom:1.2px solid #0f5561;color:#0f5561">Experience</div>
+              <div class="ln m"></div><div class="ln"></div><div class="ln s"></div>
+              <div class="sec" style="border-bottom:1.2px solid #0f5561;color:#0f5561">Skills</div>
+              <div class="ln m"></div><div class="ln s"></div>
+            </div></div>
+            <div class="t-meta"><div class="t-role">Software &amp; engineering</div><div class="t-name">Modern</div></div>
+          </div>
+          <!-- Executive -->
+          <div class="t-card">
+            <div class="thumb"><div class="mp helv">
+              <div class="nm">Alex Chen</div><div class="ct">alex@mail.com · Seattle, WA</div>
+              <div class="sec" style="border-bottom:1.2px solid #1e3a5f;color:#1e3a5f">Experience</div>
+              <div class="ln m"></div><div class="ln"></div>
+              <div class="sec" style="border-bottom:1.2px solid #1e3a5f;color:#1e3a5f">Education</div>
+              <div class="ln s"></div>
+            </div></div>
+            <div class="t-meta"><div class="t-role">Product &amp; leadership</div><div class="t-name">Executive</div></div>
+          </div>
+          <!-- Classic -->
+          <div class="t-card">
+            <div class="thumb"><div class="mp times">
+              <div class="nm" style="text-align:center">Alex Chen</div>
+              <div class="ct" style="text-align:center">alex@mail.com · Boston, MA</div>
+              <div class="sec" style="border-bottom:1.2px solid #1a1a1a">Education</div>
+              <div class="ln m"></div><div class="ln"></div>
+              <div class="sec" style="border-bottom:1.2px solid #1a1a1a">Publications</div>
+              <div class="ln s"></div>
+            </div></div>
+            <div class="t-meta"><div class="t-role">Academic &amp; research</div><div class="t-name">Classic</div></div>
+          </div>
+          <!-- Elise -->
+          <div class="t-card">
+            <div class="thumb"><div class="mp helv two">
+              <div>
+                <div class="nm">Alex Chen</div>
+                <div class="sec" style="color:#0f5561">Experience</div>
+                <div class="ln m"></div><div class="ln"></div><div class="ln s"></div>
+              </div>
+              <div class="side" style="background:#0f5561">
+                <div class="badge-circ"></div>
+                <div class="sh">Skills</div>
+                <div class="sl"></div><div class="sl" style="width:70%"></div><div class="sl" style="width:85%"></div>
+              </div>
+            </div></div>
+            <div class="t-meta"><div class="t-role">Design &amp; creative</div><div class="t-name">Elise</div></div>
+          </div>
+          <!-- Harper -->
+          <div class="t-card">
+            <div class="thumb"><div class="mp helv">
+              <div class="banner" style="background:#1e3a5f">
+                <div class="nm">Alex Chen</div><div class="ct">alex@mail.com</div>
+              </div>
+              <div class="two">
+                <div>
+                  <div class="sec" style="color:#1e3a5f">Experience</div>
+                  <div class="ln m"></div><div class="ln"></div><div class="ln s"></div>
+                </div>
+                <div class="side" style="background:rgba(30,58,95,.10)">
+                  <div class="sh" style="color:#1e3a5f">Skills</div>
+                  <div class="sl" style="background:rgba(15,23,42,.18)"></div>
+                  <div class="sl" style="background:rgba(15,23,42,.18);width:72%"></div>
+                </div>
+              </div>
+            </div></div>
+            <div class="t-meta"><div class="t-role">Data &amp; analytics</div><div class="t-name">Harper</div></div>
+          </div>
+        </div>
+
+        <div class="foot">
+          <span class="caveat">Any template works for any role — they differ in type and layout, not in what they can hold.</span>
+          <button class="skip">Skip, just start writing →</button>
+        </div>
+      </div>
+
+      <p class="note">
+        Same five templates as <b>/templates</b>, from the same producer (<code>lib/templateGallery.ts</code>), so the
+        picker can’t drift from the public gallery. Each card leads with the <b>role it suits</b> and keeps the style
+        name underneath — the vocabulary the Style panel uses, so a template you picked once stays findable.
+      </p>
+      <p class="note">
+        <b>It only appears when there is nothing to resume:</b> no <code>?preset=</code> (you already chose on the
+        gallery), no <code>?builder=</code> (opening a saved draft), no Analyze hand-off, and no meaningful saved work
+        — reusing the store’s existing <code>isMeaningfulResume()</code> test. Anyone mid-document goes straight to the
+        editor exactly as today. Picking or skipping is remembered, so it is a first run, not a toll gate.
+      </p>
+    </div>
+  </div>
+</div>
