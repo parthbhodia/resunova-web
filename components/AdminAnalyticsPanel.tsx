@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AdminAnalyticsJobsBlock, AdminAnalyticsResponse, AdminAnalyticsToolRow, AdminAnalyticsUserRow } from "@/lib/types";
 import JobMarketPanel from "@/components/JobMarketPanel";
+import FunnelPanel from "@/components/FunnelPanel";
 import { apiFetch } from "@/lib/apiClient";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -541,13 +542,19 @@ function BusinessSection({ jobs }: { jobs: AdminAnalyticsJobsBlock }) {
 
 // ─── panel (exported) ────────────────────────────────────────────────────────
 
-type TabKey = "product" | "jobs" | "business" | "market";
+type TabKey = "product" | "jobs" | "business" | "market" | "funnel";
 const TABS: Array<{ key: TabKey; label: string }> = [
+  { key: "funnel", label: "Funnel" },
   { key: "product", label: "Product & cost" },
   { key: "jobs", label: "Jobs pipeline" },
   { key: "business", label: "Data & revenue" },
   { key: "market", label: "Job market" },
 ];
+
+// Tabs that fetch their own endpoint rather than reading the windowed analytics
+// payload — they own their loading and error states, and the day picker above
+// does not apply to them.
+const SELF_FETCHING_TABS: TabKey[] = ["market", "funnel"];
 
 // Module-level payload cache keyed by window: survives the panel unmount/remount
 // that happens on every Cohort <-> Platform tab flip in the host dashboard.
@@ -615,8 +622,8 @@ export default function AdminAnalyticsPanel() {
             </button>
           ))}
         </div>
-        {/* Job market is a live snapshot, not a windowed series — no day picker. */}
-        {tab !== "market" && (
+        {/* Job market and Funnel are live snapshots with their own controls. */}
+        {!SELF_FETCHING_TABS.includes(tab) && (
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
             <span style={{ color: "var(--muted)" }}>Window</span>
             <select value={days} onChange={e => setDays(Number(e.target.value))}
@@ -629,15 +636,16 @@ export default function AdminAnalyticsPanel() {
         )}
       </div>
 
-      {/* Job market fetches its own endpoint independently of the analytics window. */}
+      {/* Both fetch their own endpoint independently of the analytics window. */}
       {tab === "market" && <JobMarketPanel />}
+      {tab === "funnel" && <FunnelPanel />}
 
-      {tab !== "market" && loading && !data && (
+      {!SELF_FETCHING_TABS.includes(tab) && loading && !data && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
           {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
         </div>
       )}
-      {tab !== "market" && error && !data && (
+      {!SELF_FETCHING_TABS.includes(tab) && error && !data && (
         <div style={{ background: "var(--red-bg, #fef2f2)", border: "1px solid var(--red-ink, #fecaca)", borderRadius: 8, padding: "11px 14px", color: "var(--red-ink, #b91c1c)", fontSize: 13 }}>
           {error}
         </div>
