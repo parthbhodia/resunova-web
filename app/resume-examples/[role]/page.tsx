@@ -321,11 +321,11 @@ export default async function RoleResumeExamplePage({
             }}
           >
             <h2 style={{ ...sectionTitle, margin: "0 0 8px" }}>Build your {data.label.toLowerCase()} résumé</h2>
-            <p style={{ margin: "0 0 14px", color: "var(--muted)" }}>
-              Paste a job description and Resunova tailors your résumé to it: match score, gap analysis, and an
-              ATS-friendly PDF in under a minute. Start free.
-            </p>
-            <RolePrefillCTA role={data} />
+            {/* The CTA owns its own description: it says which of the two
+                hand-offs happened, and a sentence up here could disagree with
+                the button below it (this one used to describe the JD tailor
+                while pointing at the résumé builder). */}
+            <RolePrefillCTA role={data} example={fullExample?.data ?? null} />
           </section>
 
           {/* Sibling links (no orphans) */}

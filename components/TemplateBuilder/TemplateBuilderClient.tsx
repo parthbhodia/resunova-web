@@ -6,7 +6,7 @@ import { getSupabaseClient, fetchBuilderResumeById, upsertBuilderResume } from "
 import type { TemplateBuilderStore } from "@/store/templateBuilderStore";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import ResumePreview from "./ResumePreview";
-import type { TBFont, TBStylePreset } from "./types";
+import type { TBFont, TBResumeData, TBStylePreset } from "./types";
 import { PAGE_WIDTH_OPTIONS, STYLE_PRESETS } from "./templateStyles";
 import { resumeFileClientError } from "@/lib/utils";
 import { buildNameRoleExportFilename } from "@/lib/resumeFileName";
@@ -928,11 +928,27 @@ export default function TemplateBuilderClient() {
     markTemplateChosen();
     setShowFirstRunPicker(false);
   };
+  // Starting from an example replaces the whole document, style included — the
+  // example carries its own preset and that is what the picker showed. Identity
+  // was already cleared by loadExampleData, so the header opens on the "Your
+  // Name" prompt rather than on a fictional candidate.
+  const pickFirstRunExample = (exampleData: TBResumeData) => {
+    store.replaceData(exampleData);
+    markTemplateChosen();
+    setShowFirstRunPicker(false);
+    showFeedback("info", "Example opened. Replace the sample details with your own.");
+  };
 
   // Every hook above this line. The picker replaces the editor on a cold open
   // and is dismissed for good by either branch.
   if (showFirstRunPicker) {
-    return <TemplateFirstRunPicker onPick={pickFirstRunTemplate} onSkip={skipFirstRunPicker} />;
+    return (
+      <TemplateFirstRunPicker
+        onPick={pickFirstRunTemplate}
+        onPickExample={pickFirstRunExample}
+        onSkip={skipFirstRunPicker}
+      />
+    );
   }
 
   return (

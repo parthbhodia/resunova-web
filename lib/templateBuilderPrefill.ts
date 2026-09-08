@@ -149,11 +149,52 @@ export function mapStructuredResumeToTemplateData(structured: StructuredResume):
   };
 }
 
-/** Build a TBResumeData skeleton from role-page data (skills + example summary). */
+/**
+ * Hand a role page's OWN rendered example résumé to the builder.
+ *
+ * The role page renders a complete example document directly above its CTA;
+ * the button used to throw that away and open a skeleton carrying a summary
+ * and one skills line, so "Build a registered nurse resume" produced a
+ * near-empty page next to a full example the visitor had just read.
+ *
+ * INVARIANT: every identity field is cleared. The example's CONTENT (summary,
+ * roles, bullets, education, skills, sections) is the starting draft the user
+ * rewrites, but a name, email, phone, location or link belonging to a
+ * fictional candidate must never be able to ride out on someone's résumé. An
+ * empty header renders the builder's own "Your Name" prompt, so the document
+ * cannot be downloaded as-is without the user putting their own details in.
+ * Do not "helpfully" restore the sample identity.
+ */
+export function prefillFromRoleExample(example: TBResumeData): TBResumeData {
+  return {
+    ...example,
+    profile: {
+      ...example.profile,
+      name: "",
+      email: "",
+      phone: "",
+      location: "",
+      website: "",
+      linkedin: "",
+      github: "",
+    },
+  };
+}
+
+/**
+ * Fallback for a role with no example in the catalog: a skeleton carrying the
+ * role's summary and its most-requested skills.
+ */
 export function prefillFromRole(role: RoleResumeData): TBResumeData {
   const featuredSkills = DEFAULT_FEATURED_SKILLS();
-  role.topSkills.slice(0, featuredSkills.length).forEach((skill, idx) => {
-    featuredSkills[idx] = { skill: skill.name, rating: idx < 2 ? 5 : 4 };
+  const names: string[] = [];
+  for (const skill of role.topSkills) {
+    const name = (skill?.name ?? "").trim();
+    if (!name) continue;
+    if (!names.some((existing) => existing.toLowerCase() === name.toLowerCase())) names.push(name);
+  }
+  names.slice(0, featuredSkills.length).forEach((skill, idx) => {
+    featuredSkills[idx] = { skill, rating: idx < 2 ? 5 : 4 };
   });
 
   return {
@@ -167,7 +208,11 @@ export function prefillFromRole(role: RoleResumeData): TBResumeData {
     projects: [DEFAULT_PROJECT()],
     skills: {
       featuredSkills,
-      descriptions: role.topSkills.map((s) => s.name).join(", "),
+      // The featured row and the description line render one directly under
+      // the other, so putting the same names in both printed the identical
+      // list twice. The description carries only what the featured row could
+      // not fit.
+      descriptions: names.slice(featuredSkills.length).join(", "),
     },
     customization: DEFAULT_CUSTOMIZATION,
     sectionOrder: normalizeSectionOrder(DEFAULT_RESUME.sectionOrder, []),

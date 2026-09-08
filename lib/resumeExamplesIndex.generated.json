@@ -1,0 +1,1265 @@
+{
+  "generatedAt": "2026-09-08",
+  "examples": [
+    {
+      "id": "senior-product-manager",
+      "title": "Senior Product Manager",
+      "category": "Product Management",
+      "level": "Senior",
+      "desc": "Senior PM with 7+ years driving B2B SaaS products from concept to scale, specializing in fintech platforms serving 2M+ users.",
+      "score": 95,
+      "tags": [
+        "Product Strategy",
+        "SQL",
+        "Roadmapping"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Roadmapping",
+        "SQL",
+        "A/B Testing",
+        "Agile/Scrum",
+        "Jira"
+      ]
+    },
+    {
+      "id": "product-manager-growth",
+      "title": "Product Manager, Growth",
+      "category": "Product Management",
+      "level": "Mid Level",
+      "desc": "Growth-focused PM with a background in data science, passionate about using experimentation to unlock user acquisition and retention.",
+      "score": 92,
+      "tags": [
+        "Growth Strategy",
+        "Python",
+        "Experimentation"
+      ],
+      "skills": [
+        "Growth Strategy",
+        "Experimentation",
+        "SQL",
+        "Python",
+        "Mixpanel",
+        "Stakeholder Management"
+      ]
+    },
+    {
+      "id": "associate-product-manager",
+      "title": "Associate Product Manager",
+      "category": "Product Management",
+      "level": "Entry Level",
+      "desc": "Early-career PM transitioning from software engineering, focused on ed-tech products that improve learning outcomes for students.",
+      "score": 88,
+      "tags": [
+        "Product Discovery",
+        "User Research",
+        "SQL"
+      ],
+      "skills": [
+        "Product Discovery",
+        "User Research",
+        "SQL",
+        "Figma",
+        "REST APIs",
+        "Notion"
+      ]
+    },
+    {
+      "id": "director-of-product",
+      "title": "Director of Product",
+      "category": "Product Management",
+      "level": "Executive",
+      "desc": "Product leader with 12+ years scaling consumer marketplaces, experienced in managing PM teams and setting company-wide product vision.",
+      "score": 98,
+      "tags": [
+        "Product Vision",
+        "Team Leadership",
+        "OKRs"
+      ],
+      "skills": [
+        "Product Vision",
+        "Team Leadership",
+        "OKRs",
+        "Marketplace Dynamics",
+        "Executive Communication",
+        "P&L Management"
+      ]
+    },
+    {
+      "id": "product-manager-ai-ml",
+      "title": "Product Manager, AI/ML",
+      "category": "Product Management",
+      "level": "Mid Level",
+      "desc": "PM with technical depth in machine learning products, bridging data science and engineering teams to ship responsible AI features.",
+      "score": 94,
+      "tags": [
+        "Machine Learning",
+        "Product Strategy",
+        "Python"
+      ],
+      "skills": [
+        "Machine Learning",
+        "Product Strategy",
+        "Python",
+        "SQL",
+        "A/B Testing",
+        "Cross-functional Leadership"
+      ]
+    },
+    {
+      "id": "entry-level-software-engineer",
+      "title": "Entry Level Software Engineer",
+      "category": "Software Engineering",
+      "level": "Entry Level",
+      "desc": "Entry-level Software Engineer with a strong foundation in full-stack development. Proficient in Python, JavaScript, and cloud basics, with a track record of shipping clean, tested code during internships.",
+      "score": 87,
+      "tags": [
+        "Python",
+        "JavaScript",
+        "React"
+      ],
+      "skills": [
+        "Python",
+        "JavaScript",
+        "React",
+        "SQL",
+        "REST APIs",
+        "Git"
+      ]
+    },
+    {
+      "id": "software-engineer",
+      "title": "Software Engineer",
+      "category": "Software Engineering",
+      "level": "Mid Level",
+      "desc": "Full-stack Software Engineer with 6 years of experience building scalable web applications. Skilled in translating product requirements into performant, maintainable systems.",
+      "score": 93,
+      "tags": [
+        "Java",
+        "TypeScript",
+        "Node.js"
+      ],
+      "skills": [
+        "TypeScript",
+        "Java",
+        "Node.js",
+        "PostgreSQL",
+        "AWS",
+        "Kubernetes"
+      ]
+    },
+    {
+      "id": "senior-software-engineer",
+      "title": "Senior Software Engineer",
+      "category": "Software Engineering",
+      "level": "Senior",
+      "desc": "Senior Software Engineer with 10+ years of experience architecting cloud-native, distributed systems. Focused on scalability, reliability, and mentoring engineering teams.",
+      "score": 96,
+      "tags": [
+        "Go",
+        "Python",
+        "Kafka"
+      ],
+      "skills": [
+        "Go",
+        "Python",
+        "Kafka",
+        "Kubernetes",
+        "GCP",
+        "System Design"
+      ]
+    },
+    {
+      "id": "staff-software-engineer",
+      "title": "Staff Software Engineer",
+      "category": "Software Engineering",
+      "level": "Lead",
+      "desc": "Staff Software Engineer with 12+ years of experience in cloud-native architectures and AI/ML-driven systems. Known for driving technical strategy and reducing infrastructure cost at scale.",
+      "score": 98,
+      "tags": [
+        "Distributed Systems",
+        "Rust",
+        "Kubernetes"
+      ],
+      "skills": [
+        "Distributed Systems",
+        "Rust",
+        "Kubernetes",
+        "Terraform",
+        "AI/ML Integration",
+        "System Architecture"
+      ]
+    },
+    {
+      "id": "software-testing-engineer",
+      "title": "Software Testing Engineer",
+      "category": "Software Engineering",
+      "level": "Mid Level",
+      "desc": "AI-driven Test Automation Specialist with 7 years of experience improving release quality and reducing defect leakage across web and mobile platforms.",
+      "score": 91,
+      "tags": [
+        "Selenium",
+        "Cypress",
+        "Test Automation"
+      ],
+      "skills": [
+        "Selenium",
+        "Cypress",
+        "Playwright",
+        "Test Automation",
+        "API Testing",
+        "CI/CD"
+      ]
+    },
+    {
+      "id": "sales-associate",
+      "title": "Sales Associate",
+      "category": "Sales",
+      "level": "Entry Level",
+      "desc": "Sales Associate with 4 years of experience driving retail sales and building strong customer relationships. Consistently exceeds targets through personalized product consultations.",
+      "score": 85,
+      "tags": [
+        "Consultative Selling",
+        "POS Systems",
+        "Customer Retention"
+      ],
+      "skills": [
+        "Consultative Selling",
+        "Customer Retention",
+        "POS Systems",
+        "Upselling",
+        "Product Knowledge",
+        "Client Communication"
+      ]
+    },
+    {
+      "id": "inside-sales-representative",
+      "title": "Inside Sales Representative",
+      "category": "Sales",
+      "level": "Mid Level",
+      "desc": "Results-driven Inside Sales Representative with 6 years of experience in B2B SaaS sales. Skilled at qualifying leads, managing pipelines, and closing deals in fast-paced environments.",
+      "score": 90,
+      "tags": [
+        "Salesforce",
+        "Pipeline Management",
+        "Cold Outreach"
+      ],
+      "skills": [
+        "Salesforce",
+        "Pipeline Management",
+        "Cold Outreach",
+        "Lead Qualification",
+        "Consultative Selling",
+        "B2B SaaS Sales"
+      ]
+    },
+    {
+      "id": "account-executive",
+      "title": "Account Executive",
+      "category": "Sales",
+      "level": "Senior",
+      "desc": "Account Executive with 8 years of experience closing complex B2B deals and growing enterprise accounts. Strong track record in consultative, relationship-driven sales.",
+      "score": 94,
+      "tags": [
+        "Enterprise Sales",
+        "Negotiation",
+        "Account Management"
+      ],
+      "skills": [
+        "Enterprise Sales",
+        "Negotiation",
+        "Account Management",
+        "Solution Selling",
+        "Salesforce",
+        "Forecasting"
+      ]
+    },
+    {
+      "id": "sales-manager",
+      "title": "Sales Manager",
+      "category": "Sales",
+      "level": "Lead",
+      "desc": "Sales Manager with 12 years of experience transforming underperforming teams into consistent revenue drivers. Specializes in coaching, territory planning, and building repeatable sales processes.",
+      "score": 96,
+      "tags": [
+        "Team Leadership",
+        "Sales Coaching",
+        "Territory Planning"
+      ],
+      "skills": [
+        "Team Leadership",
+        "Sales Coaching",
+        "Territory Planning",
+        "Forecasting",
+        "CRM Management",
+        "Strategic Planning"
+      ]
+    },
+    {
+      "id": "regional-sales-director",
+      "title": "Regional Sales Director",
+      "category": "Sales",
+      "level": "Executive",
+      "desc": "Regional Sales Director with 15+ years of experience leading multi-state sales organizations. Proven ability to scale revenue, build high-performing teams, and set go-to-market strategy.",
+      "score": 99,
+      "tags": [
+        "Sales Strategy",
+        "P&L Management",
+        "Team Building"
+      ],
+      "skills": [
+        "Sales Strategy",
+        "P&L Management",
+        "Team Building",
+        "Go-to-Market Planning",
+        "Executive Communication",
+        "Forecasting"
+      ]
+    },
+    {
+      "id": "entry-level-data-scientist",
+      "title": "Entry Level Data Scientist",
+      "category": "Data Science",
+      "level": "Entry Level",
+      "desc": "Entry-level Data Scientist with a strong foundation in statistics, machine learning, and Python. Experienced in translating raw data into actionable insights through academic and internship projects.",
+      "score": 86,
+      "tags": [
+        "Python",
+        "Pandas",
+        "Scikit-learn"
+      ],
+      "skills": [
+        "Python",
+        "Pandas",
+        "Scikit-learn",
+        "SQL",
+        "Statistics",
+        "Data Visualization"
+      ]
+    },
+    {
+      "id": "data-scientist",
+      "title": "Data Scientist",
+      "category": "Data Science",
+      "level": "Mid Level",
+      "desc": "Data Scientist with 5 years of experience building predictive models and experimentation frameworks for e-commerce platforms.",
+      "score": 92,
+      "tags": [
+        "Python",
+        "SQL",
+        "A/B Testing"
+      ],
+      "skills": [
+        "Python",
+        "SQL",
+        "A/B Testing",
+        "Machine Learning",
+        "Airflow",
+        "AWS"
+      ]
+    },
+    {
+      "id": "senior-data-scientist",
+      "title": "Senior Data Scientist",
+      "category": "Data Science",
+      "level": "Senior",
+      "desc": "Senior Data Scientist with 9 years of experience leading end-to-end ML projects, from problem framing to production deployment, across fintech and healthtech domains.",
+      "score": 95,
+      "tags": [
+        "Python",
+        "R",
+        "Deep Learning"
+      ],
+      "skills": [
+        "Python",
+        "R",
+        "Deep Learning",
+        "MLOps",
+        "SQL",
+        "Model Deployment"
+      ]
+    },
+    {
+      "id": "staff-data-scientist-ml-lead",
+      "title": "Staff Data Scientist / ML Lead",
+      "category": "Data Science",
+      "level": "Lead",
+      "desc": "Staff Data Scientist with 12+ years of experience setting ML strategy and leading applied research teams. Specializes in scaling machine learning systems from prototype to production.",
+      "score": 97,
+      "tags": [
+        "Machine Learning",
+        "Deep Learning",
+        "MLOps"
+      ],
+      "skills": [
+        "Machine Learning",
+        "Deep Learning",
+        "MLOps",
+        "Python",
+        "Distributed Systems",
+        "Team Leadership"
+      ]
+    },
+    {
+      "id": "data-analyst-analytics-specialist",
+      "title": "Data Analyst / Analytics Specialist",
+      "category": "Data Science",
+      "level": "Mid Level",
+      "desc": "Data Analyst with 4 years of experience turning business questions into clear, data-driven recommendations using SQL, dashboards, and statistical analysis.",
+      "score": 89,
+      "tags": [
+        "SQL",
+        "Tableau",
+        "Excel"
+      ],
+      "skills": [
+        "SQL",
+        "Tableau",
+        "Excel",
+        "Python",
+        "Statistical Analysis",
+        "Data Storytelling"
+      ]
+    },
+    {
+      "id": "marketing-coordinator",
+      "title": "Marketing Coordinator",
+      "category": "Marketing",
+      "level": "Entry Level",
+      "desc": "Marketing Coordinator with 3 years of experience supporting integrated campaigns across social, email, and content channels for consumer brands.",
+      "score": 85,
+      "tags": [
+        "Email Marketing",
+        "Social Media",
+        "Content Calendars"
+      ],
+      "skills": [
+        "Email Marketing",
+        "Social Media",
+        "Content Calendars",
+        "Copywriting",
+        "HubSpot",
+        "Canva"
+      ]
+    },
+    {
+      "id": "digital-marketing-manager",
+      "title": "Digital Marketing Manager",
+      "category": "Marketing",
+      "level": "Mid Level",
+      "desc": "Digital Marketing Manager with 6 years of experience running paid acquisition and lifecycle marketing programs for DTC and SaaS brands.",
+      "score": 91,
+      "tags": [
+        "Paid Media",
+        "Google Ads",
+        "Meta Ads"
+      ],
+      "skills": [
+        "Paid Media",
+        "Google Ads",
+        "Meta Ads",
+        "Lifecycle Marketing",
+        "A/B Testing",
+        "Google Analytics"
+      ]
+    },
+    {
+      "id": "senior-product-marketing-manager",
+      "title": "Senior Product Marketing Manager",
+      "category": "Marketing",
+      "level": "Senior",
+      "desc": "Senior Product Marketing Manager with 8 years of experience leading go-to-market strategy for B2B SaaS products, from positioning through launch.",
+      "score": 93,
+      "tags": [
+        "Go-to-Market Strategy",
+        "Positioning",
+        "Messaging"
+      ],
+      "skills": [
+        "Go-to-Market Strategy",
+        "Positioning",
+        "Messaging",
+        "Sales Enablement",
+        "Competitive Analysis",
+        "Pricing Strategy"
+      ]
+    },
+    {
+      "id": "marketing-director",
+      "title": "Marketing Director",
+      "category": "Marketing",
+      "level": "Executive",
+      "desc": "Marketing Director with 12+ years of experience building and scaling marketing functions for mid-market and enterprise companies. Skilled in brand strategy, demand generation, and team leadership.",
+      "score": 97,
+      "tags": [
+        "Brand Strategy",
+        "Demand Generation",
+        "Team Leadership"
+      ],
+      "skills": [
+        "Brand Strategy",
+        "Demand Generation",
+        "Team Leadership",
+        "Budget Management",
+        "Marketing Operations",
+        "Go-to-Market Planning"
+      ]
+    },
+    {
+      "id": "content-marketing-manager",
+      "title": "Content Marketing Manager",
+      "category": "Marketing",
+      "level": "Mid Level",
+      "desc": "Content Marketing Manager with 5 years of experience building organic growth engines through SEO-driven content, thought leadership, and editorial strategy.",
+      "score": 89,
+      "tags": [
+        "SEO",
+        "Content Strategy",
+        "Editorial Planning"
+      ],
+      "skills": [
+        "SEO",
+        "Content Strategy",
+        "Editorial Planning",
+        "Copywriting",
+        "Google Analytics",
+        "WordPress"
+      ]
+    },
+    {
+      "id": "financial-analyst",
+      "title": "Financial Analyst",
+      "category": "Finance",
+      "level": "Mid Level",
+      "desc": "Financial Analyst with 5+ years specializing in investment analysis and financial modeling for mid-market clients.",
+      "score": 97,
+      "tags": [
+        "Financial Modeling",
+        "Valuation",
+        "Excel"
+      ],
+      "skills": [
+        "Financial Modeling",
+        "Valuation",
+        "Advanced Excel",
+        "Forecasting",
+        "Python",
+        "Bloomberg Terminal"
+      ]
+    },
+    {
+      "id": "senior-financial-analyst",
+      "title": "Senior Financial Analyst",
+      "category": "Finance",
+      "level": "Senior",
+      "desc": "Senior Financial Analyst with 8 years of experience leading budgeting, forecasting, and cost-saving initiatives for manufacturing and retail clients.",
+      "score": 89,
+      "tags": [
+        "Budgeting",
+        "Forecasting",
+        "Cost Analysis"
+      ],
+      "skills": [
+        "Budgeting",
+        "Forecasting",
+        "Cost Analysis",
+        "SAP",
+        "Financial Reporting",
+        "Advanced Excel"
+      ]
+    },
+    {
+      "id": "finance-manager",
+      "title": "Finance Manager",
+      "category": "Finance",
+      "level": "Senior",
+      "desc": "Finance Manager with 12 years of experience specializing in financial planning and operational efficiency, aligning forecasting models with business strategy.",
+      "score": 96,
+      "tags": [
+        "Financial Planning",
+        "Team Leadership",
+        "Process Improvement"
+      ],
+      "skills": [
+        "Financial Planning and Analysis",
+        "Team Leadership",
+        "Process Improvement",
+        "Forecasting Models",
+        "NetSuite",
+        "Budget Management"
+      ]
+    },
+    {
+      "id": "corporate-finance-manager",
+      "title": "Corporate Finance Manager",
+      "category": "Finance",
+      "level": "Lead",
+      "desc": "Corporate Finance Manager with 10 years of experience leading debt restructuring, forecasting, and reporting initiatives for large enterprises.",
+      "score": 87,
+      "tags": [
+        "Debt Restructuring",
+        "Capital Markets",
+        "Financial Modeling"
+      ],
+      "skills": [
+        "Debt Restructuring",
+        "Capital Markets",
+        "Financial Modeling",
+        "Treasury Management",
+        "M&A Analysis",
+        "ESG Reporting"
+      ]
+    },
+    {
+      "id": "finance-director",
+      "title": "Finance Director",
+      "category": "Finance",
+      "level": "Executive",
+      "desc": "Finance Director with 15+ years of experience driving financial strategy and operational excellence across multiple markets, with a focus on cash flow forecasting and compliance.",
+      "score": 94,
+      "tags": [
+        "Financial Strategy",
+        "Treasury Management",
+        "Compliance"
+      ],
+      "skills": [
+        "Financial Strategy",
+        "Treasury Management",
+        "Regulatory Compliance",
+        "Team Leadership",
+        "Cash Flow Forecasting",
+        "P&L Ownership"
+      ]
+    },
+    {
+      "id": "junior-hr-specialist",
+      "title": "Junior HR Specialist",
+      "category": "Human Resources",
+      "level": "Entry Level",
+      "desc": "Junior HR Specialist with 2 years of experience supporting recruitment, onboarding, and employee relations in a fast-paced environment.",
+      "score": 96,
+      "tags": [
+        "HRIS",
+        "Onboarding",
+        "Recruitment Coordination"
+      ],
+      "skills": [
+        "HRIS Administration",
+        "Onboarding",
+        "Recruitment Coordination",
+        "Employee Relations",
+        "Benefits Administration",
+        "HR Compliance"
+      ]
+    },
+    {
+      "id": "hr-generalist",
+      "title": "HR Generalist",
+      "category": "Human Resources",
+      "level": "Mid Level",
+      "desc": "HR Generalist with 6 years of experience managing full-cycle recruitment, employee relations, and performance management programs.",
+      "score": 89,
+      "tags": [
+        "Full-Cycle Recruitment",
+        "Employee Relations",
+        "Performance Management"
+      ],
+      "skills": [
+        "Full-Cycle Recruitment",
+        "Employee Relations",
+        "Performance Management",
+        "Benefits Administration",
+        "HRIS Reporting",
+        "HR Compliance"
+      ]
+    },
+    {
+      "id": "hr-manager",
+      "title": "HR Manager",
+      "category": "Human Resources",
+      "level": "Senior",
+      "desc": "Human Resources Manager with 12+ years of experience driving organizational success through strategic talent management and people-centric initiatives.",
+      "score": 98,
+      "tags": [
+        "Talent Management",
+        "DEI Programs",
+        "Workforce Planning"
+      ],
+      "skills": [
+        "Talent Management",
+        "Workforce Planning",
+        "DEI Programs",
+        "Employee Relations",
+        "Performance Management",
+        "HR Analytics"
+      ]
+    },
+    {
+      "id": "hr-business-partner",
+      "title": "HR Business Partner",
+      "category": "Human Resources",
+      "level": "Lead",
+      "desc": "HR Business Partner with 9 years of experience advising senior leaders on talent strategy, org design, and change management for growing organizations.",
+      "score": 93,
+      "tags": [
+        "Org Design",
+        "Change Management",
+        "Talent Strategy"
+      ],
+      "skills": [
+        "Org Design",
+        "Change Management",
+        "Talent Strategy",
+        "Succession Planning",
+        "Employee Relations",
+        "Workday HCM"
+      ]
+    },
+    {
+      "id": "hr-director",
+      "title": "HR Director",
+      "category": "Human Resources",
+      "level": "Executive",
+      "desc": "HR Director with over 15 years of experience in strategic human resources management, driving organizational transformation and talent strategy at scale.",
+      "score": 92,
+      "tags": [
+        "HR Strategy",
+        "Compensation & Benefits",
+        "M&A Integration"
+      ],
+      "skills": [
+        "HR Strategy",
+        "Compensation & Benefits",
+        "M&A Integration",
+        "Labor Relations",
+        "Organizational Design",
+        "Executive Advisory"
+      ]
+    },
+    {
+      "id": "entry-level-customer-service-representative",
+      "title": "Entry Level Customer Service Representative",
+      "category": "Customer Support",
+      "level": "Entry Level",
+      "desc": "Entry-level Customer Service Representative with strong communication skills and adaptability in fast-paced support environments.",
+      "score": 89,
+      "tags": [
+        "CRM Software",
+        "Conflict Resolution",
+        "Multi-channel Support"
+      ],
+      "skills": [
+        "Zendesk",
+        "Conflict Resolution",
+        "Multi-channel Support",
+        "CRM Software",
+        "Order Management",
+        "Communication"
+      ]
+    },
+    {
+      "id": "customer-service-representative",
+      "title": "Customer Service Representative",
+      "category": "Customer Support",
+      "level": "Mid Level",
+      "desc": "Customer Service Representative with 5+ years of experience specializing in conflict resolution and CRM-driven support.",
+      "score": 93,
+      "tags": [
+        "Salesforce",
+        "Conflict Resolution",
+        "Knowledge Base Management"
+      ],
+      "skills": [
+        "Salesforce",
+        "Conflict Resolution",
+        "Knowledge Base Management",
+        "Social Support",
+        "CSAT Improvement",
+        "SLA Management"
+      ]
+    },
+    {
+      "id": "customer-service-specialist",
+      "title": "Customer Service Specialist",
+      "category": "Customer Support",
+      "level": "Senior",
+      "desc": "Customer Service Specialist with 8+ years of experience driving client satisfaction through omnichannel support and data-driven problem-solving.",
+      "score": 93,
+      "tags": [
+        "Omnichannel Support",
+        "CRM Systems",
+        "Emotional Intelligence"
+      ],
+      "skills": [
+        "Omnichannel Support",
+        "CRM Systems",
+        "Escalation Management",
+        "Data Analytics",
+        "Self-Service Tools",
+        "Emotional Intelligence"
+      ]
+    },
+    {
+      "id": "customer-service-executive",
+      "title": "Customer Service Executive",
+      "category": "Customer Support",
+      "level": "Lead",
+      "desc": "Customer Service Executive with 7 years of experience managing customer relationships, resolving complex issues, and leading small support teams.",
+      "score": 92,
+      "tags": [
+        "CRM Tools",
+        "Team Training",
+        "Escalation Management"
+      ],
+      "skills": [
+        "Escalation Management",
+        "Team Training",
+        "CRM Tools",
+        "Client Relations",
+        "Process Improvement",
+        "Complaint Resolution"
+      ]
+    },
+    {
+      "id": "customer-service-manager",
+      "title": "Customer Service Manager",
+      "category": "Customer Support",
+      "level": "Lead",
+      "desc": "Customer Service Manager with 10+ years of experience leading support teams, implementing CRM systems, and improving customer retention.",
+      "score": 92,
+      "tags": [
+        "Team Leadership",
+        "CRM Implementation",
+        "Customer Retention"
+      ],
+      "skills": [
+        "Team Leadership",
+        "CRM Implementation",
+        "Customer Retention",
+        "Coaching",
+        "Process Optimization",
+        "Workforce Management"
+      ]
+    },
+    {
+      "id": "beginner-graphic-designer",
+      "title": "Beginner Graphic Designer",
+      "category": "Graphic Design",
+      "level": "Entry Level",
+      "desc": "Beginner Graphic Designer with a keen eye for visual storytelling and 2 years of hands-on experience in digital and print design.",
+      "score": 85,
+      "tags": [
+        "Adobe Creative Suite",
+        "Figma",
+        "Typography"
+      ],
+      "skills": [
+        "Adobe Creative Suite",
+        "Figma",
+        "Typography",
+        "Branding",
+        "Layout Design",
+        "Print Production"
+      ]
+    },
+    {
+      "id": "graphic-designer",
+      "title": "Graphic Designer",
+      "category": "Graphic Design",
+      "level": "Mid Level",
+      "desc": "Graphic Designer with 7 years of experience spanning agency, in-house, and enterprise work, blending storytelling with technical execution.",
+      "score": 95,
+      "tags": [
+        "Design Systems",
+        "Adobe Creative Suite",
+        "Motion Graphics"
+      ],
+      "skills": [
+        "Design Systems",
+        "Brand Identity",
+        "Adobe Creative Suite",
+        "Motion Graphics",
+        "Figma",
+        "Art Direction"
+      ]
+    },
+    {
+      "id": "freelance-graphic-designer",
+      "title": "Freelance Graphic Designer",
+      "category": "Graphic Design",
+      "level": "Senior",
+      "desc": "Freelance Graphic Designer with 8+ years of experience crafting visually compelling, user-centric designs across digital and print media for global clients.",
+      "score": 85,
+      "tags": [
+        "Brand Identity",
+        "Client Management",
+        "Adobe Creative Suite"
+      ],
+      "skills": [
+        "Brand Identity",
+        "Client Management",
+        "Adobe Creative Suite",
+        "Figma",
+        "Packaging Design",
+        "3D Visualization"
+      ]
+    },
+    {
+      "id": "ui-ux-graphic-designer",
+      "title": "UI/UX & Graphic Designer",
+      "category": "Graphic Design",
+      "level": "Lead",
+      "desc": "UI/UX-focused Graphic Designer with 6 years of experience improving digital product engagement through research-driven visual design.",
+      "score": 94,
+      "tags": [
+        "UI/UX Design",
+        "Figma",
+        "Prototyping"
+      ],
+      "skills": [
+        "UI/UX Design",
+        "Design Systems",
+        "Figma",
+        "Prototyping",
+        "User Research",
+        "Accessibility"
+      ]
+    },
+    {
+      "id": "senior-graphic-designer",
+      "title": "Senior Graphic Designer",
+      "category": "Graphic Design",
+      "level": "Senior",
+      "desc": "Senior Graphic Designer with 10+ years of experience crafting visually compelling brand narratives for Fortune 500 companies.",
+      "score": 92,
+      "tags": [
+        "Brand Strategy",
+        "Team Leadership",
+        "AR/VR Design"
+      ],
+      "skills": [
+        "Brand Strategy",
+        "Art Direction",
+        "Team Leadership",
+        "AR/VR Design",
+        "Adobe Creative Suite",
+        "Design Systems"
+      ]
+    },
+    {
+      "id": "entry-level-registered-nurse",
+      "title": "Entry-Level Registered Nurse",
+      "category": "Healthcare",
+      "level": "Entry Level",
+      "desc": "Organized and compassionate Registered Nurse with 2 years of hands-on clinical experience, skilled in patient assessment and medication administration.",
+      "score": 92,
+      "tags": [
+        "Patient Assessment",
+        "Medication Administration",
+        "EHR Systems"
+      ],
+      "skills": [
+        "Patient Assessment",
+        "Medication Administration",
+        "EHR Documentation",
+        "BLS/ACLS",
+        "Patient Education",
+        "Wound Care"
+      ]
+    },
+    {
+      "id": "registered-nurse-critical-care",
+      "title": "Registered Nurse, Critical Care",
+      "category": "Healthcare",
+      "level": "Mid Level",
+      "desc": "Dedicated Registered Nurse with 8+ years of experience in critical care, skilled in advanced life support and patient education program design.",
+      "score": 85,
+      "tags": [
+        "Critical Care",
+        "Advanced Life Support",
+        "Patient Education"
+      ],
+      "skills": [
+        "Critical Care",
+        "Advanced Life Support",
+        "Ventilator Management",
+        "Telemetry",
+        "Patient Education",
+        "EHR Documentation"
+      ]
+    },
+    {
+      "id": "nurse-case-manager",
+      "title": "Nurse Case Manager",
+      "category": "Healthcare",
+      "level": "Senior",
+      "desc": "Registered Nurse Case Manager with 7 years of experience coordinating care for patients with complex chronic conditions across in-person and telehealth settings.",
+      "score": 92,
+      "tags": [
+        "Case Management",
+        "Chronic Disease Care",
+        "Telehealth"
+      ],
+      "skills": [
+        "Case Management",
+        "Chronic Disease Care",
+        "Telehealth",
+        "Care Coordination",
+        "Utilization Review",
+        "Patient Education"
+      ]
+    },
+    {
+      "id": "healthcare-administrator",
+      "title": "Healthcare Administrator",
+      "category": "Healthcare",
+      "level": "Lead",
+      "desc": "Results-driven Healthcare Administrator with a track record of optimizing operational efficiency and reducing patient wait times through data-driven scheduling systems.",
+      "score": 96,
+      "tags": [
+        "Healthcare Operations",
+        "Scheduling Systems",
+        "EHR Implementation"
+      ],
+      "skills": [
+        "Healthcare Operations",
+        "EHR Implementation",
+        "Scheduling Systems",
+        "Staff Management",
+        "Revenue Cycle",
+        "Regulatory Compliance"
+      ]
+    },
+    {
+      "id": "certified-nurse-practitioner",
+      "title": "Certified Nurse Practitioner",
+      "category": "Healthcare",
+      "level": "Senior",
+      "desc": "Certified Nurse Practitioner specializing in geriatric telemedicine, with a strong background in patient-centered care and interdisciplinary team leadership.",
+      "score": 86,
+      "tags": [
+        "Geriatric Care",
+        "Telemedicine",
+        "Treatment Planning"
+      ],
+      "skills": [
+        "Geriatric Care",
+        "Telemedicine",
+        "Treatment Planning",
+        "Chronic Disease Management",
+        "Interdisciplinary Leadership",
+        "Advance Care Planning"
+      ]
+    },
+    {
+      "id": "student-teacher",
+      "title": "Student Teacher",
+      "category": "Education",
+      "level": "Entry Level",
+      "desc": "Dedicated Student Teacher with classroom experience specializing in STEM curriculum development and personalized learning strategies.",
+      "score": 93,
+      "tags": [
+        "Lesson Planning",
+        "Classroom Management",
+        "STEM Curriculum"
+      ],
+      "skills": [
+        "Lesson Planning",
+        "Classroom Management",
+        "STEM Curriculum",
+        "Differentiated Instruction",
+        "Formative Assessment",
+        "Google Classroom"
+      ]
+    },
+    {
+      "id": "elementary-school-teacher",
+      "title": "Elementary School Teacher",
+      "category": "Education",
+      "level": "Mid Level",
+      "desc": "Dedicated Elementary School Teacher with 7+ years of experience and a track record of improving student reading scores through differentiated instruction.",
+      "score": 85,
+      "tags": [
+        "Differentiated Instruction",
+        "Project-Based Learning",
+        "Classroom Technology"
+      ],
+      "skills": [
+        "Differentiated Instruction",
+        "Project-Based Learning",
+        "Classroom Technology",
+        "Curriculum Design",
+        "Guided Reading",
+        "Data-Driven Instruction"
+      ]
+    },
+    {
+      "id": "special-education-teacher",
+      "title": "Special Education Teacher",
+      "category": "Education",
+      "level": "Senior",
+      "desc": "Dedicated Special Education Teacher with 12+ years of experience fostering inclusive learning environments through individualized education plans and assistive technology.",
+      "score": 95,
+      "tags": [
+        "IEP Development",
+        "Assistive Technology",
+        "Trauma-Informed Practices"
+      ],
+      "skills": [
+        "IEP Development",
+        "Assistive Technology",
+        "Trauma-Informed Practices",
+        "Behavior Intervention",
+        "Co-Teaching and Inclusion",
+        "Progress Monitoring"
+      ]
+    },
+    {
+      "id": "experienced-high-school-teacher",
+      "title": "Experienced High School Teacher",
+      "category": "Education",
+      "level": "Senior",
+      "desc": "Seasoned educator with 12+ years of experience in curriculum development, educational technology integration, and teacher mentoring.",
+      "score": 90,
+      "tags": [
+        "Curriculum Development",
+        "Educational Technology",
+        "Mentoring"
+      ],
+      "skills": [
+        "Curriculum Development",
+        "Educational Technology",
+        "Teacher Mentoring",
+        "Classroom Management",
+        "Assessment Design",
+        "Data-Driven Instruction"
+      ]
+    },
+    {
+      "id": "academic-coordinator",
+      "title": "Academic Coordinator",
+      "category": "Education",
+      "level": "Lead",
+      "desc": "Seasoned Academic Coordinator with 10+ years of experience optimizing educational programs and student success initiatives across partner institutions.",
+      "score": 86,
+      "tags": [
+        "Program Development",
+        "Student Success Analytics",
+        "Curriculum Standards"
+      ],
+      "skills": [
+        "Program Development",
+        "Student Success Analytics",
+        "Curriculum Standards",
+        "Academic Advising",
+        "Accreditation Compliance",
+        "Faculty Development"
+      ]
+    },
+    {
+      "id": "entry-level-project-manager",
+      "title": "Entry Level Project Manager",
+      "category": "Project Management",
+      "level": "Entry Level",
+      "desc": "Results-driven Entry Level Project Manager with 3+ years of experience in agile methodologies and cross-functional team coordination. Skilled in stakeholder communication and keeping deliverables on track.",
+      "score": 93,
+      "tags": [
+        "Agile",
+        "Jira",
+        "Stakeholder Communication"
+      ],
+      "skills": [
+        "Agile",
+        "Jira",
+        "Stakeholder Communication",
+        "Risk Tracking",
+        "Scheduling",
+        "Scrum"
+      ]
+    },
+    {
+      "id": "project-coordinator",
+      "title": "Project Coordinator",
+      "category": "Project Management",
+      "level": "Mid Level",
+      "desc": "Project Coordinator with 8 years of experience orchestrating complex initiatives across multiple departments and stakeholders in fast-paced environments.",
+      "score": 87,
+      "tags": [
+        "Project Coordination",
+        "Budget Tracking",
+        "Smartsheet"
+      ],
+      "skills": [
+        "Project Coordination",
+        "Budget Tracking",
+        "Smartsheet",
+        "Stakeholder Management",
+        "Documentation",
+        "Scheduling"
+      ]
+    },
+    {
+      "id": "project-manager",
+      "title": "Project Manager",
+      "category": "Project Management",
+      "level": "Senior",
+      "desc": "Technology-focused Project Manager specializing in digital transformation with over 10 years of experience across multiple industries.",
+      "score": 87,
+      "tags": [
+        "Agile",
+        "Digital Transformation",
+        "Resource Allocation"
+      ],
+      "skills": [
+        "Agile",
+        "Digital Transformation",
+        "Resource Allocation",
+        "Jira",
+        "Risk Management",
+        "PMP"
+      ]
+    },
+    {
+      "id": "senior-technical-project-manager",
+      "title": "Senior Technical Project Manager",
+      "category": "Project Management",
+      "level": "Lead",
+      "desc": "Senior Technical Project Manager with 12+ years of experience driving complex, cross-functional initiatives in cloud and AI technologies.",
+      "score": 93,
+      "tags": [
+        "Technical Project Management",
+        "Cloud Migration",
+        "Agile/Scrum"
+      ],
+      "skills": [
+        "Technical Project Management",
+        "Cloud Migration",
+        "Agile/Scrum",
+        "Risk Management",
+        "Stakeholder Communication",
+        "PMP"
+      ]
+    },
+    {
+      "id": "senior-infrastructure-project-manager",
+      "title": "Senior Infrastructure Project Manager",
+      "category": "Project Management",
+      "level": "Executive",
+      "desc": "Seasoned Infrastructure Project Manager with 12+ years of experience orchestrating complex, large-scale projects. Adept at leveraging agile methodologies and cloud technologies to drive digital transformation.",
+      "score": 95,
+      "tags": [
+        "Infrastructure Delivery",
+        "PRINCE2",
+        "Risk Management"
+      ],
+      "skills": [
+        "Infrastructure Delivery",
+        "PRINCE2",
+        "Risk Management",
+        "Program Governance",
+        "Stakeholder Management",
+        "Budgeting"
+      ]
+    }
+  ]
+}

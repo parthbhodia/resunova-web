@@ -12,7 +12,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-vi.mock("@/lib/templateBuilderPrefill", () => ({
+// Only the stash is faked. prefillFromRoleExample stays REAL so this test
+// keeps checking what actually reaches the builder, not a stub of it.
+vi.mock("@/lib/templateBuilderPrefill", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/templateBuilderPrefill")>()),
   stashTemplateBuilderExactPrefill: mockStash,
 }));
 
@@ -65,13 +68,21 @@ describe("ResumeExamplesMarketplace", () => {
 
     expect(mockStash).toHaveBeenCalledTimes(1);
     const data = mockStash.mock.calls[0][0];
+    // Every identity field is BLANK, not a neutral-looking placeholder. On a
+    // page that displays an example, "Sample Candidate <candidate@example.com>"
+    // is fine; in an editable document handed to a user it is a name and an
+    // email that can be downloaded and sent.
     expect(data.profile).toMatchObject({
-      name: "Sample Candidate",
-      email: "candidate@example.com",
+      name: "",
+      email: "",
       phone: "",
+      location: "",
+      website: "",
       linkedin: "",
       github: "",
     });
+    // The example's own content is what makes this worth opening.
+    expect(data.workExperiences.some((w) => w.company.trim() && w.bullets.trim())).toBe(true);
     expect(["classic", "modern", "executive"]).toContain(data.customization.stylePreset);
     expect(mockPush).toHaveBeenCalledWith("/template-builder");
   });
