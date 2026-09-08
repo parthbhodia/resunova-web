@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { decideSnapshot, usableJobs } from "./jobsSnapshotPolicy.mjs";
+import { seoJobsUrl } from "./jobsSeoRequest.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outFile = join(__dirname, "..", "lib", "jobsSeoData.generated.json");
@@ -12,7 +13,9 @@ const apiBase = (
   process.env.NEXT_PUBLIC_API_URL ||
   "https://api.resunova.io"
 ).replace(/\/$/, "");
-const endpoint = `${apiBase}/api/seo/jobs?max_age_days=30&max_postings=1000`;
+// The window alternates by UTC day so consecutive refreshes cannot hit the
+// deployed endpoint's single, TTL-less cache slot — see jobsSeoRequest.mjs.
+const endpoint = seoJobsUrl(apiBase);
 
 function readPrevious() {
   try {
