@@ -212,6 +212,24 @@ export function stashTemplateBuilderStructuredPrefillFromAnalysisResult(result: 
   return stashPrefillData(mapStructuredResumeToTemplateData(normalized));
 }
 
+/**
+ * Is a hand-off waiting, without consuming it?
+ *
+ * The builder's first-run template picker has to know at RENDER time whether
+ * an Analyze hand-off is inbound — its gate is a lazy useState initializer,
+ * because setting that state inside the mount effect trips
+ * react-hooks/set-state-in-effect. Peeking is the honest read there: the
+ * effect below is still the one that consumes.
+ */
+export function hasPendingTemplateBuilderPrefill(): boolean {
+  if (typeof sessionStorage === "undefined") return false;
+  try {
+    return sessionStorage.getItem(TEMPLATE_BUILDER_STRUCTURED_PREFILL_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function consumeTemplateBuilderStructuredPrefill(): TBResumeData | null {
   if (typeof sessionStorage === "undefined") return null;
   try {

@@ -1,17 +1,20 @@
 "use client";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTemplateBuilderStore } from "@/store/templateBuilderStore";
+import { useTemplateBuilderStore, hasStoredResume, hasChosenTemplate, markTemplateChosen } from "@/store/templateBuilderStore";
 import { getSupabaseClient, fetchBuilderResumeById, upsertBuilderResume } from "@/lib/supabase";
 import type { TemplateBuilderStore } from "@/store/templateBuilderStore";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import ResumePreview from "./ResumePreview";
-import type { TBFont } from "./types";
+import type { TBFont, TBStylePreset } from "./types";
 import { PAGE_WIDTH_OPTIONS, STYLE_PRESETS } from "./templateStyles";
 import { resumeFileClientError } from "@/lib/utils";
 import { buildNameRoleExportFilename } from "@/lib/resumeFileName";
-import { consumeTemplateBuilderStructuredPrefill, stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/templateBuilderPrefill";
+import { consumeTemplateBuilderStructuredPrefill, hasPendingTemplateBuilderPrefill, stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/templateBuilderPrefill";
 import TemplateBuilderSectionsPanel from "./TemplateBuilderSectionsPanel";
+import TemplateFirstRunPicker from "./TemplateFirstRunPicker";
+import { applyStylePresetTo } from "@/lib/stylePreset";
+import { shouldShowFirstRunPicker } from "@/lib/templateFirstRun";
 import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "@/components/CoverLetterBuilder/SignInToUseAi";
 import TemplateBuilderReviewPanel, { reviewScoreColor, type ReviewResult } from "./TemplateBuilderReviewPanel";
@@ -552,6 +555,27 @@ export default function TemplateBuilderClient() {
   const builderIdFromUrl = (searchParams?.get("builder") ?? "").trim();
   const presetFromUrl = (searchParams?.get("preset") ?? "").trim().toLowerCase();
 
+  // First run: open on the templates rather than on a demo résumé nobody
+  // wrote. Shown ONLY when there is nothing to resume — no ?preset= (already
+  // chosen on the gallery), no ?builder= (opening a saved résumé), no Analyze
+  // hand-off, no saved work, and no earlier choice. Anyone mid-document
+  // reaches the editor exactly as before.
+  //
+  // A lazy initializer rather than a setState in the mount effect: that trips
+  // react-hooks/set-state-in-effect, and deciding once at first render is
+  // also what keeps the picker from ever re-appearing over live work. All
+  // five reads are side-effect free — the prefill is PEEKED here and consumed
+  // by the effect below.
+  const [showFirstRunPicker, setShowFirstRunPicker] = useState(() =>
+    shouldShowFirstRunPicker({
+      presetFromUrl,
+      builderIdFromUrl,
+      hasPendingPrefill: hasPendingTemplateBuilderPrefill(),
+      hasStoredResume: hasStoredResume(),
+      hasChosenTemplate: hasChosenTemplate(),
+    }),
+  );
+
   const showFeedback = useCallback((kind: "success" | "error" | "info", message: string) => {
     setFeedbackToast({ kind, message });
     if (kind === "success") {
@@ -651,17 +675,9 @@ export default function TemplateBuilderClient() {
     const preset = STYLE_PRESETS.find((p) => p.id === presetFromUrl);
     if (!preset) return;
     if (data.customization.stylePreset === preset.id) return;
-    // Apply the FULL preset, not just the id — creative presets carry an
-    // enforcedLayout (e.g. rightSidebar) plus their own font/accent, and
-    // setting only stylePreset would leave the layout on "single".
-    store.setCustomization("stylePreset", preset.id);
-    store.setCustomization("font", preset.font);
-    store.setCustomization("accentColor", preset.accentColor);
-    if (preset.enforcedLayout) {
-      store.setCustomization("layout", preset.enforcedLayout);
-    } else if (data.customization.layout === "rightSidebar" || data.customization.layout === "topBannerRightSidebar") {
-      store.setCustomization("layout", "single");
-    }
+    // Apply the FULL preset, not just the id — one shared rule with the Style
+    // panel and the first-run picker (lib/stylePreset.ts).
+    applyStylePresetTo(store, preset, data.customization.layout);
   }, [loaded, presetFromUrl, builderIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSaveToLibrary = useCallback(async () => {
@@ -898,6 +914,26 @@ export default function TemplateBuilderClient() {
       ))}
     </div>
   ) : null;
+
+  // Plain functions, not useCallback: they sit beside an early return, and a
+  // hook below one breaks hook ordering (this file has paid for that before).
+  // Nothing here is memo-sensitive — the picker is not a memoized child.
+  const pickFirstRunTemplate = (presetId: TBStylePreset) => {
+    const preset = STYLE_PRESETS.find((p) => p.id === presetId);
+    if (preset) applyStylePresetTo(store, preset, data.customization.layout);
+    markTemplateChosen();
+    setShowFirstRunPicker(false);
+  };
+  const skipFirstRunPicker = () => {
+    markTemplateChosen();
+    setShowFirstRunPicker(false);
+  };
+
+  // Every hook above this line. The picker replaces the editor on a cold open
+  // and is dismissed for good by either branch.
+  if (showFirstRunPicker) {
+    return <TemplateFirstRunPicker onPick={pickFirstRunTemplate} onSkip={skipFirstRunPicker} />;
+  }
 
   return (
     <MuiThemeRegistry>
@@ -1859,14 +1895,7 @@ function SkillsSection({ store, data }: { store: StoreType; data: StoreType["dat
 
 function CustomizeSection({ store, c }: { store: StoreType; c: StoreType["data"]["customization"] }) {
   const applyStylePreset = (preset: (typeof STYLE_PRESETS)[number]) => {
-    store.setCustomization("stylePreset", preset.id);
-    store.setCustomization("font", preset.font);
-    store.setCustomization("accentColor", preset.accentColor);
-    if (preset.enforcedLayout) {
-      store.setCustomization("layout", preset.enforcedLayout);
-    } else if (c.layout === "rightSidebar" || c.layout === "topBannerRightSidebar") {
-      store.setCustomization("layout", "single");
-    }
+    applyStylePresetTo(store, preset, c.layout);
   };
 
   const isEnforcedLayout = c.layout === "rightSidebar" || c.layout === "topBannerRightSidebar";
