@@ -49,6 +49,42 @@ function safeLoad(): TBResumeData {
   }
 }
 
+/**
+ * Is there real work in localStorage? The first-run template picker gates on
+ * this, and it deliberately reads STORAGE rather than the loaded state:
+ * `safeLoad()` returns DEMO_RESUME when there is nothing meaningful stored,
+ * and the demo is itself a filled résumé, so `isMeaningfulResume(store.data)`
+ * is true in exactly the case the picker exists for.
+ */
+export function hasStoredResume(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    return isMeaningfulResume(JSON.parse(raw) as Partial<TBResumeData>);
+  } catch {
+    return false;
+  }
+}
+
+const TEMPLATE_CHOSEN_KEY = "rn_tb_template_chosen";
+
+/** Has this browser already picked (or skipped) a starting template? */
+export function hasChosenTemplate(): boolean {
+  if (typeof window === "undefined") return false;
+  try { return localStorage.getItem(TEMPLATE_CHOSEN_KEY) === "1"; } catch { return false; }
+}
+
+/**
+ * Remember that the choice was made, so the picker is a FIRST RUN and not a
+ * toll gate: someone who picks a look, writes nothing, and comes back later
+ * lands in the editor rather than being asked again.
+ */
+export function markTemplateChosen(): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(TEMPLATE_CHOSEN_KEY, "1"); } catch { /* ignore */ }
+}
+
 function safeSave(data: TBResumeData) {
   if (typeof window === "undefined") return;
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }

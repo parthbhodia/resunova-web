@@ -8,7 +8,7 @@ import type { ResumeCatalogExample } from "@/lib/resumeExamplesCatalog";
 import { PUBLIC_RESUME_EXAMPLES } from "@/lib/resumeExamplesCatalog";
 import { RESUME_CATEGORIES, TOTAL_RESUME_EXAMPLES, TOTAL_RESUME_CATEGORIES } from "@/lib/resumeExampleCategories";
 import { ROLE_RESUME_DATA, roleResumeHref } from "@/lib/roleResumeData";
-import { stashTemplateBuilderExactPrefill } from "@/lib/templateBuilderPrefill";
+import { prefillFromRoleExample, stashTemplateBuilderExactPrefill } from "@/lib/templateBuilderPrefill";
 import ResumeThumbnail from "@/components/seo/ResumeThumbnail";
 
 const ALL = "All";
@@ -87,7 +87,11 @@ export default function ResumeExamplesMarketplace() {
   }
 
   function handleUseExample(example: ResumeCatalogExample) {
-    if (!stashTemplateBuilderExactPrefill(example.data)) {
+    // Identity is cleared on the way in — see prefillFromRoleExample. The
+    // catalog's sanitized "Sample Candidate" is a placeholder for a page that
+    // DISPLAYS the example; handed to the builder it becomes a name and email
+    // that could ride out on someone's own résumé.
+    if (!stashTemplateBuilderExactPrefill(prefillFromRoleExample(example.data))) {
       setPrefillError("This example could not be opened. Check your browser storage settings and try again.");
       return;
     }
