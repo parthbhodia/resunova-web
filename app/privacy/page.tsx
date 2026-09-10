@@ -68,7 +68,7 @@ export default function PrivacyPage() {
             <DataTable rows={[
               ["What we collect", "Email address, name, resume text, job descriptions, analysis results, usage analytics"],
               ["Why we collect it", "To run the Service for you; for analytics to improve the product; and for internal training / quality improvement, not for sale"],
-              ["Who we share with", "Supabase (storage), Google (OAuth + AI + Analytics): no third-party ad networks"],
+              ["Who we share with", "Supabase (storage), Google (OAuth + AI + Analytics), Vercel (hosting + cookieless analytics): no third-party ad networks"],
               ["Do we sell your data?", "No. We do not sell, rent, or trade your personal information."],
               ["How long we keep it", "Until you delete it or close your account (analytics may follow GA4 retention)"],
               ["Your rights", "Access, correct, export, or delete your data at any time"],
@@ -122,6 +122,7 @@ export default function PrivacyPage() {
             <SubSection title="2.3 Usage & Analytics">
               <p>We use <b>Google Analytics 4 (GA4)</b> to collect anonymous usage data including pages visited, session duration, and general geographic region. This data is aggregated and not linked to your identity.</p>
               <p>You can opt out of Google Analytics by installing the <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>Google Analytics Opt-out Browser Add-on</a>.</p>
+              <p>We also use <b>Vercel Web Analytics</b>, which counts page views and visitors without cookies and without storing any identifier that could be traced back to you. It records no personal data and cannot be linked to your account.</p>
             </SubSection>
 
           </Section>
@@ -170,6 +171,13 @@ export default function PrivacyPage() {
                 data: "Page views, session data, anonymized device/browser info",
                 location: "US (Google LLC)",
                 link: "https://policies.google.com/privacy",
+              },
+              {
+                name: "Vercel Web Analytics",
+                purpose: "Cookieless page-view and visitor counts, so traffic is still measured when cookies are refused",
+                data: "Page path, referrer, coarse device and country. No cookies and no identifier that can be traced back to you",
+                location: "US (Vercel Inc.)",
+                link: "https://vercel.com/legal/privacy-policy",
               },
             ]} />
 

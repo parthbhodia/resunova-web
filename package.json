@@ -32,6 +32,7 @@
     "@mui/material-nextjs": "^9.1.1",
     "@react-pdf/renderer": "^4.5.1",
     "@supabase/supabase-js": "^2.103.3",
+    "@vercel/analytics": "^2.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "docx": "^9.7.1",
