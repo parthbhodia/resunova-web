@@ -1021,7 +1021,7 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
         {signedIn === false ? (
           <>
             <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
-              Upload your résumé to see how you match this role — free, no account needed.
+              See how you match this role. Free with an account, 3 scans a day.
             </div>
             <button
               onClick={() => { stashAnalyzeJd(job.jdText); goToFreeScan(); }}

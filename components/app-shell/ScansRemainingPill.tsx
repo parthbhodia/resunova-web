@@ -36,10 +36,11 @@ const SHINE_CSS = `
 /**
  * Does the nav show this reading?
  *
- * A guest's per-IP allowance is deliberately excluded: there is no account to
- * budget for yet, and Analyze already tells them about their free scan at the
- * point it matters. This is the behaviour the nav had before the store started
- * fetching for signed-out visitors, kept explicit rather than implicit.
+ * Only a real account quota. A guest has none — scanning requires signing in —
+ * and the `requires_sign_in` reading is deliberately not rendered here: the nav
+ * is not where that ask belongs, Analyze makes it at the point it matters. The
+ * `anonymous` exclusion stays for the metered case, which is reachable again the
+ * moment a policy meters guests rather than refusing them.
  */
 function navShowsCount(state: ScansRemainingState): state is Extract<ScansRemainingState, { kind: "metered" }> {
   return state.kind === "metered" && !state.anonymous;

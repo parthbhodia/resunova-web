@@ -284,6 +284,21 @@ describe("scansStateFromStatus", () => {
     expect(state).toMatchObject({ kind: "metered", anonymous: true });
   });
 
+  it("a guest reading is requires_sign_in, not error and not unlimited", () => {
+    // Scanning needs an account, so the backend answers a guest with no numbers
+    // AND a reason. Reading it as `error` would put the outage chip in front of
+    // every signed-out visitor; reading it as `unlimited` would say they may
+    // scan freely. It is neither.
+    expect(scansStateFromStatus({
+      enforced: true, unlimited: false, anonymous: true, requiresSignIn: true,
+      limit: null, used: null, remaining: null,
+    })).toEqual({ kind: "requires_sign_in" });
+  });
+
+  it("the nav says nothing for a guest, and no count leaks into its label", () => {
+    expect(scansTabAriaLabel({ kind: "requires_sign_in" })).toBe("More");
+  });
+
   it("a full metered payload maps through", () => {
     expect(scansStateFromStatus({ ...FREE, resetAt: "2026-08-11T00:00:00Z" })).toEqual({
       kind: "metered",

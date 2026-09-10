@@ -520,7 +520,7 @@ export default function LandingPage() {
           <span style={{ fontSize: 14, fontWeight: 500, color: "#fff", lineHeight: 1.4 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ display: "inline-block", verticalAlign: "-2px", marginRight: 8 }}><path d="M12 2l1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7z" /></svg>
             <strong style={{ fontWeight: 700 }}>New:</strong>
-            {" "}AI bullet rewrites + 8-dimension résumé scoring. No account needed. Start free.
+            {" "}AI bullet rewrites + 8-dimension résumé scoring. Free to start.
             {" "}
             <button
               onClick={() => { goToFreeScan(); }}
@@ -1075,8 +1075,8 @@ export default function LandingPage() {
             fontWeight: 600, letterSpacing: 0.2, maxWidth: "100%",
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.blue, display: "inline-block", flexShrink: 0 }} />
-            <span className="lp-hero-sub-full">Start free · No account to scan · Built for students &amp; career switchers · ATS-safe</span>
-            <span className="lp-hero-sub-short">Start free · No account · ATS-safe</span>
+            <span className="lp-hero-sub-full">Start free · 3 scans a day · Built for students &amp; career switchers · ATS-safe</span>
+            <span className="lp-hero-sub-short">Start free · 3 scans a day · ATS-safe</span>
           </div>
 
           {/* Headline — DM Sans 800. Full on desktop; punchy 2-liner on phones. */}
@@ -1105,14 +1105,14 @@ export default function LandingPage() {
             <span className="lp-hero-sub-short">
               All <b style={{ color: T.blue, fontWeight: 700 }}>8 scores</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>, with <b style={{ color: T.blue, fontWeight: 700 }}>honest rewrites</b> and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b>.{" "}
             </span>
-            <strong style={{ color: C.ink, fontWeight: 700 }}>No account.</strong>{" "}
+            <strong style={{ color: C.ink, fontWeight: 700 }}>Free to start.</strong>{" "}
             <strong style={{ color: "#16a34a", fontWeight: 700 }}>No credit card.</strong>
           </p>
 
           {/* CTA row */}
           <div className="lp-hero-actions" style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 40, alignItems: "flex-start" }}>
             <div className="lp-hero-cta-row" style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-              {/* Primary — frictionless scan, no OAuth required */}
+              {/* Primary — lands on Analyze, which asks for sign-in before the file picker */}
               <button
                 className="lp-hero-cta-btn"
                 onClick={() => { goToFreeScan(); }}
@@ -1147,7 +1147,7 @@ export default function LandingPage() {
 
             {/* Trust micro-copy */}
             <p style={{ fontSize: 13, color: C.muted, margin: 0, letterSpacing: -0.1 }}>
-              No account needed to scan &nbsp;·&nbsp; Sign in only to save your analysis &nbsp;·&nbsp; Start free, upgrade anytime
+              Free account &nbsp;·&nbsp; 3 scans a day &nbsp;·&nbsp; Every report saved to your history
             </p>
           </div>
 

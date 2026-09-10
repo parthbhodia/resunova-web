@@ -287,7 +287,7 @@ export default function LinkedInApplicantCountPage() {
 
       <CTACard
         heading="Let the counting be automatic"
-        body="Paste a job description and Resunova extracts its requirements the same way this analysis did, then shows which ones your resume already evidences and which ones it doesn't. Free, no account needed for the first scan."
+        body="Paste a job description and Resunova extracts its requirements the same way this analysis did, then shows which ones your resume already evidences and which ones it doesn't. Free with an account, no credit card."
         href="/"
         cta="Count my requirements free"
       />

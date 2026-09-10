@@ -1,12 +1,18 @@
 /**
- * Anonymous "try before you sign in" scan support.
+ * Signed-out entry into the app.
  *
- * Signed-out visitors can run a free Analyze scan (`/?view=analyze`). The full
- * report stays locked behind sign-in; the finished result is stashed in
- * localStorage before OAuth so it survives the redirect and is restored (and
- * persisted to the user's history) right after the session lands.
+ * ⚠️ THERE IS NO ANONYMOUS SCAN. Scanning requires an account (founder decision,
+ * 2026-09-10) and the backend refuses it: `/api/analyze` and
+ * `/api/analyze-upload` answer 401 `sign_in_required`, and
+ * `/api/scan-limit-status` reports `requiresSignIn`. Everything here is the UX
+ * around that — which views a guest may open, and how they get back to what they
+ * were doing after signing in.
  *
- * Enforcement lives on the backend (per-IP daily cap) — everything here is UX.
+ * What survives from the old free-scan flow, and why: `takeAnonAnalysisStash`
+ * (nothing writes it any more, but a browser may still hold one from before, and
+ * dropping it on the floor would lose someone's report) and `stashAnalyzeJd` (a
+ * pasted job description has to cross the OAuth page unload, or signing in from
+ * the Analyze surface costs the visitor their paste).
  */
 
 import { getSupabaseClient } from "@/lib/supabase";
@@ -18,11 +24,15 @@ export const ANON_ANALYSIS_STASH_KEY = "rn_anon_analysis_v1";
 
 /**
  * Views a signed-out visitor may enter without being bounced to the landing
- * page. The app shell renders for these; individual gated actions (saving a
- * résumé, downloading a PDF, applying) still prompt sign-in inline.
+ * page. The app shell renders for these; individual gated actions (scanning,
+ * saving a résumé, downloading a PDF, applying) prompt sign-in inline.
  *
- *   analyze  — free résumé scan (one free, full report behind sign-in)
- *   builder  — tailor a résumé; sign-in gates save & export
+ *   analyze  — the surface renders and ASKS FOR SIGN-IN BEFORE THE FILE PICKER.
+ *              It stays public deliberately: bouncing a guest to the marketing
+ *              page instead would lose why they came — a landing CTA, or a job
+ *              posting whose description was stashed on the way here — and they
+ *              would arrive back at a page that does not know what they wanted.
+ *   builder  — tailor a résumé; sign-in gates the match scan, save and export
  *   jobs     — the jobs view renders for anon, but the FEED requires sign-in:
  *              JobsFeed shows an in-view "sign in to browse jobs" prompt (the
  *              backend 401s anonymous feed requests) instead of redirecting to
@@ -65,22 +75,13 @@ export type AnonAnalysisStash = {
   savedAt: string;
 };
 
-/** Keep the finished anonymous scan across the OAuth redirect. */
-export function stashAnonAnalysis(label: string, result: unknown): void {
-  if (typeof window === "undefined") return;
-  try {
-    const payload: AnonAnalysisStash = {
-      label,
-      result: result as Record<string, unknown>,
-      savedAt: new Date().toISOString(),
-    };
-    localStorage.setItem(ANON_ANALYSIS_STASH_KEY, JSON.stringify(payload));
-  } catch {
-    /* quota — the user just re-scans after sign-in */
-  }
-}
-
-/** Read + clear the stashed anonymous scan (one-shot). */
+/**
+ * Read + clear a stashed anonymous scan (one-shot).
+ *
+ * READ-ONLY BY DESIGN: `stashAnonAnalysis` is gone with the anonymous scan, so
+ * nothing writes this any more. The read stays because a browser may still hold
+ * a result from before the rule changed, and signing in should still save it.
+ */
 export function takeAnonAnalysisStash(): AnonAnalysisStash | null {
   if (typeof window === "undefined") return null;
   try {
@@ -106,28 +107,6 @@ export function clearAnonAnalysisStash(): void {
   } catch {
     /* ignore */
   }
-}
-
-/**
- * Tracks whether a signed-out visitor has already spent their one free scan.
- * The first scan is free and fully unlocked; a second scan asks them to sign in.
- * UX-only — the backend per-IP cap is still the real enforcement.
- */
-const ANON_SCAN_USED_KEY = "rn_anon_scan_used_v1";
-
-export function markAnonScanUsed(): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(ANON_SCAN_USED_KEY, "1"); } catch { /* quota */ }
-}
-
-export function hasUsedAnonScan(): boolean {
-  if (typeof window === "undefined") return false;
-  try { return localStorage.getItem(ANON_SCAN_USED_KEY) === "1"; } catch { return false; }
-}
-
-export function clearAnonScanUsed(): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.removeItem(ANON_SCAN_USED_KEY); } catch { /* ignore */ }
 }
 
 /**
@@ -172,7 +151,13 @@ export async function signInWithGoogle(): Promise<string | null> {
   return error ? error.message : null;
 }
 
-/** Full-page navigation into the anonymous Analyze flow (fresh AuthGate mount). */
+/**
+ * Full-page navigation into the Analyze flow (fresh AuthGate mount).
+ *
+ * Still named for a FREE scan, which it is — the free plan includes three a day.
+ * What it is not, any more, is an anonymous one: a signed-out visitor lands on
+ * the Analyze surface and is asked to sign in before choosing a file.
+ */
 export function goToFreeScan(): void {
   if (typeof window === "undefined") return;
   window.location.assign((process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/?view=analyze");

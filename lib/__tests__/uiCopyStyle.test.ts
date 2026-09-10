@@ -37,10 +37,14 @@ const CLEAN_SURFACES = [
  * which is the ONLY reason to ever raise this. A PR that adds dashes to
  * existing copy still fails.
  *
+ * 342 after the sign-in-to-scan work: retiring the anonymous-capture prompt took
+ * a few with it, and the new copy uses a colon or a second sentence where a dash
+ * would have been the obvious reach. Locked in rather than left as slack.
+ *
  * Biggest remaining: LandingPage, ResumeBuilder, the tailor blog post,
  * competitorComparison, and the new resume-examples pages.
  */
-const BASELINE = 345;
+const BASELINE = 342;
 
 function walk(dir: string, out: string[] = []): string[] {
   let entries: string[];

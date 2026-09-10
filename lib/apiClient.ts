@@ -144,11 +144,18 @@ export interface ScanLimitStatus {
   unlimited: boolean;
   plan: string | null;
   /**
-   * The count is a per-IP guest allowance, not an account's quota.
+   * No account, so no allowance: scanning requires signing in.
    *
-   * Surfaces differ on this: Analyze shows a guest their remaining free scan,
-   * the nav badge does not (there is no account to budget for yet). Without the
-   * flag every consumer has to re-derive "is this a real user" from the session.
+   * Distinct from `unlimited` on purpose — both carry null numbers, and reading
+   * one as the other is the difference between "you may scan freely" and "you
+   * may not scan at all". Before this flag existed the backend answered a guest
+   * with a bare `{enforced:false}`, which every consumer read as unlimited.
+   */
+  requiresSignIn: boolean;
+  /**
+   * The caller has no session. Kept alongside `requiresSignIn` because a guest
+   * reading is also the one place a surface may need to say "sign in" in its own
+   * words rather than render a count.
    */
   anonymous: boolean;
   limit: number | null;
@@ -178,6 +185,7 @@ export function scanLimitFrom(body: unknown): ScanLimitStatus {
     enforced: !!b.enforced,
     unlimited: !!b.unlimited,
     plan: typeof b.plan === "string" && b.plan.trim() ? b.plan : null,
+    requiresSignIn: !!b.requiresSignIn,
     anonymous: !!b.anonymous,
     limit: num(b.limit),
     used: num(b.used),

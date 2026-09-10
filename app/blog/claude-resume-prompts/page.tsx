@@ -449,7 +449,7 @@ export default function ClaudeResumePromptsPage() {
 
       <CTACard
         heading="Skip the copy-paste loop"
-        body="Resunova runs the scoring, gap analysis, and bullet rewrites against a live corpus of job postings, and every suggestion passes the same validators described above before you see it. Free to try, no signup for your first scan."
+        body="Resunova runs the scoring, gap analysis, and bullet rewrites against a live corpus of job postings, and every suggestion passes the same validators described above before you see it. Free with an account, no credit card."
         href="/?view=analyze"
         cta="Score my resume"
       />
