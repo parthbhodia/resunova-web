@@ -34,7 +34,7 @@ import {
   AnalyzeCoachLoader,
 } from "@/components/AnalyzeExperience";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
-import { stashAnonAnalysis, takeAnonAnalysisStash, markAnonScanUsed, hasUsedAnonScan, takeAnalyzeJd } from "@/lib/anonScan";
+import { takeAnonAnalysisStash, stashAnalyzeJd, takeAnalyzeJd } from "@/lib/anonScan";
 import { logClientEvent, stashPrewallEvent, flushPrewallEvents } from "@/lib/clientEvents";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { useUpgradeDialog } from "@/components/UpgradeDialog";
@@ -49,7 +49,6 @@ import {
 import { lsSave, lsPush } from "./analyze/analyzeHistoryStore";
 import { AnalyzeSidebarPinned, AnalyzeHistoryRail } from "./analyze/AnalyzeSidebar";
 import SaveToProfilePrompt from "./analyze/SaveToProfilePrompt";
-import SaveScanPrompt from "./analyze/SaveScanPrompt";
 import TopJobsToast from "./analyze/TopJobsToast";
 import AnalyzeImprovementPlan from "./analyze/AnalyzeImprovementPlan";
 import { useAnalyzeSession } from "./analyze/useAnalyzeSession";
@@ -163,21 +162,6 @@ export default function AnalyzeResume() {
         : null,
     [result],
   );
-
-  // Anonymous flow: keep the finished scan in localStorage at all times so the
-  // OAuth redirect (full page unload) can't lose it. One stash, overwritten on
-  // each new anonymous result.
-  useEffect(() => {
-    if (!isAnon || !result) return;
-    // First free scan is now fully unlocked; record that it was used so the
-    // next scan attempt asks the visitor to sign in.
-    markAnonScanUsed();
-    const label =
-      result.resumeHeader?.[0]?.trim() ||
-      result.structuredResume?.full_name?.trim() ||
-      "Resume";
-    stashAnonAnalysis(label, result);
-  }, [isAnon, result]);
 
   useLayoutEffect(() => {
     if (!result) {
@@ -329,9 +313,13 @@ export default function AnalyzeResume() {
     }
   }, [rescoring, persistResult, activeEditDraftId, azHistory]);
 
-  // After sign-in lands (fresh mount post-OAuth), restore the stashed anonymous
-  // scan: the user arrives on their already-finished, now-unlocked report and
-  // it persists to their history like any signed-in scan.
+  // Restore a stashed anonymous scan if one exists.
+  //
+  // Nothing writes that stash any more — scanning requires an account, so an
+  // anonymous result cannot be produced. The READ survives so a visitor who ran
+  // a scan under the old rules and signs in later still gets it saved to their
+  // history instead of silently losing it. Delete it once no browser can
+  // plausibly still be holding one.
   useEffect(() => {
     if (!userId) return;
     const stash = takeAnonAnalysisStash();
@@ -386,8 +374,21 @@ export default function AnalyzeResume() {
         const refusal = refusalFrom(status, json);
         if (refusal) {
           if (refusal.remedy === "sign_in") {
-            setFeedbackToast("Free scans used for today. Sign in (it's free) for 3 scans a day and saved reports.");
-            openSignIn({ reason: "Sign in free for more résumé scans and saved reports." });
+            // A refusal with no limit is "you need an account"; one WITH a limit
+            // is an allowance that ran out. Same remedy, different sentence —
+            // telling someone their scans are used up when they never had any is
+            // the kind of copy that reads as a bug.
+            const needsAccount = refusal.limit == null;
+            setFeedbackToast(
+              needsAccount
+                ? "Sign in to scan. It's free, and your reports are saved."
+                : "Free scans used for today. Sign in (it's free) for 3 scans a day and saved reports.",
+            );
+            openSignIn({
+              reason: needsAccount
+                ? "Scanning is free with an account: 3 a day, and every report is saved to your history."
+                : "Sign in free for more résumé scans and saved reports.",
+            });
           } else {
             const freeLimit = refusal.limit && refusal.limit > 0 ? refusal.limit : 3;
             setFeedbackToast(`Daily limit reached. The free plan includes ${freeLimit} scans a day.`);
@@ -1009,17 +1010,22 @@ export default function AnalyzeResume() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCategory]);
 
+  /** Ask for sign-in, carrying any pasted JD across the OAuth page unload. */
+  const askToSignIn = useCallback(() => {
+    if (jd.trim()) stashAnalyzeJd(jd);
+    openSignIn({
+      title: "Sign in to score your résumé",
+      reason: "Scanning is free with an account: 3 a day, and every report is saved to your history.",
+    });
+  }, [jd, openSignIn]);
+
   const onFile = (f: File | null | undefined) => {
+    // Scanning requires an account. The landing already asks before the file
+    // picker opens; this covers a drop onto the zone and anything that reaches
+    // a file another way, so nobody uploads a résumé we are going to refuse.
+    if (isAnon) { askToSignIn(); return; }
     const fileErr = resumeFileClientError(f);
     if (fileErr) { setError(fileErr); return; }
-    // First scan free; a second scan for a signed-out visitor asks them to sign in.
-    if (isAnon && hasUsedAnonScan()) {
-      openSignIn({
-        title: "That was your free scan",
-        reason: "Sign in free to run more scans, save your reports, and unlock every feature — your first report stays right here.",
-      });
-      return;
-    }
     run(f as File);
   };
 
@@ -1352,7 +1358,7 @@ export default function AnalyzeResume() {
   );
 
   const sidebarScroll = !result ? (
-    <AnalyzeHistoryRail loading={loadingHistory} empty={azHistory.length === 0} rows={azHistoryRows} />
+    <AnalyzeHistoryRail loading={loadingHistory} empty={azHistory.length === 0} rows={azHistoryRows} requiresSignIn={isAnon} />
   ) : (
     <AnalyzeImprovementPlan
       result={result}
@@ -1424,22 +1430,6 @@ export default function AnalyzeResume() {
           both account writes no-op without a session, so an anonymous click used
           to report "Saved to your Profile." having saved nothing. */}
       <SaveToProfilePrompt signedIn={!isAnon} />
-
-      {/* The anonymous half of that moment: 58% of scan volume signs nothing,
-          and the only sign-in ask used to fire on a SECOND scan — never for the
-          visitor who scans once and leaves. Signing in costs no re-scan: the
-          result is already stashed and is restored below when the session lands. */}
-      <SaveScanPrompt
-        isAnon={isAnon}
-        score={typeof result?.overallScore === "number" ? result.overallScore : null}
-        onSignIn={() =>
-          openSignIn({
-            title: "Save this report",
-            reason:
-              "Create a free account to keep this report in your history. You won't lose it, and you won't have to scan again.",
-          })
-        }
-      />
 
       {/* And the payoff: top job matches for the résumé just scanned. Renders
           only when the feed is résumé-ranked for a signed-in user; bottom-right
@@ -2155,6 +2145,8 @@ export default function AnalyzeResume() {
             onBrowseClick={() => fileRef.current?.click()}
             error={error}
             scansRemaining={scansRemaining}
+            requiresSignIn={isAnon}
+            onSignIn={askToSignIn}
           />
         )}
 

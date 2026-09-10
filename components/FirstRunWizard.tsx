@@ -32,7 +32,6 @@ import { Button } from "@/components/ui/button";
 import { ROLE_SUGGESTIONS } from "@/lib/jobsTaxonomy";
 import { fetchUserProfile, upsertUserProfile } from "@/lib/supabase";
 import { EMPTY_PROFILE } from "@/lib/profileStorage";
-import { hasUsedAnonScan } from "@/lib/anonScan";
 
 const FIRST_RUN_KEY_PREFIX = "rn_first_run_v1";
 const NEW_ACCOUNT_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -68,7 +67,6 @@ export default function FirstRunWizard({
   useEffect(() => {
     if (!user || !userId || isUmbc) return;
     if (!isNewAccount(user)) return;
-    if (hasUsedAnonScan()) return; // already engaged via the free-scan funnel
     try {
       if (localStorage.getItem(storageKey(userId)) === "1") return;
     } catch {

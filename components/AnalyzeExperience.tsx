@@ -34,7 +34,14 @@ function Spinner({ size = 18 }: { size?: number }) {
 }
 
 
-/** Pre-upload landing: hero, preview mockup, drop zone (primary), JD (optional). */
+/** Pre-upload landing: hero, preview mockup, drop zone (primary), JD (optional).
+ *
+ * ⚠️ `requiresSignIn` puts the ask BEFORE the file picker, and that placement is
+ * the point. Scanning needs an account, so a dropzone that accepts a file and
+ * then refuses it is the mid-task wall users complain about most about tools
+ * like this — they have already chosen a file and read a promise that turned out
+ * not to apply to them. The dropzone becomes the sign-in card instead.
+ */
 export function AnalyzeUploadLanding({
   jd,
   onJdChange,
@@ -45,6 +52,8 @@ export function AnalyzeUploadLanding({
   onBrowseClick,
   error,
   scansRemaining,
+  requiresSignIn = false,
+  onSignIn,
 }: {
   jd: string;
   onJdChange: (v: string) => void;
@@ -55,7 +64,10 @@ export function AnalyzeUploadLanding({
   onBrowseClick: () => void;
   error: string | null;
   scansRemaining?: number | null;
+  requiresSignIn?: boolean;
+  onSignIn?: () => void;
 }) {
+  const activate = requiresSignIn ? (onSignIn ?? (() => {})) : onBrowseClick;
   return (
     <div className="az-upload-landing">
       {/* Hero */}
@@ -85,29 +97,43 @@ export function AnalyzeUploadLanding({
       <div
         role="button"
         tabIndex={0}
+        aria-label={requiresSignIn ? "Sign in to score your résumé" : "Upload your résumé PDF"}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            onBrowseClick();
+            activate();
           }
         }}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        onClick={onBrowseClick}
-        className={`az-analyze-dropzone fade-in stagger-2${dragging ? " is-dragging" : ""}`}
+        onDragOver={requiresSignIn ? undefined : onDragOver}
+        onDragLeave={requiresSignIn ? undefined : onDragLeave}
+        onDrop={requiresSignIn ? undefined : onDrop}
+        onClick={activate}
+        className={`az-analyze-dropzone fade-in stagger-2${!requiresSignIn && dragging ? " is-dragging" : ""}`}
       >
         <div className="az-analyze-dropzone-glow" aria-hidden />
         <div className="az-analyze-dropzone-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-            <path d="M14 2v6h6M12 18v-6M9 15l3-3 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          {requiresSignIn ? (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <rect x="4" y="10" width="16" height="11" rx="2" stroke="currentColor" strokeWidth="1.6" />
+              <path d="M8 10V7a4 4 0 018 0v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+              <path d="M14 2v6h6M12 18v-6M9 15l3-3 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
         </div>
-        <div className="az-analyze-dropzone-title">Drop your résumé PDF here</div>
-        <p className="az-analyze-dropzone-hint">or click to browse</p>
+        <div className="az-analyze-dropzone-title">
+          {requiresSignIn ? "Sign in to score your résumé" : "Drop your résumé PDF here"}
+        </div>
+        <p className="az-analyze-dropzone-hint">
+          {requiresSignIn
+            ? "It takes a few seconds and costs nothing."
+            : "or click to browse"}
+        </p>
         <span className="az-analyze-dropzone-cta">
-          Start analysis
+          {requiresSignIn ? "Sign in free" : "Start analysis"}
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
             <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -117,7 +143,11 @@ export function AnalyzeUploadLanding({
         </p>
       </div>
 
-      {scansRemaining !== null && scansRemaining !== undefined && (
+      {requiresSignIn ? (
+        <p style={{ textAlign: "center", fontSize: 12, color: "var(--muted)", marginTop: 8, marginBottom: 0 }}>
+          Free plan: 3 scans a day, every report saved to your history.
+        </p>
+      ) : scansRemaining !== null && scansRemaining !== undefined ? (
         <p style={{
           textAlign: "center",
           fontSize: 12,
@@ -129,7 +159,7 @@ export function AnalyzeUploadLanding({
             ? "No free scans remaining today · Resets at midnight UTC"
             : `${scansRemaining} free scan${scansRemaining !== 1 ? "s" : ""} remaining today`}
         </p>
-      )}
+      ) : null}
 
       <ApiErrorBanner error={error} className="az-analyze-upload-error" style={{ marginTop: 14, marginBottom: 0 }} />
 

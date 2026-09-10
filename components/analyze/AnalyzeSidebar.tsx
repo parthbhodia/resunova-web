@@ -144,10 +144,13 @@ export function AnalyzeHistoryRail({
   loading,
   empty,
   rows,
+  requiresSignIn = false,
 }: {
   loading: boolean;
   empty: boolean;
   rows: React.ReactNode;
+  /** Signed out: history belongs to an account, and so does the way to start. */
+  requiresSignIn?: boolean;
 }) {
   if (loading) {
     return (
@@ -168,7 +171,13 @@ export function AnalyzeHistoryRail({
     return (
       <div style={{ fontSize: 13, color: "var(--dim)", textAlign: "center", paddingTop: 24, lineHeight: 1.7 }}>
         No analyses yet.<br />
-        <span style={{ fontSize: 12 }}>Upload a PDF above<br />to get started.</span>
+        <span style={{ fontSize: 12 }}>
+          {requiresSignIn ? (
+            <>Sign in to scan<br />and keep your reports.</>
+          ) : (
+            <>Upload a PDF above<br />to get started.</>
+          )}
+        </span>
       </div>
     );
   }

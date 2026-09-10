@@ -37,16 +37,23 @@ export type ScansRemainingState =
   | { kind: "loading" }
   /** Admin / Pro / university. Deliberately renders nothing — a count of ∞ is noise. */
   | { kind: "unlimited"; plan: string | null }
+  /**
+   * Signed out, and scanning needs an account. Its own kind rather than `error`:
+   * this is a complete, correct answer, and rendering the outage chip to every
+   * guest would cry wolf exactly the way `catch {}` used to. The nav shows
+   * nothing for it (no account to budget for); Analyze asks them to sign in.
+   */
+  | { kind: "requires_sign_in" }
   | {
       kind: "metered";
       remaining: number;
       limit: number;
       resetAt: string | null;
       /**
-       * A per-IP guest allowance rather than an account quota. Analyze shows
-       * it ("1 free scan remaining today"); the nav badge does not, because
-       * there is no account to budget for yet. Carried on the state so each
-       * surface makes that call explicitly instead of re-deriving it.
+       * A per-IP guest allowance rather than an account quota. Not produced
+       * today (guests are refused, see `requires_sign_in`) but reachable the
+       * moment a policy meters them instead; the nav still declines to render
+       * it, because there would be no account to budget for.
        */
       anonymous: boolean;
     }
@@ -63,13 +70,17 @@ const TTL_MS = 60_000;
  * actually decided, and it is the part worth pinning.
  *
  * A 2xx that is enforced but carries no numbers is an ERROR, not an unlimited
- * plan — the backend only omits `limit`/`remaining` when it also sets
- * `unlimited`, so a payload with neither is a contract break we should surface
- * rather than quietly render as "you're fine".
+ * plan — the backend omits `limit`/`remaining` only when it also says why
+ * (`unlimited`, or `requiresSignIn`), so a payload with none of the three is a
+ * contract break we should surface rather than quietly render as "you're fine".
  */
 export function scansStateFromStatus(body: unknown): ScansRemainingState {
   const status = scanLimitFrom(body);
   if (status.unlimited) return { kind: "unlimited", plan: status.plan };
+  // Before `error`, because this payload legitimately carries no numbers: a
+  // guest has no quota, and treating that as a contract break would put an
+  // "unavailable" chip in front of every signed-out visitor.
+  if (status.requiresSignIn) return { kind: "requires_sign_in" };
   if (!status.enforced) return { kind: "idle" };
   if (status.remaining == null || status.limit == null) return { kind: "error" };
   return {
@@ -109,11 +120,11 @@ function publish(
 /**
  * One round trip.
  *
- * Runs signed out too: the endpoint answers a guest with their per-IP free-scan
- * allowance, which Analyze displays. `apiFetch` simply omits the Authorization
+ * Runs signed out too: the endpoint answers a guest with `requiresSignIn`, which
+ * Analyze turns into a sign-in ask. `apiFetch` simply omits the Authorization
  * header when there is no session, so the guest and account cases are the same
- * request. The nav decides not to render the guest number; the store does not
- * decide that for it.
+ * request. The nav decides not to render anything for a guest; the store does
+ * not decide that for it.
  *
  * A 401 resolves to `idle`, not `error`: we sent a token and were told it is
  * not good, which means signed out — the same state as never having had one.

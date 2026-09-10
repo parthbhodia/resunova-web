@@ -313,7 +313,7 @@ export default function TailorResumeToJobDescriptionPage() {
 
       <CTACard
         heading="See your match score in under a minute"
-        body="Upload your resume, paste any job description, and Resunova shows your match score, missing keywords, and bullet-level fixes. Free — no signup required to start."
+        body="Upload your resume, paste any job description, and Resunova shows your match score, missing keywords, and bullet-level fixes. Free with an account, no credit card."
         href="/"
         cta="Score my resume free"
       />
