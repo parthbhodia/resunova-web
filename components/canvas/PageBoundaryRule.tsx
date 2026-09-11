@@ -38,10 +38,18 @@ export function usePageOverflow(ref: RefObject<HTMLElement | null>, enabled = tr
     if (!el || !enabled || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       const h = entries[0]?.contentRect.height ?? 0;
-      setFit({
-        overflowPx: h > PAGE_HEIGHT_PX ? Math.round(h - PAGE_HEIGHT_PX) : 0,
-        fillPct: Math.round((h / PAGE_HEIGHT_PX) * 100),
-      });
+      const overflowPx = h > PAGE_HEIGHT_PX ? Math.round(h - PAGE_HEIGHT_PX) : 0;
+      const fillPct = Math.round((h / PAGE_HEIGHT_PX) * 100);
+      // Keep the previous object when the rounded numbers are unchanged. React
+      // skips a re-render only when the new state is Object.is-equal to the
+      // old one, and the observer also fires for changes this hook does not
+      // report: width, and height changes too small to move either number. A
+      // fresh literal re-rendered the host on every one of those, and on
+      // Analyze the host is the whole AnnotatedResumePanel.
+      setFit((prev) =>
+        prev.overflowPx === overflowPx && prev.fillPct === fillPct
+          ? prev
+          : { overflowPx, fillPct });
     });
     ro.observe(el);
     return () => ro.disconnect();
