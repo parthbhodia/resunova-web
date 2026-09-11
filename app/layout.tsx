@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import AuthGate from "@/components/AuthGate";
 import AuthHostRedirect from "@/components/AuthHostRedirect";
@@ -197,6 +198,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SignInDialogProvider>
           <AuthGate>{children}</AuthGate>
         </SignInDialogProvider>
+        {/* Vercel Web Analytics. Reports only from Vercel deployments, so it is
+            silent on the GitHub Pages build that still serves production and
+            starts collecting once DNS moves (see next.config.ts). Cookieless,
+            so unlike GA above it keeps counting visitors who refuse cookies. */}
+        <Analytics />
       </body>
     </html>
   );
