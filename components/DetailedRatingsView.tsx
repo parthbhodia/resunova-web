@@ -710,69 +710,19 @@ export function TailorMatchDetail(props: SharedProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0, height: "100%" }}>
-      {onFixEverything && openGapCount > 0 && activeTab !== "gapfix" && (
-        <div
-          style={{
-            flexShrink: 0,
-            padding: "12px 16px",
-            borderBottom: "1px solid var(--border)",
-            background: "var(--surface)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
-        >
-          <button
-            type="button"
-            onClick={onFixEverything}
-            disabled={fixEverythingBusy}
-            style={{
-              width: "100%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 2,
-              padding: "12px 14px",
-              borderRadius: 10,
-              border: "none",
-              background: "var(--accent)",
-              color: "#fff",
-              fontFamily: "inherit",
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: fixEverythingBusy ? "wait" : "pointer",
-              opacity: fixEverythingBusy ? 0.75 : 1,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
-            }}
-          >
-            <span>{fixAllLabel.title}</span>
-            <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.9 }}>
-              {fixAllLabel.subtitle}
-            </span>
-          </button>
-          {onFixEverythingAutoApplyChange && (
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 7,
-                cursor: "pointer",
-                fontSize: 11,
-                color: "var(--muted)",
-                padding: "0 2px",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={!fixEverythingAutoApply}
-                onChange={(e) => onFixEverythingAutoApplyChange(!e.target.checked)}
-                style={{ accentColor: "var(--accent)", cursor: "pointer" }}
-              />
-              Show suggestions first (don&apos;t apply yet)
-            </label>
-          )}
-        </div>
-      )}
+      {/* ⚠️ The detail column no longer renders Fix-everything.
+       *
+       * It used to, ungated, so with the sidebar expanded the page showed the
+       * button and its "show suggestions first" checkbox TWICE, stacked. The
+       * copy existed as cover for a collapsed sidebar — but the collapsed rail
+       * has its own compact button (aria-label "Fix everything, N gaps"), so
+       * the sidebar owns this action in BOTH states and the second copy was
+       * redundant either way.
+       *
+       * Two identical controls is not a convenience: it makes a user ask
+       * whether they do different things, and nothing on screen answers that.
+       * If this is ever re-added, gate it on the sidebar being absent, not on
+       * it being collapsed. */}
       {activeTab !== "fixes" && activeTab !== "gapfix" && (
         <div
           style={{
