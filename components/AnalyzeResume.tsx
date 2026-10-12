@@ -21,6 +21,7 @@ import { patchAppliedEditsIntoResume } from "@/lib/analyzeRescore";
 import { hiddenBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeBody";
 import { estimateScoreAfterFixes } from "@/lib/analyzeScoreEstimate";
 import { resumeFileClientError } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
@@ -371,6 +372,11 @@ export default function AnalyzeResume() {
         // sign in.
         const refusal = refusalFrom(status, json);
         if (refusal) {
+          // Its own event, never a scan_completed. A 429 or a sign-in wall is
+          // the funnel's most important failure, and folding it into
+          // completions would make the report look healthiest exactly where
+          // users are being turned away.
+          trackEvent("scan_blocked", { reason: refusal.remedy, status });
           if (refusal.remedy === "sign_in") {
             // A refusal with no limit is "you need an account"; one WITH a limit
             // is an allowance that ran out. Same remedy, different sentence —
@@ -397,11 +403,15 @@ export default function AnalyzeResume() {
         // Content gate (422): not a résumé we can analyze — show a calm,
         // instructive banner instead of the generic "analysis failed" error.
         const gateErr = resumeGateErrorFromResponse(status, json);
-        if (gateErr) { setError(gateErr); return; }
+        if (gateErr) { trackEvent("scan_blocked", { reason: "not_a_resume", status }); setError(gateErr); return; }
+        trackEvent("scan_blocked", { reason: "error", status });
         setError(toUserFriendlyErrorMessage(json.error || "Analysis failed"));
         return;
       }
       const res = mergeAnalyzeApiJson(json as Record<string, unknown>) as unknown as AnalysisResult;
+      trackEvent("scan_completed", {
+        score: typeof res?.overallScore === "number" ? res.overallScore : undefined,
+      });
       const resWithMeta: AnalysisResult = { ...res, libraryFolder: null };
       const draftId = `local_${Date.now()}`;
       setActiveEditDraftId(draftId);
@@ -453,6 +463,7 @@ export default function AnalyzeResume() {
       // component unmounting mid-flight. A scan already cost the user one of
       // their daily allowance; dropping the answer because they changed tabs
       // charges them for nothing.
+      trackEvent("scan_started", { has_jd: jd.trim().length > 0 });
       const outcome = await startRun<AnalyzeOutcome>("analyze", async () => {
         const r = await apiFetch("/api/analyze-upload", { method: "POST", body: fd });
         return { ok: r.ok, status: r.status, json: await r.json(), fileName: file.name };

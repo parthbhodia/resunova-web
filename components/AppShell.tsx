@@ -37,6 +37,8 @@ import { UpgradeDialogProvider } from "./UpgradeDialog";
 import CheckoutReturnNotice from "./CheckoutReturnNotice";
 import FirstRunWizard from "./FirstRunWizard";
 import { RAIL_WIDTH, type AppView } from "./app-shell/nav-config";
+import { trackEvent } from "@/lib/analytics";
+import { APP_VIEW_TITLES } from "@/lib/appViewTitle";
 import { apiFetch } from "@/lib/apiClient";
 
 export type { AppView } from "./app-shell/nav-config";
@@ -103,6 +105,31 @@ function AppShellBody({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const { openSignIn } = useSignInDialog();
   const active = useAppView();
+
+  /**
+   * One `app_view` per in-app screen.
+   *
+   * ⚠️ THIS IS NOT A DUPLICATE OF THE TITLED page_view IN layout.tsx, and the
+   * difference is the whole reason it exists. That script can only read
+   * `?view=` from the URL, and bare "/" is the marketing landing page for a
+   * signed-out visitor and the app home for a signed-in one — nothing
+   * available at script time can tell those apart, so it deliberately leaves
+   * "/" titled as marketing. AppShell only renders when the app shell is
+   * genuinely on screen, so its mount IS the disambiguation.
+   *
+   * It is also a CUSTOM EVENT rather than a second page_view on purpose:
+   * GA4's enhanced measurement may or may not be configured to fire page_view
+   * on history changes, and that is a property setting this code cannot read.
+   * Sending our own page_view would double-count wherever it is enabled; an
+   * `app_view` event with a `view` parameter is queryable either way.
+   */
+  useEffect(() => {
+    const title = APP_VIEW_TITLES[active];
+    if (title) {
+      try { document.title = title; } catch { /* ignore */ }
+    }
+    trackEvent("app_view", { view: active });
+  }, [active]);
   const onTemplateBuilderPage =
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
   const onTemplatesPage =

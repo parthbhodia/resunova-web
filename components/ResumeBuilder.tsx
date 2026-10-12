@@ -131,6 +131,7 @@ import { appendEducation } from "@/lib/educationEntry";
 import { appendSkill, removeSkill } from "@/lib/skillsEntry";
 import type { StructuredResumeEducation } from "@/store/resumeAnalyzeStore";
 import { apiFetch } from "@/lib/apiClient";
+import { trackEvent } from "@/lib/analytics";
 
 const TailoredPdfPreview = dynamic(
   () => import("@/components/TailoredPdfPreview"),
@@ -1521,6 +1522,9 @@ export default function ResumeBuilder({
     setAnalyzeError(null);
     setError(null);
     saveStatus.resetForNewRun();
+    // Fired after the two guards above, so it counts tailor runs that actually
+    // start rather than clicks on a form with no JD or no résumé pasted in yet.
+    trackEvent("tailor_started", { mode: tailoringMode ?? "unknown" });
     try {
       const resp = await apiFetch("/api/analyze", {
         method: "POST",
