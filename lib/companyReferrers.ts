@@ -1,6 +1,9 @@
 /**
  * Employee referrer profiles: "I work at this company and can refer candidates."
  * Owner-only writes; open profiles are publicly readable for /refer/?s=<slug>.
+ *
+ * Public reads return LoadResult so a failed query is not the same outcome as
+ * an empty directory or a paused link. Supabase credentials stay in lib/supabase.ts.
  */
 import { getSupabaseClient } from "@/lib/supabase";
 
@@ -68,6 +71,16 @@ export type ReferralWriteResult = {
   request: CompanyReferralRequest | null;
   error: string | null;
 };
+
+/** A read that either returned data or failed. `data: null` is a real miss, not an error. */
+export type LoadResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+export const REFERRER_LINK_INACTIVE = "This referral link is not active.";
+export const REFERRER_LOOKUP_FAILED = "Could not load this referral link. Try again.";
+export const REFERRER_SEARCH_FAILED = "Could not search referrers. Try again.";
+export const REFERRER_SESSION_FAILED = "Could not check your session. Try again.";
 
 type ReferrerRow = {
   id: string;
@@ -196,7 +209,7 @@ export function referralWriteError(error: { code?: string; message?: string } | 
     return "This referrer is not accepting more requests right now.";
   }
   if (message.includes("row-level security") || message.includes("violates row-level")) {
-    return "This referral link is not active.";
+    return REFERRER_LINK_INACTIVE;
   }
   return "Could not send this request. Add your name, a valid email, and the role you want.";
 }
@@ -338,9 +351,9 @@ export async function fetchMyReferrerProfile(): Promise<CompanyReferrer | null> 
   }
 }
 
-export async function fetchReferrerBySlug(slug: string): Promise<CompanyReferrer | null> {
+export async function fetchReferrerBySlug(slug: string): Promise<LoadResult<CompanyReferrer | null>> {
   const trimmed = slug.trim();
-  if (!trimmed) return null;
+  if (!trimmed) return { ok: true, data: null };
   try {
     const { data, error } = await selectWithFallback(
       REFERRER_PUBLIC_SELECT,
@@ -355,18 +368,18 @@ export async function fetchReferrerBySlug(slug: string): Promise<CompanyReferrer
     );
     if (error) {
       console.warn("[company_referrers] fetch slug:", error.message);
-      return null;
+      return { ok: false, error: REFERRER_LOOKUP_FAILED };
     }
-    return data ? mapReferrerRow(data as ReferrerRow) : null;
+    return { ok: true, data: data ? mapReferrerRow(data as ReferrerRow) : null };
   } catch (err) {
     console.warn("[company_referrers] fetch slug:", err);
-    return null;
+    return { ok: false, error: REFERRER_LOOKUP_FAILED };
   }
 }
 
-export async function searchOpenReferrers(company: string): Promise<CompanyReferrer[]> {
+export async function searchOpenReferrers(company: string): Promise<LoadResult<CompanyReferrer[]>> {
   const q = sanitizeSearchTerm(company);
-  if (q.length < 2) return [];
+  if (q.length < 2) return { ok: true, data: [] };
   try {
     const { data, error } = await selectWithFallback(
       REFERRER_PUBLIC_SELECT,
@@ -381,12 +394,12 @@ export async function searchOpenReferrers(company: string): Promise<CompanyRefer
     );
     if (error) {
       console.warn("[company_referrers] search:", error.message);
-      return [];
+      return { ok: false, error: REFERRER_SEARCH_FAILED };
     }
-    return ((data ?? []) as ReferrerRow[]).map(mapReferrerRow);
+    return { ok: true, data: ((data ?? []) as ReferrerRow[]).map(mapReferrerRow) };
   } catch (err) {
     console.warn("[company_referrers] search:", err);
-    return [];
+    return { ok: false, error: REFERRER_SEARCH_FAILED };
   }
 }
 

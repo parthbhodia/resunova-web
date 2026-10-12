@@ -1,0 +1,84 @@
+"use client";
+
+import type { FormEvent } from "react";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { AccentLink, OpenChip, ReferAlert, ReferField, ReferNote, ReferrerCard } from "@/components/refer/referUi";
+import { filledButtonSx, mutedTextSx, surfaceCardSx } from "@/components/mui/cssVars";
+import { useSignInDialog } from "@/components/SignInDialog";
+import { REFERRER_LIMITS, safeHttpUrl, type CompanyReferrer } from "@/lib/companyReferrers";
+import { useReferralAsk } from "@/hooks/usePublicReferral";
+import { FS, FW, LH } from "@/lib/typography";
+
+export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
+  const { openSignIn } = useSignInDialog();
+  const ask = useReferralAsk(referrer);
+  const linkedinHref = safeHttpUrl(referrer.linkedin);
+
+  const onSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    const outcome = await ask.submit();
+    if (outcome === "sign_in") {
+      openSignIn({
+        title: "Sign in to ask for a referral",
+        reason: "Your request is saved to your account so you can track it.",
+      });
+    }
+  };
+
+  return (
+    <Stack spacing={2.5}>
+      <AccentLink href="/refer/">All referrers</AccentLink>
+      <ReferrerCard name={referrer.displayName} count={referrer.referredCount ?? 0} avatarSize={56} badge={<OpenChip />}>
+        <Typography sx={{ mt: 0.5, fontSize: FS.subhead, fontWeight: FW.semibold, color: "var(--text)" }}>
+          Ask for a referral at {referrer.company}
+        </Typography>
+        <Typography sx={{ mt: 0.75, fontSize: FS.bodyLg, color: "var(--muted)", lineHeight: LH.normal }}>
+          {referrer.title}{referrer.bio ? `. ${referrer.bio}` : ". They signed up to refer candidates at this company."}
+        </Typography>
+        {linkedinHref ? <AccentLink href={linkedinHref} external>LinkedIn</AccentLink> : null}
+      </ReferrerCard>
+
+      {ask.done ? (
+        <Card elevation={0} sx={surfaceCardSx}>
+          <Stack spacing={1} sx={{ p: 3 }}>
+            <Typography component="h1" sx={{ m: 0, fontSize: FS.title, fontWeight: FW.bold, color: "var(--text)" }}>
+              Request sent
+            </Typography>
+            <ReferNote>
+              {referrer.displayName} will see this on their Referrals tab and can mark it referred if they submit you.
+              Track it on your profile.
+            </ReferNote>
+            <AccentLink href="/profile?tab=referrals">View your requests</AccentLink>
+          </Stack>
+        </Card>
+      ) : (
+        <Card elevation={0} sx={surfaceCardSx}>
+          <Stack component="form" spacing={1.5} onSubmit={(event) => void onSubmit(event)} sx={{ p: 3 }}>
+            <ReferField label="Your name" value={ask.form.name} maxLength={REFERRER_LIMITS.name} onChange={(value) => ask.setField("name", value)} />
+            <ReferField label="Your email" type="email" value={ask.form.email} maxLength={REFERRER_LIMITS.email} onChange={(value) => ask.setField("email", value)} />
+            <ReferField label="Role you want" value={ask.form.role} maxLength={REFERRER_LIMITS.role} onChange={(value) => ask.setField("role", value)} />
+            <ReferField label="LinkedIn or resume URL" value={ask.form.linkedin} maxLength={REFERRER_LIMITS.url} onChange={(value) => ask.setField("linkedin", value)} />
+            <ReferField
+              label="Note to the referrer"
+              placeholder="Why this role, and why this company"
+              value={ask.form.notes}
+              maxLength={REFERRER_LIMITS.notes}
+              multiline
+              onChange={(value) => ask.setField("notes", value)}
+            />
+            {ask.error ? <ReferAlert>{ask.error}</ReferAlert> : null}
+            <Button type="submit" variant="contained" disabled={ask.saving} sx={filledButtonSx}>
+              {ask.saving ? "Sending..." : "Ask for a referral"}
+            </Button>
+            <Typography sx={{ ...mutedTextSx, fontSize: FS.small }}>
+              Sign in to send this. {referrer.displayName} sees it in their inbox. Resunova does not submit the referral into {referrer.company}&apos;s ATS for them.
+            </Typography>
+          </Stack>
+        </Card>
+      )}
+    </Stack>
+  );
+}
