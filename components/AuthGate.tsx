@@ -45,31 +45,36 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
   const label = gatedRouteLabel(pathname);
   const [oauthBusy, setOauthBusy] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
-  
-  // Context-aware features based on route
-  const getFeaturesByRoute = () => {
-    if (pathname?.includes("interview-prep")) {
-      return [
-        { icon: "timer", text: "5-10 min sessions" },
-        { icon: "target", text: "Role-specific scenarios" },
-        { icon: "chart", text: "Track improvement" },
-        { icon: "sparkles", text: "AI feedback" },
-      ];
-    } else if (pathname?.includes("my-resumes")) {
-      return [
-        { icon: "save", text: "Save all versions" },
-        { icon: "list", text: "Multiple templates" },
-        { icon: "zap", text: "Quick access" },
-        { icon: "refresh", text: "Easy updates" },
-      ];
-    }
-    return [
-      { icon: "timer", text: "Start instantly" },
-      { icon: "sparkles", text: "AI-powered tools" },
-      { icon: "chart", text: "Real-time feedback" },
-      { icon: "lock", text: "Always private" },
-    ];
-  };
+
+  const content = pathname?.includes("interview-prep")
+    ? {
+        title: "Sign in to continue",
+        body: "Interview Prep saves your question sets, progress, and practice history to your account.",
+        features: [
+          { icon: "timer", text: "Save each practice session" },
+          { icon: "target", text: "Keep role-specific question sets" },
+          { icon: "chart", text: "Track progress over time" },
+        ],
+      }
+    : pathname?.includes("my-resumes")
+      ? {
+          title: "Sign in to continue",
+          body: "My Résumés needs an account so your saved resumes, versions, and exports stay attached to you.",
+          features: [
+            { icon: "save", text: "Keep all saved resume versions" },
+            { icon: "list", text: "Access templates and exports" },
+            { icon: "refresh", text: "Pick up where you left off" },
+          ],
+        }
+      : {
+          title: "Sign in to continue",
+          body: "Create an account to save your work and come back to it anytime.",
+          features: [
+            { icon: "save", text: "Save your work" },
+            { icon: "sparkles", text: "Use every AI workflow" },
+            { icon: "lock", text: "Keep it attached to your account" },
+          ],
+        };
 
   // SVG icon renderer
   const renderFeatureIcon = (iconType: string) => {
@@ -106,20 +111,6 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
         return null;
     }
   };
-
-  const features = getFeaturesByRoute();
-  
-  // Social proof based on route
-  const getSocialProof = () => {
-    if (pathname?.includes("interview-prep")) {
-      return { stat: "5,000+", desc: "students practicing with Resunova", achievement: "95% report improved confidence" };
-    } else if (pathname?.includes("my-resumes")) {
-      return { stat: "50,000+", desc: "resumes saved and improved", achievement: "3x higher interview rate" };
-    }
-    return { stat: "100,000+", desc: "students and job seekers trust Resunova", achievement: "Trusted by students at 500+ universities" };
-  };
-
-  const socialProof = getSocialProof();
 
   const handleGoogle = async () => {
     setOauthBusy(true);
@@ -168,18 +159,17 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
       background: "linear-gradient(135deg, var(--bg) 0%, var(--surface) 100%)",
     }}>
       <div style={{
-        width: "min(520px, 100%)",
+        width: "min(460px, 100%)",
         maxWidth: "100%",
         background: "var(--surface)",
         border: "1px solid var(--border)",
-        borderRadius: "20px",
-        padding: "48px 40px",
+        borderRadius: "18px",
+        padding: "40px 32px",
         textAlign: "center",
         boxShadow: "0 24px 64px rgba(0, 0, 0, 0.12)",
       }}>
-        {/* Icon badge with animation */}
         <div style={{
-          marginBottom: "28px",
+          marginBottom: "24px",
           display: "flex",
           justifyContent: "center",
         }}>
@@ -187,142 +177,71 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "72px",
-            height: "72px",
-            borderRadius: "16px",
+            width: "60px",
+            height: "60px",
+            borderRadius: "14px",
             background: "var(--accent-bg)",
-            transition: "all 0.3s ease-out",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.transform = "scale(1.05)";
-            (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 24px var(--accent-bg)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.transform = "scale(1)";
-            (e.currentTarget as HTMLElement).style.boxShadow = "none";
           }}
           >
             {getIcon()}
           </div>
         </div>
 
-        {/* Social proof stats */}
-        <div style={{
-          marginBottom: "24px",
-          padding: "16px",
-          borderRadius: "12px",
-          background: "var(--accent-bg)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "8px",
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ color: "var(--accent)", marginRight: "4px" }}>
-            <polygon points="12 2 15.09 10.26 24 10.27 17.77 16.14 20.16 24.29 12 18.53 3.84 24.29 6.23 16.14 0 10.27 8.91 10.26 12 2" />
-          </svg>
-          <span style={{
-            fontSize: "16px",
-            fontWeight: "800",
-            color: "var(--accent)",
-            marginRight: "4px",
-          }}>
-            {socialProof.stat}
-          </span>
-          <span style={{
-            fontSize: "14px",
-            fontWeight: "600",
-            color: "var(--text)",
-          }}>
-            {socialProof.desc}
-          </span>
-        </div>
-
-        {/* Heading */}
         <h1 style={{
           margin: "0 0 12px",
-          fontSize: "32px",
+          fontSize: "30px",
           fontWeight: "800",
           letterSpacing: "-0.8px",
           color: "var(--text)",
           lineHeight: 1.2,
         }}>
-          {label ? `Start ${label.toLowerCase()}` : "Unlock your potential"}
+          {content.title}
         </h1>
 
-        {/* Achievement badge */}
-        <p style={{
-          margin: "0 0 24px",
-          fontSize: "14px",
-          color: "var(--accent)",
-          fontWeight: "700",
-          letterSpacing: "0.3px",
-          textTransform: "uppercase",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "6px",
-        }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          {socialProof.achievement}
-        </p>
-
-        {/* Subheading */}
         <p style={{
           fontSize: "15px",
           color: "var(--muted)",
           lineHeight: "1.7",
-          maxWidth: "420px",
-          margin: "0 auto 32px",
+          maxWidth: "380px",
+          margin: "0 auto 28px",
         }}>
-          {label
-            ? `Create your free account to save progress, track improvements, and unlock all ${label.toLowerCase()} features instantly.`
-            : "Create your free account in 30 seconds. No credit card. Full access to all features."}
+          {content.body}
         </p>
 
-        {/* Feature grid */}
         <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
           marginBottom: "32px",
         }}>
-          {features.map((f) => (
+          {content.features.map((f) => (
             <div
               key={f.text}
               style={{
-                padding: "14px 12px",
+                padding: "12px 14px",
                 borderRadius: "12px",
-                background: "var(--accent-bg)",
-                border: "1px solid rgba(47, 129, 247, 0.2)",
-                transition: "all 0.2s ease-out",
-                cursor: "default",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "var(--accent-bg)";
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(47, 129, 247, 0.4)";
-                (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "var(--accent-bg)";
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(47, 129, 247, 0.2)";
-                (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                background: "var(--surface2)",
+                border: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
               }}
             >
               <div style={{
-                marginBottom: "8px",
                 display: "flex",
+                alignItems: "center",
                 justifyContent: "center",
                 color: "var(--accent)",
+                flexShrink: 0,
               }}>
                 {renderFeatureIcon(f.icon)}
               </div>
               <div style={{
-                fontSize: "13px",
+                fontSize: "14px",
                 fontWeight: "600",
                 color: "var(--text)",
-                lineHeight: 1.3,
+                lineHeight: 1.4,
+                textAlign: "left",
               }}>
                 {f.text}
               </div>
@@ -330,10 +249,9 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
           ))}
         </div>
 
-        {/* Primary CTA */}
         <button
           type="button"
-          onClick={() => openSignIn({ reason: `Ready to ${label?.toLowerCase() || "get started"}?` })}
+          onClick={() => void handleGoogle()}
           disabled={oauthBusy}
           style={{
             width: "100%",
@@ -360,26 +278,12 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
             (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 20px rgba(47, 129, 247, 0.3)";
           }}
         >
-          Create free account
+          {oauthBusy ? "Opening Google…" : "Continue with Google"}
         </button>
-
-        {/* Secondary CTA — Google OAuth inline */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          marginBottom: "20px",
-          fontSize: "13px",
-          color: "var(--dim)",
-        }}>
-          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
-          <span>or</span>
-          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
-        </div>
 
         <button
           type="button"
-          onClick={() => void handleGoogle()}
+          onClick={() => openSignIn({ reason: `Continue to ${label?.toLowerCase() || "your account"} with email or Google.` })}
           disabled={oauthBusy}
           style={{
             width: "100%",
@@ -407,7 +311,7 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
             (e.currentTarget as HTMLElement).style.color = "var(--muted)";
           }}
         >
-          {oauthBusy ? "Opening Google…" : "Continue with Google"}
+          Use email instead
         </button>
 
         {oauthError ? (
@@ -439,26 +343,6 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
         >
           ← Back to home
         </Link>
-
-        {/* Trust badges */}
-        <p style={{
-          marginTop: "20px",
-          fontSize: "11px",
-          color: "var(--dim)",
-          letterSpacing: "0.5px",
-          textTransform: "uppercase",
-          fontWeight: "600",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "12px",
-        }}>
-          <span>✓ No credit card</span>
-          <span>•</span>
-          <span>✓ Free forever</span>
-          <span>•</span>
-          <span>✓ Privacy first</span>
-        </p>
       </div>
     </div>
   );
