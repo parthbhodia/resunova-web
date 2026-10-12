@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
+import { saveBlobAsDownload } from "@/lib/saveBlobDownload";
 
 /**
  * Strip Analyze annotation chrome from a cloned DOM before PDF export.
@@ -201,12 +202,7 @@ export function useHtmlPdfExport() {
       }
 
       const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      saveBlobAsDownload(blob, filename);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "PDF export failed");
     } finally {

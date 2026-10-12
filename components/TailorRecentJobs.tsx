@@ -25,6 +25,8 @@ type Props = {
   currentFolder?: string | null;
   /** Called after navigation so parent knows the user is picking up from history. */
   onPick?: () => void;
+  /** Open the job on the current page instead of navigating away. */
+  onOpen?: (record: ResumeRecord) => void;
   /** When false, parent renders the section title (sidebar layout). */
   showHeader?: boolean;
   /** Show loading/empty placeholders instead of returning null. */
@@ -36,6 +38,7 @@ type Props = {
 export default function TailorRecentJobs({
   currentFolder,
   onPick,
+  onOpen,
   showHeader = true,
   showWhenEmpty = false,
   embedded = false,
@@ -64,6 +67,11 @@ export default function TailorRecentJobs({
   if (!showWhenEmpty && (!items || items.length === 0)) return null;
 
   function pickJob(r: ResumeRecord) {
+    if (onOpen) {
+      onOpen(r);
+      onPick?.();
+      return;
+    }
     try {
       if (r.job_description) sessionStorage.setItem(TAILOR_PREFILL_JD, r.job_description);
       if (r.company) sessionStorage.setItem(TAILOR_PREFILL_COMPANY, r.company);

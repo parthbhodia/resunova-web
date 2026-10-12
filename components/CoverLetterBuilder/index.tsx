@@ -11,6 +11,7 @@ import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import { fetchUserProfile, getSupabaseClient } from "@/lib/supabase";
 import { AlignmentType, Document, Packer, Paragraph, TextRun } from "docx";
 import { parseJsonOrThrow } from "@/lib/utils";
+import { saveBlobAsDownload } from "@/lib/saveBlobDownload";
 import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "./SignInToUseAi";
 import { apiFetch } from "@/lib/apiClient";
@@ -236,10 +237,7 @@ function CoverLetterBuilderInner() {
       ],
     });
     const blob = await Packer.toBlob(doc);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "CoverLetter.docx"; a.click();
-    URL.revokeObjectURL(url);
+    saveBlobAsDownload(blob, "CoverLetter.docx");
   };
 
   if (!loaded) return null;
