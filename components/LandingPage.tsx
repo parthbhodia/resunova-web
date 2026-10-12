@@ -18,6 +18,7 @@ import {
 import LandingFAQ from "@/components/LandingFAQ";
 import LandingTopCompanies from "@/components/LandingTopCompanies";
 import { FloatingFeatureNav, Reveal, TealScrollStyles } from "@/components/landing/TealScroll";
+import ResumeExamplesBand from "@/components/landing/ResumeExamplesBand";
 import { RESUME_STYLE_PRESETS, type TBStylePreset } from "@/lib/resumeLayout";
 
 // ── Design tokens ──────────────────────────────────────────────────────────
@@ -1236,6 +1237,8 @@ export default function LandingPage() {
           <VariantA embedded />
         </div>
       </section>
+
+      <ResumeExamplesBand />
 
       {/* ───────────── Stats ticker — trust bar directly under the hero ─── */}
       <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, overflow: "hidden", padding: "18px 0" }}>

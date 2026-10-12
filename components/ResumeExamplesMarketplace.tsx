@@ -1,9 +1,16 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search, CheckCircle2, ArrowRight, ChevronDown, Zap, Star } from "lucide-react";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardActionArea from "@mui/material/CardActionArea";
+import CardContent from "@mui/material/CardContent";
+import Typography from "@mui/material/Typography";
+import { Search, CheckCircle2, ArrowRight, Zap, Star } from "lucide-react";
+import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
 import type { ResumeCatalogExample } from "@/lib/resumeExamplesCatalog";
 import { PUBLIC_RESUME_EXAMPLES } from "@/lib/resumeExamplesCatalog";
 import { RESUME_CATEGORIES, TOTAL_RESUME_EXAMPLES, TOTAL_RESUME_CATEGORIES } from "@/lib/resumeExampleCategories";
@@ -12,7 +19,7 @@ import { prefillFromRoleExample, stashTemplateBuilderExactPrefill } from "@/lib/
 import ResumeThumbnail from "@/components/seo/ResumeThumbnail";
 
 const ALL = "All";
-const PAGE_SIZE = 12;
+const PREVIEW_COUNT = 3;
 
 // Real, recognizable roles that have a sourced role page — not a random pick.
 const QUICK_ROLES = ["software-engineer", "product-manager", "data-analyst", "sales-representative"];
@@ -29,15 +36,20 @@ const WHY_IT_WORKS: string[] = [
 ];
 
 function scrollToGrid() {
-  document.getElementById("example-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById("example-sections")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function guideLabel(roleHref: string | null): string | null {
+  if (!roleHref) return null;
+  const slug = roleHref.replace(/^\/resume-examples\//, "").replace(/\/$/, "");
+  return ROLE_RESUME_DATA.find((role) => role.slug === slug)?.label ?? null;
 }
 
 export default function ResumeExamplesMarketplace() {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState(ALL);
   const [level, setLevel] = useState(ALL);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [prefillError, setPrefillError] = useState("");
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
@@ -55,15 +67,34 @@ export default function ResumeExamplesMarketplace() {
             .join(" ")
             .toLowerCase()
             .includes(deferredQuery);
-        return matchesQuery && (category === ALL || e.category === category) && (level === ALL || e.level === level);
+        return matchesQuery && (level === ALL || e.level === level);
       }),
-    [deferredQuery, category, level],
+    [deferredQuery, level],
   );
-  const visible = filtered.slice(0, visibleCount);
+
+  const sections = useMemo(
+    () =>
+      RESUME_CATEGORIES.map((category) => ({
+        ...category,
+        examples: filtered.filter((example) => example.category === category.name),
+      })).filter((section) => section.examples.length > 0),
+    [filtered],
+  );
 
   function resetPaging() {
-    setVisibleCount(PAGE_SIZE);
+    setExpanded({});
   }
+
+  useEffect(() => {
+    const scrollToHash = () => {
+      const id = window.location.hash.replace(/^#/, "");
+      if (!id) return;
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    scrollToHash();
+    window.addEventListener("hashchange", scrollToHash);
+    return () => window.removeEventListener("hashchange", scrollToHash);
+  }, []);
 
   function handleSearchSubmit() {
     const q = query.trim().toLowerCase();
@@ -76,14 +107,10 @@ export default function ResumeExamplesMarketplace() {
     scrollToGrid();
   }
 
-  function handleCategoryClick(name: string, roleHref: string | null) {
-    if (roleHref) {
-      router.push(roleHref);
-      return;
-    }
-    setCategory((c) => (c === name ? ALL : name));
-    resetPaging();
-    setTimeout(scrollToGrid, 50);
+  function openCategory(anchor: string) {
+    const el = document.getElementById(anchor);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", `#${anchor}`);
   }
 
   function handleUseExample(example: ResumeCatalogExample) {
@@ -110,6 +137,7 @@ export default function ResumeExamplesMarketplace() {
   };
 
   return (
+    <MuiThemeRegistry>
     <div>
       {/* Hero */}
       <section style={{ position: "relative", textAlign: "center", padding: "8px 0 40px" }}>
@@ -199,46 +227,44 @@ export default function ResumeExamplesMarketplace() {
         </div>
       </section>
 
-      {/* Category tiles */}
+      {/* Category tiles jump to a section on this page. They do not leave for a role article. */}
       <section style={{ marginBottom: 48 }}>
         <div style={{ ...kicker }}>Browse by career</div>
         <h2 style={sectionTitle}>Popular career categories</h2>
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", marginTop: 20 }}>
-          {RESUME_CATEGORIES.map(({ name, icon: Icon, color, count, roleHref }) => (
-            <button
-              key={name}
-              type="button"
-              onClick={() => handleCategoryClick(name, roleHref)}
-              style={{
-                textAlign: "left",
-                padding: 16,
-                borderRadius: 14,
-                border: category === name ? "1px solid var(--accent)" : "1px solid var(--border)",
-                background: category === name ? "var(--accent-bg)" : "var(--surface)",
-                cursor: "pointer",
-              }}
-            >
-              <span
-                aria-hidden
-                style={{
-                  display: "inline-flex",
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 10,
-                  background: `${color}1f`,
-                  color,
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", mt: 2.5 }}>
+          {RESUME_CATEGORIES.map(({ name, icon: Icon, color, count, anchor }) => (
+            <Card key={name} variant="outlined">
+              <CardActionArea
+                component="a"
+                href={`#${anchor}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  openCategory(anchor);
                 }}
+                sx={{ p: 2, height: "100%", alignItems: "flex-start", justifyContent: "flex-start" }}
               >
-                <Icon size={18} />
-              </span>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", lineHeight: 1.3, marginBottom: 2 }}>{name}</div>
-              <div style={{ fontSize: 12, color: "var(--dim)" }}>{count} examples</div>
-            </button>
+                <Box
+                  aria-hidden
+                  sx={{
+                    display: "inline-flex",
+                    width: 36,
+                    height: 36,
+                    borderRadius: 1.25,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mb: 1.25,
+                    bgcolor: `${color}1f`,
+                    color,
+                  }}
+                >
+                  <Icon size={18} />
+                </Box>
+                <Typography sx={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, mb: 0.25 }}>{name}</Typography>
+                <Typography variant="body2" color="text.secondary">{count} examples</Typography>
+              </CardActionArea>
+            </Card>
           ))}
-        </div>
+        </Box>
       </section>
 
       {/* Sticky filter bar */}
@@ -281,67 +307,75 @@ export default function ResumeExamplesMarketplace() {
             {l}
           </button>
         ))}
-        {category !== ALL && (
-          <button
-            type="button"
-            onClick={() => { setCategory(ALL); resetPaging(); }}
-            style={{ flexShrink: 0, fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 999, border: "1px dashed var(--border)", background: "transparent", color: "var(--muted)", cursor: "pointer" }}
-          >
-            {category} ✕
-          </button>
-        )}
       </div>
 
-      {/* Example grid */}
-      <section id="example-grid" style={{ marginBottom: 56 }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-          <h2 style={sectionTitle}>{category === ALL ? "All resume examples" : `${category} resumes`}</h2>
-          <span aria-live="polite" style={{ fontSize: 14, color: "var(--dim)" }}>{filtered.length} {filtered.length === 1 ? "example" : "examples"}</span>
-        </div>
+      <div id="example-sections" style={{ marginBottom: 56 }}>
+        <span aria-live="polite" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>
+          {filtered.length} {filtered.length === 1 ? "example" : "examples"}
+        </span>
         {prefillError && <p role="alert" style={{ color: "var(--red-ink, #dc2626)", fontSize: 13, margin: "0 0 14px" }}>{prefillError}</p>}
-        <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-          {visible.map((example) => (
-            <div key={`${example.category}-${example.title}`} style={{ border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", background: "var(--surface)" }}>
-              <div style={{ padding: 14, background: "var(--bg)" }}>
-                <ResumeThumbnail data={example.data} />
-              </div>
-              <div style={{ padding: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>{example.category}</span>
-                  <span style={{ fontSize: 12, color: "var(--dim)" }}>{example.level}</span>
-                </div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", margin: "0 0 6px" }}>{example.title}</h3>
-                <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 12px" }}>{example.desc}</p>
-                <p style={{ fontSize: 12, color: "var(--dim)", margin: "0 0 14px" }}>{example.tags.join(" · ")}</p>
-                <button
-                  type="button"
-                  onClick={() => handleUseExample(example)}
-                  aria-label={`Use ${example.title} example`}
-                  style={{ width: "100%", padding: "10px 0", borderRadius: 10, border: "none", background: "var(--accent)", color: "var(--accent-foreground)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+        {sections.map(({ name, color, anchor, roleHref, examples }) => {
+          const open = expanded[name] ?? false;
+          const shown = open ? examples : examples.slice(0, PREVIEW_COUNT);
+          const guide = guideLabel(roleHref);
+          return (
+            <Box key={name} component="section" id={anchor} sx={{ mb: 4.5, scrollMarginTop: 10 }}>
+              <Box sx={{ bgcolor: color, color: "#fff", borderRadius: 2.5, px: 3.5, py: 3.5, mb: 2 }}>
+                <Typography variant="h2" sx={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", mb: 1 }}>{name}</Typography>
+                <Typography sx={{ maxWidth: 720, color: "rgba(255,255,255,0.92)" }}>
+                  {examples.length} scored {examples.length === 1 ? "example" : "examples"} in this category. Open one in the builder
+                  {guide ? `, or read the ${guide} guide for the skills employers ask for.` : "."}
+                </Typography>
+                {guide && roleHref ? (
+                  <Button component={Link} href={roleHref} sx={{ mt: 1.5, color: "#fff", fontWeight: 700 }}>
+                    Read the {guide} guide
+                  </Button>
+                ) : null}
+              </Box>
+              {examples.length > PREVIEW_COUNT ? (
+                <Button
+                  variant="outlined"
+                  onClick={() => setExpanded((prev) => ({ ...prev, [name]: !open }))}
+                  sx={{ mb: 1.75 }}
                 >
-                  Use this template
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+                  {open ? "Show less" : "Show all"}
+                </Button>
+              ) : null}
+              <Box sx={{ display: "grid", gap: 2.25, gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+                {shown.map((example) => (
+                  <Card key={`${example.category}-${example.title}`} variant="outlined">
+                    <Box sx={{ p: 1.75, bgcolor: "background.default" }}>
+                      <ResumeThumbnail data={example.data} />
+                    </Box>
+                    <CardContent>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: "primary.main" }}>{example.category}</Typography>
+                        <Typography variant="body2" color="text.secondary">{example.level}</Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: 16, fontWeight: 700, mb: 0.75 }}>{example.title}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.55 }}>{example.desc}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.75 }}>{example.tags.join(" · ")}</Typography>
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        onClick={() => handleUseExample(example)}
+                        aria-label={`Use ${example.title} example`}
+                      >
+                        Use this template
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            </Box>
+          );
+        })}
         {!filtered.length && (
           <p style={{ textAlign: "center", padding: 24, borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)" }}>
             No examples match those filters.
           </p>
         )}
-        {visibleCount < filtered.length && (
-          <div style={{ textAlign: "center", marginTop: 24 }}>
-            <button
-              type="button"
-              onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "11px 24px", borderRadius: 999, border: "2px solid var(--border)", background: "transparent", color: "var(--text)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
-            >
-              Load more examples <ChevronDown size={16} aria-hidden />
-            </button>
-          </div>
-        )}
-      </section>
+      </div>
 
       {/* Featured résumé */}
       <section
@@ -422,5 +456,6 @@ export default function ResumeExamplesMarketplace() {
         </div>
       </section>
     </div>
+    </MuiThemeRegistry>
   );
 }
