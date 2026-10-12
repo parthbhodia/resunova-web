@@ -1,19 +1,17 @@
 import { readFileSync } from "node:fs";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-shell/AppSidebar";
 
 /**
- * The collapsed icon rail, after two field reports in one message:
- * "it is not clicking the tailor icon properly and the hamburger icon
- * disappears".
+ * The desktop nav is a rail, not a drawer.
  *
- * (1) Collapsed, the builder icon used to expand the sidebar and open the
- * drawer — a dead click to anyone expecting navigation, since every other
- * rail icon navigates in one click. It now goes to the tailor flow.
- * (2) Collapsed, the ONLY expand control was the logo, and a logo does not
- * read as a control. The trigger stays visible in the rail.
+ * Tailor is one click. Guests hitting a non-public destination get the shared
+ * sign-in modal. Cover letter, History and theme are not rail rows; they live
+ * in the account menu. The icon-mode group-label hit target from #264 stays
+ * pinned in the primitive, because a shadcn re-sync is exactly the edit that
+ * would drop it.
  */
 
 vi.mock("next/navigation", () => ({
@@ -21,7 +19,6 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-// jsdom has no matchMedia; the sidebar's use-mobile hook needs one.
 beforeAll(() => {
   window.matchMedia = ((query: string) => ({
     matches: false,
@@ -35,13 +32,13 @@ beforeAll(() => {
   })) as unknown as typeof window.matchMedia;
 });
 
-function renderSidebar(opts: { open: boolean; anonMode?: boolean } & Record<string, unknown>) {
+function renderSidebar(opts: { anonMode?: boolean } = {}) {
   const onGoBuilderFlow = vi.fn();
-  const onBuilderOpenChange = vi.fn();
   const onSignIn = vi.fn();
   const onSwitchView = vi.fn();
+  const onHistoryOpenChange = vi.fn();
   render(
-    <SidebarProvider defaultOpen={opts.open}>
+    <SidebarProvider>
       <AppSidebar
         active="home"
         onSwitchView={onSwitchView}
@@ -49,16 +46,13 @@ function renderSidebar(opts: { open: boolean; anonMode?: boolean } & Record<stri
         onTemplatesPage={false}
         onInterviewPrepPage={false}
         builderActive={false}
-        builderOpen={false}
-        onBuilderOpenChange={onBuilderOpenChange}
         navBuilderSubflow="tailor"
         advisorAllowed={false}
         isUmbc={false}
         theme="light"
         onToggleTheme={vi.fn()}
         userInitial="T"
-        historyOpen={false}
-        onHistoryOpenChange={vi.fn()}
+        onHistoryOpenChange={onHistoryOpenChange}
         onGoBuilderFlow={onGoBuilderFlow}
         onSignOut={vi.fn()}
         anonMode={opts.anonMode ?? false}
@@ -66,55 +60,59 @@ function renderSidebar(opts: { open: boolean; anonMode?: boolean } & Record<stri
       />
     </SidebarProvider>,
   );
-  return { onGoBuilderFlow, onBuilderOpenChange, onSignIn, onSwitchView };
+  return { onGoBuilderFlow, onSignIn, onSwitchView, onHistoryOpenChange };
 }
 
-describe("collapsed rail", () => {
-  it("keeps a visible sidebar trigger — the logo is not the only way out", () => {
-    // Scoped to the HEADER: the sidebar chrome has its own edge-hover rail
-    // control with the same accessible name, and that invisible strip is
-    // exactly what the field report proved nobody finds.
-    renderSidebar({ open: false });
-    const header = document.querySelector('[data-slot="sidebar-header"]') as HTMLElement;
-    expect(header).not.toBeNull();
-    expect(within(header).getByRole("button", { name: "Toggle Sidebar" })).toBeInTheDocument();
-    // The logo-as-expand bonus survives alongside it.
-    expect(within(header).getByRole("button", { name: "Expand navigation" })).toBeInTheDocument();
-  });
-
-  it("tailor icon navigates in one click instead of just expanding", () => {
-    const { onGoBuilderFlow, onBuilderOpenChange } = renderSidebar({ open: false });
-    fireEvent.click(screen.getByRole("button", { name: "Resume Builder" }));
+describe("the rail", () => {
+  it("sends Tailor to the tailor flow in one click", () => {
+    const { onGoBuilderFlow } = renderSidebar();
+    fireEvent.click(screen.getByRole("button", { name: "Tailor" }));
     expect(onGoBuilderFlow).toHaveBeenCalledWith("tailor");
-    expect(onBuilderOpenChange).not.toHaveBeenCalled();
   });
 
-  it("a guest's tailor click gates to sign-in, matching the expanded drawer", () => {
-    const { onGoBuilderFlow, onSignIn } = renderSidebar({ open: false, anonMode: true });
-    fireEvent.click(screen.getByRole("button", { name: "Resume Builder" }));
+  it("a guest can open Analyze, because that view is public", () => {
+    const { onSignIn, onSwitchView } = renderSidebar({ anonMode: true });
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    expect(onSwitchView).toHaveBeenCalledWith("analyze");
+    expect(onSignIn).not.toHaveBeenCalled();
+  });
+
+  it("a guest's Resumes click opens sign-in", () => {
+    const { onSignIn, onSwitchView } = renderSidebar({ anonMode: true });
+    fireEvent.click(screen.getByRole("button", { name: /My Resumes/ }));
+    expect(onSignIn).toHaveBeenCalled();
+    expect(onSwitchView).not.toHaveBeenCalled();
+  });
+
+  it("a guest's Tailor click opens sign-in", () => {
+    const { onGoBuilderFlow, onSignIn } = renderSidebar({ anonMode: true });
+    fireEvent.click(screen.getByRole("button", { name: /Tailor/ }));
     expect(onSignIn).toHaveBeenCalled();
     expect(onGoBuilderFlow).not.toHaveBeenCalled();
   });
-});
 
-describe("expanded rail", () => {
-  it("builder button still toggles the drawer, never navigates", () => {
-    const { onGoBuilderFlow, onBuilderOpenChange } = renderSidebar({ open: true });
-    fireEvent.click(screen.getByRole("button", { name: /Resume Builder/ }));
-    expect(onBuilderOpenChange).toHaveBeenCalledWith(true);
-    expect(onGoBuilderFlow).not.toHaveBeenCalled();
+  it("has no collapse control and no Resume Builder drawer", () => {
+    renderSidebar();
+    expect(screen.queryByRole("button", { name: "Toggle Sidebar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Resume Builder/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Templates" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "My Resumes" })).toBeInTheDocument();
+  });
+
+  it("keeps Cover letter, History and theme in the account menu", () => {
+    renderSidebar();
+    expect(screen.queryByRole("button", { name: "Cover letter" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Account" }));
+    expect(screen.getByRole("menuitem", { name: "Cover letter" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "History" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Dark mode" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Contact" })).toBeInTheDocument();
   });
 });
 
 describe("a collapsed group label cannot eat clicks", () => {
   it("source pin: the icon-mode label is pointer-events-none", () => {
-    // jsdom cannot hit-test, so this is a source pin with the browser
-    // evidence attached: the label collapses by pulling itself up 32px at
-    // opacity 0, and WITHOUT pointer-events-none that parks an invisible
-    // hit target over the icon above it — a Playwright drive measured the
-    // "Library" label intercepting every click aimed at the builder icon
-    // (field: "not clicking the tailor icon properly"). A shadcn re-sync of
-    // ui/sidebar.tsx is exactly the edit that would silently drop this.
     const src = readFileSync("components/ui/sidebar.tsx", "utf8");
     const label = src.slice(src.indexOf("function SidebarGroupLabel"));
     expect(label).toContain("group-data-[collapsible=icon]:pointer-events-none");

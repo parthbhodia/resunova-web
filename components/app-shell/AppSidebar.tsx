@@ -1,68 +1,46 @@
 "use client";
 
-import { JOBS_ENABLED } from "@/lib/featureFlags";
+/**
+ * Desktop nav rail.
+ *
+ * One width, labels visible at rest, one destination lit. The old sidebar
+ * could expand or collapse, and navigation itself collapsed it, which is why
+ * the rail always came back shrunk. There is no second state to get stuck in.
+ *
+ * Order is the product funnel: work on the document (Home, Analyze, Tailor,
+ * Templates, Resumes), then use it (Jobs, Prep), then Feedback. Cover letter,
+ * History, theme, Contact and Advisor live in the account menu. Nothing is
+ * removed. The mobile bottom bar is a separate component and is not this rail.
+ *
+ * Stays on the shadcn sidebar primitive. New chrome elsewhere goes to MUI, and
+ * the shell is still on the "to migrate" side of that table. Converting
+ * SidebarProvider here would put an Emotion runtime on every page.
+ */
+
 import React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown } from "lucide-react";
-import { NAV_ICONS } from "./nav-icons";
-import { LogoFull, LogoMark } from "@/components/BrandLogo";
-import { ScansRemainingPill } from "./ScansRemainingPill";
-import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  SidebarRail,
-  SidebarSeparator,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/BrandLogo";
+import { useUpgradeDialog } from "@/components/UpgradeDialog";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar";
 import { isPublicAppView } from "@/lib/anonScan";
-import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
+import { isPublicPath } from "@/components/AuthGate";
+import { FS, FW, LH } from "@/lib/typography";
+import { cn } from "@/lib/utils";
 import { AppSidebarUser } from "./AppSidebarUser";
 import { BugReportDialog } from "./BugReportDialog";
+import { NAV_ICONS } from "./nav-icons";
+import { RailQuota } from "./ScansRemainingPill";
+import { accountHasQuota, useScansRemaining } from "./useScansRemaining";
 import {
-  BUILDER_SUBFLOWS,
-  NAV_ACTIVE_CLASS,
-  NAV_MENU_BTN_CLASS,
-  VIEW_BADGES,
-  VIEW_DESCRIPTIONS,
-  VIEW_ICONS,
-  VIEW_LABELS,
+  RAIL_APPLY,
+  RAIL_ARIA,
+  RAIL_DOCUMENT,
+  RAIL_ICONS,
+  RAIL_LABELS,
+  activeRailKey,
   type AppView,
+  type RailKey,
 } from "./nav-config";
-
-/** Icon chip for the three hero nav items; accent-tinted when its row is active. */
-const HERO_BTN_CLASS = "!h-auto w-full !items-start !gap-2.5 !px-2.5 !py-2";
-
-function NavIconChip({ isActive, children }: { isActive: boolean; children: React.ReactNode }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md transition-colors [&_svg]:size-[17px]",
-        isActive
-          ? "bg-[color-mix(in_srgb,var(--accent)_22%,var(--surface))] text-accent"
-          : "bg-[var(--surface3)] text-[var(--muted)]",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
 
 export type AppSidebarProps = {
   active: AppView;
@@ -71,125 +49,64 @@ export type AppSidebarProps = {
   onInterviewPrepPage: boolean;
   onCareerProfilePage?: boolean;
   builderActive: boolean;
-  builderOpen: boolean;
-  onBuilderOpenChange: (open: boolean) => void;
   navBuilderSubflow: "tailor" | "template";
   advisorAllowed: boolean;
   isUmbc: boolean;
   theme: "dark" | "light";
   onToggleTheme: () => void;
   userInitial: string;
-  historyOpen: boolean;
   onHistoryOpenChange: (open: boolean) => void;
   onSwitchView: (view: AppView) => void;
   onGoBuilderFlow: (flow: "tailor" | "template") => void;
   onSignOut: () => void;
-  /** Signed-out free-scan visitor: locked views route to sign-in. */
+  /** Signed-out visitor: locked destinations open the shared sign-in modal. */
   anonMode?: boolean;
   onSignIn?: () => void;
 };
 
-function NavItem({
-  view,
-  isActive,
-  onClick,
-  showLabels,
+const ITEM_MOTION =
+  "transition-[background-color,color,box-shadow] duration-[var(--md-duration-medium)] ease-[var(--md-easing-standard)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
+
+function RailButton({
+  railKey,
+  active,
   locked,
+  onClick,
 }: {
-  view: AppView;
-  isActive: boolean;
-  onClick?: () => void;
-  showLabels: boolean;
-  /** Render a "Sign in" badge; onClick is expected to start sign-in. */
-  locked?: boolean;
+  railKey: RailKey;
+  active: boolean;
+  locked: boolean;
+  onClick: () => void;
 }) {
-  // Locked views show a lock icon (instead of a "Sign in" text badge); other
-  // views may carry a short text badge (e.g. "NEW").
-  const textBadge = locked ? null : VIEW_BADGES[view];
+  const spoken = locked ? `${RAIL_ARIA[railKey]}, sign in to use` : RAIL_ARIA[railKey];
   return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        isActive={isActive}
-        tooltip={locked ? `${VIEW_LABELS[view]}: sign in free to use` : VIEW_LABELS[view]}
-        className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
-        onClick={onClick}
-      >
-        <span className="app-nav-icon" aria-hidden>
-          {VIEW_ICONS[view]}
-        </span>
-        {showLabels ? <span className="app-nav-label">{VIEW_LABELS[view]}</span> : null}
-        {showLabels && locked ? (
-          <Badge
-            variant="secondary"
-            aria-label="Sign in to use"
-            className="ml-auto flex items-center justify-center px-1.5 py-0 bg-[var(--accent-bg)] text-accent [&>svg]:size-3"
-          >
-            {NAV_ICONS.lock}
-          </Badge>
-        ) : showLabels && textBadge ? (
-          <Badge
-            variant="secondary"
-            className="ml-auto px-1.5 py-0 text-[9px] font-bold tracking-wide uppercase"
-          >
-            {textBadge}
-          </Badge>
-        ) : null}
-      </SidebarMenuButton>
-    </SidebarMenuItem>
+    <button
+      type="button"
+      data-rail={railKey}
+      data-active={active ? "" : undefined}
+      aria-current={active ? "page" : undefined}
+      aria-label={spoken}
+      onClick={onClick}
+      className={cn(
+        "flex w-full min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-xl border-0 bg-transparent px-1 py-1.5 font-inherit",
+        ITEM_MOTION,
+        active
+          ? "bg-[var(--text)] text-[var(--bg)] shadow-[var(--md-elevation-2)]"
+          : "md-state-layer text-[var(--muted)]",
+      )}
+    >
+      <span className="[&_svg]:size-5" aria-hidden>
+        {RAIL_ICONS[railKey]}
+      </span>
+      <span style={{ fontSize: FS.caption, fontWeight: FW.semibold, lineHeight: LH.tight }}>
+        {RAIL_LABELS[railKey]}
+      </span>
+    </button>
   );
 }
 
-/** Home/Analyze/Builder: icon chip + title + one-line description. Collapses to a plain NavItem in the icon rail, matching every other row. */
-function HeroNavItem({
-  view,
-  isActive,
-  onClick,
-  showLabels,
-  locked,
-}: {
-  view: AppView;
-  isActive: boolean;
-  onClick?: () => void;
-  showLabels: boolean;
-  locked?: boolean;
-}) {
-  if (!showLabels) {
-    return <NavItem view={view} isActive={isActive} onClick={onClick} showLabels={showLabels} locked={locked} />;
-  }
-  const textBadge = locked ? null : VIEW_BADGES[view];
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        isActive={isActive}
-        className={cn(HERO_BTN_CLASS, NAV_ACTIVE_CLASS)}
-        onClick={onClick}
-      >
-        <NavIconChip isActive={isActive}>{VIEW_ICONS[view]}</NavIconChip>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex items-center gap-1.5 text-sm leading-tight font-semibold">
-            <span className={cn(isActive && "text-accent")}>{VIEW_LABELS[view]}</span>
-            {locked ? (
-              <Badge
-                variant="secondary"
-                aria-label="Sign in to use"
-                className="ml-auto flex items-center justify-center px-1.5 py-0 bg-[var(--accent-bg)] text-accent [&>svg]:size-3"
-              >
-                {NAV_ICONS.lock}
-              </Badge>
-            ) : textBadge ? (
-              <Badge
-                variant="secondary"
-                className="ml-auto px-1.5 py-0 text-[9px] font-bold tracking-wide uppercase"
-              >
-                {textBadge}
-              </Badge>
-            ) : null}
-          </span>
-          <span className="text-xs leading-snug text-muted-foreground">{VIEW_DESCRIPTIONS[view]}</span>
-        </span>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
+function RailRule() {
+  return <div aria-hidden className="mx-auto my-1.5 h-px w-8 bg-[var(--border)]" />;
 }
 
 export function AppSidebar({
@@ -199,15 +116,12 @@ export function AppSidebar({
   onInterviewPrepPage,
   onCareerProfilePage = false,
   builderActive,
-  builderOpen,
-  onBuilderOpenChange,
   navBuilderSubflow,
   advisorAllowed,
   isUmbc,
   theme,
   onToggleTheme,
   userInitial,
-  historyOpen,
   onHistoryOpenChange,
   onSwitchView,
   onGoBuilderFlow,
@@ -216,355 +130,180 @@ export function AppSidebar({
   onSignIn,
 }: AppSidebarProps) {
   const router = useRouter();
-  const { state, setOpen } = useSidebar();
-  const showLabels = state === "expanded";
+  const { openUpgrade } = useUpgradeDialog();
+  const { state: scans } = useScansRemaining();
   const [bugReportOpen, setBugReportOpen] = React.useState(false);
-  /**
-   * Views a signed-out visitor may not use send them to sign-in instead.
-   * Membership comes from the shared PUBLIC_APP_VIEWS so a click and a pasted
-   * URL always agree — they used to be separate lists and disagreed on `jobs`.
-   */
-  const isLocked = (view: AppView) => anonMode && !isPublicAppView(view);
-  const gated = (view: AppView) => () => {
-    if (isLocked(view)) onSignIn?.();
+
+  const lit = activeRailKey({
+    active,
+    onTemplateBuilderPage,
+    onTemplatesPage,
+    onInterviewPrepPage,
+    onCareerProfilePage,
+    builderActive,
+    navBuilderSubflow,
+  });
+
+  const viewLocked = (view: AppView) => anonMode && !isPublicAppView(view);
+  const pathLocked = (path: string) => anonMode && !isPublicPath(path);
+
+  const goView = (view: AppView) => {
+    if (viewLocked(view)) onSignIn?.();
     else onSwitchView(view);
   };
-  const handleBuilderClick = () => {
-    if (state === "collapsed") {
-      // One click = the primary destination, like every other rail icon.
-      // This used to expand the sidebar and open the drawer instead, which
-      // reads as a dead click (field: "it is not clicking the tailor icon
-      // properly") — the icon promises Tailor, so it goes to Tailor. The
-      // drawer's second entry (Template Builder) is reachable after
-      // expanding via the rail's own trigger.
-      if (anonMode) {
-        onSignIn?.();
-        return;
-      }
-      onGoBuilderFlow("tailor");
-      return;
+
+  const goPath = (path: string, locked: boolean) => {
+    if (locked) onSignIn?.();
+    else {
+      router.push(path);
+      onHistoryOpenChange(false);
     }
-    onBuilderOpenChange(!builderOpen);
   };
 
+  const onRail = (key: RailKey) => {
+    switch (key) {
+      case "home":
+        goView("home");
+        break;
+      case "analyze":
+        goView("analyze");
+        break;
+      case "tailor":
+        if (pathLocked("/tailor-2")) onSignIn?.();
+        else onGoBuilderFlow("tailor");
+        break;
+      case "templates":
+        goPath("/templates/", false);
+        break;
+      case "resumes":
+        goView("library");
+        break;
+      case "jobs":
+        goView("jobs");
+        break;
+      case "prep":
+        goPath("/interview-prep", pathLocked("/interview-prep"));
+        break;
+    }
+  };
+
+  const showUpgrade = accountHasQuota(scans);
+
   return (
-    <Sidebar collapsible="icon" variant="sidebar">
-      <SidebarHeader className="gap-0">
-        <div className={cn(
-          "flex w-full items-center gap-2",
-          state === "collapsed" ? "flex-col justify-center" : "flex-row justify-between",
-        )}>
-          {state === "collapsed" ? (
-            /* In the icon rail the trigger stays VISIBLE. The first version
-               made the logo the only expand control, and a logo does not
-               read as a control — the field report was "the hamburger icon
-               disappears", i.e. the user was stuck collapsed. Logo-click
-               still expands as a bonus; the trigger is the findable way. */
-            <>
-              <button
-                type="button"
-                className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 font-inherit"
-                onClick={() => setOpen(true)}
-                title="Expand navigation"
-                aria-label="Expand navigation"
-              >
-                <LogoMark size={30} variant={isUmbc ? "umbc" : "resunova"} />
-              </button>
-              <SidebarTrigger className="size-8 shrink-0 border border-border bg-[var(--surface2)]" />
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="flex min-w-0 flex-1 cursor-pointer items-center justify-start border-0 bg-transparent p-0 font-inherit"
-                onClick={() => onSwitchView("home")}
-                aria-label="Resunova, go to Home"
-              >
-                <LogoFull markSize={26} textColor="var(--text)" variant={isUmbc ? "umbc" : "resunova"} />
-              </button>
-              <SidebarTrigger className="size-10 shrink-0 border border-border bg-[var(--surface2)]" />
-            </>
+    <Sidebar collapsible="none" className="!h-dvh shrink-0 border-r border-sidebar-border">
+      <SidebarHeader className="items-center p-2 pb-1">
+        <button
+          type="button"
+          className={cn(
+            "md-state-layer flex size-[44px] items-center justify-center rounded-xl border-0 bg-transparent p-0",
+            ITEM_MOTION,
           )}
-        </div>
+          onClick={() => onSwitchView("home")}
+          aria-label="Resunova, go to Home"
+        >
+          <LogoMark size={32} variant={isUmbc ? "umbc" : "resunova"} />
+        </button>
       </SidebarHeader>
 
-      <SidebarContent>
-        <ScansRemainingPill collapsed={state === "collapsed"} />
-        <SidebarGroup className="p-0">
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1">
-              <HeroNavItem
-                view="home"
-                isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "home"}
-                onClick={gated("home")}
-                showLabels={showLabels}
-                locked={anonMode}
+      <SidebarContent className="min-h-0 flex-1 gap-0 overflow-y-auto px-1.5">
+        <nav aria-label="Primary" className="flex min-h-0 flex-1 flex-col">
+          <div className="flex flex-col gap-0.5">
+            {RAIL_DOCUMENT.map((key) => (
+              <RailButton
+                key={key}
+                railKey={key}
+                active={lit === key}
+                locked={
+                  key === "tailor"
+                    ? pathLocked("/tailor-2")
+                    : key === "templates"
+                      ? false
+                      : key === "home"
+                        ? viewLocked("home")
+                        : key === "analyze"
+                          ? viewLocked("analyze")
+                          : viewLocked("library")
+                }
+                onClick={() => onRail(key)}
               />
-              <HeroNavItem
-                view="analyze"
-                isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "analyze"}
-                onClick={() => onSwitchView("analyze")}
-                showLabels={showLabels}
-              />
+            ))}
+          </div>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={builderActive && !onInterviewPrepPage}
-                  tooltip={VIEW_LABELS.builder}
-                  // Collapsed, the icon is aria-hidden and the tooltip only
-                  // appears on hover — without this the button has NO
-                  // accessible name in the rail.
-                  aria-label={VIEW_LABELS.builder}
-                  className={cn(showLabels ? HERO_BTN_CLASS : NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
-                  onClick={handleBuilderClick}
-                >
-                  {showLabels ? (
-                    <>
-                      <NavIconChip isActive={builderActive && !onInterviewPrepPage}>
-                        {VIEW_ICONS.builder}
-                      </NavIconChip>
-                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="flex items-center gap-1.5 text-sm leading-tight font-semibold">
-                          <span className={cn(builderActive && !onInterviewPrepPage && "text-accent")}>
-                            {VIEW_LABELS.builder}
-                          </span>
-                          <ChevronDown
-                            className={cn(
-                              "ml-auto size-4 shrink-0 opacity-60 transition-transform",
-                              builderOpen && "rotate-180",
-                            )}
-                            aria-hidden
-                          />
-                        </span>
-                        <span className="text-xs leading-snug text-muted-foreground">
-                          {VIEW_DESCRIPTIONS.builder}
-                        </span>
-                      </span>
-                    </>
-                  ) : (
-                    <span className="app-nav-icon" aria-hidden>
-                      {VIEW_ICONS.builder}
-                    </span>
-                  )}
-                </SidebarMenuButton>
-                {showLabels ? (
-                <Collapsible open={builderOpen} onOpenChange={onBuilderOpenChange}>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {BUILDER_SUBFLOWS.map(({ key, label, icon }) => {
-                        const subActive = builderActive && navBuilderSubflow === key;
-                        return (
-                          <SidebarMenuSubItem key={key}>
-                            <SidebarMenuSubButton
-                              isActive={subActive}
-                              className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS, "[&_svg]:!size-auto")}
-                              render={<button type="button" />}
-                              onClick={() => {
-                                if (key === "template") {
-                                  // Template Builder is public — no sign-in gate.
-                                  router.push("/template-builder/");
-                                  onHistoryOpenChange(false);
-                                  onBuilderOpenChange(false);
-                                  return;
-                                }
-                                if (anonMode) {
-                                  onSignIn?.();
-                                  return;
-                                }
-                                onGoBuilderFlow(key);
-                              }}
-                            >
-                              <span className="app-nav-icon" aria-hidden>
-                                {icon}
-                              </span>
-                              <span className="app-nav-label">{label}</span>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        );
-                      })}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </Collapsible>
-                ) : null}
-              </SidebarMenuItem>
-              {/* Templates is top-level on purpose: it lived only inside the
-                  drawer above, two clicks deep and invisible at rest, and
-                  users reported they could not find the templates at all.
-                  Public like the builder itself, so no sign-in gate. */}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={onTemplatesPage}
-                  tooltip="Templates"
-                  aria-label="Templates"
-                  className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
-                  onClick={() => {
-                    router.push("/templates/");
-                    onHistoryOpenChange(false);
-                  }}
-                >
-                  <span className="app-nav-icon" aria-hidden>
-                    {NAV_ICONS.templates}
-                  </span>
-                  {showLabels ? <span className="app-nav-label">Templates</span> : null}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+          <RailRule />
 
-        <SidebarGroup className="p-0 pt-1">
-          <SidebarGroupLabel>Library</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="group-data-[collapsible=icon]:items-center">
-              <NavItem
-                view="library"
-                isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "library"}
-                onClick={gated("library")}
-                showLabels={showLabels}
-                locked={isLocked("library")}
+          <div className="flex flex-col gap-0.5">
+            {RAIL_APPLY.map((key) => (
+              <RailButton
+                key={key}
+                railKey={key}
+                active={lit === key}
+                locked={key === "jobs" ? viewLocked("jobs") : pathLocked("/interview-prep")}
+                onClick={() => onRail(key)}
               />
-              <NavItem
-                view="cover-letter"
-                isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "cover-letter"}
-                onClick={gated("cover-letter")}
-                showLabels={showLabels}
-                locked={isLocked("cover-letter")}
-              />
-              {JOBS_ENABLED && (
-                <NavItem
-                  view="jobs"
-                  isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "jobs"}
-                  onClick={gated("jobs")}
-                  showLabels={showLabels}
-                  locked={isLocked("jobs")}
-                />
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+            ))}
+          </div>
 
-        <SidebarGroup className="p-0 pt-1">
-          <SidebarGroupLabel>Coaching</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="group-data-[collapsible=icon]:items-center">
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={onInterviewPrepPage}
-                  tooltip="Interview Prep"
-                  className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
-                  onClick={() => { if (anonMode) onSignIn?.(); else router.push("/interview-prep"); }}
-                >
-                  <span className="app-nav-icon" aria-hidden>
-                    {NAV_ICONS.interviewPrep}
-                  </span>
-                  {showLabels ? <span className="app-nav-label">Interview Prep</span> : null}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {advisorAllowed ? (
-                <NavItem
-                  view="advisor"
-                  isActive={!onTemplateBuilderPage && !onTemplatesPage && !onInterviewPrepPage && !onCareerProfilePage && active === "advisor"}
-                  onClick={() => onSwitchView("advisor")}
-                  showLabels={showLabels}
-                />
-              ) : null}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+          <div className="min-h-2 flex-1" />
+
+          <button
+            type="button"
+            data-rail="feedback"
+            className={cn(
+              "md-state-layer flex w-full min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-xl border-0 bg-transparent px-1 py-1.5 font-inherit text-[var(--muted)]",
+              ITEM_MOTION,
+            )}
+            onClick={() => setBugReportOpen(true)}
+          >
+            <span className="[&_svg]:size-5" aria-hidden>
+              {NAV_ICONS.bug}
+            </span>
+            <span style={{ fontSize: FS.caption, fontWeight: FW.semibold, lineHeight: LH.tight }}>
+              Feedback
+            </span>
+          </button>
+        </nav>
       </SidebarContent>
 
-      <SidebarFooter className="gap-2 border-t border-sidebar-border">
-        <SidebarMenu className="group-data-[collapsible=icon]:items-center">
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              isActive={historyOpen}
-              tooltip="History"
-              className={cn(NAV_MENU_BTN_CLASS, NAV_ACTIVE_CLASS)}
-              onClick={() => onHistoryOpenChange(!historyOpen)}
-            >
-              <span className="app-nav-icon" aria-hidden>
-                {NAV_ICONS.history}
-              </span>
-              {showLabels ? <span className="app-nav-label">History</span> : null}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={theme === "dark" ? "Light mode" : "Dark mode"}
-              className={NAV_MENU_BTN_CLASS}
-              onClick={onToggleTheme}
-            >
-              <span className="app-nav-icon" aria-hidden>
-                {theme === "dark" ? NAV_ICONS.themeDark : NAV_ICONS.themeLight}
-              </span>
-              {showLabels ? <span className="app-nav-label">Theme</span> : null}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Feedback"
-              className={NAV_MENU_BTN_CLASS}
-              onClick={() => setBugReportOpen(true)}
-            >
-              <span className="app-nav-icon" aria-hidden>
-                {NAV_ICONS.bug}
-              </span>
-              {showLabels ? <span className="app-nav-label">Feedback</span> : null}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-            {anonMode ? (
-              <SidebarMenuButton
-                tooltip="Sign in free to save reports and unlock all features"
-                className={cn(NAV_MENU_BTN_CLASS, "!text-accent font-semibold")}
-                onClick={() => onSignIn?.()}
-              >
-                <span className="app-nav-icon" aria-hidden>
-                  {NAV_ICONS.lock}
-                </span>
-                {showLabels ? <span className="app-nav-label">Sign in, free</span> : null}
-              </SidebarMenuButton>
-            ) : (
-              <AppSidebarUser
-                initial={userInitial}
-                onProfile={() => router.push("/profile")}
-                onMyResumes={() => onSwitchView("library")}
-                onAccount={() => onSwitchView("account")}
-                onSignOut={onSignOut}
-              />
+      <SidebarFooter className="items-center gap-1.5 border-t-0 p-2 pt-0">
+        <RailRule />
+        <RailQuota />
+        {showUpgrade ? (
+          <button
+            type="button"
+            onClick={() => openUpgrade()}
+            className={cn(
+              "md-state-layer flex w-full min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-xl border-0 px-1 py-1.5 font-inherit",
+              ITEM_MOTION,
             )}
-          </SidebarMenuItem>
-        </SidebarMenu>
-
-        <SidebarSeparator className="mx-0 group-data-[collapsible=icon]:hidden" />
-        <nav className="flex flex-wrap gap-2.5 px-2 text-[11px] group-data-[collapsible=icon]:hidden">
-          <Link
-            href="/terms"
-            prefetch={false}
-            className="text-muted-foreground no-underline hover:text-foreground"
+            style={{ background: "var(--green-bg)", color: "var(--green-ink)" }}
           >
-            Terms
-          </Link>
-          <Link
-            href="/privacy"
-            prefetch={false}
-            className="text-muted-foreground no-underline hover:text-foreground"
-          >
-            Privacy
-          </Link>
-          <Link
-            href="/contact"
-            prefetch={false}
-            className="text-muted-foreground no-underline hover:text-foreground"
-          >
-            Contact
-          </Link>
-        </nav>
-        <p className="px-2 pb-1 text-[10px] tracking-wide text-muted-foreground group-data-[collapsible=icon]:hidden">
-          © 2026 Resunova
-        </p>
+            <span className="[&_svg]:size-5" aria-hidden>
+              {NAV_ICONS.upgrade}
+            </span>
+            <span style={{ fontSize: FS.caption, fontWeight: FW.bold, lineHeight: LH.tight }}>
+              Upgrade
+            </span>
+          </button>
+        ) : null}
+        <AppSidebarUser
+          initial={userInitial}
+          anonMode={anonMode}
+          advisorAllowed={advisorAllowed}
+          theme={theme}
+          onToggleTheme={onToggleTheme}
+          onSignIn={onSignIn}
+          onProfile={() => router.push("/profile")}
+          onMyResumes={() => goView("library")}
+          onCoverLetter={() => goView("cover-letter")}
+          onHistory={() => {
+            if (anonMode) onSignIn?.();
+            else onHistoryOpenChange(true);
+          }}
+          onAdvisor={() => goView("advisor")}
+          onAccount={() => goView("account")}
+          onSignOut={onSignOut}
+        />
       </SidebarFooter>
-      <SidebarRail />
       <BugReportDialog open={bugReportOpen} onOpenChange={setBugReportOpen} />
     </Sidebar>
   );

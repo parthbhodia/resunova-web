@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { JOBS_ENABLED } from "@/lib/featureFlags";
-import { BUILDER_SUBFLOW_ICONS, NAV_ICONS } from "./nav-icons";
+import { NAV_ICONS } from "./nav-icons";
 
 export type AppView =
   | "home"
@@ -37,22 +37,6 @@ export const VIEW_ICONS: Record<AppView, ReactNode> = {
   account: NAV_ICONS.account,
 };
 
-export const VIEW_BADGES: Partial<Record<AppView, string>> = {};
-
-// One-line subtitles for the three primary entry points only (Home/Analyze/
-// Builder) — the items a new user actually has to choose between. The rest
-// of the nav stays plain-label to keep the list from doubling in height.
-export const VIEW_DESCRIPTIONS: Partial<Record<AppView, string>> = {
-  home: "Your progress at a glance",
-  analyze: "Paste a JD, see your match",
-  builder: "Tailor to a job, or build fresh",
-};
-
-export const BUILDER_SUBFLOWS = [
-  { key: "tailor" as const, label: "Tailor to a job", icon: BUILDER_SUBFLOW_ICONS.tailor },
-  { key: "template" as const, label: "Template Builder", icon: BUILDER_SUBFLOW_ICONS.template },
-];
-
 // Mobile bottom bar: 4 primary tabs + the "More" button = 5 slots (the platform
 // max). Profile is intentionally NOT here — it's reachable from the top-bar
 // account avatar and the More sheet, which frees a slot and removes redundancy.
@@ -73,28 +57,85 @@ export const MOBILE_TAB_LABELS: Partial<Record<AppView, string>> = {
   library: "Resumes",
 };
 
-/** Wrapper + menu button: original muted icons, accent when active. */
-export const NAV_MENU_BTN_CLASS =
-  "!gap-2.5 !px-3 !py-2.5 text-[var(--muted)] hover:bg-[var(--surface2)] hover:text-[var(--text)] [&_.app-nav-icon_svg]:!size-5";
+/**
+ * Desktop rail width. Labels stay visible, so this is wider than an icon-only
+ * strip and far narrower than the old expanded sidebar. 6rem holds "Templates"
+ * at the caption step without truncating.
+ */
+export const RAIL_WIDTH = "6rem";
 
-export const NAV_ACTIVE_CLASS =
-  "data-active:!border-accent/35 data-active:!bg-[color-mix(in_srgb,var(--accent)_14%,var(--surface))] data-active:!text-accent data-active:shadow-[inset_3px_0_0_0_var(--accent)] data-active:hover:!bg-[color-mix(in_srgb,var(--accent)_18%,var(--surface))] data-active:hover:!text-accent data-active:[&_.app-nav-icon]:opacity-100 data-active:[&_.app-nav-icon]:text-accent";
+/**
+ * One destination lights at a time. Route pages win over `?view=`, because a
+ * gallery or the prep page still has the shell's default view underneath it
+ * and that used to light Home beside the page you were actually on.
+ */
+export type RailKey = "home" | "analyze" | "tailor" | "templates" | "resumes" | "jobs" | "prep";
 
-export const SIDEBAR_COLLAPSED_KEY = "rn-app-sidebar-collapsed";
+export const RAIL_LABELS: Record<RailKey, string> = {
+  home: "Home",
+  analyze: "Analyze",
+  tailor: "Tailor",
+  templates: "Templates",
+  resumes: "Resumes",
+  jobs: "Jobs",
+  prep: "Prep",
+};
 
-export function readSidebarCollapsed(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
+/** Spoken name when the visible label is shortened to fit the rail. */
+export const RAIL_ARIA: Record<RailKey, string> = {
+  home: "Home",
+  analyze: "Analyze",
+  tailor: "Tailor",
+  templates: "Templates",
+  resumes: "My Resumes",
+  jobs: "Jobs",
+  prep: "Interview Prep",
+};
 
-export function writeSidebarCollapsed(collapsed: boolean): void {
-  try {
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
-  } catch {
-    /* ignore */
+export const RAIL_ICONS: Record<RailKey, ReactNode> = {
+  home: NAV_ICONS.home,
+  analyze: NAV_ICONS.analyze,
+  tailor: NAV_ICONS.tailor,
+  templates: NAV_ICONS.templates,
+  resumes: NAV_ICONS.library,
+  jobs: NAV_ICONS.jobs,
+  prep: NAV_ICONS.interviewPrep,
+};
+
+/** Work on the document, in funnel order. */
+export const RAIL_DOCUMENT: RailKey[] = ["home", "analyze", "tailor", "templates", "resumes"];
+
+/** Use the document. Jobs drops out entirely while the feed is off. */
+export const RAIL_APPLY: RailKey[] = [
+  ...(JOBS_ENABLED ? (["jobs"] as RailKey[]) : []),
+  "prep",
+];
+
+export function activeRailKey(input: {
+  active: AppView;
+  onTemplateBuilderPage: boolean;
+  onTemplatesPage: boolean;
+  onInterviewPrepPage: boolean;
+  onCareerProfilePage: boolean;
+  builderActive: boolean;
+  navBuilderSubflow: "tailor" | "template";
+}): RailKey | null {
+  if (input.onTemplatesPage) return "templates";
+  if (input.onInterviewPrepPage) return "prep";
+  if (input.onCareerProfilePage) return null;
+  if (input.onTemplateBuilderPage) return "templates";
+  if (input.builderActive && input.navBuilderSubflow === "template") return "templates";
+  if (input.builderActive) return "tailor";
+  switch (input.active) {
+    case "home":
+      return "home";
+    case "analyze":
+      return "analyze";
+    case "library":
+      return "resumes";
+    case "jobs":
+      return "jobs";
+    default:
+      return null;
   }
 }

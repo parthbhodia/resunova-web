@@ -74,6 +74,20 @@ const TTL_MS = 60_000;
  * (`unlimited`, or `requiresSignIn`), so a payload with none of the three is a
  * contract break we should surface rather than quietly render as "you're fine".
  */
+/**
+ * A real account quota the nav is allowed to show.
+ *
+ * Guests have none (scanning requires an account), and an anonymous metered
+ * reading is declined for the same reason: there is no account to budget for.
+ * The quota pill and the Upgrade action both read this, so they cannot
+ * disagree about whether this account has a count.
+ */
+export function accountHasQuota(
+  state: ScansRemainingState,
+): state is Extract<ScansRemainingState, { kind: "metered" }> {
+  return state.kind === "metered" && !state.anonymous;
+}
+
 export function scansStateFromStatus(body: unknown): ScansRemainingState {
   const status = scanLimitFrom(body);
   if (status.unlimited) return { kind: "unlimited", plan: status.plan };
