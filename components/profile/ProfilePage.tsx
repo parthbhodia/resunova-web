@@ -262,7 +262,6 @@ export default function ProfilePage() {
     if (tab === "referrals") {
       return (
         <ReferralsPanel
-          targetRoles={tailorDefaults.roles}
           displayName={displayName}
           title={extractedData.role || extractedData.headline || ""}
           linkedin={extractedData.linkedin || tailorDefaults.linkedin}
