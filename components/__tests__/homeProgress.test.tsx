@@ -29,18 +29,22 @@ vi.mock("@/lib/supabase", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/UpgradeDialog", () => ({ useUpgradeDialog: () => vi.fn() }));
-vi.mock("@/lib/apiClient", () => ({
-  apiFetch: (path: string) =>
-    Promise.resolve({
-      ok: true,
-      json: () =>
-        Promise.resolve(
-          path.includes("/api/applications")
-            ? { stats: { saved: 1, applied: 2, interviewing: 0, offer: 0, rejected: 0, archived: 0, total: 3 } }
-            : { enforced: true, unlimited: false, limit: 3, used: 1, remaining: 2, usedLast7Days: 2 },
-        ),
-    }),
-}));
+vi.mock("@/lib/apiClient", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/apiClient")>();
+  return {
+    ...actual,
+    apiFetch: (path: string) =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            path.includes("/api/applications")
+              ? { stats: { saved: 1, applied: 2, interviewing: 0, offer: 0, rejected: 0, archived: 0, total: 3 } }
+              : { enforced: true, unlimited: false, limit: 3, used: 1, remaining: 2, usedLast7Days: 2 },
+          ),
+      }),
+  };
+});
 vi.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a>,
 }));
