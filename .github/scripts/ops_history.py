@@ -27,21 +27,33 @@ def _crash_detail(crash: dict) -> str:
     return f"{path} {text}".strip()[:200]
 
 
+def _record_up_down(events: list[dict], added: list[dict], now: str, kind: str, up: bool, detail: str) -> None:
+    state = "up" if up else "down"
+    previous = _last(events, kind)
+    if previous is None or previous.get("state") != state:
+        added.append({
+            "at": now,
+            "kind": kind,
+            "state": state,
+            "detail": "" if state == "up" else (detail or "")[:80],
+        })
+
+
 def apply_ops_checks(history: dict, incoming: dict) -> dict:
     """Return a new history. `changed` is false when nothing new happened."""
     events = list(history.get("events") or [])
     added: list[dict] = []
     now = incoming["now"]
 
-    api_state = "up" if incoming.get("api_up") else "down"
-    previous_api = _last(events, "api")
-    if previous_api is None or previous_api.get("state") != api_state:
-        added.append({
-            "at": now,
-            "kind": "api",
-            "state": api_state,
-            "detail": "" if api_state == "up" else (incoming.get("api_detail") or "")[:80],
-        })
+    _record_up_down(events, added, now, "api", bool(incoming.get("api_up")), incoming.get("api_detail") or "")
+    for kind in ("tailor", "interview"):
+        if f"{kind}_up" not in incoming:
+            continue
+        _record_up_down(
+            events, added, now, kind,
+            bool(incoming.get(f"{kind}_up")),
+            incoming.get(f"{kind}_detail") or "",
+        )
 
     scoring = incoming.get("scoring") or "unknown"
     if scoring in ("ok", "paused"):
@@ -98,14 +110,22 @@ def main() -> int:
         except json.JSONDecodeError:
             crashes = []
 
-    nxt = apply_ops_checks(history, {
+    incoming = {
         "now": os.environ.get("NOW") or "",
         "api_up": os.environ.get("API_UP") == "true",
         "api_detail": os.environ.get("API_DETAIL") or "",
         "scoring": os.environ.get("SCORING_STATE") or "unknown",
         "scoring_detail": os.environ.get("SCORING_DETAIL") or "",
         "crashes": crashes,
-    })
+    }
+    for kind, flag, detail in (
+        ("tailor", "TAILOR_UP", "TAILOR_DETAIL"),
+        ("interview", "INTERVIEW_UP", "INTERVIEW_DETAIL"),
+    ):
+        if os.environ.get(flag):
+            incoming[f"{kind}_up"] = os.environ.get(flag) == "true"
+            incoming[f"{kind}_detail"] = os.environ.get(detail) or ""
+    nxt = apply_ops_checks(history, incoming)
     if not nxt["changed"]:
         print("ops log unchanged")
         return 0

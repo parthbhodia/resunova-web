@@ -59,6 +59,21 @@ class OpsHistoryTest(unittest.TestCase):
         result = apply_ops_checks({"events": []}, _check(scoring="unknown"))
         self.assertEqual([event["kind"] for event in result["events"]], ["api"])
 
+    def test_tailor_and_interview_are_recorded_on_their_own(self):
+        result = apply_ops_checks({"events": []}, _check(tailor_up=True, interview_up=False, interview_detail="HTTP 502"))
+        states = {event["kind"]: event["state"] for event in result["events"]}
+        self.assertEqual(states["tailor"], "up")
+        self.assertEqual(states["interview"], "down")
+        interview = next(event for event in result["events"] if event["kind"] == "interview")
+        self.assertEqual(interview["detail"], "HTTP 502")
+        again = apply_ops_checks(result, _check(now="2026-10-12T15:15:00Z", tailor_up=True, interview_up=False, interview_detail="HTTP 502"))
+        self.assertFalse(again["changed"])
+
+    def test_a_missing_route_check_does_not_count_as_down(self):
+        result = apply_ops_checks({"events": []}, _check())
+        self.assertNotIn("tailor", {event["kind"] for event in result["events"]})
+        self.assertNotIn("interview", {event["kind"] for event in result["events"]})
+
 
 if __name__ == "__main__":
     unittest.main()

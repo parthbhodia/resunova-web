@@ -1,9 +1,10 @@
 name: API health alert
 
 # Pings production from GitHub, which stays up when Railway does not.
-# A failed health check sends one Resend email per hour, then this job
-# appends a row to the ops-log branch. Scoring refusals are emailed by the
-# API itself. This job only reads the last result.
+# A failed check sends one Resend email per hour, then this job appends a
+# row to the ops-log branch. Tailor and interview get an empty JSON body,
+# which those routes reject before any model call. Scoring refusals are
+# emailed by the API itself. This job only reads the last result.
 
 on:
   schedule:
@@ -32,31 +33,93 @@ jobs:
             exit 1
           fi
           base="${API_URL%/}"
+          # A 2xx or 4xx means the route answered. 404, 5xx, and no response do not.
+          # Empty JSON never reaches the model: tailor wants company, role, and a
+          # job description; interview wants a résumé.
+          probe() {
+            local path="$1"
+            local tmp code
+            tmp=$(mktemp)
+            code=$(curl -sS -o "$tmp" -w "%{http_code}" --max-time 20 \
+              -X POST -H "Content-Type: application/json" -d '{}' \
+              "${base}${path}" || true)
+            if [ -z "$code" ]; then
+              code=000
+            fi
+            printf '%s' "$code"
+          }
           tmp=$(mktemp)
-          code=$(curl -sS -o "$tmp" -w "%{http_code}" --max-time 20 "${base}/api/health" || echo "000")
+          code=$(curl -sS -o "$tmp" -w "%{http_code}" --max-time 20 "${base}/api/health" || true)
+          if [ -z "$code" ]; then
+            code=000
+          fi
+          failures=""
+          api_ok=false
           if [ "$code" = "200" ] && grep -q '"ok"[[:space:]]*:[[:space:]]*true' "$tmp"; then
+            api_ok=true
             echo "up=true" >> "$GITHUB_OUTPUT"
             echo "detail=" >> "$GITHUB_OUTPUT"
             echo "health ok"
+          else
+            echo "up=false" >> "$GITHUB_OUTPUT"
+            echo "detail=HTTP ${code}" >> "$GITHUB_OUTPUT"
+            failures="API HTTP ${code}"
+            echo "health failed HTTP ${code}"
+          fi
+          tcode=$(probe "/api/generate-stream")
+          icode=$(probe "/api/generate-interview-questions")
+          route_state() {
+            case "$1" in
+              000|404|5*) echo down ;;
+              *) echo up ;;
+            esac
+          }
+          if [ "$(route_state "$tcode")" = "up" ]; then
+            echo "tailor_up=true" >> "$GITHUB_OUTPUT"
+            echo "tailor_detail=" >> "$GITHUB_OUTPUT"
+            echo "tailor ok HTTP ${tcode}"
+          else
+            echo "tailor_up=false" >> "$GITHUB_OUTPUT"
+            echo "tailor_detail=HTTP ${tcode}" >> "$GITHUB_OUTPUT"
+            failures="${failures:+$failures. }Tailor HTTP ${tcode}"
+            echo "tailor failed HTTP ${tcode}"
+          fi
+          if [ "$(route_state "$icode")" = "up" ]; then
+            echo "interview_up=true" >> "$GITHUB_OUTPUT"
+            echo "interview_detail=" >> "$GITHUB_OUTPUT"
+            echo "interview ok HTTP ${icode}"
+          else
+            echo "interview_up=false" >> "$GITHUB_OUTPUT"
+            echo "interview_detail=HTTP ${icode}" >> "$GITHUB_OUTPUT"
+            failures="${failures:+$failures. }Interview HTTP ${icode}"
+            echo "interview failed HTTP ${icode}"
+          fi
+          if [ -z "$failures" ]; then
             exit 0
           fi
-          echo "up=false" >> "$GITHUB_OUTPUT"
-          echo "detail=HTTP ${code}" >> "$GITHUB_OUTPUT"
-          snippet=$(head -c 160 "$tmp" | tr '\n' ' ' || true)
           from="${RESEND_FROM:-Resunova <noreply@resunova.io>}"
           hour=$(date -u +%Y%m%d%H)
-          text="The production API health check failed (HTTP ${code}). ${snippet}"
+          text="A production API check failed. ${failures}"
+          if [ "$api_ok" != true ]; then
+            subject="Resunova API is down"
+          elif [ "$(route_state "$tcode")" != "up" ] && [ "$(route_state "$icode")" != "up" ]; then
+            subject="Resunova tailor and interview checks failed"
+          elif [ "$(route_state "$tcode")" != "up" ]; then
+            subject="Resunova tailor API is down"
+          else
+            subject="Resunova interview API is down"
+          fi
           payload=$(jq -n \
             --arg from "$from" \
             --arg to "$ALERT_TO" \
-            --arg subject "Resunova API is down" \
+            --arg subject "$subject" \
             --arg text "$text" \
             '{from:$from, to:[$to], subject:$subject, text:$text}')
           status=$(curl -sS -o /tmp/resend.json -w "%{http_code}" \
             -X POST https://api.resend.com/emails \
             -H "Authorization: Bearer ${RESEND_API_KEY}" \
             -H "Content-Type: application/json" \
-            -H "Idempotency-Key: railway-down-${hour}" \
+            -H "Idempotency-Key: api-check-${hour}" \
             -d "$payload" || echo "000")
           if [ "$status" = "200" ] || [ "$status" = "201" ]; then
             echo "alert sent for HTTP ${code}"
@@ -86,6 +149,10 @@ jobs:
           OPS_FEED_SECRET: ${{ secrets.OPS_FEED_SECRET }}
           API_UP: ${{ steps.health.outputs.up }}
           API_DETAIL: ${{ steps.health.outputs.detail }}
+          TAILOR_UP: ${{ steps.health.outputs.tailor_up }}
+          TAILOR_DETAIL: ${{ steps.health.outputs.tailor_detail }}
+          INTERVIEW_UP: ${{ steps.health.outputs.interview_up }}
+          INTERVIEW_DETAIL: ${{ steps.health.outputs.interview_detail }}
           HISTORY_PATH: ops-log/history.json
         run: |
           set -euo pipefail
