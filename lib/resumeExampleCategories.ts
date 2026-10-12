@@ -31,7 +31,18 @@ export type ResumeCategoryMeta = {
   count: number;
   /** /resume-examples/{slug} — set only when a matching sourced role page exists. */
   roleHref: string | null;
+  /** In-page id for /resume-examples/#this, shared with the homepage chips. */
+  anchor: string;
 };
+
+/** Hash id for a category section. Stable so homepage chips and the index agree. */
+export function resumeCategoryAnchor(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 // Hex, not Tailwind utility classes: this app's dark mode is driven by
 // `[data-theme]` CSS custom properties (see app/globals.css), not Tailwind's
@@ -84,6 +95,7 @@ export const RESUME_CATEGORIES: ResumeCategoryMeta[] = (() => {
       color: CATEGORY_ICON[name].color,
       count: counts[name] ?? 0,
       roleHref: roleSlug ? `${roleResumeHref(roleSlug)}/` : null,
+      anchor: resumeCategoryAnchor(name),
     };
   });
 })();

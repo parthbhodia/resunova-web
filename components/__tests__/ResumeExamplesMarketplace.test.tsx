@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ResumeExamplesMarketplace from "@/components/ResumeExamplesMarketplace";
 import type { TBResumeData } from "@/components/TemplateBuilder/types";
@@ -27,11 +27,12 @@ beforeEach(() => {
 });
 
 describe("ResumeExamplesMarketplace", () => {
-  it("filters the grid by search, category tile, and level pill", async () => {
+  it("keeps category browsing on this page and previews three examples until Show all", async () => {
     render(<ResumeExamplesMarketplace />);
 
-    // Full catalog starts at 60.
-    expect(screen.getByText("60 examples")).toBeInTheDocument();
+    const gridCount = (text: string) =>
+      screen.getByText((_, el) => el?.getAttribute("aria-live") === "polite" && el.textContent === text);
+    expect(gridCount("60 examples")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Search resume examples"), {
       target: { value: "PostgreSQL" },
@@ -40,25 +41,19 @@ describe("ResumeExamplesMarketplace", () => {
 
     fireEvent.change(screen.getByLabelText("Search resume examples"), { target: { value: "" } });
 
-    // A category tile with no matching role page (Customer Support) filters the grid in place.
-    // Every category tile also reads "N examples" (all counts happen to be 5),
-    // so the live grid count must be queried by its aria-live region specifically.
-    const gridCount = (text: string) =>
-      screen.getByText((_, el) => el?.getAttribute("aria-live") === "polite" && el.textContent === text);
-    fireEvent.click(screen.getByRole("button", { name: /Customer Support/ }));
-    await waitFor(() => expect(gridCount("5 examples")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("link", { name: /Customer Support/ }));
     expect(mockPush).not.toHaveBeenCalled();
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Senior" }));
-    await waitFor(() => expect(gridCount("1 example")).toBeInTheDocument());
-  });
+    const support = document.getElementById("customer-support");
+    expect(support).not.toBeNull();
+    expect(within(support as HTMLElement).getAllByRole("button", { name: /^Use / })).toHaveLength(3);
+    fireEvent.click(within(support as HTMLElement).getByRole("button", { name: "Show all" }));
+    expect(within(support as HTMLElement).getAllByRole("button", { name: /^Use / })).toHaveLength(5);
 
-  it("navigates straight to the role page for a category tile with a sourced role page", () => {
-    render(<ResumeExamplesMarketplace />);
-
-    fireEvent.click(screen.getByRole("button", { name: /Software Engineering/ }));
-
-    expect(mockPush).toHaveBeenCalledWith("/resume-examples/software-engineer/");
+    fireEvent.click(screen.getByRole("link", { name: /Software Engineering/ }));
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(document.getElementById("software-engineering")).not.toBeNull();
   });
 
   it("sanitizes contact data and a valid style preset before opening the template builder", async () => {
