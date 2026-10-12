@@ -4,6 +4,8 @@ import {
   makeReferrerSlug,
   mapReferrerRow,
   mapRequestRow,
+  nudgeAvailability,
+  nudgeButtonLabel,
   openRequestCount,
   referralRequestPipeline,
   referralRequestsThisMonth,
@@ -39,6 +41,7 @@ describe("companyReferrers helpers", () => {
       slug: "parth-bhodia-at-acme-abcdef",
       bio: "Backend, intern",
       open_to_refer: true,
+      referred_count: 4,
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-02T00:00:00Z",
     });
@@ -46,6 +49,7 @@ describe("companyReferrers helpers", () => {
       displayName: "Parth Bhodia",
       company: "Acme",
       openToRefer: true,
+      referredCount: 4,
     });
     expect(mapRequestRow({
       id: "q1",
@@ -75,6 +79,23 @@ describe("companyReferrers helpers", () => {
     });
     expect(openRequestCount(rows)).toBe(2);
     expect(referralRequestsThisMonth(rows, new Date("2026-10-12T12:00:00Z")).map((row) => row.id)).toEqual(["1", "2"]);
+  });
+
+  it("waits 3 days, then 7 days, and stops after 2 nudges", () => {
+    const now = new Date("2026-10-12T12:00:00Z");
+    const recent = { status: "requested" as const, createdAt: "2026-10-11T12:00:00Z", nudgeCount: 0, lastNudgedAt: null };
+    const ready = { status: "requested" as const, createdAt: "2026-10-01T12:00:00Z", nudgeCount: 0, lastNudgedAt: null };
+    const cooling = { ...ready, nudgeCount: 1, lastNudgedAt: "2026-10-10T12:00:00Z" };
+    const capped = { ...ready, nudgeCount: 2, lastNudgedAt: "2026-09-01T12:00:00Z" };
+    expect(nudgeAvailability(recent, now)).toBe("too_soon");
+    expect(nudgeButtonLabel(recent, now)).toBe("Nudge in 2 days");
+    expect(nudgeAvailability(ready, now)).toBe("ready");
+    expect(nudgeButtonLabel(ready, now)).toBe("Nudge");
+    expect(nudgeAvailability(cooling, now)).toBe("cooling_down");
+    expect(nudgeButtonLabel(cooling, now)).toBe("Nudged");
+    expect(nudgeAvailability(capped, now)).toBe("limit");
+    expect(nudgeAvailability({ ...ready, status: "referred" }, now)).toBe("closed");
+    expect(nudgeButtonLabel({ ...ready, status: "declined" }, now)).toBeNull();
   });
 
   it("validates emails and initials", () => {

@@ -29,6 +29,8 @@ vi.mock("@/lib/companyReferrers", async (orig) => ({
   upsertMyReferrerProfile: vi.fn(),
   createReferralRequest: vi.fn(),
   updateReferralRequestStatus: vi.fn(),
+  fetchMySentReferralRequests: () => Promise.resolve([]),
+  nudgeReferralRequest: vi.fn(),
 }));
 vi.mock("@/lib/jobFiltersApi", () => ({
   fetchJobFilters: mockFetchJobFilters,

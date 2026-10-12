@@ -8,15 +8,24 @@ const {
   mockFetchMyReferralRequests,
   mockUpsertMyReferrerProfile,
   mockCreateReferralRequest,
+  mockFetchMySentReferralRequests,
 } = vi.hoisted(() => ({
   mockFetchMyReferrerProfile: vi.fn(),
   mockFetchMyReferralRequests: vi.fn(),
   mockUpsertMyReferrerProfile: vi.fn(),
   mockCreateReferralRequest: vi.fn(),
+  mockFetchMySentReferralRequests: vi.fn(),
 }));
 
 vi.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a>,
+}));
+
+vi.mock("@/lib/productNotices", () => ({
+  setReferralInboxOpen: vi.fn(),
+  persistLastSeenReferral: vi.fn().mockResolvedValue(undefined),
+  persistLastSeenSentReferral: vi.fn().mockResolvedValue(undefined),
+  onReferralInboxRefresh: () => () => {},
 }));
 
 vi.mock("@/lib/companyReferrers", async (orig) => ({
@@ -27,6 +36,8 @@ vi.mock("@/lib/companyReferrers", async (orig) => ({
   createReferralRequest: mockCreateReferralRequest,
   updateReferralRequestStatus: vi.fn(),
   deleteReferralRequest: vi.fn().mockResolvedValue(true),
+  fetchMySentReferralRequests: mockFetchMySentReferralRequests,
+  nudgeReferralRequest: vi.fn(),
 }));
 
 import { CompanyReferrerPanel } from "@/components/profile/CompanyReferrerPanel";
@@ -36,6 +47,7 @@ beforeEach(() => {
   mockFetchMyReferralRequests.mockResolvedValue([]);
   mockUpsertMyReferrerProfile.mockResolvedValue(null);
   mockCreateReferralRequest.mockResolvedValue({ request: null, error: "Could not log this referral. Add the candidate name and role." });
+  mockFetchMySentReferralRequests.mockResolvedValue([]);
 });
 
 describe("CompanyReferrerPanel", () => {
@@ -43,6 +55,7 @@ describe("CompanyReferrerPanel", () => {
     render(<CompanyReferrerPanel displayName="Parth Bhodia" title="Software Engineer" linkedin="" />);
     expect(await screen.findByRole("button", { name: "Sign up as a referrer" })).toBeInTheDocument();
     expect(screen.getByText(/Not signed up as a referrer yet/)).toBeInTheDocument();
+    expect(screen.getByText("Your requests")).toBeInTheDocument();
   });
 
   it("shows the live inbox and copy link after signup exists", async () => {
@@ -57,6 +70,7 @@ describe("CompanyReferrerPanel", () => {
       slug: "parth-bhodia-at-acme-abcdef",
       bio: "Backend, intern",
       openToRefer: true,
+      referredCount: 3,
       createdAt: "",
       updatedAt: "",
     });
@@ -76,6 +90,7 @@ describe("CompanyReferrerPanel", () => {
     ]);
     render(<CompanyReferrerPanel displayName="Parth Bhodia" title="Software Engineer" linkedin="" />);
     expect(await screen.findByText("Incoming requests")).toBeInTheDocument();
+    expect(screen.getByLabelText("3 referred")).toBeInTheDocument();
     expect(screen.getByText("Alex Kim")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pause requests" })).toBeInTheDocument();

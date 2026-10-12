@@ -106,6 +106,7 @@ export function FeedbackToastCard({
   secondaryAction,
   className,
   role = "status",
+  embedded = false,
 }: {
   title: string;
   description?: ReactNode;
@@ -115,6 +116,8 @@ export function FeedbackToastCard({
   secondaryAction?: Action;
   className?: string;
   role?: "status" | "alert";
+  /** Drop the fixed corner placement so a parent can stack more than one card. */
+  embedded?: boolean;
 }) {
   const styles = VARIANT_STYLES[variant];
   const hasActions = Boolean(primaryAction || secondaryAction);
@@ -124,7 +127,9 @@ export function FeedbackToastCard({
       role={role}
       aria-live={variant === "error" ? "assertive" : "polite"}
       className={cn(
-        "fixed bottom-6 right-6 z-[9999] w-[min(22.5rem,calc(100vw-2rem))]",
+        embedded
+          ? "relative w-full"
+          : "fixed bottom-6 right-6 z-[9999] w-[min(22.5rem,calc(100vw-2rem))]",
         "animate-in fade-in-0 slide-in-from-bottom-3 duration-200",
         className,
       )}

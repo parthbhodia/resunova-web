@@ -21,6 +21,13 @@ import {
   type CompanyReferrer,
   type ReferralRequestStatus,
 } from "@/lib/companyReferrers";
+import {
+  onReferralInboxRefresh,
+  persistLastSeenReferral,
+  setReferralInboxOpen,
+} from "@/lib/productNotices";
+import { ReferrerName } from "@/components/refer/ReferrerName";
+import { SentReferralsCard } from "@/components/profile/SentReferralsCard";
 
 const cardStyle: CSSProperties = {
   borderRadius: 18,
@@ -183,7 +190,8 @@ export function CompanyReferrerPanel({
           bio: next.bio ?? "",
           openToRefer: next.openToRefer,
         });
-        setRequests(await fetchMyReferralRequests(next.id));
+        const loaded = await fetchMyReferralRequests(next.id);
+        if (loaded) setRequests(loaded);
       } else {
         setForm((prev) => ({
           ...prev,
@@ -196,6 +204,25 @@ export function CompanyReferrerPanel({
     })();
     return () => { cancelled = true; };
   }, [displayName, linkedin, title]);
+
+  useEffect(() => {
+    setReferralInboxOpen(true);
+    return () => setReferralInboxOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    void persistLastSeenReferral();
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    return onReferralInboxRefresh(() => {
+      void fetchMyReferralRequests(profile.id).then((loaded) => {
+        if (loaded) setRequests(loaded);
+      });
+    });
+  }, [profile?.id]);
 
   const onSave = useCallback(async () => {
     setSaving(true);
@@ -275,7 +302,9 @@ export function CompanyReferrerPanel({
           <Avatar name={shownName} />
           <div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ fontSize: 20, fontWeight: 800 }}>{shownName}</div>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>
+                <ReferrerName name={shownName} count={profile ? (profile.referredCount ?? 0) : null} />
+              </div>
               {loading ? (
                 <Pill>Loading</Pill>
               ) : profile ? (
@@ -430,6 +459,8 @@ export function CompanyReferrerPanel({
         </Card>
       )}
 
+      <SentReferralsCard />
+
       {error ? <p role="alert" style={{ margin: 0, color: "#dc2626", fontSize: 13 }}>{error}</p> : null}
     </div>
   );
@@ -453,7 +484,10 @@ function RequestCard({
             {row.role}{row.candidateEmail ? ` · ${row.candidateEmail}` : ""}
           </div>
         </div>
-        <Pill tone={REFERRAL_REQUEST_STATUS_TONES[row.status]}>{REFERRAL_REQUEST_STATUS_LABELS[row.status]}</Pill>
+        <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+          {row.lastNudgedAt ? <Pill tone="amber">{(row.nudgeCount ?? 0) > 1 ? `Nudged ${row.nudgeCount}` : "Nudged"}</Pill> : null}
+          <Pill tone={REFERRAL_REQUEST_STATUS_TONES[row.status]}>{REFERRAL_REQUEST_STATUS_LABELS[row.status]}</Pill>
+        </span>
       </div>
       {row.notes ? <p style={{ margin: "10px 0 0", fontSize: 13, color: "#4b5563", lineHeight: 1.55 }}>{row.notes}</p> : null}
       <label style={{ display: "block", marginTop: 12 }}>

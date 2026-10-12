@@ -13,6 +13,9 @@ import {
   searchOpenReferrers,
   type CompanyReferrer,
 } from "@/lib/companyReferrers";
+import { ReferrerName } from "@/components/refer/ReferrerName";
+import { useSignInDialog } from "@/components/SignInDialog";
+import { getSupabaseClient } from "@/lib/supabase";
 
 const cardStyle: CSSProperties = {
   borderRadius: 18,
@@ -169,7 +172,9 @@ function FindReferrer() {
               {referrerInitials(row.displayName)}
             </div>
             <div>
-              <div style={{ fontWeight: 800 }}>{row.displayName}</div>
+              <div style={{ fontWeight: 800 }}>
+                <ReferrerName name={row.displayName} count={row.referredCount ?? 0} />
+              </div>
               <div style={{ marginTop: 3, fontSize: 13, color: "#6b7280" }}>
                 {row.title} at {row.company}{row.bio ? ` · ${row.bio}` : ""}
               </div>
@@ -185,6 +190,7 @@ function FindReferrer() {
 }
 
 function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
+  const { openSignIn } = useSignInDialog();
   const [form, setForm] = useState({ name: "", email: "", linkedin: "", role: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
@@ -193,6 +199,21 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
   const onSubmit = async () => {
     setSaving(true);
     setError(null);
+    let signedIn = false;
+    try {
+      const { data: { session } } = await getSupabaseClient().auth.getSession();
+      signedIn = !!session?.user;
+    } catch {
+      signedIn = false;
+    }
+    if (!signedIn) {
+      setSaving(false);
+      openSignIn({
+        title: "Sign in to ask for a referral",
+        reason: "Your request is saved to your account so you can track it.",
+      });
+      return;
+    }
     const stillOpen = await fetchReferrerBySlug(referrer.slug);
     if (!stillOpen) {
       setSaving(false);
@@ -241,9 +262,12 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
           <div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ fontSize: 18, fontWeight: 800 }}>
-                Ask {referrer.displayName} for a referral at {referrer.company}
+                <ReferrerName name={referrer.displayName} count={referrer.referredCount ?? 0} />
               </div>
               <Pill>Open</Pill>
+            </div>
+            <div style={{ marginTop: 4, fontSize: 15, fontWeight: 700 }}>
+              Ask for a referral at {referrer.company}
             </div>
             <div style={{ marginTop: 6, fontSize: 14, color: "#6b7280" }}>
               {referrer.title}{referrer.bio ? `. ${referrer.bio}` : ". They signed up to refer candidates at this company."}
@@ -262,7 +286,11 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
           <div style={{ fontSize: 18, fontWeight: 800 }}>Request sent</div>
           <p style={{ margin: "8px 0 0", color: "#6b7280", lineHeight: 1.6 }}>
             {referrer.displayName} will see this on their Referrals tab and can mark it referred if they submit you.
+            Track it on your profile.
           </p>
+          <Link href="/profile?tab=referrals" style={{ display: "inline-block", marginTop: 12, color: "#2563eb", fontWeight: 800, textDecoration: "none" }}>
+            View your requests
+          </Link>
         </div>
       ) : (
         <div style={{ ...cardStyle, padding: 26, display: "grid", gap: 10 }}>
@@ -296,7 +324,7 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
             {saving ? "Sending..." : "Ask for a referral"}
           </button>
           <p style={{ margin: 0, fontSize: 12, color: "#9ca3af", lineHeight: 1.6 }}>
-            {referrer.displayName} sees this in their inbox. Resunova does not submit the referral into {referrer.company}&apos;s ATS for them.
+            Sign in to send this. {referrer.displayName} sees it in their inbox. Resunova does not submit the referral into {referrer.company}&apos;s ATS for them.
           </p>
         </div>
       )}

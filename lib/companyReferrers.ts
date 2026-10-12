@@ -25,6 +25,8 @@ export type CompanyReferrer = {
   slug: string;
   bio: string | null;
   openToRefer: boolean;
+  /** People this employee has marked Referred. Absent means unknown, show 0. */
+  referredCount?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -40,6 +42,15 @@ export type CompanyReferralRequest = {
   source: "request" | "submitted";
   status: ReferralRequestStatus;
   createdAt: string;
+  updatedAt?: string;
+  nudgeCount?: number;
+  lastNudgedAt?: string | null;
+};
+
+export type SentReferralRequest = CompanyReferralRequest & {
+  referrerName: string;
+  referrerCompany: string;
+  referrerReferredCount: number;
 };
 
 export const REFERRER_LIMITS = {
@@ -69,6 +80,7 @@ type ReferrerRow = {
   slug: string;
   bio: string | null;
   open_to_refer: boolean | null;
+  referred_count?: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -84,6 +96,9 @@ type RequestRow = {
   source: string | null;
   status: string | null;
   created_at: string;
+  updated_at?: string | null;
+  nudge_count?: number | null;
+  last_nudged_at?: string | null;
 };
 
 export function slugifyPart(value: string): string {
@@ -118,6 +133,7 @@ export function mapReferrerRow(row: ReferrerRow): CompanyReferrer {
     slug: row.slug,
     bio: row.bio,
     openToRefer: row.open_to_refer !== false,
+    referredCount: row.referred_count ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -138,6 +154,9 @@ export function mapRequestRow(row: RequestRow): CompanyReferralRequest {
     source: row.source === "submitted" ? "submitted" : "request",
     status,
     createdAt: row.created_at,
+    updatedAt: row.updated_at ?? row.created_at,
+    nudgeCount: row.nudge_count ?? 0,
+    lastNudgedAt: row.last_nudged_at ?? null,
   };
 }
 
@@ -225,12 +244,69 @@ export function openRequestCount(rows: CompanyReferralRequest[]): number {
   ).length;
 }
 
-const REFERRER_SELECT =
+export const NUDGE_WAIT_MS = 3 * 24 * 60 * 60 * 1000;
+export const NUDGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+export const NUDGE_LIMIT = 2;
+
+export type NudgeAvailability = "ready" | "too_soon" | "cooling_down" | "limit" | "closed";
+
+export function nudgeAvailability(
+  row: Pick<CompanyReferralRequest, "status" | "createdAt" | "nudgeCount" | "lastNudgedAt">,
+  now = new Date(),
+): NudgeAvailability {
+  if (row.status !== "requested" && row.status !== "reviewing") return "closed";
+  if ((row.nudgeCount ?? 0) >= NUDGE_LIMIT) return "limit";
+  const created = Date.parse(row.createdAt);
+  if (!Number.isFinite(created) || now.getTime() - created < NUDGE_WAIT_MS) return "too_soon";
+  if (row.lastNudgedAt) {
+    const nudged = Date.parse(row.lastNudgedAt);
+    if (Number.isFinite(nudged) && now.getTime() - nudged < NUDGE_COOLDOWN_MS) return "cooling_down";
+  }
+  return "ready";
+}
+
+export function nudgeButtonLabel(
+  row: Pick<CompanyReferralRequest, "status" | "createdAt" | "nudgeCount" | "lastNudgedAt">,
+  now = new Date(),
+): string | null {
+  const state = nudgeAvailability(row, now);
+  if (state === "closed") return null;
+  if (state === "ready") return "Nudge";
+  if (state === "cooling_down" || state === "limit") return "Nudged";
+  const created = Date.parse(row.createdAt);
+  const days = Math.max(1, Math.ceil((NUDGE_WAIT_MS - (now.getTime() - created)) / (24 * 60 * 60 * 1000)));
+  return `Nudge in ${days} ${days === 1 ? "day" : "days"}`;
+}
+
+const REFERRER_SELECT_BASE =
   "id, user_id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at";
-const REFERRER_PUBLIC_SELECT =
+const REFERRER_SELECT = `${REFERRER_SELECT_BASE}, referred_count`;
+const REFERRER_PUBLIC_SELECT_BASE =
   "id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at";
-const REQUEST_SELECT =
+const REFERRER_PUBLIC_SELECT = `${REFERRER_PUBLIC_SELECT_BASE}, referred_count`;
+const REQUEST_SELECT_BASE =
   "id, referrer_id, candidate_name, candidate_email, candidate_linkedin, role, notes, source, status, created_at";
+const REQUEST_SELECT = `${REQUEST_SELECT_BASE}, updated_at, nudge_count, last_nudged_at`;
+
+function columnMissing(error: { message?: string } | null | undefined, column: string): boolean {
+  const message = (error?.message ?? "").toLowerCase();
+  return message.includes(column) && (
+    message.includes("does not exist")
+    || message.includes("schema cache")
+    || message.includes("could not find")
+  );
+}
+
+async function selectWithFallback<T>(
+  columns: string,
+  fallback: string,
+  missing: string,
+  run: (columns: string) => PromiseLike<{ data: T; error: { message?: string } | null }>,
+): Promise<{ data: T; error: { message?: string } | null }> {
+  const first = await run(columns);
+  if (first.error && columnMissing(first.error, missing)) return run(fallback);
+  return first;
+}
 
 async function currentUserId(): Promise<string | null> {
   const { data: { session } } = await getSupabaseClient().auth.getSession();
@@ -241,11 +317,16 @@ export async function fetchMyReferrerProfile(): Promise<CompanyReferrer | null> 
   try {
     const userId = await currentUserId();
     if (!userId) return null;
-    const { data, error } = await getSupabaseClient()
-      .from("company_referrers")
-      .select(REFERRER_SELECT)
-      .eq("user_id", userId)
-      .maybeSingle();
+    const { data, error } = await selectWithFallback(
+      REFERRER_SELECT,
+      REFERRER_SELECT_BASE,
+      "referred_count",
+      (columns) => getSupabaseClient()
+        .from("company_referrers")
+        .select(columns)
+        .eq("user_id", userId)
+        .maybeSingle(),
+    );
     if (error) {
       console.warn("[company_referrers] fetch mine:", error.message);
       return null;
@@ -261,12 +342,17 @@ export async function fetchReferrerBySlug(slug: string): Promise<CompanyReferrer
   const trimmed = slug.trim();
   if (!trimmed) return null;
   try {
-    const { data, error } = await getSupabaseClient()
-      .from("company_referrers")
-      .select(REFERRER_PUBLIC_SELECT)
-      .eq("slug", trimmed)
-      .eq("open_to_refer", true)
-      .maybeSingle();
+    const { data, error } = await selectWithFallback(
+      REFERRER_PUBLIC_SELECT,
+      REFERRER_PUBLIC_SELECT_BASE,
+      "referred_count",
+      (columns) => getSupabaseClient()
+        .from("company_referrers")
+        .select(columns)
+        .eq("slug", trimmed)
+        .eq("open_to_refer", true)
+        .maybeSingle(),
+    );
     if (error) {
       console.warn("[company_referrers] fetch slug:", error.message);
       return null;
@@ -282,12 +368,17 @@ export async function searchOpenReferrers(company: string): Promise<CompanyRefer
   const q = sanitizeSearchTerm(company);
   if (q.length < 2) return [];
   try {
-    const { data, error } = await getSupabaseClient()
-      .from("company_referrers")
-      .select(REFERRER_PUBLIC_SELECT)
-      .eq("open_to_refer", true)
-      .ilike("company", `%${q}%`)
-      .limit(12);
+    const { data, error } = await selectWithFallback(
+      REFERRER_PUBLIC_SELECT,
+      REFERRER_PUBLIC_SELECT_BASE,
+      "referred_count",
+      (columns) => getSupabaseClient()
+        .from("company_referrers")
+        .select(columns)
+        .eq("open_to_refer", true)
+        .ilike("company", `%${q}%`)
+        .limit(12),
+    );
     if (error) {
       console.warn("[company_referrers] search:", error.message);
       return [];
@@ -328,11 +419,16 @@ export async function upsertMyReferrerProfile(input: {
       open_to_refer: input.openToRefer ?? true,
       updated_at: new Date().toISOString(),
     };
-    const { data, error } = await getSupabaseClient()
-      .from("company_referrers")
-      .upsert(payload, { onConflict: "user_id" })
-      .select(REFERRER_SELECT)
-      .single();
+    const { data, error } = await selectWithFallback(
+      REFERRER_SELECT,
+      REFERRER_SELECT_BASE,
+      "referred_count",
+      (columns) => getSupabaseClient()
+        .from("company_referrers")
+        .upsert(payload, { onConflict: "user_id" })
+        .select(columns)
+        .single(),
+    );
     if (error || !data) {
       console.warn("[company_referrers] upsert:", error?.message);
       return null;
@@ -344,23 +440,28 @@ export async function upsertMyReferrerProfile(input: {
   }
 }
 
-export async function fetchMyReferralRequests(referrerId?: string): Promise<CompanyReferralRequest[]> {
+export async function fetchMyReferralRequests(referrerId?: string): Promise<CompanyReferralRequest[] | null> {
   try {
     const id = referrerId ?? (await fetchMyReferrerProfile())?.id;
     if (!id) return [];
-    const { data, error } = await getSupabaseClient()
-      .from("company_referral_requests")
-      .select(REQUEST_SELECT)
-      .eq("referrer_id", id)
-      .order("created_at", { ascending: false });
+    const { data, error } = await selectWithFallback(
+      REQUEST_SELECT,
+      REQUEST_SELECT_BASE,
+      "nudge_count",
+      (columns) => getSupabaseClient()
+        .from("company_referral_requests")
+        .select(columns)
+        .eq("referrer_id", id)
+        .order("created_at", { ascending: false }),
+    );
     if (error) {
       console.warn("[company_referral_requests] fetch:", error.message);
-      return [];
+      return null;
     }
     return ((data ?? []) as RequestRow[]).map(mapRequestRow);
   } catch (err) {
     console.warn("[company_referral_requests] fetch:", err);
-    return [];
+    return null;
   }
 }
 
@@ -396,12 +497,15 @@ export async function createReferralRequest(input: {
   };
   try {
     const userId = await currentUserId();
+    if (source !== "submitted" && !userId) {
+      return { request: null, error: "Sign in to ask for a referral." };
+    }
     const insertRow = { ...payload, candidate_user_id: userId };
     if (userId) {
       const { data, error } = await getSupabaseClient()
         .from("company_referral_requests")
         .insert(insertRow)
-        .select(REQUEST_SELECT)
+        .select(REQUEST_SELECT_BASE)
         .single();
       if (error || !data) {
         console.warn("[company_referral_requests] insert:", error?.message);
@@ -455,6 +559,84 @@ export async function updateReferralRequestStatus(
   } catch (err) {
     console.warn("[company_referral_requests] update:", err);
     return false;
+  }
+}
+
+export async function fetchMySentReferralRequests(): Promise<SentReferralRequest[] | null> {
+  try {
+    const userId = await currentUserId();
+    if (!userId) return [];
+    const { data, error } = await selectWithFallback(
+      REQUEST_SELECT,
+      REQUEST_SELECT_BASE,
+      "nudge_count",
+      (columns) => getSupabaseClient()
+        .from("company_referral_requests")
+        .select(columns)
+        .eq("candidate_user_id", userId)
+        .eq("source", "request")
+        .order("created_at", { ascending: false }),
+    );
+    if (error) {
+      console.warn("[company_referral_requests] sent:", error.message);
+      return null;
+    }
+    const rows = ((data ?? []) as RequestRow[]).map(mapRequestRow);
+    const referrerIds = Array.from(new Set(rows.map((row) => row.referrerId).filter(Boolean)));
+    const referrers = new Map<string, { name: string; company: string; count: number }>();
+    if (referrerIds.length > 0) {
+      const loaded = await selectWithFallback(
+        "id, display_name, company, referred_count",
+        "id, display_name, company",
+        "referred_count",
+        (columns) => getSupabaseClient()
+          .from("company_referrers")
+          .select(columns)
+          .in("id", referrerIds),
+      );
+      for (const row of (loaded.data ?? []) as Array<{ id: string; display_name: string | null; company: string | null; referred_count?: number | null }>) {
+        referrers.set(row.id, {
+          name: row.display_name ?? "",
+          company: row.company ?? "",
+          count: row.referred_count ?? 0,
+        });
+      }
+    }
+    return rows.map((row) => {
+      const referrer = referrers.get(row.referrerId);
+      return {
+        ...row,
+        referrerName: referrer?.name ?? "",
+        referrerCompany: referrer?.company ?? "",
+        referrerReferredCount: referrer?.count ?? 0,
+      };
+    });
+  } catch (err) {
+    console.warn("[company_referral_requests] sent:", err);
+    return null;
+  }
+}
+
+export function nudgeErrorMessage(error: { message?: string } | null | undefined): string {
+  const message = (error?.message ?? "").toLowerCase();
+  if (message.includes("3 days")) return "You can nudge 3 days after asking.";
+  if (message.includes("recently")) return "You already nudged them this week.";
+  if (message.includes("limit")) return "You have used both nudges for this request.";
+  if (message.includes("no longer")) return "This request can no longer be nudged.";
+  return "Could not nudge this request.";
+}
+
+export async function nudgeReferralRequest(id: string): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const { error } = await getSupabaseClient().rpc("nudge_referral_request", { request_id: id });
+    if (error) {
+      console.warn("[company_referral_requests] nudge:", error.message);
+      return { ok: false, error: nudgeErrorMessage(error) };
+    }
+    return { ok: true, error: null };
+  } catch (err) {
+    console.warn("[company_referral_requests] nudge:", err);
+    return { ok: false, error: nudgeErrorMessage(null) };
   }
 }
 
