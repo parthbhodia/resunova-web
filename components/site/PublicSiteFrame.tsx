@@ -8,7 +8,7 @@
  * only its content.
  */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AppBar from "@mui/material/AppBar";
@@ -47,6 +47,19 @@ const FOOTER = [
   ["Terms", "/terms"],
 ] as const;
 
+function subscribeTheme(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+  return () => observer.disconnect();
+}
+
+function themeIsDark(): boolean {
+  return document.documentElement.getAttribute("data-theme") === "dark";
+}
+
 function pathIsCurrent(pathname: string, href: string): boolean {
   const path = pathname.replace(/\/$/, "") || "/";
   const target = href.split("?")[0].replace(/\/$/, "") || "/";
@@ -58,11 +71,7 @@ export function PublicSiteFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
   const { openSignIn } = useSignInDialog();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    setDark(document.documentElement.getAttribute("data-theme") === "dark");
-  }, []);
+  const dark = useSyncExternalStore(subscribeTheme, themeIsDark, () => false);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -81,7 +90,6 @@ export function PublicSiteFrame({ children }: { children: ReactNode }) {
     } catch {
       /* private mode still flips the attribute for this visit */
     }
-    setDark(!dark);
   };
 
   const closeMenu = () => setMenuOpen(false);
