@@ -19,19 +19,19 @@ import { getSupabaseClient } from "@/lib/supabase";
 
 const cardStyle: CSSProperties = {
   borderRadius: 18,
-  border: "1px solid rgba(15,23,42,0.08)",
-  background: "#ffffff",
-  boxShadow: "0 8px 30px rgba(15,23,42,0.05)",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
+  boxShadow: "var(--shadow-card)",
 };
 
 const fieldStyle: CSSProperties = {
   width: "100%",
   borderRadius: 12,
-  border: "1px solid rgba(15,23,42,0.10)",
-  background: "#f8fafc",
+  border: "1px solid var(--border)",
+  background: "var(--surface2)",
   padding: "12px 14px",
   fontSize: 14,
-  color: "#111827",
+  color: "var(--text)",
   fontFamily: "inherit",
 };
 
@@ -45,8 +45,8 @@ function Pill({ children, tone = "green" }: { children: ReactNode; tone?: "green
         padding: "4px 10px",
         fontSize: 11,
         fontWeight: 800,
-        background: tone === "green" ? "#dcfce7" : "#f3f4f6",
-        color: tone === "green" ? "#15803d" : "#6b7280",
+        background: tone === "green" ? "var(--green-bg)" : "var(--surface2)",
+        color: tone === "green" ? "var(--green-ink)" : "var(--muted)",
       }}
     >
       {children}
@@ -56,7 +56,7 @@ function Pill({ children, tone = "green" }: { children: ReactNode; tone?: "green
 
 export default function ReferPublicPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: "#6b7280" }}>Loading referral page...</div>}>
+    <Suspense fallback={<div style={{ minHeight: "100dvh", display: "grid", placeItems: "center", color: "var(--muted)" }}>Loading referral page…</div>}>
       <ReferPageInner />
     </Suspense>
   );
@@ -82,17 +82,17 @@ function ReferPageInner() {
   }, [slug]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", color: "#111827" }}>
+    <div style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--text)" }}>
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 20px 80px" }}>
         <Link href="/" aria-label="Resunova home" style={{ display: "inline-flex", textDecoration: "none", color: "inherit" }}>
           <LogoFull markSize={28} />
         </Link>
         {loading ? (
-          <p style={{ marginTop: 28, color: "#6b7280" }}>Loading...</p>
+          <p style={{ marginTop: 28, color: "var(--muted)" }}>Loading…</p>
         ) : slug && missing ? (
           <div style={{ marginTop: 28 }}>
             <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: -1 }}>This referral link is not active.</h1>
-            <p style={{ marginTop: 10, color: "#6b7280", lineHeight: 1.6 }}>The employee may have turned off requests, or the link is wrong.</p>
+            <p style={{ marginTop: 10, color: "var(--muted)", lineHeight: 1.6 }}>The employee may have turned off requests, or the link is wrong.</p>
             <FindReferrer />
           </div>
         ) : referrer ? (
@@ -132,9 +132,9 @@ function FindReferrer() {
   return (
     <div style={{ marginTop: 28, display: "grid", gap: 18 }}>
       <div>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "#2563eb" }}>Find a referrer</div>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent-ink)" }}>Find a referrer</div>
         <h1 style={{ margin: "10px 0 0", fontSize: 32, fontWeight: 800, letterSpacing: -1 }}>Ask an employee for a referral</h1>
-        <p style={{ marginTop: 10, color: "#6b7280", lineHeight: 1.6, maxWidth: 560 }}>
+        <p style={{ marginTop: 10, color: "var(--muted)", lineHeight: 1.6, maxWidth: 560 }}>
           Search a company to find people who have signed up to refer candidates. If you work somewhere, publish your own profile from Profile, then Referrals.
         </p>
       </div>
@@ -146,9 +146,9 @@ function FindReferrer() {
         style={{ ...fieldStyle, maxWidth: 420 }}
       />
       <div style={{ display: "grid", gap: 12 }}>
-        {searching && loading ? <p style={{ color: "#6b7280" }}>Searching...</p> : null}
+        {searching && loading ? <p style={{ color: "var(--muted)" }}>Searching…</p> : null}
         {searching && !loading && results.length === 0 ? (
-          <p style={{ color: "#6b7280" }}>No open referrers for that company yet.</p>
+          <p style={{ color: "var(--muted)" }}>No open referrers for that company yet.</p>
         ) : null}
         {(searching ? results : []).map((row) => (
           <Link
@@ -162,8 +162,8 @@ function FindReferrer() {
                 width: 44,
                 height: 44,
                 borderRadius: "50%",
-                background: "#e2e8f0",
-                color: "#334155",
+                background: "var(--surface3)",
+                color: "var(--text)",
                 display: "grid",
                 placeItems: "center",
                 fontWeight: 800,
@@ -175,11 +175,11 @@ function FindReferrer() {
               <div style={{ fontWeight: 800 }}>
                 <ReferrerName name={row.displayName} count={row.referredCount ?? 0} />
               </div>
-              <div style={{ marginTop: 3, fontSize: 13, color: "#6b7280" }}>
+              <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted)" }}>
                 {row.title} at {row.company}{row.bio ? ` · ${row.bio}` : ""}
               </div>
             </div>
-            <span style={{ border: "none", background: "linear-gradient(135deg, #3b82f6, #4f46e5)", color: "#fff", borderRadius: 12, padding: "12px 16px", fontWeight: 800, fontSize: 14 }}>
+            <span style={{ border: "none", background: "var(--accent)", color: "var(--on-fill)", borderRadius: 12, padding: "12px 16px", fontWeight: 800, fontSize: 14 }}>
               Ask for a referral
             </span>
           </Link>
@@ -208,10 +208,7 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
     }
     if (!signedIn) {
       setSaving(false);
-      openSignIn({
-        title: "Sign in to ask for a referral",
-        reason: "Your request is saved to your account so you can track it.",
-      });
+      openSignIn({ ask: "referral_ask" });
       return;
     }
     const stillOpen = await fetchReferrerBySlug(referrer.slug);
@@ -240,7 +237,7 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
 
   return (
     <div style={{ marginTop: 28, display: "grid", gap: 18 }}>
-      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "#2563eb" }}>Employee referral</div>
+      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent-ink)" }}>Employee referral</div>
       <div style={cardStyle}>
         <div style={{ padding: 26, display: "grid", gridTemplateColumns: "auto 1fr", gap: 16, alignItems: "center" }}>
           <div
@@ -249,8 +246,8 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
               width: 56,
               height: 56,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #516b7b, #3f5563)",
-              color: "#fff",
+              background: "var(--surface3)",
+              color: "var(--text)",
               display: "grid",
               placeItems: "center",
               fontSize: 24,
@@ -269,11 +266,11 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
             <div style={{ marginTop: 4, fontSize: 15, fontWeight: 700 }}>
               Ask for a referral at {referrer.company}
             </div>
-            <div style={{ marginTop: 6, fontSize: 14, color: "#6b7280" }}>
+            <div style={{ marginTop: 6, fontSize: 14, color: "var(--muted)" }}>
               {referrer.title}{referrer.bio ? `. ${referrer.bio}` : ". They signed up to refer candidates at this company."}
             </div>
             {linkedinHref ? (
-              <a href={linkedinHref} style={{ color: "#2563eb", fontWeight: 700, fontSize: 14 }} target="_blank" rel="noreferrer">
+              <a href={linkedinHref} style={{ color: "var(--accent-ink)", fontWeight: 700, fontSize: 14 }} target="_blank" rel="noreferrer">
                 LinkedIn
               </a>
             ) : null}
@@ -284,11 +281,11 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
       {done ? (
         <div style={{ ...cardStyle, padding: 26 }}>
           <div style={{ fontSize: 18, fontWeight: 800 }}>Request sent</div>
-          <p style={{ margin: "8px 0 0", color: "#6b7280", lineHeight: 1.6 }}>
+          <p style={{ margin: "8px 0 0", color: "var(--muted)", lineHeight: 1.6 }}>
             {referrer.displayName} will see this on their Referrals tab and can mark it referred if they submit you.
             Track it on your profile.
           </p>
-          <Link href="/profile?tab=referrals" style={{ display: "inline-block", marginTop: 12, color: "#2563eb", fontWeight: 800, textDecoration: "none" }}>
+          <Link href="/profile?tab=referrals" style={{ display: "inline-block", marginTop: 12, color: "var(--accent-ink)", fontWeight: 800, textDecoration: "none" }}>
             View your requests
           </Link>
         </div>
@@ -307,15 +304,15 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
             rows={4}
             style={{ ...fieldStyle, resize: "vertical" }}
           />
-          {error ? <p role="alert" style={{ margin: 0, color: "#dc2626", fontSize: 13 }}>{error}</p> : null}
+          {error ? <p role="alert" style={{ margin: 0, color: "var(--red-ink)", fontSize: 13 }}>{error}</p> : null}
           <button
             type="button"
             onClick={() => void onSubmit()}
             disabled={saving}
             style={{
               border: "none",
-              background: "linear-gradient(135deg, #3b82f6, #4f46e5)",
-              color: "#fff",
+              background: "var(--accent)",
+              color: "var(--on-fill)",
               borderRadius: 12,
               padding: "14px 16px",
               fontWeight: 800,
@@ -323,7 +320,7 @@ function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
           >
             {saving ? "Sending..." : "Ask for a referral"}
           </button>
-          <p style={{ margin: 0, fontSize: 12, color: "#9ca3af", lineHeight: 1.6 }}>
+          <p style={{ margin: 0, fontSize: 12, color: "var(--dim)", lineHeight: 1.6 }}>
             Sign in to send this. {referrer.displayName} sees it in their inbox. Resunova does not submit the referral into {referrer.company}&apos;s ATS for them.
           </p>
         </div>

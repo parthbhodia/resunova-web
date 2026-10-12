@@ -56,7 +56,8 @@ export type SignInAskKey =
   | "apply"
   | "library"
   | "tracker"
-  | "advisor";
+  | "advisor"
+  | "referral_ask";
 
 /** Lift the gate's wording for a destination both surfaces can reach. */
 function fromGate(pathname: string): SignInAsk {
@@ -119,6 +120,11 @@ const ASKS: Record<SignInAskKey, () => SignInAsk> = {
     eyebrow: "Applications",
     headline: "Every application you've sent, and where it stands.",
     why: "Saved to your account, so the list survives closing the tab.",
+  }),
+  referral_ask: () => ({
+    eyebrow: "Referral",
+    headline: "Track the ask, and hear back in one place.",
+    why: "Your request is saved to your account so you can see where it stands.",
   }),
   advisor: () => ({
     eyebrow: "Advisor",
