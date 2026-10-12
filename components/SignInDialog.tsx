@@ -82,14 +82,14 @@ export function useSignInDialog(): SignInDialogContextValue {
   );
 }
 
-const DEFAULT_TITLE = "Sign in to Resunova";
+const DEFAULT_TITLE = "Welcome to Resunova";
 const DEFAULT_REASON =
-  "Start free: save your reports, tailor to any job, and upgrade anytime.";
+  "Score your resume, tailor to any job, and get interviews faster.";
 
 const VALUE_PROPS = [
-  "Save & revisit every résumé scan",
-  "Match and tailor to live job openings",
-  "No credit card required",
+  "Free resume scoring in 60 seconds",
+  "AI-powered keyword matching and gap analysis",
+  "One-click bullet rewrites",
 ];
 
 type EmailMode = "sign-in" | "sign-up" | "forgot";
@@ -175,133 +175,171 @@ export function SignInDialogProvider({ children }: { children: ReactNode }) {
     <SignInDialogContext.Provider value={value}>
       {children}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
-          <div className="flex flex-col items-center gap-3 px-2 pt-2 text-center">
-            <DialogTitle className="text-lg font-semibold">
-              {opts.title || DEFAULT_TITLE}
-            </DialogTitle>
-            <DialogDescription className="max-w-xs text-[14px] leading-relaxed text-muted-foreground">
-              {opts.reason || DEFAULT_REASON}
-            </DialogDescription>
-          </div>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto border-0 sm:max-w-md">
+          <div className="space-y-6 px-2 py-6">
+            {/* Header with visual accent */}
+            <div className="space-y-2 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent/10">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
+                </svg>
+              </div>
+              <DialogTitle className="text-2xl font-bold">
+                {opts.title || DEFAULT_TITLE}
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed">
+                {opts.reason || DEFAULT_REASON}
+              </DialogDescription>
+            </div>
 
-          <ul className="mx-auto mt-1 flex w-full max-w-xs flex-col gap-2">
-            {VALUE_PROPS.map((p) => (
-              <li key={p} className="flex items-center gap-2.5 text-[13px] text-foreground">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] text-accent">
-                  {CheckIcon}
-                </span>
-                {p}
-              </li>
-            ))}
-          </ul>
+            {/* Value propositions */}
+            <div className="space-y-2 rounded-xl bg-muted p-3.5">
+              {VALUE_PROPS.map((p) => (
+                <div key={p} className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                    {CheckIcon}
+                  </span>
+                  <span className="text-sm font-medium text-foreground">{p}</span>
+                </div>
+              ))}
+            </div>
 
-          <div className="grid grid-cols-2 rounded-lg bg-muted p-1" aria-label="Account action">
-            <button
-              type="button"
-              onClick={() => selectMode("sign-in")}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode !== "sign-up" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Log in
-            </button>
-            <button
-              type="button"
-              onClick={() => selectMode("sign-up")}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${mode === "sign-up" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Create account
-            </button>
-          </div>
+            {/* Mode selector tabs */}
+            <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1.5">
+              <button
+                type="button"
+                onClick={() => selectMode("sign-in")}
+                className={`rounded-md px-3 py-2 text-sm font-semibold transition-all ${
+                  mode !== "sign-up"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => selectMode("sign-up")}
+                className={`rounded-md px-3 py-2 text-sm font-semibold transition-all ${
+                  mode === "sign-up"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Create account
+              </button>
+            </div>
 
-          <form className="space-y-3" onSubmit={(event) => void handleEmail(event)}>
-            <label className="block space-y-1.5 text-sm font-medium text-foreground">
-              Email
-              <Input
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.edu"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                disabled={busy}
-                required
-                className="h-10"
-              />
-            </label>
-            {mode !== "forgot" ? (
-              <label className="block space-y-1.5 text-sm font-medium text-foreground">
-                Password
+            {/* Email form */}
+            <form className="space-y-3.5" onSubmit={(event) => void handleEmail(event)}>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-foreground">Email</span>
                 <Input
-                  type="password"
-                  autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
-                  placeholder={mode === "sign-up" ? "At least 8 characters" : "Your password"}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.edu"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
                   disabled={busy}
                   required
-                  minLength={8}
-                  className="h-10"
+                  className="h-11 bg-background"
                 />
               </label>
-            ) : (
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                We will send a secure reset link to this email address.
-              </p>
-            )}
 
-            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-            {notice ? <p role="status" className="rounded-lg bg-accent/10 px-3 py-2 text-sm text-foreground">{notice}</p> : null}
+              {mode !== "forgot" ? (
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-semibold text-foreground">Password</span>
+                  <Input
+                    type="password"
+                    autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+                    placeholder={mode === "sign-up" ? "At least 8 characters" : "Enter your password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    disabled={busy}
+                    required
+                    minLength={8}
+                    className="h-11 bg-background"
+                  />
+                </label>
+              ) : (
+                <p className="rounded-lg bg-accent/5 px-3.5 py-3 text-sm leading-relaxed text-muted-foreground">
+                  We'll send a secure reset link to your email. It expires in 24 hours.
+                </p>
+              )}
 
-            <Button type="submit" disabled={busy} className="w-full" size="lg">
-              {busy
-                ? "Please wait…"
-                : mode === "sign-up"
-                  ? "Create free account"
-                  : mode === "forgot"
-                    ? "Send reset link"
-                    : "Log in with email"}
+              {error && (
+                <div className="rounded-lg bg-destructive/10 px-3.5 py-3 text-sm font-medium text-destructive" role="alert">
+                  {error}
+                </div>
+              )}
+              {notice && (
+                <div className="rounded-lg bg-green-500/10 px-3.5 py-3 text-sm font-medium text-green-600 dark:text-green-400" role="status">
+                  {notice}
+                </div>
+              )}
+
+              <Button type="submit" disabled={busy} className="w-full" size="lg">
+                {busy
+                  ? "Please wait…"
+                  : mode === "sign-up"
+                    ? "Create free account"
+                    : mode === "forgot"
+                      ? "Send reset link"
+                      : "Sign in with email"}
+              </Button>
+            </form>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 border-t border-border" />
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">or</span>
+              <div className="flex-1 border-t border-border" />
+            </div>
+
+            {/* Google OAuth */}
+            <Button
+              onClick={() => void handleGoogle()}
+              disabled={busy}
+              size="lg"
+              variant="outline"
+              className="w-full gap-2.5"
+            >
+              <GoogleGlyph />
+              {busy ? "Opening Google…" : "Continue with Google"}
             </Button>
-          </form>
 
-          <div className="flex items-center gap-3 text-[11px] uppercase tracking-wider text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
+            {/* Footer actions */}
+            {mode === "sign-in" ? (
+              <button
+                type="button"
+                onClick={() => selectMode("forgot")}
+                className="block w-full text-center text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline"
+              >
+                Forgot your password?
+              </button>
+            ) : mode === "forgot" ? (
+              <button
+                type="button"
+                onClick={() => selectMode("sign-in")}
+                className="block w-full text-center text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline"
+              >
+                Back to sign in
+              </button>
+            ) : null}
+
+            {/* Terms & Privacy */}
+            <p className="text-center text-xs leading-relaxed text-muted-foreground">
+              By continuing you agree to our{" "}
+              <a href="/terms" className="font-medium underline underline-offset-2 hover:text-foreground">
+                Terms
+              </a>{" "}
+              and{" "}
+              <a href="/privacy" className="font-medium underline underline-offset-2 hover:text-foreground">
+                Privacy Policy
+              </a>
+              .
+            </p>
           </div>
-
-          <Button
-            onClick={() => void handleGoogle()}
-            disabled={busy}
-            size="lg"
-            className="w-full gap-2.5 bg-white text-[#1f2937] ring-1 ring-foreground/10 hover:bg-white/90 dark:bg-white dark:text-[#1f2937]"
-          >
-            <GoogleGlyph />
-            {busy ? "Opening Google…" : "Continue with Google"}
-          </Button>
-
-          {mode === "sign-in" ? (
-            <button
-              type="button"
-              onClick={() => selectMode("forgot")}
-              className="text-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Forgot your password?
-            </button>
-          ) : mode === "forgot" ? (
-            <button
-              type="button"
-              onClick={() => selectMode("sign-in")}
-              className="text-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Back to login
-            </button>
-          ) : null}
-
-          <p className="px-4 text-center text-[11px] leading-relaxed text-muted-foreground">
-            By continuing you agree to our{" "}
-            <a href="/terms" className="underline underline-offset-2 hover:text-foreground">Terms</a>{" "}
-            and{" "}
-            <a href="/privacy" className="underline underline-offset-2 hover:text-foreground">Privacy Policy</a>.
-          </p>
         </DialogContent>
       </Dialog>
     </SignInDialogContext.Provider>
