@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Service log · Resunova</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      background: #f7f5f2;
+      color: #1c1917;
+      font: 17px/1.5 Georgia, "Iowan Old Style", Palatino, serif;
+    }
+    main { max-width: 42rem; margin: 0 auto; padding: 3.5rem 1.25rem 5rem; }
+    h1 {
+      margin: 0 0 0.6rem;
+      font-size: 2rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+    .lead { margin: 0 0 2rem; color: #44403c; }
+    .board { display: grid; gap: 0.75rem; margin: 0 0 2.5rem; }
+    @media (min-width: 720px) {
+      .board { grid-template-columns: repeat(3, 1fr); }
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e7e5e4;
+      border-radius: 14px;
+      padding: 0.95rem 1rem 1rem;
+    }
+    .card span {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.72rem;
+      font-weight: 650;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #78716c;
+    }
+    .card strong { font-size: 1.15rem; font-weight: 500; }
+    .ok { color: #3f6212; }
+    .bad { color: #9f1239; }
+    h2 {
+      margin: 0 0 0.4rem;
+      font-size: 1.05rem;
+      font-weight: 500;
+    }
+    ol { list-style: none; margin: 0; padding: 0; }
+    li {
+      display: grid;
+      gap: 0.15rem 1rem;
+      padding: 0.85rem 0;
+      border-top: 1px solid #e7e5e4;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.95rem;
+    }
+    @media (min-width: 720px) {
+      li { grid-template-columns: 11.5rem 8.5rem 1fr; gap: 0.75rem; align-items: baseline; }
+    }
+    time { color: #57534e; }
+    .detail { color: #44403c; }
+    .empty, .note { color: #57534e; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.92rem; }
+    .note { margin: 1.5rem 0 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Service log</h1>
+    <p class="lead">Whether the API, scoring, and the site UI were up. This page stays available when the API does not.</p>
+    <section class="board" id="board" aria-label="Current status"></section>
+    <h2>History</h2>
+    <p id="status" class="empty">Loading the log.</p>
+    <ol id="log"></ol>
+    <p class="note">A UI crash row shows the path. The email keeps the full link.</p>
+  </main>
+  <script>
+    const LOG_URL = "https://raw.githubusercontent.com/parthbhodia/resunova-web/ops-log/history.json";
+
+    function label(event) {
+      if (event.kind === "api" && event.state === "up") return "API up";
+      if (event.kind === "api") return "API down";
+      if (event.kind === "scoring" && event.state === "paused") return "Scoring paused";
+      if (event.kind === "scoring") return "Scoring running";
+      return "UI crash";
+    }
+
+    function tone(event) {
+      if (event.kind === "ui" || event.state === "down" || event.state === "paused") return "bad";
+      return "ok";
+    }
+
+    function when(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value || "";
+      return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
+
+    function card(title, event) {
+      const box = document.createElement("article");
+      box.className = "card";
+      const name = document.createElement("span");
+      name.textContent = title;
+      const state = document.createElement("strong");
+      state.textContent = event ? label(event) : "No reading yet";
+      if (event) state.className = tone(event);
+      box.append(name, state);
+      return box;
+    }
+
+    function row(event) {
+      const item = document.createElement("li");
+      const time = document.createElement("time");
+      time.dateTime = event.at || "";
+      time.textContent = when(event.at);
+      const name = document.createElement("strong");
+      name.textContent = label(event);
+      name.className = tone(event);
+      const detail = document.createElement("span");
+      detail.className = "detail";
+      detail.textContent = event.detail || "";
+      item.append(time, name, detail);
+      return item;
+    }
+
+    function latest(events, kind) {
+      return events.find((event) => event.kind === kind) || null;
+    }
+
+    function render(history) {
+      const events = Array.isArray(history.events) ? history.events : [];
+      const board = document.getElementById("board");
+      board.replaceChildren(
+        card("API", latest(events, "api")),
+        card("Scoring", latest(events, "scoring")),
+        card("UI", latest(events, "ui"))
+      );
+      const status = document.getElementById("status");
+      const log = document.getElementById("log");
+      if (!events.length) {
+        status.textContent = "No readings yet. The first check records the current state.";
+        return;
+      }
+      status.textContent = history.updated ? "Updated " + when(history.updated) + "." : "";
+      log.replaceChildren(...events.map(row));
+    }
+
+    fetch(LOG_URL + "?t=" + Date.now(), { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) throw new Error("log missing");
+        return response.json();
+      })
+      .then(render)
+      .catch(() => {
+        document.getElementById("status").textContent = "The log could not be loaded.";
+      });
+  </script>
+</body>
+</html>

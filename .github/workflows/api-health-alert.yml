@@ -1,8 +1,9 @@
 name: API health alert
 
 # Pings production from GitHub, which stays up when Railway does not.
-# A failed health check sends one Resend email per hour. Scoring refusals
-# are emailed by the API itself; this job does not call the model.
+# A failed health check sends one Resend email per hour, then this job
+# appends a row to the ops-log branch. Scoring refusals are emailed by the
+# API itself. This job only reads the last result.
 
 on:
   schedule:
@@ -10,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   ping:
@@ -18,6 +19,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Ping health and email if the API is down
+        id: health
         env:
           API_URL: ${{ secrets.RAILWAY_API_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
@@ -33,9 +35,13 @@ jobs:
           tmp=$(mktemp)
           code=$(curl -sS -o "$tmp" -w "%{http_code}" --max-time 20 "${base}/api/health" || echo "000")
           if [ "$code" = "200" ] && grep -q '"ok"[[:space:]]*:[[:space:]]*true' "$tmp"; then
+            echo "up=true" >> "$GITHUB_OUTPUT"
+            echo "detail=" >> "$GITHUB_OUTPUT"
             echo "health ok"
             exit 0
           fi
+          echo "up=false" >> "$GITHUB_OUTPUT"
+          echo "detail=HTTP ${code}" >> "$GITHUB_OUTPUT"
           snippet=$(head -c 160 "$tmp" | tr '\n' ' ' || true)
           from="${RESEND_FROM:-Resunova <noreply@resunova.io>}"
           hour=$(date -u +%Y%m%d%H)
@@ -59,3 +65,78 @@ jobs:
           echo "::error::Resend returned HTTP ${status}"
           head -c 200 /tmp/resend.json || true
           exit 1
+
+      - name: Check out the site and the log
+        if: steps.health.outputs.up != ''
+        uses: actions/checkout@v4
+        with:
+          path: site
+
+      - name: Check out the ops log
+        if: steps.health.outputs.up != ''
+        uses: actions/checkout@v4
+        with:
+          ref: ops-log
+          path: ops-log
+
+      - name: Record API, scoring, and UI crashes
+        if: steps.health.outputs.up != ''
+        env:
+          API_URL: ${{ secrets.RAILWAY_API_URL }}
+          OPS_FEED_SECRET: ${{ secrets.OPS_FEED_SECRET }}
+          API_UP: ${{ steps.health.outputs.up }}
+          API_DETAIL: ${{ steps.health.outputs.detail }}
+          HISTORY_PATH: ops-log/history.json
+        run: |
+          set -euo pipefail
+          ( cd site/.github/scripts && python3 -m unittest test_ops_history.py )
+          base="${API_URL%/}"
+          scoring="unknown"
+          reason=""
+          crashes='{"crashes":[]}'
+          if [ "$API_UP" = "true" ]; then
+            stmp=$(mktemp)
+            scode=$(curl -sS -o "$stmp" -w "%{http_code}" --max-time 20 "${base}/api/scoring-status" || echo "000")
+            if [ "$scode" = "200" ]; then
+              state=$(jq -r '.scoring // "unknown"' "$stmp")
+              if [ "$state" = "ok" ] || [ "$state" = "paused" ]; then
+                scoring="$state"
+                reason=$(jq -r '.reason // ""' "$stmp")
+                if [ "$reason" = "null" ]; then
+                  reason=""
+                fi
+              fi
+            else
+              echo "scoring-status HTTP ${scode}"
+            fi
+            if [ -n "${OPS_FEED_SECRET}" ]; then
+              since=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+              feed=$(curl -sS --max-time 20 -H "x-ops-token: ${OPS_FEED_SECRET}" "${base}/api/ops-feed?since=${since}" || echo '{"crashes":[]}')
+              if echo "$feed" | jq -e '.crashes' >/dev/null 2>&1; then
+                crashes="$feed"
+              else
+                echo "ops feed unavailable"
+              fi
+            fi
+          fi
+          export SCORING_STATE="$scoring"
+          export SCORING_DETAIL="$reason"
+          export CRASHES_JSON="$crashes"
+          export NOW
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          python3 site/.github/scripts/ops_history.py
+
+      - name: Push the log when it changed
+        if: steps.health.outputs.up != ''
+        working-directory: ops-log
+        run: |
+          set -euo pipefail
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add history.json
+          if git diff --cached --quiet; then
+            echo "ops log unchanged"
+            exit 0
+          fi
+          git commit -m "ops: record a status change"
+          git push
