@@ -1,0 +1,61 @@
+name: API health alert
+
+# Pings production from GitHub, which stays up when Railway does not.
+# A failed health check sends one Resend email per hour. Scoring refusals
+# are emailed by the API itself; this job does not call the model.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping health and email if the API is down
+        env:
+          API_URL: ${{ secrets.RAILWAY_API_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM_EMAIL }}
+          ALERT_TO: parthbhodia08@gmail.com
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL}" ] || [ -z "${RESEND_API_KEY}" ]; then
+            echo "::error::RAILWAY_API_URL or RESEND_API_KEY is not set"
+            exit 1
+          fi
+          base="${API_URL%/}"
+          tmp=$(mktemp)
+          code=$(curl -sS -o "$tmp" -w "%{http_code}" --max-time 20 "${base}/api/health" || echo "000")
+          if [ "$code" = "200" ] && grep -q '"ok"[[:space:]]*:[[:space:]]*true' "$tmp"; then
+            echo "health ok"
+            exit 0
+          fi
+          snippet=$(head -c 160 "$tmp" | tr '\n' ' ' || true)
+          from="${RESEND_FROM:-Resunova <noreply@resunova.io>}"
+          hour=$(date -u +%Y%m%d%H)
+          text="The production API health check failed (HTTP ${code}). ${snippet}"
+          payload=$(jq -n \
+            --arg from "$from" \
+            --arg to "$ALERT_TO" \
+            --arg subject "Resunova API is down" \
+            --arg text "$text" \
+            '{from:$from, to:[$to], subject:$subject, text:$text}')
+          status=$(curl -sS -o /tmp/resend.json -w "%{http_code}" \
+            -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer ${RESEND_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Idempotency-Key: railway-down-${hour}" \
+            -d "$payload" || echo "000")
+          if [ "$status" = "200" ] || [ "$status" = "201" ]; then
+            echo "alert sent for HTTP ${code}"
+            exit 0
+          fi
+          echo "::error::Resend returned HTTP ${status}"
+          head -c 200 /tmp/resend.json || true
+          exit 1
