@@ -194,6 +194,27 @@ function mirrorToneStyles(score: number): { bar: string; bg: string; shadow: str
   };
 }
 
+type MirrorBox = { top: number; height: number; opacity: number; bar: string; bg: string; shadow: string };
+
+/**
+ * The mirror frame's writes hand back the previous object whenever nothing
+ * would change. updateMirrorPosition runs on every scroll, resize and layout
+ * pass, and React skips a re-render only when the new state is Object.is-equal
+ * to the old one, so a fresh object each time re-rendered the whole panel. It
+ * also keeps an unstable dependency from becoming React #185: the layout effect
+ * re-runs whenever updateMirrorPosition changes, and a write that re-renders
+ * every time would restart it on every commit.
+ */
+function hideMirrorBox(box: MirrorBox): MirrorBox {
+  return box.opacity === 0 ? box : { ...box, opacity: 0 };
+}
+
+/** Every field: the strong and applied tones share a bar colour and differ in tint. */
+function sameMirrorBox(a: MirrorBox, b: MirrorBox): boolean {
+  return a.top === b.top && a.height === b.height && a.opacity === b.opacity
+    && a.bar === b.bar && a.bg === b.bg && a.shadow === b.shadow;
+}
+
 type PreviewStyleId = "classic" | "modern" | "compact";
 
 import {
@@ -608,14 +629,7 @@ export default function AnnotatedResumePanel({
       return next;
     });
   }, []);
-  const [mirrorBox, setMirrorBox] = useState<{
-    top: number;
-    height: number;
-    opacity: number;
-    bar: string;
-    bg: string;
-    shadow: string;
-  }>({
+  const [mirrorBox, setMirrorBox] = useState<MirrorBox>({
     top: 0,
     height: 0,
     opacity: 0,
@@ -754,18 +768,18 @@ export default function AnnotatedResumePanel({
   /** Maps `data-bullet-idx` on the preview page to a thick, score-colored frame (split / presentation column). */
   const updateMirrorPosition = useCallback(() => {
     if (!presentationOnly) {
-      setMirrorBox((b) => (b.opacity === 0 ? b : { ...b, opacity: 0 }));
+      setMirrorBox(hideMirrorBox);
       return;
     }
     const idx = selectedBulletIndex;
     const paper = paperRef.current;
     if (idx == null || !paper) {
-      setMirrorBox((b) => ({ ...b, opacity: 0 }));
+      setMirrorBox(hideMirrorBox);
       return;
     }
     const el = paper.querySelector(`[data-bullet-idx="${idx}"]`) as HTMLElement | null;
     if (!el) {
-      setMirrorBox((b) => ({ ...b, opacity: 0 }));
+      setMirrorBox(hideMirrorBox);
       return;
     }
     const paperRect = paper.getBoundingClientRect();
@@ -781,7 +795,10 @@ export default function AnnotatedResumePanel({
       : gapFixTargetBulletIndices.includes(idx)
         ? mirrorGapFixStyles()
         : mirrorToneStyles(score);
-    setMirrorBox({ top, height, opacity: 1, ...tone });
+    // Whole pixels, so sub-pixel reflow lands on the same numbers and does not
+    // count as a move.
+    const next = { top: Math.round(top), height: Math.round(height), opacity: 1, ...tone };
+    setMirrorBox((box) => (sameMirrorBox(box, next) ? box : next));
   }, [presentationOnly, selectedBulletIndex, bulletAnalysis, effectiveExtracted, previewLineOverrides,
       gapFixTargetBulletIndices]);
 
