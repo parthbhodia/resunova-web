@@ -67,20 +67,20 @@ jobs:
           exit 1
 
       - name: Check out the site and the log
-        if: steps.health.outputs.up != ''
+        if: always() && steps.health.outputs.up != ''
         uses: actions/checkout@v4
         with:
           path: site
 
       - name: Check out the ops log
-        if: steps.health.outputs.up != ''
+        if: always() && steps.health.outputs.up != ''
         uses: actions/checkout@v4
         with:
           ref: ops-log
           path: ops-log
 
       - name: Record API, scoring, and UI crashes
-        if: steps.health.outputs.up != ''
+        if: always() && steps.health.outputs.up != ''
         env:
           API_URL: ${{ secrets.RAILWAY_API_URL }}
           OPS_FEED_SECRET: ${{ secrets.OPS_FEED_SECRET }}
@@ -127,7 +127,7 @@ jobs:
           python3 site/.github/scripts/ops_history.py
 
       - name: Push the log when it changed
-        if: steps.health.outputs.up != ''
+        if: always() && steps.health.outputs.up != ''
         working-directory: ops-log
         run: |
           set -euo pipefail
