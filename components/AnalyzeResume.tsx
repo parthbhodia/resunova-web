@@ -35,6 +35,7 @@ import {
 } from "@/components/AnalyzeExperience";
 import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { takeAnonAnalysisStash, stashAnalyzeJd, takeAnalyzeJd } from "@/lib/anonScan";
+import { fetchScoringStatus } from "@/lib/scoringStatus";
 import { logClientEvent, stashPrewallEvent, flushPrewallEvents } from "@/lib/clientEvents";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { useUpgradeDialog } from "@/components/UpgradeDialog";
@@ -475,6 +476,27 @@ export default function AnalyzeResume() {
   // Adopting a still-running scan means showing the loader, not the upload
   // screen: the work is happening, it just started before this mount.
   const busy = loading || adoptedRunning;
+
+  const [scoringPaused, setScoringPaused] = useState(false);
+  useEffect(() => {
+    if (result || busy) return;
+    let cancelled = false;
+    const tick = () => {
+      fetchScoringStatus()
+        .then((status) => {
+          if (!cancelled) setScoringPaused(status.scoring === "paused");
+        })
+        .catch(() => {
+          if (!cancelled) setScoringPaused(false);
+        });
+    };
+    tick();
+    const id = window.setInterval(tick, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [result, busy]);
 
   const runFolder = useCallback(async (folder: string) => {
     setLoading(true);
@@ -2144,6 +2166,7 @@ export default function AnalyzeResume() {
             }}
             onBrowseClick={() => fileRef.current?.click()}
             error={error}
+            scoringPaused={scoringPaused}
             scansRemaining={scansRemaining}
             requiresSignIn={isAnon}
             onSignIn={askToSignIn}

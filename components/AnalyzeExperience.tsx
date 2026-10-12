@@ -52,6 +52,7 @@ export function AnalyzeUploadLanding({
   onBrowseClick,
   error,
   scansRemaining,
+  scoringPaused = false,
   requiresSignIn = false,
   onSignIn,
 }: {
@@ -64,6 +65,8 @@ export function AnalyzeUploadLanding({
   onBrowseClick: () => void;
   error: string | null;
   scansRemaining?: number | null;
+  /** Last model call was a refusal. The drop zone stays usable so a retry can clear it. */
+  scoringPaused?: boolean;
   requiresSignIn?: boolean;
   onSignIn?: () => void;
 }) {
@@ -142,6 +145,27 @@ export function AnalyzeUploadLanding({
           🔒 Privacy guaranteed · text is saved to your account, not the file
         </p>
       </div>
+
+      {scoringPaused ? (
+        <div
+          role="status"
+          style={{
+            marginTop: 14,
+            padding: "12px 14px",
+            borderRadius: 12,
+            border: "1px solid rgba(245, 158, 11, 0.30)",
+            background: "var(--amber-bg, #fffbeb)",
+            color: "var(--text)",
+            fontSize: 13,
+            lineHeight: 1.5,
+          }}
+        >
+          <div style={{ fontWeight: 650, marginBottom: 4 }}>Scoring is paused</div>
+          <p style={{ margin: 0 }}>
+            The model is not accepting scans right now. Try again in a few minutes. The rest of the site is still available.
+          </p>
+        </div>
+      ) : null}
 
       {requiresSignIn ? (
         <p style={{ textAlign: "center", fontSize: 12, color: "var(--muted)", marginTop: 8, marginBottom: 0 }}>
