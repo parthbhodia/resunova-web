@@ -28,6 +28,8 @@ import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
 import { useSignInDialog } from "./SignInDialog";
 import { UpgradeDialogProvider } from "./UpgradeDialog";
 import CheckoutReturnNotice from "./CheckoutReturnNotice";
+import { ProductNoticesHost } from "./ProductNoticesHost";
+import { NotificationBell } from "./NotificationBell";
 import FirstRunWizard from "./FirstRunWizard";
 import { RAIL_WIDTH, type AppView } from "./app-shell/nav-config";
 import { apiFetch } from "@/lib/apiClient";
@@ -312,6 +314,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
               onSignIn={onSignIn}
             />
             <BugReportDialog open={mobileBugReportOpen} onOpenChange={setMobileBugReportOpen} />
+            {user ? <NotificationBell /> : null}
             <FirstRunWizard user={user} isUmbc={isUmbc} />
 
             <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
@@ -349,6 +352,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     <UpgradeDialogProvider>
       <AppShellBody>{children}</AppShellBody>
       <CheckoutReturnNotice />
+      <ProductNoticesHost />
     </UpgradeDialogProvider>
   );
 }

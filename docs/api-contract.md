@@ -41,7 +41,18 @@ JSON: `{ "html": "<full page HTML>", "filename": "..." }` → PDF bytes.
 
 ### `GET /api/health`
 
-`{ "status": "ok" }` — used for connectivity diagnostics.
+`{ "ok": true, "service": "resume_gui" }` — liveness only. It does not call the scoring model and does not say whether scans are being accepted. A proxy 502 with no app log never reaches this route.
+
+### `GET /api/scoring-status`
+
+Last scoring-model result already recorded by a real scan. This route does not call the model.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `scoring` | `"ok"` \| `"paused"` | `paused` only for a refusal in the last 10 minutes |
+| `reason` | `"rate_limit"` \| `"auth"` \| `"timeout"` \| null | null when scoring is ok |
+
+The scan screen reads this and says scoring is paused. The rest of the site stays up.
 
 ## Tailor / gap fix
 

@@ -102,4 +102,11 @@ describe("Analyze landing · signed in (control)", () => {
     landing({ requiresSignIn: false, scansRemaining: 2 });
     expect(screen.getByText(/2 free scans remaining today/i)).toBeTruthy();
   });
+
+  it("says scoring is paused without replacing the upload", () => {
+    landing({ requiresSignIn: false, scoringPaused: true });
+    expect(screen.getByRole("status").textContent).toMatch(/Scoring is paused/);
+    expect(screen.getByRole("status").textContent).toMatch(/rest of the site is still available/);
+    expect(screen.getByRole("button", { name: "Upload your résumé PDF" })).toBeTruthy();
+  });
 });

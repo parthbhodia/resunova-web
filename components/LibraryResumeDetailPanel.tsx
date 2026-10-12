@@ -60,6 +60,9 @@ export default function LibraryResumeDetailPanel({
   onClose,
   onTailorNewJob,
   onOpenAnalysis,
+  onExportPdf,
+  exportingPdf = false,
+  exportPdfError = null,
   onTailorAnalysis,
   onEditInTemplateBuilder,
   onOpenInBuilder,
@@ -72,6 +75,9 @@ export default function LibraryResumeDetailPanel({
   onClose: () => void;
   onTailorNewJob: () => void;
   onOpenAnalysis: () => void;
+  onExportPdf: () => void;
+  exportingPdf?: boolean;
+  exportPdfError?: string | null;
   onTailorAnalysis: () => void;
   onEditInTemplateBuilder: () => void;
   onOpenInBuilder: () => void;
@@ -230,6 +236,9 @@ export default function LibraryResumeDetailPanel({
             sourcePdfUrl={analysis?.sourcePdfUrl ?? (typeof analysisJson.sourcePdfUrl === "string" ? analysisJson.sourcePdfUrl : null)}
             sourceFilename={analysis?.sourceFilename ?? null}
             onOpenAnalysis={onOpenAnalysis}
+            onExportPdf={onExportPdf}
+            exportingPdf={exportingPdf}
+            exportPdfError={exportPdfError}
             onTailorAnalysis={onTailorAnalysis}
             onEditInTemplateBuilder={onEditInTemplateBuilder}
           />
@@ -445,6 +454,9 @@ function AnalyzedDetails({
   sourcePdfUrl,
   sourceFilename,
   onOpenAnalysis,
+  onExportPdf,
+  exportingPdf = false,
+  exportPdfError = null,
   onTailorAnalysis,
   onEditInTemplateBuilder,
 }: {
@@ -455,6 +467,9 @@ function AnalyzedDetails({
   sourcePdfUrl?: string | null;
   sourceFilename?: string | null;
   onOpenAnalysis: () => void;
+  onExportPdf: () => void;
+  exportingPdf?: boolean;
+  exportPdfError?: string | null;
   onTailorAnalysis: () => void;
   onEditInTemplateBuilder: () => void;
 }) {
@@ -603,14 +618,16 @@ function AnalyzedDetails({
         <Button type="button" onClick={onTailorAnalysis} variant="outline" size="lg" style={{ width: "100%" }}>
           Tailor to a job
         </Button>
-        <Button type="button" onClick={onOpenAnalysis} variant="outline" size="lg" style={{ width: "100%" }}>
-          Export PDF
+        <Button type="button" onClick={onExportPdf} disabled={exportingPdf} variant="outline" size="lg" style={{ width: "100%" }}>
+          {exportingPdf ? "Exporting…" : "Export PDF"}
         </Button>
       </div>
 
-      <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>
-        Export opens the saved analysis first because the PDF is rendered from the live Analyze preview.
-      </p>
+      {exportPdfError ? (
+        <p style={{ margin: 0, fontSize: 12, color: "var(--red)", lineHeight: 1.5 }}>
+          {exportPdfError}
+        </p>
+      ) : null}
     </>
   );
 }
