@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useScansRemaining } from "@/components/app-shell/useScansRemaining";
-import { dismissFreeScanBanner, isFreeScanBannerDismissed } from "@/lib/freeScanBanner";
+import {
+  dismissFreeScanBanner,
+  FREE_SCAN_BANNER_MS,
+  freeScanBannerRemaining,
+  isFreeScanBannerDismissed,
+} from "@/lib/freeScanBanner";
 
 type FreeScanWelcomeBannerProps = {
   userId?: string | null;
@@ -22,6 +27,7 @@ export function FreeScanWelcomeBanner({ userId, isUmbc }: FreeScanWelcomeBannerP
   // both cases the banner stays hidden, exactly as it did when its own fetch
   // failed or returned `unlimited`.
   const limit = state.kind === "metered" ? state.limit : null;
+  const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isUmbc) {
@@ -38,29 +44,63 @@ export function FreeScanWelcomeBanner({ userId, isUmbc }: FreeScanWelcomeBannerP
     };
   }, [isUmbc, userId]);
 
-  if (!userId || isUmbc || dismissed || limit == null) return null;
+  const visible = Boolean(userId) && !isUmbc && !dismissed && limit != null;
+
+  useEffect(() => {
+    if (!visible || !userId) return;
+    const id = window.setTimeout(() => {
+      dismissFreeScanBanner(userId);
+      setDismissed(true);
+    }, freeScanBannerRemaining());
+    return () => window.clearTimeout(id);
+  }, [visible, userId]);
+
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!visible || !bar || typeof bar.animate !== "function") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const remaining = freeScanBannerRemaining();
+    const start = remaining / FREE_SCAN_BANNER_MS;
+    const animation = bar.animate(
+      [{ transform: `scaleX(${start})` }, { transform: "scaleX(0)" }],
+      { duration: remaining, easing: "linear", fill: "forwards" },
+    );
+    return () => animation.cancel();
+  }, [visible]);
+
+  if (!visible || limit == null) return null;
+
+  const close = () => {
+    if (!userId) return;
+    dismissFreeScanBanner(userId);
+    setDismissed(true);
+  };
 
   return (
-    <div
-      role="status"
-      className="mx-4 mt-3 flex items-center gap-2 rounded-[var(--md-shape-md)] border border-[var(--border)] bg-[var(--surface)] py-2 pl-4 pr-1 text-sm text-[var(--text)] shadow-[var(--md-elevation-1)] md:mx-6"
-    >
-      <p className="min-w-0 flex-1 text-pretty leading-6">
-        You can scan a résumé{" "}
-        <span className="font-semibold tabular-nums">{limit}</span>{" "}
-        {limit === 1 ? "time" : "times"} a day on the free plan.
-      </p>
-      <button
-        type="button"
-        aria-label="Dismiss free scan message"
-        className="md-state-layer flex size-11 shrink-0 items-center justify-center rounded-full text-[var(--muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-        onClick={() => {
-          dismissFreeScanBanner(userId);
-          setDismissed(true);
-        }}
+    <div className="pt-3 pl-4 pr-[4.75rem] md:pt-4 md:pl-6 md:pr-6">
+      <div
+        role="status"
+        className="w-full max-w-[22rem] overflow-hidden rounded-[var(--md-shape-lg)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] shadow-[var(--md-elevation-3)] motion-safe:animate-[fadeSlideIn_220ms_var(--md-easing-standard)]"
       >
-        <X size={16} aria-hidden="true" />
-      </button>
+        <div className="flex items-center gap-2 py-2 pl-4 pr-1.5">
+          <p className="min-w-0 flex-1 text-sm leading-5 text-pretty">
+            You can scan a résumé{" "}
+            <span className="font-semibold tabular-nums">{limit}</span>{" "}
+            {limit === 1 ? "time" : "times"} a day on the free plan.
+          </p>
+          <button
+            type="button"
+            aria-label="Dismiss free scan message"
+            className="md-state-layer flex size-11 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface2)] text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            onClick={close}
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="h-0.5 bg-[var(--surface3)]" aria-hidden="true">
+          <div ref={barRef} className="h-full origin-left bg-[var(--accent)]" />
+        </div>
+      </div>
     </div>
   );
 }
