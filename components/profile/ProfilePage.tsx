@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import ResumeUpload from "./ResumeUpload";
 import TargetsEditor from "./TargetsEditor";
 import { ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "../../lib/resumeExtractorService";
@@ -39,8 +40,14 @@ import { signOutAndReturnHome } from "@/lib/authSignOut";
 import UsageLimitsCard from "@/components/account/UsageLimitsCard";
 import PlanBillingCard from "@/components/PlanBillingCard";
 import { IntegrationsPanel, JobAlertsPanel, ReferralsPanel } from "@/components/profile/ProfileHubPanels";
+import { subscribeReferralAlerts } from "@/lib/productNotices";
 
-type TabKey = "usage" | "referrals" | "billing" | "alerts" | "integrations";
+const TAB_KEYS = ["usage", "referrals", "billing", "alerts", "integrations"] as const;
+type TabKey = (typeof TAB_KEYS)[number];
+
+function tabFromParam(value: string | null): TabKey {
+  return TAB_KEYS.includes(value as TabKey) ? (value as TabKey) : "usage";
+}
 
 const cardStyle: CSSProperties = {
   borderRadius: 18,
@@ -62,9 +69,22 @@ export default function ProfilePage() {
   const [editingTargets, setEditingTargets] = useState(false);
   const tdSaveTimerRef = useRef<number | null>(null);
 
-  const [tab, setTab] = useState<TabKey>("usage");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = tabFromParam(searchParams.get("tab"));
+  const [referralUnread, setReferralUnread] = useState(0);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => subscribeReferralAlerts((snap) => setReferralUnread(snap.unread)), []);
+
+  const selectTab = useCallback((next: TabKey) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "usage") params.delete("tab");
+    else params.set("tab", next);
+    const query = params.toString();
+    router.replace(query ? `/profile?${query}` : "/profile", { scroll: false });
+  }, [router, searchParams]);
 
   const dirty = typeof window !== "undefined" && baseline !== "" && baseline !== JSON.stringify(extractedData);
   const tdDirty = typeof window !== "undefined" && tdBaseline !== "" && tdBaseline !== JSON.stringify(tailorDefaults);
@@ -260,7 +280,13 @@ export default function ProfilePage() {
     }
 
     if (tab === "referrals") {
-      return <ReferralsPanel targetRoles={tailorDefaults.roles} />;
+      return (
+        <ReferralsPanel
+          displayName={displayName}
+          title={extractedData.role || extractedData.headline || ""}
+          linkedin={extractedData.linkedin || tailorDefaults.linkedin}
+        />
+      );
     }
 
     if (tab === "billing") {
@@ -332,6 +358,7 @@ export default function ProfilePage() {
         .profile-real-tabs { display: flex; gap: 28px; align-items: center; border-bottom: 1px solid rgba(15,23,42,0.08); margin: 20px 0 18px; overflow-x: auto; padding: 0 4px; }
         .profile-real-tab { appearance: none; border: none; background: transparent; border-bottom: 2px solid transparent; color: #6b7280; font-size: 15px; font-weight: 700; padding: 14px 0 13px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; }
         .profile-real-tab.is-active { border-bottom-color: #2563eb; color: #2563eb; }
+        .profile-real-tab-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #2563eb; color: #fff; font-size: 11px; font-weight: 800; display: inline-grid; place-items: center; line-height: 1; }
         .profile-real-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
         .profile-real-section-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 24px 20px; border-bottom: 1px solid rgba(15,23,42,0.07); }
         .profile-real-section-main { display: flex; align-items: center; gap: 14px; }
@@ -465,11 +492,15 @@ export default function ProfilePage() {
                 type="button"
                 role="tab"
                 aria-selected={active}
+                aria-label={item.key === "referrals" && referralUnread > 0 ? `Referrals, ${referralUnread} new` : undefined}
                 className={`profile-real-tab${active ? " is-active" : ""}`}
-                onClick={() => setTab(item.key)}
+                onClick={() => selectTab(item.key)}
               >
                 {item.icon}
                 {item.label}
+                {item.key === "referrals" && referralUnread > 0 ? (
+                  <span className="profile-real-tab-count">{referralUnread > 99 ? "99+" : referralUnread}</span>
+                ) : null}
               </button>
             );
           })}
