@@ -1759,3 +1759,28 @@ select option { background: var(--surface); }
 @media (prefers-reduced-motion: reduce) {
   .pr-rise { animation: none; opacity: 1; transform: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   Auth gate (components/auth/SignInRequiredPage.tsx)
+
+   Page-scoped, following the .lp-* / .pr-* convention: the card's two-column
+   split and its gutters need media queries, which inline styles cannot carry.
+   Everything else on that surface stays inline beside the markup it styles.
+--------------------------------------------------------------------------- */
+.rn-gate-shell { padding: 24px; }
+@media (max-width: 640px) {
+  /* 16px side gutter at phone width, per DESIGN.md. */
+  .rn-gate-shell { padding: 16px; }
+}
+
+@media (max-width: 900px) {
+  /* The preview stacks UNDER the ask rather than beside it. It is the reason
+     to sign in, not the thing being asked for, so it must never push the form
+     below the fold on a narrow screen. */
+  .rn-gate { grid-template-columns: minmax(0, 1fr) !important; }
+  .rn-gate-preview { border-left: 0 !important; border-top: 1px solid var(--border); }
+}
+@media (max-width: 640px) {
+  .rn-gate-ask { padding: 34px 22px !important; }
+  .rn-gate-preview { display: none; }
+}
