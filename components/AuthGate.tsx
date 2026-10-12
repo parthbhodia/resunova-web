@@ -10,7 +10,7 @@ import {
   clearForceLandingAfterSignOut,
   readForceLandingAfterSignOut,
 } from "@/lib/authSignOut";
-import { urlRequestsPublicAppView } from "@/lib/anonScan";
+import { signInWithGoogle, urlRequestsPublicAppView } from "@/lib/anonScan";
 import { nextGateSession } from "@/lib/authGateSession";
 import { useSignInDialog } from "./SignInDialog";
 import LandingPage from "./LandingPage";
@@ -43,6 +43,8 @@ function gatedRouteLabel(pathname: string | null): string | null {
 function SignInRequired({ pathname }: { pathname: string | null }) {
   const { openSignIn } = useSignInDialog();
   const label = gatedRouteLabel(pathname);
+  const [oauthBusy, setOauthBusy] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
   
   // Context-aware features based on route
   const getFeaturesByRoute = () => {
@@ -118,6 +120,16 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
   };
 
   const socialProof = getSocialProof();
+
+  const handleGoogle = async () => {
+    setOauthBusy(true);
+    setOauthError(null);
+    const err = await signInWithGoogle();
+    if (err) {
+      setOauthError(err);
+      setOauthBusy(false);
+    }
+  };
   
   // Get icon based on route
   const getIcon = () => {
@@ -321,7 +333,8 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
         {/* Primary CTA */}
         <button
           type="button"
-          onClick={() => openSignIn({ reason: `Ready to ${label?.toLowerCase() || 'get started'}?` })}
+          onClick={() => openSignIn({ reason: `Ready to ${label?.toLowerCase() || "get started"}?` })}
+          disabled={oauthBusy}
           style={{
             width: "100%",
             padding: "14px 24px",
@@ -336,6 +349,7 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
             transition: "all 0.2s ease-out",
             marginBottom: "12px",
             letterSpacing: "-0.3px",
+            opacity: oauthBusy ? 0.7 : 1,
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLElement).style.transform = "translateY(-3px)";
@@ -365,7 +379,8 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
 
         <button
           type="button"
-          onClick={() => openSignIn()}
+          onClick={() => void handleGoogle()}
+          disabled={oauthBusy}
           style={{
             width: "100%",
             padding: "12px 24px",
@@ -379,6 +394,7 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
             cursor: "pointer",
             transition: "all 0.2s ease-out",
             marginBottom: "20px",
+            opacity: oauthBusy ? 0.7 : 1,
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLElement).style.backgroundColor = "var(--accent-bg)";
@@ -391,8 +407,14 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
             (e.currentTarget as HTMLElement).style.color = "var(--muted)";
           }}
         >
-          Continue with Google
+          {oauthBusy ? "Opening Google…" : "Continue with Google"}
         </button>
+
+        {oauthError ? (
+          <p style={{ margin: "0 0 16px", fontSize: "13px", color: "var(--red)", lineHeight: 1.5 }}>
+            {oauthError}
+          </p>
+        ) : null}
 
         {/* Footer link */}
         <Link
