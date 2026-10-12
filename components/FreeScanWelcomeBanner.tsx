@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useScansRemaining } from "@/components/app-shell/useScansRemaining";
-
-const FREE_SCAN_BANNER_KEY_PREFIX = "rn-free-scan-banner-dismissed";
+import { dismissFreeScanBanner, isFreeScanBannerDismissed } from "@/lib/freeScanBanner";
 
 type FreeScanWelcomeBannerProps = {
   userId?: string | null;
@@ -24,53 +22,45 @@ export function FreeScanWelcomeBanner({ userId, isUmbc }: FreeScanWelcomeBannerP
   // both cases the banner stays hidden, exactly as it did when its own fetch
   // failed or returned `unlimited`.
   const limit = state.kind === "metered" ? state.limit : null;
-  const storageKey = useMemo(() => {
-    if (!userId) return null;
-    return `${FREE_SCAN_BANNER_KEY_PREFIX}:${userId}`;
-  }, [userId]);
 
   useEffect(() => {
-    if (!storageKey || isUmbc) {
+    if (isUmbc) {
       setDismissed(true);
       return;
     }
-    try {
-      setDismissed(localStorage.getItem(storageKey) === "1");
-    } catch {
-      setDismissed(false);
-    }
-  }, [isUmbc, storageKey]);
+    const sync = () => setDismissed(isFreeScanBannerDismissed(userId));
+    sync();
+    window.addEventListener("rn:notices-updated", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("rn:notices-updated", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [isUmbc, userId]);
 
   if (!userId || isUmbc || dismissed || limit == null) return null;
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-blue-200/60 bg-blue-50 px-4 py-3 text-[13px] text-blue-900 dark:border-blue-800/70 dark:bg-blue-950/40 dark:text-blue-100">
-      <p className="flex-1">
-        <span className="mr-1.5">🎉</span>
-        <strong>New here?</strong> You can scan your resume up to{" "}
-        <strong>
-          {limit} time{limit !== 1 ? "s" : ""} per day for free
-        </strong>
-        .
+    <div
+      role="status"
+      className="mx-4 mt-3 flex items-center gap-2 rounded-[var(--md-shape-md)] border border-[var(--border)] bg-[var(--surface)] py-2 pl-4 pr-1 text-sm text-[var(--text)] shadow-[var(--md-elevation-1)] md:mx-6"
+    >
+      <p className="min-w-0 flex-1 text-pretty leading-6">
+        You can scan a résumé{" "}
+        <span className="font-semibold tabular-nums">{limit}</span>{" "}
+        {limit === 1 ? "time" : "times"} a day on the free plan.
       </p>
-      <Button
-        variant="ghost"
-        size="icon"
+      <button
+        type="button"
         aria-label="Dismiss free scan message"
-        className="h-6 w-6 shrink-0 text-blue-900 hover:bg-blue-100 hover:text-blue-900 dark:text-blue-100 dark:hover:bg-blue-900/40 dark:hover:text-blue-100"
+        className="md-state-layer flex size-11 shrink-0 items-center justify-center rounded-full text-[var(--muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
         onClick={() => {
-          if (storageKey) {
-            try {
-              localStorage.setItem(storageKey, "1");
-            } catch {
-              // Best effort persistence only.
-            }
-          }
+          dismissFreeScanBanner(userId);
           setDismissed(true);
         }}
       >
-        <X size={14} />
-      </Button>
+        <X size={16} aria-hidden="true" />
+      </button>
     </div>
   );
 }

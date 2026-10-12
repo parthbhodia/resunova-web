@@ -488,6 +488,7 @@ export async function loadNoticeState(): Promise<NoticeState> {
     try {
       window.localStorage.setItem(DISMISSED_NOTICES_KEY, JSON.stringify(dismissedIds));
       if (lastSeenReferralAt) window.localStorage.setItem(LAST_SEEN_REFERRAL_KEY, lastSeenReferralAt);
+      window.dispatchEvent(new Event("rn:notices-updated"));
     } catch {
       /* keep the in-memory merge */
     }
