@@ -4,7 +4,8 @@
  * "Scans left today", for every nav surface.
  *
  * Three exports, one shared reading (see `useScansRemaining`):
- *   - `ScansRemainingPill`  — desktop sidebar, expanded + icon-rail variants
+ *   - `ScansRemainingPill`  — legacy desktop pill (expanded and icon-only)
+ *   - `RailQuota`           — the permanent nav rail
  *   - `ScansRemainingRow`   — the mobile More sheet
  *   - `ScansTabBadge`       — the count on the mobile More tab, so the signal
  *                             is visible without opening the sheet
@@ -18,7 +19,8 @@
  * account produces, because those two used to be indistinguishable.
  */
 
-import { useScansRemaining, type ScansRemainingState } from "./useScansRemaining";
+import { accountHasQuota, useScansRemaining, type ScansRemainingState } from "./useScansRemaining";
+import { FS, FW, LH } from "@/lib/typography";
 
 /* ── shared bits ──────────────────────────────────────────────── */
 
@@ -43,7 +45,7 @@ const SHINE_CSS = `
  * moment a policy meters guests rather than refusing them.
  */
 function navShowsCount(state: ScansRemainingState): state is Extract<ScansRemainingState, { kind: "metered" }> {
-  return state.kind === "metered" && !state.anonymous;
+  return accountHasQuota(state);
 }
 
 function meterGradient(out: boolean): string {
@@ -203,6 +205,56 @@ export function ScansRemainingPill({ collapsed }: { collapsed: boolean }) {
       </span>
       <span style={{ position: "relative" }}>{meterLabel(remaining, limit)}</span>
       <style>{SHINE_CSS}</style>
+    </div>
+  );
+}
+
+/**
+ * The rail's quota. Same reading as the pill above, drawn as a short label
+ * because the rail is one icon wide.
+ *
+ * Metered accounts only. Unlimited renders nothing (no count to track).
+ * An outage stays visible as Retry, so a blank footer still means "this
+ * account has no quota" and never "we failed to look".
+ */
+export function RailQuota() {
+  const { state, retry } = useScansRemaining();
+
+  if (state.kind === "error") {
+    return (
+      <button
+        type="button"
+        onClick={retry}
+        title={ERROR_TITLE}
+        aria-label={ERROR_TITLE}
+        className="md-state-layer w-full rounded-full border border-[var(--border)] bg-[var(--surface2)] px-1.5 py-1 text-center text-[var(--muted)]"
+        style={{ fontSize: FS.caption, fontWeight: FW.bold, lineHeight: LH.tight }}
+      >
+        Retry
+      </button>
+    );
+  }
+
+  if (!accountHasQuota(state)) return null;
+
+  const out = state.remaining <= 0;
+  const label = out ? "No scans left" : `${state.remaining} scans left`;
+
+  return (
+    <div
+      title={meterTitle(state.remaining, state.limit)}
+      aria-label={meterTitle(state.remaining, state.limit)}
+      className="w-full rounded-full px-1.5 py-1 text-center"
+      style={{
+        fontSize: FS.caption,
+        fontWeight: FW.bold,
+        fontVariantNumeric: "tabular-nums",
+        lineHeight: LH.tight,
+        background: out ? "var(--red-bg)" : "var(--amber-bg)",
+        color: out ? "var(--red-ink)" : "var(--amber-ink)",
+      }}
+    >
+      {label}
     </div>
   );
 }

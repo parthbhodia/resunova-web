@@ -44,15 +44,12 @@ function renderSidebar(opts: { open?: boolean; anonMode?: boolean; onTemplatesPa
         onTemplatesPage={opts.onTemplatesPage ?? false}
         onInterviewPrepPage={false}
         builderActive={false}
-        builderOpen={false}
-        onBuilderOpenChange={vi.fn()}
         navBuilderSubflow="tailor"
         advisorAllowed={false}
         isUmbc={false}
         theme="light"
         onToggleTheme={vi.fn()}
         userInitial="T"
-        historyOpen={false}
         onHistoryOpenChange={vi.fn()}
         onGoBuilderFlow={vi.fn()}
         onSignOut={vi.fn()}

@@ -29,11 +29,7 @@ import { useSignInDialog } from "./SignInDialog";
 import { UpgradeDialogProvider } from "./UpgradeDialog";
 import CheckoutReturnNotice from "./CheckoutReturnNotice";
 import FirstRunWizard from "./FirstRunWizard";
-import {
-  readSidebarCollapsed,
-  writeSidebarCollapsed,
-  type AppView,
-} from "./app-shell/nav-config";
+import { RAIL_WIDTH, type AppView } from "./app-shell/nav-config";
 import { apiFetch } from "@/lib/apiClient";
 
 export type { AppView } from "./app-shell/nav-config";
@@ -120,37 +116,8 @@ function AppShellBody({ children }: { children: ReactNode }) {
   const [isUmbc, setIsUmbc] = useState(false);
   const [theme, toggleTheme] = useTheme();
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [builderOpen, setBuilderOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  // Which path the user last toggled the nav on. Their explicit choice beats
-  // the workspace-route default, but only for the route they made it on.
-  const [sidebarTogglePath, setSidebarTogglePath] = useState<string | null>(null);
   const [advisorAllowed, setAdvisorAllowed] = useState(false);
   const [mobileBugReportOpen, setMobileBugReportOpen] = useState(false);
-
-  useEffect(() => {
-    setSidebarOpen(!readSidebarCollapsed());
-  }, []);
-
-  // Workspace routes open collapsed: these are the surfaces where the canvas
-  // or the editor wants the horizontal room, and the nav has nothing to do
-  // once you are on them.
-  //
-  // DERIVED, not an effect. Pushing this through setState in a pathname effect
-  // is a cascading render (the repo's lint ratchet rejects it) and it also
-  // fights the user: their toggle would be overwritten on the next render.
-  // Instead the collapse applies until they toggle ON THIS path, after which
-  // their choice wins.
-  const WORKSPACE_PATHS = ["/template-builder", "/my-resumes", "/interview-prep", "/profile"];
-  const onWorkspaceRoute = WORKSPACE_PATHS.some((p) => pathname?.startsWith(p));
-  const sidebarOpenEffective =
-    onWorkspaceRoute && sidebarTogglePath !== pathname ? false : sidebarOpen;
-
-  const handleSidebarOpenChange = useCallback((open: boolean) => {
-    setSidebarOpen(open);
-    setSidebarTogglePath(pathname ?? null);
-    writeSidebarCollapsed(!open);
-  }, [pathname]);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -244,24 +211,12 @@ function AppShellBody({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setBuilderOpen(active === "builder" || onTemplateBuilderPage || onTailor2Page);
-  }, [active, onTemplateBuilderPage, onTailor2Page]);
-
-  useEffect(() => {
     setLayoutOnlyForNav(readBuilderLayoutOnlyFlag());
   }, [searchParams?.toString(), active]);
 
   const switchView = (next: AppView) => {
     router.push(`/?view=${next}`);
     setHistoryOpen(false);
-    setBuilderOpen(false);
-    // Collapse the nav on every switch. You navigate once and then work; the
-    // rail sitting open afterwards costs ~240px of the workspace for a menu
-    // whose job is already done. It reopens on the toggle, and the choice is
-    // NOT written to storage — this is a per-navigation behaviour, not a new
-    // persisted preference, so the user's own collapsed/expanded setting
-    // survives a reload.
-    setSidebarOpen(false);
   };
 
   const goBuilderFlow = (flow: "tailor" | "template") => {
@@ -278,7 +233,6 @@ function AppShellBody({ children }: { children: ReactNode }) {
       router.push(`/?view=builder&flow=${flow}`);
     }
     setHistoryOpen(false);
-    setBuilderOpen(false);
   };
 
   const onSignOut = () => {
@@ -302,14 +256,11 @@ function AppShellBody({ children }: { children: ReactNode }) {
     <UmbcProvider isUmbc={isUmbc}>
       <TooltipProvider delay={0}>
         <SidebarProvider
-          open={sidebarOpenEffective}
-          onOpenChange={handleSidebarOpenChange}
-          defaultOpen={!readSidebarCollapsed()}
           className="app-shell-root min-h-dvh max-h-dvh overflow-hidden bg-background"
           style={
             {
-              "--sidebar-width": "14.5rem",
-              "--sidebar-width-icon": "5.25rem",
+              "--sidebar-width": RAIL_WIDTH,
+              "--sidebar-width-icon": RAIL_WIDTH,
             } as CSSProperties
           }
         >
@@ -322,15 +273,12 @@ function AppShellBody({ children }: { children: ReactNode }) {
                 onInterviewPrepPage={onInterviewPrepPage}
                 onCareerProfilePage={onCareerProfilePage}
                 builderActive={builderActive}
-                builderOpen={builderOpen}
-                onBuilderOpenChange={setBuilderOpen}
                 navBuilderSubflow={navBuilderSubflow}
                 advisorAllowed={advisorAllowed}
                 isUmbc={isUmbc}
                 theme={theme}
                 onToggleTheme={toggleTheme}
                 userInitial={initial}
-                historyOpen={historyOpen}
                 onHistoryOpenChange={setHistoryOpen}
                 onSwitchView={switchView}
                 onGoBuilderFlow={goBuilderFlow}

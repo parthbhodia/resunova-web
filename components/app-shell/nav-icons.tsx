@@ -167,6 +167,35 @@ export const NAV_ICONS = {
       />
     </svg>
   ),
+  tailor: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M14.6 1.4 7.4 8.6M14.6 1.4 10 14.6 7.4 8.6 1.4 6z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  upgrade: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M2 11.5 6 7.5l2.5 2.5L13.5 4"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.5 4H13.5V8"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
   bug: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path d="M6 2.5a2 2 0 014 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
