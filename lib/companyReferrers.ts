@@ -1,0 +1,476 @@
+/**
+ * Employee referrer profiles: "I work at this company and can refer candidates."
+ * Owner-only writes; open profiles are publicly readable for /refer/?s=<slug>.
+ */
+import { getSupabaseClient } from "@/lib/supabase";
+
+export const REFERRAL_REQUEST_STATUSES = ["requested", "reviewing", "referred", "declined"] as const;
+export type ReferralRequestStatus = (typeof REFERRAL_REQUEST_STATUSES)[number];
+
+export const REFERRAL_REQUEST_STATUS_LABELS: Record<ReferralRequestStatus, string> = {
+  requested: "Requested",
+  reviewing: "Reviewing",
+  referred: "Referred",
+  declined: "Declined",
+};
+
+export type CompanyReferrer = {
+  id: string;
+  userId: string;
+  displayName: string;
+  company: string;
+  companySlug: string;
+  title: string;
+  linkedin: string | null;
+  slug: string;
+  bio: string | null;
+  openToRefer: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CompanyReferralRequest = {
+  id: string;
+  referrerId: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidateLinkedin: string | null;
+  role: string;
+  notes: string | null;
+  source: "request" | "submitted";
+  status: ReferralRequestStatus;
+  createdAt: string;
+};
+
+export const REFERRER_LIMITS = {
+  name: 80,
+  company: 80,
+  title: 80,
+  bio: 400,
+  url: 500,
+  role: 120,
+  email: 120,
+  notes: 2000,
+} as const;
+
+export type ReferralWriteResult = {
+  request: CompanyReferralRequest | null;
+  error: string | null;
+};
+
+type ReferrerRow = {
+  id: string;
+  user_id?: string | null;
+  display_name: string | null;
+  company: string | null;
+  company_slug: string | null;
+  title: string | null;
+  linkedin: string | null;
+  slug: string;
+  bio: string | null;
+  open_to_refer: boolean | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type RequestRow = {
+  id: string;
+  referrer_id: string;
+  candidate_name: string | null;
+  candidate_email: string | null;
+  candidate_linkedin: string | null;
+  role: string | null;
+  notes: string | null;
+  source: string | null;
+  status: string | null;
+  created_at: string;
+};
+
+export function slugifyPart(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+export function makeReferrerSlug(displayName: string, company: string, userId: string): string {
+  const name = slugifyPart(displayName) || "employee";
+  const co = slugifyPart(company) || "company";
+  const suffix = userId.replace(/-/g, "").slice(0, 6) || "user";
+  return `${name}-at-${co}-${suffix}`;
+}
+
+export function referrerPublicPath(slug: string): string {
+  const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+  return `${base}/refer/?s=${encodeURIComponent(slug)}`;
+}
+
+export function mapReferrerRow(row: ReferrerRow): CompanyReferrer {
+  return {
+    id: row.id,
+    userId: row.user_id ?? "",
+    displayName: row.display_name ?? "",
+    company: row.company ?? "",
+    companySlug: row.company_slug ?? "",
+    title: row.title ?? "",
+    linkedin: row.linkedin,
+    slug: row.slug,
+    bio: row.bio,
+    openToRefer: row.open_to_refer !== false,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapRequestRow(row: RequestRow): CompanyReferralRequest {
+  const status = REFERRAL_REQUEST_STATUSES.includes(row.status as ReferralRequestStatus)
+    ? (row.status as ReferralRequestStatus)
+    : "requested";
+  return {
+    id: row.id,
+    referrerId: row.referrer_id,
+    candidateName: row.candidate_name ?? "",
+    candidateEmail: row.candidate_email ?? "",
+    candidateLinkedin: row.candidate_linkedin,
+    role: row.role ?? "",
+    notes: row.notes,
+    source: row.source === "submitted" ? "submitted" : "request",
+    status,
+    createdAt: row.created_at,
+  };
+}
+
+export function isUsableEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+export function clip(value: string, max: number): string {
+  return value.trim().slice(0, max);
+}
+
+/** Strip LIKE wildcards so company search cannot list every open referrer. */
+export function sanitizeSearchTerm(value: string): string {
+  return value.replace(/[%_\\]/g, "").trim();
+}
+
+export function safeHttpUrl(value: string | null | undefined): string | null {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+  try {
+    const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const url = new URL(withProto);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function referralWriteError(error: { code?: string; message?: string } | null | undefined): string {
+  const code = error?.code ?? "";
+  const message = (error?.message ?? "").toLowerCase();
+  if (code === "23505" || message.includes("duplicate") || message.includes("unique")) {
+    return "You already have an open request with this email.";
+  }
+  if (message.includes("inbox is full")) {
+    return "This referrer is not accepting more requests right now.";
+  }
+  if (message.includes("row-level security") || message.includes("violates row-level")) {
+    return "This referral link is not active.";
+  }
+  return "Could not send this request. Add your name, a valid email, and the role you want.";
+}
+
+export function referrerInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+export const REFERRAL_REQUEST_STATUS_TONES: Record<ReferralRequestStatus, "amber" | "blue" | "green" | "red"> = {
+  requested: "amber",
+  reviewing: "blue",
+  referred: "green",
+  declined: "red",
+};
+
+export function referralRequestPipeline(rows: CompanyReferralRequest[]): Record<ReferralRequestStatus, number> {
+  const counts: Record<ReferralRequestStatus, number> = {
+    requested: 0,
+    reviewing: 0,
+    referred: 0,
+    declined: 0,
+  };
+  for (const row of rows) counts[row.status] += 1;
+  return counts;
+}
+
+export function referralRequestsThisMonth(
+  rows: CompanyReferralRequest[],
+  now = new Date(),
+): CompanyReferralRequest[] {
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  return rows.filter((row) => {
+    const date = new Date(row.createdAt);
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month;
+  });
+}
+
+export function openRequestCount(rows: CompanyReferralRequest[]): number {
+  return rows.filter(
+    (row) => row.source === "request" && (row.status === "requested" || row.status === "reviewing"),
+  ).length;
+}
+
+const REFERRER_SELECT =
+  "id, user_id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at";
+const REFERRER_PUBLIC_SELECT =
+  "id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at";
+const REQUEST_SELECT =
+  "id, referrer_id, candidate_name, candidate_email, candidate_linkedin, role, notes, source, status, created_at";
+
+async function currentUserId(): Promise<string | null> {
+  const { data: { session } } = await getSupabaseClient().auth.getSession();
+  return session?.user?.id ?? null;
+}
+
+export async function fetchMyReferrerProfile(): Promise<CompanyReferrer | null> {
+  try {
+    const userId = await currentUserId();
+    if (!userId) return null;
+    const { data, error } = await getSupabaseClient()
+      .from("company_referrers")
+      .select(REFERRER_SELECT)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) {
+      console.warn("[company_referrers] fetch mine:", error.message);
+      return null;
+    }
+    return data ? mapReferrerRow(data as ReferrerRow) : null;
+  } catch (err) {
+    console.warn("[company_referrers] fetch mine:", err);
+    return null;
+  }
+}
+
+export async function fetchReferrerBySlug(slug: string): Promise<CompanyReferrer | null> {
+  const trimmed = slug.trim();
+  if (!trimmed) return null;
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("company_referrers")
+      .select(REFERRER_PUBLIC_SELECT)
+      .eq("slug", trimmed)
+      .eq("open_to_refer", true)
+      .maybeSingle();
+    if (error) {
+      console.warn("[company_referrers] fetch slug:", error.message);
+      return null;
+    }
+    return data ? mapReferrerRow(data as ReferrerRow) : null;
+  } catch (err) {
+    console.warn("[company_referrers] fetch slug:", err);
+    return null;
+  }
+}
+
+export async function searchOpenReferrers(company: string): Promise<CompanyReferrer[]> {
+  const q = sanitizeSearchTerm(company);
+  if (q.length < 2) return [];
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("company_referrers")
+      .select(REFERRER_PUBLIC_SELECT)
+      .eq("open_to_refer", true)
+      .ilike("company", `%${q}%`)
+      .limit(12);
+    if (error) {
+      console.warn("[company_referrers] search:", error.message);
+      return [];
+    }
+    return ((data ?? []) as ReferrerRow[]).map(mapReferrerRow);
+  } catch (err) {
+    console.warn("[company_referrers] search:", err);
+    return [];
+  }
+}
+
+export async function upsertMyReferrerProfile(input: {
+  displayName: string;
+  company: string;
+  title: string;
+  linkedin?: string;
+  bio?: string;
+  openToRefer?: boolean;
+}): Promise<CompanyReferrer | null> {
+  const displayName = clip(input.displayName, REFERRER_LIMITS.name);
+  const company = clip(input.company, REFERRER_LIMITS.company);
+  const title = clip(input.title, REFERRER_LIMITS.title);
+  if (!displayName || !company || !title) return null;
+  try {
+    const userId = await currentUserId();
+    if (!userId) return null;
+    const existing = await fetchMyReferrerProfile();
+    const slug = existing?.slug || makeReferrerSlug(displayName, company, userId);
+    const payload = {
+      user_id: userId,
+      display_name: displayName,
+      company,
+      company_slug: slugifyPart(company),
+      title,
+      linkedin: safeHttpUrl(input.linkedin),
+      slug,
+      bio: clip(input.bio ?? "", REFERRER_LIMITS.bio) || null,
+      open_to_refer: input.openToRefer ?? true,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await getSupabaseClient()
+      .from("company_referrers")
+      .upsert(payload, { onConflict: "user_id" })
+      .select(REFERRER_SELECT)
+      .single();
+    if (error || !data) {
+      console.warn("[company_referrers] upsert:", error?.message);
+      return null;
+    }
+    return mapReferrerRow(data as ReferrerRow);
+  } catch (err) {
+    console.warn("[company_referrers] upsert:", err);
+    return null;
+  }
+}
+
+export async function fetchMyReferralRequests(): Promise<CompanyReferralRequest[]> {
+  try {
+    const profile = await fetchMyReferrerProfile();
+    if (!profile) return [];
+    const { data, error } = await getSupabaseClient()
+      .from("company_referral_requests")
+      .select(REQUEST_SELECT)
+      .eq("referrer_id", profile.id)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.warn("[company_referral_requests] fetch:", error.message);
+      return [];
+    }
+    return ((data ?? []) as RequestRow[]).map(mapRequestRow);
+  } catch (err) {
+    console.warn("[company_referral_requests] fetch:", err);
+    return [];
+  }
+}
+
+export async function createReferralRequest(input: {
+  referrerId: string;
+  candidateName: string;
+  candidateEmail?: string;
+  candidateLinkedin?: string;
+  role: string;
+  notes?: string;
+  source?: "request" | "submitted";
+}): Promise<ReferralWriteResult> {
+  const candidateName = clip(input.candidateName, REFERRER_LIMITS.name);
+  const candidateEmail = clip(input.candidateEmail ?? "", REFERRER_LIMITS.email);
+  const role = clip(input.role, REFERRER_LIMITS.role);
+  const notes = clip(input.notes ?? "", REFERRER_LIMITS.notes) || null;
+  const source = input.source ?? "request";
+  if (!input.referrerId || !candidateName || !role) {
+    return { request: null, error: source === "submitted" ? "Could not log this referral. Add the candidate name and role." : "Could not send this request. Add your name, a valid email, and the role you want." };
+  }
+  if (source !== "submitted" && !isUsableEmail(candidateEmail)) {
+    return { request: null, error: "Could not send this request. Add your name, a valid email, and the role you want." };
+  }
+  const payload = {
+    referrer_id: input.referrerId,
+    candidate_name: candidateName,
+    candidate_email: candidateEmail,
+    candidate_linkedin: safeHttpUrl(input.candidateLinkedin),
+    role,
+    notes,
+    source,
+    status: source === "submitted" ? "referred" : "requested",
+  };
+  try {
+    const userId = await currentUserId();
+    const insertRow = { ...payload, candidate_user_id: userId };
+    if (userId) {
+      const { data, error } = await getSupabaseClient()
+        .from("company_referral_requests")
+        .insert(insertRow)
+        .select(REQUEST_SELECT)
+        .single();
+      if (error || !data) {
+        console.warn("[company_referral_requests] insert:", error?.message);
+        return { request: null, error: referralWriteError(error) };
+      }
+      return { request: mapRequestRow(data as RequestRow), error: null };
+    }
+    // Anon can INSERT but cannot SELECT the row back.
+    const { error } = await getSupabaseClient()
+      .from("company_referral_requests")
+      .insert(insertRow);
+    if (error) {
+      console.warn("[company_referral_requests] insert:", error.message);
+      return { request: null, error: referralWriteError(error) };
+    }
+    return {
+      request: mapRequestRow({
+        id: "pending",
+        referrer_id: input.referrerId,
+        candidate_name: candidateName,
+        candidate_email: candidateEmail,
+        candidate_linkedin: payload.candidate_linkedin,
+        role,
+        notes,
+        source,
+        status: payload.status,
+        created_at: new Date().toISOString(),
+      }),
+      error: null,
+    };
+  } catch (err) {
+    console.warn("[company_referral_requests] insert:", err);
+    return { request: null, error: referralWriteError(null) };
+  }
+}
+
+export async function updateReferralRequestStatus(
+  id: string,
+  status: ReferralRequestStatus,
+): Promise<boolean> {
+  try {
+    const { error } = await getSupabaseClient()
+      .from("company_referral_requests")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      console.warn("[company_referral_requests] update:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("[company_referral_requests] update:", err);
+    return false;
+  }
+}
+
+export async function deleteReferralRequest(id: string): Promise<boolean> {
+  try {
+    const { error } = await getSupabaseClient()
+      .from("company_referral_requests")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.warn("[company_referral_requests] delete:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("[company_referral_requests] delete:", err);
+    return false;
+  }
+}

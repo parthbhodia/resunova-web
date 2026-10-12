@@ -20,6 +20,7 @@ import { signInWithGoogle } from "@/lib/anonScan";
 import { getSupabaseClient } from "@/lib/supabase";
 import type { ExtractedProfileState } from "@/lib/resumeExtractorService";
 import type { ProfileFormState } from "@/lib/profileStorage";
+import { CompanyReferrerPanel } from "@/components/profile/CompanyReferrerPanel";
 
 const cardStyle: CSSProperties = {
   borderRadius: 18,
@@ -134,7 +135,17 @@ function describeSavedFilter(filter: SavedFilter): string {
   return parts.join(" · ") || "Saved Jobs filter set";
 }
 
-export function ReferralsPanel({ targetRoles }: { targetRoles: string }) {
+export function ReferralsPanel({
+  targetRoles,
+  displayName = "",
+  title = "",
+  linkedin = "",
+}: {
+  targetRoles: string;
+  displayName?: string;
+  title?: string;
+  linkedin?: string;
+}) {
   const [contacts, setContacts] = useState<ReferralContact[]>([]);
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,7 +153,7 @@ export function ReferralsPanel({ targetRoles }: { targetRoles: string }) {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
-  const [title, setTitle] = useState("");
+  const [contactTitle, setContactTitle] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -189,7 +200,7 @@ export function ReferralsPanel({ targetRoles }: { targetRoles: string }) {
     const created = await createReferralContact({
       contactName: name,
       company,
-      contactTitle: title,
+      contactTitle,
     });
     setSaving(false);
     if (!created) {
@@ -199,21 +210,22 @@ export function ReferralsPanel({ targetRoles }: { targetRoles: string }) {
     setContacts((prev) => [created, ...prev]);
     setName("");
     setCompany("");
-    setTitle("");
-  }, [company, name, saving, title]);
+    setContactTitle("");
+  }, [company, contactTitle, name, saving]);
 
   return (
     <div style={{ display: "grid", gap: 18 }}>
+      <CompanyReferrerPanel displayName={displayName} title={title} linkedin={linkedin} />
       <HubCard style={{ overflow: "hidden" }}>
         <div
           style={{
             padding: "28px",
-            background: "linear-gradient(135deg, #3b82f6 0%, #0f62f0 100%)",
+            background: "linear-gradient(135deg, #111827 0%, #1f2937 100%)",
             color: "#fff",
           }}
         >
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", opacity: 0.86 }}>
-            Find an insider
+            I need a referral
           </div>
           <div style={{ marginTop: 12, fontSize: 28, fontWeight: 800, letterSpacing: -0.8, lineHeight: 1.08 }}>
             Track the people you are asking for referrals.
@@ -259,8 +271,8 @@ export function ReferralsPanel({ targetRoles }: { targetRoles: string }) {
                 style={fieldStyle}
               />
               <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                value={contactTitle}
+                onChange={(e) => setContactTitle(e.target.value)}
                 placeholder="Title (optional)"
                 aria-label="Title"
                 style={{ ...fieldStyle, gridColumn: "1 / -1" }}

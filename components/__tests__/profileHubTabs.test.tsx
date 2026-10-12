@@ -35,6 +35,14 @@ vi.mock("@/lib/referralContacts", async (orig) => ({
   updateReferralContactStatus: vi.fn(),
   deleteReferralContact: vi.fn(),
 }));
+vi.mock("@/lib/companyReferrers", async (orig) => ({
+  ...(await orig<typeof import("@/lib/companyReferrers")>()),
+  fetchMyReferrerProfile: vi.fn().mockResolvedValue(null),
+  fetchMyReferralRequests: vi.fn().mockResolvedValue([]),
+  upsertMyReferrerProfile: vi.fn(),
+  createReferralRequest: vi.fn(),
+  updateReferralRequestStatus: vi.fn(),
+}));
 vi.mock("@/lib/jobFiltersApi", () => ({
   fetchJobFilters: mockFetchJobFilters,
 }));

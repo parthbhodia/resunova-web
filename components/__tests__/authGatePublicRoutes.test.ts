@@ -10,6 +10,8 @@ describe("AuthGate public job and SEO routes", () => {
     "/resume-examples/software-engineer/",
     "/pricing",
     "/pricing/",
+    "/refer",
+    "/refer/",
   ])("allows %s without initializing auth", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });
