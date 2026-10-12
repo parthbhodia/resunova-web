@@ -297,12 +297,12 @@ function columnMissing(error: { message?: string } | null | undefined, column: s
   );
 }
 
-async function selectWithFallback<T>(
+async function selectWithFallback(
   columns: string,
   fallback: string,
   missing: string,
-  run: (columns: string) => PromiseLike<{ data: T; error: { message?: string } | null }>,
-): Promise<{ data: T; error: { message?: string } | null }> {
+  run: (columns: string) => PromiseLike<{ data: unknown; error: { message?: string } | null }>,
+): Promise<{ data: unknown; error: { message?: string } | null }> {
   const first = await run(columns);
   if (first.error && columnMissing(first.error, missing)) return run(fallback);
   return first;
