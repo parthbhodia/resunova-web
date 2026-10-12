@@ -47,25 +47,52 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
   const getFeaturesByRoute = () => {
     if (pathname?.includes("interview-prep")) {
       return [
-        { icon: "⏱️", text: "5-10 min sessions" },
-        { icon: "🎯", text: "Role-specific scenarios" },
-        { icon: "📊", text: "Track improvement" },
-        { icon: "🤖", text: "AI feedback" },
+        { icon: "timer", text: "5-10 min sessions" },
+        { icon: "target", text: "Role-specific scenarios" },
+        { icon: "chart", text: "Track improvement" },
+        { icon: "sparkles", text: "AI feedback" },
       ];
     } else if (pathname?.includes("my-resumes")) {
       return [
-        { icon: "💾", text: "Save all versions" },
-        { icon: "📋", text: "Multiple templates" },
-        { icon: "⚡", text: "Quick access" },
-        { icon: "🔄", text: "Easy updates" },
+        { icon: "save", text: "Save all versions" },
+        { icon: "list", text: "Multiple templates" },
+        { icon: "zap", text: "Quick access" },
+        { icon: "refresh", text: "Easy updates" },
       ];
     }
     return [
-      { icon: "⏱️", text: "Start instantly" },
-      { icon: "🎯", text: "AI-powered tools" },
-      { icon: "📊", text: "Real-time feedback" },
-      { icon: "🔒", text: "Always private" },
+      { icon: "timer", text: "Start instantly" },
+      { icon: "sparkles", text: "AI-powered tools" },
+      { icon: "chart", text: "Real-time feedback" },
+      { icon: "lock", text: "Always private" },
     ];
+  };
+
+  // SVG icon renderer
+  const renderFeatureIcon = (iconType: string) => {
+    const svgProps = { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" };
+    switch (iconType) {
+      case "timer":
+        return <svg {...svgProps}><circle cx="12" cy="13" r="8" /><path d="M12 9v4l3 2" /></svg>;
+      case "target":
+        return <svg {...svgProps}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>;
+      case "chart":
+        return <svg {...svgProps}><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>;
+      case "sparkles":
+        return <svg {...svgProps}><path d="M9.26 9a2 2 0 0 0 2.36-2.75.5.5 0 0 1 .87-.5A3 3 0 0 1 8 9.75.5.5 0 0 1 9.26 9z" /><path d="M6.27 4.27a1 1 0 0 0 1.46 1.46" /><path d="M17.27 19.27a1 1 0 0 0 1.46 1.46" /><path d="M18.27 7.27a1 1 0 0 0 1.46 1.46" /><path d="M5.27 16.27a1 1 0 0 0 1.46 1.46" /></svg>;
+      case "save":
+        return <svg {...svgProps}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /></svg>;
+      case "list":
+        return <svg {...svgProps}><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>;
+      case "zap":
+        return <svg {...svgProps}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>;
+      case "refresh":
+        return <svg {...svgProps}><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36" /></svg>;
+      case "lock":
+        return <svg {...svgProps}><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>;
+      default:
+        return null;
+    }
   };
 
   const features = getFeaturesByRoute();
@@ -168,13 +195,16 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
           justifyContent: "center",
           gap: "8px",
         }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ color: "var(--accent)", marginRight: "4px" }}>
+            <polygon points="12 2 15.09 10.26 24 10.27 17.77 16.14 20.16 24.29 12 18.53 3.84 24.29 6.23 16.14 0 10.27 8.91 10.26 12 2" />
+          </svg>
           <span style={{
             fontSize: "16px",
             fontWeight: "800",
             color: "var(--accent)",
             marginRight: "4px",
           }}>
-            ⭐ {socialProof.stat}
+            {socialProof.stat}
           </span>
           <span style={{
             fontSize: "14px",
@@ -205,8 +235,15 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
           fontWeight: "700",
           letterSpacing: "0.3px",
           textTransform: "uppercase",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "6px",
         }}>
-          ✓ {socialProof.achievement}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          {socialProof.achievement}
         </p>
 
         {/* Subheading */}
@@ -253,10 +290,12 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
               }}
             >
               <div style={{
-                fontSize: "20px",
-                marginBottom: "6px",
+                marginBottom: "8px",
+                display: "flex",
+                justifyContent: "center",
+                color: "var(--accent)",
               }}>
-                {f.icon}
+                {renderFeatureIcon(f.icon)}
               </div>
               <div style={{
                 fontSize: "13px",
