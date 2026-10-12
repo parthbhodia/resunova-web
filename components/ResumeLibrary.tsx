@@ -31,6 +31,7 @@ import { deleteBuilderResume, fetchLibraryItems, getSupabaseClient, type Library
 import { RESUME_LIBRARY_CHANGED_EVENT } from "@/lib/resumeLibraryEvents";
 import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
 import { stashTemplateBuilderStructuredPrefillFromAnalysisResult } from "@/lib/templateBuilderPrefill";
+import { downloadRemotePdf, pdfFileName } from "@/lib/downloadRemotePdf";
 import { Button } from "@/components/ui/button";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { Badge } from "@/components/ui/badge";
@@ -111,6 +112,8 @@ export default function ResumeLibrary({ onUseAsBase }: {
   const [filter, setFilter] = useState("");
   const [kindFilter, setKindFilter] = useState<FilterKey>("all");
   const [sort, setSort] = useState<SortKey>("recent");
+  const [exportingPdfId, setExportingPdfId] = useState<string | null>(null);
+  const [pdfExportError, setPdfExportError] = useState<{ id: string; message: string } | null>(null);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -229,6 +232,24 @@ export default function ResumeLibrary({ onUseAsBase }: {
   const openAnalysis = (item: LibraryItem) => {
     if (item.kind !== "analyzed") return;
     router.push(`/?view=analyze&analysis=${encodeURIComponent(item.id)}`);
+  };
+
+  const exportAnalysisPdf = async (item: LibraryItem) => {
+    if (item.kind !== "analyzed" || exportingPdfId) return;
+    const url = resolvePdfUrl(item.analysis.sourcePdfUrl);
+    if (!url) {
+      setPdfExportError({ id: item.id, message: "No PDF is stored for this résumé." });
+      return;
+    }
+    setExportingPdfId(item.id);
+    setPdfExportError(null);
+    try {
+      await downloadRemotePdf(url, pdfFileName(item.analysis.sourceFilename?.trim() || item.title));
+    } catch {
+      setPdfExportError({ id: item.id, message: "Could not download this PDF." });
+    } finally {
+      setExportingPdfId(null);
+    }
   };
 
   const tailorFromAnalysis = (item: LibraryItem) => {
@@ -773,6 +794,9 @@ export default function ResumeLibrary({ onUseAsBase }: {
                     onOpen={() => openItem(item)}
                     onUseAsBase={() => applyResumeAsBase(item)}
                     onOpenAnalysis={() => openAnalysis(item)}
+                    onExportPdf={() => void exportAnalysisPdf(item)}
+                    exportingPdf={exportingPdfId === item.id}
+                    exportPdfError={pdfExportError?.id === item.id ? pdfExportError.message : null}
                     onTailorAnalysis={() => tailorFromAnalysis(item)}
                     onEditInTemplateBuilder={() => editAnalysisInTemplateBuilder(item)}
                     onOpenInBuilder={() => openBuilderDraft(item)}
@@ -796,6 +820,13 @@ export default function ResumeLibrary({ onUseAsBase }: {
             onOpenAnalysis={() => {
               if (selectedItem) openAnalysis(selectedItem);
             }}
+            onExportPdf={() => {
+              if (selectedItem) void exportAnalysisPdf(selectedItem);
+            }}
+            exportingPdf={!!selectedItem && exportingPdfId === selectedItem.id}
+            exportPdfError={
+              selectedItem && pdfExportError?.id === selectedItem.id ? pdfExportError.message : null
+            }
             onTailorAnalysis={() => {
               if (selectedItem) tailorFromAnalysis(selectedItem);
             }}
@@ -957,6 +988,9 @@ function ResumeCard({
   onOpen,
   onUseAsBase,
   onOpenAnalysis,
+  onExportPdf,
+  exportingPdf = false,
+  exportPdfError = null,
   onTailorAnalysis,
   onEditInTemplateBuilder,
   onOpenInBuilder,
@@ -967,6 +1001,9 @@ function ResumeCard({
   onOpen: () => void;
   onUseAsBase: () => void;
   onOpenAnalysis: () => void;
+  onExportPdf: () => void;
+  exportingPdf?: boolean;
+  exportPdfError?: string | null;
   onTailorAnalysis: () => void;
   onEditInTemplateBuilder: () => void;
   onOpenInBuilder: () => void;
@@ -1076,13 +1113,19 @@ function ResumeCard({
             type="button"
             onClick={e => {
               e.stopPropagation();
-              onOpenAnalysis();
+              onExportPdf();
             }}
-            title="Open analysis, then use Download PDF from the preview"
+            disabled={exportingPdf}
+            title="Download the stored résumé PDF"
             style={actionBtnGhost}
           >
-            Export PDF
+            {exportingPdf ? "Exporting…" : "Export PDF"}
           </Button>
+          {exportPdfError ? (
+            <span style={{ flexBasis: "100%", fontSize: 12, color: "var(--red)", lineHeight: 1.4 }}>
+              {exportPdfError}
+            </span>
+          ) : null}
         </>
       ) : (
         <>
