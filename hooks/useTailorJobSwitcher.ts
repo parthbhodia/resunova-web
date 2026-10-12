@@ -8,7 +8,7 @@
  * they started with and must not paint onto whichever tab is now visible.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSuggestionsStore } from "@/store/suggestionsStore";
 import {
   markTailorWorkspaceMemory,
@@ -41,11 +41,13 @@ type SwitcherArgs = {
 
 export function useTailorJobSwitcher(args: SwitcherArgs) {
   const getWorkRef = useRef(args.getWork);
-  getWorkRef.current = args.getWork;
   const applyRef = useRef(args.apply);
-  applyRef.current = args.apply;
   const onLeaveRef = useRef(args.onLeave);
-  onLeaveRef.current = args.onLeave;
+  useEffect(() => {
+    getWorkRef.current = args.getWork;
+    applyRef.current = args.apply;
+    onLeaveRef.current = args.onLeave;
+  });
 
   const targets = useTailorWorkspaceStore((s) => s.targets);
   const activeId = useTailorWorkspaceStore((s) => s.activeId);
