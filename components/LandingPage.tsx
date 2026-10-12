@@ -552,21 +552,26 @@ export default function LandingPage() {
       {/* ───────────── Header ───────────────────────────────── */}
       <header className="lp-header" style={{
         position: "sticky", top: 0, zIndex: 100, width: "100%",
-        height: 76,
-        background: dark ? "rgba(13,17,23,0.95)" : "rgba(255,255,255,0.95)",
-        backdropFilter: "blur(12px) saturate(150%)",
-        WebkitBackdropFilter: "blur(12px) saturate(150%)",
-        borderBottom: `1px solid ${dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+        height: 72,
+        background: dark 
+          ? "linear-gradient(180deg, rgba(13,17,23,0.98) 0%, rgba(13,17,23,0.95) 100%)"
+          : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%)",
+        backdropFilter: "blur(16px) saturate(150%)",
+        WebkitBackdropFilter: "blur(16px) saturate(150%)",
+        borderBottom: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+        boxShadow: dark 
+          ? "0 4px 16px rgba(0,0,0,0.2)" 
+          : "0 4px 12px rgba(0,0,0,0.04)",
       }}>
         <div className="lp-header-inner" style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          height: "100%", maxWidth: 1280, margin: "0 auto", padding: "0 16px"
+          height: "100%", maxWidth: 1320, margin: "0 auto", padding: "0 16px"
         }}>
           <style>{`
-            @media (min-width: 768px) { .lp-header-inner { padding: 0 32px !important; } }
+            @media (min-width: 768px) { .lp-header-inner { padding: 0 40px !important; } }
           `}</style>
           {/* Logo — shared SVG mark + wordmark */}
-          <Link href="/" prefetch={false} style={{ flexShrink: 0, textDecoration: "none", color: "inherit", display: "flex", alignItems: "center" }} aria-label="Resunova home">
+          <Link href="/" prefetch={false} style={{ flexShrink: 0, textDecoration: "none", color: "inherit", display: "flex", alignItems: "center", transition: "opacity 0.2s" }} aria-label="Resunova home" onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "0.85"; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}>
             <LogoFull markSize={32} textColor={dark ? "#ffffff" : "#0f172a"} />
           </Link>
 
@@ -617,9 +622,10 @@ export default function LandingPage() {
                 type="button"
                 className="features-btn"
                 style={{
-                  background: "none", border: "none", color: dark ? "#ffffff" : "#1e293b", display: "flex", alignItems: "center", gap: 4,
+                  background: "none", border: "none", color: dark ? "rgba(255,255,255,0.8)" : "#475569", display: "flex", alignItems: "center", gap: 6,
                   fontSize: 15, cursor: "pointer", fontFamily: "inherit",
-                  fontWeight: 600, transition: "color 0.2s", padding: "8px 0"
+                  fontWeight: 500, transition: "color 0.2s ease-out", padding: "8px 12px",
+                  borderRadius: "6px", marginRight: "-12px"
                 }}
               >
                 Features
@@ -632,12 +638,18 @@ export default function LandingPage() {
               <div className="mega-menu-dropdown">
                 <div style={{
                   width: "100%",
-                  background: dark ? "rgba(20,24,30,0.98)" : "#ffffff",
-                  borderBottom: `1px solid ${dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-                  boxShadow: dark ? "0 20px 40px rgba(0,0,0,0.5)" : "0 24px 48px rgba(0,0,0,0.06)",
+                  background: dark 
+                    ? "linear-gradient(180deg, rgba(13,17,23,0.98) 0%, rgba(13,17,23,0.96) 100%)"
+                    : "linear-gradient(180deg, rgba(255,255,255,0.99) 0%, rgba(255,255,255,0.97) 100%)",
+                  borderBottom: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+                  boxShadow: dark 
+                    ? "0 24px 64px rgba(0,0,0,0.4), 0 0 1px rgba(255,255,255,0.05)" 
+                    : "0 24px 64px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.05)",
                   display: "flex",
                   justifyContent: "center",
-                  padding: "48px 0"
+                  padding: "48px 0",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)"
                 }}>
                   <div style={{
                     width: 1216,
@@ -796,27 +808,45 @@ export default function LandingPage() {
                 key={id}
                 href={href}
                 style={{
-                  background: "none", border: "none", color: dark ? "#ffffff" : "#1e293b",
+                  background: "none", border: "none", color: dark ? "rgba(255,255,255,0.8)" : "#475569",
                   fontSize: 15, cursor: "pointer", fontFamily: "inherit",
-                  fontWeight: 600, transition: "color 0.2s", padding: "8px 0",
-                  textDecoration: "none", pointerEvents: "auto"
+                  fontWeight: 500, transition: "color 0.2s ease-out", padding: "8px 12px",
+                  textDecoration: "none", pointerEvents: "auto", borderRadius: "6px",
+                  marginRight: "-12px"
                 }}
-                onMouseEnter={e => { (e.target as HTMLElement).style.color = T.blue; }}
-                onMouseLeave={e => { (e.target as HTMLElement).style.color = dark ? "#ffffff" : "#1e293b"; }}
+                onMouseEnter={e => { 
+                  (e.currentTarget as HTMLElement).style.color = T.blue;
+                  (e.currentTarget as HTMLElement).style.backgroundColor = dark ? "rgba(47,129,247,0.08)" : "rgba(47,129,247,0.06)";
+                }}
+                onMouseLeave={e => { 
+                  (e.currentTarget as HTMLElement).style.color = dark ? "rgba(255,255,255,0.8)" : "#475569";
+                  (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                }}
               >{lbl}</Link>
             ))}
           </nav>
 
           {/* Right side actions */}
-          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 12 }}>
             {/* Theme toggle — kept from the previous header (all breakpoints) */}
             <button onClick={toggleTheme} title={dark ? "Light mode" : "Dark mode"} style={{
-              width: 34, height: 34, borderRadius: 8,
-              background: "transparent",
-              border: `1px solid ${dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`,
+              width: 40, height: 40, borderRadius: 10,
+              background: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+              border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"}`,
               cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-              color: C.muted, transition: "color 0.15s",
-            }}>
+              color: dark ? "rgba(255,255,255,0.6)" : "#64748b", transition: "all 0.2s ease-out",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.07)";
+              (e.currentTarget as HTMLElement).style.borderColor = dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)";
+              (e.currentTarget as HTMLElement).style.color = dark ? "rgba(255,255,255,0.8)" : "#1e293b";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+              (e.currentTarget as HTMLElement).style.borderColor = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)";
+              (e.currentTarget as HTMLElement).style.color = dark ? "rgba(255,255,255,0.6)" : "#64748b";
+            }}
+            >
               {dark
                 ? <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M3.1 12.9l1.4-1.4M11.5 4.5l1.4-1.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
                 : <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 10.5A6 6 0 015.5 2.5a6 6 0 000 11 6 6 0 008-3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
@@ -827,24 +857,28 @@ export default function LandingPage() {
               onClick={signIn}
               style={{
                 background: "transparent",
-                border: `1px solid ${dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`,
-                color: dark ? "#ffffff" : "#0f172a",
+                border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"}`,
+                color: dark ? "rgba(255,255,255,0.8)" : "#475569",
                 fontSize: 15,
                 fontWeight: 600,
-                padding: "8px 20px",
-                borderRadius: 12,
+                padding: "10px 22px",
+                borderRadius: 10,
                 cursor: "pointer",
-                transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
+                transition: "all 0.2s ease-out",
                 fontFamily: "inherit"
               }}
               onMouseEnter={e => { 
-                (e.currentTarget as HTMLElement).style.backgroundColor = dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)";
+                (e.currentTarget as HTMLElement).style.backgroundColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+                (e.currentTarget as HTMLElement).style.borderColor = dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)";
+                (e.currentTarget as HTMLElement).style.color = dark ? "#ffffff" : "#0f172a";
               }}
               onMouseLeave={e => { 
                 (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+                (e.currentTarget as HTMLElement).style.borderColor = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)";
+                (e.currentTarget as HTMLElement).style.color = dark ? "rgba(255,255,255,0.8)" : "#475569";
               }}
             >
-              Log In
+              Sign In
             </button>
 
             <Button onClick={signIn}
@@ -856,23 +890,25 @@ export default function LandingPage() {
                 border: "none",
                 fontSize: 15,
                 fontWeight: 700,
-                padding: "8px 24px",
-                borderRadius: 999,
+                padding: "10px 28px",
+                borderRadius: 10,
                 cursor: "pointer",
-                transition: "background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s, opacity 0.2s",
+                transition: "all 0.2s ease-out",
                 fontFamily: "inherit",
-                boxShadow: "0 4px 14px rgba(212,119,47,0.35)"
+                boxShadow: "0 8px 20px rgba(212,119,47,0.3)"
               }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
+                (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
                 (e.currentTarget as HTMLElement).style.background = T.hotHover;
+                (e.currentTarget as HTMLElement).style.boxShadow = "0 12px 28px rgba(212,119,47,0.4)";
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.transform = "none";
+                (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
                 (e.currentTarget as HTMLElement).style.background = T.hot;
+                (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 20px rgba(212,119,47,0.3)";
               }}
             >
-              Create My Resume
+              Create Resume
             </Button>
             </div>
 
