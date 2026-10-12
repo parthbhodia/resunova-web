@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
+import type { SVGProps } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import {
   clearForceLandingAfterSignOut,
@@ -70,7 +71,16 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
 
   // SVG icon renderer
   const renderFeatureIcon = (iconType: string) => {
-    const svgProps = { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" };
+    const svgProps: SVGProps<SVGSVGElement> = {
+      width: 20,
+      height: 20,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 2,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+    };
     switch (iconType) {
       case "timer":
         return <svg {...svgProps}><circle cx="12" cy="13" r="8" /><path d="M12 9v4l3 2" /></svg>;
@@ -248,7 +258,6 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
 
         {/* Subheading */}
         <p style={{
-          margin: "0 0 32px",
           fontSize: "15px",
           color: "var(--muted)",
           lineHeight: "1.7",
