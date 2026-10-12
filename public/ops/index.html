@@ -21,10 +21,7 @@
       letter-spacing: -0.02em;
     }
     .lead { margin: 0 0 2rem; color: #44403c; }
-    .board { display: grid; gap: 0.75rem; margin: 0 0 2.5rem; }
-    @media (min-width: 720px) {
-      .board { grid-template-columns: repeat(3, 1fr); }
-    }
+    .board { display: grid; gap: 0.75rem; margin: 0 0 2.5rem; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
     .card {
       background: #fff;
       border: 1px solid #e7e5e4;
@@ -70,7 +67,7 @@
 <body>
   <main>
     <h1>Service log</h1>
-    <p class="lead">Whether the API, scoring, and the site UI were up. This page stays available when the API does not.</p>
+    <p class="lead">Whether the API, tailor, interview, scoring, and the site UI were up. This page stays available when the API does not.</p>
     <section class="board" id="board" aria-label="Current status"></section>
     <h2>History</h2>
     <p id="status" class="empty">Loading the log.</p>
@@ -83,6 +80,10 @@
     function label(event) {
       if (event.kind === "api" && event.state === "up") return "API up";
       if (event.kind === "api") return "API down";
+      if (event.kind === "tailor" && event.state === "up") return "Tailor up";
+      if (event.kind === "tailor") return "Tailor down";
+      if (event.kind === "interview" && event.state === "up") return "Interview up";
+      if (event.kind === "interview") return "Interview down";
       if (event.kind === "scoring" && event.state === "paused") return "Scoring paused";
       if (event.kind === "scoring") return "Scoring running";
       return "UI crash";
@@ -136,6 +137,8 @@
       const board = document.getElementById("board");
       board.replaceChildren(
         card("API", latest(events, "api")),
+        card("Tailor", latest(events, "tailor")),
+        card("Interview", latest(events, "interview")),
         card("Scoring", latest(events, "scoring")),
         card("UI", latest(events, "ui"), events.length ? "No crashes recorded" : "No reading yet")
       );
