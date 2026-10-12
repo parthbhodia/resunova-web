@@ -1309,7 +1309,7 @@ export default function ResumeBuilder({
 
   const signInForAts = useCallback(async () => {
     setAtsError(null);
-    openSignIn({ title: "Sign in to run ATS & job match", reason: "Sign in free to score your résumé against the job and unlock per-bullet fixes." });
+    openSignIn({ ask: "tailor_match" });
   }, [openSignIn]);
 
   const runAtsCheck = useCallback(async (folder: string, updateMatchScore = false) => {

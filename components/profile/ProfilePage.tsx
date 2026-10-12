@@ -36,7 +36,7 @@ import {
 } from "../../lib/profileStorage";
 import { fetchExtractedProfile, upsertExtractedProfile, fetchUserProfile, upsertUserProfile, getSupabaseClient } from "../../lib/supabase";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
-import { ScanUsageWidget } from "@/components/ScanUsageWidget";
+import UsageLimitsCard from "@/components/account/UsageLimitsCard";
 import PlanBillingCard from "@/components/PlanBillingCard";
 import { IntegrationsPanel, JobAlertsPanel, ReferralsPanel } from "@/components/profile/ProfileHubPanels";
 
@@ -237,7 +237,7 @@ export default function ProfilePage() {
     if (tab === "usage") {
       return (
         <div className="profile-real-grid">
-          <ScanUsageWidget />
+          <UsageLimitsCard />
           <HubCard>
             <SectionHeader
               icon={<ClipboardList size={18} />}

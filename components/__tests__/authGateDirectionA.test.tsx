@@ -27,6 +27,13 @@ function codeOnly(path: string): string {
     .replace(/^\s*\/\/.*$/gm, "");
 }
 const SRC = codeOnly("components/auth/SignInRequiredPage.tsx");
+/**
+ * The form moved out of the page into `AuthMethods`, which the modal renders
+ * too — so the checks below follow the thing they guard rather than the file
+ * that used to hold it. Both files are still scanned for a hardcoded white, so
+ * re-adding one to either turns this red.
+ */
+const FORM_SRC = codeOnly("components/auth/AuthMethods.tsx");
 
 describe("the gate asks once, on one surface", () => {
   /**
@@ -58,7 +65,8 @@ describe("the gate asks once, on one surface", () => {
    */
   it("never hardcodes a white foreground on a filled control", () => {
     expect(SRC).not.toMatch(/color:\s*["']#f{3,6}["']/i);
-    expect(SRC).toContain("var(--on-fill)");
+    expect(FORM_SRC).not.toMatch(/color:\s*["']#f{3,6}["']/i);
+    expect(FORM_SRC).toContain("var(--on-fill)");
   });
 });
 
@@ -71,6 +79,7 @@ describe("the gate does not promise what the product lacks", () => {
    */
   it("offers no magic link, because there is no magic-link flow", () => {
     expect(SRC).not.toMatch(/sign-in link|magic link|signInWithOtp/i);
+    expect(FORM_SRC).not.toMatch(/sign-in link|magic link|signInWithOtp/i);
   });
 
   /**

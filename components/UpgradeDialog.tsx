@@ -40,12 +40,24 @@ import {
 import { Button } from "@/components/ui/button";
 import { createCheckoutSession } from "@/lib/billingApi";
 
-/** Real free-tier daily caps (keep in sync with API services/entitlements.py). */
-export const FREE_SCAN_DAILY_LIMIT = 3;
-export const FREE_INTERVIEW_DAILY_LIMIT = 2;
-/** Pro daily caps (keep in sync with API POLICY_V1 PRO_SCAN / PRO_INTERVIEW). */
-export const PRO_SCAN_DAILY_LIMIT = 30;
-export const PRO_INTERVIEW_DAILY_LIMIT = 30;
+/**
+ * The daily caps now live in `lib/planLimits.ts` so a copy module can name a
+ * limit without importing this component's Stripe chain. Re-exported here
+ * because ~6 call sites already import them from this path.
+ */
+import {
+  FREE_SCAN_DAILY_LIMIT,
+  FREE_INTERVIEW_DAILY_LIMIT,
+  PRO_SCAN_DAILY_LIMIT,
+  PRO_INTERVIEW_DAILY_LIMIT,
+} from "@/lib/planLimits";
+
+export {
+  FREE_SCAN_DAILY_LIMIT,
+  FREE_INTERVIEW_DAILY_LIMIT,
+  PRO_SCAN_DAILY_LIMIT,
+  PRO_INTERVIEW_DAILY_LIMIT,
+};
 
 /** Fallback when Stripe Checkout is unavailable (flag off, signed out, error). */
 const UPGRADE_FALLBACK_HREF = "/pricing";

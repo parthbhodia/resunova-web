@@ -638,7 +638,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                 </span>
                 <Button
                   type="button"
-                  onClick={() => openSignIn({ title: "Sign in to your Resume Hub", reason: "Analyze runs and Builder exports are saved to your account automatically once you sign in." })}
+                  onClick={() => openSignIn({ ask: "library" })}
                   className="shrink-0"
                 >
                   Sign in with Google

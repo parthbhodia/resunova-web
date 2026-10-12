@@ -1002,7 +1002,7 @@ export default function JobsFeed({
   const openBoost = useCallback(async (id: string) => {
     const { data: { session } } = await getSupabaseClient().auth.getSession();
     if (!session) {
-      openSignIn({ title: "Sign in to optimize your résumé", reason: "Create a free account to tailor your résumé to this job and save the result." });
+      openSignIn({ ask: "jobs_optimize" });
       return;
     }
     setBoostLoadingId(id);
@@ -1025,7 +1025,7 @@ export default function JobsFeed({
   const openPrep = useCallback(async (id: string) => {
     const { data: { session } } = await getSupabaseClient().auth.getSession();
     if (!session) {
-      openSignIn({ title: "Sign in for interview prep", reason: "Create a free account to save a role-specific interview kit." });
+      openSignIn({ ask: "interview_prep" });
       return;
     }
     setPrepLoadingId(id);
@@ -1694,10 +1694,7 @@ export default function JobsFeed({
       <SignedOutJobsHero
         count={publicCount}
         onSignIn={() =>
-          openSignIn({
-            title: "Sign in to personalize jobs",
-            reason: "Browse is public. Sign in free to rank openings against your résumé and save your progress.",
-          })
+          openSignIn({ ask: "jobs_rank" })
         }
       />
     );
