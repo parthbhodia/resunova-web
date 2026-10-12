@@ -79,11 +79,22 @@ describe("ReferPublicPage", () => {
       updatedAt: "",
     });
     render(<ReferPublicPage />);
-    expect(await screen.findByRole("button", { name: "Ask for a referral" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Send to / })).toBeInTheDocument();
     expect(screen.getByText("Parth Bhodia")).toBeInTheDocument();
     expect(screen.getByLabelText("12 referred")).toBeInTheDocument();
-    expect(screen.getByText("Ask for a referral at Acme")).toBeInTheDocument();
-    expect(screen.getByText(/does not submit the referral into Acme/)).toBeInTheDocument();
+    // The headline names the person; the eyebrow names the company. The
+    // shipped page led with "EMPLOYEE REFERRAL" and buried the destination.
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/can refer at Acme/);
+    expect(screen.getByText("Referral · Acme")).toBeInTheDocument();
+    /**
+     * ⚠️ THE ONE CLAIM ON THIS PAGE THAT BOUNDS WHAT THE PRODUCT DOES, and the
+     * redesign must not have softened it. It reads "never writes into" now,
+     * which is the HLD's own wording and stronger than the shipped "does not
+     * submit the referral ... for them". Pinned on the bound, naming the
+     * company, so a reword that drops the limit turns this red.
+     */
+    expect(screen.getByText(/never writes into Acme.s applicant system/)).toBeInTheDocument();
+    expect(screen.getByText(/one person\s+choosing to vouch/)).toBeInTheDocument();
   });
 
   it("sends a request from the public form", async () => {
@@ -118,11 +129,11 @@ describe("ReferPublicPage", () => {
       error: null,
     });
     render(<ReferPublicPage />);
-    await screen.findByRole("button", { name: "Ask for a referral" });
+    await screen.findByRole("button", { name: /^Send to / });
     await userEvent.type(screen.getByLabelText("Your name"), "Alex Kim");
     await userEvent.type(screen.getByLabelText("Your email"), "alex@example.com");
     await userEvent.type(screen.getByLabelText("Role you want"), "Backend Engineer");
-    await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Send to / }));
     expect(mockCreateReferralRequest).toHaveBeenCalledWith({
       referrerId: "r1",
       candidateName: "Alex Kim",
@@ -154,11 +165,11 @@ describe("ReferPublicPage", () => {
       updatedAt: "",
     });
     render(<ReferPublicPage />);
-    await screen.findByRole("button", { name: "Ask for a referral" });
+    await screen.findByRole("button", { name: /^Send to / });
     await userEvent.type(screen.getByLabelText("Your name"), "Alex Kim");
     await userEvent.type(screen.getByLabelText("Your email"), "alex@example.com");
     await userEvent.type(screen.getByLabelText("Role you want"), "Backend Engineer");
-    await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Send to / }));
     expect(mockOpenSignIn).toHaveBeenCalled();
     expect(mockCreateReferralRequest).not.toHaveBeenCalled();
   });
@@ -181,12 +192,12 @@ describe("ReferPublicPage", () => {
     };
     mockFetchReferrerBySlug.mockResolvedValue(openReferrer);
     render(<ReferPublicPage />);
-    await screen.findByRole("button", { name: "Ask for a referral" });
+    await screen.findByRole("button", { name: /^Send to / });
     mockFetchReferrerBySlug.mockResolvedValue(null);
     await userEvent.type(screen.getByLabelText("Your name"), "Alex Kim");
     await userEvent.type(screen.getByLabelText("Your email"), "alex@example.com");
     await userEvent.type(screen.getByLabelText("Role you want"), "Backend Engineer");
-    await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Send to / }));
     expect(await screen.findByText("This referral link is not active.")).toBeInTheDocument();
     expect(mockCreateReferralRequest).not.toHaveBeenCalled();
   });

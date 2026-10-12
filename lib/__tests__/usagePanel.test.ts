@@ -57,6 +57,60 @@ describe("meterFromStatus", () => {
   });
 });
 
+describe("a non-answer is never read as an answer", () => {
+  /**
+   * ⚠️ THE DEFECT A REVIEW CAUGHT. A 401 body is `{error, code, remedy}` and
+   * carries no `enforced`, so the first version fell through to "not metered
+   * for this caller" and rendered **∞ Unlimited** on every row. A confident
+   * false claim is strictly worse than an absence, and an expired token is very
+   * reachable — `apiFetch` still sends the stale bearer.
+   */
+  it("reads a 401 as signed out, not as unlimited", () => {
+    const body = { error: "Sign in to continue.", code: "unauthorized", remedy: "sign_in" };
+    expect(meterFromStatus(body, false).kind).toBe("requires_sign_in");
+    expect(meterFromStatus(body, false).kind).not.toBe("unlimited");
+  });
+
+  it("reads any other non-2xx as unknown, not as unlimited", () => {
+    expect(meterFromStatus({ error: "boom" }, false).kind).toBe("unknown");
+    expect(meterFromStatus(null, false).kind).toBe("unknown");
+  });
+
+  /**
+   * The guest payload is `{enforced: true, requiresSignIn: true}` with null
+   * numbers, so the flag has to beat the `enforced` branch or it lands in
+   * `unknown` and cries outage at someone who is merely signed out.
+   */
+  it("reads the guest payload as signed out, not as an outage", () => {
+    const guest = {
+      enforced: true, unlimited: false, anonymous: true, requiresSignIn: true,
+      limit: null, used: null, remaining: null,
+    };
+    expect(meterFromStatus(guest).kind).toBe("requires_sign_in");
+  });
+
+  it("still reads a genuine not-enforced 200 as unlimited", () => {
+    expect(meterFromStatus({ enforced: false }, true).kind).toBe("unlimited");
+  });
+
+  it("claims nothing at all while the answer is still in flight", () => {
+    const p = buildUsagePanel({ kind: "loading" }, { kind: "loading" });
+    expect(p.planName).toBe("");
+    expect(p.showUpgrade).toBe(false);
+    expect(p.resetNote).toBeNull();
+    expect(row(p, "resume_scan").meter.kind).toBe("loading");
+    // ⚠️ Specifically NOT the outage state — that is the defect this pins.
+    expect(row(p, "resume_scan").meter.kind).not.toBe("unknown");
+  });
+
+  it("offers no upgrade and names no plan to a signed-out reading", () => {
+    const p = buildUsagePanel({ kind: "requires_sign_in" }, { kind: "requires_sign_in" });
+    expect(p.showUpgrade).toBe(false);
+    expect(p.resetNote).toBeNull();
+    expect(rowsOf(p).find((r) => r.key === "resume_scan")!.meter.kind).toBe("requires_sign_in");
+  });
+});
+
 describe("the plan name", () => {
   /** Ported from ScanUsageWidget's tests — this is where that mapping lives now. */
   it("metered with no named plan is Free", () => {

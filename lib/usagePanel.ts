@@ -31,17 +31,34 @@ import {
  * nav's `catch {}` used to ship.
  */
 export type MeterReading =
+  /**
+   * ⚠️ NOT ASKED YET, and it is a separate member for the same reason `error`
+   * is separate from `unlimited` in the nav store. Passing `unknown` during the
+   * fetch rendered TWO "Couldn't check" chips on every first paint — an outage
+   * flashed at every visitor before the real answer landed. Measured, not
+   * guessed: a never-resolving fetch shows both.
+   */
+  | { kind: "loading" }
   | { kind: "metered"; used: number; limit: number; resetAt: string | null }
   | { kind: "unlimited"; plan: string | null }
+  /**
+   * There is no account to budget for. Its own member rather than `unknown`,
+   * because an expired token is a complete, correct answer and painting the
+   * outage chip for it would cry wolf — the same reason the nav store keeps
+   * `requires_sign_in` separate from `error`.
+   */
+  | { kind: "requires_sign_in" }
   | { kind: "unknown" };
 
 export type UsageMeter =
+  | { kind: "loading" }
   | { kind: "metered"; used: number; limit: number; atLimit: boolean; fillPct: number }
   | { kind: "unlimited" }
   /** Not on this plan; Pro has it. */
   | { kind: "pro_only" }
   /** Was Pro-only, and this account is Pro. */
   | { kind: "included" }
+  | { kind: "requires_sign_in" }
   | { kind: "unknown" };
 
 export type UsageRow = {
@@ -77,11 +94,29 @@ const num = (v: unknown): number | null =>
 /**
  * Normalize either limit-status endpoint. They share a response shape on
  * purpose, so one mapper serves both rather than two that can drift.
+ *
+ * ⚠️ `ok` IS NOT OPTIONAL, AND THIS IS WHAT A REVIEW CAUGHT. A 401 body is
+ * `{error, code, remedy}` — it carries no `enforced`, so the first version read
+ * it as "not metered for this caller" and rendered **∞ Unlimited** on every
+ * row. That is the `catch {}` bug in a new costume and strictly worse than the
+ * outage chip, because it is a confident false claim rather than an absence.
+ * An expired token is very reachable: `apiFetch` sends the stale bearer, the
+ * API cannot verify it, and the page renders anyway.
  */
-export function meterFromStatus(body: unknown): MeterReading {
+export function meterFromStatus(body: unknown, ok = true): MeterReading {
   if (!body || typeof body !== "object") return { kind: "unknown" };
   const b = body as Record<string, unknown>;
   const plan = typeof b.plan === "string" && b.plan.trim() ? b.plan : null;
+
+  // A 401 means we sent a token and were told it is no good: signed out.
+  // Anything else non-2xx is a genuine "could not find out".
+  if (!ok) return b.code === "unauthorized" || b.remedy === "sign_in"
+    ? { kind: "requires_sign_in" }
+    : { kind: "unknown" };
+
+  // Explicit, and it must beat the `enforced` branch below: the guest payload
+  // is `{enforced: true, requiresSignIn: true}` with null numbers.
+  if (b.requiresSignIn === true) return { kind: "requires_sign_in" };
 
   if (b.unlimited === true) return { kind: "unlimited", plan };
   // Not enforced for this caller at all — nothing metered, nothing to show.
@@ -112,7 +147,9 @@ export function meterFromStatus(body: unknown): MeterReading {
  * cannot be more than full.
  */
 function toMeter(reading: MeterReading): UsageMeter {
+  if (reading.kind === "loading") return { kind: "loading" };
   if (reading.kind === "unknown") return { kind: "unknown" };
+  if (reading.kind === "requires_sign_in") return { kind: "requires_sign_in" };
   if (reading.kind === "unlimited") return { kind: "unlimited" };
   const { used, limit } = reading;
   return {
@@ -125,6 +162,7 @@ function toMeter(reading: MeterReading): UsageMeter {
 }
 
 function planNameFor(scans: MeterReading, prep: MeterReading): string {
+  if (scans.kind === "loading" || prep.kind === "loading") return "";
   for (const r of [scans, prep]) {
     const plan = r.kind === "unlimited" ? r.plan : null;
     if (plan === "pro") return "Pro";
@@ -135,6 +173,7 @@ function planNameFor(scans: MeterReading, prep: MeterReading): string {
   // so metered-and-unnamed IS free, not unknown.
   if (scans.kind === "metered" || prep.kind === "metered") return "Free";
   if (scans.kind === "unlimited" || prep.kind === "unlimited") return "Unlimited";
+  // Signed out, or unreadable: naming a plan here would be inventing one.
   return "Free";
 }
 

@@ -57,16 +57,37 @@ function Pill({ tone, children }: { tone: "at" | "inf" | "pro" | "unknown"; chil
 }
 
 function Meter({ meter, name }: { meter: UsageMeter; name: string }) {
-  if (meter.kind === "unlimited") return <Pill tone="inf">∞ Unlimited</Pill>;
+  if (meter.kind === "unlimited") return <Pill tone="inf"><span aria-hidden>∞</span> Unlimited</Pill>;
   if (meter.kind === "included") return <Pill tone="inf">Included</Pill>;
   if (meter.kind === "pro_only") return <Pill tone="pro">Pro</Pill>;
+  if (meter.kind === "loading") {
+    // A neutral placeholder, never the outage chip: we have not asked yet.
+    return (
+      <span
+        aria-hidden
+        style={{ display: "inline-block", width: 64, height: 22, borderRadius: 999, background: "var(--surface2)" }}
+      />
+    );
+  }
+  if (meter.kind === "requires_sign_in") {
+    // ⚠️ NOT the outage chip. We asked and were told there is no account —
+    // a complete answer. Reachable on this page through an expired token,
+    // which `apiFetch` still sends.
+    return <Pill tone="unknown">Sign in to see</Pill>;
+  }
   if (meter.kind === "unknown") {
     // Not "unlimited". We asked and could not find out, and saying so is the
     // whole reason this state exists separately.
     return <Pill tone="unknown">Couldn&apos;t check</Pill>;
   }
 
-  const segments = meter.limit <= 12 ? meter.limit : 0;
+  /**
+   * Discrete pips only while they fit. At 16px plus a 3px gap, twelve of them
+   * are 225px in a right-aligned column — fine at 1440 and an overflow risk at
+   * 390. Free caps are 3 and 2, Pro is 30, so nothing real lands in between;
+   * the bar covers whatever does.
+   */
+  const segments = meter.limit <= 6 ? meter.limit : 0;
   return (
     <div style={{ textAlign: "right" }}>
       {meter.atLimit ? <Pill tone="at">All used</Pill> : null}
@@ -142,7 +163,7 @@ function Row({ row, onUpgrade }: { row: UsageRow; onUpgrade: (() => void) | null
         gap: 16,
         padding: "15px 2px",
         borderTop: "1px solid var(--border)",
-        background: atLimit ? "var(--amber-bg)" : undefined,
+        background: atLimit ? "var(--red-bg)" : undefined,
         borderRadius: atLimit ? "var(--radius)" : undefined,
         paddingLeft: atLimit ? 12 : 2,
         paddingRight: atLimit ? 12 : 2,
@@ -191,13 +212,21 @@ export default function UsageLimitsCard() {
       // Settled independently: one endpoint being down must not turn the other
       // row into "couldn't check" as well. `Promise.all` here is how the
       // library view once lost every table to one failing query.
+      // ⚠️ `ok` rides along. A 401 body carries no `enforced`, and reading it
+      // as a payload rendered "∞ Unlimited" on every row — a confident false
+      // claim, strictly worse than an absence.
+      const read = async (path: string) => {
+        const resp = await apiFetch(path);
+        const body = await resp.json().catch(() => null);
+        return meterFromStatus(body, resp.ok);
+      };
       const [a, b] = await Promise.allSettled([
-        apiFetch("/api/scan-limit-status").then((r) => r.json()),
-        apiFetch("/api/interview-prep/limit-status").then((r) => r.json()),
+        read("/api/scan-limit-status"),
+        read("/api/interview-prep/limit-status"),
       ]);
       if (cancelled) return;
-      setScans(a.status === "fulfilled" ? meterFromStatus(a.value) : { kind: "unknown" });
-      setPrep(b.status === "fulfilled" ? meterFromStatus(b.value) : { kind: "unknown" });
+      setScans(a.status === "fulfilled" ? a.value : { kind: "unknown" });
+      setPrep(b.status === "fulfilled" ? b.value : { kind: "unknown" });
     })();
     return () => {
       cancelled = true;
@@ -205,7 +234,7 @@ export default function UsageLimitsCard() {
   }, []);
 
   const loading = scans == null || prep == null;
-  const panel = buildUsagePanel(scans ?? { kind: "unknown" }, prep ?? { kind: "unknown" });
+  const panel = buildUsagePanel(scans ?? { kind: "loading" }, prep ?? { kind: "loading" });
 
   return (
     <section

@@ -428,7 +428,7 @@ export function CompanyReferrerPanel({
       ) : (
         <Card>
           <div style={{ padding: "28px 28px 22px" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--accent-ink)" }}>I can refer</div>
+            <span style={{ display: "inline-flex", alignItems: "center", alignSelf: "flex-start", background: "var(--accent-bg)", color: "var(--accent-ink)", borderRadius: 999, padding: "5px 11px", fontSize: 12, fontWeight: 700 }}>I can refer</span>
             <h2 style={{ margin: "10px 0 0", fontSize: 28, fontWeight: 800, letterSpacing: -0.8 }}>Sign up to refer candidates at your company</h2>
             <p style={{ margin: "10px 0 0", maxWidth: 560, color: "var(--muted)", lineHeight: 1.6 }}>
               Publish that you work there. Share a private link. People can ask you for a referral, and you decide who to submit.

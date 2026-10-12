@@ -61,6 +61,30 @@ describe("UsageLimitsCard", () => {
     expect(src).toContain("var(--on-fill)");
   });
 
+  /**
+   * ⚠️ MEASURED DEFECT. The first version passed `unknown` while the fetch was
+   * in flight, so every page load painted TWO "Couldn't check" chips before
+   * the real answer arrived — an outage flashed at every visitor. "Not asked
+   * yet" and "asked and failed" are different facts.
+   */
+  it("shows no outage chip and no plan claim on the first paint", () => {
+    global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
+    render(<UsageLimitsCard />);
+    expect(screen.queryByText(/Couldn't check/)).toBeNull();
+    expect(screen.queryByText("Free")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Upgrade to Pro" })).toBeNull();
+    expect(screen.getByText(/Checking your account/)).toBeInTheDocument();
+    /**
+     * ⚠️ Asserting the ABSENCE of the chip was not enough: a mutation that
+     * deleted the loading branch fell through to the metered renderer and drew
+     * "undefined / undefined", which contains no "Couldn't check" and passed.
+     * The requirement is that NO count is claimed, so pin that.
+     */
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByText(/undefined/)).toBeNull();
+    expect(screen.queryByText(/\d+\s*\/\s*\d+/)).toBeNull();
+  });
+
   it("names the plan it read", async () => {
     global.fetch = respondWith({ enforced: true, limit: 3, used: 1, remaining: 2 });
     render(<UsageLimitsCard />);

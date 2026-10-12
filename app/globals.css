@@ -290,7 +290,11 @@ textarea:not([class*="Mui"]):focus, select:not([class*="Mui"]):focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.22);
 }
-input::placeholder, textarea::placeholder { color: var(--dim); }
+/* ⚠️ --muted, not --dim. The hue/neutral tokens are each tuned against ONE
+   ground: --dim is readable on --surface and measures 4.3:1 once a field sits
+   on --surface2, which most of ours do. Found by the detector on /refer, not
+   by looking — the same compositing trap as the gate's green tag. */
+input::placeholder, textarea::placeholder { color: var(--muted); }
 textarea { resize: vertical; line-height: 1.6; }
 select { appearance: none; cursor: pointer; }
 select option { background: var(--surface); }
