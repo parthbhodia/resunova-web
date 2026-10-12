@@ -18,6 +18,7 @@
  */
 
 import { useEffect } from "react";
+import { reportUiCrash } from "@/lib/reportUiCrash";
 
 export default function GlobalError({
   error,
@@ -29,6 +30,7 @@ export default function GlobalError({
   useEffect(() => {
     // Also put it in the console, where anyone checking devtools will look.
     console.error("Resunova root error:", error);
+    void reportUiCrash(error);
   }, [error]);
 
   const detail = [error?.message, error?.digest && `digest ${error.digest}`]
