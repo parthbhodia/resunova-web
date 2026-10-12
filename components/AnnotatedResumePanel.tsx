@@ -428,6 +428,19 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/**
+ * The default for `gapFixTargetBulletIndices`, hoisted so it is the same array
+ * on every render.
+ *
+ * Only Tailor passes that prop, and it is a dependency of `updateMirrorPosition`.
+ * As a `= []` default it was a new array on every render of the Analyze
+ * preview, so the callback was new too, the layout effect keyed on it re-ran,
+ * and the `setMirrorBox` inside re-rendered the panel, which made another `[]`.
+ * React stops that at 50 nested updates (error #185), and every Analyze result
+ * fell through to the root error page.
+ */
+const NO_GAP_FIX_TARGETS: number[] = [];
+
 export default function AnnotatedResumePanel({
   bulletAnalysis,
   sectionFeedback,
@@ -466,7 +479,7 @@ export default function AnnotatedResumePanel({
   categoryAssignmentOpts,
   tailorGapFixHighlights = [],
   tailorAppliedHighlights = [],
-  gapFixTargetBulletIndices = [],
+  gapFixTargetBulletIndices = NO_GAP_FIX_TARGETS,
   tailorAppliedBulletIndices = new Set<number>(),
   appliedPillPairs = [],
   keywordHighlightTerms = [],
