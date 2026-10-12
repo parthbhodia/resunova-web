@@ -4,12 +4,16 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-shell/AppSidebar";
 
 /**
- * Templates is a TOP-LEVEL nav item. Until now the only route to templates
- * was the Template Builder sub-item inside the collapsed Resume Builder
- * drawer — two clicks deep and invisible at rest — and users reported they
- * could not find the templates at all. One click, from any account state:
- * the gallery is public like the builder it leads into, so a guest click
- * must navigate, never bounce to sign-in.
+ * Templates is a TOP-LEVEL nav item. The only route to templates used to be
+ * the Template Builder sub-item inside the collapsed Resume Builder drawer,
+ * two clicks deep and invisible at rest, and users reported they could not
+ * find the templates at all. One click, from any account state: the gallery
+ * is public like the builder it leads into, so a guest click must navigate,
+ * never bounce to sign-in.
+ *
+ * The drawer that caused this is gone entirely now (see `navRail.test.tsx`),
+ * which makes these four cheaper to hold rather than redundant: a rail item
+ * is still something a later edit can gate, rename or point elsewhere.
  */
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
@@ -33,10 +37,10 @@ beforeAll(() => {
 
 beforeEach(() => push.mockClear());
 
-function renderSidebar(opts: { open?: boolean; anonMode?: boolean; onTemplatesPage?: boolean } = {}) {
+function renderSidebar(opts: { anonMode?: boolean; onTemplatesPage?: boolean } = {}) {
   const onSignIn = vi.fn();
   render(
-    <SidebarProvider defaultOpen={opts.open ?? true}>
+    <SidebarProvider>
       <AppSidebar
         active="home"
         onSwitchView={vi.fn()}
@@ -44,16 +48,13 @@ function renderSidebar(opts: { open?: boolean; anonMode?: boolean; onTemplatesPa
         onTemplatesPage={opts.onTemplatesPage ?? false}
         onInterviewPrepPage={false}
         builderActive={false}
-        builderOpen={false}
-        onBuilderOpenChange={vi.fn()}
         navBuilderSubflow="tailor"
         advisorAllowed={false}
         isUmbc={false}
         theme="light"
         onToggleTheme={vi.fn()}
         userInitial="T"
-        historyOpen={false}
-        onHistoryOpenChange={vi.fn()}
+        onHistoryOpen={vi.fn()}
         onGoBuilderFlow={vi.fn()}
         onSignOut={vi.fn()}
         anonMode={opts.anonMode ?? false}
@@ -78,16 +79,22 @@ describe("the Templates nav item", () => {
     expect(onSignIn).not.toHaveBeenCalled();
   });
 
-  it("keeps its accessible name in the collapsed icon rail", () => {
-    // Icon-only items with hover-only tooltips have NO accessible name — the
-    // "nobody sees it" bug for a screen-reader user, fixed once in #264.
-    renderSidebar({ open: false });
-    expect(screen.getByRole("button", { name: "Templates" })).toBeInTheDocument();
+  it("carries its accessible name from visible text, with no icon-only state", () => {
+    // Icon-only items with hover-only tooltips have NO accessible name: the
+    // "nobody sees it" bug for a screen-reader user, patched by hand in #264
+    // and structural now that the rail has no state in which labels hide.
+    renderSidebar();
+    const btn = screen.getByRole("button", { name: "Templates" });
+    expect(btn.textContent).toContain("Templates");
+    expect(btn.hasAttribute("aria-label")).toBe(false);
   });
 
   it("does not light Home while on the templates page", () => {
-    // Two active items at once is the drift the exclusion chain prevents.
-    // base-nova marks active with a present-but-empty data-active attribute.
+    // Two active items at once is the drift `railActiveKey` now prevents by
+    // returning at most one key, where this used to be an exclusion chain
+    // repeated on every item. base-nova marks active with a present-but-empty
+    // data-active attribute, so a `getAttribute === "true"` read passes for
+    // the wrong reason.
     renderSidebar({ onTemplatesPage: true });
     const templates = screen.getByRole("button", { name: "Templates" });
     expect(templates.hasAttribute("data-active")).toBe(true);

@@ -212,26 +212,25 @@ export const NAV_ICONS = {
       />
     </svg>
   ),
-} satisfies Record<string, ReactNode>;
-
-export const BUILDER_SUBFLOW_ICONS = {
-  tailor: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <rect x="2.5" y="5" width="11" height="8.5" rx="1.5" stroke="currentColor" strokeWidth="1.35" />
+  // A rising trend line, not a crown. The reference's bare crown carries no
+  // label and no accessible name; this one sits above the word "Upgrade" and
+  // says what it buys rather than decorating a tier.
+  upgrade: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path
-        d="M5.5 5V4a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 0110.5 4v1"
+        d="M2.5 10.5L6 7l2.5 2.5L13.5 4.5"
         stroke="currentColor"
-        strokeWidth="1.35"
+        strokeWidth="1.4"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <path d="M8 7.4l.45.95.95.45-.95.45L8 10.2l-.45-.95-.95-.45.95-.45L8 7.4z" fill="currentColor" />
-    </svg>
-  ),
-  template: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <rect x="2.5" y="2.5" width="11" height="11" rx="1.6" stroke="currentColor" strokeWidth="1.35" />
-      <path d="M2.5 6h11M6.5 6v7.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-      <path d="M8.7 8.6h2.4M8.7 10.8h2.4" stroke="currentColor" strokeWidth="1.15" strokeLinecap="round" />
+      <path
+        d="M10.5 4.5h3v3"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   ),
 } satisfies Record<string, ReactNode>;

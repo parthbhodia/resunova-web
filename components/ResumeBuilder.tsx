@@ -113,7 +113,6 @@ import {
   LandingPreviewStyles,
   VariantC,
 } from "@/components/LandingFeatureShowcase";
-import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { ScanFeedbackToast, useScanToast } from "@/components/ScanFeedbackToast";
 import {
   FeedbackToastCard,
@@ -485,7 +484,6 @@ export default function ResumeBuilder({
   const [generating, setGenerating] = useState(false);
   const [statusMsg,  setStatusMsg]  = useState("");
   const [result,     setResult]     = useState<GenerationResult | null>(() => builderSession0?.result ?? null);
-  const appShellSidebar = useAppShellSidebar();
   const { scanMeta, handleScanResponse, handleScanError, clearScanMeta } = useScanToast();
   const saveStatus = useTailorSaveStatus();
   // Tailoring intensity (honest | aggressive). null = user never chose — the
@@ -1520,7 +1518,6 @@ export default function ResumeBuilder({
     const initialStructured = tailorStructuredResume && profile === (structuredUpload?.profile ?? "").trim()
       ? applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides) : null;
     setAnalyzing(true);
-    appShellSidebar?.collapseSidebar();
     setAnalyzeError(null);
     setError(null);
     saveStatus.resetForNewRun();
@@ -1618,7 +1615,7 @@ export default function ResumeBuilder({
     } finally {
       setAnalyzing(false);
     }
-  }, [jd, candidateProfile, company, role, model, user?.id, tailoringMode, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar, saveStatus, persistTailorMatch]);
+  }, [jd, candidateProfile, company, role, model, user?.id, tailoringMode, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, saveStatus, persistTailorMatch]);
   useEffect(() => { handleAnalyzeRef.current = () => { void handleAnalyze(); }; }, [handleAnalyze]);
 
   /** Re-run JD match ratings on updated plain text (no LaTeX / no ATS folder).

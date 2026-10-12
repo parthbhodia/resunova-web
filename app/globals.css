@@ -816,7 +816,7 @@ select option { background: var(--surface); }
   --popover: var(--surface);
   --popover-foreground: var(--text);
   --primary: var(--accent);
-  --primary-foreground: #ffffff;
+  --primary-foreground: var(--on-fill);
   --secondary: var(--surface2);
   --secondary-foreground: var(--text);
   --muted-foreground: var(--muted);
@@ -827,7 +827,7 @@ select option { background: var(--surface); }
   --sidebar: var(--surface);
   --sidebar-foreground: var(--text);
   --sidebar-primary: var(--accent);
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary-foreground: var(--on-fill);
   --sidebar-accent: var(--surface2);
   --sidebar-accent-foreground: var(--text);
   --sidebar-border: var(--border);
