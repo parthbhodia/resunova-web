@@ -352,7 +352,6 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
 const PUBLIC_ROUTES = new Set<string>([
   "/editor-preview",
   "/profile-mockup",
-  "/refer-mockup",
   "/landing-preview",
   "/tailor-preview",
   "/terms",

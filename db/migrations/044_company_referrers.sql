@@ -38,7 +38,10 @@ create policy "open company referrers are publicly readable"
   on public.company_referrers
   for select using (open_to_refer = true);
 
-grant select on public.company_referrers to anon, authenticated;
+grant select on public.company_referrers to authenticated;
+grant select (
+  id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at
+) on public.company_referrers to anon;
 grant insert, update, delete on public.company_referrers to authenticated;
 
 create table if not exists public.company_referral_requests (

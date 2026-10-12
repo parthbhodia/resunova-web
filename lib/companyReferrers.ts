@@ -344,14 +344,14 @@ export async function upsertMyReferrerProfile(input: {
   }
 }
 
-export async function fetchMyReferralRequests(): Promise<CompanyReferralRequest[]> {
+export async function fetchMyReferralRequests(referrerId?: string): Promise<CompanyReferralRequest[]> {
   try {
-    const profile = await fetchMyReferrerProfile();
-    if (!profile) return [];
+    const id = referrerId ?? (await fetchMyReferrerProfile())?.id;
+    if (!id) return [];
     const { data, error } = await getSupabaseClient()
       .from("company_referral_requests")
       .select(REQUEST_SELECT)
-      .eq("referrer_id", profile.id)
+      .eq("referrer_id", id)
       .order("created_at", { ascending: false });
     if (error) {
       console.warn("[company_referral_requests] fetch:", error.message);

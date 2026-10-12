@@ -12,7 +12,7 @@ Schema of record: `db/migrations/044_company_referrers.sql`.
 
 | Actor | What they do |
 |---|---|
-| Employee (referrer) | Sign up once, share a link, pause, move inbox statuses, log someone already referred |
+| Employee (referrer) | Sign up once, share a link, pause, move inbox statuses |
 | Candidate | Open `/refer/?s=<slug>` or search a company, send name / email / role / pitch |
 | Unsigned visitor | Can search and ask. Sign-in is optional for the ask form |
 
@@ -24,7 +24,7 @@ Schema of record: `db/migrations/044_company_referrers.sql`.
 
 `/refer` is an AuthGate public route, same family as `/jobs` and `/r/`.
 
-Later, not v1: a strip on a job page (“2 employees at Acme are open”). Design preview lives at `/refer-mockup` and is not the product.
+Later, not v1: a strip on a job page (“2 employees at Acme are open”).
 
 On the same Profile tab, outreach stays **below** the desk:
 
@@ -56,7 +56,7 @@ Work email is **not** stored. A public `SELECT` policy would leak it. Work-email
 | `candidate_user_id` | Optional. Set if the asker was signed in |
 | `candidate_name`, `candidate_email`, `candidate_linkedin` | How the employee contacts them |
 | `role`, `notes` | Role they want + 3-line pitch |
-| `source` | `request` (they asked) or `submitted` (employee logged an outside referral) |
+| `source` | `request` for asks from `/refer`. `submitted` is unused in the UI |
 | `status` | `requested` → `reviewing` → `referred` \| `declined` |
 
 Monthly counts on the desk are computed in the client from this inbox. No slot cap in v1.
@@ -69,7 +69,7 @@ Client talks to Supabase with RLS. No new API route in v1. Same pattern as `lib/
 |---|---|
 | Read open referrer profiles | Anyone (`anon` + `authenticated`) |
 | Write own referrer profile | Owner (`auth.uid() = user_id`) |
-| Insert a request | Anyone, if that referrer is open **or** the inserter is the owner (log already-referred). `candidate_user_id` must be null or `auth.uid()`. |
+| Insert a request | Anyone, if that referrer is open. `candidate_user_id` must be null or `auth.uid()`. |
 | Read requests | Referrer, or the candidate if `candidate_user_id` matches |
 | Update request | Referrer only, and a trigger allows **status** only |
 | Delete request | Referrer only |
@@ -98,29 +98,27 @@ flowchart LR
   S --> L
   L -->|ask| R[company_referral_requests]
   E -->|inbox statuses| R
-  E -->|I already referred| R
 ```
 
 1. Employee fills name, company, title, optional LinkedIn, roles they can refer for, then **Sign up as a referrer**.
-2. Desk shows identity card (Open / Paused), private share link, inbox, this-month counts, “I already referred someone.”
+2. Desk shows identity card (Open / Paused), private share link, inbox, this-month counts.
 3. Candidate opens the link, submits the ask. Copy on the form: Resunova does not submit into the company’s ATS.
-4. Employee moves status in the inbox, or logs a candidate they already submitted outside this page.
+4. Employee moves status in the inbox.
 
 ## File map
 
 | Piece | Path |
 |---|---|
-| Schema | `db/migrations/044_company_referrers.sql`, `045_company_referrer_guards.sql` |
+| Schema | `db/migrations/044_company_referrers.sql`, `045_company_referrer_guards.sql`, `046_company_referrer_function_grants.sql` |
 | Client + RLS helpers | `lib/companyReferrers.ts` |
 | Signed-in desk | `components/profile/CompanyReferrerPanel.tsx` |
 | Profile tab host | `components/profile/ProfileHubPanels.tsx` (`ReferralsPanel`) |
 | Public ask + search | `app/refer/page.tsx` |
 | Public route | `components/AuthGate.tsx` (`/refer`) |
-| Design preview | `app/refer-mockup/page.tsx` |
 
 ## In v1 / not in v1
 
-**In:** signup, edit profile after signup, roles, open/paused, private share link, inbox statuses, remove a request, log already-referred, company directory of open employees, duplicate-email and inbox-cap guards.
+**In:** signup, edit profile after signup, roles, open/paused, private share link, inbox statuses, remove a request, company directory of open employees, duplicate-email and inbox-cap guards.
 
 **Not:** ATS submit, cash or Pro-day rewards, work-email verification, auto alumni matching, showing paused people in search, job-page strip, monthly slot caps, email notify on a new ask, more than one company per account.
 

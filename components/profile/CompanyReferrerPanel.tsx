@@ -7,7 +7,6 @@ import {
   REFERRAL_REQUEST_STATUS_TONES,
   REFERRAL_REQUEST_STATUSES,
   REFERRER_LIMITS,
-  createReferralRequest,
   deleteReferralRequest,
   fetchMyReferralRequests,
   fetchMyReferrerProfile,
@@ -169,9 +168,6 @@ export function CompanyReferrerPanel({
     bio: "",
     openToRefer: true,
   });
-  const [candidate, setCandidate] = useState({ name: "", role: "", email: "" });
-  const [addingCandidate, setAddingCandidate] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -187,7 +183,7 @@ export function CompanyReferrerPanel({
           bio: next.bio ?? "",
           openToRefer: next.openToRefer,
         });
-        setRequests(await fetchMyReferralRequests());
+        setRequests(await fetchMyReferralRequests(next.id));
       } else {
         setForm((prev) => ({
           ...prev,
@@ -217,8 +213,15 @@ export function CompanyReferrerPanel({
     if (!profile) return;
     setPausing(true);
     setError(null);
-    const nextOpen = !form.openToRefer;
-    const saved = await upsertMyReferrerProfile({ ...form, openToRefer: nextOpen });
+    const nextOpen = !profile.openToRefer;
+    const saved = await upsertMyReferrerProfile({
+      displayName: profile.displayName,
+      company: profile.company,
+      title: profile.title,
+      linkedin: profile.linkedin ?? "",
+      bio: profile.bio ?? "",
+      openToRefer: nextOpen,
+    });
     setPausing(false);
     if (!saved) {
       setError("Could not update request availability.");
@@ -226,7 +229,7 @@ export function CompanyReferrerPanel({
     }
     setForm((prev) => ({ ...prev, openToRefer: nextOpen }));
     setProfile(saved);
-  }, [form, profile]);
+  }, [profile]);
 
   const shareUrl = profile
     ? `${typeof window !== "undefined" ? window.location.origin : ""}${referrerPublicPath(profile.slug)}`
@@ -243,28 +246,16 @@ export function CompanyReferrerPanel({
     }
   }, [shareUrl]);
 
-  const onAddCandidate = useCallback(async () => {
-    if (!profile) return;
-    setAddingCandidate(true);
-    setError(null);
-    const { request, error: writeError } = await createReferralRequest({
-      referrerId: profile.id,
-      candidateName: candidate.name,
-      candidateEmail: candidate.email,
-      role: candidate.role,
-      source: "submitted",
-    });
-    setAddingCandidate(false);
-    if (!request) {
-      setError(writeError ?? "Could not log this referral. Add the candidate name and role.");
-      return;
+  const removeRequest = useCallback(async (row: CompanyReferralRequest) => {
+    setRequests((prev) => prev.filter((item) => item.id !== row.id));
+    const ok = await deleteReferralRequest(row.id);
+    if (!ok) {
+      setRequests((prev) => [row, ...prev]);
+      setError("Could not remove that request.");
     }
-    setRequests((prev) => [request, ...prev]);
-    setCandidate({ name: "", role: "", email: "" });
-  }, [candidate, profile]);
+  }, []);
 
   const incoming = useMemo(() => requests.filter((row) => row.source === "request"), [requests]);
-  const logged = useMemo(() => requests.filter((row) => row.source === "submitted"), [requests]);
   const month = useMemo(() => referralRequestPipeline(referralRequestsThisMonth(requests)), [requests]);
   const openCount = useMemo(() => openRequestCount(requests), [requests]);
   const shownName = profile?.displayName || form.displayName || displayName || "Your profile";
@@ -285,16 +276,20 @@ export function CompanyReferrerPanel({
           <div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ fontSize: 20, fontWeight: 800 }}>{shownName}</div>
-              {profile ? (
+              {loading ? (
+                <Pill>Loading</Pill>
+              ) : profile ? (
                 <Pill tone={profile.openToRefer ? "green" : "neutral"}>{profile.openToRefer ? "Open" : "Paused"}</Pill>
               ) : (
                 <Pill>Not signed up</Pill>
               )}
             </div>
             <div style={{ marginTop: 6, color: "#6b7280", fontSize: 14 }}>
-              {profile
-                ? `${profile.title} at ${profile.company}`
-                : "Not signed up as a referrer yet"}
+              {loading
+                ? "Loading your referrer profile..."
+                : profile
+                  ? `${profile.title} at ${profile.company}`
+                  : "Not signed up as a referrer yet"}
             </div>
             {profile?.bio ? (
               <div style={{ marginTop: 6, fontSize: 13, color: "#4b5563" }}>Can refer for {profile.bio}</div>
@@ -308,11 +303,7 @@ export function CompanyReferrerPanel({
         </div>
       </Card>
 
-      {loading ? (
-        <Card>
-          <p style={{ margin: 0, padding: 26, fontSize: 14, color: "#6b7280" }}>Loading your referrer profile...</p>
-        </Card>
-      ) : profile ? (
+      {loading ? null : profile ? (
         <>
           <Card>
             <div style={{ padding: 22 }}>
@@ -380,14 +371,7 @@ export function CompanyReferrerPanel({
                         setError("Could not update that request status.");
                       }
                     }}
-                    onRemove={async () => {
-                      setRequests((prev) => prev.filter((item) => item.id !== row.id));
-                      const ok = await deleteReferralRequest(row.id);
-                      if (!ok) {
-                        setRequests((prev) => [row, ...prev]);
-                        setError("Could not remove that request.");
-                      }
-                    }}
+                    onRemove={() => void removeRequest(row)}
                   />
                 ))}
               </div>
@@ -406,26 +390,6 @@ export function CompanyReferrerPanel({
                       <div style={{ fontSize: 32, fontWeight: 800, color: "#2563eb" }}>{month.referred}</div>
                       <div style={{ fontSize: 13, color: "#6b7280" }}>Referred</div>
                     </div>
-                  </div>
-                </div>
-              </Card>
-              <Card>
-                <div style={{ padding: 22 }}>
-                  <div style={{ fontSize: 17, fontWeight: 800 }}>I already referred someone</div>
-                  <p style={{ margin: "6px 0 14px", fontSize: 14, color: "#6b7280" }}>Log a candidate you submitted outside this page.</p>
-                  <div style={{ display: "grid", gap: 10 }}>
-                    <input aria-label="Candidate name" placeholder="Candidate name" maxLength={REFERRER_LIMITS.name} value={candidate.name} onChange={(e) => setCandidate({ ...candidate, name: e.target.value })} style={fieldStyle} />
-                    <input aria-label="Role they want" placeholder="Role" maxLength={REFERRER_LIMITS.role} value={candidate.role} onChange={(e) => setCandidate({ ...candidate, role: e.target.value })} style={fieldStyle} />
-                    <input aria-label="Candidate email" placeholder="Email (optional)" maxLength={REFERRER_LIMITS.email} value={candidate.email} onChange={(e) => setCandidate({ ...candidate, email: e.target.value })} style={fieldStyle} />
-                    <GhostButton onClick={() => void onAddCandidate()} disabled={addingCandidate}>
-                      {addingCandidate ? "Saving..." : "Log referral"}
-                    </GhostButton>
-                    {logged.map((row) => (
-                      <div key={row.id} style={{ paddingTop: 8, borderTop: "1px solid rgba(15,23,42,0.06)" }}>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>{row.candidateName}</div>
-                        <div style={{ fontSize: 13, color: "#6b7280" }}>{row.role} · {REFERRAL_REQUEST_STATUS_LABELS[row.status]}</div>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </Card>
@@ -504,12 +468,39 @@ function RequestCard({
           ))}
         </select>
       </label>
+      <RemoveRequestButton onRemove={onRemove} />
+    </div>
+  );
+}
+
+function RemoveRequestButton({ onRemove }: { onRemove: () => void | Promise<void> }) {
+  const [confirming, setConfirming] = useState(false);
+  if (!confirming) {
+    return (
       <button
         type="button"
-        onClick={() => void onRemove()}
+        onClick={() => setConfirming(true)}
         style={{ marginTop: 8, border: "none", background: "none", color: "#9ca3af", fontWeight: 700, cursor: "pointer", padding: 0 }}
       >
         Remove
+      </button>
+    );
+  }
+  return (
+    <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+      <button
+        type="button"
+        onClick={() => { setConfirming(false); void onRemove(); }}
+        style={{ border: "none", background: "none", color: "#dc2626", fontWeight: 800, cursor: "pointer", padding: 0 }}
+      >
+        Confirm remove
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirming(false)}
+        style={{ border: "none", background: "none", color: "#6b7280", fontWeight: 700, cursor: "pointer", padding: 0 }}
+      >
+        Keep
       </button>
     </div>
   );

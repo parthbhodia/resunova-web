@@ -81,6 +81,9 @@ describe("CompanyReferrerPanel", () => {
     expect(screen.getByRole("button", { name: "Pause requests" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save referrer profile" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(screen.getByRole("button", { name: "Confirm remove" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Keep" })).toBeInTheDocument();
   });
 
   it("saves a new referrer profile", async () => {
