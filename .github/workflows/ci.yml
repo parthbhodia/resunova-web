@@ -4,8 +4,10 @@ name: CI
 # and staging.yml only covers PRs into staging. A type error or a failing test
 # reached production and the first signal was a red deploy, after the merge.
 #
-# Note this only REPORTS unless "require status checks to pass before merging"
-# is enabled for main in the repository settings.
+# main requires these two checks before a pull request can merge:
+# "Typecheck, tests, lint" and "Build". Renaming either job also renames the
+# required check, and the pull request will sit pending until the protection
+# rule is updated to match.
 
 # Feature branches are listed under `push` as well as `pull_request` on
 # purpose. Twice in one session GitHub did not deliver the pull_request event
