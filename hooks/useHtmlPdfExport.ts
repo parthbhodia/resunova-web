@@ -2,6 +2,7 @@
 import { useCallback, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
 import { trackEvent } from "@/lib/analytics";
+import { saveBlobAsDownload } from "@/lib/saveBlobDownload";
 
 /**
  * Strip Analyze annotation chrome from a cloned DOM before PDF export.
@@ -208,12 +209,7 @@ export function useHtmlPdfExport() {
       // letters, the SEO examples — goes through this hook, so one call covers
       // the whole download funnel and a seventh surface inherits it free.
       trackEvent("download", { kind: "resume_pdf", bytes: blob.size });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      saveBlobAsDownload(blob, filename);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "PDF export failed");
     } finally {

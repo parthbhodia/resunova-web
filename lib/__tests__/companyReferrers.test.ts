@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isUsableEmail,
+  joinReferrerSentences,
   makeReferrerSlug,
   mapReferrerRow,
   mapRequestRow,
@@ -130,5 +131,39 @@ describe("companyReferrers helpers", () => {
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-01T00:00:00Z",
     }).userId).toBe("");
+  });
+});
+
+/**
+ * `company_referrers.title` is `text not null default ''` (migration 044), so a
+ * row seeded outside the signup path carries an empty title. Every template
+ * that interpolated it rendered an orphan leading period, or a dangling
+ * " at Acme" with nothing in front of the "at".
+ *
+ * ⚠️ MAIN'S REWRITE REPRODUCED THIS, which is why the rule is one helper and
+ * not a patch per call site: the defect survived a full rewrite of the feature
+ * onto MUI because each template re-derived the join itself.
+ */
+describe("joinReferrerSentences", () => {
+  it("drops an empty title rather than leading with its period", () => {
+    expect(joinReferrerSentences("", "Backend, intern")).toBe("Backend, intern");
+  });
+
+  it("joins a real title and bio into two sentences", () => {
+    expect(joinReferrerSentences("Software Engineer", "Backend, intern")).toBe(
+      "Software Engineer. Backend, intern",
+    );
+  });
+
+  it("keeps the title alone when there is no bio", () => {
+    expect(joinReferrerSentences("Software Engineer", null)).toBe("Software Engineer");
+  });
+
+  it("returns nothing at all when the row carries neither", () => {
+    expect(joinReferrerSentences("", undefined)).toBe("");
+  });
+
+  it("ignores whitespace-only values, which a text-not-null column allows", () => {
+    expect(joinReferrerSentences("   ", "Backend")).toBe("Backend");
   });
 });

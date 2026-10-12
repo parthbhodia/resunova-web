@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { FS, FW } from "@/lib/typography";
 
 const countStyle: CSSProperties = {
   minWidth: 22,
@@ -7,8 +8,8 @@ const countStyle: CSSProperties = {
   borderRadius: 999,
   background: "var(--accent-bg)",
   color: "var(--accent-ink)",
-  fontSize: 12,
-  fontWeight: 800,
+  fontSize: FS.small,
+  fontWeight: FW.extrabold,
   display: "inline-grid",
   placeItems: "center",
   lineHeight: 1,

@@ -8,6 +8,13 @@ import type { GenerationResult, SSEEvent, RatingsData, DiffLine, Source, ChangeR
 import { normalizeConfirmedFacts, type ConfirmedFact } from "@/lib/tailorConfirmFacts";
 import { buildResumeFileStem } from "@/lib/resumeFileName";
 import { saveTailorMatchToLibrary, tailorMatchFolder } from "@/lib/tailorAnalyzeLibrary";
+import { loadBuilderDraft as loadDraft, patchBuilderDraft as saveDraft } from "@/lib/builderDraft";
+import { saveBlobAsDownload } from "@/lib/saveBlobDownload";
+import { emptyGenerationResult, type TailorJobFields, type TailorJobTarget } from "@/lib/tailorJobTarget";
+import { tailorJobIsCurrent, useTailorWorkspaceStore } from "@/store/tailorWorkspaceStore";
+import { useTailorJobSwitcher } from "@/hooks/useTailorJobSwitcher";
+import { Field, InfoTip, StepCard } from "@/components/builder/BuilderFields";
+import TailorJobTabs from "@/components/tailor/TailorJobTabs";
 import { resolveIntentJobRedirect } from "@/lib/tailorIntentRedirect";
 import { accentCardBorder } from "@/lib/accentCardBorder";
 import { getBaseResumeBanner } from "@/lib/libraryFolderLabel";
@@ -227,11 +234,7 @@ function extractJdKeywords(jdText: string): string[] {
   return [...seen.values()].sort((a, b) => b.length - a.length);
 }
 
-const EMPTY_RESULT: GenerationResult = {
-  folder: null, baseFolder: null, baseLoaded: null, texPath: null, pdfUrl: null,
-  ratings: null, diff: [], adds: 0, removes: 0, rationales: [],
-  sources: [], latexPreview: "", status: "",
-};
+const EMPTY_RESULT: GenerationResult = emptyGenerationResult();
 
 /** Resolved PDF URL + folder after a successful `generate()` stream (for save/download UX). */
 type GeneratePdfOutcome = { pdfUrl: string; folder: string | null };
@@ -242,57 +245,7 @@ async function fetchPdfAsDownload(url: string, downloadBaseName: string): Promis
   if (!res.ok) throw new Error(`PDF fetch failed (${res.status})`);
   const blob = await res.blob();
   const safe = (downloadBaseName || "resume").replace(/[^\w.-]+/g, "_").slice(0, 80) || "resume";
-  const a = document.createElement("a");
-  const objectUrl = URL.createObjectURL(blob);
-  a.href = objectUrl;
-  a.download = `${safe}.pdf`;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
-}
-
-async function downloadBlobFromApiResponse(resp: Response, fallbackFilename: string): Promise<void> {
-  const disposition = resp.headers.get("Content-Disposition") ?? "";
-  const match = disposition.match(/filename="([^"]+)"/);
-  const filename = match?.[1] ?? fallbackFilename;
-  const blob = await resp.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 4000);
-}
-
-const SS_KEY = "rn_builder_draft";
-const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-function loadDraft(): Record<string, unknown> {
-  try {
-    const raw = localStorage.getItem(SS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    // Expire drafts older than TTL
-    if (typeof parsed._ts === "number" && Date.now() - parsed._ts > DRAFT_TTL_MS) {
-      localStorage.removeItem(SS_KEY);
-      return {};
-    }
-    return parsed;
-  } catch { return {}; }
-}
-function saveDraft(patch: Record<string, unknown>) {
-  try {
-    const prev = loadDraft();
-    localStorage.setItem(SS_KEY, JSON.stringify({ ...prev, ...patch, _ts: Date.now() }));
-  } catch { /* quota / SSR */ }
-}
-function clearDraft() {
-  try { localStorage.removeItem(SS_KEY); } catch { /* SSR */ }
+  saveBlobAsDownload(blob, `${safe}.pdf`);
 }
 
 const BUILDER_SESSION_KEY = "builderSession";
@@ -434,18 +387,14 @@ function parseBuilderSessionFromDraft(d: Record<string, unknown>): BuilderSessio
 }
 
 function saveBuilderSessionToDraft(session: BuilderSessionV1) {
-  try {
-    const prev = loadDraft();
-    localStorage.setItem(SS_KEY, JSON.stringify({ ...prev, [BUILDER_SESSION_KEY]: session, _ts: Date.now() }));
-  } catch {
-    try {
-      const slim: BuilderSessionV1 = {
-        ...session,
-        result: session.result ? { ...session.result, latexPreview: "" } : null,
-      };
-      const prev = loadDraft();
-      localStorage.setItem(SS_KEY, JSON.stringify({ ...prev, [BUILDER_SESSION_KEY]: slim, _ts: Date.now() }));
-    } catch { /* quota */ }
+  const ok = saveDraft({ [BUILDER_SESSION_KEY]: session });
+  if (ok) return;
+  const slim: BuilderSessionV1 = {
+    ...session,
+    result: session.result ? { ...session.result, latexPreview: "" } : null,
+  };
+  if (!saveDraft({ [BUILDER_SESSION_KEY]: slim })) {
+    console.warn("Could not save the builder session in this browser.");
   }
 }
 
@@ -478,10 +427,30 @@ export default function ResumeBuilder({
     return fromSession;
   });
   // Wrap setters to also persist to sessionStorage
-  const setCompany = (v: string) => { setCompanyRaw(v); saveDraft({ company: v }); };
-  const setRole    = (v: string) => { setRoleRaw(v);    saveDraft({ role: v }); };
-  const setJd      = (v: string) => { setJdRaw(v);      saveDraft({ jd: v }); };
-  const setJobUrl  = (v: string) => { setJobUrlRaw(v);  saveDraft({ jobUrl: v }); };
+  const setCompany = (v: string) => {
+    setCompanyRaw(v);
+    saveDraft({ company: v });
+    const id = useTailorWorkspaceStore.getState().activeId;
+    if (id) useTailorWorkspaceStore.getState().patch(id, { company: v });
+  };
+  const setRole = (v: string) => {
+    setRoleRaw(v);
+    saveDraft({ role: v });
+    const id = useTailorWorkspaceStore.getState().activeId;
+    if (id) useTailorWorkspaceStore.getState().patch(id, { role: v });
+  };
+  const setJd = (v: string) => {
+    setJdRaw(v);
+    saveDraft({ jd: v });
+    const id = useTailorWorkspaceStore.getState().activeId;
+    if (id) useTailorWorkspaceStore.getState().patch(id, { jd: v });
+  };
+  const setJobUrl = (v: string) => {
+    setJobUrlRaw(v);
+    saveDraft({ jobUrl: v });
+    const id = useTailorWorkspaceStore.getState().activeId;
+    if (id) useTailorWorkspaceStore.getState().patch(id, { jobUrl: v });
+  };
 
   const [generating, setGenerating] = useState(false);
   const [statusMsg,  setStatusMsg]  = useState("");
@@ -691,25 +660,6 @@ export default function ResumeBuilder({
     bulletExcerpt: string;
   } | null>(null);
 
-  const tryAnotherJob = useCallback(() => {
-    resetActiveTailorWork();
-    clearSuggestionsState();
-    setError(null);
-    setGapFixError(null);
-    setFixCollisionNotice(null);
-    setResult(null);
-    setPreview("");
-    setJd("");
-    setCompany("");
-    setRole("");
-    setAtsResult(null);
-    setAtsError(null);
-    setTailorSidebarVisible(true);
-    setMatchSidebarCollapsed(false);
-    saveStatus.resetForNewRun();
-    clearDraft();
-  }, [clearSuggestionsState, resetActiveTailorWork, saveStatus]);
-
   /** Clear the loaded résumé and result while preserving the current job.
    *  This lets a user compare another résumé against the same JD without
    *  re-pasting company, role, and job description. */
@@ -838,6 +788,93 @@ export default function ResumeBuilder({
   // Phase 2 — Inline bullet editor state
   const [bulletEditorOpen, setBulletEditorOpen] = useState(false);
   const [bulletEdits, setBulletEdits] = useState<Map<number, string>>(new Map());
+  /** requirementConcepts from the analyze response. Kept so the scoreboard can
+   *  hand them back to /api/tailor/score-preview and recount coverage without
+   *  another extraction: that round-trip is what makes the "live" label true. */
+  const [requirementConcepts, setRequirementConcepts] = useState<readonly unknown[]>([]);
+
+  const readTailorJobFields = (): TailorJobFields => ({
+    company,
+    role,
+    jd,
+    jobUrl,
+    result,
+    preview,
+    jdKeywords,
+    analyzeError,
+    error,
+    requirementConcepts,
+    tailorBulletAnalysis,
+    tailorLineOverrides,
+    tailorAppliedBulletIndices: [...tailorAppliedBulletIndices],
+    appliedPillPairs,
+    tailorFieldOverrides,
+    tailorHeadlineOverride,
+    tailorRewriteEdits,
+    addressedGaps: [...addressedGaps],
+    addressedGapActions,
+    scoreStale,
+    suggestResearchDigest,
+    suggestResearchQueries,
+    suggestResearchSources,
+    resultsActiveTab,
+    bulletEdits: [...bulletEdits.entries()],
+  });
+
+  const applyTailorJob = (job: TailorJobTarget) => {
+    const work = job.work;
+    setCompany(work.company);
+    setRole(work.role);
+    setJd(work.jd);
+    setJobUrl(work.jobUrl);
+    setResult(work.result);
+    setPreview(work.preview);
+    setJdKeywords(work.jdKeywords);
+    setAnalyzeError(work.analyzeError);
+    setError(work.error);
+    setRequirementConcepts(work.requirementConcepts);
+    setTailorBulletAnalysis(work.tailorBulletAnalysis);
+    setTailorLineOverrides(work.tailorLineOverrides);
+    setTailorAppliedBulletIndices(new Set(work.tailorAppliedBulletIndices));
+    setAppliedPillPairs(work.appliedPillPairs);
+    setTailorFieldOverrides(work.tailorFieldOverrides);
+    setTailorHeadlineOverride(work.tailorHeadlineOverride);
+    setTailorRewriteEdits(work.tailorRewriteEdits);
+    setAddressedGaps(new Set(work.addressedGaps));
+    setAddressedGapActions(work.addressedGapActions);
+    setScoreStale(work.scoreStale);
+    setSuggestResearchDigest(work.suggestResearchDigest);
+    setSuggestResearchQueries(work.suggestResearchQueries);
+    setSuggestResearchSources(work.suggestResearchSources);
+    setResultsActiveTab(work.resultsActiveTab as import("@/components/DetailedRatingsView").Tab);
+    setBulletEdits(new Map(work.bulletEdits));
+    setGapFixPanel(null);
+    setFixCollisionNotice(null);
+    setGapFixError(null);
+  };
+
+  const {
+    ready: tailorJobsReady,
+    atCap: tailorJobsAtCap,
+    bootTailorJobs,
+    focusJob,
+    openBlankJob,
+    closeJob,
+    openPastedJob,
+  } = useTailorJobSwitcher({
+    getWork: readTailorJobFields,
+    apply: applyTailorJob,
+    onLeave: () => {
+      suggestStreamAbortRef.current?.abort();
+      generateStreamAbortRef.current?.abort();
+      setGenerating(false);
+      setAnalyzing(false);
+      setTailorRescoring(false);
+    },
+  });
+  const activeTailorFolder = useTailorWorkspaceStore(
+    (s) => s.targets.find((job) => job.id === s.activeId)?.savedFolder ?? null,
+  );
 
   const [candidateProfile,    setCandidateProfile]    = useState<string | null>(
     () => builderSession0?.candidateProfile ?? null,
@@ -861,6 +898,39 @@ export default function ResumeBuilder({
     profile: string;
     structured: StructuredResume;
   } | null>(() => builderSession0?.structuredUpload ?? null);
+
+  const openHistoryJob = (record: {
+    folder: string;
+    company: string;
+    role: string;
+    job_description?: string | null;
+    score: number | null;
+    resume_doc?: Record<string, unknown> | null;
+  }) => {
+    const doc = record.resume_doc;
+    const profile = typeof doc?.profile === "string" ? doc.profile : "";
+    if (!candidateProfile && profile.trim()) {
+      setCandidateProfile(profile);
+      setUploadedFileName("From library");
+      const structured = doc?.structured ?? doc?.structuredResume;
+      if (structured && typeof structured === "object") {
+        const parsed = normalizeStructuredResume(structured as StructuredResume);
+        if (parsed && isStructuredUsable(parsed)) {
+          setStructuredUpload({ profile, structured: parsed });
+        }
+      }
+    }
+    if (!openPastedJob({
+      company: record.company,
+      role: record.role,
+      jd: record.job_description ?? "",
+      savedFolder: record.folder,
+      score: record.score,
+    })) {
+      setTailorSidebarVisible(true);
+    }
+  };
+
   /** Bullet-level structural op (drag-reorder / add / delete) from the Tailor
    *  preview. Mutates the uploaded structured doc (the authoritative scored
    *  input on rescore) and remaps path-keyed field overrides to follow.
@@ -1032,6 +1102,10 @@ export default function ResumeBuilder({
   }, []); // run once on mount only
 
   useEffect(() => {
+    bootTailorJobs();
+  }, [bootTailorJobs]);
+
+  useEffect(() => {
     setProfileAutofillUpload(getProfileAutofillFromUpload());
   }, []);
 
@@ -1117,11 +1191,16 @@ export default function ResumeBuilder({
         const jdPre = sessionStorage.getItem(TAILOR_PREFILL_JD);
         const companyPre = sessionStorage.getItem(TAILOR_PREFILL_COMPANY);
         const rolePre = sessionStorage.getItem(TAILOR_PREFILL_ROLE);
+        if (jdPre || companyPre || rolePre) {
+          openPastedJob({
+            company: companyPre ?? undefined,
+            role: rolePre ?? undefined,
+            jd: jdPre ?? undefined,
+          });
+        }
         if (profile) {
           setCandidateProfile(profile);
           setUploadedFileName("From library");
-          setResult(null);
-          setPreview("");
         }
         if (profile && structRaw) {
           try {
@@ -1130,18 +1209,6 @@ export default function ResumeBuilder({
               setStructuredUpload({ profile, structured: parsed });
             }
           } catch { /* ignore */ }
-        }
-        if (jdPre) {
-          setJdRaw(jdPre);
-          saveDraft({ jd: jdPre });
-        }
-        if (companyPre) {
-          setCompanyRaw(companyPre);
-          saveDraft({ company: companyPre });
-        }
-        if (rolePre) {
-          setRoleRaw(rolePre);
-          saveDraft({ role: rolePre });
         }
         sessionStorage.removeItem(TAILOR_PREFILL_JD);
         sessionStorage.removeItem(TAILOR_PREFILL_COMPANY);
@@ -1497,11 +1564,6 @@ export default function ResumeBuilder({
     setStructuredUpload({ profile: prof, structured: sr });
   }, [candidateProfile]);
 
-  /** requirementConcepts from the analyze response. Kept so the scoreboard can
-   *  hand them back to /api/tailor/score-preview and recount coverage without
-   *  another extraction: that round-trip is what makes the "live" label true. */
-  const [requirementConcepts, setRequirementConcepts] = useState<readonly unknown[]>([]);
-
   const handleAnalyze = useCallback(async () => {
     const effJd = jd.trim();
     const profile = (candidateProfile ?? "").trim();
@@ -1520,6 +1582,7 @@ export default function ResumeBuilder({
     // directly when the profile text still matches the upload (no manual edits).
     const initialStructured = tailorStructuredResume && profile === (structuredUpload?.profile ?? "").trim()
       ? applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides) : null;
+    const requestJobId = useTailorWorkspaceStore.getState().activeId;
     setAnalyzing(true);
     appShellSidebar?.collapseSidebar();
     setAnalyzeError(null);
@@ -1581,18 +1644,10 @@ export default function ResumeBuilder({
               improvedBullet: "",
             }))
         : [];
-      setTailorBulletAnalysis(linkageBullets);
-      setTailorLineOverrides({});
-      setTailorAppliedBulletIndices(new Set());
-      setAppliedPillPairs([]);
-      setAddressedGaps(new Set());
-      setAddressedGapActions([]);
-      setScoreStale(false);
-
       const effCompany = company.trim() || "—";
       const effRole = role.trim() || "—";
       const conceptsFromScan = raw.requirementConcepts ?? raw.requirement_concepts;
-      setRequirementConcepts(Array.isArray(conceptsFromScan) ? conceptsFromScan : []);
+      const concepts = Array.isArray(conceptsFromScan) ? conceptsFromScan : [];
       const matchFolder = tailorMatchFolder(effCompany, effRole, effJd);
       const nextResult: GenerationResult = {
         ...EMPTY_RESULT,
@@ -1613,14 +1668,39 @@ export default function ResumeBuilder({
         });
       }
 
-      setResult(nextResult);
-      // Autocollapse to the icon rail so the résumé preview gets the width;
-      // expand via › or the score chip when reviewing gaps.
-      setMatchSidebarCollapsed(true);
+      useTailorWorkspaceStore.getState().patch(requestJobId, {
+        tailorBulletAnalysis: linkageBullets,
+        tailorLineOverrides: {},
+        tailorAppliedBulletIndices: [],
+        appliedPillPairs: [],
+        addressedGaps: [],
+        addressedGapActions: [],
+        scoreStale: false,
+        requirementConcepts: concepts,
+        result: nextResult,
+        analyzeError: null,
+        error: null,
+      });
+      if (tailorJobIsCurrent(requestJobId)) {
+        setTailorBulletAnalysis(linkageBullets);
+        setTailorLineOverrides({});
+        setTailorAppliedBulletIndices(new Set());
+        setAppliedPillPairs([]);
+        setAddressedGaps(new Set());
+        setAddressedGapActions([]);
+        setScoreStale(false);
+        setRequirementConcepts(concepts);
+        setResult(nextResult);
+        // Autocollapse to the icon rail so the résumé preview gets the width;
+        // expand via › or the score chip when reviewing gaps.
+        setMatchSidebarCollapsed(true);
+      }
     } catch (e: unknown) {
-      setAnalyzeError(e instanceof Error ? e.message : "Analysis failed");
+      const message = e instanceof Error ? e.message : "Analysis failed";
+      useTailorWorkspaceStore.getState().patch(requestJobId, { analyzeError: message });
+      if (tailorJobIsCurrent(requestJobId)) setAnalyzeError(message);
     } finally {
-      setAnalyzing(false);
+      if (tailorJobIsCurrent(requestJobId)) setAnalyzing(false);
     }
   }, [jd, candidateProfile, company, role, model, user?.id, tailoringMode, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar, saveStatus, persistTailorMatch]);
   useEffect(() => { handleAnalyzeRef.current = () => { void handleAnalyze(); }; }, [handleAnalyze]);
@@ -1662,6 +1742,7 @@ export default function ResumeBuilder({
     const patchedStructured = structuredWithFieldOverrides && headlineOverride
       ? { ...structuredWithFieldOverrides, headline: headlineOverride }
       : structuredWithFieldOverrides;
+    const requestJobId = useTailorWorkspaceStore.getState().activeId;
     setTailorRescoring(true);
     try {
       const resp = await apiFetch("/api/analyze", {
@@ -1723,18 +1804,25 @@ export default function ResumeBuilder({
         });
       }
 
-      setResult((prev) => (
-        prev ? { ...prev, ratings: mergedRatings, folder: matchFolder ?? prev.folder } : prev
-      ));
-
+      const nextResult = result
+        ? { ...result, ratings: mergedRatings, folder: matchFolder ?? result.folder }
+        : result;
+      const bulletPatch: {
+        tailorBulletAnalysis?: LiveBulletItem[];
+        tailorLineOverrides?: Record<number, string>;
+        tailorAppliedBulletIndices?: number[];
+      } = {};
+      let remappedOverrides: Record<number, string> | null = null;
+      let remappedApplied: Set<number> | null = null;
+      let newBullets: LiveBulletItem[] | null = null;
       if (Array.isArray(data.bulletAnalysis) && data.bulletAnalysis.length > 0) {
-        const newBullets = data.bulletAnalysis;
-        const remappedOverrides = remapLineOverrides(
+        newBullets = data.bulletAnalysis;
+        remappedOverrides = remapLineOverrides(
           effectiveOverrides,
           effectiveBullets,
           newBullets,
         );
-        const remappedApplied = new Set<number>();
+        remappedApplied = new Set<number>();
         for (const oldIdx of effectiveApplied) {
           const oldOrig = effectiveBullets[oldIdx]?.originalBullet ?? "";
           const overrideText = effectiveOverrides[oldIdx] ?? "";
@@ -1746,17 +1834,32 @@ export default function ResumeBuilder({
           }
           if (newIdx >= 0) remappedApplied.add(newIdx);
         }
-        setTailorBulletAnalysis(newBullets);
-        setTailorLineOverrides(remappedOverrides);
-        setTailorAppliedBulletIndices(remappedApplied);
+        bulletPatch.tailorBulletAnalysis = newBullets;
+        bulletPatch.tailorLineOverrides = remappedOverrides;
+        bulletPatch.tailorAppliedBulletIndices = [...remappedApplied];
       }
-      setScoreStale(false);
-      setFixCollisionNotice(null);
+      if (nextResult) {
+        useTailorWorkspaceStore.getState().patch(requestJobId, {
+          result: nextResult,
+          scoreStale: false,
+          ...bulletPatch,
+        });
+      }
+      if (tailorJobIsCurrent(requestJobId)) {
+        if (nextResult) setResult(nextResult);
+        if (newBullets && remappedOverrides && remappedApplied) {
+          setTailorBulletAnalysis(newBullets);
+          setTailorLineOverrides(remappedOverrides);
+          setTailorAppliedBulletIndices(remappedApplied);
+        }
+        setScoreStale(false);
+        setFixCollisionNotice(null);
+      }
       return true;
     } catch {
       return false;
     } finally {
-      setTailorRescoring(false);
+      if (tailorJobIsCurrent(requestJobId)) setTailorRescoring(false);
     }
   }, [
     candidateProfile, jd, company, role, model, user?.id, result?.folder,
@@ -1948,6 +2051,7 @@ export default function ResumeBuilder({
     suggestStreamAbortRef.current?.abort();
     const ac = new AbortController();
     suggestStreamAbortRef.current = ac;
+    const requestJobId = useTailorWorkspaceStore.getState().activeId;
 
     resetSuggestions();       // reset first — clears stale data (also resets loading to false)
     setSuggestLoading(true);  // set loading AFTER reset so it isn't wiped
@@ -2021,6 +2125,7 @@ export default function ResumeBuilder({
             case "status":
               break;
             case "research": {
+              if (!tailorJobIsCurrent(requestJobId)) break;
               const rq = Array.isArray(ev.research_queries)
                 ? ev.research_queries.filter((q): q is string => typeof q === "string")
                 : [];
@@ -2038,6 +2143,7 @@ export default function ResumeBuilder({
               break;
             }
             case "coach_delta": {
+              if (!tailorJobIsCurrent(requestJobId)) break;
               const t = typeof ev.text === "string" ? ev.text : "";
               if (!t) break;
               appendSuggestStream(t);
@@ -2045,6 +2151,7 @@ export default function ResumeBuilder({
             }
             case "coach_done": {
               sawCoachDone = true;
+              if (!tailorJobIsCurrent(requestJobId)) break;
               const list = Array.isArray(ev.suggestions)
                 ? ev.suggestions.filter(isSuggestionRecord)
                 : [];
@@ -2093,7 +2200,7 @@ export default function ResumeBuilder({
       setSuggestError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e)));
     } finally {
       if (suggestStreamAbortRef.current === ac) suggestStreamAbortRef.current = null;
-      setSuggestLoading(false);
+      if (tailorJobIsCurrent(requestJobId)) setSuggestLoading(false);
     }
   }, [jd, candidateProfile, studioHandoff, hydrateSuggestions, appendSuggestStream, setSuggestLoading, setSuggestError, resetSuggestions, scrollBuilderToTop]);
 
@@ -2184,6 +2291,14 @@ export default function ResumeBuilder({
     generateStreamAbortRef.current?.abort();
     const ac = new AbortController();
     generateStreamAbortRef.current = ac;
+    const requestJobId = useTailorWorkspaceStore.getState().activeId;
+    const publishAcc = (next: GenerationResult) => {
+      useTailorWorkspaceStore.getState().patch(requestJobId, {
+        result: next,
+        preview: next.latexPreview,
+      });
+      if (tailorJobIsCurrent(requestJobId)) setResult(next);
+    };
 
     setGenerating(true);
     setError(null);
@@ -2220,13 +2335,19 @@ export default function ResumeBuilder({
     if (!effCompany && effJd) {
       const m = effJd.match(/\bat\s+([A-Z][A-Za-z0-9\s&.,'-]{1,40}?)(?:\s*[,\n(]|$)/);
       effCompany = m?.[1]?.trim() ?? "";
-      if (effCompany) setCompany(effCompany);
+      if (effCompany) {
+        if (tailorJobIsCurrent(requestJobId)) setCompany(effCompany);
+        else useTailorWorkspaceStore.getState().patch(requestJobId, { company: effCompany });
+      }
     }
     if (!effRole && effJd) {
       const firstLine = effJd.split(/\n/)[0]?.trim() ?? "";
       const m = effJd.match(/(?:role|position|title|job)[:\s]+([A-Za-z][A-Za-z\s/-]{2,50}?)(?:\s*[,\n(]|$)/i);
       effRole = m?.[1]?.trim() || (firstLine.length < 60 ? firstLine : "");
-      if (effRole) setRole(effRole);
+      if (effRole) {
+        if (tailorJobIsCurrent(requestJobId)) setRole(effRole);
+        else useTailorWorkspaceStore.getState().patch(requestJobId, { role: effRole });
+      }
     }
 
     // Collect whatever's still missing and ask for just those.
@@ -2239,6 +2360,7 @@ export default function ResumeBuilder({
         missing.length === 1 ? missing[0]
         : missing.length === 2 ? `${missing[0]} and ${missing[1]}`
         : `${missing.slice(0, -1).join(", ")}, and ${missing[missing.length - 1]}`;
+      if (!tailorJobIsCurrent(requestJobId)) return null;
       setError(
         jobUrl.trim()
           ? `We couldn't pull the ${label} from that link — please fill it in manually.`
@@ -2250,19 +2372,28 @@ export default function ResumeBuilder({
       return null;
     }
 
-    setStatusMsg("Connecting…");
-    setPreview("");
-    setJdKeywords(extractJdKeywords(effJd));
+    if (tailorJobIsCurrent(requestJobId)) {
+      setStatusMsg("Connecting…");
+      setPreview("");
+      setJdKeywords(extractJdKeywords(effJd));
+      setSearchQueries([]);
+      setSearchSources([]);
+      setStorageFailures([]);
+    } else {
+      useTailorWorkspaceStore.getState().patch(requestJobId, {
+        preview: "",
+        jdKeywords: extractJdKeywords(effJd),
+      });
+    }
     const digestTrim = suggestResearchDigest.trim();
-    setSearchQueries([]);
-    setSearchSources([]);
-    setStorageFailures([]);
 
     if (!studioHandoff) {
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       });
-      setResult({ ...EMPTY_RESULT, baseFolder, baseLoaded: baseFolder ? null : false });
+      if (tailorJobIsCurrent(requestJobId)) {
+        setResult({ ...EMPTY_RESULT, baseFolder, baseLoaded: baseFolder ? null : false });
+      }
     }
 
     const acceptedList = (suggestions ?? []).filter(s => acceptedIds.has(s.id)).map(s => ({
@@ -2347,8 +2478,13 @@ export default function ResumeBuilder({
           try { ev = JSON.parse(line.slice(6)); } catch { continue; }
 
           switch (ev.event) {
-            case "status":  setStatusMsg(ev.msg); break;
-            case "chunk":   acc.latexPreview += ev.text; setPreview(p => p + ev.text); break;
+            case "status":
+              if (tailorJobIsCurrent(requestJobId)) setStatusMsg(ev.msg);
+              break;
+            case "chunk":
+              acc.latexPreview += ev.text;
+              if (tailorJobIsCurrent(requestJobId)) setPreview(p => p + ev.text);
+              break;
             case "structured_doc": {
               if (ev.data && typeof ev.data === "object") {
                 const normalized = normalizeStructuredResume(ev.data as unknown as StructuredResume);
@@ -2389,15 +2525,15 @@ export default function ResumeBuilder({
             case "rationales": acc.rationales = ev.data as ChangeRationale[]; break;
             case "ratings":
               acc.ratings = ev.data as RatingsData;
-              setResult({ ...acc });
+              publishAcc({ ...acc });
               break;
             case "saved":
               acc.folder = ev.folder; acc.texPath = ev.tex_path;
-              setResult({ ...acc }); // Show result card immediately
+              publishAcc({ ...acc }); // Show result card immediately
               break;
             case "pdf":
               acc.pdfUrl = /^https?:\/\//.test(ev.url) ? ev.url : apiUrl(ev.url);
-              setResult({ ...acc }); // Update PDF button in-place
+              publishAcc({ ...acc }); // Update PDF button in-place
               break;
             case "storage":
               if (!ev.stored) {
@@ -2438,21 +2574,27 @@ export default function ResumeBuilder({
                     });
                   } else {
                     console.error("upsertResume (library row)", e);
-                    setError("Resume generated, but we couldn't refresh your library right now. Please try again.");
+                    if (tailorJobIsCurrent(requestJobId)) {
+                      setError("Resume generated, but we couldn't refresh your library right now. Please try again.");
+                    }
                   }
                 }
-                setBaseFolder(acc.folder);
+                if (tailorJobIsCurrent(requestJobId)) setBaseFolder(acc.folder);
               }
-              setResult({ ...acc });
-              setGenerating(false);
-              setStatusMsg("");
+              publishAcc({ ...acc });
+              if (tailorJobIsCurrent(requestJobId)) {
+                setGenerating(false);
+                setStatusMsg("");
+              }
               break;
             case "error": throw new Error(toUserFriendlyErrorMessage(typeof ev.msg === "string" ? ev.msg : String(ev.msg ?? "")));
           }
         }
       }
-      setGenerating(false);
-      setStatusMsg("");
+      if (tailorJobIsCurrent(requestJobId)) {
+        setGenerating(false);
+        setStatusMsg("");
+      }
       if (acc.pdfUrl) {
         const pdfUrl = /^https?:\/\//.test(acc.pdfUrl) ? acc.pdfUrl : apiUrl(acc.pdfUrl);
         return { pdfUrl, folder: acc.folder ?? null };
@@ -2462,12 +2604,14 @@ export default function ResumeBuilder({
       if (e instanceof Error && e.name === "AbortError") {
         return null;
       }
-      setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e)));
-      if (!studioHandoff) {
-        setResult((r) => (r && !r.ratings && !r.pdfUrl ? null : r));
+      if (tailorJobIsCurrent(requestJobId)) {
+        setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e)));
+        if (!studioHandoff) {
+          setResult((r) => (r && !r.ratings && !r.pdfUrl ? null : r));
+        }
+        setGenerating(false);
+        setStatusMsg("");
       }
-      setGenerating(false);
-      setStatusMsg("");
       return null;
     } finally {
       if (generateStreamAbortRef.current === ac) {
@@ -3714,12 +3858,13 @@ export default function ResumeBuilder({
                         History
                       </div>
                       <div style={{ fontSize: 11, color: "var(--dim)", lineHeight: 1.45 }}>
-                        Past tailor jobs — company, role, and JD restore automatically.
+                        Past tailor jobs. Company, role, and the job description open here.
                       </div>
                     </div>
                     <div className="rb-tailor-sidebar-scroll">
                       <TailorRecentJobs
-                        currentFolder={baseFolder}
+                        currentFolder={activeTailorFolder}
+                        onOpen={openHistoryJob}
                         showHeader={false}
                         showWhenEmpty
                         embedded
@@ -3797,6 +3942,10 @@ export default function ResumeBuilder({
               className={tailorPreResult ? "rb-tailor-main" : undefined}
               style={tailorPreResult ? undefined : { display: "contents" }}
             >
+
+          {tailorJobsReady && !studioHandoff && (
+            <TailorJobTabs onFocus={focusJob} onAdd={openBlankJob} onClose={closeJob} />
+          )}
 
           {/* ── Analyze loader ── */}
           {analyzing && !studioHandoff && (
@@ -4136,7 +4285,10 @@ export default function ResumeBuilder({
             subtitle="Company, role, and job text"
           >
             <div className="rb-tailor-recent-mobile">
-              <TailorRecentJobs currentFolder={baseFolder} />
+              <TailorRecentJobs
+                currentFolder={activeTailorFolder}
+                onOpen={openHistoryJob}
+              />
             </div>
             <div className="rb-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               <Field label="Company">
@@ -4521,8 +4673,11 @@ export default function ResumeBuilder({
                   <Button
                     variant="outline"
                     size="default"
-                    onClick={tryAnotherJob}
-                    title="Keep this résumé, clear the job details"
+                    onClick={() => { if (!openBlankJob()) setTailorSidebarVisible(true); }}
+                    disabled={tailorJobsAtCap}
+                    title={tailorJobsAtCap
+                      ? "Five jobs are open. Close one to add another."
+                      : "Open another job description. This one stays on its tab."}
                     style={{
                       color: "var(--text)",
                       fontWeight: 650,
@@ -6482,119 +6637,6 @@ function ResumeStyleTemplateGrid({
       </div>
 
     </div>
-  );
-}
-/* ── Sub-components ─────────────────────────────────────── */
-
-function StepCard({ step, title, subtitle, children }: {
-  step: number; title: string; subtitle: string; children: React.ReactNode;
-}) {
-  return (
-    <div className={`fade-in-up stagger-${step}`} style={{
-      background: "var(--surface)", border: "1px solid var(--border)",
-      borderRadius: 14, padding: "20px 22px", marginBottom: 12,
-      transition: "border-color var(--transition), box-shadow var(--transition)",
-    }}
-    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border-h)"; }}
-    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        {/* Blue filled step circle */}
-        <div style={{
-          width: 22, height: 22, borderRadius: "50%",
-          background: "var(--accent)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0,
-        }}>{step}</div>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: -0.3, color: "var(--text)", lineHeight: 1 }}>
-            {title}
-          </div>
-          <div style={{ fontSize: 12, color: "var(--dim)", marginTop: 3, letterSpacing: -0.1 }}>
-            {subtitle}
-          </div>
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  const labelId = useId();
-  return (
-    <div role="group" aria-labelledby={labelId}>
-      <div
-        id={labelId}
-        style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--dim)", marginBottom: 6, letterSpacing: -0.1, textTransform: "uppercase" }}
-      >
-        {label}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/**
- * Small "i" info icon with a hover/focus tooltip popover.
- *
- * Used to hide longer explanatory copy behind an unobtrusive icon so panels
- * stay short and scannable. Opens on hover, focus, or click; click toggles so
- * touch users (no hover) can still pin it open.
- */
-function InfoTip({ children, label }: { children: React.ReactNode; label?: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <span
-      style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button
-        type="button"
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        onClick={() => setOpen(v => !v)}
-        aria-label={label ?? "More info"}
-        aria-expanded={open}
-        style={{
-          minWidth: 44, minHeight: 44, borderRadius: "50%",
-          border: "1px solid var(--dim)", background: "transparent",
-          color: "var(--dim)", fontSize: 10, fontWeight: 700, lineHeight: 1,
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-          cursor: "help", padding: 0, fontFamily: "inherit",
-          fontStyle: "italic",
-        }}
-      >
-        i
-      </button>
-      {open && (
-        <span
-          role="tooltip"
-          style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            left: 0,
-            zIndex: 20,
-            minWidth: 240,
-            maxWidth: 320,
-            padding: "10px 12px",
-            background: "var(--surface3)",
-            color: "var(--text)",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            boxShadow: "var(--shadow-card)",
-            fontSize: 12,
-            lineHeight: 1.5,
-            letterSpacing: -0.1,
-            fontWeight: 400,
-            whiteSpace: "normal",
-          }}
-        >
-          {children}
-        </span>
-      )}
-    </span>
   );
 }
 
