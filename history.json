@@ -1,4 +1,17 @@
 {
-"updated": null,
-"events": []
+  "updated": "2026-10-12T15:07:28Z",
+  "events": [
+    {
+      "at": "2026-10-12T15:07:28Z",
+      "kind": "api",
+      "state": "up",
+      "detail": ""
+    },
+    {
+      "at": "2026-10-12T15:07:28Z",
+      "kind": "scoring",
+      "state": "ok",
+      "detail": ""
+    }
+  ]
 }
