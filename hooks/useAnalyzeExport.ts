@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { buildNameRoleExportFilename } from "@/lib/resumeFileName";
+import { downloadResponseAsFile } from "@/lib/saveBlobDownload";
 import { useResumeAnalyzeStore } from "@/store/resumeAnalyzeStore";
 import { apiFetch } from "@/lib/apiClient";
 
@@ -47,21 +48,6 @@ function buildAcceptedEdits(): Record<string, Record<string, string>> {
   return out;
 }
 
-async function downloadBlob(resp: Response, fallbackFilename: string) {
-  const disposition = resp.headers.get("Content-Disposition") ?? "";
-  const match = disposition.match(/filename="([^"]+)"/);
-  const filename = match?.[1] ?? fallbackFilename;
-  const blob = await resp.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 export function useAnalyzeExport(opts: UseAnalyzeExportOptions = {}): UseAnalyzeExportReturn {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +82,7 @@ export function useAnalyzeExport(opts: UseAnalyzeExportOptions = {}): UseAnalyze
         const json = await resp.json().catch(() => ({})) as { error?: string };
         throw new Error(json.error ?? "DOCX export failed");
       }
-      await downloadBlob(resp, fallbackFilename);
+      await downloadResponseAsFile(resp, fallbackFilename);
     } catch (e) {
       setError(e instanceof Error ? e.message : "DOCX export failed");
     } finally {

@@ -1,6 +1,10 @@
 "use client";
 
 import { create } from "zustand";
+import {
+  emptySuggestionsSnapshot,
+  type SuggestionsSnapshot,
+} from "@/lib/suggestionsSnapshot";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,6 +107,10 @@ export interface SuggestionsStore {
   setError: (error: string | null) => void;
   incrementStep: () => void;
   reset: () => void;
+  /** Plain copy for a job tab. Sets and Maps become arrays. */
+  captureSuggestions: () => SuggestionsSnapshot;
+  /** Replace the live review with a tab's snapshot. Loading stays off. */
+  restoreSuggestions: (snap: SuggestionsSnapshot) => void;
 
   // ── Derived helpers ──
   acceptedSuggestions: () => Suggestion[];
@@ -225,6 +233,42 @@ export const useSuggestionsStore = create<SuggestionsStore>((set, get) => ({
   incrementStep: () => set((s) => ({ stepsDone: Math.min(s.stepsDone + 1, 3) })),
 
   reset: () => set(initial()),
+
+  captureSuggestions: () => {
+    const s = get();
+    return {
+      suggestions: s.suggestions,
+      summary: s.summary,
+      strategicTips: s.strategicTips,
+      interviewQuestions: s.interviewQuestions,
+      streamText: s.streamText,
+      acceptedIds: [...s.acceptedIds],
+      rejectedIds: [...s.rejectedIds],
+      selectedId: s.selectedId,
+      activeCategory: s.activeCategory,
+      categoryStatus: [...s.categoryStatus.entries()],
+      error: s.error,
+    };
+  },
+
+  restoreSuggestions: (snap) => {
+    const safe = snap ?? emptySuggestionsSnapshot();
+    set({
+      suggestions: Array.isArray(safe.suggestions) ? safe.suggestions : [],
+      summary: typeof safe.summary === "string" ? safe.summary : "",
+      strategicTips: Array.isArray(safe.strategicTips) ? safe.strategicTips : [],
+      interviewQuestions: Array.isArray(safe.interviewQuestions) ? safe.interviewQuestions : [],
+      streamText: typeof safe.streamText === "string" ? safe.streamText : "",
+      acceptedIds: new Set(Array.isArray(safe.acceptedIds) ? safe.acceptedIds : []),
+      rejectedIds: new Set(Array.isArray(safe.rejectedIds) ? safe.rejectedIds : []),
+      selectedId: typeof safe.selectedId === "string" ? safe.selectedId : null,
+      activeCategory: safe.activeCategory ?? null,
+      categoryStatus: new Map(Array.isArray(safe.categoryStatus) ? safe.categoryStatus : []),
+      error: typeof safe.error === "string" ? safe.error : null,
+      loading: false,
+      stepsDone: 0,
+    });
+  },
 
   acceptedSuggestions: () => {
     const { suggestions, acceptedIds } = get();
