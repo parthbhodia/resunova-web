@@ -42,44 +42,168 @@ function gatedRouteLabel(pathname: string | null): string | null {
 function SignInRequired({ pathname }: { pathname: string | null }) {
   const { openSignIn } = useSignInDialog();
   const label = gatedRouteLabel(pathname);
+  
+  const features = [
+    { icon: "⚡", text: "Score in 60 seconds" },
+    { icon: "🎯", text: "Keyword matching" },
+    { icon: "✨", text: "AI-powered fixes" },
+  ];
+
   return (
     <div style={{
-      minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 24, background: "var(--bg)",
+      minHeight: "100dvh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "24px",
+      background: "linear-gradient(135deg, var(--bg) 0%, var(--surface) 100%)",
     }}>
       <div style={{
-        width: "min(420px, 100%)", textAlign: "center",
-        background: "var(--surface)", border: "1px solid var(--border)",
-        borderRadius: 14, padding: "30px 26px",
+        width: "min(460px, 100%)",
+        maxWidth: "100%",
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "16px",
+        padding: "40px 32px",
+        textAlign: "center",
+        boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
       }}>
-        <h1 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800, color: "var(--text)" }}>
-          Sign in to continue
+        {/* Icon badge */}
+        <div style={{
+          marginBottom: "24px",
+          display: "flex",
+          justifyContent: "center",
+        }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "56px",
+            height: "56px",
+            borderRadius: "12px",
+            background: "var(--accent-bg)",
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+              <polyline points="13 2 13 9 20 9" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Heading */}
+        <h1 style={{
+          margin: "0 0 8px",
+          fontSize: "28px",
+          fontWeight: "800",
+          letterSpacing: "-0.5px",
+          color: "var(--text)",
+        }}>
+          {label ? `Unlock ${label}` : "Sign in to continue"}
         </h1>
-        <p style={{ margin: "0 0 20px", fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
+
+        {/* Subheading */}
+        <p style={{
+          margin: "0 0 28px",
+          fontSize: "15px",
+          color: "var(--muted)",
+          lineHeight: "1.6",
+        }}>
           {label
-            ? `${label} needs a free account so your work is saved to it.`
-            : "This page needs a free account so your work is saved to it."}
+            ? `Create a free account to save your work and access all ${label.toLowerCase()} features.`
+            : "Create a free account to save your work and access premium features."}
         </p>
+
+        {/* Feature bullets */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          gap: "12px",
+          marginBottom: "28px",
+        }}>
+          {features.map((f) => (
+            <div key={f.text} style={{
+              padding: "10px",
+              borderRadius: "10px",
+              background: "var(--muted)",
+              opacity: 0.15,
+            }}>
+              <div style={{
+                fontSize: "20px",
+                marginBottom: "4px",
+              }}>{f.icon}</div>
+              <div style={{
+                fontSize: "11.5px",
+                fontWeight: "600",
+                color: "var(--text)",
+              }}>{f.text}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Main CTA */}
         <button
           type="button"
           onClick={() => openSignIn()}
           style={{
-            width: "100%", padding: "11px 18px", borderRadius: 10, border: "none",
-            background: "var(--accent)", color: "#fff",
-            fontSize: 14, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
+            width: "100%",
+            padding: "13px 20px",
+            borderRadius: "10px",
+            border: "none",
+            background: "var(--accent)",
+            color: "#fff",
+            fontSize: "15px",
+            fontWeight: "700",
+            fontFamily: "inherit",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            marginBottom: "12px",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow = "0 12px 24px rgba(47, 129, 247, 0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "none";
           }}
         >
-          Sign in, it&apos;s free
+          Create free account
         </button>
+
+        {/* Secondary CTA */}
         <Link
           href="/"
           style={{
-            display: "inline-block", marginTop: 14,
-            fontSize: 13, fontWeight: 600, color: "var(--muted)", textDecoration: "none",
+            display: "inline-block",
+            padding: "10px 16px",
+            fontSize: "14px",
+            fontWeight: "600",
+            color: "var(--accent)",
+            textDecoration: "none",
+            transition: "color 0.2s",
+            borderBottom: "1px solid transparent",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderBottomColor = "var(--accent)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderBottomColor = "transparent";
           }}
         >
-          Back to home
+          ← Back to home
         </Link>
+
+        {/* Trust badge */}
+        <p style={{
+          marginTop: "20px",
+          fontSize: "11px",
+          color: "var(--dim)",
+          letterSpacing: "0.5px",
+          textTransform: "uppercase",
+          fontWeight: "600",
+        }}>
+          ✓ No credit card required
+        </p>
       </div>
     </div>
   );
