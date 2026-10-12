@@ -43,11 +43,71 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
   const { openSignIn } = useSignInDialog();
   const label = gatedRouteLabel(pathname);
   
-  const features = [
-    { icon: "⚡", text: "Score in 60 seconds" },
-    { icon: "🎯", text: "Keyword matching" },
-    { icon: "✨", text: "AI-powered fixes" },
-  ];
+  // Context-aware features based on route
+  const getFeaturesByRoute = () => {
+    if (pathname?.includes("interview-prep")) {
+      return [
+        { icon: "⏱️", text: "5-10 min sessions" },
+        { icon: "🎯", text: "Role-specific scenarios" },
+        { icon: "📊", text: "Track improvement" },
+        { icon: "🤖", text: "AI feedback" },
+      ];
+    } else if (pathname?.includes("my-resumes")) {
+      return [
+        { icon: "💾", text: "Save all versions" },
+        { icon: "📋", text: "Multiple templates" },
+        { icon: "⚡", text: "Quick access" },
+        { icon: "🔄", text: "Easy updates" },
+      ];
+    }
+    return [
+      { icon: "⏱️", text: "Start instantly" },
+      { icon: "🎯", text: "AI-powered tools" },
+      { icon: "📊", text: "Real-time feedback" },
+      { icon: "🔒", text: "Always private" },
+    ];
+  };
+
+  const features = getFeaturesByRoute();
+  
+  // Social proof based on route
+  const getSocialProof = () => {
+    if (pathname?.includes("interview-prep")) {
+      return { stat: "5,000+", desc: "students practicing with Resunova", achievement: "95% report improved confidence" };
+    } else if (pathname?.includes("my-resumes")) {
+      return { stat: "50,000+", desc: "resumes saved and improved", achievement: "3x higher interview rate" };
+    }
+    return { stat: "100,000+", desc: "students and job seekers trust Resunova", achievement: "Trusted by students at 500+ universities" };
+  };
+
+  const socialProof = getSocialProof();
+  
+  // Get icon based on route
+  const getIcon = () => {
+    if (pathname?.includes("interview-prep")) {
+      return (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12 6.5 2 12 2z" />
+          <path d="M12 6v6l4 2" />
+        </svg>
+      );
+    } else if (pathname?.includes("my-resumes")) {
+      return (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="12" y1="13" x2="8" y2="13" />
+          <line x1="12" y1="17" x2="8" y2="17" />
+        </svg>
+      );
+    }
+    return (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    );
+  };
 
   return (
     <div style={{
@@ -59,18 +119,18 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
       background: "linear-gradient(135deg, var(--bg) 0%, var(--surface) 100%)",
     }}>
       <div style={{
-        width: "min(460px, 100%)",
+        width: "min(520px, 100%)",
         maxWidth: "100%",
         background: "var(--surface)",
         border: "1px solid var(--border)",
-        borderRadius: "16px",
-        padding: "40px 32px",
+        borderRadius: "20px",
+        padding: "48px 40px",
         textAlign: "center",
-        boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+        boxShadow: "0 24px 64px rgba(0, 0, 0, 0.12)",
       }}>
-        {/* Icon badge */}
+        {/* Icon badge with animation */}
         <div style={{
-          marginBottom: "24px",
+          marginBottom: "28px",
           display: "flex",
           justifyContent: "center",
         }}>
@@ -78,122 +138,239 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "56px",
-            height: "56px",
-            borderRadius: "12px",
+            width: "72px",
+            height: "72px",
+            borderRadius: "16px",
             background: "var(--accent-bg)",
-          }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-              <polyline points="13 2 13 9 20 9" />
-            </svg>
+            transition: "all 0.3s ease-out",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = "scale(1.05)";
+            (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 24px var(--accent-bg)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = "scale(1)";
+            (e.currentTarget as HTMLElement).style.boxShadow = "none";
+          }}
+          >
+            {getIcon()}
           </div>
+        </div>
+
+        {/* Social proof stats */}
+        <div style={{
+          marginBottom: "24px",
+          padding: "16px",
+          borderRadius: "12px",
+          background: "var(--accent-bg)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+        }}>
+          <span style={{
+            fontSize: "16px",
+            fontWeight: "800",
+            color: "var(--accent)",
+            marginRight: "4px",
+          }}>
+            ⭐ {socialProof.stat}
+          </span>
+          <span style={{
+            fontSize: "14px",
+            fontWeight: "600",
+            color: "var(--text)",
+          }}>
+            {socialProof.desc}
+          </span>
         </div>
 
         {/* Heading */}
         <h1 style={{
-          margin: "0 0 8px",
-          fontSize: "28px",
+          margin: "0 0 12px",
+          fontSize: "32px",
           fontWeight: "800",
-          letterSpacing: "-0.5px",
+          letterSpacing: "-0.8px",
           color: "var(--text)",
+          lineHeight: 1.2,
         }}>
-          {label ? `Unlock ${label}` : "Sign in to continue"}
+          {label ? `Start ${label.toLowerCase()}` : "Unlock your potential"}
         </h1>
+
+        {/* Achievement badge */}
+        <p style={{
+          margin: "0 0 24px",
+          fontSize: "14px",
+          color: "var(--accent)",
+          fontWeight: "700",
+          letterSpacing: "0.3px",
+          textTransform: "uppercase",
+        }}>
+          ✓ {socialProof.achievement}
+        </p>
 
         {/* Subheading */}
         <p style={{
-          margin: "0 0 28px",
+          margin: "0 0 32px",
           fontSize: "15px",
           color: "var(--muted)",
-          lineHeight: "1.6",
+          lineHeight: "1.7",
+          maxWidth: "420px",
+          margin: "0 auto 32px",
         }}>
           {label
-            ? `Create a free account to save your work and access all ${label.toLowerCase()} features.`
-            : "Create a free account to save your work and access premium features."}
+            ? `Create your free account to save progress, track improvements, and unlock all ${label.toLowerCase()} features instantly.`
+            : "Create your free account in 30 seconds. No credit card. Full access to all features."}
         </p>
 
-        {/* Feature bullets */}
+        {/* Feature grid */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
+          gridTemplateColumns: "1fr 1fr",
           gap: "12px",
-          marginBottom: "28px",
+          marginBottom: "32px",
         }}>
           {features.map((f) => (
-            <div key={f.text} style={{
-              padding: "10px",
-              borderRadius: "10px",
-              background: "var(--muted)",
-              opacity: 0.15,
-            }}>
+            <div
+              key={f.text}
+              style={{
+                padding: "14px 12px",
+                borderRadius: "12px",
+                background: "var(--accent-bg)",
+                border: "1px solid rgba(47, 129, 247, 0.2)",
+                transition: "all 0.2s ease-out",
+                cursor: "default",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "var(--accent-bg)";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(47, 129, 247, 0.4)";
+                (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "var(--accent-bg)";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(47, 129, 247, 0.2)";
+                (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+              }}
+            >
               <div style={{
                 fontSize: "20px",
-                marginBottom: "4px",
-              }}>{f.icon}</div>
+                marginBottom: "6px",
+              }}>
+                {f.icon}
+              </div>
               <div style={{
-                fontSize: "11.5px",
+                fontSize: "13px",
                 fontWeight: "600",
                 color: "var(--text)",
-              }}>{f.text}</div>
+                lineHeight: 1.3,
+              }}>
+                {f.text}
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Main CTA */}
+        {/* Primary CTA */}
         <button
           type="button"
-          onClick={() => openSignIn()}
+          onClick={() => openSignIn({ reason: `Ready to ${label?.toLowerCase() || 'get started'}?` })}
           style={{
             width: "100%",
-            padding: "13px 20px",
-            borderRadius: "10px",
+            padding: "14px 24px",
+            borderRadius: "12px",
             border: "none",
             background: "var(--accent)",
             color: "#fff",
-            fontSize: "15px",
+            fontSize: "16px",
             fontWeight: "700",
             fontFamily: "inherit",
             cursor: "pointer",
-            transition: "all 0.2s",
+            transition: "all 0.2s ease-out",
             marginBottom: "12px",
+            letterSpacing: "-0.3px",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow = "0 12px 24px rgba(47, 129, 247, 0.3)";
+            (e.currentTarget as HTMLElement).style.transform = "translateY(-3px)";
+            (e.currentTarget as HTMLElement).style.boxShadow = "0 16px 32px rgba(47, 129, 247, 0.35)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "none";
+            (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+            (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 20px rgba(47, 129, 247, 0.3)";
           }}
         >
           Create free account
         </button>
 
-        {/* Secondary CTA */}
+        {/* Secondary CTA — Google OAuth inline */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          marginBottom: "20px",
+          fontSize: "13px",
+          color: "var(--dim)",
+        }}>
+          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+          <span>or</span>
+          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => openSignIn()}
+          style={{
+            width: "100%",
+            padding: "12px 24px",
+            borderRadius: "12px",
+            border: "1px solid var(--border)",
+            background: "transparent",
+            color: "var(--muted)",
+            fontSize: "15px",
+            fontWeight: "600",
+            fontFamily: "inherit",
+            cursor: "pointer",
+            transition: "all 0.2s ease-out",
+            marginBottom: "20px",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.backgroundColor = "var(--accent-bg)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(47, 129, 247, 0.3)";
+            (e.currentTarget as HTMLElement).style.color = "var(--accent)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+            (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+            (e.currentTarget as HTMLElement).style.color = "var(--muted)";
+          }}
+        >
+          Continue with Google
+        </button>
+
+        {/* Footer link */}
         <Link
           href="/"
           style={{
-            display: "inline-block",
-            padding: "10px 16px",
+            display: "block",
+            padding: "12px 16px",
             fontSize: "14px",
             fontWeight: "600",
             color: "var(--accent)",
             textDecoration: "none",
             transition: "color 0.2s",
-            borderBottom: "1px solid transparent",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderBottomColor = "var(--accent)";
+            (e.currentTarget as HTMLElement).style.color = "var(--accent)";
+            (e.currentTarget as HTMLElement).style.textDecoration = "underline";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderBottomColor = "transparent";
+            (e.currentTarget as HTMLElement).style.color = "var(--accent)";
+            (e.currentTarget as HTMLElement).style.textDecoration = "none";
           }}
         >
           ← Back to home
         </Link>
 
-        {/* Trust badge */}
+        {/* Trust badges */}
         <p style={{
           marginTop: "20px",
           fontSize: "11px",
@@ -201,8 +378,16 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
           letterSpacing: "0.5px",
           textTransform: "uppercase",
           fontWeight: "600",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "12px",
         }}>
-          ✓ No credit card required
+          <span>✓ No credit card</span>
+          <span>•</span>
+          <span>✓ Free forever</span>
+          <span>•</span>
+          <span>✓ Privacy first</span>
         </p>
       </div>
     </div>
