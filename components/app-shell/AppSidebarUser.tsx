@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -8,139 +9,137 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SidebarMenuButton } from "@/components/ui/sidebar";
+import { FS, FW } from "@/lib/typography";
 import { NAV_ICONS } from "./nav-icons";
-
-/**
- * The account menu, which is now also where the secondary nav lives.
- *
- * WHY THESE ITEMS ARE HERE
- * ------------------------
- * The rail carries the funnel — the surfaces someone is here to use. Cover
- * letter, History, Advisor, the theme toggle and Contact are all real
- * destinations but none of them is a step in that funnel, and giving each one
- * a rail item is how the old nav reached nineteen entries, where the thing a
- * visitor actually came for (templates) sat two clicks deep inside a drawer.
- *
- * ⚠️ NOTHING IS DELETED. Every surface the old sidebar reached is still one
- * click from here. A "simplification" that quietly drops a destination is not
- * a simplification, it is a regression with a tidier screenshot, and Advisor
- * in particular is reachable from nowhere else in the shell.
- */
 
 type Props = {
   initial: string;
+  anonMode: boolean;
+  advisorAllowed: boolean;
   theme: "dark" | "light";
   onToggleTheme: () => void;
-  /** Advisors and admins only. A menu row nobody can use is worse than none. */
-  advisorAllowed: boolean;
+  onSignIn?: () => void;
   onProfile: () => void;
   onMyResumes: () => void;
   onCoverLetter: () => void;
-  onAdvisor: () => void;
   onHistory: () => void;
+  onAdvisor: () => void;
   onAccount: () => void;
   onSignOut: () => void;
 };
 
+/**
+ * Account menu for the rail.
+ *
+ * Cover letter, History, theme, Contact and Advisor used to be their own
+ * sidebar rows. They fold in here so the rail can stay one column. Terms and
+ * Privacy come with them: the rail has no room for a legal footer, and those
+ * links are not optional.
+ */
 export function AppSidebarUser({
   initial,
+  anonMode,
+  advisorAllowed,
   theme,
   onToggleTheme,
-  advisorAllowed,
+  onSignIn,
   onProfile,
   onMyResumes,
   onCoverLetter,
-  onAdvisor,
   onHistory,
+  onAdvisor,
   onAccount,
   onSignOut,
 }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={
-          <SidebarMenuButton
-            className="!h-auto !w-(--rail-item) !flex-col !items-center !justify-center !gap-[3px] !rounded-xl !px-1 !py-2 !text-[11px] !font-semibold !leading-none text-[var(--muted)] hover:!bg-[var(--surface2)] hover:!text-[var(--text)] data-popup-open:!bg-[var(--surface2)] data-popup-open:!text-[var(--text)]"
-          />
-        }
+        aria-label={anonMode ? "Account menu" : "Account"}
+        className="md-state-layer flex min-h-[44px] w-full flex-col items-center justify-center gap-0.5 rounded-xl border-0 bg-transparent p-1 text-[var(--muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
       >
-        <Avatar className="size-7 bg-primary after:border-none">
-          <AvatarFallback className="bg-primary text-[10px] font-semibold text-primary-foreground">
-            {initial}
+        <Avatar className="size-8 bg-[var(--accent)] after:border-none">
+          <AvatarFallback
+            className="bg-[var(--accent)] font-semibold text-[var(--on-fill)]"
+            style={{ fontSize: FS.caption, fontWeight: FW.bold }}
+          >
+            {anonMode ? (
+              <span className="[&_svg]:size-4" aria-hidden>
+                {NAV_ICONS.lock}
+              </span>
+            ) : (
+              initial
+            )}
           </AvatarFallback>
         </Avatar>
-        {/* The visible word is the accessible name, same rule as every rail
-            item: an avatar alone announces its initial, which is a letter, not
-            a destination. */}
-        <span>Account</span>
+        {anonMode ? (
+          <span style={{ fontSize: FS.caption, fontWeight: FW.semibold, lineHeight: 1.2 }}>
+            Sign in
+          </span>
+        ) : null}
       </DropdownMenuTrigger>
-      {/* Opens to the RIGHT of the rail. `side="top"` was correct when this sat
-          at the foot of a 232px-wide sidebar; against a 80px rail it would hang
-          a 176px menu off both edges. */}
       <DropdownMenuContent
         side="right"
         align="end"
         sideOffset={8}
-        className="z-[100] w-auto min-w-44"
+        className="z-[100] w-auto min-w-52"
       >
-        <DropdownMenuItem onClick={onMyResumes}>
-          {NAV_ICONS.library}
+        {anonMode ? (
+          <DropdownMenuItem closeOnClick onClick={() => onSignIn?.()}>
+            Sign in
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem closeOnClick onClick={onMyResumes}>
           My Résumés
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onCoverLetter}>
-          {NAV_ICONS["cover-letter"]}
+        <DropdownMenuItem closeOnClick onClick={onCoverLetter}>
           Cover letter
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onHistory}>
-          {NAV_ICONS.history}
+        <DropdownMenuItem closeOnClick onClick={onHistory}>
           History
         </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem onClick={onProfile}>
-          {NAV_ICONS.profile}
-          Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onAccount}>
-          {NAV_ICONS.account}
-          Account settings
-        </DropdownMenuItem>
-        {advisorAllowed ? (
-          <DropdownMenuItem onClick={onAdvisor}>
-            {NAV_ICONS.advisor}
+        {advisorAllowed && !anonMode ? (
+          <DropdownMenuItem closeOnClick onClick={onAdvisor}>
             Advisor
           </DropdownMenuItem>
         ) : null}
-
         <DropdownMenuSeparator />
-
-        {/* `closeOnClick={false}`: the switch is the point, and closing the menu
-            to show the result makes you reopen it to change your mind. */}
-        <DropdownMenuItem closeOnClick={false} onClick={onToggleTheme}>
-          {theme === "dark" ? NAV_ICONS.themeDark : NAV_ICONS.themeLight}
+        <DropdownMenuItem closeOnClick onClick={onProfile}>
+          Profile
+        </DropdownMenuItem>
+        <DropdownMenuItem closeOnClick onClick={onAccount}>
+          Account settings
+        </DropdownMenuItem>
+        <DropdownMenuItem closeOnClick onClick={onToggleTheme}>
           {theme === "dark" ? "Light mode" : "Dark mode"}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          render={<a href="/contact/" />}
-        >
-          {NAV_ICONS.contact}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem closeOnClick render={<Link href="/contact" prefetch={false} />}>
           Contact
         </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem
-          variant="destructive"
-          closeOnClick
-          onClick={() => {
-            void onSignOut();
-          }}
-        >
-          {NAV_ICONS.signOut}
-          Sign out
+        <DropdownMenuItem closeOnClick render={<Link href="/terms" prefetch={false} />}>
+          Terms
         </DropdownMenuItem>
+        <DropdownMenuItem closeOnClick render={<Link href="/privacy" prefetch={false} />}>
+          Privacy
+        </DropdownMenuItem>
+        {!anonMode ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              closeOnClick
+              onClick={() => {
+                void onSignOut();
+              }}
+            >
+              Sign out
+            </DropdownMenuItem>
+          </>
+        ) : null}
+        <DropdownMenuSeparator />
+        <p className="px-1.5 py-1 text-[var(--dim)]" style={{ fontSize: FS.caption }}>
+          © 2026 Resunova
+        </p>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -35,7 +35,7 @@ describe("SignInDialog", () => {
     await user.click(screen.getByRole("button", { name: "Open account dialog" }));
     await user.type(screen.getByLabelText("Email"), "student@monroeu.edu");
     await user.type(screen.getByLabelText("Password"), "password123");
-    await user.click(screen.getByRole("button", { name: "Log in with email" }));
+    await user.click(screen.getByRole("button", { name: "Sign in with email" }));
 
     expect(mocks.signInWithEmail).toHaveBeenCalledWith("student@monroeu.edu", "password123");
   });

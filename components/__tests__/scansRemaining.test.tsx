@@ -6,7 +6,6 @@ import {
   ScansRemainingRow,
   ScansTabBadge,
   scansTabAriaLabel,
-  railQuotaLines,
 } from "@/components/app-shell/ScansRemainingPill";
 import {
   scansStateFromStatus,
@@ -32,17 +31,6 @@ function jsonRes(body: unknown, { ok = true, status = 200 } = {}) {
   return { ok, status, json: async () => body } as Response;
 }
 
-/**
- * The rail renders the quota as two lines, so a single-string matcher cannot
- * see it. Asserted through the producer rather than against hand-typed copy:
- * a second copy of the wording in here is a thing that drifts.
- */
-function expectRailQuota(remaining: number, limit: number) {
-  const [top, bottom] = railQuotaLines(remaining, limit);
-  expect(screen.getByText(top)).toBeInTheDocument();
-  expect(screen.getByText(bottom)).toBeInTheDocument();
-}
-
 const FREE = { enforced: true, unlimited: false, limit: 3, used: 1, remaining: 2 };
 
 beforeEach(() => {
@@ -63,7 +51,7 @@ describe("unlimited and unreadable are different states", () => {
     global.fetch = vi.fn().mockResolvedValue(
       jsonRes({ enforced: true, unlimited: true, plan: "admin" }),
     );
-    const { container } = render(<ScansRemainingPill />);
+    const { container } = render(<ScansRemainingPill collapsed={false} />);
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     await waitFor(() => expect(container).toBeEmptyDOMElement());
     expect(screen.queryByText("Scans unavailable")).not.toBeInTheDocument();
@@ -73,24 +61,21 @@ describe("unlimited and unreadable are different states", () => {
     // This is the regression: before, `catch {}` made this case render exactly
     // what an admin account renders, so a dead backend was invisible.
     global.fetch = vi.fn().mockRejectedValue(new Error("network down"));
-    render(<ScansRemainingPill />);
+    render(<ScansRemainingPill collapsed={false} />);
     await waitFor(() => expect(screen.getByText("Scans unavailable")).toBeInTheDocument());
-    // The rail chip's accessible name now carries its whole visible label,
-    // which is what WCAG 2.5.3 wants of a control whose words are on screen.
-    // The claim (an outage shows, with a way to retry) is unchanged.
-    expect(screen.getByRole("button", { name: /Retry/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
   it("a non-2xx also surfaces as unavailable", async () => {
     global.fetch = vi.fn().mockResolvedValue(jsonRes({ error: "boom" }, { ok: false, status: 500 }));
-    render(<ScansRemainingPill />);
+    render(<ScansRemainingPill collapsed={false} />);
     await waitFor(() => expect(screen.getByText("Scans unavailable")).toBeInTheDocument());
   });
 
   it("a 401 is signed-out, not an outage — stays silent", async () => {
     // An expired token during sign-out must not cry wolf.
     global.fetch = vi.fn().mockResolvedValue(jsonRes({ error: "auth" }, { ok: false, status: 401 }));
-    const { container } = render(<ScansRemainingPill />);
+    const { container } = render(<ScansRemainingPill collapsed={false} />);
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
@@ -100,11 +85,11 @@ describe("unlimited and unreadable are different states", () => {
       .fn()
       .mockRejectedValueOnce(new Error("network down"))
       .mockResolvedValue(jsonRes(FREE));
-    render(<ScansRemainingPill />);
+    render(<ScansRemainingPill collapsed={false} />);
     await waitFor(() => expect(screen.getByText("Scans unavailable")).toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole("button", { name: /Retry/ }));
-    await waitFor(() => expectRailQuota(2, 3));
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.getByText("2 of 3 scans left")).toBeInTheDocument());
     expect(screen.queryByText("Scans unavailable")).not.toBeInTheDocument();
   });
 });
@@ -112,28 +97,24 @@ describe("unlimited and unreadable are different states", () => {
 /* ── the metered rendering it already had ─────────────────────── */
 
 describe("metered rendering", () => {
-  it("renders remaining-of-limit on the rail", async () => {
+  it("renders the count expanded", async () => {
     global.fetch = vi.fn().mockResolvedValue(jsonRes(FREE));
-    render(<ScansRemainingPill />);
-    await waitFor(() => expectRailQuota(2, 3));
+    render(<ScansRemainingPill collapsed={false} />);
+    await waitFor(() => expect(screen.getByText("2 of 3 scans left")).toBeInTheDocument());
   });
 
-  it("names what the number counts, instead of a bare numeral", async () => {
-    // The disc this replaces rendered "2" alone. Among seven labelled rail
-    // items it was the only unlabelled round object, and sitting directly
-    // above Upgrade it scanned as decoration.
+  it("renders the bare number in the icon rail", async () => {
     global.fetch = vi.fn().mockResolvedValue(jsonRes(FREE));
-    render(<ScansRemainingPill />);
-    await waitFor(() => expect(screen.getByText("scans left")).toBeInTheDocument());
+    render(<ScansRemainingPill collapsed />);
+    await waitFor(() =>
+      expect(screen.getByLabelText("2 of 3 scans left today")).toHaveTextContent("2"),
+    );
   });
 
   it("zero remaining says so instead of showing '0 of 3'", async () => {
     global.fetch = vi.fn().mockResolvedValue(jsonRes({ ...FREE, used: 3, remaining: 0 }));
-    render(<ScansRemainingPill />);
-    await waitFor(() => expect(screen.getByText("No scans")).toBeInTheDocument());
-    // The claim survives the rewrap: a numeral pair at zero reads as a
-    // quantity you still have.
-    expect(screen.queryByText("0 of 3")).not.toBeInTheDocument();
+    render(<ScansRemainingPill collapsed={false} />);
+    await waitFor(() => expect(screen.getByText("No scans left today")).toBeInTheDocument());
   });
 
   it("a guest allowance is fetched but NOT shown in the nav", async () => {
@@ -144,7 +125,7 @@ describe("metered rendering", () => {
     global.fetch = vi.fn().mockResolvedValue(
       jsonRes({ enforced: true, unlimited: false, anonymous: true, limit: 1, used: 0, remaining: 1 }),
     );
-    const { container } = render(<ScansRemainingPill />);
+    const { container } = render(<ScansRemainingPill collapsed={false} />);
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
@@ -220,14 +201,11 @@ describe("mobile surfaces carry the same reading", () => {
     global.fetch = vi.fn().mockResolvedValue(jsonRes(FREE));
     render(
       <>
-        <ScansRemainingPill />
+        <ScansRemainingPill collapsed={false} />
         <ScansRemainingRow />
       </>,
     );
-    await waitFor(() => expectRailQuota(2, 3));
-    // The mobile row keeps `meterLabel`'s one-line wording; the rail has its
-    // own, because 84px cannot hold it. Different copy, ONE request.
-    expect(screen.getByText("2 of 3 scans left")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("2 of 3 scans left")).toHaveLength(2));
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });
@@ -241,11 +219,11 @@ describe("write-through, so surfaces cannot hold different numbers", () => {
     // leave the nav badge stale until it landed.
     const fetchMock = vi.fn().mockResolvedValue(jsonRes(FREE));
     global.fetch = fetchMock;
-    render(<ScansRemainingPill />);
-    await waitFor(() => expectRailQuota(2, 3));
+    render(<ScansRemainingPill collapsed={false} />);
+    await waitFor(() => expect(screen.getByText("2 of 3 scans left")).toBeInTheDocument());
 
     act(() => setScansRemaining(1));
-    await waitFor(() => expectRailQuota(1, 3));
+    await waitFor(() => expect(screen.getByText("1 of 3 scans left")).toBeInTheDocument());
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -253,22 +231,20 @@ describe("write-through, so surfaces cannot hold different numbers", () => {
     global.fetch = vi.fn().mockResolvedValue(jsonRes(FREE));
     render(
       <>
-        <ScansRemainingPill />
+        <ScansRemainingPill collapsed={false} />
         <ScansRemainingRow />
       </>,
     );
-    await waitFor(() => expectRailQuota(2, 3));
-    expect(screen.getByText("2 of 3 scans left")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("2 of 3 scans left")).toHaveLength(2));
     act(() => setScansRemaining(0));
-    await waitFor(() => expectRailQuota(0, 3));
-    expect(screen.getByText("No scans left today")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("No scans left today")).toHaveLength(2));
   });
 
   it("never invents a count on an unlimited plan or an outage", async () => {
     // Lowering a number we do not have would turn "unlimited" into a quota and
     // "we could not find out" into a claim.
     global.fetch = vi.fn().mockResolvedValue(jsonRes({ enforced: true, unlimited: true, plan: "admin" }));
-    const { container } = render(<ScansRemainingPill />);
+    const { container } = render(<ScansRemainingPill collapsed={false} />);
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     act(() => setScansRemaining(2));
     await waitFor(() => expect(container).toBeEmptyDOMElement());
@@ -276,10 +252,10 @@ describe("write-through, so surfaces cannot hold different numbers", () => {
 
   it("ignores a null count rather than blanking the badge", async () => {
     global.fetch = vi.fn().mockResolvedValue(jsonRes(FREE));
-    render(<ScansRemainingPill />);
-    await waitFor(() => expectRailQuota(2, 3));
+    render(<ScansRemainingPill collapsed={false} />);
+    await waitFor(() => expect(screen.getByText("2 of 3 scans left")).toBeInTheDocument());
     act(() => setScansRemaining(null));
-    expectRailQuota(2, 3);
+    expect(screen.getByText("2 of 3 scans left")).toBeInTheDocument();
   });
 });
 

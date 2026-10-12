@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
  * inside blog articles.
  */
 
-/* ── App chrome so the visuals read as real product screenshots ───────── */
+/* -- App chrome so the visuals read as real product screenshots -------- */
 export function ProductFrame({
   label,
   ariaLabel,
@@ -66,7 +66,7 @@ export function ProductFrame({
   );
 }
 
-/* ── Static ScoreRing (matches components/ScoreRing.tsx) ───────────────── */
+/* -- Static ScoreRing (matches components/ScoreRing.tsx) --------------- */
 function StaticRing({ score, size = 104 }: { score: number; size?: number }) {
   const r = size / 2 - 8;
   const circ = 2 * Math.PI * r;
@@ -98,7 +98,7 @@ function StaticRing({ score, size = 104 }: { score: number; size?: number }) {
   );
 }
 
-/* ── 1. Match score result header ─────────────────────────────────────── */
+/* -- 1. Match score result header ----------------------------------- */
 export function MatchScoreShot() {
   const stats = [
     { label: "Keywords present", value: "31 / 36", color: "var(--green)" },
@@ -127,7 +127,7 @@ export function MatchScoreShot() {
   );
 }
 
-/* ── 2. Gap analysis rows (matches MatchBreakdownCards) ────────────────── */
+/* -- 2. Gap analysis rows (matches MatchBreakdownCards) --------------- */
 function WeightChip({ w }: { w: "High" | "Med" | "Low" }) {
   const map = {
     High: { bg: "rgba(245, 158, 11, 0.14)", color: "var(--orange)" },
@@ -223,7 +223,7 @@ export function GapAnalysisShot() {
   );
 }
 
-/* ── 3. Keyword match chips ────────────────────────────────────────────── */
+/* -- 3. Keyword match chips ----------------------------------------- */
 function Chip({ text, kind }: { text: string; kind: "hit" | "miss" }) {
   const hit = kind === "hit";
   return (
@@ -279,7 +279,7 @@ export function KeywordMatchShot() {
   );
 }
 
-/* ── 4. Bullet rewrite before / after ─────────────────────────────────── */
+/* -- 4. Bullet rewrite before / after ------------------------------- */
 export function BulletRewriteShot() {
   return (
     <ProductFrame

@@ -55,7 +55,7 @@ import Tooltip from "@mui/material/Tooltip";
 import PaletteIcon from "@mui/icons-material/Palette";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 
-/* ── Shared style helpers ──────────────────────────────────────── */
+/* -- Shared style helpers ------------------------------------------------- */
 const inputBase: React.CSSProperties = {
   width: "100%",
   padding: "8px 11px",
@@ -156,7 +156,7 @@ const ENTRY_LABEL_STYLE: React.CSSProperties = {
   letterSpacing: 0.1,
 };
 
-/* ── AI-enhanced textarea ──────────────────────────────────────── */
+/* -- AI-enhanced textarea ---------------------------------------- */
 function countWords(s: string) {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -303,7 +303,7 @@ function AITextarea({ type, context, onEnhanced, value, style, ...rest }: AIText
   );
 }
 
-/* ── AI Generate button (writes section from scratch) ──────────── */
+/* -- AI Generate button (writes section from scratch) ------------ */
 
 interface AIGenerateButtonProps {
   /** Determines the endpoint kind and context shape. */
@@ -437,7 +437,7 @@ function AIGenerateButton({ kind, buildContext, onGenerated, label = "✦ Genera
   );
 }
 
-/* ── Customization constants ───────────────────────────────────── */
+/* -- Customization constants ------------------------------------─ */
 const ACCENT_PRESETS = [
   { label: "Charcoal", value: "#1a1a1a" },
   { label: "Navy",     value: "#1e3a5f" },
@@ -989,7 +989,7 @@ export default function TemplateBuilderClient() {
         </div>
       ) : null}
 
-      {/* ── Top Bar ─────────────────────────────────────────── */}
+      {/* -- Top Bar ------------------------------------------─ */}
       <TemplateBuilderTopBar
         pageFit={pageFit}
         atsScore={reviewResult?.overallScore ?? null}
@@ -1039,9 +1039,9 @@ export default function TemplateBuilderClient() {
         </ToggleButtonGroup>
       )}
 
-      {/* ── Body ────────────────────────────────────────────── */}
+      {/* -- Body ---------------------------------------------- */}
       <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden", position: "relative" }}>
-        {/* ── Left: Form Panel ──────────────────────────────── */}
+        {/* -- Left: Form Panel -------------------------------- */}
         {phone ? (
           // Full width, no rail, no drawer. The editor IS the screen.
           phoneView === "edit" ? (
@@ -1140,7 +1140,7 @@ export default function TemplateBuilderClient() {
           </div>
         )}
 
-        {/* ── Centre: the canvas ────────────────────────────── */}
+        {/* -- Centre: the canvas ------------------------------ */}
         <div ref={previewPaneRef} style={{
           flex: 1,
           display: phone && phoneView === "edit" ? "none" : "flex",
@@ -1188,7 +1188,7 @@ export default function TemplateBuilderClient() {
           </div>
         </div>
 
-        {/* ── Right: Style Inspector ────────────────────────── */}
+        {/* -- Right: Style Inspector -------------------------- */}
         {!narrow && (
           <aside style={{
             width: 280, flexShrink: 0, display: "flex", flexDirection: "column",
@@ -1212,7 +1212,7 @@ export default function TemplateBuilderClient() {
   );
 }
 
-/* ── Bullet list editor ────────────────────────────────────────── */
+/* -- Bullet list editor ------------------------------------------ */
 
 function parseBulletsToArray(raw: string, minRows = 1): string[] {
   const lines = raw.split("\n").map((l) => l.replace(/^[•·\-*]\s*/, "").trim());
@@ -1474,7 +1474,7 @@ function BulletListEditor({ bullets, onChange, context, minRows = 1, label = "Ke
   );
 }
 
-/* ── Section sub-components ────────────────────────────────────── */
+/* -- Section sub-components -------------------------------------- */
 
 type StoreType = TemplateBuilderStore;
 

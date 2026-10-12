@@ -4,8 +4,8 @@ import AppShell from "@/components/AppShell";
 import ProfilePage from "@/components/profile/ProfilePage";
 
 export const metadata: Metadata = {
-  title: "Career Profile",
-  description: "Your AI-powered career profile — upload a résumé to auto-fill it, then edit and track completion.",
+  title: "Profile",
+  description: "Your Resunova account hub: usage, billing, referrals, job filters, and the career profile that powers applications.",
 };
 
 export default function ProfileRoute() {

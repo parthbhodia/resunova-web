@@ -74,6 +74,20 @@ const TTL_MS = 60_000;
  * (`unlimited`, or `requiresSignIn`), so a payload with none of the three is a
  * contract break we should surface rather than quietly render as "you're fine".
  */
+/**
+ * A real account quota the nav is allowed to show.
+ *
+ * Guests have none (scanning requires an account), and an anonymous metered
+ * reading is declined for the same reason: there is no account to budget for.
+ * The quota pill and the Upgrade action both read this, so they cannot
+ * disagree about whether this account has a count.
+ */
+export function accountHasQuota(
+  state: ScansRemainingState,
+): state is Extract<ScansRemainingState, { kind: "metered" }> {
+  return state.kind === "metered" && !state.anonymous;
+}
+
 export function scansStateFromStatus(body: unknown): ScansRemainingState {
   const status = scanLimitFrom(body);
   if (status.unlimited) return { kind: "unlimited", plan: status.plan };
@@ -90,27 +104,6 @@ export function scansStateFromStatus(body: unknown): ScansRemainingState {
     resetAt: status.resetAt,
     anonymous: status.anonymous,
   };
-}
-
-/**
- * Does a nav surface render a count for this reading?
- *
- * Lives here rather than in the pill because it is a property of the READING,
- * and two surfaces now depend on it: the quota pill, and the rail's Upgrade
- * action. One definition means they cannot disagree about whether this account
- * has a quota to upgrade out of — a Pro or admin account showing "Upgrade" is
- * a dead CTA, and showing a count beside it would be a second claim.
- *
- * Only a real account quota qualifies. A guest has none — scanning requires
- * signing in — and the `requires_sign_in` reading is deliberately excluded:
- * the nav is not where that ask belongs, Analyze makes it at the point it
- * matters. The `anonymous` exclusion stays for the metered case, which is
- * reachable again the moment a policy meters guests rather than refusing them.
- */
-export function navShowsCount(
-  state: ScansRemainingState,
-): state is Extract<ScansRemainingState, { kind: "metered" }> {
-  return state.kind === "metered" && !state.anonymous;
 }
 
 /* ── store ────────────────────────────────────────────────────── */

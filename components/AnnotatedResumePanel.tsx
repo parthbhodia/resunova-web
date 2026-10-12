@@ -151,11 +151,34 @@ function scoreBg(score: number): string {
   return "rgba(248,113,113,0.12)";
 }
 
-/** Thick left callout when the user applied a preview-line rewrite. */
+/** Stable empty list so a missing prop is not a new array on every render. */
+const NO_BULLET_INDICES: number[] = [];
+
+type MirrorTone = { bar: string; bg: string; shadow: string };
+
+type MirrorBox = MirrorTone & {
+  top: number;
+  height: number;
+  opacity: number;
+};
+
+function withMirrorHidden(prev: MirrorBox): MirrorBox {
+  return prev.opacity === 0 ? prev : { ...prev, opacity: 0 };
+}
+
+function sameMirror(prev: MirrorBox, next: MirrorBox): boolean {
+  return prev.top === next.top
+    && prev.height === next.height
+    && prev.opacity === next.opacity
+    && prev.bar === next.bar
+    && prev.bg === next.bg
+    && prev.shadow === next.shadow;
+}
+
 /** Violet frame for a gap-fix target: the row is already tinted violet, and a
  *  score-tier tone would put a red "weak" frame around a bullet the user is
  *  simply working on. */
-function mirrorGapFixStyles(): { bar: string; bg: string; shadow: string } {
+function mirrorGapFixStyles(): MirrorTone {
   return {
     bar: "rgba(139, 92, 246, 0.95)",
     bg: "rgba(139, 92, 246, 0.14)",
@@ -163,7 +186,8 @@ function mirrorGapFixStyles(): { bar: string; bg: string; shadow: string } {
   };
 }
 
-function mirrorAppliedStyles(): { bar: string; bg: string; shadow: string } {
+/** Thick left callout when the user applied a preview-line rewrite. */
+function mirrorAppliedStyles(): MirrorTone {
   return {
     bar: "rgba(52, 211, 153, 0.92)",
     bg: "rgba(52, 211, 153, 0.14)",
@@ -172,7 +196,7 @@ function mirrorAppliedStyles(): { bar: string; bg: string; shadow: string } {
 }
 
 /** Thick left callout on the preview mirror — aligned with score tier (strong / fair / weak). */
-function mirrorToneStyles(score: number): { bar: string; bg: string; shadow: string } {
+function mirrorToneStyles(score: number): MirrorTone {
   if (score >= 75) {
     return {
       bar: "rgba(52, 211, 153, 0.92)",
@@ -466,7 +490,7 @@ export default function AnnotatedResumePanel({
   categoryAssignmentOpts,
   tailorGapFixHighlights = [],
   tailorAppliedHighlights = [],
-  gapFixTargetBulletIndices = [],
+  gapFixTargetBulletIndices = NO_BULLET_INDICES,
   tailorAppliedBulletIndices = new Set<number>(),
   appliedPillPairs = [],
   keywordHighlightTerms = [],
@@ -608,14 +632,7 @@ export default function AnnotatedResumePanel({
       return next;
     });
   }, []);
-  const [mirrorBox, setMirrorBox] = useState<{
-    top: number;
-    height: number;
-    opacity: number;
-    bar: string;
-    bg: string;
-    shadow: string;
-  }>({
+  const [mirrorBox, setMirrorBox] = useState<MirrorBox>({
     top: 0,
     height: 0,
     opacity: 0,
@@ -754,25 +771,31 @@ export default function AnnotatedResumePanel({
   /** Maps `data-bullet-idx` on the preview page to a thick, score-colored frame (split / presentation column). */
   const updateMirrorPosition = useCallback(() => {
     if (!presentationOnly) {
-      setMirrorBox((b) => (b.opacity === 0 ? b : { ...b, opacity: 0 }));
+      setMirrorBox(withMirrorHidden);
       return;
     }
     const idx = selectedBulletIndex;
     const paper = paperRef.current;
     if (idx == null || !paper) {
-      setMirrorBox((b) => ({ ...b, opacity: 0 }));
+      setMirrorBox(withMirrorHidden);
       return;
     }
     const el = paper.querySelector(`[data-bullet-idx="${idx}"]`) as HTMLElement | null;
     if (!el) {
-      setMirrorBox((b) => ({ ...b, opacity: 0 }));
+      setMirrorBox(withMirrorHidden);
       return;
     }
     const paperRect = paper.getBoundingClientRect();
     const elRect = el.getBoundingClientRect();
     const pad = 6;
-    const top = elRect.top - paperRect.top - pad * 0.35;
-    const height = elRect.height + pad;
+    // Whole pixels. A subpixel read that flips between 100.2 and 100.4 would
+    // otherwise write a new box on every measurement and restart the layout effect.
+    const top = Math.round(elRect.top - paperRect.top - pad * 0.35);
+    const height = Math.round(elRect.height + pad);
+    if (!Number.isFinite(top) || !Number.isFinite(height)) {
+      setMirrorBox(withMirrorHidden);
+      return;
+    }
     const bullet = bulletAnalysis[idx];
     const score = bullet?.score ?? 60;
     const previewApplied = previewLineOverrides[idx] !== undefined;
@@ -781,7 +804,10 @@ export default function AnnotatedResumePanel({
       : gapFixTargetBulletIndices.includes(idx)
         ? mirrorGapFixStyles()
         : mirrorToneStyles(score);
-    setMirrorBox({ top, height, opacity: 1, ...tone });
+    const next: MirrorBox = { top, height, opacity: 1, ...tone };
+    // Returning a fresh object when nothing moved is what looped the preview
+    // after a scan result mounted (React error #185).
+    setMirrorBox((prev) => (sameMirror(prev, next) ? prev : next));
   }, [presentationOnly, selectedBulletIndex, bulletAnalysis, effectiveExtracted, previewLineOverrides,
       gapFixTargetBulletIndices]);
 

@@ -61,7 +61,7 @@ describe("AuthGate across a tab switch", () => {
 
     await act(async () => { emit!("SIGNED_OUT", null); });
 
-    await waitFor(() => expect(screen.getByText(/sign in to continue/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: /continue with google/i })).toBeInTheDocument());
     expect(screen.queryByText("work #1")).toBeNull();
   });
 });

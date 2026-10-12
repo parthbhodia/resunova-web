@@ -23,25 +23,32 @@ export type GatePreviewCard = {
   hint?: string;
 };
 
-const TONE_BG: Record<GatePreviewCard["tone"], string> = {
-  accent: "var(--accent-bg)",
-  amber: "var(--amber-bg)",
-  green: "var(--green-bg)",
-};
-// The -ink family is tuned to be read on its own tint, which is exactly this
-// case. A bare hue token here would be a fill colour used as text.
+/**
+ * ⚠️ NO TINTED PILL, AND THE REASON IS MEASURED. The comp drew each tag as
+ * --*-ink on its matching --*-bg. Those tints are tuned to sit on --surface;
+ * this panel is --surface2, and compositing the same alpha over a darker
+ * ground takes green to 4.3:1 — under AA for a 10px label, and invisible to
+ * a check that reads the token name rather than the rendered pixel. The ink
+ * on the panel's own ground clears it comfortably instead.
+ */
 const TONE_INK: Record<GatePreviewCard["tone"], string> = {
   accent: "var(--accent-ink)",
   amber: "var(--amber-ink)",
   green: "var(--green-ink)",
 };
 
-const cardStyle: CSSProperties = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 12,
-  padding: "15px 16px",
-  marginBottom: 11,
+/**
+ * ⚠️ A DIVIDED LIST, NOT A STACK OF CARDS. The comp drew each sample as a
+ * bordered, rounded --surface card, and the detector was right to flag all
+ * four as card-inside-card: they sit inside the gate's own card, so the
+ * nesting was three containers deep to show four sentences. These are
+ * samples, not things you can press, and chrome implying otherwise is
+ * decoration. Spacing and a hairline rule separate them instead, which is the
+ * detector's own remedy and reads quieter besides.
+ */
+const itemStyle: CSSProperties = {
+  padding: "14px 0",
+  borderTop: "1px solid var(--border)",
 };
 
 export default function GatePreview({
@@ -54,8 +61,14 @@ export default function GatePreview({
   return (
     <div
       aria-hidden="true"
+      data-gate-preview=""
       style={{
         padding: "40px 40px 0",
+        // ⚠️ height:100%, or the panel stops at its content and leaves bare
+        // --surface below it when the ask column grows (the email form open
+        // is the common case). Same shape as the nav rail's h-full bug: a
+        // ground that ends mid-column reads as a rendering fault.
+        height: "100%",
         background: "var(--surface2)",
         position: "relative",
         overflow: "hidden",
@@ -85,18 +98,17 @@ export default function GatePreview({
       </p>
 
       {cards.map((c, i) => (
-        <div key={i} style={cardStyle}>
+        <div key={i} style={i === 0 ? { ...itemStyle, borderTop: "none", paddingTop: 0 } : itemStyle}>
           <span
             style={{
               display: "inline-block",
-              fontSize: 10,
+              // 11px, not 10: the detector's functional-text floor, and being
+              // a small label is not an exemption from it.
+              fontSize: 11,
               fontWeight: 700,
-              letterSpacing: "0.05em",
+              letterSpacing: "0.06em",
               textTransform: "uppercase",
-              padding: "3px 7px",
-              borderRadius: 5,
-              marginBottom: 8,
-              background: TONE_BG[c.tone],
+              marginBottom: 6,
               color: TONE_INK[c.tone],
             }}
           >

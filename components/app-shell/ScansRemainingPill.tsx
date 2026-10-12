@@ -4,7 +4,8 @@
  * "Scans left today", for every nav surface.
  *
  * Three exports, one shared reading (see `useScansRemaining`):
- *   - `ScansRemainingPill`  — the desktop rail
+ *   - `ScansRemainingPill`  — legacy desktop pill (expanded and icon-only)
+ *   - `RailQuota`           — the permanent nav rail
  *   - `ScansRemainingRow`   — the mobile More sheet
  *   - `ScansTabBadge`       — the count on the mobile More tab, so the signal
  *                             is visible without opening the sheet
@@ -18,8 +19,8 @@
  * account produces, because those two used to be indistinguishable.
  */
 
-import { cn } from "@/lib/utils";
-import { navShowsCount, useScansRemaining, type ScansRemainingState } from "./useScansRemaining";
+import { accountHasQuota, useScansRemaining, type ScansRemainingState } from "./useScansRemaining";
+import { FS, FW, LH } from "@/lib/typography";
 
 /* ── shared bits ──────────────────────────────────────────────── */
 
@@ -33,6 +34,19 @@ const SHINE_CSS = `
     .rn-scan-shine { animation: none; display: none; }
   }
 `;
+
+/**
+ * Does the nav show this reading?
+ *
+ * Only a real account quota. A guest has none — scanning requires signing in —
+ * and the `requires_sign_in` reading is deliberately not rendered here: the nav
+ * is not where that ask belongs, Analyze makes it at the point it matters. The
+ * `anonymous` exclusion stays for the metered case, which is reachable again the
+ * moment a policy meters guests rather than refusing them.
+ */
+function navShowsCount(state: ScansRemainingState): state is Extract<ScansRemainingState, { kind: "metered" }> {
+  return accountHasQuota(state);
+}
 
 function meterGradient(out: boolean): string {
   return out
@@ -55,45 +69,155 @@ function meterTitle(remaining: number, limit: number): string {
 /** Copy for the state where we could not read the quota at all. */
 const ERROR_TITLE = "Couldn't check your scan quota. Tap to try again.";
 
-/**
- * The same reading, as two short lines for the 84px rail.
- *
- * `meterLabel` cannot fit: "No scans left today" needs ~105px at 11px, so the
- * rail has to say it differently rather than truncate it. Exported, because
- * the alternative is the wording living once here and again in a test.
- *
- * Zero does NOT render "0 of 3". A numeral pair at zero reads as a quantity
- * you still have; the exhausted state has to say it is exhausted.
- */
-export function railQuotaLines(remaining: number, limit: number): [string, string] {
-  return remaining <= 0 ? ["No scans", "left today"] : [`${remaining} of ${limit}`, "scans left"];
+/* ── sidebar ──────────────────────────────────────────────────── */
+
+export function ScansRemainingPill({ collapsed }: { collapsed: boolean }) {
+  const { state, retry } = useScansRemaining();
+
+  if (state.kind === "error") {
+    return collapsed ? (
+      <button
+        type="button"
+        onClick={retry}
+        title={ERROR_TITLE}
+        aria-label={ERROR_TITLE}
+        style={{
+          margin: "8px auto 2px",
+          width: 30,
+          height: 30,
+          borderRadius: 999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 13,
+          fontWeight: 800,
+          cursor: "pointer",
+          color: "var(--muted)",
+          background: "var(--surface2)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        !
+      </button>
+    ) : (
+      <div
+        title={ERROR_TITLE}
+        style={{
+          margin: "2px 10px 8px",
+          display: "flex",
+          alignItems: "center",
+          gap: 7,
+          padding: "7px 12px",
+          borderRadius: 999,
+          background: "var(--surface2)",
+          border: "1px solid var(--border)",
+          color: "var(--muted)",
+          fontSize: 13,
+          fontWeight: 600,
+          letterSpacing: -0.2,
+        }}
+      >
+        <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>⚠</span>
+        <span>Scans unavailable</span>
+        <button
+          type="button"
+          onClick={retry}
+          style={{
+            marginLeft: "auto",
+            border: "none",
+            background: "transparent",
+            padding: 0,
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--accent)",
+            cursor: "pointer",
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!navShowsCount(state)) return null;
+
+  const { remaining, limit } = state;
+  const out = remaining <= 0;
+
+  if (collapsed) {
+    return (
+      <div
+        title={meterTitle(remaining, limit)}
+        aria-label={`${remaining} of ${limit} scans left today`}
+        style={{
+          margin: "8px auto 2px",
+          width: 30,
+          height: 30,
+          borderRadius: 999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 12,
+          fontWeight: 800,
+          color: "#fff",
+          background: meterGradient(out),
+          boxShadow: meterGlow(out),
+        }}
+      >
+        {remaining}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      title={meterTitle(remaining, limit)}
+      style={{
+        margin: "2px 10px 8px",
+        display: "flex",
+        alignItems: "center",
+        gap: 7,
+        padding: "7px 12px",
+        borderRadius: 999,
+        background: meterGradient(out),
+        color: "#fff",
+        boxShadow: meterGlow(out),
+        fontSize: 13,
+        fontWeight: 700,
+        letterSpacing: -0.2,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <span
+        aria-hidden
+        className="rn-scan-shine"
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(105deg, transparent 32%, rgba(255,255,255,0.38) 50%, transparent 68%)",
+          transform: "translateX(-120%)",
+        }}
+      />
+      <span aria-hidden style={{ position: "relative", fontSize: 13, lineHeight: 1 }}>
+        ⚡
+      </span>
+      <span style={{ position: "relative" }}>{meterLabel(remaining, limit)}</span>
+      <style>{SHINE_CSS}</style>
+    </div>
+  );
 }
 
-/* ── the desktop rail ─────────────────────────────────────────── */
-
 /**
- * The quota, shaped like the rail control it sits in.
+ * The rail's quota. Same reading as the pill above, drawn as a short label
+ * because the rail is one icon wide.
  *
- * ⚠️ TINT + INK, NOT WHITE ON A GRADIENT, and that is a measured fix rather
- * than a preference. The disc this replaces painted `#fff` on
- * `meterGradient`, whose warm end renders white text at **2.9:1 in light and
- * 2.39:1 in dark** — sampled from sRGB pixels inside the rendered disc, since
- * a gradient has no `backgroundColor` for a DOM contrast walk to read, which
- * is exactly how it stayed invisible. 12px bold is not large text, so AA
- * wants 4.5:1 and both themes failed it. The `--amber-ink`/`--amber-bg` pair
- * is tuned to be readable as text on its own tint, so this passes by
- * construction in both themes rather than by a value someone picked.
- *
- * It also has to READ. Among seven labelled vertical pills a lone gradient
- * disc showing "2" is the only unlabelled round object on the rail, and
- * directly above "Upgrade" it scans as decoration. Two lines of words say
- * what the number is.
- *
- * The old `collapsed` prop is gone with the collapsed rail: the expanded
- * variant it switched to had no caller left but the test, and a prop with one
- * live value is a lie about having a choice.
+ * Metered accounts only. Unlimited renders nothing (no count to track).
+ * An outage stays visible as Retry, so a blank footer still means "this
+ * account has no quota" and never "we failed to look".
  */
-export function ScansRemainingPill() {
+export function RailQuota() {
   const { state, retry } = useScansRemaining();
 
   if (state.kind === "error") {
@@ -102,45 +226,35 @@ export function ScansRemainingPill() {
         type="button"
         onClick={retry}
         title={ERROR_TITLE}
-        className="mt-1 flex w-(--rail-item) cursor-pointer flex-col items-center justify-center gap-px rounded-xl border border-[var(--border)] bg-[var(--surface2)] px-1 py-1.5 text-center text-[var(--muted)]"
+        aria-label={ERROR_TITLE}
+        className="md-state-layer w-full rounded-full border border-[var(--border)] bg-[var(--surface2)] px-1.5 py-1 text-center text-[var(--muted)]"
+        style={{ fontSize: FS.caption, fontWeight: FW.bold, lineHeight: LH.tight }}
       >
-        {/* Named, not the bare "!" disc this replaces: an outage is not a
-            state the reader should have to hover to identify. Both words are
-            visible, so the button's accessible name contains its own visible
-            label (WCAG 2.5.3) instead of an aria-label that disagrees. */}
-        <span className="text-[11px] leading-tight font-semibold">Scans unavailable</span>
-        <span className="text-[11px] leading-tight font-bold text-[var(--accent-ink)]">Retry</span>
+        Retry
       </button>
     );
   }
 
-  if (!navShowsCount(state)) return null;
+  if (!accountHasQuota(state)) return null;
 
-  const { remaining, limit } = state;
-  const out = remaining <= 0;
-  const [top, bottom] = railQuotaLines(remaining, limit);
+  const out = state.remaining <= 0;
+  const label = out ? "No scans left" : `${state.remaining} scans left`;
 
   return (
     <div
-      title={meterTitle(remaining, limit)}
-      // On a DIV with no role, `aria-label` is not reliably announced, so the
-      // visible text carries the meaning and this only adds the day's scope.
-      className={cn(
-        "mt-1 flex w-(--rail-item) flex-col items-center justify-center gap-px rounded-xl px-1 py-1.5 text-center",
-        // Escalates at zero. Red is not the resting colour: "2 of 3 left" is
-        // a budget, not a problem, and a rail that is amber all day stops
-        // meaning anything by the time it matters.
-        out
-          ? "bg-[var(--red-bg)] text-[var(--red-ink)]"
-          : "bg-[var(--amber-bg)] text-[var(--amber-ink)]",
-      )}
+      title={meterTitle(state.remaining, state.limit)}
+      aria-label={meterTitle(state.remaining, state.limit)}
+      className="w-full rounded-full px-1.5 py-1 text-center"
+      style={{
+        fontSize: FS.caption,
+        fontWeight: FW.bold,
+        fontVariantNumeric: "tabular-nums",
+        lineHeight: LH.tight,
+        background: out ? "var(--red-bg)" : "var(--amber-bg)",
+        color: out ? "var(--red-ink)" : "var(--amber-ink)",
+      }}
     >
-      <span className="text-[11px] leading-tight font-bold tabular-nums">{top}</span>
-      {/* 11px, not 10: the detector's functional-text floor applies to a
-          nav label even on a 72px rail, and "being on the DESIGN.md ramp
-          does not exempt a value here". Both lines fit — "scans left"
-          measures ~52px against 64px of inner width. */}
-      <span className="text-[11px] leading-tight font-semibold">{bottom}</span>
+      {label}
     </div>
   );
 }

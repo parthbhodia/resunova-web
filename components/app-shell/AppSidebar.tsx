@@ -1,83 +1,46 @@
 "use client";
 
+/**
+ * Desktop nav rail.
+ *
+ * One width, labels visible at rest, one destination lit. The old sidebar
+ * could expand or collapse, and navigation itself collapsed it, which is why
+ * the rail always came back shrunk. There is no second state to get stuck in.
+ *
+ * Order is the product funnel: work on the document (Home, Analyze, Tailor,
+ * Templates, Resumes), then use it (Jobs, Prep), then Feedback. Cover letter,
+ * History, theme, Contact and Advisor live in the account menu. Nothing is
+ * removed. The mobile bottom bar is a separate component and is not this rail.
+ *
+ * Stays on the shadcn sidebar primitive. New chrome elsewhere goes to MUI, and
+ * the shell is still on the "to migrate" side of that table. Converting
+ * SidebarProvider here would put an Emotion runtime on every page.
+ */
+
 import React from "react";
 import { useRouter } from "next/navigation";
 import { LogoMark } from "@/components/BrandLogo";
 import { useUpgradeDialog } from "@/components/UpgradeDialog";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
-import { isPublicPath } from "@/components/AuthGate";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar";
 import { isPublicAppView } from "@/lib/anonScan";
+import { isPublicPath } from "@/components/AuthGate";
+import { FS, FW, LH } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 import { AppSidebarUser } from "./AppSidebarUser";
 import { BugReportDialog } from "./BugReportDialog";
 import { NAV_ICONS } from "./nav-icons";
-import { ScansRemainingPill } from "./ScansRemainingPill";
-import { navShowsCount, useScansRemaining } from "./useScansRemaining";
+import { RailQuota } from "./ScansRemainingPill";
+import { accountHasQuota, useScansRemaining } from "./useScansRemaining";
 import {
-  RAIL_GROUPS,
-  RAIL_ITEM_WIDTH,
-  railActiveKey,
+  RAIL_APPLY,
+  RAIL_ARIA,
+  RAIL_DOCUMENT,
+  RAIL_ICONS,
+  RAIL_LABELS,
+  activeRailKey,
   type AppView,
-  type RailItem,
   type RailKey,
 } from "./nav-config";
-
-/**
- * The desktop nav: one always-on rail, labels visible at rest.
- *
- * There is no expanded state and no Resume Builder drawer. See the note on
- * `RAIL_GROUPS` for why both were removed; the short version is that the
- * drawer is what made Templates unfindable, and the collapse is what made the
- * nav "always shrinked".
- *
- * Mobile is untouched — `AppBottomNav` owns it, and this component is only
- * mounted above the mobile breakpoint.
- */
-
-/**
- * A rail control: a vertical pill, 20px icon over an 11px label.
- *
- * The width reads `--rail-item`, set once on the rail root below, rather than
- * being written as a literal here and again on the two footer buttons. Three
- * copies of one measurement is how a label starts truncating in exactly one
- * place.
- */
-const RAIL_ITEM_CLASS =
-  "!h-auto !w-(--rail-item) !flex-col !items-center !justify-center !gap-[3px] !rounded-xl " +
-  "!px-1 !py-2 !text-[11px] !font-semibold !leading-none " +
-  "text-[var(--muted)] hover:!bg-[var(--surface2)] hover:!text-[var(--text)] " +
-  "transition-colors duration-[var(--md-duration-short)] ease-[var(--md-easing-standard)] " +
-  "[&_svg]:!size-5";
-
-/**
- * Active is a FILLED pill whose ink is `--on-fill`.
- *
- * ⚠️ `--on-fill` rather than a hardcoded `#fff`, and this is exactly the case
- * the token exists for: the fill is `--text`, which is near-BLACK in light and
- * near-WHITE in dark, so one literal foreground is readable in exactly one
- * theme. Measured on the shipped palette: #ffffff on #0f172a is 17.4:1 and
- * #0d1117 on #e6edf3 is 16.8:1, which is what `--on-fill` resolves to in each.
- * `tailorQueueMotion.test.ts` fails the build on the hardcoded pairing.
- */
-const RAIL_ACTIVE_CLASS =
-  "data-active:!bg-[var(--text)] data-active:!text-[var(--on-fill)] " +
-  "data-active:shadow-[var(--md-elevation-2)] " +
-  "data-active:hover:!bg-[var(--text)] data-active:hover:!text-[var(--on-fill)]";
-
-/** The hairline between funnel groups. */
-function RailDivider() {
-  return <div aria-hidden className="my-2 h-px w-8 shrink-0 bg-[var(--border)]" />;
-}
 
 export type AppSidebarProps = {
   active: AppView;
@@ -92,14 +55,59 @@ export type AppSidebarProps = {
   theme: "dark" | "light";
   onToggleTheme: () => void;
   userInitial: string;
-  onHistoryOpen: () => void;
+  onHistoryOpenChange: (open: boolean) => void;
   onSwitchView: (view: AppView) => void;
   onGoBuilderFlow: (flow: "tailor" | "template") => void;
   onSignOut: () => void;
-  /** Signed-out free-scan visitor: gated items route to sign-in. */
+  /** Signed-out visitor: locked destinations open the shared sign-in modal. */
   anonMode?: boolean;
   onSignIn?: () => void;
 };
+
+const ITEM_MOTION =
+  "transition-[background-color,color,box-shadow] duration-[var(--md-duration-medium)] ease-[var(--md-easing-standard)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
+
+function RailButton({
+  railKey,
+  active,
+  locked,
+  onClick,
+}: {
+  railKey: RailKey;
+  active: boolean;
+  locked: boolean;
+  onClick: () => void;
+}) {
+  const spoken = locked ? `${RAIL_ARIA[railKey]}, sign in to use` : RAIL_ARIA[railKey];
+  return (
+    <button
+      type="button"
+      data-rail={railKey}
+      data-active={active ? "" : undefined}
+      aria-current={active ? "page" : undefined}
+      aria-label={spoken}
+      onClick={onClick}
+      className={cn(
+        "flex w-full min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-xl border-0 bg-transparent px-1 py-1.5 font-inherit",
+        ITEM_MOTION,
+        active
+          ? "bg-[var(--text)] text-[var(--bg)] shadow-[var(--md-elevation-2)]"
+          : "md-state-layer text-[var(--muted)]",
+      )}
+    >
+      <span className="[&_svg]:size-5" aria-hidden>
+        {RAIL_ICONS[railKey]}
+      </span>
+      <span style={{ fontSize: FS.caption, fontWeight: FW.semibold, lineHeight: LH.tight }}>
+        {RAIL_LABELS[railKey]}
+      </span>
+    </button>
+  );
+}
+
+function RailRule() {
+  return <div aria-hidden className="mx-auto my-1.5 h-px w-8 bg-[var(--border)]" />;
+}
 
 export function AppSidebar({
   active,
@@ -114,7 +122,7 @@ export function AppSidebar({
   theme,
   onToggleTheme,
   userInitial,
-  onHistoryOpen,
+  onHistoryOpenChange,
   onSwitchView,
   onGoBuilderFlow,
   onSignOut,
@@ -123,185 +131,179 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const router = useRouter();
   const { openUpgrade } = useUpgradeDialog();
-  const { state: scansState } = useScansRemaining();
+  const { state: scans } = useScansRemaining();
   const [bugReportOpen, setBugReportOpen] = React.useState(false);
 
-  const activeKey = railActiveKey({
+  const lit = activeRailKey({
     active,
-    builderActive,
-    navBuilderSubflow,
-    onTemplatesPage,
     onTemplateBuilderPage,
+    onTemplatesPage,
     onInterviewPrepPage,
     onCareerProfilePage,
+    builderActive,
+    navBuilderSubflow,
   });
 
-  /**
-   * A guest click goes to sign-in instead of the destination.
-   *
-   * Derived from the destination, both halves: a `?view=` against the shared
-   * `PUBLIC_APP_VIEWS`, a route against `AuthGate`'s own `isPublicPath`. So a
-   * nav click and a pasted URL cannot disagree, which they did on `jobs` when
-   * these were two hand-kept lists, and which the shipped sidebar risked twice
-   * more with `if (anonMode) onSignIn()` written inline on the builder and
-   * interview-prep clicks.
-   *
-   * An item with neither is treated as gated: a destination nobody declared
-   * is one nobody checked.
-   */
-  const isLocked = (item: RailItem) =>
-    anonMode &&
-    (item.view ? !isPublicAppView(item.view) : !isPublicPath(item.route ?? ""));
+  const viewLocked = (view: AppView) => anonMode && !isPublicAppView(view);
+  const pathLocked = (path: string) => anonMode && !isPublicPath(path);
 
-  const destinations: Record<RailKey, () => void> = {
-    home: () => onSwitchView("home"),
-    analyze: () => onSwitchView("analyze"),
-    tailor: () => onGoBuilderFlow("tailor"),
-    templates: () => router.push("/templates/"),
-    library: () => onSwitchView("library"),
-    jobs: () => onSwitchView("jobs"),
-    prep: () => router.push("/interview-prep"),
+  const goView = (view: AppView) => {
+    if (viewLocked(view)) onSignIn?.();
+    else onSwitchView(view);
   };
 
-  const go = (item: RailItem) => () => {
-    if (isLocked(item)) onSignIn?.();
-    else destinations[item.key]();
+  const goPath = (path: string, locked: boolean) => {
+    if (locked) onSignIn?.();
+    else {
+      router.push(path);
+      onHistoryOpenChange(false);
+    }
   };
 
-  /**
-   * Upgrade renders only where upgrading means something.
-   *
-   * Same predicate as the count above it, deliberately: an admin or Pro
-   * account seeing "Upgrade" is a dead CTA, and a guest is being asked to
-   * sign in, not to pay. ⚠️ This is a DEVIATION from the comp, which draws
-   * Upgrade on the dark rail beside no quota pill — that panel exists to show
-   * the no-count state, not to rule that a Pro user should be sold to.
-   */
-  const showUpgrade = navShowsCount(scansState);
+  const onRail = (key: RailKey) => {
+    switch (key) {
+      case "home":
+        goView("home");
+        break;
+      case "analyze":
+        goView("analyze");
+        break;
+      case "tailor":
+        if (pathLocked("/tailor-2")) onSignIn?.();
+        else onGoBuilderFlow("tailor");
+        break;
+      case "templates":
+        goPath("/templates/", false);
+        break;
+      case "resumes":
+        goView("library");
+        break;
+      case "jobs":
+        goView("jobs");
+        break;
+      case "prep":
+        goPath("/interview-prep", pathLocked("/interview-prep"));
+        break;
+    }
+  };
+
+  const showUpgrade = accountHasQuota(scans);
 
   return (
-    <Sidebar
-      collapsible="none"
-      /* h-dvh, not the base `h-full`: the wrapper has min-height only, so a
-         percentage height resolves to auto and the rail's background and
-         right border stopped at its content — measured 512px of chrome in a
-         900px viewport, two thirds of the way down an empty page. */
-      className="h-dvh shrink-0 border-r border-sidebar-border"
-      style={{ "--rail-item": RAIL_ITEM_WIDTH } as React.CSSProperties}
-      aria-label="Main"
-    >
-      <SidebarHeader className="items-center pt-3 pb-1">
+    <Sidebar collapsible="none" className="!h-dvh shrink-0 border-r border-sidebar-border">
+      <SidebarHeader className="items-center p-2 pb-1">
         <button
           type="button"
-          className="flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 font-inherit"
-          onClick={go(RAIL_GROUPS[0][0])}
+          className={cn(
+            "md-state-layer flex size-[44px] items-center justify-center rounded-xl border-0 bg-transparent p-0",
+            ITEM_MOTION,
+          )}
+          onClick={() => onSwitchView("home")}
           aria-label="Resunova, go to Home"
         >
-          <LogoMark size={34} variant={isUmbc ? "umbc" : "resunova"} />
+          <LogoMark size={32} variant={isUmbc ? "umbc" : "resunova"} />
         </button>
       </SidebarHeader>
 
-      <SidebarContent className="items-center gap-0 overflow-x-hidden">
-        {RAIL_GROUPS.map((group, groupIndex) => (
-          <React.Fragment key={group.map((i) => i.key).join("-")}>
-            {groupIndex > 0 ? <RailDivider /> : null}
-            <SidebarGroup className="w-full p-0">
-              <SidebarGroupContent>
-                <SidebarMenu className="items-center gap-0.5">
-                  {group.map((item) => (
-                    <SidebarMenuItem key={item.key}>
-                      <SidebarMenuButton
-                        isActive={activeKey === item.key}
-                        className={cn(RAIL_ITEM_CLASS, RAIL_ACTIVE_CLASS)}
-                        onClick={go(item)}
-                      >
-                        <span aria-hidden>{item.icon}</span>
-                        {/* The visible label IS the accessible name. No
-                            aria-label and no hover-only tooltip: an icon-only
-                            rail item has no name at all for a screen reader,
-                            which is the same "nobody sees it" bug #264 fixed
-                            by hand on four items. Labels at rest make it
-                            structural. */}
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </React.Fragment>
-        ))}
+      <SidebarContent className="min-h-0 flex-1 gap-0 overflow-y-auto px-1.5">
+        <nav aria-label="Primary" className="flex min-h-0 flex-1 flex-col">
+          <div className="flex flex-col gap-0.5">
+            {RAIL_DOCUMENT.map((key) => (
+              <RailButton
+                key={key}
+                railKey={key}
+                active={lit === key}
+                locked={
+                  key === "tailor"
+                    ? pathLocked("/tailor-2")
+                    : key === "templates"
+                      ? false
+                      : key === "home"
+                        ? viewLocked("home")
+                        : key === "analyze"
+                          ? viewLocked("analyze")
+                          : viewLocked("library")
+                }
+                onClick={() => onRail(key)}
+              />
+            ))}
+          </div>
+
+          <RailRule />
+
+          <div className="flex flex-col gap-0.5">
+            {RAIL_APPLY.map((key) => (
+              <RailButton
+                key={key}
+                railKey={key}
+                active={lit === key}
+                locked={key === "jobs" ? viewLocked("jobs") : pathLocked("/interview-prep")}
+                onClick={() => onRail(key)}
+              />
+            ))}
+          </div>
+
+          <div className="min-h-2 flex-1" />
+
+          <button
+            type="button"
+            data-rail="feedback"
+            className={cn(
+              "md-state-layer flex w-full min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-xl border-0 bg-transparent px-1 py-1.5 font-inherit text-[var(--muted)]",
+              ITEM_MOTION,
+            )}
+            onClick={() => setBugReportOpen(true)}
+          >
+            <span className="[&_svg]:size-5" aria-hidden>
+              {NAV_ICONS.bug}
+            </span>
+            <span style={{ fontSize: FS.caption, fontWeight: FW.semibold, lineHeight: LH.tight }}>
+              Feedback
+            </span>
+          </button>
+        </nav>
       </SidebarContent>
 
-      <SidebarFooter className="items-center gap-0 border-t-0 pb-3">
-        <SidebarMenu className="items-center gap-0.5">
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              className={RAIL_ITEM_CLASS}
-              onClick={() => setBugReportOpen(true)}
-            >
-              <span aria-hidden>{NAV_ICONS.bug}</span>
-              <span>Feedback</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-
-        <RailDivider />
-
-        {/* The count and the fix for it sit together. */}
-        <ScansRemainingPill />
-
+      <SidebarFooter className="items-center gap-1.5 border-t-0 p-2 pt-0">
+        <RailRule />
+        <RailQuota />
         {showUpgrade ? (
           <button
             type="button"
             onClick={() => openUpgrade()}
             className={cn(
-              "mt-1 flex w-(--rail-item) cursor-pointer flex-col items-center justify-center gap-[3px]",
-              "rounded-xl border-0 px-1 py-2 text-[11px] leading-none font-bold",
-              "bg-[var(--green-bg)] text-[var(--green-ink)]",
-              "transition-opacity duration-[var(--md-duration-short)] ease-[var(--md-easing-standard)] hover:opacity-85",
-              "[&_svg]:size-[18px]",
+              "md-state-layer flex w-full min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-xl border-0 px-1 py-1.5 font-inherit",
+              ITEM_MOTION,
             )}
+            style={{ background: "var(--green-bg)", color: "var(--green-ink)" }}
           >
-            <span aria-hidden>{NAV_ICONS.upgrade}</span>
-            <span>Upgrade</span>
+            <span className="[&_svg]:size-5" aria-hidden>
+              {NAV_ICONS.upgrade}
+            </span>
+            <span style={{ fontSize: FS.caption, fontWeight: FW.bold, lineHeight: LH.tight }}>
+              Upgrade
+            </span>
           </button>
         ) : null}
-
-        <div className="mt-2">
-          {anonMode ? (
-            <button
-              type="button"
-              onClick={() => onSignIn?.()}
-              className={cn(
-                "flex w-(--rail-item) cursor-pointer flex-col items-center justify-center gap-[3px]",
-                "rounded-xl border-0 px-1 py-2 text-[11px] leading-none font-semibold",
-                "bg-[var(--accent-bg)] text-[var(--accent-ink)]",
-                "transition-opacity duration-[var(--md-duration-short)] ease-[var(--md-easing-standard)] hover:opacity-85",
-                "[&_svg]:size-[18px]",
-              )}
-            >
-              <span aria-hidden>{NAV_ICONS.lock}</span>
-              <span>Sign in</span>
-            </button>
-          ) : (
-            <AppSidebarUser
-              initial={userInitial}
-              theme={theme}
-              onToggleTheme={onToggleTheme}
-              advisorAllowed={advisorAllowed}
-              onProfile={() => router.push("/profile")}
-              onMyResumes={() => onSwitchView("library")}
-              onCoverLetter={() => onSwitchView("cover-letter")}
-              onAdvisor={() => onSwitchView("advisor")}
-              onHistory={onHistoryOpen}
-              onAccount={() => onSwitchView("account")}
-              onSignOut={onSignOut}
-            />
-          )}
-        </div>
+        <AppSidebarUser
+          initial={userInitial}
+          anonMode={anonMode}
+          advisorAllowed={advisorAllowed}
+          theme={theme}
+          onToggleTheme={onToggleTheme}
+          onSignIn={onSignIn}
+          onProfile={() => router.push("/profile")}
+          onMyResumes={() => goView("library")}
+          onCoverLetter={() => goView("cover-letter")}
+          onHistory={() => {
+            if (anonMode) onSignIn?.();
+            else onHistoryOpenChange(true);
+          }}
+          onAdvisor={() => goView("advisor")}
+          onAccount={() => goView("account")}
+          onSignOut={onSignOut}
+        />
       </SidebarFooter>
-
       <BugReportDialog open={bugReportOpen} onOpenChange={setBugReportOpen} />
     </Sidebar>
   );

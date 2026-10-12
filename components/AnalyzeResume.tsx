@@ -34,6 +34,7 @@ import {
   AnalyzeUploadLanding,
   AnalyzeCoachLoader,
 } from "@/components/AnalyzeExperience";
+import { useAppShellSidebar } from "@/contexts/AppShellSidebarContext";
 import { takeAnonAnalysisStash, stashAnalyzeJd, takeAnalyzeJd } from "@/lib/anonScan";
 import { logClientEvent, stashPrewallEvent, flushPrewallEvents } from "@/lib/clientEvents";
 import { useSignInDialog } from "@/components/SignInDialog";
@@ -75,6 +76,7 @@ import {
 
 export default function AnalyzeResume() {
   const searchParams = useSearchParams();
+  const appShellSidebar = useAppShellSidebar();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging]         = useState(false);
   const [loading, setLoading]           = useState(false);
@@ -442,6 +444,7 @@ export default function AnalyzeResume() {
     setLoading(true);
     setError(null);
     setResult(null);
+    appShellSidebar?.collapseSidebar();
 
     setExpandedBullets({});
     setActiveCategory(null);
@@ -475,7 +478,7 @@ export default function AnalyzeResume() {
     } finally {
       setLoading(false);
     }
-  }, [jd, applyAnalyzeOutcome]);
+  }, [jd, applyAnalyzeOutcome, appShellSidebar]);
 
 
   // A scan that finished while this component was unmounted is delivered here.
@@ -488,6 +491,7 @@ export default function AnalyzeResume() {
     setLoading(true);
     setError(null);
     setResult(null);
+    appShellSidebar?.collapseSidebar();
 
     setExpandedBullets({});
     setActiveCategory(null);
@@ -514,7 +518,7 @@ export default function AnalyzeResume() {
     } finally {
       setLoading(false);
     }
-  }, [jd, persistResult]);
+  }, [jd, persistResult, appShellSidebar]);
 
   // Restore a cached result — lazy-fetches the full result blob if not already loaded
   const restoreRecord = useCallback(async (rec: AnalyzeRecord) => {

@@ -233,7 +233,13 @@ export default function SignInRequiredPage({ pathname }: { pathname: string | nu
                 background: "none",
                 border: "none",
                 padding: "6px 0",
-                color: "var(--muted)",
+                // ⚠️ --accent-ink + an underline, not --muted and bare. The
+                // first build had this as flush-left muted text under the
+                // Google button and it read as a caption rather than the only
+                // other way in. Quiet is not the same as invisible.
+                color: "var(--accent-ink)",
+                textDecoration: "underline",
+                textUnderlineOffset: 3,
                 fontSize: 13,
                 fontWeight: 600,
                 fontFamily: "inherit",
@@ -340,7 +346,7 @@ export default function SignInRequiredPage({ pathname }: { pathname: string | nu
         </div>
 
         {hasPreview ? (
-          <div className="rn-gate-preview" style={{ borderLeft: "1px solid var(--border)" }}>
+          <div className="rn-gate-preview" style={{ borderLeft: "1px solid var(--border)", minWidth: 0 }}>
             <GatePreview label={content.previewLabel ?? "What's behind this"} cards={content.previewCards!} />
           </div>
         ) : null}

@@ -1,16 +1,8 @@
 "use client";
 
 /**
- * AppShell — persistent left nav rail (desktop / tablet) + mobile bottom tab bar.
+ * AppShell — persistent left sidebar (desktop / tablet) + mobile bottom tab bar.
  * Design reference: docs/PRODUCT_DESIGN.md (Linear × Notion × career coach).
- *
- * THE RAIL HAS ONE WIDTH. No collapsed state, no persisted preference, no
- * per-route default, because those three WERE the bug. The field report was
- * "the navbar is always shrinked" and it was three mechanisms disagreeing:
- * `switchView` collapsed on EVERY navigation (and deliberately did not
- * persist that), a workspace-route default collapsed four more paths until you
- * toggled on that exact path, and the stored flag then argued with both. A nav
- * that is always one width cannot be in the wrong one.
  */
 
 import { useEffect, useState, useCallback, type CSSProperties, type ReactNode } from "react";
@@ -31,14 +23,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "./app-shell/AppSidebar";
 import { AppBottomNav } from "./app-shell/AppBottomNav";
 import { BugReportDialog } from "./app-shell/BugReportDialog";
+import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
 import { useSignInDialog } from "./SignInDialog";
+import { trackEvent } from "@/lib/analytics";
+import { APP_VIEW_TITLES } from "@/lib/appViewTitle";
 import { UpgradeDialogProvider } from "./UpgradeDialog";
 import CheckoutReturnNotice from "./CheckoutReturnNotice";
 import FirstRunWizard from "./FirstRunWizard";
 import { RAIL_WIDTH, type AppView } from "./app-shell/nav-config";
-import { trackEvent } from "@/lib/analytics";
-import { APP_VIEW_TITLES } from "@/lib/appViewTitle";
 import { apiFetch } from "@/lib/apiClient";
 
 export type { AppView } from "./app-shell/nav-config";
@@ -109,7 +102,7 @@ function AppShellBody({ children }: { children: ReactNode }) {
   /**
    * One `app_view` per in-app screen.
    *
-   * ⚠️ THIS IS NOT A DUPLICATE OF THE TITLED page_view IN layout.tsx, and the
+   * ⚠️ NOT A DUPLICATE OF THE TITLED page_view IN layout.tsx, and the
    * difference is the whole reason it exists. That script can only read
    * `?view=` from the URL, and bare "/" is the marketing landing page for a
    * signed-out visitor and the app home for a signed-in one — nothing
@@ -117,11 +110,11 @@ function AppShellBody({ children }: { children: ReactNode }) {
    * "/" titled as marketing. AppShell only renders when the app shell is
    * genuinely on screen, so its mount IS the disambiguation.
    *
-   * It is also a CUSTOM EVENT rather than a second page_view on purpose:
-   * GA4's enhanced measurement may or may not be configured to fire page_view
-   * on history changes, and that is a property setting this code cannot read.
-   * Sending our own page_view would double-count wherever it is enabled; an
-   * `app_view` event with a `view` parameter is queryable either way.
+   * A CUSTOM EVENT rather than a second page_view on purpose: whether GA4's
+   * enhanced measurement fires page_view on history changes is a property
+   * setting this code cannot read, so sending our own would double-count
+   * wherever it is enabled. An `app_view` with a `view` param is queryable
+   * either way.
    */
   useEffect(() => {
     const title = APP_VIEW_TITLES[active];
@@ -289,86 +282,89 @@ function AppShellBody({ children }: { children: ReactNode }) {
   return (
     <UmbcProvider isUmbc={isUmbc}>
       <TooltipProvider delay={0}>
-        {/* The provider stays even though nothing collapses: `Sidebar` reads
-            `useSidebar()` at every collapsible mode, and the mobile sheet
-            still needs it. It is simply no longer CONTROLLED, because there
-            is no open state left to drive. */}
         <SidebarProvider
           className="app-shell-root min-h-dvh max-h-dvh overflow-hidden bg-background"
-          style={{ "--sidebar-width": RAIL_WIDTH } as CSSProperties}
+          style={
+            {
+              "--sidebar-width": RAIL_WIDTH,
+              "--sidebar-width-icon": RAIL_WIDTH,
+            } as CSSProperties
+          }
         >
-          {!isMobile && (
-            <AppSidebar
+          <AppShellSidebarBridge>
+            {!isMobile && (
+              <AppSidebar
+                active={active}
+                onTemplateBuilderPage={onTemplateBuilderPage}
+                onTemplatesPage={onTemplatesPage}
+                onInterviewPrepPage={onInterviewPrepPage}
+                onCareerProfilePage={onCareerProfilePage}
+                builderActive={builderActive}
+                navBuilderSubflow={navBuilderSubflow}
+                advisorAllowed={advisorAllowed}
+                isUmbc={isUmbc}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                userInitial={initial}
+                onHistoryOpenChange={setHistoryOpen}
+                onSwitchView={switchView}
+                onGoBuilderFlow={goBuilderFlow}
+                onSignOut={onSignOut}
+                anonMode={anonMode}
+                onSignIn={onSignIn}
+              />
+            )}
+
+            <SidebarInset
+              key={active}
+              className="app-shell-main app-shell-view-pane min-h-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0"
+            >
+              <FreeScanWelcomeBanner userId={user?.id ?? null} isUmbc={isUmbc} />
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+            </SidebarInset>
+
+            <AppBottomNav
               active={active}
-              onTemplateBuilderPage={onTemplateBuilderPage}
-              onTemplatesPage={onTemplatesPage}
-              onInterviewPrepPage={onInterviewPrepPage}
-              onCareerProfilePage={onCareerProfilePage}
               builderActive={builderActive}
-              navBuilderSubflow={navBuilderSubflow}
-              advisorAllowed={advisorAllowed}
-              isUmbc={isUmbc}
+              onSelect={switchView}
+              onBuilder={() => goBuilderFlow("tailor")}
               theme={theme}
               onToggleTheme={toggleTheme}
-              userInitial={initial}
               onHistoryOpen={() => setHistoryOpen(true)}
-              onSwitchView={switchView}
-              onGoBuilderFlow={goBuilderFlow}
+              onBugReport={() => setMobileBugReportOpen(true)}
               onSignOut={onSignOut}
+              userInitial={initial}
+              advisorAllowed={advisorAllowed}
               anonMode={anonMode}
               onSignIn={onSignIn}
             />
-          )}
+            <BugReportDialog open={mobileBugReportOpen} onOpenChange={setMobileBugReportOpen} />
+            <FirstRunWizard user={user} isUmbc={isUmbc} />
 
-          <SidebarInset
-            key={active}
-            className="app-shell-main app-shell-view-pane min-h-0 flex-1 flex-col overflow-hidden pb-14 md:pb-0"
-          >
-            <FreeScanWelcomeBanner userId={user?.id ?? null} isUmbc={isUmbc} />
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
-          </SidebarInset>
-
-          <AppBottomNav
-            active={active}
-            builderActive={builderActive}
-            onSelect={switchView}
-            onBuilder={() => goBuilderFlow("tailor")}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-            onHistoryOpen={() => setHistoryOpen(true)}
-            onBugReport={() => setMobileBugReportOpen(true)}
-            onSignOut={onSignOut}
-            userInitial={initial}
-            advisorAllowed={advisorAllowed}
-            anonMode={anonMode}
-            onSignIn={onSignIn}
-          />
-          <BugReportDialog open={mobileBugReportOpen} onOpenChange={setMobileBugReportOpen} />
-          <FirstRunWizard user={user} isUmbc={isUmbc} />
-
-          <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
-            <SheetContent
-              side="right"
-              showCloseButton={false}
-              className="w-[min(300px,92vw)] gap-0 p-0 sm:max-w-[300px]"
-            >
-              <SheetTitle className="sr-only">Resume history</SheetTitle>
-              <ResumeSidebar
-                activeFolder={null}
-                onSelect={(folder) => {
-                  try {
-                    sessionStorage.removeItem(RN_BUILDER_LAYOUT_ONLY_KEY);
-                  } catch {
-                    /* ignore */
-                  }
-                  router.push(
-                    tailorHref({ base: folder, intentJob: true }),
-                  );
-                  setHistoryOpen(false);
-                }}
-              />
-            </SheetContent>
-          </Sheet>
+            <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+              <SheetContent
+                side="right"
+                showCloseButton={false}
+                className="w-[min(300px,92vw)] gap-0 p-0 sm:max-w-[300px]"
+              >
+                <SheetTitle className="sr-only">Resume history</SheetTitle>
+                <ResumeSidebar
+                  activeFolder={null}
+                  onSelect={(folder) => {
+                    try {
+                      sessionStorage.removeItem(RN_BUILDER_LAYOUT_ONLY_KEY);
+                    } catch {
+                      /* ignore */
+                    }
+                    router.push(
+                      tailorHref({ base: folder, intentJob: true }),
+                    );
+                    setHistoryOpen(false);
+                  }}
+                />
+              </SheetContent>
+            </Sheet>
+          </AppShellSidebarBridge>
         </SidebarProvider>
       </TooltipProvider>
     </UmbcProvider>

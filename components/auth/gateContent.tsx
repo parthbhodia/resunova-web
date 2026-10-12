@@ -56,7 +56,7 @@ const BY_PREFIX: Array<[string, GateContent]> = [
         {
           tag: "Story bank",
           tone: "green",
-          text: "A migration you ran — framed as Situation, Task, Action, Result.",
+          text: "A migration you ran, framed as Situation, Task, Action, Result.",
           hint: "Drafted from your own experience, then edited in your words.",
         },
         {
