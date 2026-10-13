@@ -37,8 +37,24 @@ describe("TailorFixExpansion", () => {
     );
     fireEvent.click(screen.getByText("Add to résumé"));
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ id: "s1" }), null);
+    expect(screen.queryByTestId("role-title-offer")).toBeNull();
     expect(screen.getByText("Edit first")).toBeTruthy();
     expect(screen.getByText("Ignore")).toBeTruthy();
+  });
+
+  it("an empty original is shown as a new line, not a blank Your bullet", () => {
+    render(
+      <TailorFixExpansion
+        item={item()}
+        state={{ phase: "ready", suggestions: [sugg({ original: "", suggested: "Set up CI/CD for 12 services." })] }}
+        onApply={() => undefined}
+        onIgnore={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
+    expect(screen.getByText("New line")).toBeTruthy();
+    expect(screen.queryByText("Your bullet")).toBeNull();
+    expect(screen.getByText("Set up CI/CD for 12 services.")).toBeTruthy();
   });
 
   it("two suggestions render as pickable versions and apply sends the picked one", () => {
@@ -236,6 +252,57 @@ describe("TailorFixExpansion", () => {
     expect(screen.getByText(/keyword stuffing/)).toBeTruthy();
     fireEvent.click(screen.getByText("Try a fix"));
     expect(onTryFix).toHaveBeenCalled();
+  });
+
+  it("offers to retitle the role when the suggestion carries suggested_role", () => {
+    const onApply = vi.fn();
+    render(
+      <TailorFixExpansion
+        item={item()}
+        state={{
+          phase: "ready",
+          suggestions: [sugg({
+            suggested_role: "Senior Fullstack Engineer",
+            original_role: "Software Engineer",
+            employer: "Acme",
+          })],
+        }}
+        onApply={onApply}
+        onIgnore={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
+    expect(screen.getByTestId("role-title-offer")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Add to résumé"));
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ suggested_role: "Senior Fullstack Engineer" }),
+      null,
+    );
+  });
+
+  it("can keep the current title when the retitle box is unchecked", () => {
+    const onApply = vi.fn();
+    render(
+      <TailorFixExpansion
+        item={item()}
+        state={{
+          phase: "ready",
+          suggestions: [sugg({
+            suggested_role: "Senior Fullstack Engineer",
+            original_role: "Software Engineer",
+          })],
+        }}
+        onApply={onApply}
+        onIgnore={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByText("Add to résumé"));
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ suggested_role: undefined }),
+      null,
+    );
   });
 });
 

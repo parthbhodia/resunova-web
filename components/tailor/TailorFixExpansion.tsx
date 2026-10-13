@@ -66,6 +66,9 @@ export interface FixSuggestion {
   /** The exact words the résumé doesn't back — the candidate's to vouch for. */
   unverified_terms?: string[];
   unverified_numerals?: string[];
+  /** Aggressive: retitle the existing role this rewrite sits under. */
+  suggested_role?: string;
+  original_role?: string;
 }
 
 /** Words the résumé doesn't back, for the caution line. */
@@ -298,6 +301,8 @@ export function TailorFixExpansion({
 }) {
   const [chosen, setChosen] = useState(0);
   const [editText, setEditText] = useState<string | null>(null);
+  /** Default on: if the suggestion carries a role title, applying the bullet also retitles the role. */
+  const [keepRoleTitle, setKeepRoleTitle] = useState(true);
   /**
    * Recount, stamped with the suggestion it describes.
    *
@@ -346,6 +351,9 @@ export function TailorFixExpansion({
 
   const suggestions = state.phase === "ready" ? state.suggestions : [];
   const current = suggestions[Math.min(chosen, Math.max(0, suggestions.length - 1))];
+  const applySuggestion = (s: FixSuggestion, edited: string | null) => {
+    onApply(keepRoleTitle && s.suggested_role?.trim() ? s : { ...s, suggested_role: undefined }, edited);
+  };
 
   /**
    * Recount whenever the chosen suggestion changes.
@@ -714,7 +722,7 @@ export function TailorFixExpansion({
               type="button"
               style={{ ...primaryBtn, opacity: applying ? 0.6 : 1 }}
               disabled={applying}
-              onClick={() => onApply(current, editText)}
+              onClick={() => applySuggestion(current, editText)}
             >
               {applying ? "Adding…" : "Add your version"}
             </button>
@@ -780,29 +788,29 @@ export function TailorFixExpansion({
         </div>
       ) : current ? (
         <div>
-          <div style={label}>Your bullet</div>
-          <div style={{ fontSize: FS.small, color: "var(--muted)", lineHeight: 1.5 }}>{current.original}</div>
-          {/* No provenance caption. "Read from your résumé. Nothing here was
-              invented." was cut on founder direction: the bullet above is
-              visibly the user's own words, and narrating the implicit talks
-              down to people ("people are not dumb"). HOUSE RULE: don't state
-              what the surface already shows. The correction path stays, one
-              quiet link, no preamble. */}
-          {canCorrect ? (
-            <div style={{ fontSize: FS.caption, marginTop: 4 }}>
-              <button
-                type="button"
-                onClick={() => setCorrection({ ...draft! })}
-                style={{
-                  border: 0, background: "none", padding: 0, cursor: "pointer",
-                  color: "var(--accent-ink, #0559c7)", font: "inherit",
-                  textDecoration: "underline", textUnderlineOffset: 3,
-                }}
-              >
-                Not quite? Correct the details
-              </button>
-            </div>
-          ) : null}
+          {current.original.trim() ? (
+            <>
+              <div style={label}>Your bullet</div>
+              <div style={{ fontSize: FS.small, color: "var(--muted)", lineHeight: 1.5 }}>{current.original}</div>
+              {canCorrect ? (
+                <div style={{ fontSize: FS.caption, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => setCorrection({ ...draft! })}
+                    style={{
+                      border: 0, background: "none", padding: 0, cursor: "pointer",
+                      color: "var(--accent-ink, #0559c7)", font: "inherit",
+                      textDecoration: "underline", textUnderlineOffset: 3,
+                    }}
+                  >
+                    Not quite? Correct the details
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div style={label}>New line</div>
+          )}
           <div style={{ ...label, marginTop: 10 }}>
             {suggestions.length > 1 ? "Pick a version" : "Suggested"}
           </div>
@@ -893,6 +901,35 @@ export function TailorFixExpansion({
            * It renders nothing while loading and nothing on failure. A missing
            * line is honest; a stale or invented one is not, and this sits
            * directly above the button that writes to someone's résumé. */}
+          {current.suggested_role?.trim() ? (
+            <label
+              data-testid="role-title-offer"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                marginTop: 10,
+                fontSize: FS.small,
+                color: "var(--text)",
+                lineHeight: 1.45,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={keepRoleTitle}
+                onChange={(e) => setKeepRoleTitle(e.target.checked)}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                Also retitle this role
+                {current.original_role ? ` from ${current.original_role}` : ""}
+                {" "}to {current.suggested_role}
+                {current.employer ? ` at ${current.employer}` : ""}. Uncheck to
+                keep the current title.
+              </span>
+            </label>
+          ) : null}
           {shownDelta ? (
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 9, flexWrap: "wrap" }}>
               <span style={{ fontSize: FS.small, fontWeight: FW.bold, color: "var(--text)" }}>
@@ -927,7 +964,7 @@ export function TailorFixExpansion({
               type="button"
               style={{ ...primaryBtn, opacity: applying ? 0.6 : 1 }}
               disabled={applying}
-              onClick={() => onApply(current, null)}
+              onClick={() => applySuggestion(current, null)}
             >
               {applying ? "Adding…" : "Add to résumé"}
             </button>

@@ -125,6 +125,25 @@ export interface RoleOption {
   label: string;
 }
 
+/** Where a new bullet lands. Prefers the role whose company matches `employer`. */
+export function entryPathForNewBullet(
+  structured: StructuredResume | null | undefined,
+  employer?: string,
+): string {
+  const exp = structured?.experience ?? [];
+  if (!exp.length) return "exp.0";
+  const want = (employer ?? "").trim().toLowerCase();
+  if (want) {
+    const i = exp.findIndex((e) => {
+      const company = (e.company ?? "").trim().toLowerCase();
+      const label = [e.role, e.company].map((s) => (s ?? "").trim()).filter(Boolean).join(" · ").toLowerCase();
+      return company === want || label === want;
+    });
+    if (i >= 0) return `exp.${i}`;
+  }
+  return "exp.0";
+}
+
 /** Roles first, then projects. Empty when the résumé has neither. */
 export function roleOptions(structured: StructuredResume | null | undefined): RoleOption[] {
   if (!structured) return [];

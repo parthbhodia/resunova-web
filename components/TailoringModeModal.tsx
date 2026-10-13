@@ -162,7 +162,7 @@ export function TailoringModeModal({
         })}
 
         <p style={{ margin: "10px 0 14px", fontSize: 11, color: "var(--dim, var(--muted))", lineHeight: 1.5 }}>
-          Either way, Resunova never invents employers, job titles, credentials, or metrics. Every rewrite starts from a real bullet on your résumé.
+          Either way, Resunova never invents employers, credentials, or metrics. Aggressive mode can retitle an existing role toward the posting when the work is the same job under a different name. Every rewrite starts from a real bullet on your résumé.
         </p>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

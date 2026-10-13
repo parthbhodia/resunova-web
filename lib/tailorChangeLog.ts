@@ -31,7 +31,7 @@ export interface ResumeChange {
   key: string;
   /** `added` = a line the user wrote themselves under a role; it has no
    *  original and lives in the structured doc, not the override map. */
-  kind: "fix" | "edit" | "skill" | "added";
+  kind: "fix" | "edit" | "skill" | "added" | "title";
   /** The bullet this change lives on. -1 for a Skills-section add or an
    *  added line (the preview's bullet list predates it). */
   bulletIndex: number;
@@ -49,9 +49,11 @@ interface AppliedAction {
   label: string;
   appliedText?: string;
   /** "skills" when the fix was an Add-to-Skills; "bullet" when the user
-   *  wrote the line. Anything else is a bullet rewrite. */
+   *  wrote the line; "title" when an Experience job title changed.
+   *  Anything else is a bullet rewrite. */
   via?: string;
   entryPath?: string;
+  originalText?: string;
 }
 
 /**
@@ -75,6 +77,8 @@ export function deriveResumeChanges(
   const skillRows: ResumeChange[] = [];
   const skillSeen = new Set<string>();
   const addedRows = new Map<string, ResumeChange>();
+  const titleRows: ResumeChange[] = [];
+  const titleSeen = new Set<string>();
 
   // Requirement -> bullet, for every row that reports as applied.
   for (const item of items) {
@@ -84,6 +88,23 @@ export function deriveResumeChanges(
     // resolving it against the overrides would either miss (row invisible, the
     // shipped gap) or worse, claim a bullet that merely mentions the term.
     const action = actionFor(item.name, actions);
+    if (action?.via === "title") {
+      const path = (action.entryPath ?? "").trim() || `title:${item.name}`;
+      if (!titleSeen.has(path)) {
+        titleSeen.add(path);
+        titleRows.push({
+          key: `title:${path}`,
+          kind: "title",
+          bulletIndex: -1,
+          original: (action.originalText ?? "").trim(),
+          applied: (action.appliedText ?? item.name).trim(),
+          requirements: [item.name],
+          entryPath: action.entryPath,
+        });
+      }
+      continue;
+    }
+
     if (action?.via === "skills") {
       const term = (action.appliedText ?? item.name).trim();
       const seenKey = term.toLowerCase();
@@ -162,11 +183,49 @@ export function deriveResumeChanges(
     });
   }
 
+  // Tools filed as a side-effect of a rewrite never have their own queue
+  // row. They still changed the document, so they still need a receipt —
+  // otherwise Undo on the bullet leaves Terraform in Skills with no way
+  // to take it back.
+  for (const action of actions) {
+    if (action.via === "title") {
+      const path = (action.entryPath ?? "").trim();
+      if (!path || titleSeen.has(path)) continue;
+      titleSeen.add(path);
+      const applied = (action.appliedText ?? action.label).trim();
+      if (!applied) continue;
+      titleRows.push({
+        key: `title:${path}`,
+        kind: "title",
+        bulletIndex: -1,
+        original: (action.originalText ?? "").trim(),
+        applied,
+        requirements: [action.label],
+        entryPath: path,
+      });
+      continue;
+    }
+    if (action.via !== "skills") continue;
+    const term = (action.appliedText ?? action.label).trim();
+    const seenKey = term.toLowerCase();
+    if (!term || skillSeen.has(seenKey)) continue;
+    skillSeen.add(seenKey);
+    skillRows.push({
+      key: `skill:${seenKey}`,
+      kind: "skill",
+      bulletIndex: -1,
+      original: "",
+      applied: term,
+      requirements: [action.label],
+    });
+  }
+
   const bulletRows = [...byBullet.values()].sort((a, b) => a.bulletIndex - b.bulletIndex);
   return [
     ...bulletRows.filter((c) => c.kind === "fix"),
     ...addedRows.values(),
     ...skillRows,
+    ...titleRows,
     ...bulletRows.filter((c) => c.kind === "edit"),
   ];
 }

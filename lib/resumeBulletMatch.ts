@@ -11,6 +11,7 @@ import {
   looksLikeEntryHeader,
   isGapFixEligibleLine,
 } from "@/lib/resumeEntryLineHeuristics";
+import { applyHeaderLineToExperience } from "@/lib/experienceTitle";
 import { stripInlineMarkdown } from "@/lib/inlineMarkdown";
 
 export interface LiveBulletItem {
@@ -418,27 +419,47 @@ export function patchStructuredWithOverrides<T extends {
 }
 
 /** Apply PATH-based inline field edits from the Tailor preview (e.g.
- *  `exp.0.bullets.2`, `proj.1.bullets.0`) onto the structured doc, so a
- *  neutral-bullet inline edit reaches the scorer — the Tailor rescore sends the
- *  structured doc as the authoritative scored input, and these path edits are
- *  NOT covered by the index-based `patchStructuredWithOverrides`. No-op when
- *  there are no overrides. Only bullet paths affect the score; `*.head` and
- *  section edits are cosmetic and skipped here. Deep-clones lazily so unedited
- *  rescores are untouched. Paths mirror `AnalyzeLiveResumeBody`'s pushBullets
- *  prefixes (`exp.${i}.bullets`, `proj.${i}.bullets`). */
+ *  `exp.0.bullets.2`, `proj.1.bullets.0`, `exp.0.head`, `exp.0.role`) onto the
+ *  structured doc, so a preview edit reaches the scorer — the Tailor rescore
+ *  sends the structured doc as the authoritative scored input, and these path
+ *  edits are NOT covered by the index-based `patchStructuredWithOverrides`.
+ *  No-op when there are no overrides. Deep-clones lazily so unedited rescores
+ *  are untouched. Paths mirror `AnalyzeLiveResumeBody`'s prefixes
+ *  (`exp.${i}.bullets`, `exp.${i}.head`, `proj.${i}.bullets`). */
 export function applyFieldOverridesToStructured<T extends {
-  experience?: Array<{ bullets?: string[] }>;
+  experience?: Array<{
+    role?: string;
+    company?: string;
+    location?: string;
+    dates?: string;
+    bullets?: string[];
+  }>;
   projects?: Array<{ bullets?: string[] }>;
 }>(structured: T, fieldOverrides: Record<string, string> | undefined): T {
   if (!structured || !fieldOverrides || !Object.keys(fieldOverrides).length) return structured;
   let cloned: T | null = null;
+  const ensure = (): T => {
+    if (!cloned) cloned = JSON.parse(JSON.stringify(structured)) as T;
+    return cloned;
+  };
   for (const [path, value] of Object.entries(fieldOverrides)) {
-    const m = /^(exp|proj)\.(\d+)\.bullets\.(\d+)$/.exec(path);
-    if (!m) continue; // head/section edits don't affect the deterministic score
     const text = (value ?? "").trim();
     if (!text) continue;
-    if (!cloned) cloned = JSON.parse(JSON.stringify(structured)) as T;
-    const list = m[1] === "exp" ? cloned.experience : cloned.projects;
+    const role = /^exp\.(\d+)\.role$/.exec(path);
+    if (role) {
+      const entry = ensure().experience?.[Number(role[1])];
+      if (entry) entry.role = text;
+      continue;
+    }
+    const head = /^exp\.(\d+)\.head$/.exec(path);
+    if (head) {
+      const entry = ensure().experience?.[Number(head[1])];
+      if (entry) applyHeaderLineToExperience(entry, text);
+      continue;
+    }
+    const m = /^(exp|proj)\.(\d+)\.bullets\.(\d+)$/.exec(path);
+    if (!m) continue;
+    const list = m[1] === "exp" ? ensure().experience : ensure().projects;
     const entry = list?.[Number(m[2])];
     const bi = Number(m[3]);
     if (entry && Array.isArray(entry.bullets) && bi >= 0 && bi < entry.bullets.length) {

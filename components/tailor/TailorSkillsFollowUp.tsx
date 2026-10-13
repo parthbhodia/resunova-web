@@ -18,6 +18,49 @@ export type SkillsFollowUp =
   | { kind: "added"; groups: Array<{ category: string; tools: string[] }> }
   | { kind: "offer"; tools: string[] };
 
+function uniqueTools(tools: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of tools) {
+    const tool = String(raw ?? "").trim();
+    if (!tool) continue;
+    const key = tool.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(tool);
+  }
+  return out;
+}
+
+function mergeGroups(
+  a: Array<{ category: string; tools: string[] }>,
+  b: Array<{ category: string; tools: string[] }>,
+): Array<{ category: string; tools: string[] }> {
+  const by = new Map<string, string[]>();
+  for (const g of [...a, ...b]) {
+    by.set(g.category, uniqueTools([...(by.get(g.category) ?? []), ...g.tools]));
+  }
+  return [...by.entries()].map(([category, tools]) => ({ category, tools }));
+}
+
+/**
+ * Two applies used to replace the banner, so a résumé with no Skills
+ * section only ever offered the last tool list. Offers accumulate; added
+ * groups merge. An offer after an added notice is still an offer: there is
+ * no section to file into.
+ */
+export function mergeSkillsFollowUp(
+  prev: SkillsFollowUp | null,
+  next: SkillsFollowUp,
+): SkillsFollowUp {
+  if (next.kind === "offer") {
+    const prior = prev?.kind === "offer" ? prev.tools : [];
+    return { kind: "offer", tools: uniqueTools([...prior, ...next.tools]) };
+  }
+  const prior = prev?.kind === "added" ? prev.groups : [];
+  return { kind: "added", groups: mergeGroups(prior, next.groups) };
+}
+
 function joinList(items: readonly string[]): string {
   if (items.length <= 1) return items[0] ?? "";
   if (items.length === 2) return `${items[0]} and ${items[1]}`;

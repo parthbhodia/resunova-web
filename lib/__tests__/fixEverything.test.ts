@@ -111,6 +111,13 @@ describe("batch request shape", () => {
     expect(notes.toLowerCase()).not.toContain("never invent");
     expect(notes).toContain("empty original");
   });
+
+  it("lets aggressive mode retitle an existing role toward the posting", () => {
+    const q = collectUnaddressedGaps(ratings(), NONE)[0];
+    const notes = batchGapNotes(q, "aggressive");
+    expect(notes).toContain("suggested_role");
+    expect(notes.toLowerCase()).toContain("retitle");
+  });
 });
 
 describe("appendBulletLine", () => {

@@ -22,7 +22,7 @@ export const TAILORING_MODE_META: Record<TailoringMode, { label: string; blurb: 
   },
   aggressive: {
     label: "Aggressive",
-    blurb: "Rewrite content to match the job description closely. Covers more keywords by reframing adjacent experience — never fabricates jobs, credentials, or numbers.",
+    blurb: "Rewrite content to match the job description closely. Covers more keywords by reframing adjacent experience. Can retitle an existing role toward the posting. Never fabricates jobs, credentials, or numbers.",
   },
 };
 

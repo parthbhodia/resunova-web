@@ -35,6 +35,7 @@ const CHIP_CAP = 3;
 
 function rowTitle(change: ResumeChange): string {
   if (change.kind === "skill") return change.applied;
+  if (change.kind === "title") return change.applied;
   if (change.requirements.length > 0) return change.requirements.join(" & ");
   return "You rewrote a line";
 }
@@ -73,13 +74,17 @@ export function TailorChangeLog({
     const open = openKeys.has(c.key);
     const confirming = confirmKey === c.key;
     const title = rowTitle(c);
-    const chips = c.kind === "skill" ? [] : restingChips(c, title);
+    const chips = c.kind === "skill" || c.kind === "title" ? [] : restingChips(c, title);
     const snippet =
       c.kind === "skill"
         ? "added to your Skills section"
-        : c.original
-          ? `in "${c.original}"`
-          : `a new line: "${c.applied}"`;
+        : c.kind === "title"
+          ? c.original
+            ? `role title, was "${c.original}"`
+            : "role title under Experience"
+          : c.original
+            ? `in "${c.original}"`
+            : `a new line: "${c.applied}"`;
     return (
       <li key={c.key} data-testid="change-row" style={{ borderTop: "1px solid var(--border)" }}>
         {/* The whole row is the toggle — the one resting affordance. */}
@@ -170,6 +175,11 @@ export function TailorChangeLog({
               <p style={{ margin: 0, fontSize: FS.small, color: "var(--text)" }}>
                 Added <strong>{c.applied}</strong> to your Skills section.
               </p>
+            ) : c.kind === "title" ? (
+              <p style={{ margin: 0, fontSize: FS.small, color: "var(--text)" }}>
+                Role title is now <strong>{c.applied}</strong>
+                {c.original ? <>, was {c.original}</> : null}.
+              </p>
             ) : (
               <>
                 <div style={{ fontSize: FS.caption, color: "var(--muted)", marginBottom: 2 }}>Now reads</div>
@@ -218,7 +228,7 @@ export function TailorChangeLog({
             <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               {/* No See-it on a skills row: the preview resolver only finds
                   bullets, and a link that scrolls nowhere is a dead click. */}
-              {onSee && c.kind !== "skill" && c.kind !== "added" ? (
+              {onSee && c.kind !== "skill" && c.kind !== "added" && c.kind !== "title" ? (
                 <button
                   type="button"
                   style={{ ...QUIET_BTN, border: "none", color: "var(--accent-ink, var(--accent))", fontWeight: FW.semibold, padding: 0 }}
@@ -234,7 +244,9 @@ export function TailorChangeLog({
                       the user cannot know that unless we say it. */}
                   <span style={{ fontSize: FS.caption, color: "var(--text)" }}>
                     {c.kind === "skill"
-                      ? "Removes it from your Skills section and reopens the requirement."
+                      ? "Removes it from your Skills section."
+                      : c.kind === "title"
+                        ? "Puts the original job title back."
                       : c.kind === "added"
                         ? "Removes the line you wrote and reopens the requirement."
                         : c.requirements.length > 1

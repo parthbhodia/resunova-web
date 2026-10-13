@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { TailorSkillsFollowUp } from "@/components/tailor/TailorSkillsFollowUp";
+import { TailorSkillsFollowUp, mergeSkillsFollowUp } from "@/components/tailor/TailorSkillsFollowUp";
 
 describe("TailorSkillsFollowUp", () => {
   it("says which group an added tool landed in", () => {
@@ -37,5 +37,34 @@ describe("TailorSkillsFollowUp", () => {
       <TailorSkillsFollowUp notice={null} onCreateSection={vi.fn()} onDismiss={vi.fn()} />,
     );
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("mergeSkillsFollowUp", () => {
+  it("accumulates offers instead of keeping only the last tool list", () => {
+    const first = mergeSkillsFollowUp(null, { kind: "offer", tools: ["Terraform"] });
+    const second = mergeSkillsFollowUp(first, { kind: "offer", tools: ["Go", "terraform"] });
+    expect(second).toEqual({ kind: "offer", tools: ["Terraform", "Go"] });
+  });
+
+  it("merges added groups by category", () => {
+    const first = mergeSkillsFollowUp(null, {
+      kind: "added",
+      groups: [{ category: "Cloud & Infra", tools: ["Terraform"] }],
+    });
+    const second = mergeSkillsFollowUp(first, {
+      kind: "added",
+      groups: [
+        { category: "Cloud & Infra", tools: ["Kubernetes"] },
+        { category: "Languages", tools: ["Go"] },
+      ],
+    });
+    expect(second).toEqual({
+      kind: "added",
+      groups: [
+        { category: "Cloud & Infra", tools: ["Terraform", "Kubernetes"] },
+        { category: "Languages", tools: ["Go"] },
+      ],
+    });
   });
 });
