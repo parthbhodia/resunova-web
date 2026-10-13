@@ -18,9 +18,11 @@ type Props = {
   onFocus: (id: string) => void;
   onAdd: () => void;
   onClose: (id: string) => void;
+  /** Résumé headline, used when this job has no role of its own. */
+  profileTitle?: string;
 };
 
-export default function TailorJobTabs({ onFocus, onAdd, onClose }: Props) {
+export default function TailorJobTabs({ onFocus, onAdd, onClose, profileTitle }: Props) {
   const targets = useTailorWorkspaceStore((s) => s.targets);
   const activeId = useTailorWorkspaceStore((s) => s.activeId);
   const inflight = useTailorWorkspaceStore((s) => s.inflight);
@@ -61,7 +63,11 @@ export default function TailorJobTabs({ onFocus, onAdd, onClose }: Props) {
           }}
         >
           {targets.map((job) => {
-            const label = tailorJobLabel(job.work.company, job.work.role);
+            const title = job.work.result?.ratings?.job_title;
+            const label = tailorJobLabel(job.work.company, job.work.role, {
+              profileTitle: profileTitle || title?.resume_title,
+              postingTitle: title?.jd_title,
+            });
             const score = job.score;
             const scanning = tailorJobIsBusy(inflight, job.id);
             return (

@@ -67,9 +67,18 @@ export default function SaveToProfilePrompt({ signedIn }: SaveToProfilePromptPro
     setHidden(fp ? loadSeen().includes(fp) : false);
   }, [fp]);
 
+  // The confirmation is a toast: it leaves on its own, and the close button
+  // has to be able to dismiss it too. (Keeping it while status === "saved"
+  // made the X a no-op.)
+  useEffect(() => {
+    if (status !== "saved") return;
+    const id = window.setTimeout(() => setHidden(true), 3200);
+    return () => window.clearTimeout(id);
+  }, [status, fp]);
+
   if (!signedIn) return null;
   if (!sr || !fp) return null;
-  if (hidden && status !== "saved") return null;
+  if (hidden) return null;
 
   const doSave = async () => {
     setStatus("saving");

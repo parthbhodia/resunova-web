@@ -6,6 +6,9 @@ import {
   severityBg,
   guessIssueCategory,
   issueCategoryOf,
+  issueResumeSection,
+  bulletIndexForIssue,
+  bulletIndexInResumeSection,
   formatExperienceTenureChip,
   flaggedBulletFixChip,
   getBulletsForCategory,
@@ -69,6 +72,38 @@ describe("guessIssueCategory / issueCategoryOf", () => {
       suggestion: "",
     };
     expect(issueCategoryOf(issue)).toBe("quantification");
+  });
+  it("maps a first-person project bullet to language, and missing metrics to quantification", () => {
+    expect(guessIssueCategory("First-person pronoun in project bullet")).toBe("languageQuality");
+    expect(guessIssueCategory("Majority of experience bullets lack any metric or scale")).toBe("quantification");
+  });
+});
+
+describe("issue jump targets", () => {
+  it("names the résumé section the issue is about", () => {
+    expect(issueResumeSection("First-person pronoun in project bullet")).toBe("projects");
+    expect(issueResumeSection("Majority of experience bullets lack any metric")).toBe("experience");
+    expect(issueResumeSection("Summary is too long")).toBe("summary");
+    expect(issueResumeSection("Weak action verbs")).toBeNull();
+  });
+  it("finds the bullet quoted in the suggestion", () => {
+    const bullets = [
+      { originalBullet: "Built a pipeline that cut deploy time 40%." },
+      { originalBullet: "I developed the onboarding flow for new hires." },
+    ];
+    expect(bulletIndexForIssue({
+      issue: "First-person pronoun in project bullet",
+      suggestion: "Remove 'I developed' and rephrase to owned action + result.",
+    }, bullets)).toBe(1);
+  });
+  it("keeps section matches to bullets that actually live in that section", () => {
+    const bullets = [
+      { originalBullet: "I developed the onboarding flow for new hires." },
+      { originalBullet: "Shipped a search index used by 10k customers." },
+    ];
+    expect(bulletIndexInResumeSection(bullets, [
+      "Shipped a search index used by 10k customers.",
+    ])).toEqual([1]);
   });
 });
 

@@ -22,6 +22,10 @@ describe("tailor job labels", () => {
     expect(tailorJobLabel("", "")).toBe("New job");
     expect(tailorJobLabel("—", "—")).toBe("New job");
     expect(tailorJobLabel("Stripe", "")).toBe("Stripe");
+    expect(tailorJobLabel("Stripe", "", { profileTitle: "Software Developer" })).toBe("Stripe · Software Developer");
+    expect(tailorJobLabel("", "", { profileTitle: "Software Developer" })).toBe("Software Developer");
+    expect(tailorJobLabel("", "", { postingTitle: "Product Platform Engineer" })).toBe("Product Platform Engineer");
+    expect(tailorJobLabel("Stripe", "Designer", { profileTitle: "Engineer" })).toBe("Stripe · Designer");
   });
 
   it("reads the match score from ratings", () => {

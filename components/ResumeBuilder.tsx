@@ -4027,7 +4027,12 @@ export default function ResumeBuilder({
             >
 
           {tailorJobsReady && !studioHandoff && (
-            <TailorJobTabs onFocus={focusJob} onAdd={openBlankJob} onClose={closeJob} />
+            <TailorJobTabs
+              onFocus={focusJob}
+              onAdd={openBlankJob}
+              onClose={closeJob}
+              profileTitle={(tailorHeadlineOverride.trim() || structuredUpload?.structured.headline || "").trim()}
+            />
           )}
 
           {/* ── Analyze loader ── */}
