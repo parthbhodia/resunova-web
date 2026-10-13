@@ -10,6 +10,7 @@ import { buildResumeFileStem } from "@/lib/resumeFileName";
 import { saveTailorMatchToLibrary, tailorMatchFolder } from "@/lib/tailorAnalyzeLibrary";
 import { loadBuilderDraft as loadDraft, patchBuilderDraft as saveDraft } from "@/lib/builderDraft";
 import { saveBlobAsDownload } from "@/lib/saveBlobDownload";
+import { emptySuggestionsSnapshot } from "@/lib/suggestionsSnapshot";
 import { emptyGenerationResult, type TailorJobFields, type TailorJobTarget } from "@/lib/tailorJobTarget";
 import { tailorJobIsCurrent, useTailorWorkspaceStore } from "@/store/tailorWorkspaceStore";
 import { useTailorJobSwitcher } from "@/hooks/useTailorJobSwitcher";
@@ -397,6 +398,34 @@ function saveBuilderSessionToDraft(session: BuilderSessionV1) {
   }
 }
 
+type TailorAbortKind = "scan" | "suggest" | "generate" | "rescore";
+type TailorAbortSlot = Partial<Record<TailorAbortKind, AbortController>>;
+
+function takeJobAbort(map: Map<string, TailorAbortSlot>, jobId: string, kind: TailorAbortKind): AbortController {
+  const slot = map.get(jobId) ?? {};
+  slot[kind]?.abort();
+  const ac = new AbortController();
+  slot[kind] = ac;
+  map.set(jobId, slot);
+  return ac;
+}
+
+function abortTailorJob(map: Map<string, TailorAbortSlot>, jobId: string) {
+  const slot = map.get(jobId);
+  if (!slot) return;
+  for (const ac of Object.values(slot)) ac?.abort();
+  map.delete(jobId);
+}
+
+function jobAbortIsCurrent(map: Map<string, TailorAbortSlot>, jobId: string, kind: TailorAbortKind, ac: AbortController): boolean {
+  return map.get(jobId)?.[kind] === ac;
+}
+
+function releaseJobAbort(map: Map<string, TailorAbortSlot>, jobId: string, kind: TailorAbortKind, ac: AbortController) {
+  const slot = map.get(jobId);
+  if (slot?.[kind] === ac) delete slot[kind];
+}
+
 export default function ResumeBuilder({
   initialBaseFolder,
   queueUi = false,
@@ -636,15 +665,15 @@ export default function ResumeBuilder({
     setSuggestResearchQueries([]);
     setSuggestResearchSources([]);
   }, [resetSuggestions, selectSuggestion, setSuggestError]);
-  const suggestStreamAbortRef = useRef<AbortController | null>(null);
-  const generateStreamAbortRef = useRef<AbortController | null>(null);
+  const jobAbortRef = useRef<Map<string, TailorAbortSlot>>(new Map());
   const resetActiveTailorWork = useCallback(() => {
-    suggestStreamAbortRef.current?.abort();
-    suggestStreamAbortRef.current = null;
-    generateStreamAbortRef.current?.abort();
-    generateStreamAbortRef.current = null;
+    const id = useTailorWorkspaceStore.getState().activeId;
+    abortTailorJob(jobAbortRef.current, id);
+    useTailorWorkspaceStore.getState().clearInflight(id);
     setSuggestLoading(false);
     setGenerating(false);
+    setAnalyzing(false);
+    setTailorRescoring(false);
     setStatusMsg("");
   }, [setSuggestLoading]);
   // Declared above the reset callbacks that clear them. Both were introduced
@@ -689,9 +718,9 @@ export default function ResumeBuilder({
   }, [clearSuggestionsState, resetActiveTailorWork, saveStatus]);
 
   useEffect(() => {
+    const map = jobAbortRef.current;
     return () => {
-      suggestStreamAbortRef.current?.abort();
-      generateStreamAbortRef.current?.abort();
+      for (const id of [...map.keys()]) abortTailorJob(map, id);
     };
   }, []);
 
@@ -864,14 +893,14 @@ export default function ResumeBuilder({
     getWork: readTailorJobFields,
     apply: applyTailorJob,
     onLeave: () => {
-      suggestStreamAbortRef.current?.abort();
-      generateStreamAbortRef.current?.abort();
-      setGenerating(false);
-      setTailorRescoring(false);
-      // The match request keeps running on the job that started it. The page
-      // loader follows whichever job is now visible.
-      const { activeId, scanningIds } = useTailorWorkspaceStore.getState();
-      setAnalyzing(scanningIds.includes(activeId));
+      const { activeId, inflight } = useTailorWorkspaceStore.getState();
+      setAnalyzing(inflight.scan.includes(activeId));
+      setSuggestLoading(inflight.suggest.includes(activeId));
+      setGenerating(inflight.generate.includes(activeId));
+      setTailorRescoring(inflight.rescore.includes(activeId));
+    },
+    onDismiss: (id) => {
+      abortTailorJob(jobAbortRef.current, id);
     },
   });
   const activeTailorFolder = useTailorWorkspaceStore(
@@ -1585,7 +1614,8 @@ export default function ResumeBuilder({
     const initialStructured = tailorStructuredResume && profile === (structuredUpload?.profile ?? "").trim()
       ? applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides) : null;
     const requestJobId = useTailorWorkspaceStore.getState().activeId;
-    useTailorWorkspaceStore.getState().setScanning(requestJobId, true);
+    const ac = takeJobAbort(jobAbortRef.current, requestJobId, "scan");
+    useTailorWorkspaceStore.getState().setInflight(requestJobId, "scan", true);
     setAnalyzing(true);
     appShellSidebar?.collapseSidebar();
     setAnalyzeError(null);
@@ -1595,6 +1625,7 @@ export default function ResumeBuilder({
       const resp = await apiFetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: ac.signal,
         body: JSON.stringify({
           candidate_profile: profile,
           job_description: effJd,
@@ -1696,12 +1727,17 @@ export default function ResumeBuilder({
         setMatchSidebarCollapsed(true);
       }
     } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
       const message = e instanceof Error ? e.message : "Analysis failed";
       useTailorWorkspaceStore.getState().patch(requestJobId, { analyzeError: message });
       if (tailorJobIsCurrent(requestJobId)) setAnalyzeError(message);
     } finally {
-      useTailorWorkspaceStore.getState().setScanning(requestJobId, false);
-      if (tailorJobIsCurrent(requestJobId)) setAnalyzing(false);
+      const stillOurs = jobAbortIsCurrent(jobAbortRef.current, requestJobId, "scan", ac);
+      releaseJobAbort(jobAbortRef.current, requestJobId, "scan", ac);
+      if (stillOurs) {
+        useTailorWorkspaceStore.getState().setInflight(requestJobId, "scan", false);
+        if (tailorJobIsCurrent(requestJobId)) setAnalyzing(false);
+      }
     }
   }, [jd, candidateProfile, company, role, model, user?.id, tailoringMode, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar, saveStatus, persistTailorMatch]);
   useEffect(() => { handleAnalyzeRef.current = () => { void handleAnalyze(); }; }, [handleAnalyze]);
@@ -1744,11 +1780,14 @@ export default function ResumeBuilder({
       ? { ...structuredWithFieldOverrides, headline: headlineOverride }
       : structuredWithFieldOverrides;
     const requestJobId = useTailorWorkspaceStore.getState().activeId;
+    const ac = takeJobAbort(jobAbortRef.current, requestJobId, "rescore");
+    useTailorWorkspaceStore.getState().setInflight(requestJobId, "rescore", true);
     setTailorRescoring(true);
     try {
       const resp = await apiFetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: ac.signal,
         body: JSON.stringify({
           candidate_profile: prof,
           job_description: jd.trim(),
@@ -1779,7 +1818,7 @@ export default function ResumeBuilder({
       };
       if (data.error || !data.ratings) return false;
 
-      applyStructuredFromAnalyze(raw, prof);
+      if (tailorJobIsCurrent(requestJobId)) applyStructuredFromAnalyze(raw, prof);
 
       const mergedRatings = mergeRescorePreservingAddressedGaps(
         data.ratings,
@@ -1857,10 +1896,16 @@ export default function ResumeBuilder({
         setFixCollisionNotice(null);
       }
       return true;
-    } catch {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return false;
       return false;
     } finally {
-      if (tailorJobIsCurrent(requestJobId)) setTailorRescoring(false);
+      const stillOurs = jobAbortIsCurrent(jobAbortRef.current, requestJobId, "rescore", ac);
+      releaseJobAbort(jobAbortRef.current, requestJobId, "rescore", ac);
+      if (stillOurs) {
+        useTailorWorkspaceStore.getState().setInflight(requestJobId, "rescore", false);
+        if (tailorJobIsCurrent(requestJobId)) setTailorRescoring(false);
+      }
     }
   }, [
     candidateProfile, jd, company, role, model, user?.id, result?.folder,
@@ -2049,10 +2094,9 @@ export default function ResumeBuilder({
         }
       : {};
 
-    suggestStreamAbortRef.current?.abort();
-    const ac = new AbortController();
-    suggestStreamAbortRef.current = ac;
+    const ac = takeJobAbort(jobAbortRef.current, useTailorWorkspaceStore.getState().activeId, "suggest");
     const requestJobId = useTailorWorkspaceStore.getState().activeId;
+    useTailorWorkspaceStore.getState().setInflight(requestJobId, "suggest", true);
 
     resetSuggestions();       // reset first — clears stale data (also resets loading to false)
     setSuggestLoading(true);  // set loading AFTER reset so it isn't wiped
@@ -2126,7 +2170,6 @@ export default function ResumeBuilder({
             case "status":
               break;
             case "research": {
-              if (!tailorJobIsCurrent(requestJobId)) break;
               const rq = Array.isArray(ev.research_queries)
                 ? ev.research_queries.filter((q): q is string => typeof q === "string")
                 : [];
@@ -2135,9 +2178,16 @@ export default function ResumeBuilder({
                     .filter((s): s is { title?: string | null; url: string } => s && typeof s.url === "string")
                     .map(s => ({ title: s.title ?? null, url: s.url }))
                 : [];
+              const digest = typeof ev.research_digest === "string" ? ev.research_digest : "";
+              useTailorWorkspaceStore.getState().patch(requestJobId, {
+                suggestResearchQueries: rq,
+                suggestResearchSources: rs,
+                suggestResearchDigest: digest,
+              });
+              if (!tailorJobIsCurrent(requestJobId)) break;
               setSuggestResearchQueries(rq);
               setSuggestResearchSources(rs);
-              setSuggestResearchDigest(typeof ev.research_digest === "string" ? ev.research_digest : "");
+              setSuggestResearchDigest(digest);
               useSuggestionsStore.getState().incrementStep();
               useSuggestionsStore.getState().incrementStep();
               useSuggestionsStore.getState().incrementStep();
@@ -2152,16 +2202,12 @@ export default function ResumeBuilder({
             }
             case "coach_done": {
               sawCoachDone = true;
-              if (!tailorJobIsCurrent(requestJobId)) break;
               const list = Array.isArray(ev.suggestions)
                 ? ev.suggestions.filter(isSuggestionRecord)
                 : [];
-              hydrateSuggestions(
-                list,
-                typeof ev.summary === "string" ? ev.summary : "",
-                parseStrategicTips(ev.strategic_tips),
-                parseInterviewQuestions(ev.interview_questions),
-              );
+              const summary = typeof ev.summary === "string" ? ev.summary : "";
+              const tips = parseStrategicTips(ev.strategic_tips);
+              const questions = parseInterviewQuestions(ev.interview_questions);
               const rq = Array.isArray(ev.research_queries)
                 ? ev.research_queries.filter((q): q is string => typeof q === "string")
                 : [];
@@ -2170,9 +2216,23 @@ export default function ResumeBuilder({
                     .filter((s): s is { title?: string | null; url: string } => s && typeof s.url === "string")
                     .map(s => ({ title: s.title ?? null, url: s.url }))
                 : [];
+              const digestDone = typeof ev.research_digest === "string" ? ev.research_digest : "";
+              useTailorWorkspaceStore.getState().patch(requestJobId, {
+                suggestions: {
+                  ...emptySuggestionsSnapshot(),
+                  suggestions: list,
+                  summary,
+                  strategicTips: tips,
+                  interviewQuestions: questions,
+                },
+                suggestResearchQueries: rq,
+                suggestResearchSources: rs,
+                suggestResearchDigest: digestDone,
+              });
+              if (!tailorJobIsCurrent(requestJobId)) break;
+              hydrateSuggestions(list, summary, tips, questions);
               setSuggestResearchQueries(rq);
               setSuggestResearchSources(rs);
-              const digestDone = typeof ev.research_digest === "string" ? ev.research_digest : "";
               setSuggestResearchDigest(digestDone);
               if (digestDone.trim().length >= 40) {
                 suggestResearchReuseGateRef.current = {
@@ -2195,13 +2255,19 @@ export default function ResumeBuilder({
         throw new Error("The suggestions stream ended unexpectedly. Please try again.");
       }
     } catch (e: unknown) {
-      if (e instanceof Error && e.name === "AbortError") {
-        return;
-      }
-      setSuggestError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e)));
+      if (e instanceof Error && e.name === "AbortError") return;
+      const message = toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e));
+      useTailorWorkspaceStore.getState().patch(requestJobId, {
+        suggestions: { ...emptySuggestionsSnapshot(), error: message },
+      });
+      if (tailorJobIsCurrent(requestJobId)) setSuggestError(message);
     } finally {
-      if (suggestStreamAbortRef.current === ac) suggestStreamAbortRef.current = null;
-      if (tailorJobIsCurrent(requestJobId)) setSuggestLoading(false);
+      const stillOurs = jobAbortIsCurrent(jobAbortRef.current, requestJobId, "suggest", ac);
+      releaseJobAbort(jobAbortRef.current, requestJobId, "suggest", ac);
+      if (stillOurs) {
+        useTailorWorkspaceStore.getState().setInflight(requestJobId, "suggest", false);
+        if (tailorJobIsCurrent(requestJobId)) setSuggestLoading(false);
+      }
     }
   }, [jd, candidateProfile, studioHandoff, hydrateSuggestions, appendSuggestStream, setSuggestLoading, setSuggestError, resetSuggestions, scrollBuilderToTop]);
 
@@ -2289,10 +2355,9 @@ export default function ResumeBuilder({
   }, []);
 
   const generate = useCallback(async (): Promise<GeneratePdfOutcome | null> => {
-    generateStreamAbortRef.current?.abort();
-    const ac = new AbortController();
-    generateStreamAbortRef.current = ac;
     const requestJobId = useTailorWorkspaceStore.getState().activeId;
+    const ac = takeJobAbort(jobAbortRef.current, requestJobId, "generate");
+    useTailorWorkspaceStore.getState().setInflight(requestJobId, "generate", true);
     const publishAcc = (next: GenerationResult) => {
       useTailorWorkspaceStore.getState().patch(requestJobId, {
         result: next,
@@ -2361,15 +2426,18 @@ export default function ResumeBuilder({
         missing.length === 1 ? missing[0]
         : missing.length === 2 ? `${missing[0]} and ${missing[1]}`
         : `${missing.slice(0, -1).join(", ")}, and ${missing[missing.length - 1]}`;
-      if (!tailorJobIsCurrent(requestJobId)) return null;
-      setError(
-        jobUrl.trim()
-          ? `We couldn't pull the ${label} from that link — please fill it in manually.`
-          : `Please fill in the ${label}.`
-      );
-      if (!studioHandoff) setResult(null);
-      setGenerating(false);
-      setStatusMsg("");
+      const message = jobUrl.trim()
+        ? `We couldn't pull the ${label} from that link. Please fill it in manually.`
+        : `Please fill in the ${label}.`;
+      useTailorWorkspaceStore.getState().patch(requestJobId, { error: message });
+      releaseJobAbort(jobAbortRef.current, requestJobId, "generate", ac);
+      useTailorWorkspaceStore.getState().setInflight(requestJobId, "generate", false);
+      if (tailorJobIsCurrent(requestJobId)) {
+        setError(message);
+        if (!studioHandoff) setResult(null);
+        setGenerating(false);
+        setStatusMsg("");
+      }
       return null;
     }
 
@@ -2487,6 +2555,7 @@ export default function ResumeBuilder({
               if (tailorJobIsCurrent(requestJobId)) setPreview(p => p + ev.text);
               break;
             case "structured_doc": {
+              if (!tailorJobIsCurrent(requestJobId)) break;
               if (ev.data && typeof ev.data === "object") {
                 const normalized = normalizeStructuredResume(ev.data as unknown as StructuredResume);
                 if (normalized && isStructuredUsable(normalized)) {
@@ -2501,6 +2570,7 @@ export default function ResumeBuilder({
             case "sources": {
               const urls = ev.urls as Source[];
               acc.sources = urls;
+              if (!tailorJobIsCurrent(requestJobId)) break;
               // Grounding sometimes arrives only in the final `sources` bundle — mirror into
               // the live web research panel so users still see cited pages when SSE had no search_source chunks.
               for (const u of urls) {
@@ -2513,10 +2583,14 @@ export default function ResumeBuilder({
               break;
             }
             case "search_query":
-              setSearchQueries(qs => qs.includes(ev.query) ? qs : [...qs, ev.query]);
+              if (tailorJobIsCurrent(requestJobId)) {
+                setSearchQueries(qs => qs.includes(ev.query) ? qs : [...qs, ev.query]);
+              }
               break;
             case "search_source":
-              setSearchSources(ss => ss.some(s => s.url === ev.url) ? ss : [...ss, { title: ev.title, url: ev.url }]);
+              if (tailorJobIsCurrent(requestJobId)) {
+                setSearchSources(ss => ss.some(s => s.url === ev.url) ? ss : [...ss, { title: ev.title, url: ev.url }]);
+              }
               break;
             case "base":
               acc.baseFolder = ev.folder;
@@ -2537,7 +2611,7 @@ export default function ResumeBuilder({
               publishAcc({ ...acc }); // Update PDF button in-place
               break;
             case "storage":
-              if (!ev.stored) {
+              if (!ev.stored && tailorJobIsCurrent(requestJobId)) {
                 console.warn(`Supabase Storage did not store ${ev.artifact}: ${ev.reason ?? "unknown reason"}`);
                 setStorageFailures(fs => [...fs, { artifact: ev.artifact, reason: ev.reason ?? "unknown reason" }]);
               }
@@ -2605,8 +2679,10 @@ export default function ResumeBuilder({
       if (e instanceof Error && e.name === "AbortError") {
         return null;
       }
+      const message = toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e));
+      useTailorWorkspaceStore.getState().patch(requestJobId, { error: message });
       if (tailorJobIsCurrent(requestJobId)) {
-        setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e)));
+        setError(message);
         if (!studioHandoff) {
           setResult((r) => (r && !r.ratings && !r.pdfUrl ? null : r));
         }
@@ -2615,8 +2691,14 @@ export default function ResumeBuilder({
       }
       return null;
     } finally {
-      if (generateStreamAbortRef.current === ac) {
-        generateStreamAbortRef.current = null;
+      const stillOurs = jobAbortIsCurrent(jobAbortRef.current, requestJobId, "generate", ac);
+      releaseJobAbort(jobAbortRef.current, requestJobId, "generate", ac);
+      if (stillOurs) {
+        useTailorWorkspaceStore.getState().setInflight(requestJobId, "generate", false);
+        if (tailorJobIsCurrent(requestJobId)) {
+          setGenerating(false);
+          setStatusMsg("");
+        }
       }
     }
   }, [company, role, jd, jobUrl, importFromUrl, baseFolder, candidateProfile, user, styleReferenceFolder, studioHandoff, suggestions, acceptedIds, result, suggestResearchDigest, suggestResearchQueries, suggestResearchSources, scrollBuilderToTop, tailorStructuredResume]);
