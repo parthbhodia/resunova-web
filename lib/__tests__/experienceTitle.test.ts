@@ -8,6 +8,7 @@ import {
   experienceHeaderLine,
   pickExperienceIndex,
   titlesEqual,
+  type RoleTitleSuggestion,
 } from "@/lib/experienceTitle";
 
 const exp = (
@@ -85,10 +86,11 @@ describe("pickExperienceIndex", () => {
 
 describe("attachAggressiveRoleTitle", () => {
   const rows = [exp("Software Engineer", "Acme")];
+  const sug = (over: RoleTitleSuggestion = {}): RoleTitleSuggestion => ({ employer: "Acme", ...over });
 
   it("is a no-op in honest mode", () => {
     const out = attachAggressiveRoleTitle(
-      [{ employer: "Acme" }],
+      [sug()],
       rows,
       "Senior Fullstack Engineer",
       "honest",
@@ -98,7 +100,7 @@ describe("attachAggressiveRoleTitle", () => {
 
   it("strips a model-supplied title in honest mode", () => {
     const out = attachAggressiveRoleTitle(
-      [{ employer: "Acme", suggested_role: "Senior Fullstack Engineer" }],
+      [sug({ suggested_role: "Senior Fullstack Engineer" })],
       rows,
       "Senior Fullstack Engineer",
       "honest",
@@ -108,7 +110,7 @@ describe("attachAggressiveRoleTitle", () => {
 
   it("fills the posting title onto the closest role in aggressive mode", () => {
     const out = attachAggressiveRoleTitle(
-      [{ employer: "Acme" }],
+      [sug()],
       rows,
       "Senior Fullstack Engineer",
       "aggressive",
@@ -121,7 +123,7 @@ describe("attachAggressiveRoleTitle", () => {
 
   it("keeps a defensible model-supplied title", () => {
     const out = attachAggressiveRoleTitle(
-      [{ employer: "Acme", suggested_role: "Full Stack Engineer" }],
+      [sug({ suggested_role: "Full Stack Engineer" })],
       rows,
       "Senior Fullstack Engineer",
       "aggressive",
@@ -132,7 +134,7 @@ describe("attachAggressiveRoleTitle", () => {
   it("drops an indefensible model title rather than applying intern→staff", () => {
     const intern = [exp("Software Engineering Intern", "Acme")];
     const out = attachAggressiveRoleTitle(
-      [{ employer: "Acme", suggested_role: "Staff Engineer" }],
+      [sug({ suggested_role: "Staff Engineer" })],
       intern,
       "Staff Engineer",
       "aggressive",

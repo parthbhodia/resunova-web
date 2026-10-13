@@ -633,48 +633,6 @@ export default function ResumeBuilder({
     setTailorHeadlineOverride(text);
     setScoreStale(true);
   }, []);
-
-  /**
-   * Retitle an existing Experience row. Writes path overrides so the preview,
-   * PDF clone, and rescore all see the new role. `requireDefensible` is for
-   * the aggressive/model path; the user typing a title is theirs to vouch for.
-   */
-  const applyExperienceTitleChange = useCallback((
-    index: number,
-    newRole: string,
-    opts?: { requireDefensible?: boolean },
-  ) => {
-    const entry = tailorStructuredResume?.experience?.[index];
-    if (!entry) return false;
-    const trimmed = newRole.trim();
-    if (!trimmed) return false;
-    const current = effectiveExperienceRole(entry, index, tailorFieldOverrides);
-    if (titlesEqual(current, trimmed)) return false;
-    if (opts?.requireDefensible && !defensibleRoleTitle(current, trimmed)) return false;
-    const head = experienceHeaderLine({ ...entry, role: trimmed });
-    setTailorFieldOverride(`exp.${index}.role`, trimmed);
-    setTailorFieldOverride(`exp.${index}.head`, head);
-    const path = `exp.${index}`;
-    setAddressedGapActions((prev) => {
-      const existing = prev.findIndex((a) => a.via === "title" && a.entryPath === path);
-      const row: AddressedGapAction = {
-        id: `title:${path}`,
-        label: "Job title",
-        type: "qualification",
-        appliedText: trimmed,
-        originalText: existing >= 0 ? (prev[existing].originalText ?? current) : current,
-        via: "title",
-        entryPath: path,
-      };
-      if (existing >= 0) {
-        const next = [...prev];
-        next[existing] = row;
-        return next;
-      }
-      return [...prev, row];
-    });
-    return true;
-  }, [tailorStructuredResume, tailorFieldOverrides, setTailorFieldOverride]);
   // Popup rewrite drafts for ANALYZED bullets (index >= 0). Applying writes into
   // tailorLineOverrides so the change flows through the existing
   // synthesize/patch → rescore index pipeline (no new desync surface).
@@ -1733,6 +1691,48 @@ export default function ResumeBuilder({
     if (isStructuredTooSparseForFlatText(normalized, flat)) return null;
     return normalized;
   }, [structuredUpload, candidateProfile]);
+
+  /**
+   * Retitle an existing Experience row. Writes path overrides so the preview,
+   * PDF clone, and rescore all see the new role. `requireDefensible` is for
+   * the aggressive/model path; the user typing a title is theirs to vouch for.
+   */
+  const applyExperienceTitleChange = useCallback((
+    index: number,
+    newRole: string,
+    opts?: { requireDefensible?: boolean },
+  ) => {
+    const entry = tailorStructuredResume?.experience?.[index];
+    if (!entry) return false;
+    const trimmed = newRole.trim();
+    if (!trimmed) return false;
+    const current = effectiveExperienceRole(entry, index, tailorFieldOverrides);
+    if (titlesEqual(current, trimmed)) return false;
+    if (opts?.requireDefensible && !defensibleRoleTitle(current, trimmed)) return false;
+    const head = experienceHeaderLine({ ...entry, role: trimmed });
+    setTailorFieldOverride(`exp.${index}.role`, trimmed);
+    setTailorFieldOverride(`exp.${index}.head`, head);
+    const path = `exp.${index}`;
+    setAddressedGapActions((prev) => {
+      const existing = prev.findIndex((a) => a.via === "title" && a.entryPath === path);
+      const row: AddressedGapAction = {
+        id: `title:${path}`,
+        label: "Job title",
+        type: "qualification",
+        appliedText: trimmed,
+        originalText: existing >= 0 ? (prev[existing].originalText ?? current) : current,
+        via: "title",
+        entryPath: path,
+      };
+      if (existing >= 0) {
+        const next = [...prev];
+        next[existing] = row;
+        return next;
+      }
+      return [...prev, row];
+    });
+    return true;
+  }, [tailorStructuredResume, tailorFieldOverrides, setTailorFieldOverride]);
 
   // Debounced Hub save after preview edits (bullet delete/add/reorder, inline
   // field edits). Upserts the same tailor_match row for company+role so Resume
