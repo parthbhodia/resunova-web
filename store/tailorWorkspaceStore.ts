@@ -21,6 +21,9 @@ import {
 type TailorWorkspaceState = {
   targets: TailorJobTarget[];
   activeId: string;
+  /** Jobs whose match request is still in flight. Not saved in the draft. */
+  scanningIds: string[];
+  setScanning: (id: string, scanning: boolean) => void;
   patch: (id: string, partial: Partial<TailorJobWork>) => void;
   setMeta: (id: string, meta: { savedFolder?: string | null; score?: number | null }) => void;
   focus: (id: string) => void;
@@ -72,6 +75,17 @@ export const useTailorWorkspaceStore = create<TailorWorkspaceState>((set, get) =
   return {
     targets: [first],
     activeId: first.id,
+    scanningIds: [],
+
+    setScanning: (id, scanning) => {
+      if (!id) return;
+      const current = get().scanningIds;
+      const has = current.includes(id);
+      if (scanning === has) return;
+      set({
+        scanningIds: scanning ? [...current, id] : current.filter((jobId) => jobId !== id),
+      });
+    },
 
     patch: (id, partial) => {
       if (!id) return;
@@ -131,7 +145,11 @@ export const useTailorWorkspaceStore = create<TailorWorkspaceState>((set, get) =
         const index = targets.findIndex((job) => job.id === id);
         nextActive = next[Math.max(0, index - 1)]?.id ?? next[0].id;
       }
-      set({ targets: next, activeId: nextActive });
+      set({
+        targets: next,
+        activeId: nextActive,
+        scanningIds: get().scanningIds.filter((jobId) => jobId !== id),
+      });
       persistTargets(next, nextActive);
     },
 
