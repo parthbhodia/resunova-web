@@ -22,6 +22,7 @@ export function FindReferrer({ heading = "h1" }: { heading?: "h1" | "h2" }) {
       </Box>
       <ReferField
         label="Company name"
+        placeholder="e.g. Stripe"
         value={search.query}
         maxLength={REFERRER_LIMITS.company}
         onChange={search.setQuery}

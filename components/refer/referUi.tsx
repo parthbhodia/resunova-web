@@ -109,7 +109,10 @@ export function ReferField({
       multiline={multiline}
       minRows={multiline ? 4 : undefined}
       onChange={(event) => onChange(event.target.value)}
-      slotProps={{ htmlInput: { maxLength } }}
+      slotProps={{
+        inputLabel: placeholder ? { shrink: true } : undefined,
+        htmlInput: { maxLength },
+      }}
       sx={[fieldSx, ...(sx ? [sx] : [])] as SxProps<Theme>}
     />
   );
