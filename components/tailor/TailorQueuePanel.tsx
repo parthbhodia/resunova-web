@@ -49,15 +49,18 @@ import {
   type FixExpansionState,
   type FixSuggestion,
 } from "@/components/tailor/TailorFixExpansion";
-import type { ConfirmedFact } from "@/lib/tailorConfirmFacts";
+import type { FixGuidance } from "@/lib/tailorFixInput";
 import { TailorStrengthsCard } from "@/components/tailor/TailorStrengthsCard";
 import { TailorChangeLog } from "@/components/tailor/TailorChangeLog";
 import { deriveResumeChanges, type ResumeChange } from "@/lib/tailorChangeLog";
 import { findAppliedBulletIndex } from "@/lib/resumeBulletMatch";
 import { gradeDimensions } from "@/lib/tailorGradeDimensions";
 
+// Not "leave it out". The pass writes only from what the résumé says, and
+// when that is not enough the one person who can add to it is the user. The
+// row says what it needs and the action next to it takes it.
 const NOT_COVERED_DETAIL =
-  "This one couldn't be written from your real experience. Try Fix on it alone, or leave it out.";
+  "Needs a detail from you. The résumé doesn't say enough about this for us to write it; a sentence about what you did is enough, or add the line yourself.";
 
 const TERMINAL: ReadonlySet<QueueItem["status"]> = new Set(["applied", "needs_review", "not_coverable"]);
 
@@ -153,6 +156,7 @@ export function TailorQueuePanel({
   onFixSelected,
   fetchFixSuggestions,
   applyFixSuggestion,
+  onAddOwnBullet,
   ignoredNames,
   onToggleIgnored,
   onSeeItem,
@@ -185,14 +189,23 @@ export function TailorQueuePanel({
   attemptedNames?: ReadonlySet<string>;
   onFixAll: () => void;
   onFixSelected?: (items: readonly QueueItem[]) => void;
-  /** Fetch rewrite options for one item; the row expands inline around them. */
-  /** `facts` is present only when the user corrected the drafted claim. */
-  fetchFixSuggestions: (item: QueueItem, facts?: ConfirmedFact) => Promise<FixSuggestion[]>;
+  /** Fetch rewrite options for one item; the row expands inline around them.
+   *  `guidance` is present only when the user handed something over: a
+   *  corrected fact, tools they vouch for, or a steering line. */
+  fetchFixSuggestions: (item: QueueItem, guidance?: FixGuidance) => Promise<FixSuggestion[]>;
   /** Apply the picked (possibly edited) suggestion to the preview. */
   applyFixSuggestion: (
     item: QueueItem,
     suggestion: FixSuggestion,
     editedText: string | null,
+  ) => Promise<void>;
+  /** Insert a line the user wrote under the entry they picked, and mark the
+   *  row addressed. Absent ⇒ the write-it-myself path does not render. */
+  onAddOwnBullet?: (
+    item: QueueItem,
+    text: string,
+    entryPath: string,
+    tools: string[],
   ) => Promise<void>;
   /** Normalized names the user ignored — owned upstream so Fix everything
    *  skips them too. */
@@ -378,11 +391,11 @@ export function TailorQueuePanel({
     });
   };
 
-  const openFix = (item: QueueItem, facts?: ConfirmedFact) => {
+  const openFix = (item: QueueItem, guidance?: FixGuidance) => {
     setExpansion(item.id, { phase: "loading" });
     const seq = (fetchSeqs.current.get(item.id) ?? 0) + 1;
     fetchSeqs.current.set(item.id, seq);
-    fetchFixSuggestions(item, facts).then(
+    fetchFixSuggestions(item, guidance).then(
       (suggestions) => {
         if (fetchSeqs.current.get(item.id) === seq) setExpansion(item.id, { phase: "ready", suggestions });
       },
@@ -404,6 +417,10 @@ export function TailorQueuePanel({
 
   const handleItemAction = (item: QueueItem, action: QueueItemAction) => {
     if (action === "fix") openFix(item);
+    // The pass already spent a call on this row and came back empty. Opening
+    // straight into the facts form costs nothing and asks for the one thing
+    // that was missing, instead of re-running the same empty fetch.
+    else if (action === "tell_us") setExpansion(item.id, { phase: "ready", suggestions: [] });
     else if (action === "reconsider") onToggleIgnored(item, false);
     else if (action === "add_education") setExpansion(item.id, { phase: "credential" });
     else if (action === "whats_this" || action === "add_to_summary") setExpansion(item.id, { phase: "info" });
@@ -544,7 +561,25 @@ export function TailorQueuePanel({
                 // A corrected fact is worth a second call: the API treats
                 // confirmed facts as a provenance source, so a number the
                 // candidate supplied stops reading as unevidenced.
-                onRewriteWithFacts={(fact) => openFix(item, fact)}
+                onRewriteWithFacts={(fact) => openFix(item, { facts: fact, tools: [], steer: "" })}
+                onRewriteWithGuidance={(g) => openFix(item, g)}
+                onAddOwnBullet={onAddOwnBullet
+                  ? async (text, entryPath, tools) => {
+                      if (applyingId !== null) return;
+                      setApplyingId(item.id);
+                      try {
+                        await onAddOwnBullet(item, text, entryPath, tools);
+                      } catch (e: unknown) {
+                        setExpansion(item.id, {
+                          phase: "error",
+                          message: e instanceof Error ? e.message : "Couldn't add that. Try again.",
+                        });
+                        throw e;
+                      } finally {
+                        setApplyingId(null);
+                      }
+                    }
+                  : undefined}
                 onAddEducation={onAddEducation}
                 onAddSkill={onAddSkill}
                 structuredResume={structuredResume}

@@ -29,8 +29,11 @@ import { findAppliedBulletIndex } from "@/lib/resumeBulletMatch";
 export interface ResumeChange {
   /** Stable row identity for open/confirm state and React keys. */
   key: string;
-  kind: "fix" | "edit" | "skill";
-  /** The bullet this change lives on. -1 for a Skills-section add. */
+  /** `added` = a line the user wrote themselves under a role; it has no
+   *  original and lives in the structured doc, not the override map. */
+  kind: "fix" | "edit" | "skill" | "added";
+  /** The bullet this change lives on. -1 for a Skills-section add or an
+   *  added line (the preview's bullet list predates it). */
   bulletIndex: number;
   /** The résumé line before any fix touched it. Empty for a skills add. */
   original: string;
@@ -38,13 +41,17 @@ export interface ResumeChange {
   applied: string;
   /** Every requirement whose fix landed here, in the order they were applied. */
   requirements: string[];
+  /** For `added`: the structured entry the line sits under, for undo. */
+  entryPath?: string;
 }
 
 interface AppliedAction {
   label: string;
   appliedText?: string;
-  /** "skills" when the fix was an Add-to-Skills, not a bullet rewrite. */
+  /** "skills" when the fix was an Add-to-Skills; "bullet" when the user
+   *  wrote the line. Anything else is a bullet rewrite. */
   via?: string;
+  entryPath?: string;
 }
 
 /**
@@ -67,6 +74,7 @@ export function deriveResumeChanges(
   const byBullet = new Map<number, ResumeChange>();
   const skillRows: ResumeChange[] = [];
   const skillSeen = new Set<string>();
+  const addedRows = new Map<string, ResumeChange>();
 
   // Requirement -> bullet, for every row that reports as applied.
   for (const item of items) {
@@ -88,6 +96,29 @@ export function deriveResumeChanges(
           original: "",
           applied: term,
           requirements: [item.name],
+        });
+      }
+      continue;
+    }
+
+    // A line the user wrote lives in the structured doc, not the override
+    // map, so it is keyed on its own text. Two requirements answered by one
+    // typed line share the row, same as a merged rewrite.
+    if (action?.via === "bullet" && action.appliedText?.trim()) {
+      const text = action.appliedText.trim();
+      const key = `added:${text.toLowerCase()}`;
+      const existing = addedRows.get(key);
+      if (existing) {
+        if (!existing.requirements.includes(item.name)) existing.requirements.push(item.name);
+      } else {
+        addedRows.set(key, {
+          key,
+          kind: "added",
+          bulletIndex: -1,
+          original: "",
+          applied: text,
+          requirements: [item.name],
+          entryPath: action.entryPath,
         });
       }
       continue;
@@ -134,6 +165,7 @@ export function deriveResumeChanges(
   const bulletRows = [...byBullet.values()].sort((a, b) => a.bulletIndex - b.bulletIndex);
   return [
     ...bulletRows.filter((c) => c.kind === "fix"),
+    ...addedRows.values(),
     ...skillRows,
     ...bulletRows.filter((c) => c.kind === "edit"),
   ];

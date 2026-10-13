@@ -5,7 +5,17 @@ import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { GenerationResult, SSEEvent, RatingsData, DiffLine, Source, ChangeRationale, ParsedSection } from "@/lib/types";
-import { normalizeConfirmedFacts, type ConfirmedFact } from "@/lib/tailorConfirmFacts";
+import { normalizeConfirmedFacts } from "@/lib/tailorConfirmFacts";
+import {
+  collectAppliedTools,
+  factsForRequest,
+  guessSkillCategory,
+  groupToolsByCategory,
+  guidanceNotes,
+  hasSkillsSection,
+  toolsNotListed,
+  type FixGuidance,
+} from "@/lib/tailorFixInput";
 import { buildResumeFileStem } from "@/lib/resumeFileName";
 import { saveTailorMatchToLibrary, tailorMatchFolder } from "@/lib/tailorAnalyzeLibrary";
 import { loadBuilderDraft as loadDraft, patchBuilderDraft as saveDraft } from "@/lib/builderDraft";
@@ -132,14 +142,15 @@ import {
 import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/components/TailorSaveStatus";
 import { deriveResumeChanges, type ResumeChange } from "@/lib/tailorChangeLog";
 import { TailorQueuePanel } from "@/components/tailor/TailorQueuePanel";
+import { TailorSkillsFollowUp, type SkillsFollowUp } from "@/components/tailor/TailorSkillsFollowUp";
 import { normalizeQueueName, type QueueItem } from "@/lib/tailorWorkQueue";
 import type { FixSuggestion } from "@/components/tailor/TailorFixExpansion";
 import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
 import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
-import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
+import { applyBulletOpToStructured, remapOverlayPaths, removeBulletByText, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 import { structuredToPlainText } from "@/lib/structuredResumeText";
 import { appendEducation } from "@/lib/educationEntry";
-import { appendSkill, removeSkill } from "@/lib/skillsEntry";
+import { removeSkill } from "@/lib/skillsEntry";
 import type { StructuredResumeEducation } from "@/store/resumeAnalyzeStore";
 import { apiFetch } from "@/lib/apiClient";
 
@@ -780,7 +791,11 @@ export default function ResumeBuilder({
 
   // Gap-fix micro-suggestion panel state (Phase 1)
   const [gapFixLoading, setGapFixLoading] = useState<string | null>(null); // gap name being fetched
-  type GapFixSuggestion = { id: string; section: string; original: string; suggested: string; reason: string; priority: string };
+  type GapFixSuggestion = {
+    id: string; section: string; original: string; suggested: string; reason: string; priority: string;
+    /** Server-flagged tech the résumé does not otherwise evidence. */
+    unverified_terms?: string[];
+  };
   const [gapFixPanel, setGapFixPanel] = useState<{
     gapName: string;
     gapNotes: string;
@@ -1008,6 +1023,9 @@ export default function ResumeBuilder({
     setScoreStale(true);
   }, [setStructuredUpload, setCandidateProfile, setScoreStale]);
 
+  /** What the last fix did to the Skills section, or the offer to create one. */
+  const [skillsFollowUp, setSkillsFollowUp] = useState<SkillsFollowUp | null>(null);
+
   /** Add a missing keyword to the résumé's Skills section.
    *
    *  Founder-asked 2026-08-15: a bare tool keyword has a natural home in
@@ -1021,16 +1039,19 @@ export default function ResumeBuilder({
   const handleAddSkill = useCallback((item: { name: string }): boolean => {
     let nextProfile: string | null = null;
     let added = false;
+    let categoryUsed = "Tools";
     setStructuredUpload((prev) => {
       if (!prev) return prev;
-      const res = appendSkill(prev.structured, item.name);
-      if (!res.added) return prev;
+      categoryUsed = guessSkillCategory(item.name, prev.structured);
+      const res = addSkillsToStructured(prev.structured, [item.name], categoryUsed);
+      if (res.added.length === 0) return prev;
       added = true;
       nextProfile = structuredToPlainText(res.structured) || prev.profile;
       return { profile: nextProfile, structured: res.structured };
     });
     if (!added) return false;
     if (nextProfile !== null) setCandidateProfile(nextProfile);
+    setSkillsFollowUp({ kind: "added", groups: [{ category: categoryUsed, tools: [item.name] }] });
     setAddressedGaps((prev) => new Set([...prev, item.name]));
     setAddressedGapActions((prev) => {
       const id = makeStableGapId(item.name, "keyword");
@@ -1044,6 +1065,94 @@ export default function ResumeBuilder({
     setScoreStale(true);
     return true;
   }, [setStructuredUpload, setCandidateProfile, setAddressedGaps, setAddressedGapActions, setScoreStale]);
+
+  /**
+   * File the tools a fix brought in under the Skills group each belongs to.
+   *
+   * A bullet that names a tool the Skills section does not list is half an
+   * edit: the scanner's skills sweep misses it and a recruiter reads the two
+   * sections as disagreeing. So any tool an applied fix introduces, whether
+   * the writer named it, the user vouched for it, or the user typed it, is
+   * added to Skills too. With no Skills section the page does not invent one
+   * silently; it offers, and `createSkillsSectionWith` does the write.
+   */
+  // Read through a ref: the bulk pass calls this at the end of a loop that
+  // has been awaiting for a while, and the closure's copy is stale by then.
+  const structuredNowRef = useRef(structuredUpload?.structured ?? null);
+  useEffect(() => { structuredNowRef.current = structuredUpload?.structured ?? null; }, [structuredUpload]);
+  const fileToolsInSkills = useCallback((tools: readonly string[]) => {
+    const structured = structuredNowRef.current;
+    const pending = toolsNotListed(tools, structured);
+    if (!structured || pending.length === 0) return;
+    if (!hasSkillsSection(structured)) {
+      setSkillsFollowUp({ kind: "offer", tools: pending });
+      return;
+    }
+    const groups = groupToolsByCategory(pending, structured);
+    let nextProfile: string | null = null;
+    setStructuredUpload((prev) => {
+      if (!prev) return prev;
+      let doc = prev.structured;
+      for (const g of groups) doc = addSkillsToStructured(doc, g.tools, g.category).structured;
+      if (doc === prev.structured) return prev;
+      nextProfile = structuredToPlainText(doc) || prev.profile;
+      return { profile: nextProfile, structured: doc };
+    });
+    if (nextProfile !== null) setCandidateProfile(nextProfile);
+    setSkillsFollowUp({ kind: "added", groups });
+    setScoreStale(true);
+  }, [setStructuredUpload, setCandidateProfile, setScoreStale]);
+
+  const createSkillsSectionWith = useCallback((tools: string[]) => {
+    const groups = groupToolsByCategory(tools, null);
+    let nextProfile: string | null = null;
+    setStructuredUpload((prev) => {
+      if (!prev) return prev;
+      let doc = prev.structured;
+      for (const g of groups) doc = addSkillsToStructured(doc, g.tools, g.category).structured;
+      nextProfile = structuredToPlainText(doc) || prev.profile;
+      return { profile: nextProfile, structured: doc };
+    });
+    if (nextProfile !== null) setCandidateProfile(nextProfile);
+    setSkillsFollowUp({ kind: "added", groups });
+    setScoreStale(true);
+  }, [setStructuredUpload, setCandidateProfile, setScoreStale]);
+
+  /**
+   * A line the user wrote for a requirement, under the role they picked.
+   *
+   * Same structured write as a preview add (`applyTailorBulletOp`), so it
+   * reaches the preview, the download and the rescore at once. Plus the
+   * receipt: the row flips to applied with `via: "bullet"` so the change log
+   * can show the line and undo it by text, and the tools they named go to
+   * Skills.
+   */
+  const addOwnBulletForGap = useCallback(async (
+    item: QueueItem,
+    text: string,
+    entryPath: string,
+    tools: string[],
+  ) => {
+    const line = text.trim();
+    if (!line) return;
+    if (!structuredUpload?.structured) {
+      throw new Error("Upload your résumé first so the line has a role to go under.");
+    }
+    applyTailorBulletOp({ entryPath, action: { type: "add", text: line }, pathRemap: {} });
+    setAddressedGaps((prev) => new Set([...prev, item.name]));
+    setAddressedGapActions((prev) => {
+      const type = item.kind === "contextual" ? "keyword" : item.kind;
+      const id = makeStableGapId(item.name, type);
+      const rest = prev.filter((a) => a.id !== id);
+      return [...rest, { id, label: item.name, type, appliedText: line, via: "bullet", entryPath }];
+    });
+    setResult((prev) => {
+      if (!prev?.ratings) return prev;
+      const type = item.kind === "contextual" ? "keyword" : item.kind;
+      return { ...prev, ratings: applyOptimisticGapAddressed(prev.ratings, item.name, type) };
+    });
+    fileToolsInSkills(collectAppliedTools({ applied: line, vouched: tools }));
+  }, [structuredUpload, applyTailorBulletOp, setAddressedGaps, setAddressedGapActions, setResult, fileToolsInSkills]);
 
   /** Object URL for the last uploaded PDF — powers true PDF highlights in suggestions (revoked on replace / unmount). */
   const sourcePdfBlobUrlRef = useRef<string | null>(null);
@@ -2896,20 +3005,31 @@ export default function ResumeBuilder({
    * handleFixGap, but RETURNS the rewrite options instead of auto-applying
    * them — the queue row expands around them so the user picks a version.
    */
+  const lastGuidanceToolsRef = useRef(new Map<string, string[]>());
   const fetchFixSuggestions = useCallback(async (
     item: QueueItem,
-    facts?: ConfirmedFact,
+    guidance?: FixGuidance,
   ): Promise<FixSuggestion[]> => {
     if (!jd.trim()) throw new Error("Add a job description first.");
     const prof = effectiveCandidateProfile.trim();
     if (!tailorStructuredResume && !prof) {
       throw new Error("Upload your resume or paste your profile first.");
     }
-    const notes =
+    const baseNotes =
       item.kind === "qualification" || item.kind === "responsibility"
         ? item.detail
         : `This keyword is missing from the resume. Rewrite one of the most relevant existing bullets to naturally incorporate "${item.name}" without fabricating experience.`;
-    const confirmed = normalizeConfirmedFacts(facts ? [facts] : []);
+    // What the user handed over rides in the notes as well as in
+    // confirmed_facts: tools they vouch for and a steering line are guidance
+    // for the writer, and the facts block is provenance for the validator.
+    const notes = [baseNotes, guidanceNotes(guidance)].filter(Boolean).join("\n\n");
+    // Remembered per row so the apply step knows which tools the user vouched
+    // for when it files them in Skills; the suggestion itself carries only
+    // what the server flagged.
+    if (guidance?.tools.length) lastGuidanceToolsRef.current.set(item.id, guidance.tools);
+    else lastGuidanceToolsRef.current.delete(item.id);
+    const fact = factsForRequest(guidance);
+    const confirmed = normalizeConfirmedFacts(fact ? [fact] : []);
     const attemptFetch = async (): Promise<{ usable: FixSuggestion[]; failure: string | null }> => {
       const resp = await apiFetch("/api/suggest-gap-fix", {
         method: "POST",
@@ -3009,6 +3129,29 @@ export default function ResumeBuilder({
       setScoreStale(true);
       return;
     }
+    // A line the user wrote reverts by removing that text from the entry it
+    // was added to. Matched by text, not index: the preview's bullet list was
+    // built before the line existed, so there is no index to hold.
+    if (change.kind === "added") {
+      let nextProfile: string | null = null;
+      setStructuredUpload((prev) => {
+        if (!prev) return prev;
+        const res = removeBulletByText(prev.structured, change.entryPath, change.applied);
+        if (!res) return prev;
+        nextProfile = structuredToPlainText(res) || prev.profile;
+        return { profile: nextProfile, structured: res };
+      });
+      if (nextProfile !== null) setCandidateProfile(nextProfile);
+      const undone = new Set(change.requirements.map((r) => r.trim().toLowerCase()));
+      setAddressedGaps((prev) =>
+        new Set([...prev].filter((g) => !undone.has(g.trim().toLowerCase()))),
+      );
+      setAddressedGapActions((prev) =>
+        prev.filter((a) => !undone.has(a.label.trim().toLowerCase())),
+      );
+      setScoreStale(true);
+      return;
+    }
     // Rebuilt rather than copy-and-`delete`: the compiler cannot see through a
     // mutation here and bails out of memoizing the whole component.
     setTailorLineOverrides((prev) =>
@@ -3052,7 +3195,19 @@ export default function ResumeBuilder({
       closePanel: false,
       gapType: item.kind === "contextual" ? "keyword" : item.kind,
     });
-  }, []);
+    // Tools this rewrite brings in: the ones the server flagged as not yet
+    // evidenced (aggressive mode ships them at high risk) and the ones the
+    // user vouched for, kept only where the applied text actually names them.
+    const name = item.name.trim();
+    const extra =
+      item.kind === "keyword" && name.split(/\s+/).length <= 3 ? [name] : [];
+    fileToolsInSkills(collectAppliedTools({
+      applied: chosen.suggested,
+      unverified: suggestion.unverified_terms,
+      vouched: lastGuidanceToolsRef.current.get(item.id) ?? [],
+      extra,
+    }));
+  }, [fileToolsInSkills]);
 
   /**
    * Apply one or more gap-fix suggestions to the HTML preview (Chromium export path — no LaTeX).
@@ -3475,6 +3630,10 @@ export default function ResumeBuilder({
 
       let appliedTotal = 0;
       const panelAll: GapFixSuggestion[] = [];
+      // Tech the applied rewrites named that the résumé did not evidence;
+      // filed in Skills once the pass is done so the section agrees with the
+      // bullets that now carry those names.
+      const introducedTools: string[] = [];
       // Bullets already rewritten in THIS pass. Every run is sent the same
       // pristine résumé, so runs independently pick the same flexible line and
       // each returns a rewrite of it; the apply path fuzzy-matches `original`,
@@ -3515,6 +3674,12 @@ export default function ResumeBuilder({
         if (autoApply) {
           if (named.length > 0) {
             appliedTotal += named.length;
+            for (const s of named) {
+              introducedTools.push(...collectAppliedTools({
+                applied: s.suggested,
+                unverified: s.unverified_terms,
+              }));
+            }
             await applyGapFixesRef.current(
               named.map((s) => ({
                 id: s.id, section: s.section, original: s.original,
@@ -3533,14 +3698,17 @@ export default function ResumeBuilder({
       }
 
       if (autoApply) {
+        if (introducedTools.length > 0) fileToolsInSkills(introducedTools);
+        // Not a verdict on the candidate. Each remaining row now carries its
+        // own "Tell us about it", so the banner only has to say where to look.
         if (appliedTotal === 0) {
-          setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
+          setGapFixError("We couldn't write these from your résumé alone. Each row below asks for the one detail it needs.");
         }
         return;
       }
 
       if (panelAll.length === 0) {
-        setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
+        setGapFixError("We couldn't write these from your résumé alone. Open a row and tell us what you did; that's enough to write from.");
         return;
       }
       setGapFixPanel({
@@ -3557,7 +3725,8 @@ export default function ResumeBuilder({
       setFixAllPendingGaps([]);
     }
   }, [jd, openGapBatches, fixAllBusy, fixAllAutoApply, queueUi, effectiveCandidateProfile,
-      tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
+      tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode,
+      fileToolsInSkills]);
 
   /** One batched rewrite pass for several contextual gaps, instead of one call each. */
   const fixKeywordsBatched = useCallback((keywords: string[]) => {
@@ -5081,9 +5250,17 @@ export default function ResumeBuilder({
                   )}
                   <div className="tb-split-work-slot">
                     {queueUi && (
+                      <TailorSkillsFollowUp
+                        notice={skillsFollowUp}
+                        onCreateSection={createSkillsSectionWith}
+                        onDismiss={() => setSkillsFollowUp(null)}
+                      />
+                    )}
+                    {queueUi && (
                       <TailorQueuePanel
                         onAddEducation={handleAddEducation}
                         onAddSkill={handleAddSkill}
+                        onAddOwnBullet={addOwnBulletForGap}
                         structuredResume={structuredUpload?.structured ?? null}
                         ratings={displayRatings}
                         addressedGaps={addressedGaps}
