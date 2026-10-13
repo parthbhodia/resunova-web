@@ -57,8 +57,15 @@ let nextId = 1;
  * page sat still, then the finished report appeared all at once.
  */
 export function startAnalyzeAndOpen(work: () => Promise<unknown>, navigate: () => void): void {
-  startRun("analyze", work);
-  navigate();
+  // Navigate even when the work cannot be booked. A scan already in flight is
+  // left as-is (a second click must not buy another scan), and a work function
+  // that throws before returning a promise still has to land on the page that
+  // shows the failure. Skipping navigate is the jump this helper exists to avoid.
+  try {
+    startRun("analyze", work);
+  } finally {
+    navigate();
+  }
 }
 
 /**
@@ -77,7 +84,16 @@ export function startRun<T>(
   if (existing && existing.state.status === "running") return existing.promise;
 
   const id = nextId++;
-  const promise = work();
+  // A throw here used to escape before the slot existed, so the click handler
+  // died on the tailor page and Analyze never opened. Record it as a failed
+  // run instead. Promise.resolve also keeps an already-native promise identical,
+  // which the re-entrancy check relies on.
+  let promise: Promise<T>;
+  try {
+    promise = Promise.resolve(work());
+  } catch (error) {
+    promise = Promise.reject(error);
+  }
   const slot: Slot<T> = {
     id,
     promise,

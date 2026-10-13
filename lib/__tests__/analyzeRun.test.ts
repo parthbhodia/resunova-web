@@ -47,6 +47,30 @@ describe("a scan that outlives its component", () => {
     expect(peekRun("analyze")).toEqual({ status: "running" });
   });
 
+  it("still opens the page when a scan is already running, without starting another", () => {
+    const d = deferred<string>();
+    const first = vi.fn(() => d.promise);
+    const second = vi.fn(() => d.promise);
+    const navigations: string[] = [];
+    startAnalyzeAndOpen(first, () => navigations.push("first"));
+    startAnalyzeAndOpen(second, () => navigations.push("second"));
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+    expect(navigations).toEqual(["first", "second"]);
+    expect(peekRun("analyze")).toEqual({ status: "running" });
+  });
+
+  it("still opens the page when the work throws before returning a promise", async () => {
+    const navigations: string[] = [];
+    startAnalyzeAndOpen(() => {
+      throw new Error("boom");
+    }, () => navigations.push("open"));
+    expect(navigations).toEqual(["open"]);
+    await vi.waitFor(() => {
+      expect(peekRun("analyze")).toMatchObject({ status: "error" });
+    });
+  });
+
   it("reports a run that is still going, so a remount shows the loader", () => {
     const d = deferred<string>();
     void startRun("analyze", () => d.promise);
