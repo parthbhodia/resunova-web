@@ -120,13 +120,20 @@ export function tailorJobScore(ratings: RatingsData | null | undefined): number 
   return typeof n === "number" && Number.isFinite(n) ? Math.round(n) : null;
 }
 
-export function tailorJobLabel(company: string, role: string): string {
-  const c = company.trim();
-  const r = role.trim();
-  const named = (value: string) => value.length > 0 && value !== "—";
-  if (named(c) && named(r)) return `${c} · ${r}`;
-  if (named(r)) return r;
-  if (named(c)) return c;
+export function tailorJobLabel(
+  company: string,
+  role: string,
+  extra?: { profileTitle?: string; postingTitle?: string },
+): string {
+  const named = (value: string | undefined) => {
+    const text = (value ?? "").trim();
+    return text.length > 0 && text !== "—" ? text : "";
+  };
+  const c = named(company);
+  const r = named(role) || named(extra?.profileTitle) || named(extra?.postingTitle);
+  if (c && r) return `${c} · ${r}`;
+  if (r) return r;
+  if (c) return c;
   return "New job";
 }
 

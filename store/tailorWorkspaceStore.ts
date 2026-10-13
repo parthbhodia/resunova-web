@@ -18,12 +18,37 @@ import {
   type TailorJobWork,
 } from "@/lib/tailorJobTarget";
 
+export type TailorInflightKind = "scan" | "suggest" | "generate" | "rescore";
+
+export type TailorInflight = Record<TailorInflightKind, string[]>;
+
+export function emptyTailorInflight(): TailorInflight {
+  return { scan: [], suggest: [], generate: [], rescore: [] };
+}
+
+function withoutInflightJob(inflight: TailorInflight, id: string): TailorInflight {
+  return {
+    scan: inflight.scan.filter((jobId) => jobId !== id),
+    suggest: inflight.suggest.filter((jobId) => jobId !== id),
+    generate: inflight.generate.filter((jobId) => jobId !== id),
+    rescore: inflight.rescore.filter((jobId) => jobId !== id),
+  };
+}
+
+export function tailorJobIsBusy(inflight: TailorInflight, id: string): boolean {
+  return inflight.scan.includes(id)
+    || inflight.suggest.includes(id)
+    || inflight.generate.includes(id)
+    || inflight.rescore.includes(id);
+}
+
 type TailorWorkspaceState = {
   targets: TailorJobTarget[];
   activeId: string;
-  /** Jobs whose match request is still in flight. Not saved in the draft. */
-  scanningIds: string[];
-  setScanning: (id: string, scanning: boolean) => void;
+  /** In-flight work per job. Not saved in the draft. */
+  inflight: TailorInflight;
+  setInflight: (id: string, kind: TailorInflightKind, on: boolean) => void;
+  clearInflight: (id: string) => void;
   patch: (id: string, partial: Partial<TailorJobWork>) => void;
   setMeta: (id: string, meta: { savedFolder?: string | null; score?: number | null }) => void;
   focus: (id: string) => void;
@@ -75,16 +100,24 @@ export const useTailorWorkspaceStore = create<TailorWorkspaceState>((set, get) =
   return {
     targets: [first],
     activeId: first.id,
-    scanningIds: [],
+    inflight: emptyTailorInflight(),
 
-    setScanning: (id, scanning) => {
+    setInflight: (id, kind, on) => {
       if (!id) return;
-      const current = get().scanningIds;
-      const has = current.includes(id);
-      if (scanning === has) return;
+      const list = get().inflight[kind];
+      const has = list.includes(id);
+      if (on === has) return;
       set({
-        scanningIds: scanning ? [...current, id] : current.filter((jobId) => jobId !== id),
+        inflight: {
+          ...get().inflight,
+          [kind]: on ? [...list, id] : list.filter((jobId) => jobId !== id),
+        },
       });
+    },
+
+    clearInflight: (id) => {
+      if (!id) return;
+      set({ inflight: withoutInflightJob(get().inflight, id) });
     },
 
     patch: (id, partial) => {
@@ -148,7 +181,7 @@ export const useTailorWorkspaceStore = create<TailorWorkspaceState>((set, get) =
       set({
         targets: next,
         activeId: nextActive,
-        scanningIds: get().scanningIds.filter((jobId) => jobId !== id),
+        inflight: withoutInflightJob(get().inflight, id),
       });
       persistTargets(next, nextActive);
     },

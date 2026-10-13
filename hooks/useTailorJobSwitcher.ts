@@ -35,18 +35,22 @@ export type PastedTailorJob = {
 type SwitcherArgs = {
   getWork: () => TailorJobFields;
   apply: (job: TailorJobTarget) => void;
-  /** Abort streams that belong to the job being left. */
+  /** The visible job changed. Sync loaders. Do not cancel the job that was left. */
   onLeave?: () => void;
+  /** The job was closed. Cancel work that would otherwise finish with nowhere to land. */
+  onDismiss?: (id: string) => void;
 };
 
 export function useTailorJobSwitcher(args: SwitcherArgs) {
   const getWorkRef = useRef(args.getWork);
   const applyRef = useRef(args.apply);
   const onLeaveRef = useRef(args.onLeave);
+  const onDismissRef = useRef(args.onDismiss);
   useEffect(() => {
     getWorkRef.current = args.getWork;
     applyRef.current = args.apply;
     onLeaveRef.current = args.onLeave;
+    onDismissRef.current = args.onDismiss;
   });
 
   const targets = useTailorWorkspaceStore((s) => s.targets);
@@ -111,6 +115,7 @@ export function useTailorJobSwitcher(args: SwitcherArgs) {
     const store = useTailorWorkspaceStore.getState();
     if (store.targets.length <= 1) return;
     const closingActive = store.activeId === id;
+    onDismissRef.current?.(id);
     store.close(id);
     if (!closingActive) return;
     onLeaveRef.current?.();

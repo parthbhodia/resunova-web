@@ -22,6 +22,10 @@ describe("tailor job labels", () => {
     expect(tailorJobLabel("", "")).toBe("New job");
     expect(tailorJobLabel("—", "—")).toBe("New job");
     expect(tailorJobLabel("Stripe", "")).toBe("Stripe");
+    expect(tailorJobLabel("Stripe", "", { profileTitle: "Software Developer" })).toBe("Stripe · Software Developer");
+    expect(tailorJobLabel("", "", { profileTitle: "Software Developer" })).toBe("Software Developer");
+    expect(tailorJobLabel("", "", { postingTitle: "Product Platform Engineer" })).toBe("Product Platform Engineer");
+    expect(tailorJobLabel("Stripe", "Designer", { profileTitle: "Engineer" })).toBe("Stripe · Designer");
   });
 
   it("reads the match score from ratings", () => {
@@ -81,7 +85,7 @@ describe("tailor workspace store", () => {
     localStorage.clear();
     resetTailorWorkspaceMemoryForTests();
     const fresh = createTailorJob({ id: "seed" });
-    useTailorWorkspaceStore.setState({ targets: [fresh], activeId: fresh.id, scanningIds: [] });
+    useTailorWorkspaceStore.setState({ targets: [fresh], activeId: fresh.id, inflight: { scan: [], suggest: [], generate: [], rescore: [] } });
   });
 
   it("keeps the job you left when another tab is focused", () => {
@@ -115,18 +119,30 @@ describe("tailor workspace store", () => {
     expect(linear?.work.result).toBeNull();
   });
 
-  it("keeps the first job scanning after another job is opened", () => {
+  it("keeps in-flight work on the job that started it", () => {
     const store = useTailorWorkspaceStore.getState();
     const first = store.activeId;
-    store.setScanning(first, true);
+    store.setInflight(first, "scan", true);
+    store.setInflight(first, "suggest", true);
+    store.setInflight(first, "generate", true);
+    store.setInflight(first, "rescore", true);
     const second = store.addBlank();
+    if (!second) throw new Error("expected a second job");
 
     const next = useTailorWorkspaceStore.getState();
     expect(next.activeId).toBe(second);
-    expect(next.scanningIds).toEqual([first]);
+    expect(next.inflight.scan).toEqual([first]);
+    expect(next.inflight.suggest).toEqual([first]);
+    expect(next.inflight.generate).toEqual([first]);
+    expect(next.inflight.rescore).toEqual([first]);
 
-    next.setScanning(first, false);
-    expect(useTailorWorkspaceStore.getState().scanningIds).toEqual([]);
+    next.setInflight(second, "scan", true);
+    next.close(first);
+    const afterClose = useTailorWorkspaceStore.getState();
+    expect(afterClose.inflight.scan).toEqual([second]);
+    expect(afterClose.inflight.suggest).toEqual([]);
+    expect(afterClose.inflight.generate).toEqual([]);
+    expect(afterClose.inflight.rescore).toEqual([]);
   });
 
   it("stops at five open jobs and will not close the last one", () => {

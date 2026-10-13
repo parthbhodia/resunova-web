@@ -12,18 +12,20 @@ import Tabs from "@mui/material/Tabs";
 import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
 import { scoreColor } from "@/components/ratings/scoreColor";
 import { MAX_OPEN_TAILOR_JOBS, tailorJobLabel } from "@/lib/tailorJobTarget";
-import { useTailorWorkspaceStore } from "@/store/tailorWorkspaceStore";
+import { tailorJobIsBusy, useTailorWorkspaceStore } from "@/store/tailorWorkspaceStore";
 
 type Props = {
   onFocus: (id: string) => void;
   onAdd: () => void;
   onClose: (id: string) => void;
+  /** Résumé headline, used when this job has no role of its own. */
+  profileTitle?: string;
 };
 
-export default function TailorJobTabs({ onFocus, onAdd, onClose }: Props) {
+export default function TailorJobTabs({ onFocus, onAdd, onClose, profileTitle }: Props) {
   const targets = useTailorWorkspaceStore((s) => s.targets);
   const activeId = useTailorWorkspaceStore((s) => s.activeId);
-  const scanningIds = useTailorWorkspaceStore((s) => s.scanningIds);
+  const inflight = useTailorWorkspaceStore((s) => s.inflight);
   const atCap = targets.length >= MAX_OPEN_TAILOR_JOBS;
   const canClose = targets.length > 1;
 
@@ -61,14 +63,18 @@ export default function TailorJobTabs({ onFocus, onAdd, onClose }: Props) {
           }}
         >
           {targets.map((job) => {
-            const label = tailorJobLabel(job.work.company, job.work.role);
+            const title = job.work.result?.ratings?.job_title;
+            const label = tailorJobLabel(job.work.company, job.work.role, {
+              profileTitle: profileTitle || title?.resume_title,
+              postingTitle: title?.jd_title,
+            });
             const score = job.score;
-            const scanning = scanningIds.includes(job.id);
+            const scanning = tailorJobIsBusy(inflight, job.id);
             return (
               <Tab
                 key={job.id}
                 value={job.id}
-                aria-label={scanning ? `${label}, scanning` : label}
+                aria-label={scanning ? `${label}, working` : label}
                 label={
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: 200 }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

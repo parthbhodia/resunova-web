@@ -50,6 +50,18 @@ const slots = new Map<RunKind, Slot<unknown>>();
 let nextId = 1;
 
 /**
+ * Start an analysis and leave for the Analyze page in the same turn.
+ *
+ * The page adopts the in-flight run and shows its loader. Waiting for the
+ * response before navigating is what made Improve feel like a jump: the tailor
+ * page sat still, then the finished report appeared all at once.
+ */
+export function startAnalyzeAndOpen(work: () => Promise<unknown>, navigate: () => void): void {
+  startRun("analyze", work);
+  navigate();
+}
+
+/**
  * Start a run, or return the one already in flight for this kind.
  *
  * `now` is injected so expiry is testable without faking timers.

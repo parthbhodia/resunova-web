@@ -4,6 +4,7 @@ import {
   clearRun,
   peekRun,
   RUN_RESULT_TTL_MS,
+  startAnalyzeAndOpen,
   startRun,
   subscribeRun,
 } from "@/lib/analyzeRun";
@@ -30,6 +31,20 @@ describe("a scan that outlives its component", () => {
     await d.promise;
 
     expect(peekRun("analyze")).toEqual({ status: "done", result: "scored" });
+  });
+
+  it("opens the analyze page while the scan is still running", () => {
+    const order: string[] = [];
+    const d = deferred<string>();
+    startAnalyzeAndOpen(
+      () => {
+        order.push("start");
+        return d.promise;
+      },
+      () => order.push("navigate"),
+    );
+    expect(order).toEqual(["start", "navigate"]);
+    expect(peekRun("analyze")).toEqual({ status: "running" });
   });
 
   it("reports a run that is still going, so a remount shows the loader", () => {
