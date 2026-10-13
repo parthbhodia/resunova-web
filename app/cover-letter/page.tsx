@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LogoFull } from "@/components/BrandLogo";
 import JsonLd from "@/components/seo/JsonLd";
+import CoverLetterShowcase from "@/components/cover-letter/CoverLetterShowcase";
+import { HomepageHeader } from "@/components/landing/LandingHeader";
 import { SITE_URL } from "@/lib/brand";
 
 const CANONICAL = `${SITE_URL}/cover-letter/`;
@@ -115,94 +116,12 @@ export default function CoverLetterPage() {
     >
       <JsonLd data={[softwareJsonLd, faqJsonLd, breadcrumbJsonLd]} />
 
-      <header
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-          height: 56,
-          padding: "0 24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: "var(--glass-bg)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <Link href="/" style={{ textDecoration: "none" }}>
-          <LogoFull markSize={26} textColor="var(--text)" />
-        </Link>
-        <nav style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 13 }}>
-          <Link href="/resume-examples" style={{ color: "var(--dim)", textDecoration: "none" }}>
-            Resume Examples
-          </Link>
-          <Link href="/ats-resume-checker" style={{ color: "var(--dim)", textDecoration: "none" }}>
-            ATS Checker
-          </Link>
-          <Link href="/" style={{ color: "var(--dim)", textDecoration: "none" }}>
-            App
-          </Link>
-        </nav>
-      </header>
+      <HomepageHeader />
 
-      <main style={{ maxWidth: 760, margin: "0 auto", padding: "40px 24px 100px" }}>
-        <nav aria-label="Breadcrumb" style={{ fontSize: 13, color: "var(--dim)", marginBottom: 18 }}>
-          <Link href="/" style={{ color: "var(--dim)", textDecoration: "none" }}>
-            Home
-          </Link>
-          <span style={{ margin: "0 8px" }}>/</span>
-          <span style={{ color: "var(--muted)" }}>Cover Letter Generator</span>
-        </nav>
+      <main style={{ maxWidth: 1120, margin: "0 auto", padding: "32px 24px 100px" }}>
+        <CoverLetterShowcase />
 
-        <p
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: "var(--accent)",
-            marginBottom: 12,
-          }}
-        >
-          Free tool
-        </p>
-        <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1.1, lineHeight: 1.12, margin: "0 0 16px" }}>
-          Free AI cover letter generator
-        </h1>
-        <p
-          style={{
-            fontSize: 16,
-            color: "var(--muted)",
-            lineHeight: 1.7,
-            margin: "0 0 28px",
-          }}
-        >
-          Paste the job description and get a tailored cover letter written from your <em>actual resume</em> — your
-          real experience mapped to the role&rsquo;s requirements, not generic filler. Edit every line in a live
-          preview, then download a formatted PDF or DOCX. Free to start, no credit card.
-        </p>
-
-        {/* Primary CTA — deep-links into the in-app cover letter builder. */}
-        <Link
-          href="/?view=cover-letter"
-          style={{
-            display: "inline-block",
-            padding: "13px 24px",
-            borderRadius: 12,
-            background: "var(--accent)",
-            color: "var(--accent-foreground)",
-            fontWeight: 700,
-            fontSize: 15,
-            textDecoration: "none",
-            marginBottom: 44,
-          }}
-        >
-          Write my cover letter free →
-        </Link>
-
-        <article style={{ fontSize: 15, lineHeight: 1.75, color: "var(--muted)" }}>
+        <article style={{ fontSize: 15, lineHeight: 1.75, color: "var(--muted)", maxWidth: 760, margin: "0 auto" }}>
           <section style={{ marginBottom: 40 }}>
             <h2 style={sectionTitle}>How it works</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
