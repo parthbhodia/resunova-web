@@ -23,7 +23,8 @@ import { apiUrl, isResumeUploadFile, parseJsonOrThrow, scoreColor } from "@/lib/
 import { toUserFriendlyErrorMessage, messageForNonJsonApiFailure } from "@/lib/userFriendlyError";
 import { ApiErrorBanner } from "@/components/ApiErrorBanner";
 import { Button } from "@/components/ui/button";
-import { upsertResume, getSupabaseClient, upsertUserProfile } from "@/lib/supabase";
+import { upsertResume, getSupabaseClient, upsertUserProfile, fetchAnalysisById } from "@/lib/supabase";
+import { startAnalyzeAndOpen } from "@/lib/analyzeRun";
 import { TAILOR_PREFILL_JD, TAILOR_PREFILL_COMPANY, TAILOR_PREFILL_ROLE } from "@/lib/tailorPrefill";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -1932,41 +1933,71 @@ export default function ResumeBuilder({
    * analysis on the CURRENT tailored text (applied fixes included) and lands
    * on the Analyze results page, which is where the per-bullet fixes live.
    * The persisted row also becomes the working résumé Jobs/Boost rank on.
+   *
+   * Navigation happens before the response. The Analyze page adopts the run
+   * and shows its loader; waiting here and pushing only once an id exists is
+   * the jump the user sees when the report is already done.
    */
   const [improveBusy, setImproveBusy] = useState(false);
-  const improveViaAnalyze = useCallback(async () => {
+  const improveViaAnalyze = useCallback(() => {
     if (improveBusy) return;
     setImproveBusy(true);
-    try {
-      const structured = tailorStructuredResume
-        ? applyFieldOverridesToStructured(
-            patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
-            tailorFieldOverrides,
-          )
-        : null;
-      const resp = await apiFetch("/api/analyze-rescore", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          resume_text: effectiveCandidateProfile,
-          ...(structured ? { structured_resume: structured } : {}),
-          source_filename:
-            [company?.trim(), role?.trim()].filter(Boolean).join(" · ") || "Tailored resume",
-        }),
-      });
-      const data = (await resp.json().catch(() => ({}))) as { analysisId?: string; error?: string };
-      if (!resp.ok) throw new Error(data?.error || "Couldn't run the scan. Try again.");
-      if (!data.analysisId) {
-        // The scan ran but did not persist; without a row there is no report
-        // page to open — say so instead of navigating to nothing.
-        throw new Error("The scan ran but couldn't be saved. Try again.");
+    const structured = tailorStructuredResume
+      ? applyFieldOverridesToStructured(
+          patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
+          tailorFieldOverrides,
+        )
+      : null;
+    const fileName = [company?.trim(), role?.trim()].filter(Boolean).join(" · ") || "Tailored resume";
+    startAnalyzeAndOpen(async () => {
+      try {
+        const resp = await apiFetch("/api/analyze-rescore", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resume_text: effectiveCandidateProfile,
+            ...(structured ? { structured_resume: structured } : {}),
+            source_filename: fileName,
+          }),
+        });
+        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown> & {
+          analysisId?: string;
+          error?: string;
+          overallScore?: number;
+          overall_score?: number;
+        };
+        if (!resp.ok) {
+          return { ok: false, status: resp.status, json: data, fileName };
+        }
+        let json: Record<string, unknown> = data;
+        const hasScore = typeof data.overallScore === "number" || typeof data.overall_score === "number";
+        if (!hasScore && data.analysisId) {
+          const saved = await fetchAnalysisById(data.analysisId);
+          if (saved?.result && typeof saved.result === "object") {
+            json = { ...(saved.result as Record<string, unknown>), analysisId: data.analysisId };
+          }
+        }
+        const scored = typeof json.overallScore === "number" || typeof json.overall_score === "number";
+        if (!scored) {
+          return {
+            ok: false,
+            status: resp.status,
+            json: { error: "The scan ran but couldn't be saved. Try again." },
+            fileName,
+          };
+        }
+        return { ok: true, status: resp.status, json, fileName };
+      } catch (e) {
+        return {
+          ok: false,
+          status: 0,
+          json: { error: e instanceof Error ? e.message : "Couldn't run the scan. Try again." },
+          fileName,
+        };
       }
-      router.push(`/?view=analyze&analysis=${encodeURIComponent(data.analysisId)}`);
-    } catch (e) {
-      setAnalyzeError(e instanceof Error ? e.message : "Couldn't run the scan. Try again.");
-    } finally {
-      setImproveBusy(false);
-    }
+    }, () => {
+      router.push("/?view=analyze");
+    });
   }, [improveBusy, tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides,
       tailorFieldOverrides, effectiveCandidateProfile, company, role, router]);
 
