@@ -15,6 +15,8 @@ export type GapFixSuggestion = {
   risk_level?: "low" | "medium" | "high";
   /** Tech the rewrite names that the résumé does not otherwise evidence. */
   unverified_terms?: string[];
+  suggested_role?: string;
+  original_role?: string;
 };
 
 type Props = {

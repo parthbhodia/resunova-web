@@ -59,7 +59,7 @@ The scan screen reads this and says scoring is paused. The rest of the site stay
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/upload-resume` | POST | Library upload + structured extract |
-| `/api/suggest-gap-fix` | POST | JD gap rewrite suggestions |
+| `/api/suggest-gap-fix` | POST | JD gap rewrite suggestions. Additive: `suggested_role` on a suggestion retitles that existing Experience role (aggressive mode only; frontend also fills this from the posting title when the model omits it). |
 | `/api/extract-jd` | POST | Parse job description URL/text |
 
 ## Advisor

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { suggestionsWithDrafts } from "@/lib/tailorGapFix";
+import { suggestionIsUsable } from "@/lib/fixEverything";
 import { GapFixSuggestionCard, type GapFixSuggestion } from "@/components/ratings/GapFixSuggestionCard";
 
 export type GapFixPanelState = {
@@ -47,7 +48,7 @@ export default function GapFixTabPanel({
   gapFixBulletText,
 }: Props) {
   const panelSuggestions = useMemo(
-    () => (gapFixPanel.suggestions ?? []).filter((s) => s.original?.trim() && s.suggested?.trim()),
+    () => (gapFixPanel.suggestions ?? []).filter((s) => suggestionIsUsable(s)),
     [gapFixPanel.suggestions],
   );
 

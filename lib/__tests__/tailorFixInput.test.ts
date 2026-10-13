@@ -9,6 +9,7 @@ import {
   guidanceNotes,
   hasSkillsSection,
   parseToolList,
+  entryPathForNewBullet,
   roleOptions,
   toolAppearsIn,
   toolsNamedInText,
@@ -88,6 +89,21 @@ describe("draftBulletFromGuidance", () => {
   it("tools alone still make a line; nothing makes nothing", () => {
     expect(draftBulletFromGuidance({ facts: null, tools: ["Kafka", "Spark"], steer: "" })).toBe("Worked with Kafka and Spark");
     expect(draftBulletFromGuidance({ facts: null, tools: [], steer: "be brief" })).toBe("");
+  });
+});
+
+describe("entryPathForNewBullet", () => {
+  it("picks the role whose company matches, else the first role", () => {
+    const r = resume({
+      experience: [
+        { company: "Acme", role: "Platform Engineer", dates: "", location: "", bullets: ["Ran on-call."] },
+        { company: "Globex", role: "Developer", dates: "", location: "", bullets: [] },
+      ],
+    });
+    expect(entryPathForNewBullet(r, "Globex")).toBe("exp.1");
+    expect(entryPathForNewBullet(r, "Developer · Globex")).toBe("exp.1");
+    expect(entryPathForNewBullet(r, "")).toBe("exp.0");
+    expect(entryPathForNewBullet(null)).toBe("exp.0");
   });
 });
 

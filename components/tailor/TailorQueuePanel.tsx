@@ -43,7 +43,7 @@ import { findTermBulletIndex } from "@/lib/resumeBulletMatch";
 import { TailorScoreboard } from "@/components/tailor/TailorScoreboard";
 import { useLiveCoverage } from "@/components/tailor/useLiveCoverage";
 import { RequirementChecklist, TailorWorkQueue, type QueueItemAction } from "@/components/tailor/TailorWorkQueue";
-import { TailorTitleNote } from "@/components/tailor/TailorTitleNote";
+import { TailorTitleNote, type ExperienceRoleOption } from "@/components/tailor/TailorTitleNote";
 import {
   TailorFixExpansion,
   type FixExpansionState,
@@ -175,6 +175,9 @@ export function TailorQueuePanel({
   onAddEducation,
   onAddSkill,
   structuredResume,
+  experienceRoles,
+  aggressive,
+  onApplyRoleTitle,
 }: {
   ratings: RatingsData;
   addressedGaps: ReadonlySet<string>;
@@ -249,6 +252,9 @@ export function TailorQueuePanel({
   onDownload?: () => void;
   /** Finish-line handoff into interview prep, carrying this run's resume + JD. */
   onInterviewPrep?: () => void;
+  experienceRoles?: readonly ExperienceRoleOption[];
+  aggressive?: boolean;
+  onApplyRoleTitle?: (index: number, title: string) => void;
 }) {
   // A pass "ran" once Fix everything has gone busy -> idle in this mount.
   const [passRan, setPassRan] = useState(false);
@@ -507,7 +513,12 @@ export function TailorQueuePanel({
       {/* The chip row is gone: it grouped the same rows by rater category while
           the bands group them by consequence, and the band headers now carry
           true counts. Title had nowhere else to live, so it stays as a line. */}
-      <TailorTitleNote ratings={ratings} />
+      <TailorTitleNote
+        ratings={ratings}
+        roles={experienceRoles}
+        aggressive={aggressive}
+        onApplyRoleTitle={onApplyRoleTitle}
+      />
       <div>
         {/* The Rezi-style strip draws the match block's OWN counted-of-total —
             same numbers, one provenance — so it renders only on a LIVE

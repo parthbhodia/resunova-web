@@ -39,6 +39,16 @@ const SKILL: ResumeChange = {
   requirements: ["Terraform"],
 };
 
+const TITLE: ResumeChange = {
+  key: "title:exp.0",
+  kind: "title",
+  bulletIndex: -1,
+  original: "Software Engineer",
+  applied: "Senior Fullstack Engineer",
+  requirements: ["Job title"],
+  entryPath: "exp.0",
+};
+
 const openRow = (name: RegExp) =>
   fireEvent.click(screen.getByRole("button", { name }));
 
@@ -116,6 +126,12 @@ describe("provenance", () => {
     expect(screen.getByText("added to your Skills section")).toBeInTheDocument();
   });
 
+  it("renders a role title change as its own kind of row", () => {
+    render(<TailorChangeLog changes={[TITLE]} onUndo={vi.fn()} />);
+    expect(screen.getByText("Senior Fullstack Engineer")).toBeInTheDocument();
+    expect(screen.getByText(/role title, was/)).toBeInTheDocument();
+  });
+
   it("offers no See-it on a skills row", () => {
     // The preview resolver only finds bullets; a link that scrolls nowhere is
     // a dead click.
@@ -167,15 +183,25 @@ describe("undo", () => {
 
   it("names the skills consequence on a skills row", () => {
     // "Puts the original line back" would be false — there is no line; the
-    // revert removes the term and reopens the requirement.
+    // revert removes the term from Skills.
     const onUndo = vi.fn();
     render(<TailorChangeLog changes={[SKILL]} onUndo={onUndo} />);
     openRow(/Terraform/);
     fireEvent.click(screen.getByRole("button", { name: "Undo this change" }));
     expect(
-      screen.getByText("Removes it from your Skills section and reopens the requirement."),
+      screen.getByText("Removes it from your Skills section."),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Undo it" }));
     expect(onUndo).toHaveBeenCalledWith(SKILL);
+  });
+
+  it("names the title consequence on a title row", () => {
+    const onUndo = vi.fn();
+    render(<TailorChangeLog changes={[TITLE]} onUndo={onUndo} />);
+    openRow(/Senior Fullstack Engineer/);
+    fireEvent.click(screen.getByRole("button", { name: "Undo this change" }));
+    expect(screen.getByText("Puts the original job title back.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Undo it" }));
+    expect(onUndo).toHaveBeenCalledWith(TITLE);
   });
 });

@@ -165,6 +165,44 @@ describe("a Skills-section add is a change too", () => {
     expect(changes).toHaveLength(1);
   });
 
+  it("lists a tool filed as a side-effect even when no queue row owns it", () => {
+    const changes = deriveResumeChanges(
+      [item("CI/CD")],
+      [
+        { label: "CI/CD", appliedText: "Set up CI/CD for 12 services." },
+        { label: "Terraform", appliedText: "Terraform", via: "skills" as const },
+      ],
+      { 0: "Set up CI/CD for 12 services." },
+      BULLETS,
+    );
+    expect(changes.filter((c) => c.kind === "skill")).toEqual([
+      expect.objectContaining({ kind: "skill", applied: "Terraform" }),
+    ]);
+  });
+
+  it("derives a title row from a via-marked action", () => {
+    const changes = deriveResumeChanges(
+      [],
+      [{
+        label: "Job title",
+        appliedText: "Senior Fullstack Engineer",
+        originalText: "Software Engineer",
+        via: "title",
+        entryPath: "exp.0",
+      }],
+      {},
+      BULLETS,
+    );
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({
+      kind: "title",
+      original: "Software Engineer",
+      applied: "Senior Fullstack Engineer",
+      entryPath: "exp.0",
+      bulletIndex: -1,
+    });
+  });
+
   it("orders fixes, then skills adds, then the user's own edits", () => {
     const changes = deriveResumeChanges(
       [item("Kubernetes"), item("Terraform")],

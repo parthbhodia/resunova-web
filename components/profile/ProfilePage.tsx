@@ -335,7 +335,29 @@ export default function ProfilePage() {
   return (
     <div className="profile-real-page">
       <style dangerouslySetInnerHTML={{ __html: `
-        .profile-real-page { min-height: 100vh; background: #f8fafc; color: #111827; }
+        .profile-real-page {
+          min-height: 100vh;
+          background: #f8fafc;
+          color: #111827;
+          color-scheme: light;
+          /* This page is painted light on purpose. Token-based cards such as
+             Plan & usage still read --surface, which is near-black in the
+             app's dark theme, so pin the light values for this subtree. */
+          --surface: #ffffff;
+          --surface2: #f8fafc;
+          --border: rgba(15,23,42,0.08);
+          --text: #111827;
+          --muted: #6b7280;
+          --dim: #6b7280;
+          --amber: #b45309;
+          --amber-bg: rgba(180,83,9,0.12);
+          --shadow-card: 0 8px 30px rgba(15,23,42,0.05);
+          --radius-xl: 18px;
+          --card: #ffffff;
+          --card-foreground: #111827;
+          --foreground: #111827;
+          --muted-foreground: #6b7280;
+        }
         .profile-real-shell { max-width: 1080px; margin: 0 auto; padding: 28px 20px 80px; }
         .profile-real-eyebrow { margin: 0 0 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: #2563eb; }
         .profile-real-title { margin: 0; font-size: clamp(30px, 5vw, 38px); line-height: 1.05; letter-spacing: -1.1px; font-weight: 800; color: #111827; }

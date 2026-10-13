@@ -159,8 +159,7 @@ type SharedProps = {
    *  chips replace the four dimension tabs). Hidden from the rail and the
    *  detail; a hidden activeTab renders as "overall". */
   hiddenTabs?: readonly Tab[];
-  /** Résumé headline draft for the Job Title panel's editor — distinct from any
-   *  specific employer's title under Experience, which stays untouched. Empty
+  /** Résumé headline draft for the Job Title panel's editor. Empty
    *  string = no override, show the extracted headline / LLM's resume_title. */
   headlineDraft?: string;
   onHeadlineDraftChange?: (text: string) => void;
@@ -168,6 +167,8 @@ type SharedProps = {
    *  when there's no structured résumé to attach the override to. */
   onRescoreTitle?: () => void;
   titleRescoring?: boolean;
+  experienceRoles?: ReadonlyArray<{ index: number; role: string; company: string }>;
+  onRoleTitleChange?: (index: number, title: string) => void;
 };
 
 /** Sidebar grouping: ATS-facing dimensions vs the human-recruiter read. */
@@ -821,6 +822,8 @@ export function TailorMatchDetail(props: SharedProps) {
             onHeadlineDraftChange={props.onHeadlineDraftChange}
             onRescoreTitle={props.onRescoreTitle}
             rescoring={props.titleRescoring}
+            experienceRoles={props.experienceRoles}
+            onRoleTitleChange={props.onRoleTitleChange}
           />
         )}
         {activeTab === "qualifications" && (

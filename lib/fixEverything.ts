@@ -114,7 +114,8 @@ export function batchGapName(batch: GapBatch): string {
  * Honest mode never gets this. Aggressive mode does: a duty that cannot land
  * on an existing bullet was being dropped, then shown as impossible. A new
  * bullet under a role the résumé already lists is the fix. A new employer,
- * title, credential, or number is still refused.
+ * credential, or number is still refused. Retitling an existing role toward
+ * the posting is allowed when the work is the same job under a different name.
  */
 export function inventedBulletPermission(mode: TailoringMode | null | undefined): string {
   if (mode !== "aggressive") return "";
@@ -124,7 +125,10 @@ export function inventedBulletPermission(mode: TailoringMode | null | undefined)
     + "If it cannot be woven into an existing bullet, invent one new bullet under the closest existing role. "
     + "Return a new bullet with an empty original and the full line as suggested. "
     + "[Y] must be a result already on the résumé. "
-    + "Do not invent a new employer, title, credential, or number."
+    + "Do not invent a new employer, credential, or number. "
+    + "You MAY retitle an existing role toward the posting's job title when the work already described is the same job under a different name. "
+    + "If you retitle, set suggested_role to the new title on that suggestion and keep employer unchanged. "
+    + "Do not invent a new role, do not change an employer name, and do not promote intern or student titles to senior, staff, or director."
   );
 }
 
