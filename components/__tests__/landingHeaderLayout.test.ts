@@ -15,7 +15,12 @@ import { describe, expect, it } from "vitest";
  * if either is broken again, reproduce the bug — cheap to check on every run.
  */
 
-const SRC = readFileSync(join(process.cwd(), "components/LandingPage.tsx"), "utf8");
+const SRC = [
+  "components/LandingPage.tsx",
+  "components/landing/LandingHeader.tsx",
+]
+  .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
+  .join("\n");
 
 function navElement(): string {
   const start = SRC.indexOf('<nav className="lp-nav');
