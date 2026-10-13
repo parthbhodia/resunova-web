@@ -411,6 +411,11 @@ function takeJobAbort(map: Map<string, TailorAbortSlot>, jobId: string, kind: Ta
   return ac;
 }
 
+function clearTailorJobResult(jobId: string) {
+  if (!jobId) return;
+  useTailorWorkspaceStore.getState().patch(jobId, { result: null, preview: "" });
+}
+
 function abortTailorJob(map: Map<string, TailorAbortSlot>, jobId: string) {
   const slot = map.get(jobId);
   if (!slot) return;
@@ -694,6 +699,7 @@ export default function ResumeBuilder({
    *  re-pasting company, role, and job description. */
   const startOverTailor = useCallback(() => {
     resetActiveTailorWork();
+    clearTailorJobResult(useTailorWorkspaceStore.getState().activeId);
     clearSuggestionsState();
     setError(null);
     setGapFixError(null);
@@ -1258,6 +1264,7 @@ export default function ResumeBuilder({
       if ((fromAnalyze || fromTemplateStudio) && profile) {
         setCandidateProfile(profile);
         setUploadedFileName(fromTemplateStudio ? "From template studio" : "From Analyze");
+        clearTailorJobResult(useTailorWorkspaceStore.getState().activeId);
         setResult(null);
         setPreview("");
         try {
@@ -2460,7 +2467,10 @@ export default function ResumeBuilder({
       const message = jobUrl.trim()
         ? `We couldn't pull the ${label} from that link. Please fill it in manually.`
         : `Please fill in the ${label}.`;
-      useTailorWorkspaceStore.getState().patch(requestJobId, { error: message });
+      useTailorWorkspaceStore.getState().patch(requestJobId, {
+        error: message,
+        ...(!studioHandoff ? { result: null, preview: "" } : {}),
+      });
       releaseJobAbort(jobAbortRef.current, requestJobId, "generate", ac);
       useTailorWorkspaceStore.getState().setInflight(requestJobId, "generate", false);
       if (tailorJobIsCurrent(requestJobId)) {
@@ -2781,6 +2791,7 @@ export default function ResumeBuilder({
       .filter((c) => typeof c.score === "number" && c.score <= 5)
       .map((c) => ({ name: c.name, score: c.score }))
       .slice(0, 8);
+    clearTailorJobResult(useTailorWorkspaceStore.getState().activeId);
     setResult(null);
     setPreview("");
     selectSuggestion(null);
