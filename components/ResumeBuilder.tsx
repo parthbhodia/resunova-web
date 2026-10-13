@@ -25,6 +25,7 @@ import { ApiErrorBanner } from "@/components/ApiErrorBanner";
 import { Button } from "@/components/ui/button";
 import { upsertResume, getSupabaseClient, upsertUserProfile, fetchAnalysisById } from "@/lib/supabase";
 import { startAnalyzeAndOpen } from "@/lib/analyzeRun";
+import { rescoreAnalysisId, rescoreBodyHasScore, rescoreBodyToOutcome } from "@/lib/rescoreOutcome";
 import { TAILOR_PREFILL_JD, TAILOR_PREFILL_COMPANY, TAILOR_PREFILL_ROLE } from "@/lib/tailorPrefill";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -411,6 +412,11 @@ function takeJobAbort(map: Map<string, TailorAbortSlot>, jobId: string, kind: Ta
   return ac;
 }
 
+function clearTailorJobResult(jobId: string) {
+  if (!jobId) return;
+  useTailorWorkspaceStore.getState().patch(jobId, { result: null, preview: "" });
+}
+
 function abortTailorJob(map: Map<string, TailorAbortSlot>, jobId: string) {
   const slot = map.get(jobId);
   if (!slot) return;
@@ -694,6 +700,7 @@ export default function ResumeBuilder({
    *  re-pasting company, role, and job description. */
   const startOverTailor = useCallback(() => {
     resetActiveTailorWork();
+    clearTailorJobResult(useTailorWorkspaceStore.getState().activeId);
     clearSuggestionsState();
     setError(null);
     setGapFixError(null);
@@ -1258,6 +1265,7 @@ export default function ResumeBuilder({
       if ((fromAnalyze || fromTemplateStudio) && profile) {
         setCandidateProfile(profile);
         setUploadedFileName(fromTemplateStudio ? "From template studio" : "From Analyze");
+        clearTailorJobResult(useTailorWorkspaceStore.getState().activeId);
         setResult(null);
         setPreview("");
         try {
@@ -1939,9 +1947,19 @@ export default function ResumeBuilder({
    * the jump the user sees when the report is already done.
    */
   const [improveBusy, setImproveBusy] = useState(false);
+  // State lags a second click in the same turn. The lock is what actually
+  // stops two scans; improveBusy only updates the button.
+  const improveLock = useRef(false);
   const improveViaAnalyze = useCallback(() => {
-    if (improveBusy) return;
+    if (improveLock.current) return;
+    const resumeText = effectiveCandidateProfile.trim();
+    if (!resumeText) {
+      setAnalyzeError("Upload a résumé before running this scan.");
+      return;
+    }
+    improveLock.current = true;
     setImproveBusy(true);
+    setAnalyzeError(null);
     const structured = tailorStructuredResume
       ? applyFieldOverridesToStructured(
           patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
@@ -1949,56 +1967,46 @@ export default function ResumeBuilder({
         )
       : null;
     const fileName = [company?.trim(), role?.trim()].filter(Boolean).join(" · ") || "Tailored resume";
-    startAnalyzeAndOpen(async () => {
-      try {
-        const resp = await apiFetch("/api/analyze-rescore", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            resume_text: effectiveCandidateProfile,
-            ...(structured ? { structured_resume: structured } : {}),
-            source_filename: fileName,
-          }),
-        });
-        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown> & {
-          analysisId?: string;
-          error?: string;
-          overallScore?: number;
-          overall_score?: number;
-        };
-        if (!resp.ok) {
-          return { ok: false, status: resp.status, json: data, fileName };
-        }
-        let json: Record<string, unknown> = data;
-        const hasScore = typeof data.overallScore === "number" || typeof data.overall_score === "number";
-        if (!hasScore && data.analysisId) {
-          const saved = await fetchAnalysisById(data.analysisId);
-          if (saved?.result && typeof saved.result === "object") {
-            json = { ...(saved.result as Record<string, unknown>), analysisId: data.analysisId };
-          }
-        }
-        const scored = typeof json.overallScore === "number" || typeof json.overall_score === "number";
-        if (!scored) {
+    const release = () => {
+      improveLock.current = false;
+      setImproveBusy(false);
+    };
+    try {
+      startAnalyzeAndOpen(async () => {
+        try {
+          const resp = await apiFetch("/api/analyze-rescore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resume_text: resumeText,
+              ...(structured ? { structured_resume: structured } : {}),
+              source_filename: fileName,
+            }),
+          });
+          const data: unknown = await resp.json().catch(() => ({}));
+          const id = rescoreAnalysisId(data);
+          const saved = resp.ok && !rescoreBodyHasScore(data) && id
+            ? await fetchAnalysisById(id)
+            : null;
+          return rescoreBodyToOutcome(resp.status, data, fileName, saved);
+        } catch (e) {
           return {
             ok: false,
-            status: resp.status,
-            json: { error: "The scan ran but couldn't be saved. Try again." },
+            status: 0,
+            json: { error: e instanceof Error ? e.message : "Couldn't run the scan. Try again." },
             fileName,
           };
         }
-        return { ok: true, status: resp.status, json, fileName };
-      } catch (e) {
-        return {
-          ok: false,
-          status: 0,
-          json: { error: e instanceof Error ? e.message : "Couldn't run the scan. Try again." },
-          fileName,
-        };
-      }
-    }, () => {
-      router.push("/?view=analyze");
-    });
-  }, [improveBusy, tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides,
+      }, () => {
+        router.push("/?view=analyze");
+      });
+    } catch (e) {
+      // The scan slot was not booked, or the route change threw before the
+      // tailor view unmounted. Leave the button clickable and say why.
+      release();
+      setAnalyzeError(e instanceof Error ? e.message : "Couldn't open the report. Try again.");
+    }
+  }, [tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides,
       tailorFieldOverrides, effectiveCandidateProfile, company, role, router]);
 
   const tailorPreviewBullets = tailorBulletAnalysis;
@@ -2460,7 +2468,10 @@ export default function ResumeBuilder({
       const message = jobUrl.trim()
         ? `We couldn't pull the ${label} from that link. Please fill it in manually.`
         : `Please fill in the ${label}.`;
-      useTailorWorkspaceStore.getState().patch(requestJobId, { error: message });
+      useTailorWorkspaceStore.getState().patch(requestJobId, {
+        error: message,
+        ...(!studioHandoff ? { result: null, preview: "" } : {}),
+      });
       releaseJobAbort(jobAbortRef.current, requestJobId, "generate", ac);
       useTailorWorkspaceStore.getState().setInflight(requestJobId, "generate", false);
       if (tailorJobIsCurrent(requestJobId)) {
@@ -2781,6 +2792,7 @@ export default function ResumeBuilder({
       .filter((c) => typeof c.score === "number" && c.score <= 5)
       .map((c) => ({ name: c.name, score: c.score }))
       .slice(0, 8);
+    clearTailorJobResult(useTailorWorkspaceStore.getState().activeId);
     setResult(null);
     setPreview("");
     selectSuggestion(null);

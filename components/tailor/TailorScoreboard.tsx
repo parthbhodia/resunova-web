@@ -468,12 +468,14 @@ export function TailorScoreboard({
             </Button>
             <Button
               size="sm"
+              disabled={improveBusy}
               onClick={() => {
+                if (improveBusy) return;
                 setConfirmOpen(false);
                 onImprove?.();
               }}
             >
-              Run the scan
+              {improveBusy ? "Scanning…" : "Run the scan"}
             </Button>
           </DialogFooter>
         </DialogContent>

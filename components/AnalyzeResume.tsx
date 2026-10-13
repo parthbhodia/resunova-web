@@ -486,7 +486,18 @@ export default function AnalyzeResume() {
 
 
   // A scan that finished while this component was unmounted is delivered here.
-  const { adoptedRunning } = useAdoptedRun<AnalyzeOutcome>("analyze", applyAnalyzeOutcome);
+  const { adoptedRunning } = useAdoptedRun<AnalyzeOutcome>(
+    "analyze",
+    applyAnalyzeOutcome,
+    // A run that rejects (the work threw) is not an AnalyzeOutcome, so the
+    // done-path never sees it. Without this the loader clears onto the upload
+    // screen and the reason is gone.
+    (error) => {
+      setError(toUserFriendlyErrorMessage(
+        error instanceof Error ? error.message : "Couldn't run the scan. Try again.",
+      ));
+    },
+  );
   // Adopting a still-running scan means showing the loader, not the upload
   // screen: the work is happening, it just started before this mount.
   const busy = loading || adoptedRunning;
