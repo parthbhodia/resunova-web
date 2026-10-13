@@ -51,6 +51,7 @@ export type QueueItemAction =
   | "review"
   | "add_to_summary"
   | "fix"
+  | "tell_us"
   | "whats_this"
   | "add_education"
   | "reconsider"
@@ -69,7 +70,17 @@ export function itemAction(
   if (it.status === "applied") return "view_change";
   if (it.status === "needs_review") return "review";
   if (it.status === "ignored") return "reconsider";
-  if (it.status === "not_coverable") return it.kind === "contextual" ? "whats_this" : null;
+  // A row the pass could not write used to end here with no control. The
+  // reason it could not be written is that the résumé did not say enough,
+  // and the user is the one who can say more. A credential still goes
+  // through the honesty routing below rather than to a bullet form.
+  if (it.status === "not_coverable") {
+    if (it.kind === "contextual") return "whats_this";
+    if (isCredentialRequirement(it.name)) {
+      return verdict === "partial" || verdict === "covered" ? "add_education" : "no_fabrication";
+    }
+    return "tell_us";
+  }
   if (it.kind === "contextual") return "whats_this";
   // A credential cannot be evidenced by rewriting an experience bullet, so it
   // never goes to the bullet fixer. Offered a degree, the model does not
@@ -131,6 +142,7 @@ export const ACTION_LABEL: Record<QueueItemAction, string> = {
   review: "Review",
   add_to_summary: "Add to summary",
   fix: "Fix this",
+  tell_us: "Tell us about it",
   whats_this: "What's this?",
   add_education: "Add to education",
   reconsider: "Reconsider",

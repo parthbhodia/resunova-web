@@ -65,6 +65,42 @@ export function applyBulletOpToStructured(
   return next;
 }
 
+/**
+ * Remove the LAST bullet whose text matches, in `entryPath` when given or in
+ * any entry otherwise. The undo for a line the user wrote: it was appended,
+ * so the last match is the one they added, and matching by text is the only
+ * handle a line that postdates the preview's bullet list has. Returns null
+ * when nothing matched so the caller never claims an undo over an unchanged
+ * document.
+ */
+export function removeBulletByText(
+  structured: StructuredResume,
+  entryPath: string | undefined,
+  text: string,
+): StructuredResume | null {
+  const needle = text.trim();
+  if (!needle) return null;
+  const next = JSON.parse(JSON.stringify(structured)) as StructuredResume;
+  const paths = entryPath
+    ? [entryPath]
+    : [
+        ...(next.experience ?? []).map((_, i) => `exp.${i}`),
+        ...(next.projects ?? []).map((_, i) => `proj.${i}`),
+        ...(next.education ?? []).map((_, i) => `edu.${i}`),
+      ];
+  for (const path of paths) {
+    const bullets = bulletsArrayFor(next, path);
+    if (!bullets) continue;
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      if (bullets[i].trim() === needle) {
+        bullets.splice(i, 1);
+        return next;
+      }
+    }
+  }
+  return null;
+}
+
 /** Applies an op's pathRemap to a path-keyed overlay map (hiddenPaths,
  *  fieldOverrides, …). Unlisted keys pass through untouched; null-mapped
  *  keys are dropped. */

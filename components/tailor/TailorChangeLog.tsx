@@ -218,7 +218,7 @@ export function TailorChangeLog({
             <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               {/* No See-it on a skills row: the preview resolver only finds
                   bullets, and a link that scrolls nowhere is a dead click. */}
-              {onSee && c.kind !== "skill" ? (
+              {onSee && c.kind !== "skill" && c.kind !== "added" ? (
                 <button
                   type="button"
                   style={{ ...QUIET_BTN, border: "none", color: "var(--accent-ink, var(--accent))", fontWeight: FW.semibold, padding: 0 }}
@@ -235,7 +235,9 @@ export function TailorChangeLog({
                   <span style={{ fontSize: FS.caption, color: "var(--text)" }}>
                     {c.kind === "skill"
                       ? "Removes it from your Skills section and reopens the requirement."
-                      : c.requirements.length > 1
+                      : c.kind === "added"
+                        ? "Removes the line you wrote and reopens the requirement."
+                        : c.requirements.length > 1
                         ? `Puts the original line back and reopens all ${c.requirements.length} requirements.`
                         : "Puts the original line back."}
                   </span>
