@@ -70,7 +70,7 @@ import {
 } from "@/lib/tailorGapFix";
 import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToStructured";
 import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
-import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, planQueueRuns, keepFirstRewritePerBullet } from "@/lib/fixEverything";
+import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, planQueueRuns, keepFirstRewritePerBullet, suggestionIsUsable, inventedBulletPermission, appendBulletLine } from "@/lib/fixEverything";
 import { tailorResultHeadline } from "@/lib/tailorResultHeadline";
 import { gapFixEmptyError, withOneRetryOnFailure } from "@/lib/gapFixEmptyReason";
 import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
@@ -2813,7 +2813,7 @@ export default function ResumeBuilder({
         body: JSON.stringify({
           tailoring_mode: tailoringMode ?? "honest",
           gap_name: gap.name,
-          gap_notes: gap.notes,
+          gap_notes: `${gap.notes}\n\n${inventedBulletPermission(tailoringMode)}`.trim(),
           job_description: jd.trim(),
           // Patch applied gap fixes in FIRST. The backend builds its
           // eligible-bullets whitelist from structured_resume, so sending the
@@ -2838,7 +2838,7 @@ export default function ResumeBuilder({
       const suggs = (Array.isArray(data.suggestions) ? data.suggestions : []) as Array<{
         id: string; section: string; original: string; suggested: string; reason: string; priority: string;
       }>;
-      const eligible = suggs.filter((s) => s.original?.trim() && s.suggested?.trim());
+      const eligible = suggs.filter((s) => suggestionIsUsable(s));
       const terms = Array.isArray(data.targetTerms)
         ? data.targetTerms.map((t) => String(t).trim()).filter(Boolean)
         : [];
@@ -2905,7 +2905,7 @@ export default function ResumeBuilder({
         body: JSON.stringify({
           tailoring_mode: tailoringMode ?? "honest",
           gap_name: item.name,
-          gap_notes: notes,
+          gap_notes: `${notes}\n\n${inventedBulletPermission(tailoringMode)}`.trim(),
           job_description: jd.trim(),
           // Provenance, not permission: the API uses confirmed facts to decide
           // whether an added number is evidenced, never to withhold a rewrite.
@@ -2930,7 +2930,7 @@ export default function ResumeBuilder({
       };
       if (!resp.ok || data.error) throw new Error(data.error ?? "Couldn't write suggestions. Try again.");
       const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as FixSuggestion[];
-      const usable = list.filter((s) => s.original?.trim() && s.suggested?.trim());
+      const usable = list.filter((s) => suggestionIsUsable(s));
       // An empty list has four causes and NONE of them earns a verdict about
       // the résumé — the routing and the reasoning live in
       // lib/gapFixEmptyReason.ts, where they are pinned by tests.
@@ -3115,9 +3115,14 @@ export default function ResumeBuilder({
       // already-edited bullet can be MERGED rather than overwriting it.
       const perBullet = new Map<number, { original: string; suggestions: string[] }>();
       const unmergeable: string[] = [];
+      const invented: string[] = [];
 
       for (const s of draftedItems) {
-        if (!s.original?.trim() || !s.suggested?.trim()) continue;
+        if (!s.suggested?.trim()) continue;
+        if (!s.original?.trim()) {
+          invented.push(s.suggested.trim());
+          continue;
+        }
         const fixId = `gf_${Date.now()}_${s.id}`;
         newSuggestions.push({
           ...s,
@@ -3165,6 +3170,32 @@ export default function ResumeBuilder({
           nextOverrides[index] = all[0];
           if (all.length > 1) unmergeable.push(base);
         }
+        appliedIndices.add(index);
+      }
+
+      const canAppendStructured = (tailorStructuredResume?.experience?.length ?? 0) > 0;
+      for (const text of invented) {
+        if (canAppendStructured) {
+          setStructuredUpload((prev) => {
+            if (!prev) return prev;
+            const next = applyBulletOpToStructured(prev.structured, {
+              entryPath: "exp.0",
+              action: { type: "add", text },
+              pathRemap: {},
+            });
+            if (!next) return prev;
+            return { profile: prev.profile, structured: next };
+          });
+        } else {
+          setCandidateProfile((prev) => appendBulletLine(prev ?? "", text));
+        }
+        const index = bullets.length;
+        bullets = [
+          ...bullets,
+          { originalBullet: text, score: 0, issues: [], improvedBullet: text },
+        ];
+        nextOverrides[index] = text;
+        perBullet.set(index, { original: text, suggestions: [text] });
         appliedIndices.add(index);
       }
 
@@ -3228,7 +3259,7 @@ export default function ResumeBuilder({
     }
   }, [candidateProfile, tailorBulletAnalysis, tailorLineOverrides, suggestions, suggestSummary,
       strategicTips, interviewQuestions, hydrateSuggestions, acceptSuggestion, gapFixPanel, gapFixDrafts,
-      addressedGapActions, jd]);
+      addressedGapActions, jd, tailorStructuredResume]);
 
   applyGapFixesRef.current = applyGapFixes;
 
@@ -3450,7 +3481,7 @@ export default function ResumeBuilder({
             body: JSON.stringify({
               tailoring_mode: tailoringMode ?? "honest",
               gap_name: batchGapName(batch),
-              gap_notes: batchGapNotes(batch),
+              gap_notes: batchGapNotes(batch, tailoringMode ?? "honest"),
               job_description: jd.trim(),
               ...(structured ? { structured_resume: structured } : {}),
               ...(prof ? { candidate_profile: prof } : {}),
@@ -3461,7 +3492,7 @@ export default function ResumeBuilder({
             const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[];
             // Namespace ids per batch: the API numbers them from 1 each call.
             const fresh = keepFirstRewritePerBullet(
-              list.filter((s) => s.original?.trim() && s.suggested?.trim()),
+              list.filter((s) => suggestionIsUsable(s)),
               usedBullets,
             );
             usedBullets = fresh.used;
