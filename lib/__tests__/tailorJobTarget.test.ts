@@ -81,7 +81,7 @@ describe("tailor workspace store", () => {
     localStorage.clear();
     resetTailorWorkspaceMemoryForTests();
     const fresh = createTailorJob({ id: "seed" });
-    useTailorWorkspaceStore.setState({ targets: [fresh], activeId: fresh.id });
+    useTailorWorkspaceStore.setState({ targets: [fresh], activeId: fresh.id, scanningIds: [] });
   });
 
   it("keeps the job you left when another tab is focused", () => {
@@ -113,6 +113,20 @@ describe("tailor workspace store", () => {
     expect(stripe?.savedFolder).toBe("tailor_match_stripe");
     expect(linear?.id).toBe(second);
     expect(linear?.work.result).toBeNull();
+  });
+
+  it("keeps the first job scanning after another job is opened", () => {
+    const store = useTailorWorkspaceStore.getState();
+    const first = store.activeId;
+    store.setScanning(first, true);
+    const second = store.addBlank();
+
+    const next = useTailorWorkspaceStore.getState();
+    expect(next.activeId).toBe(second);
+    expect(next.scanningIds).toEqual([first]);
+
+    next.setScanning(first, false);
+    expect(useTailorWorkspaceStore.getState().scanningIds).toEqual([]);
   });
 
   it("stops at five open jobs and will not close the last one", () => {

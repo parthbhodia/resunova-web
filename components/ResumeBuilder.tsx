@@ -867,8 +867,11 @@ export default function ResumeBuilder({
       suggestStreamAbortRef.current?.abort();
       generateStreamAbortRef.current?.abort();
       setGenerating(false);
-      setAnalyzing(false);
       setTailorRescoring(false);
+      // The match request keeps running on the job that started it. The page
+      // loader follows whichever job is now visible.
+      const { activeId, scanningIds } = useTailorWorkspaceStore.getState();
+      setAnalyzing(scanningIds.includes(activeId));
     },
   });
   const activeTailorFolder = useTailorWorkspaceStore(
@@ -1582,6 +1585,7 @@ export default function ResumeBuilder({
     const initialStructured = tailorStructuredResume && profile === (structuredUpload?.profile ?? "").trim()
       ? applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides) : null;
     const requestJobId = useTailorWorkspaceStore.getState().activeId;
+    useTailorWorkspaceStore.getState().setScanning(requestJobId, true);
     setAnalyzing(true);
     appShellSidebar?.collapseSidebar();
     setAnalyzeError(null);
@@ -1696,6 +1700,7 @@ export default function ResumeBuilder({
       useTailorWorkspaceStore.getState().patch(requestJobId, { analyzeError: message });
       if (tailorJobIsCurrent(requestJobId)) setAnalyzeError(message);
     } finally {
+      useTailorWorkspaceStore.getState().setScanning(requestJobId, false);
       if (tailorJobIsCurrent(requestJobId)) setAnalyzing(false);
     }
   }, [jd, candidateProfile, company, role, model, user?.id, tailoringMode, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar, saveStatus, persistTailorMatch]);
