@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * Public referral route. Chrome is PublicSiteFrame. This file only chooses
- * which screen to show. Search, load, and submit state live in
- * hooks/usePublicReferral.ts. Shared controls live in referUi.tsx.
+ * Public referral route. Site chrome is app/(marketing)/layout.tsx
+ * (PublicSiteFrame). This file only chooses which screen to show. Search,
+ * load, and submit state live in hooks/usePublicReferral.ts. Shared controls
+ * live in referUi.tsx.
  *
  * Open referrers are auth-gated: unsigned visitors see a Google sign-in
  * tease only. No names, companies, or open counts until a session exists.
@@ -14,7 +15,6 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import { ThemeProvider } from "@mui/material/styles";
 import { makeTheme } from "@/components/mui/theme";
-import { PublicSiteFrame } from "@/components/site/PublicSiteFrame";
 import { FindReferrer } from "@/components/refer/FindReferrer";
 import { ReferrerRequestForm } from "@/components/refer/ReferrerRequestForm";
 import { ReferAlert, ReferGoogleGate, ReferLede, ReferNote, ReferTitle } from "@/components/refer/referUi";
@@ -33,13 +33,11 @@ const referralTheme = makeTheme("light");
 
 export default function ReferPublicPage() {
   return (
-    <PublicSiteFrame>
-      <ThemeProvider theme={referralTheme}>
-        <Suspense fallback={<Box sx={{ px: 3, py: 6 }}><ReferNote>Loading...</ReferNote></Box>}>
-          <ReferRoute />
-        </Suspense>
-      </ThemeProvider>
-    </PublicSiteFrame>
+    <ThemeProvider theme={referralTheme}>
+      <Suspense fallback={<Box sx={{ px: 3, py: 6 }}><ReferNote>Loading...</ReferNote></Box>}>
+        <ReferRoute />
+      </Suspense>
+    </ThemeProvider>
   );
 }
 

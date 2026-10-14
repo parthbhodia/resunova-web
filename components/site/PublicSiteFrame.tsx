@@ -1,11 +1,10 @@
 "use client";
 
 /**
- * Public-site chrome. The signed-in app already keeps one shell and swaps
- * the view inside it. Marketing pages each drew their own header, which is
- * why a page like referrals could ship with a logo and nothing else.
- * This frame is the header and footer those pages share. The page supplies
- * only its content.
+ * Public-site chrome for free open marketing pages. Mounted once by
+ * app/(marketing)/layout.tsx. The signed-in app keeps its own shell; /r
+ * share pages keep a minimal header. Pages under (marketing) supply content
+ * only — do not wrap this frame again inside a page.
  */
 
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";

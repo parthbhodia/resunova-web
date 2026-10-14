@@ -55,12 +55,18 @@ vi.mock("@/lib/jobsApi", async (orig) => ({
 }));
 
 import ReferPublicPage from "@/components/refer/ReferPublicPage";
+import { PublicSiteFrame } from "@/components/site/PublicSiteFrame";
 import {
   REFERRER_COMPANIES_FAILED,
   REFERRER_LINK_INACTIVE,
   REFERRER_LOOKUP_FAILED,
   REFERRER_SESSION_FAILED,
 } from "@/lib/companyReferrers";
+
+/** Chrome lives on app/(marketing)/layout; wrap when asserting the shared header. */
+function renderWithSiteChrome(ui: ReactNode) {
+  return render(<PublicSiteFrame>{ui}</PublicSiteFrame>);
+}
 
 function loaded<T>(data: T) {
   return { ok: true as const, data };
@@ -86,7 +92,6 @@ describe("ReferPublicPage", () => {
     expect(screen.queryByLabelText("Filter companies")).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Companies with open referrers" })).not.toBeInTheDocument();
     expect(mockListOpenReferralCompanies).not.toHaveBeenCalled();
-    expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
   });
 
   it("starts Google OAuth from the locked gate", async () => {
@@ -101,7 +106,6 @@ describe("ReferPublicPage", () => {
     expect(await screen.findByRole("heading", { name: "Ask an employee for a referral" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Be the first" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Publish your referrer profile" })).toHaveAttribute("href", "/profile?tab=referrals");
-    expect(screen.getByRole("link", { name: "Privacy" })).toBeInTheDocument();
   });
 
   it("renders open companies as a logo grid without person cards when signed in", async () => {
@@ -120,7 +124,7 @@ describe("ReferPublicPage", () => {
 
   it("opens the site menu with the same links as the header", async () => {
     const user = userEvent.setup();
-    render(<ReferPublicPage />);
+    renderWithSiteChrome(<ReferPublicPage />);
     await user.click(await screen.findByRole("button", { name: "Open menu" }));
     const menu = screen.getByRole("navigation", { name: "Menu" });
     expect(within(menu).getByRole("link", { name: "Resume Builder" })).toBeInTheDocument();
@@ -134,7 +138,7 @@ describe("ReferPublicPage", () => {
 
   it("shows Sign in in the header when signed out", async () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
-    render(<ReferPublicPage />);
+    renderWithSiteChrome(<ReferPublicPage />);
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Profile" })).not.toBeInTheDocument();
   });
@@ -290,9 +294,8 @@ describe("ReferPublicPage", () => {
 
   it("reports a session check failure instead of opening sign in", async () => {
     search.slug = "parth-bhodia-at-acme-abcdef";
-    // Header + page body each call getSession on mount; reject only on submit.
+    // Page body resolves session on mount; reject only on submit.
     mockGetSession
-      .mockResolvedValueOnce({ data: { session: { user: { id: "candidate" } } } })
       .mockResolvedValueOnce({ data: { session: { user: { id: "candidate" } } } })
       .mockRejectedValueOnce(new Error("offline"));
     mockFetchReferrerBySlug.mockResolvedValue(loaded({
