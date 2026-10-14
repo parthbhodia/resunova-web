@@ -23,6 +23,7 @@ import { useSignInDialog } from "@/components/SignInDialog";
 import { barSx, filledButtonSx, navItemSx, outlineButtonSx, pageColumnSx } from "@/components/mui/cssVars";
 import { SITE_URL } from "@/lib/brand";
 import { goToFreeScan } from "@/lib/anonScan";
+import { getSupabaseClient } from "@/lib/supabase";
 import { TAILOR_ROUTE } from "@/lib/tailorRoute";
 import { FS, FW } from "@/lib/typography";
 
@@ -71,7 +72,35 @@ export function PublicSiteFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
   const { openSignIn } = useSignInDialog();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Marketing chrome is shared across signed-out and signed-in visits. The
+  // body may already know the session (/refer does); the header must too, or
+  // a logged-in user still sees "Sign in".
+  const [signedIn, setSignedIn] = useState(false);
   const dark = useSyncExternalStore(subscribeTheme, themeIsDark, () => false);
+
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      const client = getSupabaseClient();
+      client.auth.getSession().then(({ data }) => {
+        if (!cancelled) setSignedIn(!!data.session?.user);
+      }).catch(() => {
+        if (!cancelled) setSignedIn(false);
+      });
+      const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+        if (!cancelled) setSignedIn(!!session?.user);
+      });
+      return () => {
+        cancelled = true;
+        subscription.unsubscribe();
+      };
+    } catch {
+      // Missing Supabase env on a static SEO preview — stay signed-out.
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -138,13 +167,24 @@ export function PublicSiteFrame({ children }: { children: ReactNode }) {
               >
                 {dark ? <SunIcon /> : <MoonIcon />}
               </IconButton>
-              <Button
-                color="inherit"
-                onClick={() => openSignIn()}
-                sx={{ display: { xs: "none", md: "inline-flex" }, ...outlineButtonSx }}
-              >
-                Sign in
-              </Button>
+              {signedIn ? (
+                <Button
+                  component={Link}
+                  href="/profile"
+                  color="inherit"
+                  sx={{ display: { xs: "none", md: "inline-flex" }, ...outlineButtonSx }}
+                >
+                  Profile
+                </Button>
+              ) : (
+                <Button
+                  color="inherit"
+                  onClick={() => openSignIn()}
+                  sx={{ display: { xs: "none", md: "inline-flex" }, ...outlineButtonSx }}
+                >
+                  Sign in
+                </Button>
+              )}
               <Button
                 variant="contained"
                 onClick={() => goToFreeScan()}
@@ -184,9 +224,22 @@ export function PublicSiteFrame({ children }: { children: ReactNode }) {
                 {dark ? "Light mode" : "Dark mode"}
               </Button>
               <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                <Button color="inherit" fullWidth onClick={() => { closeMenu(); openSignIn(); }} sx={outlineButtonSx}>
-                  Sign in
-                </Button>
+                {signedIn ? (
+                  <Button
+                    component={Link}
+                    href="/profile"
+                    color="inherit"
+                    fullWidth
+                    onClick={closeMenu}
+                    sx={outlineButtonSx}
+                  >
+                    Profile
+                  </Button>
+                ) : (
+                  <Button color="inherit" fullWidth onClick={() => { closeMenu(); openSignIn(); }} sx={outlineButtonSx}>
+                    Sign in
+                  </Button>
+                )}
                 <Button variant="contained" fullWidth onClick={() => { closeMenu(); goToFreeScan(); }} sx={filledButtonSx}>
                   Score my résumé
                 </Button>

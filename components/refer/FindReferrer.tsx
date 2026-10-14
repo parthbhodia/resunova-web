@@ -46,8 +46,7 @@ function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
       <Box>
         <ReferTitle component={heading}>Ask an employee for a referral</ReferTitle>
         <ReferLede>
-          Browse companies where someone is open to refer. Names stay private until you open a share link. If you work somewhere, publish from{" "}
-          <AccentLink href="/profile?tab=referrals">Profile</AccentLink>.
+          Publish <AccentLink href="/profile?tab=referrals">now</AccentLink>.
         </ReferLede>
       </Box>
 

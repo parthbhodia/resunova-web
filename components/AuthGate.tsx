@@ -408,6 +408,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // the JS session so in-app view switches don't bounce the user to landing.
   const [anonView, setAnonView] = useState(false);
 
+  // Re-check when the path changes: client navigations from a public route
+  // (e.g. /refer → /?view=analyze) do not fire popstate, and a one-shot mount
+  // read would leave anonView false and trap the visitor on the marketing home.
   useEffect(() => {
     const check = () => {
       if (urlRequestsPublicAppView()) setAnonView(true);
@@ -415,39 +418,50 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     check();
     window.addEventListener("popstate", check);
     return () => window.removeEventListener("popstate", check);
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     setForceLanding(readForceLandingAfterSignOut());
-    // Public documents never need auth to render. Avoid initializing Supabase so
-    // SEO/local-preview pages also work when client auth env vars are absent.
-    if (publicRoute) {
+    // Still resolve the session on public routes. /refer and other marketing
+    // pages already talk to Supabase in the body; without a session here, a
+    // signed-in visitor who then opens /?view=analyze flashes (or sticks on)
+    // the marketing landing until a full remount. Missing env is non-fatal so
+    // static SEO previews keep working.
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    try {
+      const supabase = getSupabaseClient();
+      supabase.auth.getSession().then(({ data }) => {
+        if (cancelled) return;
+        setSession(data.session);
+        if (data.session) {
+          clearForceLandingAfterSignOut();
+          setForceLanding(false);
+        }
+        setChecked(true);
+      });
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((ev, s) => {
+        // Only an explicit sign-out ends the session here. supabase-js re-emits
+        // on tab refocus and token refresh, and those re-emits do not always
+        // carry a session; taking a momentary null at face value unmounted every
+        // route under this gate and destroyed whatever was in progress.
+        setSession((prev) => nextGateSession(prev, ev, s));
+        if (s) {
+          clearForceLandingAfterSignOut();
+          setForceLanding(false);
+        }
+      });
+      unsubscribe = () => subscription.unsubscribe();
+    } catch {
       setChecked(true);
-      return;
     }
-    const supabase = getSupabaseClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) {
-        clearForceLandingAfterSignOut();
-        setForceLanding(false);
-      }
-      setChecked(true);
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((ev, s) => {
-      // Only an explicit sign-out ends the session here. supabase-js re-emits
-      // on tab refocus and token refresh, and those re-emits do not always
-      // carry a session; taking a momentary null at face value unmounted every
-      // route under this gate and destroyed whatever was in progress.
-      setSession((prev) => nextGateSession(prev, ev, s));
-      if (s) {
-        clearForceLandingAfterSignOut();
-        setForceLanding(false);
-      }
-    });
-    return () => subscription.unsubscribe();
+    if (publicRoute) setChecked(true);
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [publicRoute]);
 
   if (publicRoute) return <>{children}</>;

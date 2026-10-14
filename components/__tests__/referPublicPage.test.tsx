@@ -125,9 +125,18 @@ describe("ReferPublicPage", () => {
     const menu = screen.getByRole("navigation", { name: "Menu" });
     expect(within(menu).getByRole("link", { name: "Resume Builder" })).toBeInTheDocument();
     expect(within(menu).getByRole("link", { name: "Referrals" })).toHaveAttribute("aria-current", "page");
-    expect(within(menu).getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    // Signed-in visitors get Profile, not Sign in — same session the page body uses.
+    expect(await within(menu).findByRole("link", { name: "Profile" })).toHaveAttribute("href", "/profile");
+    expect(within(menu).queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
     expect(within(menu).getByRole("button", { name: "Score my résumé" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close menu" })).toBeInTheDocument();
+  });
+
+  it("shows Sign in in the header when signed out", async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    render(<ReferPublicPage />);
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Profile" })).not.toBeInTheDocument();
   });
 
   it("locks a share link behind Google until signed in", async () => {
@@ -281,7 +290,9 @@ describe("ReferPublicPage", () => {
 
   it("reports a session check failure instead of opening sign in", async () => {
     search.slug = "parth-bhodia-at-acme-abcdef";
+    // Header + page body each call getSession on mount; reject only on submit.
     mockGetSession
+      .mockResolvedValueOnce({ data: { session: { user: { id: "candidate" } } } })
       .mockResolvedValueOnce({ data: { session: { user: { id: "candidate" } } } })
       .mockRejectedValueOnce(new Error("offline"));
     mockFetchReferrerBySlug.mockResolvedValue(loaded({
