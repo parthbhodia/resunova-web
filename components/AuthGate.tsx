@@ -349,6 +349,8 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
 }
 
 // Routes that intentionally bypass auth — design-system / preview pages.
+// Marketing chrome for the free open subset lives in app/(marketing)/layout.tsx
+// (PublicSiteFrame). Not every public path uses that frame (/r, /profile, previews).
 const PUBLIC_ROUTES = new Set<string>([
   "/editor-preview",
   "/profile-mockup",
