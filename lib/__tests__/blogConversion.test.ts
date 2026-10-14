@@ -75,6 +75,7 @@ describe("every post has a conversion path", () => {
       "/resume-examples/",
       "/skills-for-resume/",
       "/blog/",
+      "/refer/",
     ]);
     const views = new Set(["home", "analyze", "builder", "jobs", "library", "cover-letter", "profile", "account"]);
 

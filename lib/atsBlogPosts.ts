@@ -61,6 +61,31 @@ export function formatPublishedAt(iso: string | undefined): string | null {
 
 export const BLOG_POSTS: BlogPostMeta[] = [
   {
+    slug: "employee-referrals-help-and-ask",
+    title: "Ask for a Referral Without Being Awkward (And Offer One Without Getting Flooded)",
+    description:
+      "Referrals convert better than cold inbound. Here is how to ask without being extractive, how to help other job seekers without drowning, and how Resunova's open referral desk works both ways.",
+    seoDescription:
+      "Employee referrals in 2026: how to ask without awkward DMs, how to offer help without inbox chaos, and Resunova's open referral desk at /refer/.",
+    readMinutes: 7,
+    tag: "Guide",
+    publishedAt: "2026-10-14",
+    modifiedAt: "2026-10-14",
+  },
+  {
+    slug: "job-search-2026-whats-working",
+    title: "Most of Your Job Search Shouldn't Be Applications",
+    description:
+      "What actually works in a 2026 job search: referrals convert far better than inbound volume, cold apply is still how many people get hired, and a weekly time split that matches Gem, Ashby, Glassdoor, LinkedIn, and Huntr data.",
+    // Front-loads the primary query; stays under the 160-char blogSeo contract.
+    seoDescription:
+      "Job search 2026: why networking beats spray-and-pray applications, with Gem, Ashby, Glassdoor, LinkedIn, and Huntr data on referrals and cold apply.",
+    readMinutes: 8,
+    tag: "Guide",
+    publishedAt: "2026-10-14",
+    modifiedAt: "2026-10-14",
+  },
+  {
     slug: "linkedin-applicant-count-clicks-not-applications",
     title: "LinkedIn's Applicant Count Is Measuring Clicks, Not Applications",
     description:
