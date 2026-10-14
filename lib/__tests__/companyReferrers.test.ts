@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  aggregateOpenCompanies,
+  filterOpenCompanies,
   isUsableEmail,
   makeReferrerSlug,
   mapReferrerRow,
@@ -130,5 +132,22 @@ describe("companyReferrers helpers", () => {
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-01T00:00:00Z",
     }).userId).toBe("");
+  });
+
+  it("aggregates open referrers into company tiles with domains", () => {
+    const companies = aggregateOpenCompanies(
+      [
+        { company: "Stripe", companySlug: "stripe", referredCount: 2 },
+        { company: "Stripe Inc", companySlug: "stripe", referredCount: 3 },
+        { company: "Acme", companySlug: "acme", referredCount: 0 },
+      ],
+      { stripe: "stripe.com" },
+    );
+    expect(companies).toEqual([
+      { company: "Stripe Inc", companySlug: "stripe", companyDomain: "stripe.com", openCount: 2, referredCount: 5 },
+      { company: "Acme", companySlug: "acme", companyDomain: "", openCount: 1, referredCount: 0 },
+    ]);
+    expect(filterOpenCompanies(companies, "str")).toHaveLength(1);
+    expect(filterOpenCompanies(companies, "zzz")).toHaveLength(0);
   });
 });

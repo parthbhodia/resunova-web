@@ -15,13 +15,14 @@ import {
   REFERRER_SESSION_FAILED,
   createReferralRequest,
   fetchReferrerBySlug,
-  searchOpenReferrers,
+  filterOpenCompanies,
+  listOpenReferralCompanies,
+  slugifyPart,
   type CompanyReferrer,
-  type LoadResult,
+  type OpenReferralCompany,
 } from "@/lib/companyReferrers";
+import { fetchFeaturedCompanies } from "@/lib/jobsApi";
 import { getSupabaseClient } from "@/lib/supabase";
-
-const SEARCH_DEBOUNCE_MS = 250;
 
 export type ReferralAskForm = {
   name: string;
@@ -40,12 +41,46 @@ export type ReferrerLookup =
   | { status: "error"; message: string }
   | { status: "ready"; referrer: CompanyReferrer };
 
-export function useReferrerLookup(slug: string): ReferrerLookup {
-  const [lookup, setLookup] = useState<ReferrerLookup>(slug ? { status: "loading" } : { status: "idle" });
+/**
+ * Session for the /refer gate. Unsigned visitors must not learn who is open
+ * to refer; the directory and share-link payload load only after sign-in.
+ */
+export function useReferSession(): { status: "loading" | "signed_out" | "signed_in" } {
+  const [status, setStatus] = useState<"loading" | "signed_out" | "signed_in">("loading");
 
   useEffect(() => {
-    if (!slug) return;
     let cancelled = false;
+    const client = getSupabaseClient();
+    client.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      setStatus(data.session?.user ? "signed_in" : "signed_out");
+    }).catch(() => {
+      if (!cancelled) setStatus("signed_out");
+    });
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      if (!cancelled) setStatus(session?.user ? "signed_in" : "signed_out");
+    });
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  return { status };
+}
+
+export function useReferrerLookup(slug: string, enabled = true): ReferrerLookup {
+  const [lookup, setLookup] = useState<ReferrerLookup>(
+    slug && enabled ? { status: "loading" } : { status: "idle" },
+  );
+
+  useEffect(() => {
+    if (!slug || !enabled) {
+      setLookup({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setLookup({ status: "loading" });
     fetchReferrerBySlug(slug).then((result) => {
       if (cancelled) return;
       if (!result.ok) setLookup({ status: "error", message: result.error });
@@ -55,52 +90,77 @@ export function useReferrerLookup(slug: string): ReferrerLookup {
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [slug, enabled]);
 
   return lookup;
 }
 
-export type ReferrerSearch = {
+export type OpenCompaniesDirectory = {
   query: string;
   setQuery: (value: string) => void;
-  status: "idle" | "loading" | "empty" | "error" | "results";
-  results: CompanyReferrer[];
+  status: "loading" | "empty" | "error" | "ready";
+  companies: OpenReferralCompany[];
+  filtered: OpenReferralCompany[];
   error: string | null;
 };
 
-export function useReferrerSearch(): ReferrerSearch {
+/** Load open companies once; search filters the grid client-side (no people list). */
+export function useOpenReferralCompanies(enabled = true): OpenCompaniesDirectory {
   const [query, setQuery] = useState("");
-  const [fetched, setFetched] = useState<{ q: string; result: LoadResult<CompanyReferrer[]> } | null>(null);
+  const [status, setStatus] = useState<OpenCompaniesDirectory["status"]>(enabled ? "loading" : "empty");
+  const [companies, setCompanies] = useState<OpenReferralCompany[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) return;
+    if (!enabled) {
+      setStatus("empty");
+      setCompanies([]);
+      setError(null);
+      return;
+    }
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      searchOpenReferrers(q).then((result) => {
-        if (!cancelled) setFetched({ q, result });
-      });
-    }, SEARCH_DEBOUNCE_MS);
+    setStatus("loading");
+    (async () => {
+      let domainsBySlug: Record<string, string> = {};
+      try {
+        const featured = await fetchFeaturedCompanies();
+        for (const row of featured) {
+          const slug = slugifyPart(row.company);
+          if (slug && row.domain) domainsBySlug[slug] = row.domain;
+        }
+      } catch {
+        domainsBySlug = {};
+      }
+      const result = await listOpenReferralCompanies(domainsBySlug);
+      if (cancelled) return;
+      if (!result.ok) {
+        setStatus("error");
+        setError(result.error);
+        setCompanies([]);
+        return;
+      }
+      setCompanies(result.data);
+      setError(null);
+      setStatus(result.data.length === 0 ? "empty" : "ready");
+    })();
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [enabled]);
 
-  const q = query.trim();
-  const settled = q.length >= 2 && fetched?.q === q ? fetched.result : null;
-  let status: ReferrerSearch["status"] = "idle";
-  if (q.length >= 2 && !settled) status = "loading";
-  else if (settled && !settled.ok) status = "error";
-  else if (settled && settled.data.length === 0) status = "empty";
-  else if (settled) status = "results";
+  const filtered = filterOpenCompanies(companies, query);
+  const viewStatus: OpenCompaniesDirectory["status"] =
+    status === "ready" && filtered.length === 0 && query.trim().length > 0
+      ? "empty"
+      : status;
 
   return {
     query,
     setQuery,
-    status,
-    results: settled && settled.ok ? settled.data : [],
-    error: settled && !settled.ok ? settled.error : null,
+    status: viewStatus,
+    companies,
+    filtered: status === "ready" ? filtered : [],
+    error,
   };
 }
 

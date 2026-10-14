@@ -13,16 +13,16 @@ Schema of record: `db/migrations/044_company_referrers.sql`.
 | Actor | What they do |
 |---|---|
 | Employee (referrer) | Sign up once, share a link, pause, move inbox statuses |
-| Candidate | Open `/refer/?s=<slug>` or search a company, send name / email / role / pitch |
-| Unsigned visitor | Can search and ask. Sign-in is optional for the ask form |
+| Candidate | Sign in with Google, browse companies with open desks, open a share link, send name / email / role / pitch |
+| Unsigned visitor | Sees a Google sign-in tease only. No company list, no names, no open counts |
 
 ## Surfaces
 
 1. **Profile → Referrals** (signed-in). Identity card + signup or live inbox. Same visual language as the profile hub. No rewards hero.
-2. **`/refer/?s=<slug>`** (public). One person, one company, one form. Query param because the GitHub Pages static export cannot enumerate slugs at build time (`generateStaticParams`).
-3. **`/refer/`** (public). Company search of employees who are **open**.
+2. **`/refer/?s=<slug>`**. Share link. Unsigned visitors get Continue with Google; signed-in users see one person, one company, one form. Query param because the GitHub Pages static export cannot enumerate slugs at build time (`generateStaticParams`).
+3. **`/refer/`**. Company grid of desks that are **open**. Auth-gated: unsigned = Google tease; signed-in = logos + counts, no person names on the grid.
 
-`/refer` is an AuthGate public route, same family as `/jobs` and `/r/`.
+`/refer` stays in AuthGate's PUBLIC_ROUTES so the tease renders without bouncing home. Open-referrer rows are not readable by `anon` (migration `052`).
 
 Later, not v1: a strip on a job page (“2 employees at Acme are open”).
 

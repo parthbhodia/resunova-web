@@ -4,6 +4,9 @@
  * Public referral route. Chrome is PublicSiteFrame. This file only chooses
  * which screen to show. Search, load, and submit state live in
  * hooks/usePublicReferral.ts. Shared controls live in referUi.tsx.
+ *
+ * Open referrers are auth-gated: unsigned visitors see a Google sign-in
+ * tease only. No names, companies, or open counts until a session exists.
  */
 
 import { Suspense } from "react";
@@ -14,9 +17,9 @@ import { makeTheme } from "@/components/mui/theme";
 import { PublicSiteFrame } from "@/components/site/PublicSiteFrame";
 import { FindReferrer } from "@/components/refer/FindReferrer";
 import { ReferrerRequestForm } from "@/components/refer/ReferrerRequestForm";
-import { ReferAlert, ReferLede, ReferNote, ReferTitle } from "@/components/refer/referUi";
+import { ReferAlert, ReferGoogleGate, ReferLede, ReferNote, ReferTitle } from "@/components/refer/referUi";
 import { REFERRER_LINK_INACTIVE } from "@/lib/companyReferrers";
-import { useReferrerLookup } from "@/hooks/usePublicReferral";
+import { useReferSession, useReferrerLookup } from "@/hooks/usePublicReferral";
 import { useSearchParams } from "next/navigation";
 
 /**
@@ -43,16 +46,33 @@ function ReferRoute() {
   const params = useSearchParams();
   const slug = (params?.get("s") ?? "").trim();
   return (
-    <Box sx={{ maxWidth: 720, mx: "auto", px: 3, pt: 6, pb: 10 }}>
+    <Box sx={{ maxWidth: 880, mx: "auto", px: 3, pt: 6, pb: 10 }}>
       <ReferSlugView key={slug || "directory"} slug={slug} />
     </Box>
   );
 }
 
 function ReferSlugView({ slug }: { slug: string }) {
-  const lookup = useReferrerLookup(slug);
+  const session = useReferSession();
+  const signedIn = session.status === "signed_in";
+  const lookup = useReferrerLookup(slug, signedIn);
 
-  if (lookup.status === "loading") return <ReferNote>Loading...</ReferNote>;
+  if (!slug) {
+    return <FindReferrer />;
+  }
+
+  if (session.status === "loading") return <ReferNote>Loading...</ReferNote>;
+
+  if (session.status === "signed_out") {
+    return (
+      <ReferGoogleGate
+        title="Someone shared a referral link with you"
+        lede="Continue with Google to open it. We keep who is ready to refer private until you are signed in."
+      />
+    );
+  }
+
+  if (lookup.status === "loading" || lookup.status === "idle") return <ReferNote>Loading...</ReferNote>;
   if (lookup.status === "error") {
     return (
       <Stack spacing={2.5}>
@@ -70,6 +90,5 @@ function ReferSlugView({ slug }: { slug: string }) {
       </>
     );
   }
-  if (lookup.status === "ready") return <ReferrerRequestForm referrer={lookup.referrer} />;
-  return <FindReferrer />;
+  return <ReferrerRequestForm referrer={lookup.referrer} />;
 }

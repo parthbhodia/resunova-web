@@ -30,7 +30,7 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
 
   return (
     <Stack spacing={2.5}>
-      <AccentLink href="/refer/">All referrers</AccentLink>
+      <AccentLink href="/refer/">Browse companies</AccentLink>
       <ReferrerCard name={referrer.displayName} count={referrer.referredCount ?? 0} avatarSize={56} badge={<OpenChip />}>
         <Typography sx={{ mt: 0.5, fontSize: FS.subhead, fontWeight: FW.semibold, color: "var(--text)" }}>
           Ask for a referral at {referrer.company}
