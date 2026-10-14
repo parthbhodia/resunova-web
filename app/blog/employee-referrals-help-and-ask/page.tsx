@@ -67,7 +67,7 @@ export default function EmployeeReferralsHelpAndAskPage() {
     <BlogArticleLayout
       slug={SLUG}
       title={TITLE}
-      subtitle="Referrals convert better than cold inbound. Almost nobody has a clean way to ask, or to say "I can help" without turning their inbox into chaos. Here is the research, and a desk that works both ways."
+      subtitle="Referrals convert better than cold inbound. Almost nobody has a clean way to ask, or to say &quot;I can help&quot; without turning their inbox into chaos. Here is the research, and a desk that works both ways."
     >
       <JsonLd
         data={{
