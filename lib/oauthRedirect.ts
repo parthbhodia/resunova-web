@@ -113,3 +113,47 @@ export function stashPostLoginDest(): void {
     /* quota / private mode */
   }
 }
+
+/** Atomic read + clear. Returns null when missing or storage is unavailable. */
+export function takePostLoginDest(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const dest = window.localStorage.getItem(POST_LOGIN_DEST_KEY);
+    if (dest) window.localStorage.removeItem(POST_LOGIN_DEST_KEY);
+    return dest;
+  } catch {
+    return null;
+  }
+}
+
+/** Drop a leftover stash without navigating (e.g. OAuth already landed on /refer). */
+export function clearPostLoginDest(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(POST_LOGIN_DEST_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function normalizeAppLoc(loc: string): string {
+  const [pathPart, query = ""] = loc.split("?");
+  const path = (pathPart.replace(/\/$/, "") || "/") + (query ? `?${query}` : "");
+  return path;
+}
+
+/**
+ * Only bounce from a stripped OAuth landing (bare `/`, no `?view=`).
+ * If Supabase already returned the user to `/refer/?s=…`, leave them there and
+ * do not yank them again the next time AppShell mounts.
+ */
+export function shouldRestorePostLoginDest(here: string, dest: string): boolean {
+  if (!dest) return false;
+  if (normalizeAppLoc(here) === normalizeAppLoc(dest)) return false;
+  const [pathPart, query = ""] = here.split("?");
+  const path = pathPart.replace(/\/$/, "") || "/";
+  if (path !== "/") return false;
+  const view = new URLSearchParams(query).get("view");
+  if (view) return false;
+  return true;
+}

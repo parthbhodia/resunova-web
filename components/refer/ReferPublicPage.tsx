@@ -9,7 +9,7 @@
  * tease only. No names, companies, or open counts until a session exists.
  */
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import { ThemeProvider } from "@mui/material/styles";
@@ -19,6 +19,7 @@ import { FindReferrer } from "@/components/refer/FindReferrer";
 import { ReferrerRequestForm } from "@/components/refer/ReferrerRequestForm";
 import { ReferAlert, ReferGoogleGate, ReferLede, ReferNote, ReferTitle } from "@/components/refer/referUi";
 import { REFERRER_LINK_INACTIVE } from "@/lib/companyReferrers";
+import { clearPostLoginDest } from "@/lib/oauthRedirect";
 import { useReferSession, useReferrerLookup } from "@/hooks/usePublicReferral";
 import { useSearchParams } from "next/navigation";
 
@@ -56,6 +57,12 @@ function ReferSlugView({ slug }: { slug: string }) {
   const session = useReferSession();
   const signedIn = session.status === "signed_in";
   const lookup = useReferrerLookup(slug, signedIn);
+
+  // OAuth from this page stashes /refer/… for AppShell. If Supabase already
+  // returned us here, drop the stash so the next home visit does not bounce back.
+  useEffect(() => {
+    if (signedIn) clearPostLoginDest();
+  }, [signedIn]);
 
   if (!slug) {
     return <FindReferrer />;
