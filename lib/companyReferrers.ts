@@ -80,7 +80,20 @@ export type LoadResult<T> =
 export const REFERRER_LINK_INACTIVE = "This referral link is not active.";
 export const REFERRER_LOOKUP_FAILED = "Could not load this referral link. Try again.";
 export const REFERRER_SEARCH_FAILED = "Could not search referrers. Try again.";
+export const REFERRER_COMPANIES_FAILED = "Could not load companies. Try again.";
 export const REFERRER_SESSION_FAILED = "Could not check your session. Try again.";
+
+/** One company with at least one open referrer. Used by the /refer directory grid. */
+export type OpenReferralCompany = {
+  company: string;
+  companySlug: string;
+  /** Favicon host when known (jobs corpus); empty → CompanyLogo guesses from slug. */
+  companyDomain: string;
+  openCount: number;
+  referredCount: number;
+};
+
+const OPEN_COMPANIES_LIMIT = 200;
 
 type ReferrerRow = {
   id: string;
@@ -400,6 +413,82 @@ export async function searchOpenReferrers(company: string): Promise<LoadResult<C
   } catch (err) {
     console.warn("[company_referrers] search:", err);
     return { ok: false, error: REFERRER_SEARCH_FAILED };
+  }
+}
+
+/**
+ * Collapse open referrer rows into one tile per company. Prefer the longest
+ * company spelling (more likely the full brand) and sum referred tallies.
+ */
+export function aggregateOpenCompanies(
+  rows: Array<Pick<CompanyReferrer, "company" | "companySlug" | "referredCount">>,
+  domainsBySlug: Record<string, string> = {},
+): OpenReferralCompany[] {
+  const bySlug = new Map<string, OpenReferralCompany>();
+  for (const row of rows) {
+    const slug = (row.companySlug || slugifyPart(row.company)).trim();
+    if (!slug) continue;
+    const existing = bySlug.get(slug);
+    const referred = row.referredCount ?? 0;
+    if (!existing) {
+      bySlug.set(slug, {
+        company: row.company.trim() || slug,
+        companySlug: slug,
+        companyDomain: domainsBySlug[slug] ?? "",
+        openCount: 1,
+        referredCount: referred,
+      });
+      continue;
+    }
+    existing.openCount += 1;
+    existing.referredCount += referred;
+    if (row.company.trim().length > existing.company.length) {
+      existing.company = row.company.trim();
+    }
+    if (!existing.companyDomain && domainsBySlug[slug]) {
+      existing.companyDomain = domainsBySlug[slug];
+    }
+  }
+  return Array.from(bySlug.values()).sort((a, b) => {
+    if (b.openCount !== a.openCount) return b.openCount - a.openCount;
+    return a.company.localeCompare(b.company);
+  });
+}
+
+/** Filter the company grid; empty query returns the full list. */
+export function filterOpenCompanies(companies: OpenReferralCompany[], query: string): OpenReferralCompany[] {
+  const q = sanitizeSearchTerm(query).toLowerCase();
+  if (q.length < 1) return companies;
+  return companies.filter((c) =>
+    c.company.toLowerCase().includes(q) || c.companySlug.includes(q),
+  );
+}
+
+/** Public directory: every company that currently has an open referrer. */
+export async function listOpenReferralCompanies(
+  domainsBySlug: Record<string, string> = {},
+): Promise<LoadResult<OpenReferralCompany[]>> {
+  try {
+    const { data, error } = await selectWithFallback(
+      REFERRER_PUBLIC_SELECT,
+      REFERRER_PUBLIC_SELECT_BASE,
+      "referred_count",
+      (columns) => getSupabaseClient()
+        .from("company_referrers")
+        .select(columns)
+        .eq("open_to_refer", true)
+        .order("company", { ascending: true })
+        .limit(OPEN_COMPANIES_LIMIT),
+    );
+    if (error) {
+      console.warn("[company_referrers] list companies:", error.message);
+      return { ok: false, error: REFERRER_COMPANIES_FAILED };
+    }
+    const rows = ((data ?? []) as ReferrerRow[]).map(mapReferrerRow);
+    return { ok: true, data: aggregateOpenCompanies(rows, domainsBySlug) };
+  } catch (err) {
+    console.warn("[company_referrers] list companies:", err);
+    return { ok: false, error: REFERRER_COMPANIES_FAILED };
   }
 }
 
