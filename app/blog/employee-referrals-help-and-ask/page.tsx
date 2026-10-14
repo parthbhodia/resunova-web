@@ -86,7 +86,7 @@ export default function EmployeeReferralsHelpAndAskPage() {
       <p>
         Most job seekers know employee referrals matter. Fewer have a script that does not feel like begging. On the
         other side, employees who want to help often hide, because every open LinkedIn status turns into fifty vague
-        "pls refer" messages.
+        &quot;pls refer&quot; messages.
       </p>
       <p>
         The data says relationship channels punch above their weight. The missing piece is operational: a place to find
@@ -131,14 +131,14 @@ export default function EmployeeReferralsHelpAndAskPage() {
           <ExtLink href="https://tcommunity.linkedin.com/community-news-72/labor-market-report-2026-2308">
             Talent Community Labor Market Report 2026 note
           </ExtLink>
-          . A connection helps. A forced first message that only says "can you refer me?" still burns the connection.
+          . A connection helps. A forced first message that only says &quot;can you refer me?&quot; still burns the connection.
         </p>
       </Section>
 
       <Section title="Two jobs, two sides of the same desk" id="two-sides">
         <p>
           Resunova&apos;s company referrer feature is built as a <strong>desk</strong>, not a points game. An employee
-          publishes "I work at X and can refer." A candidate asks through a private link or a company search. The
+          publishes &quot;I work at X and can refer.&quot; A candidate asks through a private link or a company search. The
           employee decides who to submit. Resunova never writes into the company&apos;s ATS.
         </p>
 
@@ -177,7 +177,7 @@ export default function EmployeeReferralsHelpAndAskPage() {
             {
               text: (
                 <>
-                  <strong>Prefer open desks over cold strangers.</strong> Someone who published "I can refer" has
+                  <strong>Prefer open desks over cold strangers.</strong> Someone who published &quot;I can refer&quot; has
                   already opted in. That is a different social contract from scraping LinkedIn for anyone with the
                   company logo.
                 </>
@@ -206,7 +206,7 @@ export default function EmployeeReferralsHelpAndAskPage() {
           ]}
         />
         <Callout kind="warn" title="The message that kills warm leads">
-          Opening with "pls refer" and a generic PDF is how helpful employees close their desk. Curiosity about the
+          Opening with &quot;pls refer&quot; and a generic PDF is how helpful employees close their desk. Curiosity about the
           team, then a specific ask, keeps the door open even if they say no.
         </Callout>
       </Section>
