@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import Stack from "@mui/material/Stack";
+import LinearProgress from "@mui/material/LinearProgress";
+import Typography from "@mui/material/Typography";
+import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
+import type { ThemeMode } from "@/components/mui/theme";
+import { hubCardSx } from "@/components/profile/profileMui";
 import { apiFetch } from "@/lib/apiClient";
-import { Card } from "@/components/profileSettingsUi";
+import { FS, FW, LH } from "@/lib/typography";
 
 type ScanUsageStatus = {
   enforced: boolean;
@@ -16,7 +26,7 @@ type ScanUsageStatus = {
   resetAt?: string | null;
 };
 
-export function ScanUsageWidget() {
+export function ScanUsageWidget({ mode }: { mode?: ThemeMode } = {}) {
   const [resumeStatus, setResumeStatus] = useState<ScanUsageStatus | null>(null);
   const [prepStatus, setPrepStatus] = useState<ScanUsageStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,9 +60,13 @@ export function ScanUsageWidget() {
 
   if (loading) {
     return (
-      <Card title="Plan & usage">
-        <p style={{ fontSize: 12, color: "var(--muted)" }}>Checking your usage quotas…</p>
-      </Card>
+      <MuiThemeRegistry mode={mode}>
+        <UsageCard>
+          <Typography sx={{ fontSize: FS.small, color: "text.secondary" }}>
+            Checking your usage quotas…
+          </Typography>
+        </UsageCard>
+      </MuiThemeRegistry>
     );
   }
 
@@ -68,18 +82,53 @@ export function ScanUsageWidget() {
             : "Free";
 
   return (
-    <Card title="Plan & usage" badge={badge}>
-      {/* Resume Scan Usage */}
-      <div style={{ marginBottom: 20 }}>
-        <h4 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>Résumé Scans</h4>
-        {renderUsageBar(resumeStatus, "résumé scans")}
-      </div>
+    <MuiThemeRegistry mode={mode}>
+      <UsageCard badge={badge}>
+        <Box sx={{ mb: 2.5 }}>
+          <Typography component="h3" sx={{ fontSize: FS.body, fontWeight: FW.semibold, color: "text.primary", mb: 1 }}>
+            Résumé Scans
+          </Typography>
+          {renderUsageBar(resumeStatus, "résumé scans")}
+        </Box>
+        <Box>
+          <Typography component="h3" sx={{ fontSize: FS.body, fontWeight: FW.semibold, color: "text.primary", mb: 1 }}>
+            Interview Prep
+          </Typography>
+          {renderUsageBar(prepStatus, "interview prep parses")}
+        </Box>
+      </UsageCard>
+    </MuiThemeRegistry>
+  );
+}
 
-      {/* Interview Prep Usage */}
-      <div>
-        <h4 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>Interview Prep</h4>
-        {renderUsageBar(prepStatus, "interview prep parses")}
-      </div>
+function UsageCard({ badge, children }: { badge?: string; children: ReactNode }) {
+  return (
+    <Card elevation={0} sx={hubCardSx(true)}>
+      <Stack
+        direction="row"
+        spacing={1.5}
+        sx={{ alignItems: "center", justifyContent: "space-between", px: 3, pt: 3 }}
+      >
+        <Typography component="h2" sx={{ m: 0, fontSize: FS.bodyLg, fontWeight: FW.bold, letterSpacing: "-0.02em" }}>
+          Plan & usage
+        </Typography>
+        {badge ? (
+          <Chip
+            label={badge}
+            size="small"
+            sx={{
+              fontWeight: FW.bold,
+              fontSize: FS.micro,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              height: 24,
+              bgcolor: "var(--amber-bg)",
+              color: "var(--amber-ink, var(--amber))",
+            }}
+          />
+        ) : null}
+      </Stack>
+      <CardContent sx={{ pt: 2 }}>{children}</CardContent>
     </Card>
   );
 }
@@ -87,17 +136,15 @@ export function ScanUsageWidget() {
 function renderUsageBar(status: ScanUsageStatus | null, label: string) {
   if (!status || !status.enforced) {
     return (
-      <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
+      <Typography sx={{ fontSize: FS.small, color: "text.secondary", lineHeight: LH.normal }}>
         Unlimited {label}
-      </p>
+      </Typography>
     );
   }
-  
+
   if (status.unlimited) {
-    // Name the actual plan. Hard-coding UMBC told Pro subscribers they were on
-    // a university account.
     return (
-      <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
+      <Typography sx={{ fontSize: FS.small, color: "text.secondary", lineHeight: LH.normal }}>
         {status.plan === "pro"
           ? `Unlimited ${label}: included with Pro.`
           : status.plan === "institution"
@@ -105,7 +152,7 @@ function renderUsageBar(status: ScanUsageStatus | null, label: string) {
             : status.plan === "admin"
               ? `Unlimited ${label}: admin pass.`
               : `Unlimited ${label} on your current plan.`}
-      </p>
+      </Typography>
     );
   }
 
@@ -116,30 +163,27 @@ function renderUsageBar(status: ScanUsageStatus | null, label: string) {
 
   return (
     <>
-      <div
+      <Box
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={limit}
         aria-valuenow={used}
         aria-label={`${used} of ${limit} scans used today`}
-        style={{ height: 6, borderRadius: 99, background: "var(--surface2)", overflow: "hidden", marginBottom: 8 }}
       >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            background: remaining === 0 ? "var(--red)" : "var(--accent)",
-            borderRadius: 99,
-            transition: "width 0.35s ease-out",
-          }}
+        <LinearProgress
+          variant="determinate"
+          value={pct}
+          color={remaining === 0 ? "error" : "primary"}
+          aria-hidden
+          sx={{ height: 6, borderRadius: 99, mb: 1 }}
         />
-      </div>
-      <div style={{ fontSize: 11, color: "var(--dim)" }}>
+      </Box>
+      <Typography sx={{ fontSize: FS.caption, color: "text.secondary" }}>
         {remaining === 0
           ? `0 of ${limit} ${label} remaining today`
           : `${remaining} of ${limit} ${label} remaining today`}
         {" · "}Resets at midnight UTC
-      </div>
+      </Typography>
     </>
   );
 }

@@ -45,8 +45,16 @@ const getSnapshot = (): ThemeMode =>
 /** Prerender has no document; the app's own default is dark. */
 const getServerSnapshot = (): ThemeMode => "dark";
 
-export default function MuiThemeRegistry({ children }: { children: ReactNode }) {
-  const mode = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+export default function MuiThemeRegistry({
+  children,
+  mode: modeOverride,
+}: {
+  children: ReactNode;
+  /** Force a palette. The Profile hub is painted light even when html is dark. */
+  mode?: ThemeMode;
+}) {
+  const observed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const mode = modeOverride ?? observed;
   const theme = useMemo(() => makeTheme(mode), [mode]);
 
   return (

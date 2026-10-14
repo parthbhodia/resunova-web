@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -99,3 +100,16 @@ describe("inputStyle", () => {
     expect(s.border).toContain("var(--border)");
   });
 });
+
+describe("Profile usage card on the light hub", () => {
+  it("uses a light MUI theme so Plan & usage paper matches Application profile", () => {
+    const page = readFileSync("components/profile/ProfilePage.tsx", "utf8");
+    const widget = readFileSync("components/ScanUsageWidget.tsx", "utf8");
+    expect(page).toContain('MuiThemeRegistry mode="light"');
+    expect(page).toContain('<ScanUsageWidget mode="light"');
+    expect(widget).toContain('from "@mui/material/Card"');
+    expect(widget).toContain("hubCardSx");
+    expect(readFileSync("components/profile/profileMui.tsx", "utf8")).toContain("background.paper");
+  });
+});
+
