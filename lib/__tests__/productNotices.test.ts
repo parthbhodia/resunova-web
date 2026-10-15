@@ -3,6 +3,7 @@ import type { CompanyReferralRequest } from "@/lib/companyReferrers";
 import {
   notificationFeed,
   outcomeToastCopy,
+  REFERRAL_ITEM_PREFIX,
   pendingProductNotice,
   PRODUCT_NOTICES,
   referralAlertCopy,
@@ -30,24 +31,60 @@ function request(partial: Partial<CompanyReferralRequest> & Pick<CompanyReferral
   };
 }
 
+function outcome(partial: { id: string; status: string } & Partial<{
+  role: string; referrerName: string; referrerCompany: string; updatedAt: string; createdAt: string;
+}>) {
+  return {
+    role: "Backend Engineer",
+    referrerName: "Priya Raman",
+    referrerCompany: "Acme",
+    createdAt: "2026-10-12T15:00:00Z",
+    updatedAt: "2026-10-12T15:00:00Z",
+    ...partial,
+  };
+}
+
 describe("product notices", () => {
-  it("counts a feature plus each unread ask and outcome on the red badge", () => {
+  it("names the step each referral reached, one bell row per referral", () => {
     const feed = notificationFeed({
       notice: PRODUCT_NOTICES[0],
-      inboxUnread: 2,
-      outcomeUnread: 1,
+      inboxRows: [request({ id: "a", createdAt: "2026-10-12T15:00:00Z", candidateName: "Dara Okafor", role: "Backend Engineer" })],
+      inboxCompany: "Eccalon",
+      inboxLastSeenAt: null,
+      outcomeRows: [
+        outcome({ id: "o1", status: "referred", referrerCompany: "Globex" }),
+        outcome({ id: "o2", status: "declined", referrerCompany: "Initech" }),
+      ],
     });
     expect(feed.count).toBe(4);
+    // ⚠️ The point of this test: referred and declined must NOT read alike.
     expect(feed.items.map((item) => item.title)).toEqual([
       "Refer candidates at your company",
-      "2 new referral requests",
-      "Referral update",
+      "New referral request",
+      "You were referred",
+      "Referral declined",
     ]);
-    expect(notificationFeed({ notice: null, inboxUnread: 0, outcomeUnread: 0 })).toEqual({
-      count: 0,
-      items: [],
+    expect(feed.items[1].body).toBe("Dara Okafor asked you for a referral for Backend Engineer at Eccalon.");
+    expect(feed.items[2].body).toContain("marked you as referred");
+    expect(feed.items[3].body).toContain("declined your referral request");
+    // No bell row may claim an outcome the row did not reach.
+    expect(feed.items.some((item) => item.body.includes("reviewing, referred, or declined"))).toBe(false);
+  });
+
+  it("gives every referral row an id under the transient prefix", () => {
+    // ⚠️ NotificationBell keys "persist a dismissal" off this prefix. Without it
+    // each referral is written into dismissed_notices permanently.
+    const feed = notificationFeed({
+      notice: null,
+      inboxRows: [request({ id: "a", createdAt: "2026-10-12T15:00:00Z" })],
+      outcomeRows: [outcome({ id: "o1", status: "reviewing" })],
     });
-    expect(notificationFeed({ notice: null, inboxUnread: Number.NaN, outcomeUnread: -3 }).count).toBe(0);
+    expect(feed.items.every((item) => item.id.startsWith(REFERRAL_ITEM_PREFIX))).toBe(true);
+    expect(new Set(feed.items.map((item) => item.id)).size).toBe(2);
+  });
+
+  it("is empty with nothing to say, and never counts rows it was not given", () => {
+    expect(notificationFeed({ notice: null })).toEqual({ count: 0, items: [] });
   });
 
   it("shows the referrals launch until that id is dismissed", () => {
@@ -125,15 +162,20 @@ describe("product notices", () => {
     ];
     expect(unseenReferralOutcomes(rows, "2026-10-10T00:00:00Z").map((row) => row.id)).toEqual(["a", "d"]);
     expect(outcomeToastCopy(unseenReferralOutcomes(rows, "2026-10-10T00:00:00Z").filter((row) => row.id === "a"))).toEqual({
-      title: "Referral update",
+      title: "You were referred",
       description: "Jordan Lee marked you as referred for Backend Engineer at Acme.",
     });
     expect(outcomeToastCopy([rows[2]]).description).toBe(
       "Sam declined your referral request for SWE at Beta.",
     );
     expect(outcomeToastCopy([rows[3]])).toEqual({
-      title: "Referral update",
+      title: "Now being reviewed",
       description: "Jordan Lee is reviewing your referral request for SWE at Acme.",
     });
+    // ⚠️ The multi-row case used to read "N of your referral requests were
+    // updated" — one sentence for three referrals and for three declines.
+    expect(outcomeToastCopy([rows[0], rows[2], rows[3]]).description).toBe(
+      "Referred at Acme. Declined at Beta. Reviewing at Acme.",
+    );
   });
 });
