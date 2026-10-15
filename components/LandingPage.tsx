@@ -1113,6 +1113,7 @@ export default function LandingPage() {
                 ["Skills for Resume", "/skills-for-resume"],
                 ["Cover Letter", "/cover-letter"],
                 ["ATS Checker", "/ats-resume-checker"],
+                ["Chrome Extension", "/extension/"],
                 ["Contact", "/contact"],
                 ["Privacy", "/privacy"],
                 ["Terms", "/terms"],

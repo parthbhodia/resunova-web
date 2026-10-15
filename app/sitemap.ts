@@ -22,6 +22,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/privacy/`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/contact/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/jobs/`, lastModified: JOBS_GENERATED_AT ? new Date(JOBS_GENERATED_AT) : new Date(), changeFrequency: "daily", priority: 0.9 },
+    { url: `${SITE_URL}/extension/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
   ];
 
   const blogPages: MetadataRoute.Sitemap = BLOG_POSTS.map((post) => ({
