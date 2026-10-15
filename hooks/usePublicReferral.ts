@@ -13,27 +13,48 @@ import { useEffect, useState } from "react";
 import {
   REFERRER_LINK_INACTIVE,
   REFERRER_SESSION_FAILED,
+  approxYearsFromExperience,
   createReferralRequest,
   fetchReferrerBySlug,
   filterOpenCompanies,
   listOpenReferrersForCompany,
   listOpenReferralCompanies,
   slugifyPart,
+  uploadReferralResume,
   type CompanyReferrer,
   type OpenReferralCompany,
 } from "@/lib/companyReferrers";
 import { fetchFeaturedCompanies } from "@/lib/jobsApi";
-import { getSupabaseClient } from "@/lib/supabase";
+import {
+  REFERRAL_ASK_MESSAGES,
+  normalizeReferralPhone,
+  validateReferralAsk,
+} from "@/lib/referralEdgeCases";
+import { fetchExtractedProfile, fetchUserProfile, getSupabaseClient } from "@/lib/supabase";
 
 export type ReferralAskForm = {
   name: string;
   email: string;
+  phone: string;
+  years: string;
+  headline: string;
   linkedin: string;
   role: string;
   notes: string;
+  resumeFile: File | null;
 };
 
-const EMPTY_ASK: ReferralAskForm = { name: "", email: "", linkedin: "", role: "", notes: "" };
+const EMPTY_ASK: ReferralAskForm = {
+  name: "",
+  email: "",
+  phone: "",
+  years: "",
+  headline: "",
+  linkedin: "",
+  role: "",
+  notes: "",
+  resumeFile: null,
+};
 
 export type ReferrerLookup =
   | { status: "idle" }
@@ -209,26 +230,41 @@ export function useReferralAsk(referrer: CompanyReferrer) {
 
   useEffect(() => {
     let cancelled = false;
-    getSupabaseClient().auth.getSession().then(({ data }) => {
-      if (cancelled || !data.session?.user) return;
-      const user = data.session.user;
-      const metadata = user.user_metadata ?? {};
-      const suggestedName = String(metadata.full_name ?? metadata.name ?? "").trim();
-      setForm((previous) => ({
-        ...previous,
-        name: previous.name || suggestedName,
-        email: previous.email || user.email || "",
-      }));
-    }).catch(() => {
-      // The submit path reports session errors. Prefill is best-effort only.
-    });
+    void (async () => {
+      try {
+        const { data } = await getSupabaseClient().auth.getSession();
+        if (cancelled || !data.session?.user) return;
+        const user = data.session.user;
+        const metadata = user.user_metadata ?? {};
+        const suggestedName = String(metadata.full_name ?? metadata.name ?? "").trim();
+        const [profile, extracted] = await Promise.all([fetchUserProfile(), fetchExtractedProfile()]);
+        if (cancelled) return;
+        const years = approxYearsFromExperience(extracted?.experience);
+        setForm((previous) => ({
+          ...previous,
+          name: previous.name || extracted?.name || profile?.displayName || suggestedName,
+          email: previous.email || user.email || extracted?.email || profile?.email || "",
+          phone: previous.phone || extracted?.phone || profile?.phone || "",
+          years: previous.years || (years != null ? String(years) : ""),
+          headline: previous.headline || extracted?.headline || extracted?.role || profile?.headline || "",
+          linkedin: previous.linkedin || extracted?.linkedin || profile?.linkedin || "",
+          role: previous.role || extracted?.role || profile?.roles?.split(",")[0]?.trim() || "",
+        }));
+      } catch {
+        // The submit path reports session errors. Prefill is best-effort only.
+      }
+    })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const setField = (key: keyof ReferralAskForm, value: string) => {
+  const setField = (key: Exclude<keyof ReferralAskForm, "resumeFile">, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const setResumeFile = (file: File | null) => {
+    setForm((prev) => ({ ...prev, resumeFile: file }));
   };
 
   const submit = async (): Promise<AskReferralOutcome> => {
@@ -243,9 +279,15 @@ export function useReferralAsk(referrer: CompanyReferrer) {
       setError(REFERRER_SESSION_FAILED);
       return "error";
     }
-    if (!signedIn) {
+    const issue = validateReferralAsk(form, { signedIn });
+    if (issue === "sign_in") {
       setSaving(false);
       return "sign_in";
+    }
+    if (issue) {
+      setSaving(false);
+      setError(REFERRAL_ASK_MESSAGES[issue]);
+      return "error";
     }
     const stillOpen = await fetchReferrerBySlug(referrer.slug);
     if (!stillOpen.ok) {
@@ -258,23 +300,40 @@ export function useReferralAsk(referrer: CompanyReferrer) {
       setError(REFERRER_LINK_INACTIVE);
       return "error";
     }
+    let resumePdfPath: string | null = null;
+    if (form.resumeFile) {
+      const uploaded = await uploadReferralResume(form.resumeFile);
+      if (!uploaded.path) {
+        setSaving(false);
+        setError(uploaded.error);
+        return "error";
+      }
+      resumePdfPath = uploaded.path;
+    }
     const { request, error: writeError } = await createReferralRequest({
       referrerId: referrer.id,
       candidateName: form.name,
       candidateEmail: form.email,
       candidateLinkedin: form.linkedin,
+      resumePdfPath,
+      candidatePhone: normalizeReferralPhone(form.phone),
+      candidateYearsExperience: form.years,
+      candidateHeadline: form.headline,
       role: form.role,
       notes: form.notes,
       source: "request",
     });
     setSaving(false);
     if (!request) {
-      setError(writeError ?? "Could not send this request. Add your name, a valid email, and the role you want.");
+      setError(
+        writeError
+          ?? "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn URL or resume PDF.",
+      );
       return "error";
     }
     setDone(true);
     return "sent";
   };
 
-  return { form, setField, saving, done, error, submit };
+  return { form, setField, setResumeFile, saving, done, error, submit };
 }

@@ -69,7 +69,15 @@ export const RAIL_WIDTH = "6rem";
  * gallery or the prep page still has the shell's default view underneath it
  * and that used to light Home beside the page you were actually on.
  */
-export type RailKey = "home" | "analyze" | "tailor" | "templates" | "resumes" | "jobs" | "prep";
+export type RailKey =
+  | "home"
+  | "analyze"
+  | "tailor"
+  | "templates"
+  | "resumes"
+  | "jobs"
+  | "refer"
+  | "prep";
 
 export const RAIL_LABELS: Record<RailKey, string> = {
   home: "Home",
@@ -78,6 +86,7 @@ export const RAIL_LABELS: Record<RailKey, string> = {
   templates: "Templates",
   resumes: "Resumes",
   jobs: "Jobs",
+  refer: "Refer",
   prep: "Prep",
 };
 
@@ -89,6 +98,7 @@ export const RAIL_ARIA: Record<RailKey, string> = {
   templates: "Templates",
   resumes: "My Resumes",
   jobs: "Jobs",
+  refer: "Referrals",
   prep: "Interview Prep",
 };
 
@@ -99,6 +109,7 @@ export const RAIL_ICONS: Record<RailKey, ReactNode> = {
   templates: NAV_ICONS.templates,
   resumes: NAV_ICONS.library,
   jobs: NAV_ICONS.jobs,
+  refer: NAV_ICONS.referrals,
   prep: NAV_ICONS.interviewPrep,
 };
 
@@ -108,6 +119,7 @@ export const RAIL_DOCUMENT: RailKey[] = ["home", "analyze", "tailor", "templates
 /** Use the document. Jobs drops out entirely while the feed is off. */
 export const RAIL_APPLY: RailKey[] = [
   ...(JOBS_ENABLED ? (["jobs"] as RailKey[]) : []),
+  "refer",
   "prep",
 ];
 
