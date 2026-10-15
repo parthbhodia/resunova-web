@@ -8,9 +8,9 @@
  * the rail always came back shrunk. There is no second state to get stuck in.
  *
  * Order is the product funnel: work on the document (Home, Analyze, Tailor,
- * Templates, Resumes), then use it (Jobs, Prep), then Feedback. Cover letter,
- * History, theme, Contact and Advisor live in the account menu. Nothing is
- * removed. The mobile bottom bar is a separate component and is not this rail.
+ * Templates, Resumes), then use it (Jobs, Refer, Prep), then Feedback. Cover
+ * letter, History, theme, Contact and Advisor live in the account menu. Nothing
+ * is removed. The mobile bottom bar is a separate component and is not this rail.
  *
  * Stays on the shadcn sidebar primitive. New chrome elsewhere goes to MUI, and
  * the shell is still on the "to migrate" side of that table. Converting
@@ -178,10 +178,20 @@ export function AppSidebar({
       case "jobs":
         goView("jobs");
         break;
+      case "refer":
+        // Public marketing route (like Templates). No sign-in gate on the click.
+        goPath("/refer/", false);
+        break;
       case "prep":
         goPath("/interview-prep", pathLocked("/interview-prep"));
         break;
     }
+  };
+
+  const applyLocked = (key: RailKey) => {
+    if (key === "jobs") return viewLocked("jobs");
+    if (key === "refer") return false;
+    return pathLocked("/interview-prep");
   };
 
   const showUpgrade = accountHasQuota(scans);
@@ -234,7 +244,7 @@ export function AppSidebar({
                 key={key}
                 railKey={key}
                 active={lit === key}
-                locked={key === "jobs" ? viewLocked("jobs") : pathLocked("/interview-prep")}
+                locked={applyLocked(key)}
                 onClick={() => onRail(key)}
               />
             ))}
