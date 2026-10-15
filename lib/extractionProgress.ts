@@ -74,6 +74,28 @@ export function formatEtaHours(hours: number | null): string {
   return `${Math.round(days * 10) / 10} days`;
 }
 
+export type WorkerIdentityLike = {
+  label?: string | null;
+  hostname?: string | null;
+  platform?: string | null;
+  gpu?: string | null;
+  model?: string | null;
+  batch?: number | null;
+  status?: string | null;
+  worker_key?: string | null;
+};
+
+/** Short line for the admin card: 'MacBook · Darwin · Apple Silicon · qwen…'. */
+export function formatWorkerLine(w: WorkerIdentityLike): string {
+  const host = (w.label || w.hostname || "worker").trim();
+  const parts = [host];
+  if (w.platform) parts.push(String(w.platform));
+  if (w.gpu) parts.push(String(w.gpu));
+  if (w.model) parts.push(String(w.model));
+  if (w.batch != null && Number(w.batch) > 0) parts.push(`batch ${w.batch}`);
+  return parts.join(" · ");
+}
+
 type ScanRunInterval = {
   started_at: string;
   duration_ms: number | null;

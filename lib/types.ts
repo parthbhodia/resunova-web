@@ -335,6 +335,23 @@ export interface AdminAnalyticsBusinessBlock {
   contact_funnel: AdminContactFunnel;
 }
 
+/** One live (or recently seen) extraction worker heartbeat. */
+export interface AdminExtractionWorker {
+  worker_key?: string | null;
+  hostname?: string | null;
+  label?: string | null;
+  platform?: string | null;
+  arch?: string | null;
+  gpu?: string | null;
+  model?: string | null;
+  base_url?: string | null;
+  batch?: number | null;
+  pid?: number | null;
+  status?: string | null;
+  last_extracted?: number;
+  last_seen_at?: string | null;
+}
+
 export interface AdminAnalyticsJobsBlock {
   postings: {
     total: number;
@@ -352,6 +369,8 @@ export interface AdminAnalyticsJobsBlock {
     /** Rows still leased (requirement_concepts null, claimed within window). */
     claimed_inflight?: number;
     claim_window_minutes?: number;
+    /** Live workers with host / OS / GPU identity (from heartbeats). */
+    workers?: AdminExtractionWorker[];
     by_source: Array<{ source: string; active: number; last_24h?: number; extracted?: number }>;
     by_company: Array<{ company: string; active: number }>;
   };
@@ -373,6 +392,7 @@ export interface AdminAnalyticsJobsBlock {
       extracted: number;
       extraction_failures: number;
       error_count: number;
+      worker?: AdminExtractionWorker | null;
     }>;
   };
   engagement: {

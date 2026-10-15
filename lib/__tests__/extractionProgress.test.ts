@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeExtractionProgress,
   formatEtaHours,
+  formatWorkerLine,
   maxConcurrentExtractors,
 } from "@/lib/extractionProgress";
 
@@ -54,5 +55,21 @@ describe("maxConcurrentExtractors", () => {
       { started_at: "2026-10-15T16:00:00.000Z", duration_ms: 60_000, skip_fetch: false },
     ]);
     expect(peak).toBe(2);
+  });
+});
+
+describe("formatWorkerLine", () => {
+  it("joins host, OS, GPU, and model", () => {
+    expect(
+      formatWorkerLine({
+        hostname: "DESKTOP-ABC",
+        platform: "Windows",
+        gpu: "NVIDIA GeForce RTX 4090, 24564 MiB",
+        model: "qwen2.5:14b-instruct",
+        batch: 80,
+      }),
+    ).toBe(
+      "DESKTOP-ABC · Windows · NVIDIA GeForce RTX 4090, 24564 MiB · qwen2.5:14b-instruct · batch 80",
+    );
   });
 });
