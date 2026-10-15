@@ -5,6 +5,8 @@ import { SITE_URL } from "@/lib/brand";
 
 export type BlogPostMeta = {
   slug: string;
+  /** Concise, query-oriented title for the search result. Editorial title stays on-page and in social cards. */
+  seoTitle: string;
   title: string;
   description: string;
   seoDescription: string;
@@ -12,6 +14,8 @@ export type BlogPostMeta = {
   tag: string;
   publishedAt: string;
   modifiedAt: string;
+  /** Curated links to the next most useful articles, ordered by reader relevance. */
+  relatedSlugs: string[];
   /**
    * The post's single headline number, e.g. "38%". Data posts have one; guides
    * don't, and we never invent one to fill the slot (a fabricated stat on a
@@ -62,6 +66,7 @@ export function formatPublishedAt(iso: string | undefined): string | null {
 export const BLOG_POSTS: BlogPostMeta[] = [
   {
     slug: "employee-referrals-help-and-ask",
+    seoTitle: "Employee Referrals: How to Ask and Offer Help",
     title: "Ask for a Referral Without Being Awkward (And Offer One Without Getting Flooded)",
     description:
       "Referrals convert better than cold inbound. Here is how to ask without being extractive, how to help other job seekers without drowning, and how Resunova's open referral desk works both ways.",
@@ -71,9 +76,11 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Guide",
     publishedAt: "2026-10-14",
     modifiedAt: "2026-10-14",
+    relatedSlugs: ["job-search-2026-whats-working", "tailor-resume-to-job-description", "linkedin-applicant-count-clicks-not-applications"],
   },
   {
     slug: "job-search-2026-whats-working",
+    seoTitle: "Job Search in 2026: What Actually Works",
     title: "Most of Your Job Search Shouldn't Be Applications",
     description:
       "What actually works in a 2026 job search: referrals convert far better than inbound volume, cold apply is still how many people get hired, and a weekly time split that matches Gem, Ashby, Glassdoor, LinkedIn, and Huntr data.",
@@ -84,9 +91,11 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Guide",
     publishedAt: "2026-10-14",
     modifiedAt: "2026-10-14",
+    relatedSlugs: ["employee-referrals-help-and-ask", "tailor-resume-to-job-description", "how-ats-really-works"],
   },
   {
     slug: "linkedin-applicant-count-clicks-not-applications",
+    seoTitle: "LinkedIn Applicant Counts: What They Really Mean",
     title: "LinkedIn's Applicant Count Is Measuring Clicks, Not Applications",
     description:
       "For postings that redirect to a company's own site, LinkedIn keeps no record of who applied. Add the 42% who don't meet requirements and the median posting's 13 hard requirements, and '127 applicants' is a much smaller number of real competitors.",
@@ -96,11 +105,13 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Data",
     publishedAt: "2026-07-16",
     modifiedAt: "2026-07-16",
+    relatedSlugs: ["job-search-2026-whats-working", "ghost-jobs-duplicate-postings", "tailor-resume-to-job-description"],
     stat: "13",
     statLabel: "median hard requirements per US posting",
   },
   {
     slug: "ghost-jobs-duplicate-postings",
+    seoTitle: "Duplicate Job Postings: 38% in One Data Surge",
     title: "We 7x'd Our Job-Board Coverage Overnight. 13,000 of the New Postings Were Duplicates.",
     description:
       "Turning on six new ATS integrations 7x'd our daily ingest, and about 38% of that day's new postings turned out to be the same job reposted over and over. What we found, why it happens, and the dedupe pass that now runs continuously.",
@@ -110,11 +121,13 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Data",
     publishedAt: "2026-07-14",
     modifiedAt: "2026-07-14",
+    relatedSlugs: ["linkedin-applicant-count-clicks-not-applications", "job-search-2026-whats-working", "sp100-tech-hiring-2026"],
     stat: "38%",
     statLabel: "of one day's new postings were exact duplicates",
   },
   {
     slug: "salary-transparency-by-seniority",
+    seoTitle: "Salary Transparency by Seniority: 41% vs 14%",
     title: "The Higher the Job, the More They Hide the Pay",
     description:
       "Salary disclosure across 109,159 active US postings: entry-level roles list pay 41% of the time, directors 14%. The gap survives industry controls, and it changes how you should job hunt.",
@@ -124,6 +137,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Data",
     publishedAt: "2026-07-14",
     modifiedAt: "2026-07-14",
+    relatedSlugs: ["sp100-tech-hiring-2026", "job-search-2026-whats-working", "tailor-resume-to-job-description"],
     // Kept as the full delta, not truncated to "14%": the gap between entry
     // level and director IS the finding, and the OG card already ships it this
     // way. ASCII "->" rather than a U+2192 arrow because next/og renders the OG
@@ -134,6 +148,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
   },
   {
     slug: "sp100-tech-hiring-2026",
+    seoTitle: "S&P 100 Tech Hiring: Remote Work, Pay and Skills",
     title: "What 13,128 Live Job Postings at S&P 100 Companies Reveal About Tech Hiring",
     description:
       "Live data from ~50 S&P 100 career APIs: remote is 3x rarer at the giants, the big-company pay premium is gone, and two companies advertise below their own federal wage filings.",
@@ -143,6 +158,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Data",
     publishedAt: "2026-07-06",
     modifiedAt: "2026-07-06",
+    relatedSlugs: ["salary-transparency-by-seniority", "job-search-2026-whats-working", "how-ats-really-works"],
     // This post has no opengraph-image.tsx, so unlike the other three there was
     // no existing stat to lift. Authored from the post's own body: "78.8% are
     // onsite and only 4.6% are remote. The rest of the market posts 13.7%
@@ -152,6 +168,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
   },
   {
     slug: "claude-resume-prompts",
+    seoTitle: "Claude Resume Prompts: 9 Copy-and-Paste Examples",
     title: "Claude Resume Prompts That Work (And How to Check What Comes Back)",
     description:
       "Nine copy-paste prompts for scoring, rewriting, and tailoring a resume with Claude, plus the four output checks that catch the mistakes these models reliably make.",
@@ -161,9 +178,11 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Guide",
     publishedAt: "2026-08-01",
     modifiedAt: "2026-08-01",
+    relatedSlugs: ["ai-resume-rewrite-failure-modes", "tailor-resume-to-job-description", "how-ats-really-works"],
   },
   {
     slug: "ai-resume-rewrite-failure-modes",
+    seoTitle: "AI Resume Rewrites: 5 Common Failure Modes",
     title: "Five Things AI Gets Wrong When It Rewrites Your Resume",
     description:
       "We built validators to catch what language models do to resume bullets: no-op rewrites, quantification claims with no number attached, dropped metrics, and gaps contradicted by the resume itself.",
@@ -173,9 +192,11 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Research",
     publishedAt: "2026-08-01",
     modifiedAt: "2026-08-01",
+    relatedSlugs: ["claude-resume-prompts", "tailor-resume-to-job-description", "how-ats-really-works"],
   },
   {
     slug: "tailor-resume-to-job-description",
+    seoTitle: "How to Tailor a Resume to a Job Description",
     title: "How to Tailor Your Resume to a Job Description (Step-by-Step)",
     description:
       "Keyword extraction, bullet rewrites, ATS checks, and the mistakes that get you filtered out: a complete tailoring playbook.",
@@ -185,9 +206,11 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Guide",
     publishedAt: "2026-06-10",
     modifiedAt: "2026-07-18",
+    relatedSlugs: ["job-search-2026-whats-working", "how-ats-really-works", "optimizing-resumes-for-ats"],
   },
   {
     slug: "how-ats-really-works",
+    seoTitle: "How Applicant Tracking Systems Screen Resumes",
     title: "How ATS Really Works (And Why You're Invisible, Not Rejected)",
     description:
       "Parsing tests across Workday, Greenhouse, Lever, and more: exact job titles, keyword bands, layout traps, and the quick-fix checklist.",
@@ -197,9 +220,11 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Research",
     publishedAt: "2026-05-15",
     modifiedAt: "2026-05-15",
+    relatedSlugs: ["optimizing-resumes-for-ats", "tailor-resume-to-job-description", "ai-resume-rewrite-failure-modes"],
   },
   {
     slug: "optimizing-resumes-for-ats",
+    seoTitle: "ATS Resume Formatting: A Practical Checklist",
     title: "Optimizing Résumés for Applicant Tracking Systems",
     description:
       "UIC Office of Career Services guidance: formatting, keywords in context, and what parsers can and cannot read.",
@@ -209,6 +234,7 @@ export const BLOG_POSTS: BlogPostMeta[] = [
     tag: "Guide",
     publishedAt: "2026-05-01",
     modifiedAt: "2026-05-01",
+    relatedSlugs: ["how-ats-really-works", "tailor-resume-to-job-description", "claude-resume-prompts"],
   },
 ];
 
@@ -269,7 +295,7 @@ export function createBlogPostMetadata(slug: string): Metadata {
   const modifiedTime = `${post.modifiedAt}T00:00:00.000Z`;
 
   return {
-    title: post.title,
+    title: post.seoTitle,
     description: post.seoDescription,
     robots: { index: true, follow: true },
     alternates: {
