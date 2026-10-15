@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AdminAnalyticsJobsBlock, AdminAnalyticsResponse, AdminAnalyticsToolRow, AdminAnalyticsUserRow } from "@/lib/types";
+import ExtractionProgressWidget from "@/components/ExtractionProgressWidget";
 import JobMarketPanel from "@/components/JobMarketPanel";
 import FunnelPanel from "@/components/FunnelPanel";
 import { apiFetch } from "@/lib/apiClient";
@@ -409,11 +410,30 @@ function DailyJobsAddedSparkline({ daily }: { daily: AdminAnalyticsJobsBlock["sc
   );
 }
 
-function JobsPipelineSection({ jobs, tools }: { jobs: AdminAnalyticsJobsBlock; tools: AdminAnalyticsToolRow[] }) {
+function JobsPipelineSection({
+  jobs,
+  tools,
+  windowDays,
+  refreshing,
+  lastUpdatedAt,
+}: {
+  jobs: AdminAnalyticsJobsBlock;
+  tools: AdminAnalyticsToolRow[];
+  windowDays: number;
+  refreshing?: boolean;
+  lastUpdatedAt?: string | null;
+}) {
   const extractionTool = tools.find(t => t.tool_name === "jobs_extract");
   return (
     <section id="jobs-pipeline" style={{ marginTop: 22 }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Jobs pipeline</h2>
+
+      <ExtractionProgressWidget
+        jobs={jobs}
+        windowDays={windowDays}
+        refreshing={refreshing}
+        lastUpdatedAt={lastUpdatedAt}
+      />
 
       {/* KPI strip */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
@@ -568,12 +588,16 @@ function CardSkeleton({ h = 90 }: { h?: number }) {
   return <div style={{ height: h, borderRadius: 10, background: "var(--surface2)", opacity: 0.6 }} />;
 }
 
+const JOBS_POLL_MS = 60_000;
+
 export default function AdminAnalyticsPanel() {
   const [days, setDays] = useState(_lastDays);
   const [tab, setTab] = useState<TabKey>(_lastTab);
   const [loading, setLoading] = useState(!_panelCache.has(_lastDays));
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AdminAnalyticsResponse | null>(() => _panelCache.get(_lastDays) ?? null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
   // Persist the selection so the next mount restores it.
   useEffect(() => { _lastTab = tab; _lastDays = days; }, [tab, days]);
@@ -583,22 +607,50 @@ export default function AdminAnalyticsPanel() {
     const cached = _panelCache.get(days);
     if (cached) { setData(cached); setLoading(false); } else { setLoading(true); }
     setError(null);
-    (async () => {
+
+    async function load(opts: { background?: boolean } = {}) {
+      if (opts.background) setRefreshing(true);
       try {
         const resp = await apiFetch(`/api/admin/analytics?days=${days}`);
         const json = await resp.json() as AdminAnalyticsResponse & { error?: string };
         if (!alive) return;
-        if (json.error) { setError(json.error); if (!cached) setData(null); }
-        else { setData(json as AdminAnalyticsResponse); _panelCache.set(days, json as AdminAnalyticsResponse); }
+        if (json.error) {
+          setError(json.error);
+          if (!cached && !opts.background) setData(null);
+        } else {
+          setData(json as AdminAnalyticsResponse);
+          _panelCache.set(days, json as AdminAnalyticsResponse);
+          setLastUpdatedAt(new Date().toISOString());
+          setError(null);
+        }
       } catch (e) {
         if (!alive) return;
-        if (!cached) { setError(e instanceof Error ? e.message : String(e)); setData(null); }
+        if (!cached && !opts.background) {
+          setError(e instanceof Error ? e.message : String(e));
+          setData(null);
+        }
       } finally {
-        if (alive) setLoading(false);
+        if (alive) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
-    })();
-    return () => { alive = false; };
-  }, [days]);
+    }
+
+    void load();
+
+    // While watching the jobs pipeline, refresh every minute so extraction
+    // progress tracks the live worker without a manual reload.
+    let poll: ReturnType<typeof setInterval> | undefined;
+    if (tab === "jobs") {
+      poll = setInterval(() => { void load({ background: true }); }, JOBS_POLL_MS);
+    }
+
+    return () => {
+      alive = false;
+      if (poll) clearInterval(poll);
+    };
+  }, [days, tab]);
 
   const insights = useMemo(() => (data ? computeInsights(data) : []), [data]);
   const costLabel = data?.summary.cost_usd != null
@@ -721,7 +773,15 @@ export default function AdminAnalyticsPanel() {
           )}
 
           {tab === "jobs" && (data.jobs
-            ? <JobsPipelineSection jobs={data.jobs} tools={data.tools} />
+            ? (
+              <JobsPipelineSection
+                jobs={data.jobs}
+                tools={data.tools}
+                windowDays={days}
+                refreshing={refreshing}
+                lastUpdatedAt={lastUpdatedAt}
+              />
+            )
             : <p style={{ color: "var(--dim)", fontSize: 13 }}>No jobs-pipeline data in this window.</p>)}
 
           {tab === "business" && (data.jobs
