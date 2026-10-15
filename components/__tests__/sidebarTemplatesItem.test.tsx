@@ -33,17 +33,16 @@ beforeAll(() => {
 
 beforeEach(() => push.mockClear());
 
-function renderSidebar(opts: { open?: boolean; anonMode?: boolean; onTemplatesPage?: boolean } = {}) {
+function renderSidebar(opts: { open?: boolean; anonMode?: boolean; builderActive?: boolean } = {}) {
   const onSignIn = vi.fn();
   render(
     <SidebarProvider defaultOpen={opts.open ?? true}>
       <AppSidebar
         active="home"
         onSwitchView={vi.fn()}
-        onTemplateBuilderPage={false}
-        onTemplatesPage={opts.onTemplatesPage ?? false}
+        onTemplateBuilderPage={opts.builderActive ?? false}
         onInterviewPrepPage={false}
-        builderActive={false}
+        builderActive={opts.builderActive ?? false}
         navBuilderSubflow="tailor"
         advisorAllowed={false}
         isUmbc={false}
@@ -82,10 +81,13 @@ describe("the Templates nav item", () => {
     expect(screen.getByRole("button", { name: "Templates" })).toBeInTheDocument();
   });
 
-  it("does not light Home while on the templates page", () => {
-    // Two active items at once is the drift the exclusion chain prevents.
+  it("lights one item, not two, when the template builder is open", () => {
+    // /templates used to be the route that proved this. It moved to the
+    // (marketing) group so it would server-render, so the only place the
+    // Templates rail still lights inside the app is /template-builder. Two
+    // active items at once is the drift the exclusion chain prevents.
     // base-nova marks active with a present-but-empty data-active attribute.
-    renderSidebar({ onTemplatesPage: true });
+    renderSidebar({ builderActive: true });
     const templates = screen.getByRole("button", { name: "Templates" });
     expect(templates.hasAttribute("data-active")).toBe(true);
     // ONE active item, full stop — Home (the default view under a routed

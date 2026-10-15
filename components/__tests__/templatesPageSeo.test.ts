@@ -16,7 +16,10 @@ import { templateGalleryEntries } from "@/lib/templateGallery";
  * dependency graph into a unit test just to read a constant.
  */
 
-const PAGE_SRC = readFileSync(resolve(process.cwd(), "app", "templates", "page.tsx"), "utf8");
+const PAGE_SRC = readFileSync(
+  resolve(process.cwd(), "app", "(marketing)", "templates", "page.tsx"),
+  "utf8",
+);
 
 describe("the /templates page SEO surface", () => {
   it("declares the canonical and robots directives it used to inherit", () => {
