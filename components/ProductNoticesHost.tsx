@@ -24,6 +24,7 @@ import {
   rememberToastedReferralIds,
   rememberToastedSentReferralIds,
   requestReferralInboxRefresh,
+  requestSentReferralRefresh,
   subscribeReferralAlerts,
   subscribeSentReferralSeen,
   unreadReferralRequests,
@@ -126,13 +127,17 @@ export function ProductNoticesHost() {
           return;
         }
         const unseen = unseenReferralOutcomes(rows, lastSeen);
-        const decision = outcomeToastForUnseen(unseen, readToastedSentReferralIds(), isReferralInboxOpen());
+        // Never suppress candidate outcome toasts when the referrer inbox is
+        // open. That shared flag used to hide "reviewing" updates for askers.
+        const decision = outcomeToastForUnseen(unseen, readToastedSentReferralIds(), false);
         setOutcomeUnread(decision.markSeen ? 0 : unseen.length);
         if (decision.markSeen) {
           void persistLastSeenSentReferral();
           setOutcome(null);
+          requestSentReferralRefresh();
           return;
         }
+        if (unseen.length > 0) requestSentReferralRefresh();
         if (!decision.toast || decision.newlyToasted.length === 0) return;
         rememberToastedSentReferralIds(decision.newlyToasted);
         setOutcome(decision.toast);
