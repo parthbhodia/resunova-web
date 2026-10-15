@@ -315,12 +315,51 @@ deleting it — the corpse is the evidence.
 
 ---
 
+## 4b. ⚠️ The in-app surface: there is no bell, and the count that exists is hidden
+
+Asked directly whether a user gets this "on the bell icon". Checked in source
+rather than assumed, and the answer is that **there is no bell icon anywhere in
+this app.** The only `Bell` in the tree is a lucide icon used as the tab label
+for "Job alerts" inside `/profile`.
+
+What a referrer actually gets today, in full:
+
+| Surface | What it does | Why it does not solve this |
+|---|---|---|
+| `FeedbackToastCard` toast | fires on a new ask | **transient** — auto-hides, and only while the app is open |
+| Unread count chip | real count, `ProfilePage.tsx:526` | ⚠️ **rendered on the "Referrals" tab *inside* `/profile`** — you only see it once you have already navigated to the page you would have gone to anyway |
+| Rail item "Referrals" | navigates | **no badge.** `RAIL_ICONS.refer` is a bare icon and `RAIL_LABELS.refer` a bare string — the maps have no badge slot |
+| Email | — | **does not exist** |
+
+> ⚠️ **So the count is computed, broadcast, and then rendered in the one place
+> that cannot help.** `subscribeReferralAlerts` is already a module-level pub/sub
+> with listeners, and `ProfilePage` is its only consumer. A referrer sitting on
+> Analyze or Jobs with three pending asks sees nothing.
+
+### Phase 1b — put the count on the rail (small, and it should go in)
+
+`RAIL_LABELS` / `RAIL_ICONS` need a badge slot, and the rail subscribes to the
+same `subscribeReferralAlerts` that `ProfilePage` already uses. No new data, no
+new fetch, no backend change — the number is already in the browser.
+
+That is the honest "bell": a count on the Referrals item, visible from **every**
+page of the app rather than from one. ⚠️ **It is still presence-dependent** —
+it only exists while the app is open, so it narrows the gap rather than closing
+it, and it is not a substitute for phase 2.
+
+> ⚠️ **A real bell — a dropdown listing individual notifications with per-item
+> read state — is a different and larger thing**, and it needs a persistent
+> per-user notification list. `notification_outbox` is the natural backing store
+> for it, which is a third argument for building the outbox rather than a one-off
+> send. Not proposed here; noted so the cheap badge is not mistaken for it.
+
 ## 5. Sequencing
 
 | Phase | Work | Gets you |
 |---|---|---|
 | 0 | **Wait for one real desk + one real ask.** | the measurement this design does not have |
 | 1 | migration: `notification_outbox` (with `channel`) + trigger + `notify_prefs.referrals` | the fact is durable the moment it happens, even with no sender |
+| 1b | badge slot on the rail + subscribe to the existing `subscribeReferralAlerts` | the count becomes visible from every page, not just `/profile` (§4b) |
 | 2 | api drain route + `pg_net` wake + cron; reuse `_notify_prefs_for_user` | **R1, R2 — the referrer-on-ask email, which is the ask** |
 | 3 | email templates (ask received / status changed) | — |
 | 4 | admin panel reads `failed` rows | R4 end to end |
