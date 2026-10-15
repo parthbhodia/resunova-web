@@ -33,7 +33,13 @@ export const SUPPORTED_ATS: AtsEntry[] = [
     id: "greenhouse",
     name: "Greenhouse",
     hosts: "boards.greenhouse.io",
-    coverage: "Full: name, email, phone, links, country and EEO dropdowns",
+    // Narrower than the adapter's own header comment implies. The adapter has
+    // react-select FILLING logic but no react-select DISCOVERY, so nothing ever
+    // routes to it, and there is no `country` canonical key at all. The Country
+    // and EEO dropdowns are therefore left untouched. Do not widen this line
+    // without adding discovery for it.
+    coverage:
+      "Full: first and last name, email, phone, and profile links. Country and EEO dropdowns are left for you",
     match: "*.greenhouse.io",
   },
   {
