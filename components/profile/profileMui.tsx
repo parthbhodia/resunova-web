@@ -18,7 +18,8 @@ import type { SxProps, Theme } from "@mui/material/styles";
 import { FS, FW, LH } from "@/lib/typography";
 
 export const profilePageSx: SxProps<Theme> = {
-  minHeight: "100vh",
+  minHeight: "100%",
+  flex: "1 0 auto",
   bgcolor: "background.default",
   color: "text.primary",
   colorScheme: "light",

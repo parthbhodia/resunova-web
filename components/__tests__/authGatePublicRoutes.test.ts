@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isPublicPath } from "@/components/AuthGate";
 
-describe("AuthGate public job and SEO routes", () => {
+describe("AuthGate public marketing routes", () => {
   it.each([
     "/jobs",
     "/jobs/",
@@ -10,14 +10,14 @@ describe("AuthGate public job and SEO routes", () => {
     "/resume-examples/software-engineer/",
     "/pricing",
     "/pricing/",
-    "/refer",
-    "/refer/",
   ])("allows %s without initializing auth", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });
 
-  it("keeps account-owned routes gated", () => {
+  it("keeps account-owned routes and referral requests gated", () => {
     expect(isPublicPath("/my-resumes")).toBe(false);
+    expect(isPublicPath("/refer")).toBe(false);
+    expect(isPublicPath("/refer/")).toBe(false);
   });
 });
 

@@ -155,6 +155,7 @@ export function ReferField({
   type,
   placeholder,
   multiline = false,
+  required = false,
   sx,
 }: {
   label: string;
@@ -164,6 +165,7 @@ export function ReferField({
   type?: string;
   placeholder?: string;
   multiline?: boolean;
+  required?: boolean;
   sx?: SxProps<Theme>;
 }) {
   return (
@@ -174,6 +176,7 @@ export function ReferField({
       placeholder={placeholder}
       fullWidth
       multiline={multiline}
+      required={required}
       minRows={multiline ? 4 : undefined}
       onChange={(event) => onChange(event.target.value)}
       slotProps={{

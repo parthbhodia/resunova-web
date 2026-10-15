@@ -19,10 +19,10 @@ Schema of record: `db/migrations/044_company_referrers.sql`.
 ## Surfaces
 
 1. **Profile → Referrals** (signed-in). Identity card + signup or live inbox. Same visual language as the profile hub. No rewards hero.
-2. **`/refer/?s=<slug>`**. Share link. Unsigned visitors get Continue with Google; signed-in users see one person, one company, one form. Query param because the GitHub Pages static export cannot enumerate slugs at build time (`generateStaticParams`).
-3. **`/refer/`**. Company grid of desks that are **open**. Auth-gated: unsigned = Google tease; signed-in = logos + counts, no person names on the grid.
+2. **`/refer/?s=<slug>`**. Share link. AuthGate requires sign-in; signed-in users see one person, one company, one form. Query param because the GitHub Pages static export cannot enumerate slugs at build time (`generateStaticParams`).
+3. **`/refer/`**. Company grid of desks that are **open**. AuthGate requires sign-in; signed-in users see logos + counts, then can open a company to view its referrers.
 
-`/refer` stays in AuthGate's PUBLIC_ROUTES so the tease renders without bouncing home. Open-referrer rows are not readable by `anon` (migration `052`).
+`/refer` is intentionally not in AuthGate's `PUBLIC_ROUTES`. Signed-out visitors see the global sign-in-required screen; after OAuth they return to the referral URL they opened. Open-referrer rows are not readable by `anon` (migration `052`).
 
 Later, not v1: a strip on a job page (“2 employees at Acme are open”).
 
@@ -44,7 +44,7 @@ Two new tables, next to (not replacing) `referral_contacts`.
 | `linkedin` | Optional public URL |
 | `bio` | Roles they can refer for (free text) |
 | `slug` | Public link key: `{name}-at-{company}-{6-char user suffix}` |
-| `open_to_refer` | Public if true; hidden from search and slug page if paused |
+| `open_to_refer` | Readable to signed-in users if true; hidden from search and slug page if paused |
 
 Work email is **not** stored. A public `SELECT` policy would leak it. Work-email verification is a later feature and needs a private column plus a non-public policy.
 
@@ -113,8 +113,8 @@ flowchart LR
 | Client + RLS helpers | `lib/companyReferrers.ts` |
 | Signed-in desk | `components/profile/CompanyReferrerPanel.tsx` |
 | Profile tab host | `components/profile/ProfileHubPanels.tsx` (`ReferralsPanel`) |
-| Public ask + search | `app/refer/page.tsx` |
-| Public route | `components/AuthGate.tsx` (`/refer`) |
+| Referral ask + search | `app/(marketing)/refer/page.tsx` |
+| Auth gate | `components/AuthGate.tsx` (`/refer` is protected) |
 
 ## In v1 / not in v1
 

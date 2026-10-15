@@ -1,13 +1,14 @@
 "use client";
 
 /**
- * Public referral route. Site chrome is app/(marketing)/layout.tsx
+ * Referral route. AuthGate protects the route; site chrome is
+ * app/(marketing)/layout.tsx
  * (PublicSiteFrame). This file only chooses which screen to show. Search,
  * load, and submit state live in hooks/usePublicReferral.ts. Shared controls
  * live in referUi.tsx.
  *
- * Open referrers are auth-gated: unsigned visitors see a Google sign-in
- * tease only. No names, companies, or open counts until a session exists.
+ * Data reads also wait for a signed-in session, so an auth transition cannot
+ * briefly expose company or referrer details before AuthGate updates.
  */
 
 import { Suspense, useEffect } from "react";
@@ -17,7 +18,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import { makeTheme } from "@/components/mui/theme";
 import { FindReferrer } from "@/components/refer/FindReferrer";
 import { ReferrerRequestForm } from "@/components/refer/ReferrerRequestForm";
-import { ReferAlert, ReferGoogleGate, ReferLede, ReferNote, ReferTitle } from "@/components/refer/referUi";
+import { AccentLink, ReferAlert, ReferGoogleGate, ReferLede, ReferNote, ReferTitle } from "@/components/refer/referUi";
 import { REFERRER_LINK_INACTIVE } from "@/lib/companyReferrers";
 import { clearPostLoginDest } from "@/lib/oauthRedirect";
 import { useReferSession, useReferrerLookup } from "@/hooks/usePublicReferral";
@@ -90,7 +91,8 @@ function ReferSlugView({ slug }: { slug: string }) {
     return (
       <>
         <ReferTitle>{REFERRER_LINK_INACTIVE}</ReferTitle>
-        <ReferLede>The employee may have turned off requests, or the link is wrong.</ReferLede>
+        <ReferLede>This link may have been paused or copied incorrectly. Ask the employee for an active link, or browse open referrers.</ReferLede>
+        <AccentLink href="/refer/">Browse open referrers</AccentLink>
         <FindReferrer heading="h2" />
       </>
     );

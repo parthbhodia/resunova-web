@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
@@ -9,6 +9,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 import {
   clearForceLandingAfterSignOut,
   readForceLandingAfterSignOut,
+  subscribeForceLandingAfterSignOut,
 } from "@/lib/authSignOut";
 import { signInWithGoogle, urlRequestsPublicAppView } from "@/lib/anonScan";
 import { nextGateSession } from "@/lib/authGateSession";
@@ -20,6 +21,7 @@ import AppShellSkeleton from "./app-shell/AppShellSkeleton";
 const GATED_ROUTE_LABELS: Record<string, string> = {
   "/interview-prep": "Interview Prep",
   "/my-resumes": "My Résumés",
+  "/refer": "referrals",
   "/account": "your account",
 };
 
@@ -56,7 +58,17 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
           { icon: "chart", text: "Track progress over time" },
         ],
       }
-    : pathname?.includes("my-resumes")
+    : pathname?.includes("refer")
+      ? {
+          title: "Sign in to view referrals",
+          body: "Sign in to browse employees who can refer you, send a request, and track it from your profile.",
+          features: [
+            { icon: "list", text: "Find employees at participating companies" },
+            { icon: "save", text: "Track requests from your profile" },
+            { icon: "lock", text: "Keep your referral requests attached to your account" },
+          ],
+        }
+      : pathname?.includes("my-resumes")
       ? {
           title: "Sign in to continue",
           body: "My Résumés needs an account so your saved resumes, versions, and exports stay attached to you.",
@@ -370,7 +382,6 @@ const PUBLIC_ROUTES = new Set<string>([
   "/templates",
   "/profile",
   "/reset-password",
-  "/refer",
 ]);
 // Path prefixes that bypass auth — recipient share pages live at /r/<shortid>,
 // programmatic SEO role pages at /resume-examples/<role>, comparisons at /compare/<slug>.
@@ -401,7 +412,11 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // dashboard once we confirm the user is signed in on the client.
   const [session, setSession] = useState<Session | null>(null);
   const [checked, setChecked] = useState(false);
-  const [forceLanding, setForceLanding] = useState(false);
+  const forceLanding = useSyncExternalStore(
+    subscribeForceLandingAfterSignOut,
+    readForceLandingAfterSignOut,
+    () => false,
+  );
   // Anonymous free-scan entry: `/?view=analyze` renders the app shell without a
   // session (one free scan; full report locks behind sign-in). Read from
   // window.location — NOT useSearchParams, which would swap the prerendered
@@ -410,8 +425,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // the JS session so in-app view switches don't bounce the user to landing.
   const [anonView, setAnonView] = useState(false);
 
-  // Re-check when the path changes: client navigations from a public route
-  // (e.g. /refer → /?view=analyze) do not fire popstate, and a one-shot mount
+  // Re-check when the path changes: client navigations from a marketing route
+  // (e.g. /pricing → /?view=analyze) do not fire popstate, and a one-shot mount
   // read would leave anonView false and trap the visitor on the marketing home.
   useEffect(() => {
     const check = () => {
@@ -423,9 +438,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    setForceLanding(readForceLandingAfterSignOut());
-    // Still resolve the session on public routes. /refer and other marketing
-    // pages already talk to Supabase in the body; without a session here, a
+    // Still resolve the session on public routes; without a session here, a
     // signed-in visitor who then opens /?view=analyze flashes (or sticks on)
     // the marketing landing until a full remount. Missing env is non-fatal so
     // static SEO previews keep working.
@@ -438,7 +451,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         setSession(data.session);
         if (data.session) {
           clearForceLandingAfterSignOut();
-          setForceLanding(false);
         }
         setChecked(true);
       });
@@ -452,14 +464,14 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         setSession((prev) => nextGateSession(prev, ev, s));
         if (s) {
           clearForceLandingAfterSignOut();
-          setForceLanding(false);
         }
       });
       unsubscribe = () => subscription.unsubscribe();
     } catch {
-      setChecked(true);
+      queueMicrotask(() => {
+        if (!cancelled) setChecked(true);
+      });
     }
-    if (publicRoute) setChecked(true);
     return () => {
       cancelled = true;
       unsubscribe?.();

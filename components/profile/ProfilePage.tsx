@@ -65,7 +65,7 @@ import { filledButtonSx, outlineButtonSx } from "@/components/mui/cssVars";
 import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
 import { FS, FW, LH } from "@/lib/typography";
 
-const TAB_KEYS = ["usage", "referrals", "billing", "alerts", "integrations"] as const;
+const TAB_KEYS = ["usage", "career-profile", "referrals", "billing", "alerts", "integrations"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 function tabFromParam(value: string | null): TabKey {
@@ -92,6 +92,7 @@ export default function ProfilePage() {
   const [referralUnread, setReferralUnread] = useState(0);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [pendingCareerScroll, setPendingCareerScroll] = useState<string | null>(null);
 
   useEffect(() => subscribeReferralAlerts((snap) => setReferralUnread(snap.unread)), []);
 
@@ -250,10 +251,29 @@ export default function ProfilePage() {
   const initial = (displayName || "?").charAt(0).toUpperCase();
   const profileSubtitle = extractedData.role || extractedData.headline || "Add your experience and preferences once, then reuse them everywhere.";
 
-  const scrollToCareerMemory = useCallback(() => {
-    const el = document.getElementById("career-memory-editor");
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
+  const scrollToCareerMemory = useCallback((section?: string) => {
+    const target = section
+      ? document.querySelector(`[data-section="${section}"]`)
+      : document.getElementById("career-memory-editor");
+    if (tab !== "career-profile") {
+      setPendingCareerScroll(section ?? "career-memory-editor");
+      selectTab("career-profile");
+      return;
+    }
+    target?.scrollIntoView({ behavior: "smooth", block: section ? "center" : "start" });
+  }, [selectTab, tab]);
+
+  useEffect(() => {
+    if (tab !== "career-profile" || !pendingCareerScroll) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = pendingCareerScroll === "career-memory-editor"
+        ? document.getElementById(pendingCareerScroll)
+        : document.querySelector(`[data-section="${pendingCareerScroll}"]`);
+      target?.scrollIntoView({ behavior: "smooth", block: pendingCareerScroll === "career-memory-editor" ? "start" : "center" });
+      setPendingCareerScroll(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [pendingCareerScroll, tab]);
 
   const reviewExperience = useCallback(() => {
     setLedgerOpen((prev) => ({ ...prev, experience: true }));
@@ -271,6 +291,7 @@ export default function ProfilePage() {
 
   const tabs: Array<{ key: TabKey; label: string; icon: ReactElement }> = [
     { key: "usage", label: "Usage", icon: <BarChart3 size={16} /> },
+    { key: "career-profile", label: "Career profile", icon: <FileText size={16} /> },
     { key: "referrals", label: "Referrals", icon: <Users size={16} /> },
     { key: "billing", label: "Billing", icon: <CreditCard size={16} /> },
     { key: "alerts", label: "Job alerts", icon: <Bell size={16} /> },
@@ -287,6 +308,11 @@ export default function ProfilePage() {
               icon={<ClipboardList size={18} />}
               title="Application profile"
               subtitle="How complete your reusable application data is."
+              action={
+                <Button type="button" variant="text" onClick={() => scrollToCareerMemory()} sx={{ flexShrink: 0 }}>
+                  Edit profile
+                </Button>
+              }
             />
             <Box sx={{ p: 3 }}>
               <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
@@ -295,7 +321,7 @@ export default function ProfilePage() {
                 <Metric value={`${extractedData.skills?.length ?? 0}`} label="Skills saved" />
               </Stack>
               <Typography sx={{ mt: 2, fontSize: FS.bodyLg, lineHeight: LH.normal, color: "text.secondary", maxWidth: "65ch" }}>
-                The application profile and Career Memory editor below stay in sync. Update it once and Resunova can reuse it across jobs, tailoring, and autofill flows.
+                Your saved experience, skills, and preferences help Resunova prepare applications. Manage those details in Career profile.
               </Typography>
             </Box>
           </HubCard>
@@ -340,11 +366,14 @@ export default function ProfilePage() {
           locations={tailorDefaults.locations}
           onEditTargets={() => {
             setEditingTargets(true);
-            scrollToCareerMemory();
+            setLedgerOpen((prev) => ({ ...prev, "target-roles": true }));
+            scrollToCareerMemory("target-roles");
           }}
         />
       );
     }
+
+    if (tab === "career-profile") return null;
 
     return (
       <IntegrationsPanel
@@ -459,7 +488,7 @@ export default function ProfilePage() {
                 <Button
                   type="button"
                   variant="contained"
-                  onClick={scrollToCareerMemory}
+                  onClick={() => scrollToCareerMemory()}
                   sx={filledButtonSx}
                 >
                   {hasData ? "Edit profile" : "Complete profile"}
@@ -514,7 +543,8 @@ export default function ProfilePage() {
 
           {panel}
 
-          <Box id="career-memory-editor" sx={{ mt: 3.25 }}>
+          {tab === "career-profile" ? (
+            <Box id="career-memory-editor" sx={{ mt: 3.25, scrollMarginTop: 16 }}>
             <HubCard interactive={false}>
               <Stack
                 direction={{ xs: "column", sm: "row" }}
@@ -523,7 +553,7 @@ export default function ProfilePage() {
               >
                 <Box>
                   <Typography component="h2" sx={{ m: 0, fontSize: FS.h2, fontWeight: FW.extrabold, letterSpacing: "-0.03em" }}>
-                    Resume-backed profile editor
+                    Your career profile
                   </Typography>
                 </Box>
                 <Typography
@@ -537,7 +567,7 @@ export default function ProfilePage() {
                 </Typography>
               </Stack>
               <Typography sx={{ px: { xs: 2.25, sm: 3 }, pt: 1, pb: 2.5, fontSize: FS.bodyLg, color: "text.secondary", lineHeight: LH.normal, maxWidth: "65ch" }}>
-                This keeps the existing upload, review, and auto-save flow intact while the route adopts the new account-hub design.
+                Review the facts extracted from your résumé and update the details Resunova reuses when preparing applications.
               </Typography>
 
               {hasData ? (
@@ -757,7 +787,8 @@ export default function ProfilePage() {
                 </Box>
               )}
             </HubCard>
-          </Box>
+            </Box>
+          ) : null}
         </Box>
 
         <Toast />

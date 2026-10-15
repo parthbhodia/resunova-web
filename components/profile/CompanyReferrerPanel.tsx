@@ -308,7 +308,7 @@ export function CompanyReferrerPanel({
     setProfile(saved);
     setToast(nextOpen
       ? { title: "Requests are open", description: "People can ask you for a referral again.", variant: "success" }
-      : { title: "Requests paused", description: "Your link stays up, and new asks wait until you reopen.", variant: "success" });
+      : { title: "Requests paused", description: "Your link will not accept requests until you reopen it.", variant: "success" });
   }, [profile]);
 
   const shareUrl = profile
