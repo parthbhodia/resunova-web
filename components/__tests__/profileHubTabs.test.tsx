@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EMPTY_PROFILE } from "@/lib/profileStorage";
 import { INITIAL_EXTRACTED_PROFILE } from "@/lib/resumeExtractorService";
@@ -105,12 +105,42 @@ describe("IntegrationsPanel", () => {
         }}
         tailorDefaults={EMPTY_PROFILE}
         accountEmail="parth@example.com"
-        onEditProfile={vi.fn()}
+        onChangeLinks={vi.fn()}
+        onOpenCareerProfile={vi.fn()}
       />,
     );
     expect(await screen.findByText(/Connected as parth@example.com/)).toBeInTheDocument();
-    expect(screen.getByText("linkedin.com/in/parth")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("linkedin.com/in/parth")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("github.com/parth")).toBeInTheDocument();
     expect(screen.getByText("Resume tailoring")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Connect Google" })).not.toBeInTheDocument();
+  });
+
+  it("edits profile links in place instead of navigating away", async () => {
+    const onChangeLinks = vi.fn();
+    const onOpenCareerProfile = vi.fn();
+    render(
+      <IntegrationsPanel
+        extracted={{
+          ...INITIAL_EXTRACTED_PROFILE,
+          linkedin: "linkedin.com/in/parth",
+          github: "",
+          portfolio: "",
+        }}
+        tailorDefaults={EMPTY_PROFILE}
+        accountEmail="parth@example.com"
+        onChangeLinks={onChangeLinks}
+        onOpenCareerProfile={onOpenCareerProfile}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /^(Edit|Add)$/ })).not.toBeInTheDocument();
+    const linkedin = await screen.findByLabelText("LinkedIn URL");
+    fireEvent.change(linkedin, { target: { value: "https://linkedin.com/in/new" } });
+    expect(onChangeLinks).toHaveBeenCalledWith({
+      linkedin: "https://linkedin.com/in/new",
+      github: "",
+      portfolio: "",
+    });
+    expect(onOpenCareerProfile).not.toHaveBeenCalled();
   });
 });
