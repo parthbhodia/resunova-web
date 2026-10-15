@@ -69,9 +69,9 @@ describe("companyReferrers helpers", () => {
 
   it("counts the inbox pipeline and this-month slice", () => {
     const rows = [
-      { id: "1", referrerId: "r", candidateName: "A", candidateEmail: "", candidateLinkedin: null, role: "SWE", notes: null, source: "request" as const, status: "requested" as const, createdAt: "2026-10-02T00:00:00Z" },
-      { id: "2", referrerId: "r", candidateName: "B", candidateEmail: "", candidateLinkedin: null, role: "SWE", notes: null, source: "request" as const, status: "reviewing" as const, createdAt: "2026-10-04T00:00:00Z" },
-      { id: "3", referrerId: "r", candidateName: "C", candidateEmail: "", candidateLinkedin: null, role: "SWE", notes: null, source: "submitted" as const, status: "referred" as const, createdAt: "2026-09-01T00:00:00Z" },
+      { id: "1", referrerId: "r", candidateName: "A", candidateEmail: "", candidateLinkedin: null, resumePdfPath: null, role: "SWE", notes: null, source: "request" as const, status: "requested" as const, createdAt: "2026-10-02T00:00:00Z" },
+      { id: "2", referrerId: "r", candidateName: "B", candidateEmail: "", candidateLinkedin: null, resumePdfPath: null, role: "SWE", notes: null, source: "request" as const, status: "reviewing" as const, createdAt: "2026-10-04T00:00:00Z" },
+      { id: "3", referrerId: "r", candidateName: "C", candidateEmail: "", candidateLinkedin: null, resumePdfPath: null, role: "SWE", notes: null, source: "submitted" as const, status: "referred" as const, createdAt: "2026-09-01T00:00:00Z" },
     ];
     expect(referralRequestPipeline(rows)).toEqual({
       requested: 1,

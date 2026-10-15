@@ -176,6 +176,11 @@ export function AppBottomNav({
               label="Interview prep"
               onClick={() => { setMoreOpen(false); router.push("/interview-prep"); }}
             />
+            <Tile
+              icon={NAV_ICONS.referrals}
+              label="Referrals"
+              onClick={() => { setMoreOpen(false); router.push("/refer/"); }}
+            />
             <Tile icon={NAV_ICONS.profile} label="Profile" onClick={() => gotoGated("profile")} />
             <Tile
               icon={NAV_ICONS.history}

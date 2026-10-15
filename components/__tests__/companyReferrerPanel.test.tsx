@@ -81,6 +81,7 @@ describe("CompanyReferrerPanel", () => {
         candidateName: "Alex Kim",
         candidateEmail: "alex@example.com",
         candidateLinkedin: null,
+        resumePdfPath: null,
         role: "Backend Engineer",
         notes: "Applied last week.",
         source: "request",
