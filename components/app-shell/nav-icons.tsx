@@ -110,6 +110,24 @@ export const NAV_ICONS = {
       <path d="M14.5 5.5v3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   ),
+  referrals: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="5.25" cy="5" r="2.1" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M1.5 12.75c0-2 1.7-3.6 3.75-3.6s3.75 1.6 3.75 3.6"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+      <circle cx="11" cy="5.25" r="1.75" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M14.5 12.5c0-1.55-1.2-2.85-2.85-3.2"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  ),
   "cover-letter": (
     <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path

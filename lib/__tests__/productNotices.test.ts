@@ -16,7 +16,12 @@ function request(partial: Partial<CompanyReferralRequest> & Pick<CompanyReferral
     referrerId: "r1",
     candidateName: "Alex Kim",
     candidateEmail: "alex@example.com",
+    candidateUserId: null,
     candidateLinkedin: null,
+    resumePdfPath: null,
+    candidatePhone: null,
+    candidateYearsExperience: null,
+    candidateHeadline: null,
     role: "Backend Engineer",
     notes: null,
     source: "request",
@@ -111,19 +116,24 @@ describe("product notices", () => {
     });
   });
 
-  it("tells the candidate when a request is marked referred or declined", () => {
+  it("tells the candidate when a request is reviewing, referred, or declined", () => {
     const rows = [
       { id: "a", status: "referred", role: "Backend Engineer", referrerName: "Jordan Lee", referrerCompany: "Acme", updatedAt: "2026-10-12T12:00:00Z", createdAt: "2026-10-01T00:00:00Z" },
       { id: "b", status: "requested", role: "SWE", referrerName: "Jordan Lee", referrerCompany: "Acme", updatedAt: "2026-10-12T12:00:00Z", createdAt: "2026-10-11T00:00:00Z" },
       { id: "c", status: "declined", role: "SWE", referrerName: "Sam", referrerCompany: "Beta", updatedAt: "2026-10-02T00:00:00Z", createdAt: "2026-10-01T00:00:00Z" },
+      { id: "d", status: "reviewing", role: "SWE", referrerName: "Jordan Lee", referrerCompany: "Acme", updatedAt: "2026-10-12T13:00:00Z", createdAt: "2026-10-11T00:00:00Z" },
     ];
-    expect(unseenReferralOutcomes(rows, "2026-10-10T00:00:00Z").map((row) => row.id)).toEqual(["a"]);
-    expect(outcomeToastCopy(unseenReferralOutcomes(rows, "2026-10-10T00:00:00Z"))).toEqual({
+    expect(unseenReferralOutcomes(rows, "2026-10-10T00:00:00Z").map((row) => row.id)).toEqual(["a", "d"]);
+    expect(outcomeToastCopy(unseenReferralOutcomes(rows, "2026-10-10T00:00:00Z").filter((row) => row.id === "a"))).toEqual({
       title: "Referral update",
       description: "Jordan Lee marked you as referred for Backend Engineer at Acme.",
     });
     expect(outcomeToastCopy([rows[2]]).description).toBe(
       "Sam declined your referral request for SWE at Beta.",
     );
+    expect(outcomeToastCopy([rows[3]])).toEqual({
+      title: "Referral update",
+      description: "Jordan Lee is reviewing your referral request for SWE at Acme.",
+    });
   });
 });

@@ -58,12 +58,38 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
         <Card elevation={0} sx={surfaceCardSx}>
           <Stack component="form" spacing={1.5} onSubmit={(event) => void onSubmit(event)} sx={{ p: 3 }}>
             <Typography sx={{ ...mutedTextSx, fontSize: FS.small }}>
-              Add the role you want. Your account name and email fill in when available.
+              We prefill from your Resunova profile when we can. Add a LinkedIn URL or a PDF résumé.
             </Typography>
             <ReferField label="Your name" placeholder="e.g. Jordan Lee" value={ask.form.name} maxLength={REFERRER_LIMITS.name} required onChange={(value) => ask.setField("name", value)} />
             <ReferField label="Your email" type="email" placeholder="you@example.com" value={ask.form.email} maxLength={REFERRER_LIMITS.email} required onChange={(value) => ask.setField("email", value)} />
+            <ReferField label="Phone (optional)" type="tel" placeholder="e.g. +1 555 0100" value={ask.form.phone} maxLength={REFERRER_LIMITS.phone} onChange={(value) => ask.setField("phone", value)} />
+            <ReferField label="Years of experience (optional)" type="number" placeholder="e.g. 5" value={ask.form.years} maxLength={2} onChange={(value) => ask.setField("years", value)} />
+            <ReferField label="Headline (optional)" placeholder="e.g. Backend engineer, payments" value={ask.form.headline} maxLength={REFERRER_LIMITS.headline} onChange={(value) => ask.setField("headline", value)} />
             <ReferField label="Role you want" placeholder="e.g. Software Engineer" value={ask.form.role} maxLength={REFERRER_LIMITS.role} required onChange={(value) => ask.setField("role", value)} />
-            <ReferField label="LinkedIn or resume URL (optional)" placeholder="https://linkedin.com/in/your-name" value={ask.form.linkedin} maxLength={REFERRER_LIMITS.url} onChange={(value) => ask.setField("linkedin", value)} />
+            <ReferField
+              label="LinkedIn URL"
+              placeholder="https://linkedin.com/in/your-name"
+              value={ask.form.linkedin}
+              maxLength={REFERRER_LIMITS.url}
+              onChange={(value) => ask.setField("linkedin", value)}
+            />
+            <Stack spacing={0.75}>
+              <Typography component="label" htmlFor="referral-resume-upload" sx={{ fontSize: FS.small, fontWeight: FW.semibold, color: "var(--text)" }}>
+                Resume PDF
+              </Typography>
+              <input
+                id="referral-resume-upload"
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={(event) => ask.setResumeFile(event.target.files?.[0] ?? null)}
+                style={{ fontSize: 14, color: "var(--muted)" }}
+              />
+              <Typography sx={{ ...mutedTextSx, fontSize: FS.small }}>
+                {ask.form.resumeFile
+                  ? `Selected: ${ask.form.resumeFile.name}`
+                  : "PDF only, up to 5 MB. Required if you skip LinkedIn."}
+              </Typography>
+            </Stack>
             <ReferField
               label="Note to the referrer (optional)"
               placeholder="Why this role, and why this company"
