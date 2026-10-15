@@ -12,7 +12,7 @@ import {
   type SentReferralRequest,
 } from "@/lib/companyReferrers";
 import { ReferrerName } from "@/components/refer/ReferrerName";
-import { persistLastSeenSentReferral } from "@/lib/productNotices";
+import { onSentReferralRefresh, persistLastSeenSentReferral } from "@/lib/productNotices";
 
 const cardStyle: CSSProperties = {
   borderRadius: 18,
@@ -37,7 +37,7 @@ export function SentReferralsCard() {
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
+    const load = async () => {
       const next = await fetchMySentReferralRequests();
       if (cancelled) return;
       if (!next) {
@@ -47,9 +47,16 @@ export function SentReferralsCard() {
       }
       setRows(next);
       setLoading(false);
-    })();
+    };
+    void load();
     void persistLastSeenSentReferral();
-    return () => { cancelled = true; };
+    const stop = onSentReferralRefresh(() => {
+      void load();
+    });
+    return () => {
+      cancelled = true;
+      stop();
+    };
   }, []);
 
   const onNudge = async (row: SentReferralRequest) => {

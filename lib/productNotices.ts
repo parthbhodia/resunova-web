@@ -51,6 +51,7 @@ let alertSnapshot: ReferralAlertSnapshot = EMPTY_ALERT;
 const alertListeners = new Set<(snapshot: ReferralAlertSnapshot) => void>();
 let inboxOpen = false;
 const inboxRefreshers = new Set<() => void>();
+const sentRefreshers = new Set<() => void>();
 
 export function pendingProductNotice(dismissedIds: readonly string[]): ProductNotice | null {
   return PRODUCT_NOTICES.find((notice) => !dismissedIds.includes(notice.id)) ?? null;
@@ -104,7 +105,7 @@ export function notificationFeed(input: {
     items.push({
       id: "referral-outcomes",
       title: outcomeUnread === 1 ? "Referral update" : `${outcomeUnread} referral updates`,
-      body: "A request you sent was marked referred or declined.",
+      body: "A request you sent was updated (reviewing, referred, or declined).",
       href: "/profile?tab=referrals",
     });
   }
@@ -210,13 +211,15 @@ export type ReferralOutcome = {
   createdAt: string;
 };
 
+const OUTCOME_STATUSES = new Set(["reviewing", "referred", "declined"]);
+
 export function unseenReferralOutcomes<T extends ReferralOutcome>(
   rows: readonly T[],
   lastSeenAt: string | null,
 ): T[] {
   const cutoff = seenCutoff(lastSeenAt);
   return (rows ?? []).filter((row) => {
-    if (row.status !== "referred" && row.status !== "declined") return false;
+    if (!OUTCOME_STATUSES.has(row.status)) return false;
     const updated = Date.parse(row.updatedAt || row.createdAt);
     return Number.isFinite(updated) && updated > cutoff;
   });
@@ -233,6 +236,12 @@ export function outcomeToastCopy(rows: readonly ReferralOutcome[]): { title: str
   const who = row.referrerName.trim() || "Your referrer";
   const role = row.role.trim() || "the role";
   const place = row.referrerCompany.trim() ? ` at ${row.referrerCompany.trim()}` : "";
+  if (row.status === "reviewing") {
+    return {
+      title: "Referral update",
+      description: `${who} is reviewing your referral request for ${role}${place}.`,
+    };
+  }
   if (row.status === "declined") {
     return {
       title: "Referral update",
@@ -338,6 +347,17 @@ export function onReferralInboxRefresh(listener: () => void): () => void {
 
 export function requestReferralInboxRefresh() {
   inboxRefreshers.forEach((listener) => listener());
+}
+
+export function onSentReferralRefresh(listener: () => void): () => void {
+  sentRefreshers.add(listener);
+  return () => {
+    sentRefreshers.delete(listener);
+  };
+}
+
+export function requestSentReferralRefresh() {
+  sentRefreshers.forEach((listener) => listener());
 }
 
 function readStringList(storage: Storage, key: string): string[] {
