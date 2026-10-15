@@ -82,6 +82,25 @@ with the user's Supabase tokens. Two-step handshake:
 | `/api/extension/refresh` | POST | extension session | Rotate the session (invalidates the old token). |
 | `/api/extension/revoke` | POST | extension session | Revoke it. |
 | `/api/extension/profile` | GET | extension session | Return the merged profile + `profileComplete`. |
+| `/api/extension/applications` | POST | extension session | Record the job whose form was just filled. Lands as `status: "saved"`. |
+| `/api/extension/applications/{app_id}` | PATCH | extension session | Change status, e.g. to `"applied"` on submit. |
+
+### `POST /api/extension/applications`
+
+Body: `{ url, company?, title?, location? }`.
+
+- `url` must be `http(s)` and is the only required field. Anything else is 400, because the stored value renders as an `href` in the tracker and a `javascript:` URL there would be stored XSS.
+- The backend matches `url` against `job_postings.external_url`, exactly first and then normalised for query string and trailing slash. On a match it takes `company`, `title` and `location` from the posting and sets `posting_id`, so the tracker row carries the rich card. Client-supplied values are used only when there is no match.
+- `user_id` always comes from the extension session, never from the body.
+- Re-filling never moves a row backwards. `_should_set_status` from `routes/applications.py` decides, so a job at `interviewing` stays there and a `rejected` job is not silently reopened.
+
+Response: `{ id, status, created }`.
+
+### `PATCH /api/extension/applications/{app_id}`
+
+Body: `{ status }`, one of the `job_applications` statuses. Scoped to the session user; another user's id returns 404, deliberately indistinguishable from a missing row. `applied_at` is stamped only the first time an active status is set.
+
+The frontend reads these rows through the existing `GET /api/applications`, so the Application Tracker needs no change. `source` is stored but not rendered by the tracker today.
 
 `GET /api/extension/profile` response:
 
