@@ -25,11 +25,30 @@
 -- the qwen -> Grok -> Gemini chain was reachable. The sentinel exists because
 -- naming a guessed leg would silently exclude rows that need redoing.
 --
--- Run in Supabase SQL Editor → New query
+-- ⚠️ HOW TO APPLY — THE SQL EDITOR CANNOT RUN ALL OF THIS IN ONE PASTE.
+--
+-- STEP 1 (Supabase SQL Editor → New query): everything above the STEP 2 fence.
+-- STEP 2 (optional, and NOT in the SQL Editor): the index at the bottom.
+--
+-- Why they must be separate: the editor wraps the whole buffer in a
+-- transaction, and `create index concurrently` is refused inside one
+-- (SQLSTATE 25001: cannot run inside a transaction block). Splitting the paste
+-- into two statements does not help — both are still in the same transaction.
+--
+-- ⚠️ AND `lock_timeout` IS NOT OPTIONAL WHILE EXTRACTION WORKERS ARE RUNNING.
+-- `add column` needs ACCESS EXCLUSIVE. The change itself is catalog-only and
+-- takes milliseconds, but ACQUIRING the lock waits behind any in-flight
+-- statement on job_postings — and while it waits, every query arriving after it
+-- QUEUES BEHIND IT, reads included. That is how a millisecond DDL stalls a whole
+-- table. The timeout makes it fail fast and retryable instead of piling up.
+
+set lock_timeout = '3s';
 
 alter table public.job_postings
   add column if not exists extractor_model  text,
   add column if not exists extractor_prompt text;
+
+reset lock_timeout;
 
 comment on column public.job_postings.extractor_model is
   'Model that wrote requirement_concepts (EXTRACT_LLM_MODEL at write time, or '
@@ -43,9 +62,25 @@ comment on column public.job_postings.extractor_prompt is
   'The prompt decides importance buckets too, so a prompt edit splits the corpus '
   'exactly as a model swap does.';
 
--- Partial index on the extracted rows only: the one query this column exists to
--- serve is "which extracted rows did NOT come from <model>", and the ~unextracted
--- backlog is irrelevant to it.
-create index concurrently if not exists job_postings_extractor_model_idx
-  on public.job_postings (extractor_model, extractor_prompt)
-  where requirement_concepts is not null;
+-- ===========================================================================
+-- STEP 2 — OPTIONAL, and deliberately so. Do NOT paste this in the SQL Editor.
+-- ===========================================================================
+--
+-- ⚠️ THIS INDEX IS A CONVENIENCE, NOT A REQUIREMENT. The only query these
+-- columns exist to serve is an occasional ops count ("which extracted rows did
+-- not come from <model>"), run once around a cutover — not a request path. A
+-- sequential scan answers it fine. Skipping this costs nothing a user can feel,
+-- so if STEP 1 is applied you are done.
+--
+-- Run it only from a client that is NOT inside a transaction — psql, or any
+-- connection with autocommit on:
+--
+--   psql "$DATABASE_URL" -c "create index concurrently if not exists
+--     job_postings_extractor_model_idx on public.job_postings
+--     (extractor_model, extractor_prompt) where requirement_concepts is not null;"
+--
+-- ⚠️ Use CONCURRENTLY and nothing else. A plain `create index` takes a SHARE
+-- lock, which BLOCKS every write to job_postings for the whole build — and the
+-- extraction workers are doing nothing but writing to it. CONCURRENTLY trades
+-- speed for that: it can leave an INVALID index if it fails, so check with
+-- `\d job_postings` and drop-and-retry if you see one.
