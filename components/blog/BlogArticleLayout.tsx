@@ -107,9 +107,9 @@ function RelatedPosts({ currentSlug }: { currentSlug: string }) {
   const current = blogPostBySlug(currentSlug);
   if (!current) return null;
 
-  const related = BLOG_POSTS
-    .filter((post) => post.slug !== currentSlug)
-    .toSorted((a, b) => Number(b.tag === current.tag) - Number(a.tag === current.tag))
+  const related = current.relatedSlugs
+    .map((slug) => BLOG_POSTS.find((post) => post.slug === slug))
+    .filter((post): post is (typeof BLOG_POSTS)[number] => post !== undefined)
     .slice(0, 3);
 
   return (

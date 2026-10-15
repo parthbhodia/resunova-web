@@ -19,7 +19,13 @@ describe("blog SEO contract", () => {
       expect(post.publishedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(post.modifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(post.modifiedAt >= post.publishedAt).toBe(true);
+      expect(post.seoTitle.length).toBeLessThanOrEqual(60);
       expect(post.seoDescription.length).toBeLessThanOrEqual(160);
+      expect(post.relatedSlugs.length).toBeGreaterThan(0);
+      expect(post.relatedSlugs).not.toContain(post.slug);
+      for (const relatedSlug of post.relatedSlugs) {
+        expect(BLOG_POSTS.some((candidate) => candidate.slug === relatedSlug)).toBe(true);
+      }
     }
 
     // Sitemap freshness signal: the newest modifiedAt across all posts. Bump
@@ -39,11 +45,12 @@ describe("blog SEO contract", () => {
         modifiedTime: string;
       };
 
-      expect(metadata.title).toBe(post.title);
+      expect(metadata.title).toBe(post.seoTitle);
       expect(String(metadata.title)).not.toContain("Resunova Blog");
       expect(metadata.alternates?.canonical).toBe(canonical);
       expect(openGraph.type).toBe("article");
       expect(openGraph.url).toBe(canonical);
+      expect(metadata.openGraph?.title).toBe(post.title);
       expect(openGraph.publishedTime).toBe(`${post.publishedAt}T00:00:00.000Z`);
       expect(openGraph.modifiedTime).toBe(`${post.modifiedAt}T00:00:00.000Z`);
       expect(blogPostHref(post.slug)).toBe(`/blog/${post.slug}/`);

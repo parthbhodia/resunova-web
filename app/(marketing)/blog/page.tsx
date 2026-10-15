@@ -12,7 +12,7 @@ import {
 
 export const metadata: Metadata = {
   // No "· Resunova" suffix here: the root layout applies template "%s · Resunova".
-  title: "Blog",
+  title: "Job Market Research and Résumé Guides",
   description:
     "Original research from a live corpus of about 270,000 job postings pulled straight from company hiring systems, plus practical guides to the software reading your résumé.",
   robots: { index: true, follow: true },
@@ -51,7 +51,7 @@ export default function BlogIndexPage() {
         fontFamily: "'DM Sans', -apple-system, sans-serif",
       }}
     >
-        <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1, margin: "0 0 12px" }}>Blog</h1>
+        <h1 style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1, margin: "0 0 12px" }}>Job market research and résumé guides</h1>
         <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.65, margin: "0 0 14px", maxWidth: 640 }}>
           We pull about 270,000 live job postings straight from company hiring systems, then publish what the numbers
           actually say. Plus practical guides to the software reading your résumé.
