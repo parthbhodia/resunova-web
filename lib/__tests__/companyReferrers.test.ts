@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateOpenCompanies,
   filterOpenCompanies,
+  approxYearsFromExperience,
   isUsableEmail,
   makeReferrerSlug,
   mapReferrerRow,
@@ -9,6 +10,8 @@ import {
   nudgeAvailability,
   nudgeButtonLabel,
   openRequestCount,
+  parseYearsExperience,
+  referralCandidatePath,
   referralRequestPipeline,
   referralRequestsThisMonth,
   referralWriteError,
@@ -59,19 +62,41 @@ describe("companyReferrers helpers", () => {
       candidate_name: "Alex Kim",
       candidate_email: "alex@example.com",
       candidate_linkedin: null,
+      candidate_phone: "555-0100",
+      candidate_years_experience: 4,
+      candidate_headline: "Backend",
       role: "Backend Engineer",
       notes: null,
       source: "request",
       status: "mystery",
       created_at: "2026-01-03T00:00:00Z",
-    }).status).toBe("requested");
+    })).toMatchObject({
+      status: "requested",
+      candidatePhone: "555-0100",
+      candidateYearsExperience: 4,
+      candidateHeadline: "Backend",
+    });
+    expect(parseYearsExperience("5 years")).toBe(5);
+    expect(parseYearsExperience("99")).toBeNull();
+    expect(approxYearsFromExperience([
+      { dates: "2019 – 2021" },
+      { dates: "2021 – Present" },
+    ])).toBe(new Date().getFullYear() - 2019);
+    expect(referralCandidatePath("abc")).toBe("/refer/candidate/?r=abc");
   });
 
   it("counts the inbox pipeline and this-month slice", () => {
+    const emptyPacket = {
+      candidateUserId: null as string | null,
+      candidatePhone: null as string | null,
+      candidateYearsExperience: null as number | null,
+      candidateHeadline: null as string | null,
+      resumePdfPath: null as string | null,
+    };
     const rows = [
-      { id: "1", referrerId: "r", candidateName: "A", candidateEmail: "", candidateLinkedin: null, resumePdfPath: null, role: "SWE", notes: null, source: "request" as const, status: "requested" as const, createdAt: "2026-10-02T00:00:00Z" },
-      { id: "2", referrerId: "r", candidateName: "B", candidateEmail: "", candidateLinkedin: null, resumePdfPath: null, role: "SWE", notes: null, source: "request" as const, status: "reviewing" as const, createdAt: "2026-10-04T00:00:00Z" },
-      { id: "3", referrerId: "r", candidateName: "C", candidateEmail: "", candidateLinkedin: null, resumePdfPath: null, role: "SWE", notes: null, source: "submitted" as const, status: "referred" as const, createdAt: "2026-09-01T00:00:00Z" },
+      { id: "1", referrerId: "r", candidateName: "A", candidateEmail: "", candidateLinkedin: null, ...emptyPacket, role: "SWE", notes: null, source: "request" as const, status: "requested" as const, createdAt: "2026-10-02T00:00:00Z" },
+      { id: "2", referrerId: "r", candidateName: "B", candidateEmail: "", candidateLinkedin: null, ...emptyPacket, role: "SWE", notes: null, source: "request" as const, status: "reviewing" as const, createdAt: "2026-10-04T00:00:00Z" },
+      { id: "3", referrerId: "r", candidateName: "C", candidateEmail: "", candidateLinkedin: null, ...emptyPacket, role: "SWE", notes: null, source: "submitted" as const, status: "referred" as const, createdAt: "2026-09-01T00:00:00Z" },
     ];
     expect(referralRequestPipeline(rows)).toEqual({
       requested: 1,

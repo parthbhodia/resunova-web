@@ -37,11 +37,16 @@ export type CompanyReferrer = {
 export type CompanyReferralRequest = {
   id: string;
   referrerId: string;
+  candidateUserId: string | null;
   candidateName: string;
   candidateEmail: string;
   candidateLinkedin: string | null;
   /** Private Storage object path in `referral-resumes` (not a public URL). */
   resumePdfPath: string | null;
+  candidatePhone: string | null;
+  /** Whole years of experience at ask time (0–50). */
+  candidateYearsExperience: number | null;
+  candidateHeadline: string | null;
   role: string;
   notes: string | null;
   source: "request" | "submitted";
@@ -71,6 +76,9 @@ export const REFERRER_LIMITS = {
   role: 120,
   email: 120,
   notes: 2000,
+  phone: 40,
+  headline: 160,
+  years: 50,
 } as const;
 
 export type ReferralWriteResult = {
@@ -120,10 +128,14 @@ type ReferrerRow = {
 type RequestRow = {
   id: string;
   referrer_id: string;
+  candidate_user_id?: string | null;
   candidate_name: string | null;
   candidate_email: string | null;
   candidate_linkedin: string | null;
   resume_pdf_path?: string | null;
+  candidate_phone?: string | null;
+  candidate_years_experience?: number | null;
+  candidate_headline?: string | null;
   role: string | null;
   notes: string | null;
   source: string | null;
@@ -176,13 +188,19 @@ export function mapRequestRow(row: RequestRow): CompanyReferralRequest {
   const status = REFERRAL_REQUEST_STATUSES.includes(row.status as ReferralRequestStatus)
     ? (row.status as ReferralRequestStatus)
     : "requested";
+  const years = row.candidate_years_experience;
   return {
     id: row.id,
     referrerId: row.referrer_id,
+    candidateUserId: row.candidate_user_id ?? null,
     candidateName: row.candidate_name ?? "",
     candidateEmail: row.candidate_email ?? "",
     candidateLinkedin: row.candidate_linkedin,
     resumePdfPath: row.resume_pdf_path ?? null,
+    candidatePhone: row.candidate_phone ?? null,
+    candidateYearsExperience:
+      typeof years === "number" && Number.isFinite(years) ? Math.max(0, Math.min(50, Math.round(years))) : null,
+    candidateHeadline: row.candidate_headline ?? null,
     role: row.role ?? "",
     notes: row.notes,
     source: row.source === "submitted" ? "submitted" : "request",
@@ -192,6 +210,51 @@ export function mapRequestRow(row: RequestRow): CompanyReferralRequest {
     nudgeCount: row.nudge_count ?? 0,
     lastNudgedAt: row.last_nudged_at ?? null,
   };
+}
+
+/** Parse a whole-year count from a typed value or labels like "5 years". */
+export function parseYearsExperience(value: string | number | null | undefined): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const n = Math.round(value);
+    return n >= 0 && n <= REFERRER_LIMITS.years ? n : null;
+  }
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const match = raw.match(/(\d{1,2})/);
+  if (!match) return null;
+  const n = Number(match[1]);
+  return Number.isFinite(n) && n >= 0 && n <= REFERRER_LIMITS.years ? n : null;
+}
+
+/** Approximate years from extracted experience date strings (YYYY…YYYY). */
+export function approxYearsFromExperience(
+  experience: ReadonlyArray<{ dates?: string | null }> | null | undefined,
+): number | null {
+  if (!experience?.length) return null;
+  let earliest = new Date().getFullYear();
+  let latest = 0;
+  for (const exp of experience) {
+    const startMatch = exp.dates?.match(/(\d{4})/);
+    if (startMatch) {
+      const year = parseInt(startMatch[1], 10);
+      if (year < earliest) earliest = year;
+    }
+    const endMatch = exp.dates?.match(/(Present|Current|\d{4})\s*$/i);
+    if (endMatch) {
+      const year = /present|current/i.test(endMatch[1])
+        ? new Date().getFullYear()
+        : parseInt(endMatch[1], 10);
+      if (year > latest) latest = year;
+    }
+  }
+  if (latest < earliest) return null;
+  return parseYearsExperience(latest - earliest);
+}
+
+/** Deep link to the referrer-facing candidate packet for one request. */
+export function referralCandidatePath(requestId: string): string {
+  const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+  return `${base}/refer/candidate/?r=${encodeURIComponent(requestId)}`;
 }
 
 export function isUsableEmail(value: string): boolean {
@@ -380,7 +443,7 @@ const REFERRER_PUBLIC_SELECT_BASE =
   "id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at";
 const REFERRER_PUBLIC_SELECT = `${REFERRER_PUBLIC_SELECT_BASE}, referred_count`;
 const REQUEST_SELECT_BASE =
-  "id, referrer_id, candidate_name, candidate_email, candidate_linkedin, resume_pdf_path, role, notes, source, status, created_at";
+  "id, referrer_id, candidate_user_id, candidate_name, candidate_email, candidate_linkedin, resume_pdf_path, candidate_phone, candidate_years_experience, candidate_headline, role, notes, source, status, created_at";
 const REQUEST_SELECT = `${REQUEST_SELECT_BASE}, updated_at, nudge_count, last_nudged_at`;
 
 function columnMissing(error: { message?: string } | null | undefined, column: string): boolean {
@@ -670,6 +733,9 @@ export async function createReferralRequest(input: {
   candidateEmail?: string;
   candidateLinkedin?: string;
   resumePdfPath?: string | null;
+  candidatePhone?: string;
+  candidateYearsExperience?: string | number | null;
+  candidateHeadline?: string;
   role: string;
   notes?: string;
   source?: "request" | "submitted";
@@ -679,6 +745,9 @@ export async function createReferralRequest(input: {
   const role = clip(input.role, REFERRER_LIMITS.role);
   const notes = clip(input.notes ?? "", REFERRER_LIMITS.notes) || null;
   const resumePdfPath = clip(input.resumePdfPath ?? "", REFERRER_LIMITS.url) || null;
+  const candidatePhone = clip(input.candidatePhone ?? "", REFERRER_LIMITS.phone) || null;
+  const candidateYearsExperience = parseYearsExperience(input.candidateYearsExperience);
+  const candidateHeadline = clip(input.candidateHeadline ?? "", REFERRER_LIMITS.headline) || null;
   const source = input.source ?? "request";
   const askError =
     "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn URL or resume PDF.";
@@ -703,6 +772,9 @@ export async function createReferralRequest(input: {
     candidate_email: candidateEmail,
     candidate_linkedin: candidateLinkedin,
     resume_pdf_path: resumePdfPath,
+    candidate_phone: candidatePhone,
+    candidate_years_experience: candidateYearsExperience,
+    candidate_headline: candidateHeadline,
     role,
     notes,
     source,
@@ -738,10 +810,14 @@ export async function createReferralRequest(input: {
       request: mapRequestRow({
         id: "pending",
         referrer_id: input.referrerId,
+        candidate_user_id: null,
         candidate_name: candidateName,
         candidate_email: candidateEmail,
         candidate_linkedin: payload.candidate_linkedin,
         resume_pdf_path: payload.resume_pdf_path,
+        candidate_phone: payload.candidate_phone,
+        candidate_years_experience: payload.candidate_years_experience,
+        candidate_headline: payload.candidate_headline,
         role,
         notes,
         source,
@@ -753,6 +829,27 @@ export async function createReferralRequest(input: {
   } catch (err) {
     console.warn("[company_referral_requests] insert:", err);
     return { request: null, error: referralWriteError(null) };
+  }
+}
+
+/** Load one request the signed-in user may read (referrer or candidate). */
+export async function fetchReferralRequestById(id: string): Promise<LoadResult<CompanyReferralRequest | null>> {
+  const trimmed = id.trim();
+  if (!trimmed) return { ok: true, data: null };
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("company_referral_requests")
+      .select(REQUEST_SELECT)
+      .eq("id", trimmed)
+      .maybeSingle();
+    if (error) {
+      console.warn("[company_referral_requests] fetch by id:", error.message);
+      return { ok: false, error: "Could not load this candidate profile. Try again." };
+    }
+    return { ok: true, data: data ? mapRequestRow(data as RequestRow) : null };
+  } catch (err) {
+    console.warn("[company_referral_requests] fetch by id:", err);
+    return { ok: false, error: "Could not load this candidate profile. Try again." };
   }
 }
 
