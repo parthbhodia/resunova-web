@@ -68,6 +68,16 @@ export default function ResumeExamplesHubPage() {
           </Link>{" "}
           instead.
         </p>
+        {/* The inbound half of the templates bridge. /templates answers "which
+            layout should I use" and /resume-examples answers "what do I put in
+            it". They are the same intent arriving in two places, and until now
+            only one of them pointed at the other. */}
+        <p style={{ marginTop: 12, fontSize: 13, color: "var(--dim)", lineHeight: 1.6, textAlign: "center" }}>
+          Want the layout rather than the words?{" "}
+          <Link href="/templates/" style={{ color: "var(--accent)" }}>
+            Browse ATS-friendly resume templates →
+          </Link>
+        </p>
       </div>
     </div>
   );

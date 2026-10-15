@@ -100,8 +100,9 @@ function AppShellBody({ children }: { children: ReactNode }) {
   const active = useAppView();
   const onTemplateBuilderPage =
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
-  const onTemplatesPage =
-    (pathname ?? "").replace(/\/$/, "") === "/templates";
+  // /templates used to live here and needed this check for nav highlighting.
+  // It moved to the (marketing) group so it would server-render, so AppShell
+  // never mounts on that route again and this would be permanently false.
   const onTailor2Page =
     (pathname ?? "").replace(/\/$/, "") === "/tailor-2";
   const onInterviewPrepPage =
@@ -264,7 +265,6 @@ function AppShellBody({ children }: { children: ReactNode }) {
               <AppSidebar
                 active={active}
                 onTemplateBuilderPage={onTemplateBuilderPage}
-                onTemplatesPage={onTemplatesPage}
                 onInterviewPrepPage={onInterviewPrepPage}
                 onCareerProfilePage={onCareerProfilePage}
                 builderActive={builderActive}

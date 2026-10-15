@@ -38,6 +38,7 @@ const NAV = [
 const FOOTER = [
   ["Blog", "/blog"],
   ["Resume Examples", "/resume-examples"],
+  ["Resume Templates", "/templates"],
   ["Skills for Resume", "/skills-for-resume"],
   ["Cover Letter", "/cover-letter"],
   ["ATS Checker", "/ats-resume-checker"],
