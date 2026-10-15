@@ -86,33 +86,120 @@ thing standing between 0 requests and 1.
 
 ---
 
-## 3. Options considered
+## 3. Delivery channel: email, Chrome push, or both
 
-| | Approach | Reaches closed tab | Retryable | Observable | Blast radius |
-|---|---|---|---|---|---|
-| **A** | DB trigger → `pg_net` → Resend, inline | yes | **no** | **no** | small |
-| **B** | DB trigger → **outbox table** → api drains it | yes | yes | yes | small |
-| **C** | Route referral writes through the api | yes | yes | yes | **large** |
-| **D** | Realtime + poll only (today) | **no** | n/a | n/a | zero |
+> ⚠️ **CORRECTION to the first draft of this section.** It claimed a trigger
+> calling out via `pg_net` would "raise and abort the referral the user just
+> submitted." **That is wrong.** `pg_net` is asynchronous by design:
+> `net.http_post()` enqueues into `net.http_request_queue`, returns a request id
+> immediately, and a background worker performs the call — it cannot fail the
+> caller's transaction. R5 holds for `pg_net` too. The real objections are
+> narrower (no retry; `net._http_response` is garbage-collected after ~6h; and
+> nobody reads that table), and correcting them opens **option E** below, which
+> is now recommended over the cron-only design.
 
-**A is the tempting one and it is wrong.** An HTTP call inside a trigger has two
-endings and both are bad: it raises and **aborts the referral the user just
-submitted** (violates R5), or it is swallowed and the notification vanishes with
-no record (violates R4). That is precisely the shape this codebase keeps paying
-for — a frozen SEO cache that went green, a snapshot workflow that went green
-over a total outage, a `catch {}` that rendered a 401 as "∞ Unlimited".
+### Email vs Web Push, measured against this product
 
-**C undoes the feature's architecture** to buy a send path. The client-direct +
-RLS design is working and its tenant boundary is in the database, which is the
-right place for it. Do not trade that away for an email.
+| | Email (Resend) | Chrome / Web Push |
+|---|---|---|
+| Reach, desktop | everyone | Chrome must be **running** (tab may be closed) |
+| Reach, Android | everyone | good |
+| ⚠️ Reach, **iOS** | everyone | **only if installed to the home screen** (iOS 16.4+); a plain Safari tab gets nothing |
+| Permission needed | **none** | **one prompt, one chance** — a Block is permanent |
+| Address already held | **yes**, from signup | no — needs a per-device subscription |
+| Survives clearing site data | yes | **no** |
+| Latency | seconds | seconds |
+| Build cost here | **~0 infra** — Resend + `_notify_prefs_for_user` already wired | service worker (none registered today), VAPID keypair, `push_subscriptions` table, `pywebpush`, 410-Gone reaping |
 
-**Recommended: B.** It splits the two facts that must not share a fate —
-*the referral happened* (durable, inside the transaction) and *the notice was
-delivered* (retryable, outside it).
+**Recommendation: email first, push later, and the sequencing is not a hedge.**
 
----
+1. ⚠️ **A referral ask needs "within hours," not "within seconds."** Push buys
+   salience, not reach — and on the one channel that matters most for a
+   candidate-facing product, **iOS, it buys nothing at all** unless they
+   installed the PWA. `public/site.webmanifest` exists with
+   `display: standalone`, but **no service worker is registered anywhere in the
+   tree**, so there is no installed-PWA population today to push to.
+2. ⚠️ **The permission prompt is a one-shot asset and asking early wastes it.**
+   A Block is permanent per origin, and Chrome degrades the prompt to quiet UI
+   for origins with low accept rates. The only honest moment to ask is **right
+   after someone publishes a referral desk** — they have just opted into
+   receiving asks, so the prompt has an obvious reason. Asking on first load
+   burns it.
+3. **A subscription is per-device and decays.** A `410 Gone` from the push
+   service means delete the row; skip that and dead subscriptions accumulate and
+   the "sent" count starts lying — the same class of false-confidence bug as a
+   401 body rendering "∞ Unlimited".
 
-## 4. Recommended design
+> ⚠️ **AND THIS IS THE ARGUMENT FOR THE OUTBOX, so it is not over-engineering
+> for one email: with an outbox, push is a `channel` column on the same rows.**
+> Build `channel='email'` now; adding `channel='web_push'` later is a new row
+> type and a second sender in the same drain, with the dedupe, retry, prefs and
+> failure record already built. A one-off trigger→Resend call buys one email and
+> has to be thrown away to get the second channel.
+
+### Transport options for the email itself
+
+| | Approach | Reaches closed tab | Latency | Retry | Permanent record | Blast radius |
+|---|---|---|---|---|---|---|
+| **A** | trigger → `pg_net` → Resend | yes | seconds | **no** | **~6h only** | small |
+| **B** | trigger → outbox → api drains on cron | yes | ≤ cron period | yes | yes | small |
+| **C** | route referral writes through the api | yes | immediate | yes | yes | **large** |
+| **D** | Realtime + poll only (today) | **no** | — | — | — | zero |
+| **E** | **trigger → outbox + `pg_net` ping; cron sweeps** | yes | **seconds** | yes | yes | small |
+
+**C undoes the feature's architecture** to buy a send path. Client-direct + RLS
+works and its tenant boundary is in the database, which is the right place for
+it. Do not trade that away for an email. **B alone** is sound but pays a full
+cron period on the one notification where latency is the point.
+
+### Recommended: E — outbox for durability, `pg_net` for speed
+
+The trigger does two things in one transaction: `INSERT ... ON CONFLICT
+(dedupe_key) DO NOTHING` into `notification_outbox` (the durable fact), then
+`net.http_post()` to the drain as a **best-effort wake, not the delivery
+mechanism**. The cron becomes a **retry sweeper**. If the ping lands, the email
+goes in seconds; if it is lost or the api is mid-deploy, the next sweep sends it.
+**Nothing is ever only in flight** — the row exists before the ping does, so the
+worst case is late, never lost.
+
+> ⚠️ The ping carries **no payload worth trusting** — just "go drain." The api
+> re-reads the outbox with service-role and decides what to send. An endpoint
+> that took recipient and body from its caller would be an open relay.
+
+### Edge Function or the api?
+
+**The api, and not narrowly.** It already owns transactional email: Resend is
+wired, `_notify_prefs_for_user()` already defaults correctly for the 85% of
+users with no `user_profiles` row, failures are logged, and `POST /api/jobs/scan`
+is the secret-gated + single-flight pattern to copy. A Supabase Edge Function
+would add a **second email surface, in a second language, on a second deploy
+pipeline** — the two-implementations-of-one-thing pattern this repo keeps paying
+for, and two places that must agree about notify prefs.
+
+### Abuse: already handled by the schema
+
+> ⚠️ A surface that mails a stranger on someone else's action is normally an
+> email-bombing vector — `/api/blog/subscribe` carries a 15-minute per-address
+> cooldown for exactly this. **Here migration 045 already bounds it:**
+>
+> ```sql
+> create unique index company_referral_requests_open_email_idx
+>   on public.company_referral_requests (referrer_id, lower(candidate_email))
+>   where source = 'request' and status in ('requested','reviewing')
+>     and candidate_email <> '';
+> ```
+>
+> **One open ask per (referrer, email)** — a re-ask collides, so it cannot
+> re-trigger the mail. With `dedupe_key = ask:<request_id>` on top it is
+> enforced twice over. **No cooldown needed.**
+>
+> Re-asking only becomes possible once the referrer moves the row to `referred`
+> or `declined` — their own action, and a legitimately new ask. The vector left
+> is **one account asking many different referrers**, which spreads across many
+> inboxes rather than bombing one; not gated initially, but the thing to watch
+> if desks get volume.
+
+## 4. Recommended design in full
 
 ```
   CANDIDATE                                              REFERRER
@@ -125,20 +212,23 @@ delivered* (retryable, outside it).
 │   UPDATE status → candidate should be   │                   │
 └──────────────────┬──────────────────────┘                   │
                    │ AFTER INSERT OR UPDATE OF status         │
-                   │ (same transaction — cannot be lost,      │
-                   │  cannot call out, cannot fail the write) │
+                   │ (same transaction; neither step can      │
+                   │  fail the user's write)                  │
                    ▼                                          │
         ┌───────────────────────────────┐                      │
         │ public.notification_outbox    │  ← the seam          │
-        │  dedupe_key UNIQUE  (R3)      │                      │
+        │  dedupe_key UNIQUE      (R3)  │                      │
+        │  channel: email (push later)  │                      │
         │  status: pending|sent|failed  │                      │
-        │  attempts, last_error  (R4)   │                      │
+        │  attempts, last_error   (R4)  │                      │
         └───────────────┬───────────────┘                      │
-                        │ service-role drain, every 5 min      │
+                        │ 1. pg_net wake  → seconds            │
+                        │ 2. cron sweep   → retry, every 5 min │
                         ▼                                      │
         ┌───────────────────────────────┐                      │
         │ api: POST /api/notifications/ │                      │
-        │      drain  (secret-gated)    │                      │
+        │      drain  (secret-gated,    │                      │
+        │             single-flight)    │                      │
         │  • claim FOR UPDATE SKIP      │                      │
         │    LOCKED  (parallel-safe)    │                      │
         │  • resolve recipient + prefs  │                      │
@@ -153,10 +243,12 @@ delivered* (retryable, outside it).
 
 ### The trigger
 
-`AFTER INSERT OR UPDATE OF status ON company_referral_requests`, writing one
-outbox row. It only ever does an `INSERT ... ON CONFLICT (dedupe_key) DO
-NOTHING` into a local table — no network, no failure mode that can reach the
-user's write. R5 holds by construction.
+`AFTER INSERT OR UPDATE OF status ON company_referral_requests`: one
+`INSERT ... ON CONFLICT (dedupe_key) DO NOTHING` into the outbox, then one
+`net.http_post()` wake to the drain (§3, option E). Both are non-blocking — the
+insert is local and `pg_net` enqueues rather than calls — so R5 holds by
+construction, and **the row exists before the ping does**, which is what makes
+the worst case late rather than lost.
 
 `dedupe_key` is the whole of R3:
 
@@ -164,21 +256,22 @@ user's write. R5 holds by construction.
 - status → `status:<request_id>:<new_status>`
 
 So Reviewing → Declined → Reviewing sends **one** Reviewing email, because the
-second attempt collides on the unique index. This is the same lesson as the
-`login` event dedupe: supabase-js re-emits `SIGNED_IN` on tab refocus, and
-without a key the count inflates by however many times someone changed tabs.
+second attempt collides on the unique index. Same lesson as the `login` event
+dedupe: supabase-js re-emits `SIGNED_IN` on tab refocus, and without a key the
+count inflates by however many times someone changed tabs.
 
-> ⚠️ Fire the trigger on `UPDATE OF status` only, not bare `UPDATE`. The
-> status-only guard trigger (migration 057) stamps `updated_at` on every
-> accepted update, so a bare `AFTER UPDATE` would queue a row for a nudge.
+> ⚠️ Fire on `UPDATE OF status`, not bare `UPDATE`. The status-only guard
+> trigger (migration 057) stamps `updated_at` on every accepted update, so a
+> bare `AFTER UPDATE` would queue a row for a nudge.
 
 ### The drain
 
-A new secret-gated route, following `POST /api/jobs/scan` exactly: `X-...-Secret`
-compared to an env var, 403 when unset, **single-flight module lock returning 409
-on overlap** — that lock is not decoration, it is the fix for a bug this repo has
-already shipped once, where edge-dropped responses caused retries to stack
-concurrent sweeps that re-did the same work.
+A new secret-gated route following `POST /api/jobs/scan` exactly: `X-...-Secret`
+compared to an env var, 403 when unset, and a **module-level single-flight lock
+returning 409 on overlap**. That lock is not decoration — it is the fix for a
+bug this repo has already shipped, where edge-dropped responses caused retries
+to stack concurrent sweeps that redid the same work. With a `pg_net` ping *and* a
+cron on the same queue, overlap is now the normal case rather than the rare one.
 
 Claiming uses `FOR UPDATE SKIP LOCKED`, the same primitive as
 `claim_extraction_batch`, so two drains never send the same email.
@@ -226,18 +319,23 @@ deleting it — the corpse is the evidence.
 
 | Phase | Work | Gets you |
 |---|---|---|
-| 0 | **Nothing. Wait for one real desk + one real ask.** | the measurement this design does not have |
-| 1 | migration: `notification_outbox` + trigger + `notify_prefs.referrals` | the fact is durable the moment it happens, even with no sender |
-| 2 | api drain route + cron + reuse `_notify_prefs_for_user` | R1, R2 |
+| 0 | **Wait for one real desk + one real ask.** | the measurement this design does not have |
+| 1 | migration: `notification_outbox` (with `channel`) + trigger + `notify_prefs.referrals` | the fact is durable the moment it happens, even with no sender |
+| 2 | api drain route + `pg_net` wake + cron; reuse `_notify_prefs_for_user` | **R1, R2 — the referrer-on-ask email, which is the ask** |
 | 3 | email templates (ask received / status changed) | — |
 | 4 | admin panel reads `failed` rows | R4 end to end |
+| 5 | *optional:* Web Push as `channel='web_push'` — service worker, VAPID, `push_subscriptions`, prompt **after a desk is published** | salience, on Chrome/Android and installed-PWA iOS only |
 
 > Phase 1 alone is worth landing early and is safe: it starts **recording** what
-> would have been sent, with no sender attached. After a week you can answer "how
-> many notifications would this have delivered" from data rather than from a
-> guess — and that is the number that justifies phases 2–4.
+> would have been sent, with no sender attached. After a week you can answer
+> "how many notifications would this have delivered" from data rather than from
+> a guess — and that number is what justifies phases 2–4.
 
----
+> ⚠️ **Phase 5 is deliberately last and deliberately optional.** It is the only
+> phase whose reach depends on something outside our control (a permission
+> prompt we can ask once, and on iOS an install that almost nobody will do), and
+> it is the only phase that cannot replace email for any user. Ship it as a
+> salience upgrade for the people who opted in, never as the delivery mechanism.
 
 ## 6. Review of #331, since it was merged
 
