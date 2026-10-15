@@ -40,6 +40,8 @@ export type CompanyReferralRequest = {
   candidateName: string;
   candidateEmail: string;
   candidateLinkedin: string | null;
+  /** Private Storage object path in `referral-resumes` (not a public URL). */
+  resumePdfPath: string | null;
   role: string;
   notes: string | null;
   source: "request" | "submitted";
@@ -49,6 +51,10 @@ export type CompanyReferralRequest = {
   nudgeCount?: number;
   lastNudgedAt?: string | null;
 };
+
+/** Private bucket for PDFs attached to candidate asks. */
+export const REFERRAL_RESUME_BUCKET = "referral-resumes";
+export const REFERRAL_RESUME_MAX_BYTES = 5 * 1024 * 1024;
 
 export type SentReferralRequest = CompanyReferralRequest & {
   referrerName: string;
@@ -117,6 +123,7 @@ type RequestRow = {
   candidate_name: string | null;
   candidate_email: string | null;
   candidate_linkedin: string | null;
+  resume_pdf_path?: string | null;
   role: string | null;
   notes: string | null;
   source: string | null;
@@ -175,6 +182,7 @@ export function mapRequestRow(row: RequestRow): CompanyReferralRequest {
     candidateName: row.candidate_name ?? "",
     candidateEmail: row.candidate_email ?? "",
     candidateLinkedin: row.candidate_linkedin,
+    resumePdfPath: row.resume_pdf_path ?? null,
     role: row.role ?? "",
     notes: row.notes,
     source: row.source === "submitted" ? "submitted" : "request",
@@ -221,10 +229,71 @@ export function referralWriteError(error: { code?: string; message?: string } | 
   if (message.includes("inbox is full")) {
     return "This referrer is not accepting more requests right now.";
   }
+  if (message.includes("linkedin or resume")) {
+    return "Could not send this request. Add a LinkedIn URL or upload your resume.";
+  }
   if (message.includes("row-level security") || message.includes("violates row-level")) {
     return REFERRER_LINK_INACTIVE;
   }
-  return "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn or resume URL.";
+  return "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn URL or resume PDF.";
+}
+
+export function isReferralResumeFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return file.type === "application/pdf" || name.endsWith(".pdf");
+}
+
+/** Upload a candidate résumé PDF into the private referral bucket. */
+export async function uploadReferralResume(
+  file: File,
+): Promise<{ path: string; error: null } | { path: null; error: string }> {
+  if (!isReferralResumeFile(file)) {
+    return { path: null, error: "Upload a PDF résumé." };
+  }
+  if (file.size <= 0 || file.size > REFERRAL_RESUME_MAX_BYTES) {
+    return { path: null, error: "Resume must be a PDF under 5 MB." };
+  }
+  try {
+    const userId = await currentUserId();
+    if (!userId) {
+      return { path: null, error: "Sign in to ask for a referral." };
+    }
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 80) || "resume.pdf";
+    const path = `${userId}/${crypto.randomUUID()}-${safeName.endsWith(".pdf") ? safeName : `${safeName}.pdf`}`;
+    const { error } = await getSupabaseClient().storage
+      .from(REFERRAL_RESUME_BUCKET)
+      .upload(path, file, { contentType: "application/pdf", upsert: false });
+    if (error) {
+      console.warn("[referral-resumes] upload:", error.message);
+      return { path: null, error: "Could not upload your resume. Try again." };
+    }
+    return { path, error: null };
+  } catch (err) {
+    console.warn("[referral-resumes] upload:", err);
+    return { path: null, error: "Could not upload your resume. Try again." };
+  }
+}
+
+/** Short-lived signed URL so the referrer (or candidate) can open the PDF. */
+export async function signedReferralResumeUrl(
+  path: string,
+  expiresInSeconds = 3600,
+): Promise<string | null> {
+  const trimmed = path.trim();
+  if (!trimmed) return null;
+  try {
+    const { data, error } = await getSupabaseClient().storage
+      .from(REFERRAL_RESUME_BUCKET)
+      .createSignedUrl(trimmed, expiresInSeconds);
+    if (error || !data?.signedUrl) {
+      console.warn("[referral-resumes] signed url:", error?.message);
+      return null;
+    }
+    return data.signedUrl;
+  } catch (err) {
+    console.warn("[referral-resumes] signed url:", err);
+    return null;
+  }
 }
 
 export function referrerInitials(name: string): string {
@@ -311,7 +380,7 @@ const REFERRER_PUBLIC_SELECT_BASE =
   "id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at";
 const REFERRER_PUBLIC_SELECT = `${REFERRER_PUBLIC_SELECT_BASE}, referred_count`;
 const REQUEST_SELECT_BASE =
-  "id, referrer_id, candidate_name, candidate_email, candidate_linkedin, role, notes, source, status, created_at";
+  "id, referrer_id, candidate_name, candidate_email, candidate_linkedin, resume_pdf_path, role, notes, source, status, created_at";
 const REQUEST_SELECT = `${REQUEST_SELECT_BASE}, updated_at, nudge_count, last_nudged_at`;
 
 function columnMissing(error: { message?: string } | null | undefined, column: string): boolean {
@@ -600,6 +669,7 @@ export async function createReferralRequest(input: {
   candidateName: string;
   candidateEmail?: string;
   candidateLinkedin?: string;
+  resumePdfPath?: string | null;
   role: string;
   notes?: string;
   source?: "request" | "submitted";
@@ -608,22 +678,31 @@ export async function createReferralRequest(input: {
   const candidateEmail = clip(input.candidateEmail ?? "", REFERRER_LIMITS.email);
   const role = clip(input.role, REFERRER_LIMITS.role);
   const notes = clip(input.notes ?? "", REFERRER_LIMITS.notes) || null;
+  const resumePdfPath = clip(input.resumePdfPath ?? "", REFERRER_LIMITS.url) || null;
   const source = input.source ?? "request";
+  const askError =
+    "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn URL or resume PDF.";
   if (!input.referrerId || !candidateName || !role) {
-    return { request: null, error: source === "submitted" ? "Could not log this referral. Add the candidate name and role." : "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn or resume URL." };
+    return {
+      request: null,
+      error: source === "submitted"
+        ? "Could not log this referral. Add the candidate name and role."
+        : askError,
+    };
   }
   if (source !== "submitted" && !isUsableEmail(candidateEmail)) {
-    return { request: null, error: "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn or resume URL." };
+    return { request: null, error: askError };
   }
   const candidateLinkedin = safeHttpUrl(input.candidateLinkedin);
-  if (source !== "submitted" && !candidateLinkedin) {
-    return { request: null, error: "Could not send this request. Add a LinkedIn or resume URL." };
+  if (source !== "submitted" && !candidateLinkedin && !resumePdfPath) {
+    return { request: null, error: "Could not send this request. Add a LinkedIn URL or upload your resume." };
   }
   const payload = {
     referrer_id: input.referrerId,
     candidate_name: candidateName,
     candidate_email: candidateEmail,
     candidate_linkedin: candidateLinkedin,
+    resume_pdf_path: resumePdfPath,
     role,
     notes,
     source,
@@ -662,6 +741,7 @@ export async function createReferralRequest(input: {
         candidate_name: candidateName,
         candidate_email: candidateEmail,
         candidate_linkedin: payload.candidate_linkedin,
+        resume_pdf_path: payload.resume_pdf_path,
         role,
         notes,
         source,

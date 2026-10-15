@@ -17,6 +17,7 @@ function request(partial: Partial<CompanyReferralRequest> & Pick<CompanyReferral
     candidateName: "Alex Kim",
     candidateEmail: "alex@example.com",
     candidateLinkedin: null,
+    resumePdfPath: null,
     role: "Backend Engineer",
     notes: null,
     source: "request",

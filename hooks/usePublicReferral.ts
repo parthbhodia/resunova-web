@@ -19,6 +19,7 @@ import {
   listOpenReferrersForCompany,
   listOpenReferralCompanies,
   slugifyPart,
+  uploadReferralResume,
   type CompanyReferrer,
   type OpenReferralCompany,
 } from "@/lib/companyReferrers";
@@ -31,9 +32,17 @@ export type ReferralAskForm = {
   linkedin: string;
   role: string;
   notes: string;
+  resumeFile: File | null;
 };
 
-const EMPTY_ASK: ReferralAskForm = { name: "", email: "", linkedin: "", role: "", notes: "" };
+const EMPTY_ASK: ReferralAskForm = {
+  name: "",
+  email: "",
+  linkedin: "",
+  role: "",
+  notes: "",
+  resumeFile: null,
+};
 
 export type ReferrerLookup =
   | { status: "idle" }
@@ -227,8 +236,12 @@ export function useReferralAsk(referrer: CompanyReferrer) {
     };
   }, []);
 
-  const setField = (key: keyof ReferralAskForm, value: string) => {
+  const setField = (key: Exclude<keyof ReferralAskForm, "resumeFile">, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const setResumeFile = (file: File | null) => {
+    setForm((prev) => ({ ...prev, resumeFile: file }));
   };
 
   const submit = async (): Promise<AskReferralOutcome> => {
@@ -247,6 +260,11 @@ export function useReferralAsk(referrer: CompanyReferrer) {
       setSaving(false);
       return "sign_in";
     }
+    if (!form.linkedin.trim() && !form.resumeFile) {
+      setSaving(false);
+      setError("Could not send this request. Add a LinkedIn URL or upload your resume.");
+      return "error";
+    }
     const stillOpen = await fetchReferrerBySlug(referrer.slug);
     if (!stillOpen.ok) {
       setSaving(false);
@@ -258,23 +276,37 @@ export function useReferralAsk(referrer: CompanyReferrer) {
       setError(REFERRER_LINK_INACTIVE);
       return "error";
     }
+    let resumePdfPath: string | null = null;
+    if (form.resumeFile) {
+      const uploaded = await uploadReferralResume(form.resumeFile);
+      if (!uploaded.path) {
+        setSaving(false);
+        setError(uploaded.error);
+        return "error";
+      }
+      resumePdfPath = uploaded.path;
+    }
     const { request, error: writeError } = await createReferralRequest({
       referrerId: referrer.id,
       candidateName: form.name,
       candidateEmail: form.email,
       candidateLinkedin: form.linkedin,
+      resumePdfPath,
       role: form.role,
       notes: form.notes,
       source: "request",
     });
     setSaving(false);
     if (!request) {
-      setError(writeError ?? "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn or resume URL.");
+      setError(
+        writeError
+          ?? "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn URL or resume PDF.",
+      );
       return "error";
     }
     setDone(true);
     return "sent";
   };
 
-  return { form, setField, saving, done, error, submit };
+  return { form, setField, setResumeFile, saving, done, error, submit };
 }
