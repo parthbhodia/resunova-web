@@ -63,7 +63,7 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
             <ReferField label="Your name" placeholder="e.g. Jordan Lee" value={ask.form.name} maxLength={REFERRER_LIMITS.name} required onChange={(value) => ask.setField("name", value)} />
             <ReferField label="Your email" type="email" placeholder="you@example.com" value={ask.form.email} maxLength={REFERRER_LIMITS.email} required onChange={(value) => ask.setField("email", value)} />
             <ReferField label="Role you want" placeholder="e.g. Software Engineer" value={ask.form.role} maxLength={REFERRER_LIMITS.role} required onChange={(value) => ask.setField("role", value)} />
-            <ReferField label="LinkedIn or resume URL (optional)" placeholder="https://linkedin.com/in/your-name" value={ask.form.linkedin} maxLength={REFERRER_LIMITS.url} onChange={(value) => ask.setField("linkedin", value)} />
+            <ReferField label="LinkedIn or resume URL" placeholder="https://linkedin.com/in/your-name" value={ask.form.linkedin} maxLength={REFERRER_LIMITS.url} required onChange={(value) => ask.setField("linkedin", value)} />
             <ReferField
               label="Note to the referrer (optional)"
               placeholder="Why this role, and why this company"

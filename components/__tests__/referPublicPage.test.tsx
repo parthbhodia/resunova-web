@@ -81,7 +81,7 @@ beforeEach(() => {
   mockListOpenReferralCompanies.mockResolvedValue(loaded([]));
   mockListOpenReferrersForCompany.mockResolvedValue(loaded([]));
   mockFetchFeaturedCompanies.mockResolvedValue([]);
-  mockCreateReferralRequest.mockResolvedValue({ request: null, error: "Could not send this request. Add your name, a valid email, and the role you want." });
+  mockCreateReferralRequest.mockResolvedValue({ request: null, error: "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn or resume URL." });
   mockGetSession.mockResolvedValue({ data: { session: { user: { id: "candidate" } } } });
   mockOpenSignIn.mockReset();
   mockSignInWithGoogle.mockResolvedValue(null);
@@ -204,7 +204,7 @@ describe("ReferPublicPage", () => {
     expect(screen.getByLabelText(/Your name/)).toBeRequired();
     expect(screen.getByLabelText(/Your email/)).toBeRequired();
     expect(screen.getByLabelText(/Role you want/)).toBeRequired();
-    expect(screen.getByLabelText("LinkedIn or resume URL (optional)")).not.toBeRequired();
+    expect(screen.getByLabelText(/LinkedIn or resume URL/)).toBeRequired();
   });
 
   it("prefills the ask form from the signed-in account", async () => {
@@ -253,7 +253,7 @@ describe("ReferPublicPage", () => {
         referrerId: "r1",
         candidateName: "Alex Kim",
         candidateEmail: "alex@example.com",
-        candidateLinkedin: null,
+        candidateLinkedin: "https://linkedin.com/in/alex",
         role: "Backend Engineer",
         notes: "Pitch",
         source: "request",
@@ -267,12 +267,13 @@ describe("ReferPublicPage", () => {
     await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
     await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
     await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
+    await userEvent.type(screen.getByLabelText(/LinkedIn or resume URL/), "https://linkedin.com/in/alex");
     await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
     expect(mockCreateReferralRequest).toHaveBeenCalledWith({
       referrerId: "r1",
       candidateName: "Alex Kim",
       candidateEmail: "alex@example.com",
-      candidateLinkedin: "",
+      candidateLinkedin: "https://linkedin.com/in/alex",
       role: "Backend Engineer",
       notes: "",
       source: "request",
@@ -327,6 +328,7 @@ describe("ReferPublicPage", () => {
     await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
     await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
     await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
+    await userEvent.type(screen.getByLabelText(/LinkedIn or resume URL/), "https://linkedin.com/in/alex");
     await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
     expect(await screen.findByText(REFERRER_LINK_INACTIVE)).toBeInTheDocument();
     expect(mockCreateReferralRequest).not.toHaveBeenCalled();
@@ -379,6 +381,7 @@ describe("ReferPublicPage", () => {
     await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
     await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
     await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
+    await userEvent.type(screen.getByLabelText(/LinkedIn or resume URL/), "https://linkedin.com/in/alex");
     await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(REFERRER_SESSION_FAILED);
     expect(mockOpenSignIn).not.toHaveBeenCalled();

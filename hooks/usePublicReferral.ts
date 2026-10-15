@@ -269,7 +269,7 @@ export function useReferralAsk(referrer: CompanyReferrer) {
     });
     setSaving(false);
     if (!request) {
-      setError(writeError ?? "Could not send this request. Add your name, a valid email, and the role you want.");
+      setError(writeError ?? "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn or resume URL.");
       return "error";
     }
     setDone(true);

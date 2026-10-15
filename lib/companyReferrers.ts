@@ -224,7 +224,7 @@ export function referralWriteError(error: { code?: string; message?: string } | 
   if (message.includes("row-level security") || message.includes("violates row-level")) {
     return REFERRER_LINK_INACTIVE;
   }
-  return "Could not send this request. Add your name, a valid email, and the role you want.";
+  return "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn or resume URL.";
 }
 
 export function referrerInitials(name: string): string {
@@ -610,16 +610,20 @@ export async function createReferralRequest(input: {
   const notes = clip(input.notes ?? "", REFERRER_LIMITS.notes) || null;
   const source = input.source ?? "request";
   if (!input.referrerId || !candidateName || !role) {
-    return { request: null, error: source === "submitted" ? "Could not log this referral. Add the candidate name and role." : "Could not send this request. Add your name, a valid email, and the role you want." };
+    return { request: null, error: source === "submitted" ? "Could not log this referral. Add the candidate name and role." : "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn or resume URL." };
   }
   if (source !== "submitted" && !isUsableEmail(candidateEmail)) {
-    return { request: null, error: "Could not send this request. Add your name, a valid email, and the role you want." };
+    return { request: null, error: "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn or resume URL." };
+  }
+  const candidateLinkedin = safeHttpUrl(input.candidateLinkedin);
+  if (source !== "submitted" && !candidateLinkedin) {
+    return { request: null, error: "Could not send this request. Add a LinkedIn or resume URL." };
   }
   const payload = {
     referrer_id: input.referrerId,
     candidate_name: candidateName,
     candidate_email: candidateEmail,
-    candidate_linkedin: safeHttpUrl(input.candidateLinkedin),
+    candidate_linkedin: candidateLinkedin,
     role,
     notes,
     source,
