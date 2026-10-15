@@ -73,3 +73,32 @@ export function formatEtaHours(hours: number | null): string {
   const days = hours / 24;
   return `${Math.round(days * 10) / 10} days`;
 }
+
+type ScanRunInterval = {
+  started_at: string;
+  duration_ms: number | null;
+  skip_fetch: boolean;
+};
+
+/**
+ * Peak concurrent skip_fetch (extraction-only) sweeps from completed run
+ * intervals. Useful before/alongside live claim-lease liveness.
+ */
+export function maxConcurrentExtractors(recent: ScanRunInterval[]): number {
+  const events: Array<[number, 1 | -1]> = [];
+  for (const r of recent) {
+    if (!r.skip_fetch || r.duration_ms == null) continue;
+    const start = Date.parse(r.started_at);
+    if (!Number.isFinite(start)) continue;
+    const end = start + Math.max(0, Number(r.duration_ms) || 0);
+    events.push([start, 1], [end, -1]);
+  }
+  events.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+  let cur = 0;
+  let max = 0;
+  for (const [, delta] of events) {
+    cur += delta;
+    if (cur > max) max = cur;
+  }
+  return max;
+}

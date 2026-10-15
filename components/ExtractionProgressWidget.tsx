@@ -1,6 +1,10 @@
 "use client";
 
-import { computeExtractionProgress, formatEtaHours } from "@/lib/extractionProgress";
+import {
+  computeExtractionProgress,
+  formatEtaHours,
+  maxConcurrentExtractors,
+} from "@/lib/extractionProgress";
 import type { AdminAnalyticsJobsBlock } from "@/lib/types";
 
 function fmtInt(n: number) {
@@ -44,6 +48,22 @@ export default function ExtractionProgressWidget({
     rate != null
       ? `${fmtInt(Math.round(rate))}/day`
       : "no sweep rate yet";
+
+  const activeExtractors = Math.max(0, Math.floor(Number(jobs.postings.active_extractors) || 0));
+  const claimedInflight = Math.max(0, Math.floor(Number(jobs.postings.claimed_inflight) || 0));
+  const peakConcurrent = maxConcurrentExtractors(jobs.scan_runs.recent);
+  const workersLabel =
+    activeExtractors > 0
+      ? `${activeExtractors} active`
+      : peakConcurrent > 0
+        ? `${peakConcurrent} peak (recent)`
+        : "none active";
+  const workersSub =
+    activeExtractors > 0
+      ? `${fmtInt(claimedInflight)} rows claimed`
+      : peakConcurrent > 0
+        ? "from overlapping sweeps"
+        : "no open claim leases";
 
   const updatedLabel = lastUpdatedAt
     ? new Date(lastUpdatedAt).toLocaleTimeString(undefined, {
@@ -118,6 +138,7 @@ export default function ExtractionProgressWidget({
           marginTop: 14,
         }}
       >
+        <Stat label="Extractors" value={workersLabel} sub={workersSub} />
         <Stat label="In window" value={fmtInt(progress.total)} />
         <Stat label="Sweep rate" value={rateLabel} />
         <Stat label="ETA at recent rate" value={formatEtaHours(progress.etaHours)} />
