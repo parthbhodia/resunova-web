@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeExtractionProgress, formatEtaHours } from "@/lib/extractionProgress";
+import {
+  computeExtractionProgress,
+  formatEtaHours,
+  maxConcurrentExtractors,
+} from "@/lib/extractionProgress";
 
 describe("computeExtractionProgress", () => {
   it("reports percent of extractable window", () => {
@@ -39,5 +43,16 @@ describe("formatEtaHours", () => {
     expect(formatEtaHours(0.5)).toBe("30 min");
     expect(formatEtaHours(12)).toBe("12 h");
     expect(formatEtaHours(72)).toBe("3 days");
+  });
+});
+
+describe("maxConcurrentExtractors", () => {
+  it("counts overlapping skip_fetch sweeps", () => {
+    const peak = maxConcurrentExtractors([
+      { started_at: "2026-10-15T17:00:00.000Z", duration_ms: 600_000, skip_fetch: true },
+      { started_at: "2026-10-15T17:05:00.000Z", duration_ms: 300_000, skip_fetch: true },
+      { started_at: "2026-10-15T16:00:00.000Z", duration_ms: 60_000, skip_fetch: false },
+    ]);
+    expect(peak).toBe(2);
   });
 });

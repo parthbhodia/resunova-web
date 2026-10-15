@@ -52,4 +52,15 @@ describe("ExtractionProgressWidget", () => {
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "21.9");
     expect(screen.getByText(/12,000 older pending/)).toBeInTheDocument();
   });
+
+  it("shows live extractor count from claim leases", () => {
+    render(
+      <ExtractionProgressWidget
+        jobs={jobsFixture({ active_extractors: 2, claimed_inflight: 8 })}
+        windowDays={30}
+      />,
+    );
+    expect(screen.getByText("2 active")).toBeInTheDocument();
+    expect(screen.getByText(/8 rows claimed/)).toBeInTheDocument();
+  });
 });

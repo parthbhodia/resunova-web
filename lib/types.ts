@@ -347,6 +347,11 @@ export interface AdminAnalyticsJobsBlock {
     posted_7d?: number;
     us_active?: number;
     companies?: number;
+    /** Distinct in-flight claim timestamps ≈ concurrent scan_worker processes. */
+    active_extractors?: number;
+    /** Rows still leased (requirement_concepts null, claimed within window). */
+    claimed_inflight?: number;
+    claim_window_minutes?: number;
     by_source: Array<{ source: string; active: number; last_24h?: number; extracted?: number }>;
     by_company: Array<{ company: string; active: number }>;
   };
