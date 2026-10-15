@@ -315,43 +315,50 @@ deleting it — the corpse is the evidence.
 
 ---
 
-## 4b. ⚠️ The in-app surface: there is no bell, and the count that exists is hidden
+## 4b. ⚠️ CORRECTED — the bell exists, and it is now specific
 
-Asked directly whether a user gets this "on the bell icon". Checked in source
-rather than assumed, and the answer is that **there is no bell icon anywhere in
-this app.** The only `Bell` in the tree is a lucide icon used as the tab label
-for "Job alerts" inside `/profile`.
+> ⚠️ **THIS SECTION PREVIOUSLY SAID "there is no bell icon anywhere in this
+> app". THAT WAS FALSE.** `components/NotificationBell.tsx` is mounted in
+> `AppShell` for every signed-in user, with a dropdown and a red count. My grep
+> for `Bell|bell` missed it because `aria-labelledby` contains the substring
+> "bell"; those matches filled the first ten results and `head -10` cut off the
+> real file. A check that could not see, reported as fact — the failure mode
+> this file documents more than any other, walked into while writing about it.
+>
+> **The phase 1b that followed from it — "add a count badge to the rail" — is
+> therefore obsolete and has been removed.** The bell already does that job, and
+> does it better: it is a list, not a number.
 
-What a referrer actually gets today, in full:
+**What was actually wrong was the copy, and the cause was structural.** The
+bell's referral row read:
 
-| Surface | What it does | Why it does not solve this |
-|---|---|---|
-| `FeedbackToastCard` toast | fires on a new ask | **transient** — auto-hides, and only while the app is open |
-| Unread count chip | real count, `ProfilePage.tsx:526` | ⚠️ **rendered on the "Referrals" tab *inside* `/profile`** — you only see it once you have already navigated to the page you would have gone to anyway |
-| Rail item "Referrals" | navigates | **no badge.** `RAIL_ICONS.refer` is a bare icon and `RAIL_LABELS.refer` a bare string — the maps have no badge slot |
-| Email | — | **does not exist** |
+> A request you sent was updated (reviewing, referred, or declined).
 
-> ⚠️ **So the count is computed, broadcast, and then rendered in the one place
-> that cannot help.** `subscribeReferralAlerts` is already a module-level pub/sub
-> with listeners, and `ProfilePage` is its only consumer. A referrer sitting on
-> Analyze or Jobs with three pending asks sees nothing.
+⚠️ It **enumerated the possibilities instead of naming the one that happened**,
+so being *referred* and being *declined* rendered as the identical string — the
+best and the worst news in the product, in a list whose entire job is to tell
+them apart.
 
-### Phase 1b — put the count on the rail (small, and it should go in)
+⚠️ **And no wording could have fixed it, because `notificationFeed` took
+`inboxUnread` and `outcomeUnread` NUMBERS.** It was a counter formatter. The
+rows were in `ProductNoticesHost` all along and were discarded before the feed
+was built.
 
-`RAIL_LABELS` / `RAIL_ICONS` need a badge slot, and the rail subscribes to the
-same `subscribeReferralAlerts` that `ProfilePage` already uses. No new data, no
-new fetch, no backend change — the number is already in the browser.
+**Fixed (shipped):** the feed takes rows and emits **one entry per referral**,
+each naming its step in the title — *You were referred* / *Referral declined* /
+*Now being reviewed* — with the detail in the body. One producer,
+`outcomeNotificationCopy`, backs both the bell row and the toast so they cannot
+drift. The toast's multi-row sentence, which had the same defect, now groups by
+step: *"Referred at Acme. Declined at Beta."*
 
-That is the honest "bell": a count on the Referrals item, visible from **every**
-page of the app rather than from one. ⚠️ **It is still presence-dependent** —
-it only exists while the app is open, so it narrows the gap rather than closing
-it, and it is not a substitute for phase 2.
+> ⚠️ A latent bug went with it: `NotificationBell` decided "persist a dismissal"
+> by comparing against two **fixed** ids, so per-row ids would have fallen
+> through and written every referral into the user's `dismissed_notices` jsonb
+> permanently. It keys off `REFERRAL_ITEM_PREFIX` now.
 
-> ⚠️ **A real bell — a dropdown listing individual notifications with per-item
-> read state — is a different and larger thing**, and it needs a persistent
-> per-user notification list. `notification_outbox` is the natural backing store
-> for it, which is a third argument for building the outbox rather than a one-off
-> send. Not proposed here; noted so the cheap badge is not mistaken for it.
+**Still presence-dependent.** The bell only exists while the app is open, so
+this makes the in-app half *correct* rather than making it *reach* anyone. That
+is still what phase 2 is for.
 
 ## 5. Sequencing
 
@@ -359,9 +366,8 @@ it, and it is not a substitute for phase 2.
 |---|---|---|
 | 0 | **Wait for one real desk + one real ask.** | the measurement this design does not have |
 | 1 | migration: `notification_outbox` (with `channel`) + trigger + `notify_prefs.referrals` | the fact is durable the moment it happens, even with no sender |
-| 1b | badge slot on the rail + subscribe to the existing `subscribeReferralAlerts` | the count becomes visible from every page, not just `/profile` (§4b) |
 | 2 | api drain route + `pg_net` wake + cron; reuse `_notify_prefs_for_user` | **R1, R2 — the referrer-on-ask email, which is the ask** |
-| 3 | email templates (ask received / status changed) | — |
+| ~~3~~ | ~~email templates~~ **DONE** — `send_referral_ask` / `send_referral_status` in `services/resend_email.py`, on a shared Outlook-safe shell | step-naming copy; refuses an unknown status rather than falling back to "was updated" |
 | 4 | admin panel reads `failed` rows | R4 end to end |
 | 5 | *optional:* Web Push as `channel='web_push'` — service worker, VAPID, `push_subscriptions`, prompt **after a desk is published** | salience, on Chrome/Android and installed-PWA iOS only |
 
