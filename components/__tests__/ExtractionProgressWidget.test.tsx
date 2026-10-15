@@ -63,4 +63,39 @@ describe("ExtractionProgressWidget", () => {
     expect(screen.getByText("2 active")).toBeInTheDocument();
     expect(screen.getByText(/8 rows claimed/)).toBeInTheDocument();
   });
+
+  it("lists Mac and Windows worker identity", () => {
+    render(
+      <ExtractionProgressWidget
+        jobs={jobsFixture({
+          active_extractors: 2,
+          claimed_inflight: 20,
+          workers: [
+            {
+              worker_key: "MacBook.local:111",
+              hostname: "MacBook.local",
+              platform: "Darwin",
+              gpu: "Apple Silicon · Metal",
+              model: "qwen2.5:14b-instruct",
+              batch: 10,
+              status: "running",
+            },
+            {
+              worker_key: "DESKTOP-GPU:222",
+              hostname: "DESKTOP-GPU",
+              platform: "Windows",
+              gpu: "NVIDIA GeForce RTX 4090, 24564 MiB",
+              model: "qwen2.5:14b-instruct",
+              batch: 80,
+              status: "running",
+            },
+          ],
+        })}
+        windowDays={30}
+      />,
+    );
+    expect(screen.getByTestId("extraction-workers-list")).toBeInTheDocument();
+    expect(screen.getByText(/MacBook\.local · Darwin · Apple Silicon/)).toBeInTheDocument();
+    expect(screen.getByText(/DESKTOP-GPU · Windows · NVIDIA GeForce RTX 4090/)).toBeInTheDocument();
+  });
 });
