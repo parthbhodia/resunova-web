@@ -5,11 +5,31 @@ import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { GenerationResult, SSEEvent, RatingsData, DiffLine, Source, ChangeRationale, ParsedSection } from "@/lib/types";
-import { normalizeConfirmedFacts, type ConfirmedFact } from "@/lib/tailorConfirmFacts";
+import { normalizeConfirmedFacts } from "@/lib/tailorConfirmFacts";
+import {
+  collectAppliedTools,
+  entryPathForNewBullet,
+  factsForRequest,
+  guessSkillCategory,
+  groupToolsByCategory,
+  guidanceNotes,
+  hasSkillsSection,
+  toolsNotListed,
+  type FixGuidance,
+} from "@/lib/tailorFixInput";
+import {
+  attachAggressiveRoleTitle,
+  defensibleRoleTitle,
+  effectiveExperienceRole,
+  experienceHeaderLine,
+  pickExperienceIndex,
+  titlesEqual,
+} from "@/lib/experienceTitle";
 import { buildResumeFileStem } from "@/lib/resumeFileName";
 import { saveTailorMatchToLibrary, tailorMatchFolder } from "@/lib/tailorAnalyzeLibrary";
 import { loadBuilderDraft as loadDraft, patchBuilderDraft as saveDraft } from "@/lib/builderDraft";
 import { saveBlobAsDownload } from "@/lib/saveBlobDownload";
+import { emptySuggestionsSnapshot } from "@/lib/suggestionsSnapshot";
 import { emptyGenerationResult, type TailorJobFields, type TailorJobTarget } from "@/lib/tailorJobTarget";
 import { tailorJobIsCurrent, useTailorWorkspaceStore } from "@/store/tailorWorkspaceStore";
 import { useTailorJobSwitcher } from "@/hooks/useTailorJobSwitcher";
@@ -22,7 +42,9 @@ import { apiUrl, isResumeUploadFile, parseJsonOrThrow, scoreColor } from "@/lib/
 import { toUserFriendlyErrorMessage, messageForNonJsonApiFailure } from "@/lib/userFriendlyError";
 import { ApiErrorBanner } from "@/components/ApiErrorBanner";
 import { Button } from "@/components/ui/button";
-import { upsertResume, getSupabaseClient, upsertUserProfile } from "@/lib/supabase";
+import { upsertResume, getSupabaseClient, upsertUserProfile, fetchAnalysisById } from "@/lib/supabase";
+import { startAnalyzeAndOpen } from "@/lib/analyzeRun";
+import { rescoreAnalysisId, rescoreBodyHasScore, rescoreBodyToOutcome } from "@/lib/rescoreOutcome";
 import { TAILOR_PREFILL_JD, TAILOR_PREFILL_COMPANY, TAILOR_PREFILL_ROLE } from "@/lib/tailorPrefill";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -68,7 +90,7 @@ import {
 } from "@/lib/tailorGapFix";
 import { addSkillsToStructured, skillCategoryOptions } from "@/lib/addSkillsToStructured";
 import { mergeGapFixSuggestions } from "@/lib/gapFixAppendDelta";
-import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, planQueueRuns, keepFirstRewritePerBullet } from "@/lib/fixEverything";
+import { collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, planQueueRuns, keepFirstRewritePerBullet, suggestionIsUsable, inventedBulletPermission, appendBulletLine } from "@/lib/fixEverything";
 import { tailorResultHeadline } from "@/lib/tailorResultHeadline";
 import { gapFixEmptyError, withOneRetryOnFailure } from "@/lib/gapFixEmptyReason";
 import { getFixAllAutoApply, setFixAllAutoApply } from "@/lib/fixEverythingPrefs";
@@ -129,14 +151,15 @@ import {
 import { TailorSaveStatusPill, TailorSaveToast, useTailorSaveStatus } from "@/components/TailorSaveStatus";
 import { deriveResumeChanges, type ResumeChange } from "@/lib/tailorChangeLog";
 import { TailorQueuePanel } from "@/components/tailor/TailorQueuePanel";
+import { TailorSkillsFollowUp, mergeSkillsFollowUp, type SkillsFollowUp } from "@/components/tailor/TailorSkillsFollowUp";
 import { normalizeQueueName, type QueueItem } from "@/lib/tailorWorkQueue";
 import type { FixSuggestion } from "@/components/tailor/TailorFixExpansion";
 import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
 import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
-import { applyBulletOpToStructured, remapOverlayPaths, type StructuredBulletOp } from "@/lib/structuredBulletOps";
+import { applyBulletOpToStructured, remapOverlayPaths, removeBulletByText, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 import { structuredToPlainText } from "@/lib/structuredResumeText";
 import { appendEducation } from "@/lib/educationEntry";
-import { appendSkill, removeSkill } from "@/lib/skillsEntry";
+import { removeSkill } from "@/lib/skillsEntry";
 import type { StructuredResumeEducation } from "@/store/resumeAnalyzeStore";
 import { apiFetch } from "@/lib/apiClient";
 import { trackEvent } from "@/lib/analytics";
@@ -398,6 +421,39 @@ function saveBuilderSessionToDraft(session: BuilderSessionV1) {
   }
 }
 
+type TailorAbortKind = "scan" | "suggest" | "generate" | "rescore";
+type TailorAbortSlot = Partial<Record<TailorAbortKind, AbortController>>;
+
+function takeJobAbort(map: Map<string, TailorAbortSlot>, jobId: string, kind: TailorAbortKind): AbortController {
+  const slot = map.get(jobId) ?? {};
+  slot[kind]?.abort();
+  const ac = new AbortController();
+  slot[kind] = ac;
+  map.set(jobId, slot);
+  return ac;
+}
+
+function clearTailorJobResult(jobId: string) {
+  if (!jobId) return;
+  useTailorWorkspaceStore.getState().patch(jobId, { result: null, preview: "" });
+}
+
+function abortTailorJob(map: Map<string, TailorAbortSlot>, jobId: string) {
+  const slot = map.get(jobId);
+  if (!slot) return;
+  for (const ac of Object.values(slot)) ac?.abort();
+  map.delete(jobId);
+}
+
+function jobAbortIsCurrent(map: Map<string, TailorAbortSlot>, jobId: string, kind: TailorAbortKind, ac: AbortController): boolean {
+  return map.get(jobId)?.[kind] === ac;
+}
+
+function releaseJobAbort(map: Map<string, TailorAbortSlot>, jobId: string, kind: TailorAbortKind, ac: AbortController) {
+  const slot = map.get(jobId);
+  if (slot?.[kind] === ac) delete slot[kind];
+}
+
 export default function ResumeBuilder({
   initialBaseFolder,
   queueUi = false,
@@ -568,12 +624,11 @@ export default function ResumeBuilder({
     });
     setScoreStale(true);
   }, []);
-  // The résumé's self-authored headline (e.g. "Software Engineer"), distinct
-  // from any specific employer's job title under Experience — those never
-  // change here. Editing this is the honest lever for the Job Title match:
-  // the backend already includes `headline` in what it sends the rating LLM
-  // (_resume_json_for_rating), so this genuinely moves that score instead of
-  // faking it. Empty string = no override, use the extracted headline as-is.
+  // The résumé's self-authored headline (e.g. "Software Engineer"). Experience
+  // job titles are a separate override (`exp.N.role` / `exp.N.head`): the user
+  // can change those from the title note or the Job Title tab, and aggressive
+  // mode can retitle an existing role toward the posting. Empty string = no
+  // headline override, use the extracted headline as-is.
   const [tailorHeadlineOverride, setTailorHeadlineOverride] = useState("");
   const handleHeadlineOverrideChange = useCallback((text: string) => {
     setTailorHeadlineOverride(text);
@@ -637,15 +692,15 @@ export default function ResumeBuilder({
     setSuggestResearchQueries([]);
     setSuggestResearchSources([]);
   }, [resetSuggestions, selectSuggestion, setSuggestError]);
-  const suggestStreamAbortRef = useRef<AbortController | null>(null);
-  const generateStreamAbortRef = useRef<AbortController | null>(null);
+  const jobAbortRef = useRef<Map<string, TailorAbortSlot>>(new Map());
   const resetActiveTailorWork = useCallback(() => {
-    suggestStreamAbortRef.current?.abort();
-    suggestStreamAbortRef.current = null;
-    generateStreamAbortRef.current?.abort();
-    generateStreamAbortRef.current = null;
+    const id = useTailorWorkspaceStore.getState().activeId;
+    abortTailorJob(jobAbortRef.current, id);
+    useTailorWorkspaceStore.getState().clearInflight(id);
     setSuggestLoading(false);
     setGenerating(false);
+    setAnalyzing(false);
+    setTailorRescoring(false);
     setStatusMsg("");
   }, [setSuggestLoading]);
   // Declared above the reset callbacks that clear them. Both were introduced
@@ -665,6 +720,7 @@ export default function ResumeBuilder({
    *  re-pasting company, role, and job description. */
   const startOverTailor = useCallback(() => {
     resetActiveTailorWork();
+    clearTailorJobResult(useTailorWorkspaceStore.getState().activeId);
     clearSuggestionsState();
     setError(null);
     setGapFixError(null);
@@ -690,9 +746,9 @@ export default function ResumeBuilder({
   }, [clearSuggestionsState, resetActiveTailorWork, saveStatus]);
 
   useEffect(() => {
+    const map = jobAbortRef.current;
     return () => {
-      suggestStreamAbortRef.current?.abort();
-      generateStreamAbortRef.current?.abort();
+      for (const id of [...map.keys()]) abortTailorJob(map, id);
     };
   }, []);
 
@@ -744,7 +800,14 @@ export default function ResumeBuilder({
 
   // Gap-fix micro-suggestion panel state (Phase 1)
   const [gapFixLoading, setGapFixLoading] = useState<string | null>(null); // gap name being fetched
-  type GapFixSuggestion = { id: string; section: string; original: string; suggested: string; reason: string; priority: string };
+  type GapFixSuggestion = {
+    id: string; section: string; original: string; suggested: string; reason: string; priority: string;
+    employer?: string;
+    /** Server-flagged tech the résumé does not otherwise evidence. */
+    unverified_terms?: string[];
+    suggested_role?: string;
+    original_role?: string;
+  };
   const [gapFixPanel, setGapFixPanel] = useState<{
     gapName: string;
     gapNotes: string;
@@ -767,7 +830,11 @@ export default function ResumeBuilder({
   /** Lets handleFixGap auto-apply without reordering the large applyGapFixes callback. */
   const applyGapFixesRef = useRef<
     (
-      items: Array<{ id: string; section: string; original: string; suggested: string; reason: string; priority: string }>,
+      items: Array<{
+        id: string; section: string; original: string; suggested: string;
+        reason: string; priority: string; employer?: string;
+        suggested_role?: string; original_role?: string;
+      }>,
       gapNameOverride?: string,
       opts?: { closePanel?: boolean; gapType?: AddressedGapAction["type"] },
     ) => Promise<void>
@@ -865,11 +932,14 @@ export default function ResumeBuilder({
     getWork: readTailorJobFields,
     apply: applyTailorJob,
     onLeave: () => {
-      suggestStreamAbortRef.current?.abort();
-      generateStreamAbortRef.current?.abort();
-      setGenerating(false);
-      setAnalyzing(false);
-      setTailorRescoring(false);
+      const { activeId, inflight } = useTailorWorkspaceStore.getState();
+      setAnalyzing(inflight.scan.includes(activeId));
+      setSuggestLoading(inflight.suggest.includes(activeId));
+      setGenerating(inflight.generate.includes(activeId));
+      setTailorRescoring(inflight.rescore.includes(activeId));
+    },
+    onDismiss: (id) => {
+      abortTailorJob(jobAbortRef.current, id);
     },
   });
   const activeTailorFolder = useTailorWorkspaceStore(
@@ -969,6 +1039,9 @@ export default function ResumeBuilder({
     setScoreStale(true);
   }, [setStructuredUpload, setCandidateProfile, setScoreStale]);
 
+  /** What the last fix did to the Skills section, or the offer to create one. */
+  const [skillsFollowUp, setSkillsFollowUp] = useState<SkillsFollowUp | null>(null);
+
   /** Add a missing keyword to the résumé's Skills section.
    *
    *  Founder-asked 2026-08-15: a bare tool keyword has a natural home in
@@ -982,16 +1055,19 @@ export default function ResumeBuilder({
   const handleAddSkill = useCallback((item: { name: string }): boolean => {
     let nextProfile: string | null = null;
     let added = false;
+    let categoryUsed = "Tools";
     setStructuredUpload((prev) => {
       if (!prev) return prev;
-      const res = appendSkill(prev.structured, item.name);
-      if (!res.added) return prev;
+      categoryUsed = guessSkillCategory(item.name, prev.structured);
+      const res = addSkillsToStructured(prev.structured, [item.name], categoryUsed);
+      if (res.added.length === 0) return prev;
       added = true;
       nextProfile = structuredToPlainText(res.structured) || prev.profile;
       return { profile: nextProfile, structured: res.structured };
     });
     if (!added) return false;
     if (nextProfile !== null) setCandidateProfile(nextProfile);
+    setSkillsFollowUp((prev) => mergeSkillsFollowUp(prev, { kind: "added", groups: [{ category: categoryUsed, tools: [item.name] }] }));
     setAddressedGaps((prev) => new Set([...prev, item.name]));
     setAddressedGapActions((prev) => {
       const id = makeStableGapId(item.name, "keyword");
@@ -1005,6 +1081,128 @@ export default function ResumeBuilder({
     setScoreStale(true);
     return true;
   }, [setStructuredUpload, setCandidateProfile, setAddressedGaps, setAddressedGapActions, setScoreStale]);
+
+  /**
+   * File the tools a fix brought in under the Skills group each belongs to.
+   *
+   * A bullet that names a tool the Skills section does not list is half an
+   * edit: the scanner's skills sweep misses it and a recruiter reads the two
+   * sections as disagreeing. So any tool an applied fix introduces, whether
+   * the writer named it, the user vouched for it, or the user typed it, is
+   * added to Skills too. With no Skills section the page does not invent one
+   * silently; it offers, and `createSkillsSectionWith` does the write.
+   */
+  // Read through a ref: the bulk pass calls this at the end of a loop that
+  // has been awaiting for a while, and the closure's copy is stale by then.
+  const structuredNowRef = useRef(structuredUpload?.structured ?? null);
+  useEffect(() => { structuredNowRef.current = structuredUpload?.structured ?? null; }, [structuredUpload]);
+  /** Receipts for tools filed into Skills so Undo can take them back.
+   *  Distinct ids (`skill-add:…`) so they never collide with a gap the
+   *  user later weaves into a bullet; undoing the skill must not un-apply
+   *  that rewrite. */
+  const rememberSkillAdds = useCallback((tools: readonly string[]) => {
+    setAddressedGapActions((prev) => {
+      const have = new Set(
+        prev
+          .filter((a) => a.via === "skills")
+          .map((a) => (a.appliedText ?? a.label).trim().toLowerCase()),
+      );
+      const extra: AddressedGapAction[] = [];
+      for (const raw of tools) {
+        const tool = raw.trim();
+        if (!tool) continue;
+        const key = tool.toLowerCase();
+        if (have.has(key)) continue;
+        have.add(key);
+        extra.push({
+          id: `skill-add:${key}`,
+          label: tool,
+          type: "keyword",
+          appliedText: tool,
+          via: "skills",
+        });
+      }
+      return extra.length ? [...prev, ...extra] : prev;
+    });
+  }, [setAddressedGapActions]);
+
+  const fileToolsInSkills = useCallback((tools: readonly string[]) => {
+    const structured = structuredNowRef.current;
+    const pending = toolsNotListed(tools, structured);
+    if (!structured || pending.length === 0) return;
+    if (!hasSkillsSection(structured)) {
+      setSkillsFollowUp((prev) => mergeSkillsFollowUp(prev, { kind: "offer", tools: pending }));
+      return;
+    }
+    const groups = groupToolsByCategory(pending, structured);
+    let nextProfile: string | null = null;
+    setStructuredUpload((prev) => {
+      if (!prev) return prev;
+      let doc = prev.structured;
+      for (const g of groups) doc = addSkillsToStructured(doc, g.tools, g.category).structured;
+      if (doc === prev.structured) return prev;
+      nextProfile = structuredToPlainText(doc) || prev.profile;
+      return { profile: nextProfile, structured: doc };
+    });
+    if (nextProfile === null) return;
+    setCandidateProfile(nextProfile);
+    rememberSkillAdds(pending);
+    setSkillsFollowUp((prev) => mergeSkillsFollowUp(prev, { kind: "added", groups }));
+    setScoreStale(true);
+  }, [setStructuredUpload, setCandidateProfile, setScoreStale, rememberSkillAdds]);
+
+  const createSkillsSectionWith = useCallback((tools: string[]) => {
+    const groups = groupToolsByCategory(tools, null);
+    let nextProfile: string | null = null;
+    setStructuredUpload((prev) => {
+      if (!prev) return prev;
+      let doc = prev.structured;
+      for (const g of groups) doc = addSkillsToStructured(doc, g.tools, g.category).structured;
+      nextProfile = structuredToPlainText(doc) || prev.profile;
+      return { profile: nextProfile, structured: doc };
+    });
+    if (nextProfile === null) return;
+    setCandidateProfile(nextProfile);
+    rememberSkillAdds(tools);
+    setSkillsFollowUp((prev) => mergeSkillsFollowUp(prev, { kind: "added", groups }));
+    setScoreStale(true);
+  }, [setStructuredUpload, setCandidateProfile, setScoreStale, rememberSkillAdds]);
+
+  /**
+   * A line the user wrote for a requirement, under the role they picked.
+   *
+   * Same structured write as a preview add (`applyTailorBulletOp`), so it
+   * reaches the preview, the download and the rescore at once. Plus the
+   * receipt: the row flips to applied with `via: "bullet"` so the change log
+   * can show the line and undo it by text, and the tools they named go to
+   * Skills.
+   */
+  const addOwnBulletForGap = useCallback(async (
+    item: QueueItem,
+    text: string,
+    entryPath: string,
+    tools: string[],
+  ) => {
+    const line = text.trim();
+    if (!line) return;
+    if (!structuredUpload?.structured) {
+      throw new Error("Upload your résumé first so the line has a role to go under.");
+    }
+    applyTailorBulletOp({ entryPath, action: { type: "add", text: line }, pathRemap: {} });
+    setAddressedGaps((prev) => new Set([...prev, item.name]));
+    setAddressedGapActions((prev) => {
+      const type = item.kind === "contextual" ? "keyword" : item.kind;
+      const id = makeStableGapId(item.name, type);
+      const rest = prev.filter((a) => a.id !== id);
+      return [...rest, { id, label: item.name, type, appliedText: line, via: "bullet", entryPath }];
+    });
+    setResult((prev) => {
+      if (!prev?.ratings) return prev;
+      const type = item.kind === "contextual" ? "keyword" : item.kind;
+      return { ...prev, ratings: applyOptimisticGapAddressed(prev.ratings, item.name, type) };
+    });
+    fileToolsInSkills(collectAppliedTools({ applied: line, vouched: tools }));
+  }, [structuredUpload, applyTailorBulletOp, setAddressedGaps, setAddressedGapActions, setResult, fileToolsInSkills]);
 
   /** Object URL for the last uploaded PDF — powers true PDF highlights in suggestions (revoked on replace / unmount). */
   const sourcePdfBlobUrlRef = useRef<string | null>(null);
@@ -1226,6 +1424,7 @@ export default function ResumeBuilder({
       if ((fromAnalyze || fromTemplateStudio) && profile) {
         setCandidateProfile(profile);
         setUploadedFileName(fromTemplateStudio ? "From template studio" : "From Analyze");
+        clearTailorJobResult(useTailorWorkspaceStore.getState().activeId);
         setResult(null);
         setPreview("");
         try {
@@ -1494,6 +1693,48 @@ export default function ResumeBuilder({
     return normalized;
   }, [structuredUpload, candidateProfile]);
 
+  /**
+   * Retitle an existing Experience row. Writes path overrides so the preview,
+   * PDF clone, and rescore all see the new role. `requireDefensible` is for
+   * the aggressive/model path; the user typing a title is theirs to vouch for.
+   */
+  const applyExperienceTitleChange = useCallback((
+    index: number,
+    newRole: string,
+    opts?: { requireDefensible?: boolean },
+  ) => {
+    const entry = tailorStructuredResume?.experience?.[index];
+    if (!entry) return false;
+    const trimmed = newRole.trim();
+    if (!trimmed) return false;
+    const current = effectiveExperienceRole(entry, index, tailorFieldOverrides);
+    if (titlesEqual(current, trimmed)) return false;
+    if (opts?.requireDefensible && !defensibleRoleTitle(current, trimmed)) return false;
+    const head = experienceHeaderLine({ ...entry, role: trimmed });
+    setTailorFieldOverride(`exp.${index}.role`, trimmed);
+    setTailorFieldOverride(`exp.${index}.head`, head);
+    const path = `exp.${index}`;
+    setAddressedGapActions((prev) => {
+      const existing = prev.findIndex((a) => a.via === "title" && a.entryPath === path);
+      const row: AddressedGapAction = {
+        id: `title:${path}`,
+        label: "Job title",
+        type: "qualification",
+        appliedText: trimmed,
+        originalText: existing >= 0 ? (prev[existing].originalText ?? current) : current,
+        via: "title",
+        entryPath: path,
+      };
+      if (existing >= 0) {
+        const next = [...prev];
+        next[existing] = row;
+        return next;
+      }
+      return [...prev, row];
+    });
+    return true;
+  }, [tailorStructuredResume, tailorFieldOverrides, setTailorFieldOverride]);
+
   // Debounced Hub save after preview edits (bullet delete/add/reorder, inline
   // field edits). Upserts the same tailor_match row for company+role so Resume
   // Hub reflects the edited résumé without waiting for Re-score.
@@ -1583,6 +1824,8 @@ export default function ResumeBuilder({
     const initialStructured = tailorStructuredResume && profile === (structuredUpload?.profile ?? "").trim()
       ? applyFieldOverridesToStructured(tailorStructuredResume, tailorFieldOverrides) : null;
     const requestJobId = useTailorWorkspaceStore.getState().activeId;
+    const ac = takeJobAbort(jobAbortRef.current, requestJobId, "scan");
+    useTailorWorkspaceStore.getState().setInflight(requestJobId, "scan", true);
     setAnalyzing(true);
     appShellSidebar?.collapseSidebar();
     setAnalyzeError(null);
@@ -1595,6 +1838,7 @@ export default function ResumeBuilder({
       const resp = await apiFetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: ac.signal,
         body: JSON.stringify({
           candidate_profile: profile,
           job_description: effJd,
@@ -1696,11 +1940,17 @@ export default function ResumeBuilder({
         setMatchSidebarCollapsed(true);
       }
     } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
       const message = e instanceof Error ? e.message : "Analysis failed";
       useTailorWorkspaceStore.getState().patch(requestJobId, { analyzeError: message });
       if (tailorJobIsCurrent(requestJobId)) setAnalyzeError(message);
     } finally {
-      if (tailorJobIsCurrent(requestJobId)) setAnalyzing(false);
+      const stillOurs = jobAbortIsCurrent(jobAbortRef.current, requestJobId, "scan", ac);
+      releaseJobAbort(jobAbortRef.current, requestJobId, "scan", ac);
+      if (stillOurs) {
+        useTailorWorkspaceStore.getState().setInflight(requestJobId, "scan", false);
+        if (tailorJobIsCurrent(requestJobId)) setAnalyzing(false);
+      }
     }
   }, [jd, candidateProfile, company, role, model, user?.id, tailoringMode, tailorStructuredResume, structuredUpload?.profile, applyStructuredFromAnalyze, appShellSidebar, saveStatus, persistTailorMatch]);
   useEffect(() => { handleAnalyzeRef.current = () => { void handleAnalyze(); }; }, [handleAnalyze]);
@@ -1735,19 +1985,23 @@ export default function ResumeBuilder({
           tailorFieldOverrides,
         )
       : null;
-    // applyFieldOverridesToStructured only understands bullet paths (exp.N.bullets.M),
-    // so the headline override is applied separately, directly onto the field the
-    // rating LLM actually reads (_resume_json_for_rating includes `headline`).
+    // Headline is not a path override (no `headline` key in fieldOverrides), so
+    // it is applied separately onto the field the rating LLM actually reads
+    // (_resume_json_for_rating includes `headline`). Experience titles ride on
+    // exp.N.head / exp.N.role and are already in structuredWithFieldOverrides.
     const headlineOverride = tailorHeadlineOverride.trim();
     const patchedStructured = structuredWithFieldOverrides && headlineOverride
       ? { ...structuredWithFieldOverrides, headline: headlineOverride }
       : structuredWithFieldOverrides;
     const requestJobId = useTailorWorkspaceStore.getState().activeId;
+    const ac = takeJobAbort(jobAbortRef.current, requestJobId, "rescore");
+    useTailorWorkspaceStore.getState().setInflight(requestJobId, "rescore", true);
     setTailorRescoring(true);
     try {
       const resp = await apiFetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: ac.signal,
         body: JSON.stringify({
           candidate_profile: prof,
           job_description: jd.trim(),
@@ -1778,7 +2032,7 @@ export default function ResumeBuilder({
       };
       if (data.error || !data.ratings) return false;
 
-      applyStructuredFromAnalyze(raw, prof);
+      if (tailorJobIsCurrent(requestJobId)) applyStructuredFromAnalyze(raw, prof);
 
       const mergedRatings = mergeRescorePreservingAddressedGaps(
         data.ratings,
@@ -1856,10 +2110,16 @@ export default function ResumeBuilder({
         setFixCollisionNotice(null);
       }
       return true;
-    } catch {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return false;
       return false;
     } finally {
-      if (tailorJobIsCurrent(requestJobId)) setTailorRescoring(false);
+      const stillOurs = jobAbortIsCurrent(jobAbortRef.current, requestJobId, "rescore", ac);
+      releaseJobAbort(jobAbortRef.current, requestJobId, "rescore", ac);
+      if (stillOurs) {
+        useTailorWorkspaceStore.getState().setInflight(requestJobId, "rescore", false);
+        if (tailorJobIsCurrent(requestJobId)) setTailorRescoring(false);
+      }
     }
   }, [
     candidateProfile, jd, company, role, model, user?.id, result?.folder,
@@ -1886,42 +2146,72 @@ export default function ResumeBuilder({
    * analysis on the CURRENT tailored text (applied fixes included) and lands
    * on the Analyze results page, which is where the per-bullet fixes live.
    * The persisted row also becomes the working résumé Jobs/Boost rank on.
+   *
+   * Navigation happens before the response. The Analyze page adopts the run
+   * and shows its loader; waiting here and pushing only once an id exists is
+   * the jump the user sees when the report is already done.
    */
   const [improveBusy, setImproveBusy] = useState(false);
-  const improveViaAnalyze = useCallback(async () => {
-    if (improveBusy) return;
-    setImproveBusy(true);
-    try {
-      const structured = tailorStructuredResume
-        ? applyFieldOverridesToStructured(
-            patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
-            tailorFieldOverrides,
-          )
-        : null;
-      const resp = await apiFetch("/api/analyze-rescore", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          resume_text: effectiveCandidateProfile,
-          ...(structured ? { structured_resume: structured } : {}),
-          source_filename:
-            [company?.trim(), role?.trim()].filter(Boolean).join(" · ") || "Tailored resume",
-        }),
-      });
-      const data = (await resp.json().catch(() => ({}))) as { analysisId?: string; error?: string };
-      if (!resp.ok) throw new Error(data?.error || "Couldn't run the scan. Try again.");
-      if (!data.analysisId) {
-        // The scan ran but did not persist; without a row there is no report
-        // page to open — say so instead of navigating to nothing.
-        throw new Error("The scan ran but couldn't be saved. Try again.");
-      }
-      router.push(`/?view=analyze&analysis=${encodeURIComponent(data.analysisId)}`);
-    } catch (e) {
-      setAnalyzeError(e instanceof Error ? e.message : "Couldn't run the scan. Try again.");
-    } finally {
-      setImproveBusy(false);
+  // State lags a second click in the same turn. The lock is what actually
+  // stops two scans; improveBusy only updates the button.
+  const improveLock = useRef(false);
+  const improveViaAnalyze = useCallback(() => {
+    if (improveLock.current) return;
+    const resumeText = effectiveCandidateProfile.trim();
+    if (!resumeText) {
+      setAnalyzeError("Upload a résumé before running this scan.");
+      return;
     }
-  }, [improveBusy, tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides,
+    improveLock.current = true;
+    setImproveBusy(true);
+    setAnalyzeError(null);
+    const structured = tailorStructuredResume
+      ? applyFieldOverridesToStructured(
+          patchStructuredWithOverrides(tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides),
+          tailorFieldOverrides,
+        )
+      : null;
+    const fileName = [company?.trim(), role?.trim()].filter(Boolean).join(" · ") || "Tailored resume";
+    const release = () => {
+      improveLock.current = false;
+      setImproveBusy(false);
+    };
+    try {
+      startAnalyzeAndOpen(async () => {
+        try {
+          const resp = await apiFetch("/api/analyze-rescore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resume_text: resumeText,
+              ...(structured ? { structured_resume: structured } : {}),
+              source_filename: fileName,
+            }),
+          });
+          const data: unknown = await resp.json().catch(() => ({}));
+          const id = rescoreAnalysisId(data);
+          const saved = resp.ok && !rescoreBodyHasScore(data) && id
+            ? await fetchAnalysisById(id)
+            : null;
+          return rescoreBodyToOutcome(resp.status, data, fileName, saved);
+        } catch (e) {
+          return {
+            ok: false,
+            status: 0,
+            json: { error: e instanceof Error ? e.message : "Couldn't run the scan. Try again." },
+            fileName,
+          };
+        }
+      }, () => {
+        router.push("/?view=analyze");
+      });
+    } catch (e) {
+      // The scan slot was not booked, or the route change threw before the
+      // tailor view unmounted. Leave the button clickable and say why.
+      release();
+      setAnalyzeError(e instanceof Error ? e.message : "Couldn't open the report. Try again.");
+    }
+  }, [tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides,
       tailorFieldOverrides, effectiveCandidateProfile, company, role, router]);
 
   const tailorPreviewBullets = tailorBulletAnalysis;
@@ -2048,10 +2338,9 @@ export default function ResumeBuilder({
         }
       : {};
 
-    suggestStreamAbortRef.current?.abort();
-    const ac = new AbortController();
-    suggestStreamAbortRef.current = ac;
+    const ac = takeJobAbort(jobAbortRef.current, useTailorWorkspaceStore.getState().activeId, "suggest");
     const requestJobId = useTailorWorkspaceStore.getState().activeId;
+    useTailorWorkspaceStore.getState().setInflight(requestJobId, "suggest", true);
 
     resetSuggestions();       // reset first — clears stale data (also resets loading to false)
     setSuggestLoading(true);  // set loading AFTER reset so it isn't wiped
@@ -2125,7 +2414,6 @@ export default function ResumeBuilder({
             case "status":
               break;
             case "research": {
-              if (!tailorJobIsCurrent(requestJobId)) break;
               const rq = Array.isArray(ev.research_queries)
                 ? ev.research_queries.filter((q): q is string => typeof q === "string")
                 : [];
@@ -2134,9 +2422,16 @@ export default function ResumeBuilder({
                     .filter((s): s is { title?: string | null; url: string } => s && typeof s.url === "string")
                     .map(s => ({ title: s.title ?? null, url: s.url }))
                 : [];
+              const digest = typeof ev.research_digest === "string" ? ev.research_digest : "";
+              useTailorWorkspaceStore.getState().patch(requestJobId, {
+                suggestResearchQueries: rq,
+                suggestResearchSources: rs,
+                suggestResearchDigest: digest,
+              });
+              if (!tailorJobIsCurrent(requestJobId)) break;
               setSuggestResearchQueries(rq);
               setSuggestResearchSources(rs);
-              setSuggestResearchDigest(typeof ev.research_digest === "string" ? ev.research_digest : "");
+              setSuggestResearchDigest(digest);
               useSuggestionsStore.getState().incrementStep();
               useSuggestionsStore.getState().incrementStep();
               useSuggestionsStore.getState().incrementStep();
@@ -2151,16 +2446,12 @@ export default function ResumeBuilder({
             }
             case "coach_done": {
               sawCoachDone = true;
-              if (!tailorJobIsCurrent(requestJobId)) break;
               const list = Array.isArray(ev.suggestions)
                 ? ev.suggestions.filter(isSuggestionRecord)
                 : [];
-              hydrateSuggestions(
-                list,
-                typeof ev.summary === "string" ? ev.summary : "",
-                parseStrategicTips(ev.strategic_tips),
-                parseInterviewQuestions(ev.interview_questions),
-              );
+              const summary = typeof ev.summary === "string" ? ev.summary : "";
+              const tips = parseStrategicTips(ev.strategic_tips);
+              const questions = parseInterviewQuestions(ev.interview_questions);
               const rq = Array.isArray(ev.research_queries)
                 ? ev.research_queries.filter((q): q is string => typeof q === "string")
                 : [];
@@ -2169,9 +2460,23 @@ export default function ResumeBuilder({
                     .filter((s): s is { title?: string | null; url: string } => s && typeof s.url === "string")
                     .map(s => ({ title: s.title ?? null, url: s.url }))
                 : [];
+              const digestDone = typeof ev.research_digest === "string" ? ev.research_digest : "";
+              useTailorWorkspaceStore.getState().patch(requestJobId, {
+                suggestions: {
+                  ...emptySuggestionsSnapshot(),
+                  suggestions: list,
+                  summary,
+                  strategicTips: tips,
+                  interviewQuestions: questions,
+                },
+                suggestResearchQueries: rq,
+                suggestResearchSources: rs,
+                suggestResearchDigest: digestDone,
+              });
+              if (!tailorJobIsCurrent(requestJobId)) break;
+              hydrateSuggestions(list, summary, tips, questions);
               setSuggestResearchQueries(rq);
               setSuggestResearchSources(rs);
-              const digestDone = typeof ev.research_digest === "string" ? ev.research_digest : "";
               setSuggestResearchDigest(digestDone);
               if (digestDone.trim().length >= 40) {
                 suggestResearchReuseGateRef.current = {
@@ -2194,13 +2499,19 @@ export default function ResumeBuilder({
         throw new Error("The suggestions stream ended unexpectedly. Please try again.");
       }
     } catch (e: unknown) {
-      if (e instanceof Error && e.name === "AbortError") {
-        return;
-      }
-      setSuggestError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e)));
+      if (e instanceof Error && e.name === "AbortError") return;
+      const message = toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e));
+      useTailorWorkspaceStore.getState().patch(requestJobId, {
+        suggestions: { ...emptySuggestionsSnapshot(), error: message },
+      });
+      if (tailorJobIsCurrent(requestJobId)) setSuggestError(message);
     } finally {
-      if (suggestStreamAbortRef.current === ac) suggestStreamAbortRef.current = null;
-      if (tailorJobIsCurrent(requestJobId)) setSuggestLoading(false);
+      const stillOurs = jobAbortIsCurrent(jobAbortRef.current, requestJobId, "suggest", ac);
+      releaseJobAbort(jobAbortRef.current, requestJobId, "suggest", ac);
+      if (stillOurs) {
+        useTailorWorkspaceStore.getState().setInflight(requestJobId, "suggest", false);
+        if (tailorJobIsCurrent(requestJobId)) setSuggestLoading(false);
+      }
     }
   }, [jd, candidateProfile, studioHandoff, hydrateSuggestions, appendSuggestStream, setSuggestLoading, setSuggestError, resetSuggestions, scrollBuilderToTop]);
 
@@ -2288,10 +2599,9 @@ export default function ResumeBuilder({
   }, []);
 
   const generate = useCallback(async (): Promise<GeneratePdfOutcome | null> => {
-    generateStreamAbortRef.current?.abort();
-    const ac = new AbortController();
-    generateStreamAbortRef.current = ac;
     const requestJobId = useTailorWorkspaceStore.getState().activeId;
+    const ac = takeJobAbort(jobAbortRef.current, requestJobId, "generate");
+    useTailorWorkspaceStore.getState().setInflight(requestJobId, "generate", true);
     const publishAcc = (next: GenerationResult) => {
       useTailorWorkspaceStore.getState().patch(requestJobId, {
         result: next,
@@ -2360,15 +2670,21 @@ export default function ResumeBuilder({
         missing.length === 1 ? missing[0]
         : missing.length === 2 ? `${missing[0]} and ${missing[1]}`
         : `${missing.slice(0, -1).join(", ")}, and ${missing[missing.length - 1]}`;
-      if (!tailorJobIsCurrent(requestJobId)) return null;
-      setError(
-        jobUrl.trim()
-          ? `We couldn't pull the ${label} from that link — please fill it in manually.`
-          : `Please fill in the ${label}.`
-      );
-      if (!studioHandoff) setResult(null);
-      setGenerating(false);
-      setStatusMsg("");
+      const message = jobUrl.trim()
+        ? `We couldn't pull the ${label} from that link. Please fill it in manually.`
+        : `Please fill in the ${label}.`;
+      useTailorWorkspaceStore.getState().patch(requestJobId, {
+        error: message,
+        ...(!studioHandoff ? { result: null, preview: "" } : {}),
+      });
+      releaseJobAbort(jobAbortRef.current, requestJobId, "generate", ac);
+      useTailorWorkspaceStore.getState().setInflight(requestJobId, "generate", false);
+      if (tailorJobIsCurrent(requestJobId)) {
+        setError(message);
+        if (!studioHandoff) setResult(null);
+        setGenerating(false);
+        setStatusMsg("");
+      }
       return null;
     }
 
@@ -2486,6 +2802,7 @@ export default function ResumeBuilder({
               if (tailorJobIsCurrent(requestJobId)) setPreview(p => p + ev.text);
               break;
             case "structured_doc": {
+              if (!tailorJobIsCurrent(requestJobId)) break;
               if (ev.data && typeof ev.data === "object") {
                 const normalized = normalizeStructuredResume(ev.data as unknown as StructuredResume);
                 if (normalized && isStructuredUsable(normalized)) {
@@ -2500,6 +2817,7 @@ export default function ResumeBuilder({
             case "sources": {
               const urls = ev.urls as Source[];
               acc.sources = urls;
+              if (!tailorJobIsCurrent(requestJobId)) break;
               // Grounding sometimes arrives only in the final `sources` bundle — mirror into
               // the live web research panel so users still see cited pages when SSE had no search_source chunks.
               for (const u of urls) {
@@ -2512,10 +2830,14 @@ export default function ResumeBuilder({
               break;
             }
             case "search_query":
-              setSearchQueries(qs => qs.includes(ev.query) ? qs : [...qs, ev.query]);
+              if (tailorJobIsCurrent(requestJobId)) {
+                setSearchQueries(qs => qs.includes(ev.query) ? qs : [...qs, ev.query]);
+              }
               break;
             case "search_source":
-              setSearchSources(ss => ss.some(s => s.url === ev.url) ? ss : [...ss, { title: ev.title, url: ev.url }]);
+              if (tailorJobIsCurrent(requestJobId)) {
+                setSearchSources(ss => ss.some(s => s.url === ev.url) ? ss : [...ss, { title: ev.title, url: ev.url }]);
+              }
               break;
             case "base":
               acc.baseFolder = ev.folder;
@@ -2536,7 +2858,7 @@ export default function ResumeBuilder({
               publishAcc({ ...acc }); // Update PDF button in-place
               break;
             case "storage":
-              if (!ev.stored) {
+              if (!ev.stored && tailorJobIsCurrent(requestJobId)) {
                 console.warn(`Supabase Storage did not store ${ev.artifact}: ${ev.reason ?? "unknown reason"}`);
                 setStorageFailures(fs => [...fs, { artifact: ev.artifact, reason: ev.reason ?? "unknown reason" }]);
               }
@@ -2604,8 +2926,10 @@ export default function ResumeBuilder({
       if (e instanceof Error && e.name === "AbortError") {
         return null;
       }
+      const message = toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e));
+      useTailorWorkspaceStore.getState().patch(requestJobId, { error: message });
       if (tailorJobIsCurrent(requestJobId)) {
-        setError(toUserFriendlyErrorMessage(e instanceof Error ? e.message : String(e)));
+        setError(message);
         if (!studioHandoff) {
           setResult((r) => (r && !r.ratings && !r.pdfUrl ? null : r));
         }
@@ -2614,8 +2938,14 @@ export default function ResumeBuilder({
       }
       return null;
     } finally {
-      if (generateStreamAbortRef.current === ac) {
-        generateStreamAbortRef.current = null;
+      const stillOurs = jobAbortIsCurrent(jobAbortRef.current, requestJobId, "generate", ac);
+      releaseJobAbort(jobAbortRef.current, requestJobId, "generate", ac);
+      if (stillOurs) {
+        useTailorWorkspaceStore.getState().setInflight(requestJobId, "generate", false);
+        if (tailorJobIsCurrent(requestJobId)) {
+          setGenerating(false);
+          setStatusMsg("");
+        }
       }
     }
   }, [company, role, jd, jobUrl, importFromUrl, baseFolder, candidateProfile, user, styleReferenceFolder, studioHandoff, suggestions, acceptedIds, result, suggestResearchDigest, suggestResearchQueries, suggestResearchSources, scrollBuilderToTop, tailorStructuredResume]);
@@ -2667,6 +2997,7 @@ export default function ResumeBuilder({
       .filter((c) => typeof c.score === "number" && c.score <= 5)
       .map((c) => ({ name: c.name, score: c.score }))
       .slice(0, 8);
+    clearTailorJobResult(useTailorWorkspaceStore.getState().activeId);
     setResult(null);
     setPreview("");
     selectSuggestion(null);
@@ -2699,7 +3030,7 @@ export default function ResumeBuilder({
         body: JSON.stringify({
           tailoring_mode: tailoringMode ?? "honest",
           gap_name: gap.name,
-          gap_notes: gap.notes,
+          gap_notes: `${gap.notes}\n\n${inventedBulletPermission(tailoringMode)}`.trim(),
           job_description: jd.trim(),
           // Patch applied gap fixes in FIRST. The backend builds its
           // eligible-bullets whitelist from structured_resume, so sending the
@@ -2723,8 +3054,14 @@ export default function ResumeBuilder({
       if (!resp.ok || data.error) throw new Error(data.error ?? "Gap fix failed");
       const suggs = (Array.isArray(data.suggestions) ? data.suggestions : []) as Array<{
         id: string; section: string; original: string; suggested: string; reason: string; priority: string;
+        employer?: string; suggested_role?: string; original_role?: string;
       }>;
-      const eligible = suggs.filter((s) => s.original?.trim() && s.suggested?.trim());
+      const eligible = attachAggressiveRoleTitle(
+        suggs.filter((s) => suggestionIsUsable(s)),
+        tailorStructuredResume?.experience ?? [],
+        result?.ratings?.job_title?.jd_title ?? "",
+        tailoringMode,
+      );
       const terms = Array.isArray(data.targetTerms)
         ? data.targetTerms.map((t) => String(t).trim()).filter(Boolean)
         : [];
@@ -2763,27 +3100,39 @@ export default function ResumeBuilder({
       setGapFixLoading(null);
     }
   }, [jd, addressedGaps, addressedGapActions, tailorStructuredResume, tailorFieldOverrides,
-      tailorBulletAnalysis, tailorLineOverrides, effectiveCandidateProfile, tailoringMode]);
+      tailorBulletAnalysis, tailorLineOverrides, effectiveCandidateProfile, tailoringMode,
+      result?.ratings?.job_title?.jd_title]);
 
   /**
    * Single-item fetch for the /tailor-2 inline fix flow. Same request as
    * handleFixGap, but RETURNS the rewrite options instead of auto-applying
    * them — the queue row expands around them so the user picks a version.
    */
+  const lastGuidanceToolsRef = useRef(new Map<string, string[]>());
   const fetchFixSuggestions = useCallback(async (
     item: QueueItem,
-    facts?: ConfirmedFact,
+    guidance?: FixGuidance,
   ): Promise<FixSuggestion[]> => {
     if (!jd.trim()) throw new Error("Add a job description first.");
     const prof = effectiveCandidateProfile.trim();
     if (!tailorStructuredResume && !prof) {
       throw new Error("Upload your resume or paste your profile first.");
     }
-    const notes =
+    const baseNotes =
       item.kind === "qualification" || item.kind === "responsibility"
         ? item.detail
         : `This keyword is missing from the resume. Rewrite one of the most relevant existing bullets to naturally incorporate "${item.name}" without fabricating experience.`;
-    const confirmed = normalizeConfirmedFacts(facts ? [facts] : []);
+    // What the user handed over rides in the notes as well as in
+    // confirmed_facts: tools they vouch for and a steering line are guidance
+    // for the writer, and the facts block is provenance for the validator.
+    const notes = [baseNotes, guidanceNotes(guidance)].filter(Boolean).join("\n\n");
+    // Remembered per row so the apply step knows which tools the user vouched
+    // for when it files them in Skills; the suggestion itself carries only
+    // what the server flagged.
+    if (guidance?.tools.length) lastGuidanceToolsRef.current.set(item.id, guidance.tools);
+    else lastGuidanceToolsRef.current.delete(item.id);
+    const fact = factsForRequest(guidance);
+    const confirmed = fact ? normalizeConfirmedFacts([fact])[0] : undefined;
     const attemptFetch = async (): Promise<{ usable: FixSuggestion[]; failure: string | null }> => {
       const resp = await apiFetch("/api/suggest-gap-fix", {
         method: "POST",
@@ -2791,13 +3140,13 @@ export default function ResumeBuilder({
         body: JSON.stringify({
           tailoring_mode: tailoringMode ?? "honest",
           gap_name: item.name,
-          gap_notes: notes,
+          gap_notes: `${notes}\n\n${inventedBulletPermission(tailoringMode)}`.trim(),
           job_description: jd.trim(),
           // Provenance, not permission: the API uses confirmed facts to decide
           // whether an added number is evidenced, never to withhold a rewrite.
           // Omitted entirely when absent so the request is byte-identical to
           // before the confirm step existed.
-          ...(confirmed.length ? { confirmed_facts: confirmed } : {}),
+          ...(confirmed ? { confirmed_facts: confirmed } : {}),
           // Patched doc, same as handleFixGap: the eligible-bullets whitelist
           // must reflect already-applied fixes or a later apply overwrites them.
           ...(tailorStructuredResume ? {
@@ -2816,7 +3165,12 @@ export default function ResumeBuilder({
       };
       if (!resp.ok || data.error) throw new Error(data.error ?? "Couldn't write suggestions. Try again.");
       const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as FixSuggestion[];
-      const usable = list.filter((s) => s.original?.trim() && s.suggested?.trim());
+      const usable = attachAggressiveRoleTitle(
+        list.filter((s) => suggestionIsUsable(s)),
+        tailorStructuredResume?.experience ?? [],
+        result?.ratings?.job_title?.jd_title ?? "",
+        tailoringMode,
+      );
       // An empty list has four causes and NONE of them earns a verdict about
       // the résumé — the routing and the reasoning live in
       // lib/gapFixEmptyReason.ts, where they are pinned by tests.
@@ -2831,7 +3185,7 @@ export default function ResumeBuilder({
     if (!out.usable.length && out.failure) throw new Error(out.failure);
     return out.usable;
   }, [jd, effectiveCandidateProfile, tailorStructuredResume, tailorBulletAnalysis,
-      tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
+      tailorLineOverrides, tailorFieldOverrides, tailoringMode, result?.ratings?.job_title?.jd_title]);
 
   /** "See it" on a queue row: frame + scroll the preview bullet. An applied
    *  row resolves through its recorded fix; an open row whose TERM the
@@ -2863,6 +3217,24 @@ export default function ResumeBuilder({
     // there is no bullet to put back, only a term to remove. The receipt
     // clears either way: even if the user already hand-deleted the term, the
     // queue row must reopen, or the log claims a change the document lost.
+    if (change.kind === "title") {
+      const path = (change.entryPath ?? "").trim();
+      const m = /^exp\.(\d+)$/.exec(path);
+      if (m) {
+        const index = Number(m[1]);
+        setTailorFieldOverrides((prev) => {
+          const next = { ...prev };
+          delete next[`exp.${index}.role`];
+          delete next[`exp.${index}.head`];
+          return next;
+        });
+      }
+      setAddressedGapActions((prev) =>
+        prev.filter((a) => !(a.via === "title" && (a.entryPath ?? "") === path)),
+      );
+      setScoreStale(true);
+      return;
+    }
     if (change.kind === "skill") {
       let nextProfile: string | null = null;
       setStructuredUpload((prev) => {
@@ -2873,12 +3245,47 @@ export default function ResumeBuilder({
         return { profile: nextProfile, structured: res.structured };
       });
       if (nextProfile !== null) setCandidateProfile(nextProfile);
-      const undoneSkills = new Set(change.requirements.map((r) => r.trim().toLowerCase()));
+      const term = change.applied.trim().toLowerCase();
+      let remaining: AddressedGapAction[] = [];
+      setAddressedGapActions((prev) => {
+        remaining = prev.filter((a) => {
+          if (a.via !== "skills") return true;
+          return (a.appliedText ?? a.label).trim().toLowerCase() !== term;
+        });
+        return remaining;
+      });
+      // Reopen a queue row only when this skills add was what closed it.
+      // A rewrite of a different gap that happened to name this tool keeps
+      // its receipt.
       setAddressedGaps((prev) =>
-        new Set([...prev].filter((g) => !undoneSkills.has(g.trim().toLowerCase()))),
+        new Set([...prev].filter((g) => {
+          const k = g.trim().toLowerCase();
+          if (k !== term) return true;
+          return remaining.some((a) => a.label.trim().toLowerCase() === k);
+        })),
+      );
+      setScoreStale(true);
+      return;
+    }
+    // A line the user wrote reverts by removing that text from the entry it
+    // was added to. Matched by text, not index: the preview's bullet list was
+    // built before the line existed, so there is no index to hold.
+    if (change.kind === "added") {
+      let nextProfile: string | null = null;
+      setStructuredUpload((prev) => {
+        if (!prev) return prev;
+        const res = removeBulletByText(prev.structured, change.entryPath, change.applied);
+        if (!res) return prev;
+        nextProfile = structuredToPlainText(res) || prev.profile;
+        return { profile: nextProfile, structured: res };
+      });
+      if (nextProfile !== null) setCandidateProfile(nextProfile);
+      const undone = new Set(change.requirements.map((r) => r.trim().toLowerCase()));
+      setAddressedGaps((prev) =>
+        new Set([...prev].filter((g) => !undone.has(g.trim().toLowerCase()))),
       );
       setAddressedGapActions((prev) =>
-        prev.filter((a) => !undoneSkills.has(a.label.trim().toLowerCase())),
+        prev.filter((a) => !undone.has(a.label.trim().toLowerCase())),
       );
       setScoreStale(true);
       return;
@@ -2926,14 +3333,30 @@ export default function ResumeBuilder({
       closePanel: false,
       gapType: item.kind === "contextual" ? "keyword" : item.kind,
     });
-  }, []);
+    // Tools this rewrite brings in: the ones the server flagged as not yet
+    // evidenced (aggressive mode ships them at high risk) and the ones the
+    // user vouched for, kept only where the applied text actually names them.
+    const name = item.name.trim();
+    const extra =
+      item.kind === "keyword" && name.split(/\s+/).length <= 3 ? [name] : [];
+    fileToolsInSkills(collectAppliedTools({
+      applied: chosen.suggested,
+      unverified: suggestion.unverified_terms,
+      vouched: lastGuidanceToolsRef.current.get(item.id) ?? [],
+      extra,
+    }));
+  }, [fileToolsInSkills]);
 
   /**
    * Apply one or more gap-fix suggestions to the HTML preview (Chromium export path — no LaTeX).
    * Patches synthesized plain text, updates the Fixes tab queue, rescoring via /api/analyze.
    */
   const applyGapFixes = useCallback(async (
-    items: Array<{ id: string; section: string; original: string; suggested: string; reason: string; priority: string }>,
+    items: Array<{
+      id: string; section: string; original: string; suggested: string;
+      reason: string; priority: string; employer?: string;
+      suggested_role?: string; original_role?: string;
+    }>,
     gapNameOverride?: string,
     opts?: { closePanel?: boolean; gapType?: AddressedGapAction["type"] },
   ) => {
@@ -3001,9 +3424,14 @@ export default function ResumeBuilder({
       // already-edited bullet can be MERGED rather than overwriting it.
       const perBullet = new Map<number, { original: string; suggestions: string[] }>();
       const unmergeable: string[] = [];
+      const invented: Array<{ text: string; employer?: string }> = [];
 
       for (const s of draftedItems) {
-        if (!s.original?.trim() || !s.suggested?.trim()) continue;
+        if (!s.suggested?.trim()) continue;
+        if (!s.original?.trim()) {
+          invented.push({ text: s.suggested.trim(), employer: s.employer });
+          continue;
+        }
         const fixId = `gf_${Date.now()}_${s.id}`;
         newSuggestions.push({
           ...s,
@@ -3051,6 +3479,32 @@ export default function ResumeBuilder({
           nextOverrides[index] = all[0];
           if (all.length > 1) unmergeable.push(base);
         }
+        appliedIndices.add(index);
+      }
+
+      const canAppendStructured = (tailorStructuredResume?.experience?.length ?? 0) > 0;
+      for (const { text, employer } of invented) {
+        if (canAppendStructured) {
+          setStructuredUpload((prev) => {
+            if (!prev) return prev;
+            const next = applyBulletOpToStructured(prev.structured, {
+              entryPath: entryPathForNewBullet(prev.structured, employer),
+              action: { type: "add", text },
+              pathRemap: {},
+            });
+            if (!next) return prev;
+            return { profile: prev.profile, structured: next };
+          });
+        } else {
+          setCandidateProfile((prev) => appendBulletLine(prev ?? "", text));
+        }
+        const index = bullets.length;
+        bullets = [
+          ...bullets,
+          { originalBullet: text, score: 0, issues: [], improvedBullet: text },
+        ];
+        nextOverrides[index] = text;
+        perBullet.set(index, { original: text, suggestions: [text] });
         appliedIndices.add(index);
       }
 
@@ -3103,6 +3557,24 @@ export default function ResumeBuilder({
       }
       if (appliedIndices.size > 0 || gapName) setScoreStale(true);
 
+      // Aggressive (or a model-supplied suggested_role): retitle the existing
+      // role this rewrite sat under, once per role, when the title is defensible.
+      const experience = tailorStructuredResume?.experience ?? [];
+      const retitled = new Set<number>();
+      for (const s of draftedItems) {
+        const role = (s.suggested_role ?? "").trim();
+        if (!role || !experience.length) continue;
+        const idx = pickExperienceIndex(experience, {
+          employer: s.employer,
+          currentRole: s.original_role,
+          jdTitle: role,
+        });
+        if (idx < 0 || retitled.has(idx)) continue;
+        if (applyExperienceTitleChange(idx, role, { requireDefensible: true })) {
+          retitled.add(idx);
+        }
+      }
+
       // Clear the green flash after a moment.
       if (appliedIndices.size > 0) {
         window.setTimeout(() => setTailorAppliedBulletIndices(new Set()), 3000);
@@ -3114,7 +3586,7 @@ export default function ResumeBuilder({
     }
   }, [candidateProfile, tailorBulletAnalysis, tailorLineOverrides, suggestions, suggestSummary,
       strategicTips, interviewQuestions, hydrateSuggestions, acceptSuggestion, gapFixPanel, gapFixDrafts,
-      addressedGapActions, jd]);
+      addressedGapActions, jd, tailorStructuredResume, applyExperienceTitleChange]);
 
   applyGapFixesRef.current = applyGapFixes;
 
@@ -3318,6 +3790,10 @@ export default function ResumeBuilder({
 
       let appliedTotal = 0;
       const panelAll: GapFixSuggestion[] = [];
+      // Tech the applied rewrites named that the résumé did not evidence;
+      // filed in Skills once the pass is done so the section agrees with the
+      // bullets that now carry those names.
+      const introducedTools: string[] = [];
       // Bullets already rewritten in THIS pass. Every run is sent the same
       // pristine résumé, so runs independently pick the same flexible line and
       // each returns a rewrite of it; the apply path fuzzy-matches `original`,
@@ -3336,7 +3812,7 @@ export default function ResumeBuilder({
             body: JSON.stringify({
               tailoring_mode: tailoringMode ?? "honest",
               gap_name: batchGapName(batch),
-              gap_notes: batchGapNotes(batch),
+              gap_notes: batchGapNotes(batch, tailoringMode ?? "honest"),
               job_description: jd.trim(),
               ...(structured ? { structured_resume: structured } : {}),
               ...(prof ? { candidate_profile: prof } : {}),
@@ -3344,10 +3820,15 @@ export default function ResumeBuilder({
           });
           if (resp.ok) {
             const data = await resp.json() as { suggestions?: unknown[] };
-            const list = (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[];
+            const list = attachAggressiveRoleTitle(
+              (Array.isArray(data.suggestions) ? data.suggestions : []) as GapFixSuggestion[],
+              structured?.experience ?? tailorStructuredResume?.experience ?? [],
+              result?.ratings?.job_title?.jd_title ?? "",
+              tailoringMode,
+            );
             // Namespace ids per batch: the API numbers them from 1 each call.
             const fresh = keepFirstRewritePerBullet(
-              list.filter((s) => s.original?.trim() && s.suggested?.trim()),
+              list.filter((s) => suggestionIsUsable(s)),
               usedBullets,
             );
             usedBullets = fresh.used;
@@ -3358,10 +3839,19 @@ export default function ResumeBuilder({
         if (autoApply) {
           if (named.length > 0) {
             appliedTotal += named.length;
+            for (const s of named) {
+              introducedTools.push(...collectAppliedTools({
+                applied: s.suggested,
+                unverified: s.unverified_terms,
+              }));
+            }
             await applyGapFixesRef.current(
               named.map((s) => ({
                 id: s.id, section: s.section, original: s.original,
                 suggested: s.suggested, reason: s.reason, priority: s.priority,
+                employer: s.employer,
+                suggested_role: s.suggested_role,
+                original_role: s.original_role,
               })),
               batchGapName(batch),
               { gapType: batch.type },
@@ -3376,14 +3866,17 @@ export default function ResumeBuilder({
       }
 
       if (autoApply) {
+        if (introducedTools.length > 0) fileToolsInSkills(introducedTools);
+        // Not a verdict on the candidate. Each remaining row now carries its
+        // own "Tell us about it", so the banner only has to say where to look.
         if (appliedTotal === 0) {
-          setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
+          setGapFixError("We couldn't write these from your résumé alone. Each row below asks for the one detail it needs.");
         }
         return;
       }
 
       if (panelAll.length === 0) {
-        setGapFixError("No honest rewrites found for the remaining gaps. They may need experience the résumé doesn't cover.");
+        setGapFixError("We couldn't write these from your résumé alone. Open a row and tell us what you did; that's enough to write from.");
         return;
       }
       setGapFixPanel({
@@ -3400,7 +3893,8 @@ export default function ResumeBuilder({
       setFixAllPendingGaps([]);
     }
   }, [jd, openGapBatches, fixAllBusy, fixAllAutoApply, queueUi, effectiveCandidateProfile,
-      tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode]);
+      tailorStructuredResume, tailorBulletAnalysis, tailorLineOverrides, tailorFieldOverrides, tailoringMode,
+      fileToolsInSkills, result?.ratings?.job_title?.jd_title]);
 
   /** One batched rewrite pass for several contextual gaps, instead of one call each. */
   const fixKeywordsBatched = useCallback((keywords: string[]) => {
@@ -3433,6 +3927,15 @@ export default function ResumeBuilder({
     if (!ratings) return ratings;
     return applyAddressedGapsToRatings(ratings, addressedGaps, addressedGapActions);
   }, [ratings, addressedGaps, addressedGapActions]);
+  const experienceRoles = useMemo(
+    () =>
+      (tailorStructuredResume?.experience ?? []).map((e, i) => ({
+        index: i,
+        role: effectiveExperienceRole(e, i, tailorFieldOverrides),
+        company: (e.company ?? "").trim(),
+      })),
+    [tailorStructuredResume, tailorFieldOverrides],
+  );
   const score   = displayRatings?.match_score ?? ratings?.match_score ?? 0;
 
   /** Phase 2 — Parse candidateProfile into typed lines for the bullet editor. */
@@ -3944,7 +4447,12 @@ export default function ResumeBuilder({
             >
 
           {tailorJobsReady && !studioHandoff && (
-            <TailorJobTabs onFocus={focusJob} onAdd={openBlankJob} onClose={closeJob} />
+            <TailorJobTabs
+              onFocus={focusJob}
+              onAdd={openBlankJob}
+              onClose={closeJob}
+              profileTitle={(tailorHeadlineOverride.trim() || structuredUpload?.structured.headline || "").trim()}
+            />
           )}
 
           {/* ── Analyze loader ── */}
@@ -4918,10 +5426,16 @@ export default function ResumeBuilder({
                   />
                   )}
                   <div className="tb-split-work-slot">
+                    <TailorSkillsFollowUp
+                      notice={skillsFollowUp}
+                      onCreateSection={createSkillsSectionWith}
+                      onDismiss={() => setSkillsFollowUp(null)}
+                    />
                     {queueUi && (
                       <TailorQueuePanel
                         onAddEducation={handleAddEducation}
                         onAddSkill={handleAddSkill}
+                        onAddOwnBullet={addOwnBulletForGap}
                         structuredResume={structuredUpload?.structured ?? null}
                         ratings={displayRatings}
                         addressedGaps={addressedGaps}
@@ -4953,6 +5467,13 @@ export default function ResumeBuilder({
                         lineOverrides={tailorLineOverrides}
                         bulletAnalysis={tailorBulletAnalysis}
                         onUndoChange={undoResumeChange}
+                        experienceRoles={experienceRoles}
+                        aggressive={tailoringMode === "aggressive"}
+                        onApplyRoleTitle={
+                          tailorStructuredResume
+                            ? (index, title) => { applyExperienceTitleChange(index, title); }
+                            : undefined
+                        }
                       />
                     )}
                     {scoreStale && !gapApplyBusy && !queueUi && (
@@ -5021,6 +5542,12 @@ export default function ResumeBuilder({
                       onHeadlineDraftChange={handleHeadlineOverrideChange}
                       onRescoreTitle={tailorStructuredResume ? () => { void rescoreTailorRatings(); } : undefined}
                       titleRescoring={tailorRescoring}
+                      experienceRoles={experienceRoles}
+                      onRoleTitleChange={
+                        tailorStructuredResume
+                          ? (index, title) => { applyExperienceTitleChange(index, title); }
+                          : undefined
+                      }
                       onFixGap={(item: DetailedRatingItem, gapType) => {
                         void handleFixGap({
                           name: item.text,

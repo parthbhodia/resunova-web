@@ -11,7 +11,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { UmbcProvider } from "@/contexts/UmbcContext";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
-import { POST_LOGIN_DEST_KEY } from "@/lib/anonScan";
+import { shouldRestorePostLoginDest, takePostLoginDest } from "@/lib/oauthRedirect";
 import { getSupabaseClient } from "@/lib/supabase";
 import { isInstitutionUser, isUmbcUser } from "@/lib/userDomainDetection";
 import ResumeSidebar from "./ResumeSidebar";
@@ -127,8 +127,9 @@ function AppShellBody({ children }: { children: ReactNode }) {
   }, [active]);
   const onTemplateBuilderPage =
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
-  const onTemplatesPage =
-    (pathname ?? "").replace(/\/$/, "") === "/templates";
+  // /templates used to live here and needed this check for nav highlighting.
+  // It moved to the (marketing) group so it would server-render, so AppShell
+  // never mounts on that route again and this would be permanently false.
   const onTailor2Page =
     (pathname ?? "").replace(/\/$/, "") === "/tailor-2";
   const onInterviewPrepPage =
@@ -191,23 +192,16 @@ function AppShellBody({ children }: { children: ReactNode }) {
     };
 
     // After OAuth, send the user back to where they started sign-in (e.g.
-    // ?view=jobs → the jobs onboarding wizard) instead of the default Analyze
-    // view. One-shot (atomic read+remove so it never hijacks later "/" visits),
-    // and only when we landed without an explicit view (Supabase dropped the
-    // query back to the bare origin). See signInWithGoogle in lib/anonScan.
+    // /refer/?s=… or ?view=jobs) when Supabase dropped them on the bare origin.
+    // One-shot; only restores from bare `/` so a successful landing on /refer
+    // is not undone the next time this shell mounts. See signInWithGoogle.
     const restorePostLoginDest = () => {
       if (typeof window === "undefined") return;
-      let dest: string | null = null;
-      try {
-        dest = window.localStorage.getItem(POST_LOGIN_DEST_KEY);
-        if (dest) window.localStorage.removeItem(POST_LOGIN_DEST_KEY);
-      } catch {
-        return;
-      }
+      const dest = takePostLoginDest();
       if (!dest) return;
       try {
         const here = window.location.pathname + window.location.search;
-        if (dest !== here) router.replace(dest);
+        if (shouldRestorePostLoginDest(here, dest)) router.replace(dest);
       } catch {
         /* ignore */
       }
@@ -298,7 +292,6 @@ function AppShellBody({ children }: { children: ReactNode }) {
               <AppSidebar
                 active={active}
                 onTemplateBuilderPage={onTemplateBuilderPage}
-                onTemplatesPage={onTemplatesPage}
                 onInterviewPrepPage={onInterviewPrepPage}
                 onCareerProfilePage={onCareerProfilePage}
                 builderActive={builderActive}

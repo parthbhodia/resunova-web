@@ -13,14 +13,14 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GET } from "@/app/blog/rss.xml/route";
+import { GET } from "@/app/(marketing)/blog/rss.xml/route";
 import { BLOG_AUTHOR, BLOG_POSTS, blogAuthorName, createBlogPostJsonLd } from "@/lib/atsBlogPosts";
 import { isLikelyEmail } from "@/lib/blogSubscribe";
 
 const ROOT = join(__dirname, "..", "..");
 
 function postSource(slug: string): string {
-  return readFileSync(join(ROOT, "app", "blog", slug, "page.tsx"), "utf8");
+  return readFileSync(join(ROOT, "app", "(marketing)", "blog", slug, "page.tsx"), "utf8");
 }
 
 /**
@@ -75,6 +75,7 @@ describe("every post has a conversion path", () => {
       "/resume-examples/",
       "/skills-for-resume/",
       "/blog/",
+      "/refer/",
     ]);
     const views = new Set(["home", "analyze", "builder", "jobs", "library", "cover-letter", "profile", "account"]);
 

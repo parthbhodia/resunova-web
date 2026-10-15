@@ -26,6 +26,7 @@ import {
   persistLastSeenReferral,
   setReferralInboxOpen,
 } from "@/lib/productNotices";
+import { FeedbackToastCard } from "@/components/FeedbackToastCard";
 import { ReferrerName } from "@/components/refer/ReferrerName";
 import { SentReferralsCard } from "@/components/profile/SentReferralsCard";
 
@@ -120,6 +121,40 @@ function PrimaryButton({
   );
 }
 
+type ReferrerForm = {
+  displayName: string;
+  company: string;
+  title: string;
+  linkedin: string;
+  bio: string;
+  openToRefer: boolean;
+};
+
+function ReferrerFields({
+  form,
+  onChange,
+}: {
+  form: ReferrerForm;
+  onChange: (next: ReferrerForm) => void;
+}) {
+  return (
+    <>
+      <input aria-label="Your name" placeholder="e.g. Jordan Lee" maxLength={REFERRER_LIMITS.name} value={form.displayName} onChange={(e) => onChange({ ...form, displayName: e.target.value })} style={fieldStyle} />
+      <input aria-label="Company you work at" placeholder="e.g. Stripe" maxLength={REFERRER_LIMITS.company} value={form.company} onChange={(e) => onChange({ ...form, company: e.target.value })} style={fieldStyle} />
+      <input aria-label="Your title" placeholder="e.g. Software Engineer" maxLength={REFERRER_LIMITS.title} value={form.title} onChange={(e) => onChange({ ...form, title: e.target.value })} style={fieldStyle} />
+      <input aria-label="LinkedIn URL" placeholder="https://linkedin.com/in/your-name" maxLength={REFERRER_LIMITS.url} value={form.linkedin} onChange={(e) => onChange({ ...form, linkedin: e.target.value })} style={fieldStyle} />
+      <input
+        aria-label="Roles you can refer for"
+        placeholder="e.g. Backend, new grad, intern"
+        maxLength={REFERRER_LIMITS.bio}
+        value={form.bio}
+        onChange={(e) => onChange({ ...form, bio: e.target.value })}
+        style={{ ...fieldStyle, gridColumn: "1 / -1" }}
+      />
+    </>
+  );
+}
+
 function GhostButton({
   children,
   onClick,
@@ -167,6 +202,7 @@ export function CompanyReferrerPanel({
   const [pausing, setPausing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ title: string; description: string; variant: "success" | "error" } | null>(null);
   const [form, setForm] = useState({
     displayName,
     company: "",
@@ -224,17 +260,29 @@ export function CompanyReferrerPanel({
     });
   }, [profile?.id]);
 
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 4200);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
   const onSave = useCallback(async () => {
     setSaving(true);
     setError(null);
+    const creating = !profile;
     const saved = await upsertMyReferrerProfile(form);
     setSaving(false);
     if (!saved) {
-      setError("Could not save. Add your name, company, and title.");
+      const message = "Could not save. Add your name, company, and title.";
+      setError(message);
+      setToast({ title: "Could not save", description: message, variant: "error" });
       return;
     }
     setProfile(saved);
-  }, [form]);
+    setToast(creating
+      ? { title: "You're signed up to refer", description: "Your referral link is ready to share.", variant: "success" }
+      : { title: "Profile saved", description: "Your referrer details are updated.", variant: "success" });
+  }, [form, profile]);
 
   const onToggleOpen = useCallback(async () => {
     if (!profile) return;
@@ -251,11 +299,16 @@ export function CompanyReferrerPanel({
     });
     setPausing(false);
     if (!saved) {
-      setError("Could not update request availability.");
+      const message = "Could not update request availability.";
+      setError(message);
+      setToast({ title: "Could not update", description: message, variant: "error" });
       return;
     }
     setForm((prev) => ({ ...prev, openToRefer: nextOpen }));
     setProfile(saved);
+    setToast(nextOpen
+      ? { title: "Requests are open", description: "People can ask you for a referral again.", variant: "success" }
+      : { title: "Requests paused", description: "Your link will not accept requests until you reopen it.", variant: "success" });
   }, [profile]);
 
   const shareUrl = profile
@@ -353,18 +406,7 @@ export function CompanyReferrerPanel({
                 <div style={{ fontSize: 14, fontWeight: 800 }}>Referrer profile</div>
                 <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)" }}>One company per account. Update this if you change jobs. The public link stays the same.</p>
               </div>
-              <input aria-label="Your name" placeholder="Your name" maxLength={REFERRER_LIMITS.name} value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} style={fieldStyle} />
-              <input aria-label="Company you work at" placeholder="Company you work at" maxLength={REFERRER_LIMITS.company} value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} style={fieldStyle} />
-              <input aria-label="Your title" placeholder="Your title" maxLength={REFERRER_LIMITS.title} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={fieldStyle} />
-              <input aria-label="LinkedIn URL" placeholder="LinkedIn URL (optional)" maxLength={REFERRER_LIMITS.url} value={form.linkedin} onChange={(e) => setForm({ ...form, linkedin: e.target.value })} style={fieldStyle} />
-              <input
-                aria-label="Roles you can refer for"
-                placeholder="Roles you can refer for"
-                maxLength={REFERRER_LIMITS.bio}
-                value={form.bio}
-                onChange={(e) => setForm({ ...form, bio: e.target.value })}
-                style={{ ...fieldStyle, gridColumn: "1 / -1" }}
-              />
+              <ReferrerFields form={form} onChange={setForm} />
               <div style={{ gridColumn: "1 / -1" }}>
                 <PrimaryButton onClick={() => void onSave()} disabled={saving}>
                   {saving ? "Saving..." : "Save referrer profile"}
@@ -435,18 +477,7 @@ export function CompanyReferrerPanel({
             </p>
           </div>
           <div style={{ padding: "0 28px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }} className="refer-desk-grid">
-            <input aria-label="Your name" placeholder="Your name" maxLength={REFERRER_LIMITS.name} value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} style={fieldStyle} />
-            <input aria-label="Company you work at" placeholder="Company you work at" maxLength={REFERRER_LIMITS.company} value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} style={fieldStyle} />
-            <input aria-label="Your title" placeholder="Your title" maxLength={REFERRER_LIMITS.title} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={fieldStyle} />
-            <input aria-label="LinkedIn URL" placeholder="LinkedIn URL (optional)" maxLength={REFERRER_LIMITS.url} value={form.linkedin} onChange={(e) => setForm({ ...form, linkedin: e.target.value })} style={fieldStyle} />
-            <input
-              aria-label="Roles you can refer for"
-              placeholder="Roles you can refer for"
-              maxLength={REFERRER_LIMITS.bio}
-              value={form.bio}
-              onChange={(e) => setForm({ ...form, bio: e.target.value })}
-              style={{ ...fieldStyle, gridColumn: "1 / -1" }}
-            />
+            <ReferrerFields form={form} onChange={setForm} />
             <div style={{ gridColumn: "1 / -1", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <PrimaryButton onClick={() => void onSave()} disabled={saving}>
                 {saving ? "Saving..." : "Sign up as a referrer"}
@@ -461,7 +492,19 @@ export function CompanyReferrerPanel({
 
       <SentReferralsCard />
 
+      {/* --red-ink, not #dc2626: this panel mounts inside the THEMED profile hub,
+          so a hardcoded red is the light-mode-card-on-a-dark-page defect that
+          made this whole feature render identically in both themes. */}
       {error ? <p role="alert" style={{ margin: 0, color: "var(--red-ink)", fontSize: 13 }}>{error}</p> : null}
+      {toast ? (
+        <FeedbackToastCard
+          title={toast.title}
+          description={toast.description}
+          variant={toast.variant}
+          role={toast.variant === "error" ? "alert" : "status"}
+          onDismiss={() => setToast(null)}
+        />
+      ) : null}
     </div>
   );
 }

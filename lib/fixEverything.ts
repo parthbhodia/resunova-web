@@ -14,6 +14,7 @@
 import type { AddressedGapAction, RatingsData } from "@/lib/types";
 import { isDetailedRatings } from "@/lib/types";
 import { isGapAddressed } from "@/lib/tailorGapFix";
+import type { TailoringMode } from "@/lib/tailoringMode";
 
 export type GapType = AddressedGapAction["type"];
 
@@ -107,8 +108,39 @@ export function batchGapName(batch: GapBatch): string {
   return batch.gaps.join(", ");
 }
 
-/** Prompt notes for a batch, telling the model to cover as many as it honestly can. */
-export function batchGapNotes(batch: GapBatch): string {
+/**
+ * Permission to add a line the résumé does not already have.
+ *
+ * Honest mode never gets this. Aggressive mode does: a duty that cannot land
+ * on an existing bullet was being dropped, then shown as impossible. A new
+ * bullet under a role the résumé already lists is the fix. A new employer,
+ * credential, or number is still refused. Retitling an existing role toward
+ * the posting is allowed when the work is the same job under a different name.
+ */
+export function inventedBulletPermission(mode: TailoringMode | null | undefined): string {
+  if (mode !== "aggressive") return "";
+  return (
+    "Write the bullet with the Google XYZ formula: Accomplished [X] as measured by [Y] by doing [Z]. "
+    + "Naturally include this requirement. Start with a strong action verb. "
+    + "If it cannot be woven into an existing bullet, invent one new bullet under the closest existing role. "
+    + "Return a new bullet with an empty original and the full line as suggested. "
+    + "[Y] must be a result already on the résumé. "
+    + "Do not invent a new employer, credential, or number. "
+    + "You MAY retitle an existing role toward the posting's job title when the work already described is the same job under a different name. "
+    + "If you retitle, set suggested_role to the new title on that suggestion and keep employer unchanged. "
+    + "Do not invent a new role, do not change an employer name, and do not promote intern or student titles to senior, staff, or director."
+  );
+}
+
+/** Prompt notes for a batch. Aggressive mode may add one new bullet. */
+export function batchGapNotes(batch: GapBatch, mode?: TailoringMode | null): string {
+  const permission = inventedBulletPermission(mode);
+  if (permission) {
+    return (
+      `${batch.notes}\n\n`
+      + `Cover this ${batch.label} from the résumé. ${permission}`
+    );
+  }
   return (
     `${batch.notes}\n\n`
     + `Cover as many of these ${batch.label} as the résumé can honestly support. `
@@ -116,6 +148,24 @@ export function batchGapNotes(batch: GapBatch): string {
     + "the same bullet. Never invent experience, employers, titles or metrics to "
     + "fit a gap. Leave a gap uncovered rather than fabricate it."
   );
+}
+
+/** A suggestion the apply path can use: a rewrite of a real line, or a new bullet. */
+export function suggestionIsUsable(s: { original?: string; suggested?: string }): boolean {
+  const suggested = (s.suggested ?? "").trim();
+  if (!suggested) return false;
+  if ((s.original ?? "").trim()) return true;
+  return suggested.length >= 12;
+}
+
+/** Append one bullet to plain profile text when there is no structured experience to hang it on. */
+export function appendBulletLine(profile: string, bullet: string): string {
+  const line = bullet.trim().replace(/^[-•·*▪▸→>]+\s*/, "");
+  if (!line) return profile;
+  const body = profile.replace(/\s+$/, "");
+  if (body.toLowerCase().includes(line.toLowerCase())) return profile;
+  const formatted = `• ${line}`;
+  return body ? `${body}\n${formatted}` : formatted;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -312,10 +362,18 @@ export function keepFirstRewritePerBullet(
   const kept: PassSuggestion[] = [];
   for (const s of suggestions) {
     const key = bulletKey(s?.original ?? "");
-    // A suggestion with no original cannot be matched to a line at all; the
-    // apply path would append it. Drop it here rather than let it grow the
-    // résumé from nowhere.
-    if (!key || next.has(key)) continue;
+    // No original means a new bullet, not a rewrite of a line we already
+    // spent. Keep it, and only drop a second copy of the same new line.
+    if (!key) {
+      const text = (s?.suggested ?? "").trim();
+      if (text.length < 12) continue;
+      const invented = `new:${bulletKey(text)}`;
+      if (next.has(invented)) continue;
+      next.add(invented);
+      kept.push(s);
+      continue;
+    }
+    if (next.has(key)) continue;
     next.add(key);
     kept.push(s);
   }

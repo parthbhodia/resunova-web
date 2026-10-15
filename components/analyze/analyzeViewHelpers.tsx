@@ -136,7 +136,7 @@ export const ISSUE_TEXT_TO_CATEGORY: Array<{ patterns: string[]; key: keyof Anal
     key: "achievementQuality",
   },
   { patterns: ["quantif", "metric", "no numbers", "measur", "lack of data", "numeric", "no metrics"], key: "quantification" },
-  { patterns: ["language", "verb", "passive", "buzzword", "communication", "word"], key: "languageQuality" },
+  { patterns: ["language", "verb", "passive", "buzzword", "communication", "word", "pronoun", "first-person", "first person"], key: "languageQuality" },
   { patterns: ["readab", "length", "format", "clarity", "long", "short"], key: "readability" },
   { patterns: ["ats", "applicant", "tracking", "keyword", "scan"], key: "atsCompatibility" },
   { patterns: ["section", "structure", "summary", "objective", "order"], key: "sectionStructure" },
@@ -167,6 +167,68 @@ export function issueCategoryOf(
 ): keyof AnalysisResult["categoryScores"] | null {
   if (issue.category) return issue.category;
   return guessIssueCategory(`${issue.issue} ${issue.whyItMatters} ${issue.suggestion}`);
+}
+
+/** Résumé section a top issue is talking about, when the wording names one. */
+export function issueResumeSection(text: string): "projects" | "experience" | "education" | "skills" | "summary" | null {
+  const lower = text.toLowerCase();
+  if (/\bprojects?\b/.test(lower)) return "projects";
+  if (/\b(experience|employment|work history)\b/.test(lower)) return "experience";
+  if (/\beducation\b/.test(lower)) return "education";
+  if (/\bskills?\b/.test(lower)) return "skills";
+  if (/\b(summary|objective)\b/.test(lower)) return "summary";
+  return null;
+}
+
+/** Phrases the issue quotes, usually the offending bullet fragment. */
+export function quotedPhrases(text: string): string[] {
+  const out: string[] = [];
+  const re = /['"“”‘’]([^'"“”‘’]{4,120})['"“”‘’]/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text))) {
+    const phrase = match[1].trim();
+    if (phrase) out.push(phrase);
+  }
+  return out;
+}
+
+/**
+ * Bullet the issue is about, so a click can open that bullet's fix instead of
+ * the first bullet in a broad category.
+ */
+export function bulletIndexForIssue(
+  issue: { issue: string; suggestion: string; whyItMatters?: string; items?: string[] },
+  bullets: ReadonlyArray<{ originalBullet: string }>,
+): number | null {
+  const needles = [
+    ...(issue.items ?? []),
+    ...quotedPhrases(`${issue.issue} ${issue.suggestion} ${issue.whyItMatters ?? ""}`),
+  ]
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.length >= 4);
+  if (needles.length === 0) return null;
+  const idx = bullets.findIndex((b) => {
+    const line = b.originalBullet.toLowerCase();
+    return needles.some((n) => line.includes(n));
+  });
+  return idx >= 0 ? idx : null;
+}
+
+/** Indexes of analyzed bullets that also appear in a résumé section. */
+export function bulletIndexInResumeSection(
+  bullets: ReadonlyArray<{ originalBullet: string }>,
+  sectionLines: readonly string[],
+): number[] {
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const pool = sectionLines.map(norm).filter((s) => s.length >= 8);
+  if (pool.length === 0) return [];
+  const hits: number[] = [];
+  bullets.forEach((b, i) => {
+    const line = norm(b.originalBullet);
+    if (line.length < 8) return;
+    if (pool.some((p) => p.includes(line) || line.includes(p))) hits.push(i);
+  });
+  return hits;
 }
 
 export function getBulletsForCategory(

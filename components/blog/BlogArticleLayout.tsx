@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { LogoFull } from "@/components/BrandLogo";
 import BlogEngagement from "@/components/blog/BlogEngagement";
 import BlogSubscribe from "@/components/blog/BlogSubscribe";
 import JsonLd from "@/components/seo/JsonLd";
@@ -36,86 +35,42 @@ export default function BlogArticleLayout({
     />
   ) : null);
 
+  // Chrome lives on app/(marketing)/layout.tsx (PublicSiteFrame). This layout
+  // is article content only — no nested <main> under the frame landmark.
   return (
     <div
       style={{
-        minHeight: "100vh",
-        background: "var(--bg)",
+        maxWidth: 760,
+        margin: "0 auto",
+        padding: "48px 24px 100px",
         color: "var(--text)",
         fontFamily: "'DM Sans', -apple-system, sans-serif",
       }}
     >
-      <header
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-          height: 56,
-          padding: "0 24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: "var(--glass-bg)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <Link href="/" style={{ textDecoration: "none" }}>
-          <LogoFull markSize={26} textColor="var(--text)" />
-        </Link>
-        <nav style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 13 }}>
-          <Link href="/blog" style={{ color: "var(--dim)", textDecoration: "none" }}>
-            Blog
-          </Link>
-          <Link
-            href="/"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "7px 14px",
-              borderRadius: 8,
-              background: "var(--accent)",
-              color: "#fff",
-              fontWeight: 600,
-              textDecoration: "none",
-            }}
-          >
-            Score my resume
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
-              <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-        </nav>
-      </header>
-
-      <main style={{ maxWidth: 760, margin: "0 auto", padding: "48px 24px 100px" }}>
-        <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>
-          Blog
+      <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)", marginBottom: 12 }}>
+        Blog
+      </p>
+      <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1.1, lineHeight: 1.12, margin: "0 0 14px" }}>
+        {title}
+      </h1>
+      {subtitle ? (
+        <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.65, margin: "0 0 16px" }}>
+          {subtitle}
         </p>
-        <h1 style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1.1, lineHeight: 1.12, margin: "0 0 14px" }}>
-          {title}
-        </h1>
-        {subtitle ? (
-          <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.65, margin: "0 0 16px" }}>
-            {subtitle}
-          </p>
-        ) : null}
-        {slug ? <JsonLd data={createBlogPostJsonLd(slug)} /> : null}
-        {articleMeta ? <div style={{ margin: "0 0 14px" }}>{articleMeta}</div> : null}
-        {slug ? (
-          <BlogEngagement slug={slug} />
-        ) : (
-          <div style={{ margin: articleMeta ? "0 0 32px" : "0 0 36px", paddingBottom: 28, borderBottom: "1px solid var(--border)" }} />
-        )}
-        <article style={{ fontSize: 15, lineHeight: 1.75, color: "var(--muted)" }}>{children}</article>
-        {/* Subscribe sits above "Continue reading" on purpose: a reader who has
-            finished the piece is at peak intent, and the related-posts list is
-            an invitation to leave this page. */}
-        <BlogSubscribe source={slug ?? "article"} />
-        {slug ? <RelatedPosts currentSlug={slug} /> : null}
-      </main>
+      ) : null}
+      {slug ? <JsonLd data={createBlogPostJsonLd(slug)} /> : null}
+      {articleMeta ? <div style={{ margin: "0 0 14px" }}>{articleMeta}</div> : null}
+      {slug ? (
+        <BlogEngagement slug={slug} />
+      ) : (
+        <div style={{ margin: articleMeta ? "0 0 32px" : "0 0 36px", paddingBottom: 28, borderBottom: "1px solid var(--border)" }} />
+      )}
+      <article style={{ fontSize: 15, lineHeight: 1.75, color: "var(--muted)" }}>{children}</article>
+      {/* Subscribe sits above "Continue reading" on purpose: a reader who has
+          finished the piece is at peak intent, and the related-posts list is
+          an invitation to leave this page. */}
+      <BlogSubscribe source={slug ?? "article"} />
+      {slug ? <RelatedPosts currentSlug={slug} /> : null}
     </div>
   );
 }

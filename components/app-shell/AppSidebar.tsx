@@ -45,7 +45,6 @@ import {
 export type AppSidebarProps = {
   active: AppView;
   onTemplateBuilderPage: boolean;
-  onTemplatesPage: boolean;
   onInterviewPrepPage: boolean;
   onCareerProfilePage?: boolean;
   builderActive: boolean;
@@ -112,7 +111,6 @@ function RailRule() {
 export function AppSidebar({
   active,
   onTemplateBuilderPage,
-  onTemplatesPage,
   onInterviewPrepPage,
   onCareerProfilePage = false,
   builderActive,
@@ -137,7 +135,6 @@ export function AppSidebar({
   const lit = activeRailKey({
     active,
     onTemplateBuilderPage,
-    onTemplatesPage,
     onInterviewPrepPage,
     onCareerProfilePage,
     builderActive,

@@ -62,10 +62,21 @@ function codeOnly(path: string): string {
     .replace(/^\s*\/\/.*$/gm, "");
 }
 
+/** Drop <path fill="#..."> runs inside an SVG brand mark before colour-scanning. */
+function withoutBrandMarks(src: string): string {
+  return src.replace(/<path[^>]*\bfill="#[0-9a-fA-F]{3,8}"[^>]*\/>/g, "");
+}
+
 describe("the referrer surfaces are theme-aware", () => {
   it.each(ALL_FILES)("%s hardcodes no colour", (file) => {
     const src = codeOnly(file);
-    expect(src.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([]);
+    // ⚠️ BRAND MARKS ARE EXEMPT, and the distinction is the point of the rule.
+    // This invariant exists to catch UI colour that cannot follow the theme —
+    // the defect that made this feature render identically in light and dark.
+    // A third party's logo is the opposite case: Google's "G" is #FFC107 /
+    // #FF3D00 / #4CAF50 / #1976D2 by their brand guidelines, and recolouring it
+    // per theme would be wrong in both. Strip the marks, then assert.
+    expect(withoutBrandMarks(src).match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([]);
     // The shipped borders and shadows were raw slate alphas.
     expect(src.match(/rgba\(\s*(?:15|230)\s*,/g) ?? []).toEqual([]);
   });

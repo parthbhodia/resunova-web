@@ -1,78 +1,22 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import CardActionArea from "@mui/material/CardActionArea";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { EmailPreferencesCard, TailoringModeCard } from "@/components/accountSettingsCards";
+import { filledButtonSx, outlineButtonSx } from "@/components/mui/cssVars";
+import { HubCard, ProfileGrid, SectionHeader, StatusChip } from "@/components/profile/profileMui";
 import { fetchJobFilters, type SavedFilter } from "@/lib/jobFiltersApi";
 import { signInWithGoogle } from "@/lib/anonScan";
 import { getSupabaseClient } from "@/lib/supabase";
 import type { ExtractedProfileState } from "@/lib/resumeExtractorService";
 import type { ProfileFormState } from "@/lib/profileStorage";
 import { CompanyReferrerPanel } from "@/components/profile/CompanyReferrerPanel";
-
-const cardStyle: CSSProperties = {
-  borderRadius: 18,
-  border: "1px solid rgba(15,23,42,0.08)",
-  background: "#ffffff",
-  boxShadow: "0 8px 30px rgba(15,23,42,0.05)",
-};
-
-function HubCard({ children, style }: { children: ReactNode; style?: CSSProperties }) {
-  return <div style={{ ...cardStyle, ...style }}>{children}</div>;
-}
-
-function SectionHeader({
-  title,
-  subtitle,
-  action,
-}: {
-  title: string;
-  subtitle: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 16,
-        padding: "24px 24px 18px",
-        borderBottom: "1px solid rgba(15,23,42,0.07)",
-      }}
-    >
-      <div>
-        <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.4, color: "#1f2937" }}>{title}</div>
-        <div style={{ marginTop: 2, fontSize: 14, color: "#6b7280" }}>{subtitle}</div>
-      </div>
-      {action}
-    </div>
-  );
-}
-
-function PrimaryLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link
-      href={href}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-        background: "linear-gradient(135deg, #3b82f6, #4f46e5)",
-        color: "#fff",
-        borderRadius: 12,
-        padding: "12px 16px",
-        fontSize: 13,
-        fontWeight: 800,
-        textDecoration: "none",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {children}
-    </Link>
-  );
-}
+import { FS, FW, LH } from "@/lib/typography";
 
 function QuietButton({
   onClick,
@@ -84,24 +28,9 @@ function QuietButton({
   disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        border: "1px solid rgba(15,23,42,0.10)",
-        background: "#fff",
-        color: "#2563eb",
-        borderRadius: 10,
-        padding: "10px 14px",
-        fontSize: 13,
-        fontWeight: 700,
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.6 : 1,
-      }}
-    >
+    <Button type="button" variant="outlined" onClick={onClick} disabled={disabled} sx={outlineButtonSx}>
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -128,17 +57,6 @@ function describeSavedFilter(filter: SavedFilter): string {
   return parts.join(" · ") || "Saved Jobs filter set";
 }
 
-const fieldStyle: CSSProperties = {
-  width: "100%",
-  borderRadius: 10,
-  border: "1px solid rgba(15,23,42,0.10)",
-  background: "#f8fafc",
-  padding: "12px 14px",
-  fontSize: 14,
-  color: "#111827",
-  fontFamily: "inherit",
-};
-
 export function JobAlertsPanel({
   roles,
   locations,
@@ -161,38 +79,46 @@ export function JobAlertsPanel({
   }, []);
 
   return (
-    <div style={{ display: "grid", gap: 18 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }} className="profile-real-grid">
+    <Stack spacing={2.25}>
+      <ProfileGrid>
         <HubCard>
           <SectionHeader
             title="Saved Jobs filters"
             subtitle="These are the same filter sets you save on the Jobs board."
-            action={<PrimaryLink href="/?view=jobs">Open Jobs</PrimaryLink>}
+            action={
+              <Button component={Link} href="/?view=jobs" variant="contained" sx={filledButtonSx}>
+                Open Jobs
+              </Button>
+            }
           />
-          <div style={{ padding: 20 }}>
+          <Stack spacing={1.25} sx={{ p: 2.5 }}>
             {loading ? (
-              <p style={{ margin: 0, fontSize: 14, color: "#6b7280" }}>Loading saved filters...</p>
+              <Typography sx={{ m: 0, fontSize: FS.bodyLg, color: "text.secondary" }}>Loading saved filters...</Typography>
             ) : filters.length === 0 ? (
-              <p style={{ margin: 0, fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
+              <Typography sx={{ m: 0, fontSize: FS.bodyLg, color: "text.secondary", lineHeight: LH.normal }}>
                 No saved filters yet. Set work model, location, and seniority on Jobs, then save the set to reuse it here.
-              </p>
+              </Typography>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {filters.map((filter) => (
-                  <Link
-                    key={filter.id}
-                    href="/?view=jobs"
-                    style={{ textDecoration: "none", color: "inherit" }}
-                  >
-                    <div style={{ border: "1px solid rgba(15,23,42,0.08)", borderRadius: 12, padding: "14px 16px", background: "#f8fafc" }}>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: "#111827" }}>{filter.name}</div>
-                      <div style={{ marginTop: 4, fontSize: 13, color: "#6b7280" }}>{describeSavedFilter(filter)}</div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+              filters.map((filter) => (
+                <CardActionArea
+                  key={filter.id}
+                  component={Link}
+                  href="/?view=jobs"
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: "var(--md-shape-md)",
+                    p: 2,
+                    bgcolor: "action.hover",
+                    textAlign: "left",
+                  }}
+                >
+                  <Typography sx={{ fontSize: FS.subhead, fontWeight: FW.extrabold }}>{filter.name}</Typography>
+                  <Typography sx={{ mt: 0.5, fontSize: FS.body, color: "text.secondary" }}>{describeSavedFilter(filter)}</Typography>
+                </CardActionArea>
+              ))
             )}
-          </div>
+          </Stack>
         </HubCard>
 
         <HubCard>
@@ -200,28 +126,28 @@ export function JobAlertsPanel({
             title="Match preferences"
             subtitle="Jobs ranks against these roles and locations."
           />
-          <div style={{ padding: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#6b7280", letterSpacing: "0.04em", textTransform: "uppercase" }}>Target roles</div>
-            <div style={{ marginTop: 6, fontSize: 15, color: "#111827", lineHeight: 1.55 }}>
+          <Stack sx={{ p: 2.5 }}>
+            <Typography sx={{ fontSize: FS.body, fontWeight: FW.extrabold, color: "text.secondary", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              Target roles
+            </Typography>
+            <Typography sx={{ mt: 0.75, fontSize: FS.subhead, color: "text.primary", lineHeight: LH.snug }}>
               {roles || "No target roles set, so Jobs ranks every role in the corpus."}
-            </div>
-            <div style={{ marginTop: 16, fontSize: 13, fontWeight: 800, color: "#6b7280", letterSpacing: "0.04em", textTransform: "uppercase" }}>Locations</div>
-            <div style={{ marginTop: 6, fontSize: 15, color: "#111827", lineHeight: 1.55 }}>
+            </Typography>
+            <Typography sx={{ mt: 2, fontSize: FS.body, fontWeight: FW.extrabold, color: "text.secondary", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              Locations
+            </Typography>
+            <Typography sx={{ mt: 0.75, fontSize: FS.subhead, color: "text.primary", lineHeight: LH.snug }}>
               {locations || "No preferred locations saved."}
-            </div>
-            <button
-              type="button"
-              onClick={onEditTargets}
-              style={{ marginTop: 16, border: "none", background: "none", color: "#2563eb", fontWeight: 800, cursor: "pointer", padding: 0 }}
-            >
+            </Typography>
+            <Button type="button" variant="text" onClick={onEditTargets} sx={{ mt: 2, alignSelf: "flex-start", fontWeight: FW.bold }}>
               Edit target roles
-            </button>
-          </div>
+            </Button>
+          </Stack>
         </HubCard>
-      </div>
+      </ProfileGrid>
 
       <EmailPreferencesCard />
-    </div>
+    </Stack>
   );
 }
 
@@ -266,14 +192,14 @@ export function IntegrationsPanel({
   const resumeConnected = !!(extracted.name || extracted.experience?.length || extracted.skills?.length);
 
   return (
-    <div style={{ display: "grid", gap: 18 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }} className="profile-real-grid">
+    <Stack spacing={2.25}>
+      <ProfileGrid>
         <HubCard>
           <SectionHeader
             title="Connected accounts"
             subtitle="Sign-in and profile links Resunova can reuse."
           />
-          <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+          <Stack spacing={1.75} sx={{ p: 2.5 }}>
             <IntegrationRow
               title="Google"
               detail={googleConnected ? `Connected${accountEmail ? ` as ${accountEmail}` : ""}` : "Not connected"}
@@ -312,8 +238,10 @@ export function IntegrationsPanel({
               connected={!!portfolio}
               action={<QuietButton onClick={onEditProfile}>{portfolio ? "Edit" : "Add"}</QuietButton>}
             />
-            {googleError ? <p role="alert" style={{ margin: 0, fontSize: 13, color: "#dc2626" }}>{googleError}</p> : null}
-          </div>
+            {googleError ? (
+              <Typography role="alert" sx={{ m: 0, fontSize: FS.body, color: "error.main" }}>{googleError}</Typography>
+            ) : null}
+          </Stack>
         </HubCard>
 
         <HubCard>
@@ -321,21 +249,21 @@ export function IntegrationsPanel({
             title="Resume source"
             subtitle="Career Memory is the data Jobs, Tailor, and applications reuse."
           />
-          <div style={{ padding: 20 }}>
+          <Stack sx={{ p: 2.5 }}>
             <IntegrationRow
               title="Career Memory"
               detail={resumeConnected ? "Resume facts saved to your account" : "Upload a resume to fill contact, experience, and skills"}
               connected={resumeConnected}
               action={<QuietButton onClick={onEditProfile}>{resumeConnected ? "Review" : "Upload resume"}</QuietButton>}
             />
-            <p style={{ margin: "16px 0 0", fontSize: 13, lineHeight: 1.6, color: "#6b7280" }}>
+            <Typography sx={{ mt: 2, fontSize: FS.body, lineHeight: LH.normal, color: "text.secondary" }}>
               There is no separate LinkedIn scrape or Gmail sync yet. Google sign-in, the URLs on your profile, and the resume you approve are the live integrations.
-            </p>
-          </div>
+            </Typography>
+          </Stack>
         </HubCard>
-      </div>
+      </ProfileGrid>
       <TailoringModeCard />
-    </div>
+    </Stack>
   );
 }
 
@@ -351,26 +279,17 @@ function IntegrationRow({
   action: ReactNode;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "#111827" }}>{title}</div>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 800,
-              borderRadius: 999,
-              padding: "3px 8px",
-              background: connected ? "#dcfce7" : "#f3f4f6",
-              color: connected ? "#15803d" : "#6b7280",
-            }}
-          >
+    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", justifyContent: "space-between" }}>
+      <Box sx={{ minWidth: 0 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+          <Typography sx={{ fontSize: FS.subhead, fontWeight: FW.extrabold }}>{title}</Typography>
+          <StatusChip tone={connected ? "green" : "neutral"}>
             {connected ? "Connected" : "Not connected"}
-          </span>
-        </div>
-        <div style={{ marginTop: 4, fontSize: 13, color: "#6b7280", wordBreak: "break-word" }}>{detail}</div>
-      </div>
+          </StatusChip>
+        </Stack>
+        <Typography sx={{ mt: 0.5, fontSize: FS.body, color: "text.secondary", wordBreak: "break-word" }}>{detail}</Typography>
+      </Box>
       {action}
-    </div>
+    </Stack>
   );
 }

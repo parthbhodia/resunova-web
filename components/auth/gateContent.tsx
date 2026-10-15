@@ -98,6 +98,35 @@ const BY_PREFIX: Array<[string, GateContent]> = [
     },
   ],
   [
+    "/refer",
+    {
+      // ⚠️ /refer is GATED, and that is main's deliberate product call (#309/#310),
+      // pinned by two of its own tests. You need an account to ASK for a referral,
+      // so the referrer knows who is asking. This is separate from the in-form
+      // openSignIn, which fires when the server refuses a submit from a session
+      // that still looked valid client-side.
+      eyebrow: "Referrals",
+      headline: "Sign in to view referrals",
+      lede:
+        "A referral is a real person putting their name next to yours, so they need to know who is asking. Sign in and your request reaches them with your name on it.",
+      previewLabel: "What's behind this",
+      previewCards: [
+        {
+          tag: "Open",
+          tone: "green",
+          text: "Engineers at companies you're targeting, open to referring",
+          hint: "Each one chose to publish a desk, so you are not cold-messaging a stranger.",
+        },
+        {
+          tag: "Your ask",
+          tone: "accent",
+          text: "The role you want, in your own words",
+          hint: "They see your name, the role, and whatever link you choose to share.",
+        },
+      ],
+    },
+  ],
+  [
     "/account",
     {
       eyebrow: "Account",

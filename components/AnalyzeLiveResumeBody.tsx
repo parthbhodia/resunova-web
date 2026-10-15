@@ -1962,6 +1962,7 @@ export default function AnalyzeLiveResumeBody({
           // Section name-edits key off the stable section key (so they survive
           // reorder); falls back to the heading text for the legacy text path.
           const sectionKey = blk.key ?? blk.text;
+          const sectionAnchor = blk.key ?? roleForKnownSection(blk.text) ?? undefined;
           const isSelected = selectedSectionIdx === bi;
           const isEditing = isSelected && sectionEdits[sectionKey] !== undefined;
           const editValue = sectionEdits[sectionKey] ?? blk.text;
@@ -1975,6 +1976,7 @@ export default function AnalyzeLiveResumeBody({
             <div
               key={bi}
               data-section-idx={bi}
+              data-section-key={sectionAnchor}
               className={sectionEditable ? "az-editable-section" : undefined}
               title={sectionEditable && !isSelected ? "Click to edit this section heading" : undefined}
               onClick={() => {

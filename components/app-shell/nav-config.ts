@@ -114,13 +114,11 @@ export const RAIL_APPLY: RailKey[] = [
 export function activeRailKey(input: {
   active: AppView;
   onTemplateBuilderPage: boolean;
-  onTemplatesPage: boolean;
   onInterviewPrepPage: boolean;
   onCareerProfilePage: boolean;
   builderActive: boolean;
   navBuilderSubflow: "tailor" | "template";
 }): RailKey | null {
-  if (input.onTemplatesPage) return "templates";
   if (input.onInterviewPrepPage) return "prep";
   if (input.onCareerProfilePage) return null;
   if (input.onTemplateBuilderPage) return "templates";

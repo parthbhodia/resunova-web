@@ -2,6 +2,16 @@ import { getSupabaseClient } from "@/lib/supabase";
 import { invalidateCache } from "@/lib/clientCache";
 
 const FORCE_LANDING_KEY = "rn-force-landing";
+const forceLandingListeners = new Set<() => void>();
+
+export function subscribeForceLandingAfterSignOut(listener: () => void): () => void {
+  forceLandingListeners.add(listener);
+  return () => forceLandingListeners.delete(listener);
+}
+
+function notifyForceLandingChange(): void {
+  forceLandingListeners.forEach((listener) => listener());
+}
 
 /** Dev bypass keeps the app open with no session — set when user explicitly signs out. */
 export function readForceLandingAfterSignOut(): boolean {
@@ -20,6 +30,7 @@ export function clearForceLandingAfterSignOut(): void {
   } catch {
     /* ignore */
   }
+  notifyForceLandingChange();
 }
 
 /** Sign out of Supabase and hard-navigate home so AuthGate re-evaluates. */
@@ -39,6 +50,7 @@ export async function signOutAndReturnHome(): Promise<void> {
     } catch {
       /* ignore */
     }
+    notifyForceLandingChange();
   }
   window.location.assign("/");
 }

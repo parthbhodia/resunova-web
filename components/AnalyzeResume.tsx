@@ -22,6 +22,7 @@ import { hiddenBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeB
 import { estimateScoreAfterFixes } from "@/lib/analyzeScoreEstimate";
 import { resumeFileClientError } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
+import { isMissingLinkedInFlag, resumeShowsLinkedInProfile } from "@/lib/resumeLinkedIn";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
@@ -45,7 +46,8 @@ import type { AnalysisResult } from "./analyze/analyzeTypes";
 import {
   SCORE_NEEDS_EXPLANATION, scoreColor, scoreLabel, severityColor, severityBg,
   CATEGORY_LABELS, flaggedBulletFixChip, CATEGORY_COACH, COACH_BODY_STYLE,
-  CATEGORY_DESCRIPTIONS, issueCategoryOf, getBulletsForCategory,
+  CATEGORY_DESCRIPTIONS, issueCategoryOf, issueResumeSection, bulletIndexForIssue,
+  bulletIndexInResumeSection, getBulletsForCategory,
   formatExperienceTenureChip,
 } from "./analyze/analyzeViewHelpers";
 import { lsSave, lsPush } from "./analyze/analyzeHistoryStore";
@@ -72,6 +74,18 @@ import {
   FeedbackToastCard,
   feedbackToastMeta,
 } from "@/components/FeedbackToastCard";
+
+function sectionBulletLines(
+  section: "projects" | "experience" | "education" | "skills" | "summary",
+  sr: AnalysisResult["structuredResume"],
+): string[] {
+  if (!sr) return [];
+  if (section === "projects") return (sr.projects ?? []).flatMap((p) => p.bullets ?? []);
+  if (section === "experience") return (sr.experience ?? []).flatMap((e) => e.bullets ?? []);
+  if (section === "education") return (sr.education ?? []).flatMap((e) => e.bullets ?? []);
+  if (section === "skills") return (sr.skills ?? []).flatMap((s) => s.items ?? []);
+  return sr.summary ? [sr.summary] : [];
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -482,7 +496,18 @@ export default function AnalyzeResume() {
 
 
   // A scan that finished while this component was unmounted is delivered here.
-  const { adoptedRunning } = useAdoptedRun<AnalyzeOutcome>("analyze", applyAnalyzeOutcome);
+  const { adoptedRunning } = useAdoptedRun<AnalyzeOutcome>(
+    "analyze",
+    applyAnalyzeOutcome,
+    // A run that rejects (the work threw) is not an AnalyzeOutcome, so the
+    // done-path never sees it. Without this the loader clears onto the upload
+    // screen and the reason is gone.
+    (error) => {
+      setError(toUserFriendlyErrorMessage(
+        error instanceof Error ? error.message : "Couldn't run the scan. Try again.",
+      ));
+    },
+  );
   // Adopting a still-running scan means showing the loader, not the upload
   // screen: the work is happening, it just started before this mount.
   const busy = loading || adoptedRunning;
@@ -1066,6 +1091,15 @@ export default function AnalyzeResume() {
       })
     : [];
 
+  const structuralFlags = (result?.structuralFlags ?? []).filter((flag) => {
+    if (!isMissingLinkedInFlag(flag.issue)) return true;
+    return !resumeShowsLinkedInProfile({
+      linkedin: result?.structuredResume?.linkedin,
+      lines: result?.resumeHeader,
+      extractedText: result?.extractedText,
+    });
+  });
+
   // Split categories into TOP FIXES (score < 70 AND has actionable content)
   // vs COMPLETED (score >= 70 OR low score but nothing actionable). A
   // category lacking any flagged bullets AND any related topIssue has no
@@ -1125,6 +1159,68 @@ export default function AnalyzeResume() {
   const summaryHint = summaryFlagged && summaryAnalysis
     ? `${summaryAnalysis.wordCount} words · ${summaryIssueCount} issue${summaryIssueCount === 1 ? "" : "s"} — click to fix`
     : undefined;
+
+  const openTopIssue = useCallback((issue: AnalysisResult["topIssues"][number]) => {
+    if (!result) return;
+    const section = issueResumeSection(`${issue.issue} ${issue.whyItMatters} ${issue.suggestion}`);
+    if (section === "summary" && summaryFlagged) {
+      setSelectedBulletIndex(null);
+      setActiveCategory("summary");
+      window.setTimeout(() => {
+        document.querySelector(".az-split-work-slot")?.scrollTo({ top: 0, behavior: "smooth" });
+        document
+          .querySelector('.az-split-resume-slot [data-section-key="summary"]')
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+      return;
+    }
+
+    const cat = issueCategoryOf(issue);
+    const inSection = section
+      ? bulletIndexInResumeSection(
+          result.bulletAnalysis,
+          sectionBulletLines(section, result.structuredResume),
+        )
+      : [];
+    const inCategory = cat
+      ? inSection.filter((i) => {
+          const b = result.bulletAnalysis[i];
+          return !!b && bulletBelongsToCategory(b, cat, result.bulletAnalysis, i, categoryAssignmentOpts);
+        })
+      : [];
+    const quoted = bulletIndexForIssue(issue, result.bulletAnalysis);
+    const quotedFits = quoted != null && (inSection.length === 0 || inSection.includes(quoted));
+    const bulletIdx = (quotedFits ? quoted : null) ?? inCategory[0] ?? inSection[0] ?? null;
+
+    if (bulletIdx != null) {
+      handleBulletSelectFromPreview(bulletIdx);
+      window.setTimeout(() => {
+        document
+          .querySelector(`.az-split-resume-slot [data-bullet-idx="${bulletIdx}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        document
+          .querySelector(`.az-split-work-slot [data-az-bullet-workspace="${bulletIdx}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 180);
+      return;
+    }
+
+    if (cat && result.categoryScores[cat] != null) {
+      setSelectedBulletIndex(null);
+      setActiveCategory(cat);
+    }
+    window.setTimeout(() => {
+      const work = document.querySelector(".az-split-work-slot") as HTMLElement | null;
+      if (work && work.scrollHeight > work.clientHeight + 8) {
+        work.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      if (section) {
+        document
+          .querySelector(`.az-split-resume-slot [data-section-key="${section}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 90);
+  }, [result, summaryFlagged, categoryAssignmentOpts, handleBulletSelectFromPreview]);
 
   // For the active category detail view
   const activeCategoryLabel =
@@ -2967,11 +3063,21 @@ export default function AnalyzeResume() {
                 </h2>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {sortedIssues.map((issue, i) => (
-                    <div key={i} style={{
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => openTopIssue(issue)}
+                      style={{
                       border: "1px solid var(--border)",
                       borderRadius: 12,
                       padding: "16px 18px",
                       background: "var(--surface)",
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      font: "inherit",
+                      color: "inherit",
+                      cursor: "pointer",
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                         <span style={{
@@ -3000,14 +3106,14 @@ export default function AnalyzeResume() {
                       }}>
                         {issue.suggestion}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </section>
             )}
 
             {/* 2b. Structural Flags — deterministic ATS / formatting checks */}
-            {Array.isArray(result.structuralFlags) && result.structuralFlags.length > 0 && (
+            {structuralFlags.length > 0 && (
               <section>
                 <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", margin: "0 0 4px" }}>
                   Structural Flags
@@ -3016,7 +3122,7 @@ export default function AnalyzeResume() {
                   Formatting and completeness issues an ATS or a quick recruiter scan can trip on, separate from your bullet wording.
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {result.structuralFlags.map((flag, i) => {
+                  {structuralFlags.map((flag, i) => {
                     const sev = flag.severity ?? "low";
                     const dot = sev === "high" ? "var(--red)" : sev === "medium" ? "#f59e0b" : "var(--dim)";
                     return (

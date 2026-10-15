@@ -25,7 +25,7 @@ describe("blog SEO contract", () => {
     // Sitemap freshness signal: the newest modifiedAt across all posts. Bump
     // this when you publish, so an accidental date edit on an old post (which
     // would silently misreport the whole blog's freshness) fails here instead.
-    expect(BLOG_LAST_MODIFIED).toBe("2026-08-01");
+    expect(BLOG_LAST_MODIFIED).toBe("2026-10-14");
   });
 
   it("creates canonical article metadata without a duplicate brand suffix", () => {
@@ -64,8 +64,8 @@ describe("blog SEO contract", () => {
 
   it("has a route and social image for every registered article", () => {
     for (const post of BLOG_POSTS) {
-      const route = resolve(process.cwd(), "app", "blog", post.slug, "page.tsx");
-      const image = resolve(process.cwd(), "app", "blog", post.slug, "opengraph-image.tsx");
+      const route = resolve(process.cwd(), "app", "(marketing)", "blog", post.slug, "page.tsx");
+      const image = resolve(process.cwd(), "app", "(marketing)", "blog", post.slug, "opengraph-image.tsx");
 
       expect(existsSync(route), `${post.slug} route is missing`).toBe(true);
       expect(existsSync(image), `${post.slug} social image is missing`).toBe(true);

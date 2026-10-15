@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, MAX_GAPS_PER_BATCH,
+  appendBulletLine,
 } from "@/lib/fixEverything";
 import type { RatingsData } from "@/lib/types";
 
@@ -100,5 +101,29 @@ describe("batch request shape", () => {
     const q = collectUnaddressedGaps(ratings(), NONE)[0];
     expect(batchGapNotes(q).toLowerCase()).toContain("never invent");
     expect(batchGapNotes(q)).toContain("qualifications");
+  });
+
+  it("lets aggressive mode invent one new bullet under an existing role", () => {
+    const q = collectUnaddressedGaps(ratings(), NONE)[0];
+    const notes = batchGapNotes(q, "aggressive");
+    expect(notes).toContain("Accomplished [X] as measured by [Y] by doing [Z]");
+    expect(notes.toLowerCase()).toContain("invent one new bullet");
+    expect(notes.toLowerCase()).not.toContain("never invent");
+    expect(notes).toContain("empty original");
+  });
+
+  it("lets aggressive mode retitle an existing role toward the posting", () => {
+    const q = collectUnaddressedGaps(ratings(), NONE)[0];
+    const notes = batchGapNotes(q, "aggressive");
+    expect(notes).toContain("suggested_role");
+    expect(notes.toLowerCase()).toContain("retitle");
+  });
+});
+
+describe("appendBulletLine", () => {
+  it("adds a bullet and refuses a duplicate", () => {
+    const once = appendBulletLine("EXPERIENCE\n• Built the API.", "Owned on-call for a small team.");
+    expect(once).toContain("• Owned on-call for a small team.");
+    expect(appendBulletLine(once, "Owned on-call for a small team.")).toBe(once);
   });
 });

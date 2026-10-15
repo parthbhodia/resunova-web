@@ -121,6 +121,7 @@ describe("CompanyReferrerPanel", () => {
     await userEvent.type(screen.getByLabelText("Company you work at"), "Acme");
     await userEvent.click(screen.getByRole("button", { name: "Sign up as a referrer" }));
     expect(mockUpsertMyReferrerProfile).toHaveBeenCalled();
+    expect(await screen.findByText("You're signed up to refer")).toBeInTheDocument();
     expect(await screen.findByText("Your referral link")).toBeInTheDocument();
   });
 });

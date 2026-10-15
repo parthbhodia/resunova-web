@@ -443,7 +443,7 @@ export function TailorScoreboard({
         * Improve link alone can never spend a scan or navigate. */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
+          <DialogHeader className="pr-8">
             <DialogTitle>Improve with a fresh scan</DialogTitle>
             <DialogDescription>Here&rsquo;s what happens when you run it:</DialogDescription>
           </DialogHeader>
@@ -468,12 +468,14 @@ export function TailorScoreboard({
             </Button>
             <Button
               size="sm"
+              disabled={improveBusy}
               onClick={() => {
+                if (improveBusy) return;
                 setConfirmOpen(false);
                 onImprove?.();
               }}
             >
-              Run the scan
+              {improveBusy ? "Scanning…" : "Run the scan"}
             </Button>
           </DialogFooter>
         </DialogContent>

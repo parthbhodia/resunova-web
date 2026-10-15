@@ -58,13 +58,17 @@ describe("a bullet is spent once it has been rewritten", () => {
     expect(kept).toHaveLength(1);
   });
 
-  it("drops a suggestion with no original rather than letting it append", () => {
-    // Nothing to match means the apply path grows the résumé from nowhere.
+  it("keeps a new bullet and drops a blank one", () => {
     const { kept } = keepFirstRewritePerBullet(
-      [{ original: "", suggested: "an orphan clause" }, { original: "  ", suggested: "another" }],
+      [
+        { original: "", suggested: "Shipped weekly releases with a small team on AWS." },
+        { original: "  ", suggested: "short" },
+        { original: "", suggested: "Shipped weekly releases with a small team on AWS." },
+      ],
       new Set(),
     );
-    expect(kept).toHaveLength(0);
+    expect(kept).toHaveLength(1);
+    expect(kept[0].suggested).toContain("small team");
   });
 
   it("does not mutate the set it was given", () => {

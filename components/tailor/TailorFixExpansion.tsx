@@ -27,6 +27,14 @@ import {
   educationDraftToEntry,
   isEducationDraftValid,
 } from "@/lib/educationEntry";
+import {
+  draftBulletFromGuidance,
+  emptyFixGuidance,
+  guidanceIsEmpty,
+  parseToolList,
+  roleOptions,
+  type FixGuidance,
+} from "@/lib/tailorFixInput";
 import type {
   StructuredResume,
   StructuredResumeEducation,
@@ -58,6 +66,9 @@ export interface FixSuggestion {
   /** The exact words the résumé doesn't back — the candidate's to vouch for. */
   unverified_terms?: string[];
   unverified_numerals?: string[];
+  /** Aggressive: retitle the existing role this rewrite sits under. */
+  suggested_role?: string;
+  original_role?: string;
 }
 
 /** Words the résumé doesn't back, for the caution line. */
@@ -183,6 +194,60 @@ function FieldInput({
   );
 }
 
+const fieldStyle: React.CSSProperties = {
+  display: "block", width: "100%", marginTop: 3, font: "inherit",
+  fontSize: FS.small, lineHeight: 1.5, color: "var(--text)",
+  background: "var(--card)", border: "1px solid var(--border)",
+  borderRadius: 8, padding: 7, resize: "vertical", boxSizing: "border-box",
+};
+
+const fieldLabel: React.CSSProperties = { display: "block", fontSize: FS.caption, color: "var(--muted)" };
+
+/**
+ * The two inputs that are new to this form: tools the user vouches for and a
+ * steering line for the writer. Shared by the correction form (results on
+ * screen) and the empty state (nothing on screen), so both take the same
+ * input and send it the same way.
+ */
+function ToolsAndSteerFields({
+  toolsRaw,
+  steer,
+  onTools,
+  onSteer,
+}: {
+  toolsRaw: string;
+  steer: string;
+  onTools: (v: string) => void;
+  onSteer: (v: string) => void;
+}) {
+  return (
+    <>
+      <label style={fieldLabel}>
+        Tools you used, even if they are not on your résumé yet (optional)
+        <textarea
+          value={toolsRaw}
+          rows={1}
+          maxLength={FACT_FIELD_MAX}
+          placeholder="Terraform, AWS, an internal tool"
+          onChange={(e) => onTools(e.target.value)}
+          style={fieldStyle}
+        />
+      </label>
+      <label style={fieldLabel}>
+        Anything the writer should know? (optional)
+        <textarea
+          value={steer}
+          rows={2}
+          maxLength={FACT_FIELD_MAX}
+          placeholder="Keep it to one line. Mention the migration, not the on-call work."
+          onChange={(e) => onSteer(e.target.value)}
+          style={fieldStyle}
+        />
+      </label>
+    </>
+  );
+}
+
 export function TailorFixExpansion({
   item,
   state,
@@ -191,6 +256,8 @@ export function TailorFixExpansion({
   onIgnore,
   onTryFix,
   onRewriteWithFacts,
+  onRewriteWithGuidance,
+  onAddOwnBullet,
   scoreFix,
   onAddEducation,
   onAddSkill,
@@ -208,6 +275,14 @@ export function TailorFixExpansion({
   /** Re-run the rewrite grounded in what the user says they actually did.
    *  Absent ⇒ the confirm step does not render and behaviour is unchanged. */
   onRewriteWithFacts?: (fact: ConfirmedFact) => void;
+  /** Re-run the rewrite with everything the user handed over: facts, tools
+   *  they vouch for, and a steering line for the writer. The empty state's
+   *  primary path. Absent ⇒ falls back to onRewriteWithFacts for the facts. */
+  onRewriteWithGuidance?: (guidance: FixGuidance) => void;
+  /** Write a line the user typed themselves under the role they picked.
+   *  `tools` are the technologies the line brings in, for the Skills follow-up.
+   *  Absent ⇒ the write-it-myself path does not render. */
+  onAddOwnBullet?: (text: string, entryPath: string, tools: string[]) => Promise<void> | void;
   /** Write a credential into the résumé's Education section. Absent ⇒ the form
    *  degrades to instructions, so a caller that cannot write still explains. */
   onAddEducation?: (entry: StructuredResumeEducation) => Promise<void> | void;
@@ -226,6 +301,8 @@ export function TailorFixExpansion({
 }) {
   const [chosen, setChosen] = useState(0);
   const [editText, setEditText] = useState<string | null>(null);
+  /** Default on: if the suggestion carries a role title, applying the bullet also retitles the role. */
+  const [keepRoleTitle, setKeepRoleTitle] = useState(true);
   /**
    * Recount, stamped with the suggestion it describes.
    *
@@ -238,6 +315,24 @@ export function TailorFixExpansion({
 
   /** null = not correcting; an object = the correction form is open. */
   const [correction, setCorrection] = useState<ConfirmedFact | null>(null);
+  /** Tools and steering typed alongside a correction or in the empty state. */
+  const [guidance, setGuidance] = useState<FixGuidance>(() => emptyFixGuidance());
+  const [toolsRaw, setToolsRaw] = useState("");
+  /** The write-it-myself editor: the line and the role it goes under. */
+  const [ownBullet, setOwnBullet] = useState<{ text: string; path: string } | null>(null);
+  const [ownSaving, setOwnSaving] = useState(false);
+  const roles = roleOptions(structuredResume);
+  const facts = guidance.facts ?? { where: "", what: "", outcome: "" };
+  const setFact = (key: keyof ConfirmedFact, value: string) =>
+    setGuidance({ ...guidance, facts: { ...facts, [key]: value } });
+  const fullGuidance = (): FixGuidance => ({ ...guidance, tools: parseToolList(toolsRaw) });
+  const canWriteOwn = Boolean(onAddOwnBullet) && roles.length > 0;
+  const openOwnBullet = () => {
+    const g = fullGuidance();
+    const where = facts.where.trim().toLowerCase();
+    const picked = roles.find((r) => r.label.toLowerCase() === where) ?? roles[0];
+    setOwnBullet({ text: draftBulletFromGuidance(g), path: picked?.path ?? "exp.0" });
+  };
   // Credential form. Seeded from the requirement so the common case is
   // confirm-and-save; keyed on item.id so switching rows never carries one
   // row's typed school onto another's degree.
@@ -256,6 +351,9 @@ export function TailorFixExpansion({
 
   const suggestions = state.phase === "ready" ? state.suggestions : [];
   const current = suggestions[Math.min(chosen, Math.max(0, suggestions.length - 1))];
+  const applySuggestion = (s: FixSuggestion, edited: string | null) => {
+    onApply(keepRoleTitle && s.suggested_role?.trim() ? s : { ...s, suggested_role: undefined }, edited);
+  };
 
   /**
    * Recount whenever the chosen suggestion changes.
@@ -288,7 +386,7 @@ export function TailorFixExpansion({
   // on the result: provenance (the bullet is shown, labelled as read from the
   // résumé) and the correct-it path (extraction CAN misread a document, and a
   // corrected fact re-grounds the rewrite and lowers its risk badge).
-  const canCorrect = Boolean(onRewriteWithFacts) && draft !== null;
+  const canCorrect = Boolean(onRewriteWithFacts || onRewriteWithGuidance) && draft !== null;
 
   /**
    * The Skills-section route, keyword rows only. A qualification or
@@ -311,7 +409,72 @@ export function TailorFixExpansion({
 
   return (
     <div style={card} data-testid="fix-expansion">
-      {state.phase === "loading" ? (
+      {ownBullet ? (
+        /* Write it myself. The user's line, under the role they pick, with no
+           model in between. Reachable from the empty state and from a failed
+           fetch, which is why it sits ahead of the phase branches: the writer
+           being down is not a reason they cannot add a line they know they
+           did. Pre-filled from whatever they typed in the facts form so they
+           edit rather than start from blank. */
+        <div>
+          <div style={label}>Your line</div>
+          <label style={fieldLabel}>
+            Goes under
+            <select
+              value={ownBullet.path}
+              aria-label="Which role this goes under"
+              onChange={(e) => setOwnBullet({ ...ownBullet, path: e.target.value })}
+              style={{ ...fieldStyle, resize: "none", minHeight: 44 }}
+            >
+              {roles.map((r) => (
+                <option key={r.path} value={r.path}>{r.label}</option>
+              ))}
+            </select>
+          </label>
+          <label style={{ ...fieldLabel, marginTop: 8 }}>
+            The bullet, in your words
+            <textarea
+              value={ownBullet.text}
+              aria-label="Write the bullet yourself"
+              rows={3}
+              maxLength={FACT_FIELD_MAX}
+              placeholder={`Led the ${item.name} work for…`}
+              onChange={(e) => setOwnBullet({ ...ownBullet, text: e.target.value })}
+              style={{ ...fieldStyle, border: "1px solid var(--accent)" }}
+            />
+          </label>
+          <p style={{ margin: "6px 0 0", fontSize: FS.caption, color: "var(--muted)", lineHeight: 1.5 }}>
+            Only add work you can speak to in an interview. Tools you named are added to your
+            Skills section too.
+          </p>
+          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              style={{ ...primaryBtn, opacity: ownBullet.text.trim() && !ownSaving ? 1 : 0.5 }}
+              disabled={!ownBullet.text.trim() || ownSaving}
+              onClick={async () => {
+                if (!onAddOwnBullet || !ownBullet.text.trim()) return;
+                setOwnSaving(true);
+                try {
+                  await onAddOwnBullet(ownBullet.text.trim(), ownBullet.path, parseToolList(toolsRaw));
+                  onClose();
+                } catch {
+                  // The caller has switched this row to its error phase; step
+                  // out of the editor so that phase can render.
+                  setOwnBullet(null);
+                } finally {
+                  setOwnSaving(false);
+                }
+              }}
+            >
+              {ownSaving ? "Adding…" : "Add this line"}
+            </button>
+            <button type="button" style={ghostBtn} disabled={ownSaving} onClick={() => setOwnBullet(null)}>
+              Back
+            </button>
+          </div>
+        </div>
+      ) : state.phase === "loading" ? (
         <Skeleton />
       ) : state.phase === "error" ? (
         <div>
@@ -325,6 +488,13 @@ export function TailorFixExpansion({
             {onTryFix ? (
               <button type="button" style={{ ...primaryBtn, background: "var(--accent)" }} onClick={onTryFix}>
                 Try again
+              </button>
+            ) : null}
+            {/* The writer being down is not a reason the user cannot add a
+                line they already know they did. */}
+            {canWriteOwn ? (
+              <button type="button" style={ghostBtn} onClick={openOwnBullet}>
+                Write it myself
               </button>
             ) : null}
             <button type="button" style={ghostBtn} onClick={onClose}>Close</button>
@@ -416,25 +586,99 @@ export function TailorFixExpansion({
            * candidate: production logs show the model writing usable rewrites
            * and our validators dropping every one (`all_filtered`), and a
            * single model pass coming back empty (`none_proposed`) is one
-           * sample, not a finding. Telling a paying user their experience
-           * cannot support a requirement because our filter over-fired is the
-           * exact dishonesty the honesty pipeline exists to prevent — pointed
-           * at the user instead of at the model.
+           * sample, not a finding.
            *
-           * So the copy owns the failure, and the primary action is another
-           * attempt. "We won't pad your résumé" keeps the one true claim the
-           * old copy was reaching for: whatever happened, the answer is never
-           * stuffing. */}
+           * The second version owned the miss but still ended the row: Try
+           * again, Ignore, Close. The user is the one person who knows what
+           * they did, and the state took nothing from them. Now it asks. Facts
+           * and tools they vouch for go back to the writer as provenance; a
+           * steering line goes with them; and if they would rather, the line
+           * is theirs to write under the role they pick. The row never ends
+           * in a dash. */}
           <div style={label}>We couldn&rsquo;t write this one</div>
           <p style={{ margin: "2px 0 10px", fontSize: FS.small, lineHeight: 1.55, color: "var(--text)" }}>
-            That&rsquo;s a miss on our side, not a verdict on your experience — we only suggest
-            wording we can trace to your résumé, and this pass didn&rsquo;t produce one that
-            qualifies. Try again, or if you&rsquo;ve done this work, add it in your own words.
+            That&rsquo;s a miss on our side, not a verdict on your experience. We only write from
+            what your résumé already says, and it doesn&rsquo;t say enough about this. If you&rsquo;ve
+            done the work, a sentence from you is all it takes. Tools you name land in Skills too.
           </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "grid", gap: 8 }}>
+            <label style={fieldLabel}>
+              Where did you do this?
+              {roles.length > 0 ? (
+                <select
+                  value={facts.where}
+                  onChange={(e) => setFact("where", e.target.value)}
+                  style={{ ...fieldStyle, resize: "none", minHeight: 44 }}
+                >
+                  <option value="">Pick a role</option>
+                  {roles.map((r) => (
+                    <option key={r.path} value={r.label}>{r.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <textarea
+                  value={facts.where}
+                  rows={1}
+                  maxLength={FACT_FIELD_MAX}
+                  onChange={(e) => setFact("where", e.target.value)}
+                  style={fieldStyle}
+                />
+              )}
+            </label>
+            <label style={fieldLabel}>
+              What did you do?
+              <textarea
+                value={facts.what}
+                rows={2}
+                maxLength={FACT_FIELD_MAX}
+                required
+                placeholder={`Set up ${item.name} for…`}
+                onChange={(e) => setFact("what", e.target.value)}
+                style={fieldStyle}
+              />
+            </label>
+            <ToolsAndSteerFields
+              toolsRaw={toolsRaw}
+              steer={guidance.steer}
+              onTools={setToolsRaw}
+              onSteer={(v) => setGuidance({ ...guidance, steer: v })}
+            />
+            <label style={fieldLabel}>
+              What changed? (optional, a number lands harder)
+              <textarea
+                value={facts.outcome}
+                rows={1}
+                maxLength={FACT_FIELD_MAX}
+                onChange={(e) => setFact("outcome", e.target.value)}
+                style={fieldStyle}
+              />
+            </label>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            {(() => {
+              const g = fullGuidance();
+              const hasInput = !guidanceIsEmpty(g);
+              const rewrite = onRewriteWithGuidance
+                ?? (onRewriteWithFacts ? (gg: FixGuidance) => { if (gg.facts) onRewriteWithFacts(gg.facts); } : null);
+              return rewrite ? (
+                <button
+                  type="button"
+                  style={{ ...primaryBtn, background: "var(--accent)", opacity: hasInput ? 1 : 0.5 }}
+                  disabled={!hasInput}
+                  onClick={() => rewrite(g)}
+                >
+                  Write it from this
+                </button>
+              ) : null;
+            })()}
+            {canWriteOwn ? (
+              <button type="button" style={ghostBtn} onClick={openOwnBullet}>
+                Write it myself
+              </button>
+            ) : null}
             {onTryFix ? (
-              <button type="button" style={{ ...primaryBtn, background: "var(--accent)" }} onClick={onTryFix}>
-                Try again
+              <button type="button" style={ghostBtn} onClick={onTryFix}>
+                Try again as is
               </button>
             ) : null}
             {/* When no bullet weave came back, the Skills line is the honest
@@ -446,7 +690,6 @@ export function TailorFixExpansion({
               </button>
             ) : null}
             <button type="button" style={ghostBtn} onClick={onIgnore}>Ignore</button>
-            <button type="button" style={ghostBtn} onClick={onClose}>Close</button>
           </div>
           {skillNote ? (
             <p style={{ margin: "8px 0 0", fontSize: FS.caption, color: "var(--muted)" }}>{skillNote}</p>
@@ -479,7 +722,7 @@ export function TailorFixExpansion({
               type="button"
               style={{ ...primaryBtn, opacity: applying ? 0.6 : 1 }}
               disabled={applying}
-              onClick={() => onApply(current, editText)}
+              onClick={() => applySuggestion(current, editText)}
             >
               {applying ? "Adding…" : "Add your version"}
             </button>
@@ -506,15 +749,16 @@ export function TailorFixExpansion({
                   rows={key === "where" ? 1 : 2}
                   required={required}
                   onChange={(e) => setCorrection({ ...correction, [key]: e.target.value })}
-                  style={{
-                    display: "block", width: "100%", marginTop: 3, font: "inherit",
-                    fontSize: FS.small, lineHeight: 1.5, color: "var(--text)",
-                    background: "var(--card)", border: "1px solid var(--border)",
-                    borderRadius: 8, padding: 7, resize: "vertical", boxSizing: "border-box",
-                  }}
+                  style={fieldStyle}
                 />
               </label>
             ))}
+            <ToolsAndSteerFields
+              toolsRaw={toolsRaw}
+              steer={guidance.steer}
+              onTools={setToolsRaw}
+              onSteer={(v) => setGuidance({ ...guidance, steer: v })}
+            />
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
             <button
@@ -522,8 +766,15 @@ export function TailorFixExpansion({
               style={primaryBtn}
               onClick={() => {
                 // Only spend a call when the user actually changed something.
-                if (onRewriteWithFacts && factDiffersFromDraft(draft, correction)) {
-                  onRewriteWithFacts(correction);
+                const tools = parseToolList(toolsRaw);
+                const steer = guidance.steer.trim();
+                const changed = factDiffersFromDraft(draft, correction) || tools.length > 0 || steer;
+                if (changed) {
+                  if (onRewriteWithGuidance) {
+                    onRewriteWithGuidance({ facts: correction, tools, steer });
+                  } else if (onRewriteWithFacts) {
+                    onRewriteWithFacts(correction);
+                  }
                 }
                 setCorrection(null);
               }}
@@ -537,29 +788,29 @@ export function TailorFixExpansion({
         </div>
       ) : current ? (
         <div>
-          <div style={label}>Your bullet</div>
-          <div style={{ fontSize: FS.small, color: "var(--muted)", lineHeight: 1.5 }}>{current.original}</div>
-          {/* No provenance caption. "Read from your résumé. Nothing here was
-              invented." was cut on founder direction: the bullet above is
-              visibly the user's own words, and narrating the implicit talks
-              down to people ("people are not dumb"). HOUSE RULE: don't state
-              what the surface already shows. The correction path stays, one
-              quiet link, no preamble. */}
-          {canCorrect ? (
-            <div style={{ fontSize: FS.caption, marginTop: 4 }}>
-              <button
-                type="button"
-                onClick={() => setCorrection({ ...draft! })}
-                style={{
-                  border: 0, background: "none", padding: 0, cursor: "pointer",
-                  color: "var(--accent-ink, #0559c7)", font: "inherit",
-                  textDecoration: "underline", textUnderlineOffset: 3,
-                }}
-              >
-                Not quite? Correct the details
-              </button>
-            </div>
-          ) : null}
+          {current.original.trim() ? (
+            <>
+              <div style={label}>Your bullet</div>
+              <div style={{ fontSize: FS.small, color: "var(--muted)", lineHeight: 1.5 }}>{current.original}</div>
+              {canCorrect ? (
+                <div style={{ fontSize: FS.caption, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => setCorrection({ ...draft! })}
+                    style={{
+                      border: 0, background: "none", padding: 0, cursor: "pointer",
+                      color: "var(--accent-ink, #0559c7)", font: "inherit",
+                      textDecoration: "underline", textUnderlineOffset: 3,
+                    }}
+                  >
+                    Not quite? Correct the details
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div style={label}>New line</div>
+          )}
           <div style={{ ...label, marginTop: 10 }}>
             {suggestions.length > 1 ? "Pick a version" : "Suggested"}
           </div>
@@ -650,6 +901,35 @@ export function TailorFixExpansion({
            * It renders nothing while loading and nothing on failure. A missing
            * line is honest; a stale or invented one is not, and this sits
            * directly above the button that writes to someone's résumé. */}
+          {current.suggested_role?.trim() ? (
+            <label
+              data-testid="role-title-offer"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                marginTop: 10,
+                fontSize: FS.small,
+                color: "var(--text)",
+                lineHeight: 1.45,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={keepRoleTitle}
+                onChange={(e) => setKeepRoleTitle(e.target.checked)}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                Also retitle this role
+                {current.original_role ? ` from ${current.original_role}` : ""}
+                {" "}to {current.suggested_role}
+                {current.employer ? ` at ${current.employer}` : ""}. Uncheck to
+                keep the current title.
+              </span>
+            </label>
+          ) : null}
           {shownDelta ? (
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 9, flexWrap: "wrap" }}>
               <span style={{ fontSize: FS.small, fontWeight: FW.bold, color: "var(--text)" }}>
@@ -684,7 +964,7 @@ export function TailorFixExpansion({
               type="button"
               style={{ ...primaryBtn, opacity: applying ? 0.6 : 1 }}
               disabled={applying}
-              onClick={() => onApply(current, null)}
+              onClick={() => applySuggestion(current, null)}
             >
               {applying ? "Adding…" : "Add to résumé"}
             </button>

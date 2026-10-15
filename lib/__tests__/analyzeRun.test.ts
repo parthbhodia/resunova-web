@@ -4,6 +4,7 @@ import {
   clearRun,
   peekRun,
   RUN_RESULT_TTL_MS,
+  startAnalyzeAndOpen,
   startRun,
   subscribeRun,
 } from "@/lib/analyzeRun";
@@ -30,6 +31,44 @@ describe("a scan that outlives its component", () => {
     await d.promise;
 
     expect(peekRun("analyze")).toEqual({ status: "done", result: "scored" });
+  });
+
+  it("opens the analyze page while the scan is still running", () => {
+    const order: string[] = [];
+    const d = deferred<string>();
+    startAnalyzeAndOpen(
+      () => {
+        order.push("start");
+        return d.promise;
+      },
+      () => order.push("navigate"),
+    );
+    expect(order).toEqual(["start", "navigate"]);
+    expect(peekRun("analyze")).toEqual({ status: "running" });
+  });
+
+  it("still opens the page when a scan is already running, without starting another", () => {
+    const d = deferred<string>();
+    const first = vi.fn(() => d.promise);
+    const second = vi.fn(() => d.promise);
+    const navigations: string[] = [];
+    startAnalyzeAndOpen(first, () => navigations.push("first"));
+    startAnalyzeAndOpen(second, () => navigations.push("second"));
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+    expect(navigations).toEqual(["first", "second"]);
+    expect(peekRun("analyze")).toEqual({ status: "running" });
+  });
+
+  it("still opens the page when the work throws before returning a promise", async () => {
+    const navigations: string[] = [];
+    startAnalyzeAndOpen(() => {
+      throw new Error("boom");
+    }, () => navigations.push("open"));
+    expect(navigations).toEqual(["open"]);
+    await vi.waitFor(() => {
+      expect(peekRun("analyze")).toMatchObject({ status: "error" });
+    });
   });
 
   it("reports a run that is still going, so a remount shows the loader", () => {

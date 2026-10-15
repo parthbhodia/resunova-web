@@ -490,9 +490,10 @@ export function deriveScorerQueue(
 
     // The posting's title is not a requirement row. Extraction emits it as one
     // (`req:job-title`, type=experience) so the scorer can grade title match —
-    // but rendered here it became a red "Fix this" row offering to rewrite the
-    // user's own job title, directly under the title note that already reports
-    // the same comparison. One fact, one surface.
+    // but rendered here it became a red "Fix this" row offering to rewrite a
+    // bullet into the user's job title. Retitling lives on the title note:
+    // the user can change an Experience title, and aggressive mode can apply
+    // the posting's wording on the closest existing role.
     if (String(req?.id ?? "").trim() === "req:job-title") continue;
 
     // Extraction's own type first: it is a claim about what the requirement

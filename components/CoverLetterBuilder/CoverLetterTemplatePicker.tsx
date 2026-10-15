@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { CoverLetterPreview } from "./CoverLetterPreview";
 import { CLData } from "./types";
 
-const DUMMY_DATA: CLData = {
+export const DUMMY_DATA: CLData = {
   recipient: {
     companyName: "Acme Corp",
     hiringManagerName: "Hiring Manager",

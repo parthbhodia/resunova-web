@@ -39,11 +39,16 @@ export interface AddressedGapAction {
   label: string;
   type: "qualification" | "responsibility" | "keyword";
   appliedText?: string;
-  /** "skills" when the fix was an Add-to-Skills, not a bullet rewrite — the
-   *  change log renders and undoes those differently. The api's
-   *  parse_addressed_gaps picks known keys, so the extra field is inert on
-   *  the wire. */
-  via?: "skills";
+  /** "skills" when the fix was an Add-to-Skills, not a bullet rewrite;
+   *  "bullet" when the user wrote a new line themselves under a role;
+   *  "title" when an Experience job title changed. The change log renders
+   *  and undoes each differently. The api's parse_addressed_gaps picks known
+   *  keys, so the extra fields are inert on the wire. */
+  via?: "skills" | "bullet" | "title";
+  /** For via "bullet"/"title": the structured entry (`exp.0`). */
+  entryPath?: string;
+  /** For via "title": the role as it read before the change. */
+  originalText?: string;
 }
 
 export interface JobTitleRating {

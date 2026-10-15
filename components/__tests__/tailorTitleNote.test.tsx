@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { TailorTitleNote } from "@/components/tailor/TailorTitleNote";
 import type { RatingsData } from "@/lib/types";
@@ -27,6 +27,36 @@ describe("the title note", () => {
     render(<TailorTitleNote ratings={ratings} />);
     expect(screen.getByText("Software Engineer vs Senior Fullstack Engineer")).toBeInTheDocument();
     expect(screen.getByText("62% overlap")).toBeInTheDocument();
+  });
+
+  it("lets the user change an Experience title", () => {
+    const onApply = vi.fn();
+    render(
+      <TailorTitleNote
+        ratings={ratings}
+        roles={[{ index: 0, role: "Software Engineer", company: "Acme" }]}
+        onApplyRoleTitle={onApply}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("title-note-edit"));
+    fireEvent.click(screen.getByRole("button", { name: "Match posting title" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply title" }));
+    expect(onApply).toHaveBeenCalledWith(0, "Senior Fullstack Engineer");
+  });
+
+  it("offers a one-click posting title in aggressive mode", () => {
+    const onApply = vi.fn();
+    render(
+      <TailorTitleNote
+        ratings={ratings}
+        roles={[{ index: 0, role: "Software Engineer", company: "Acme" }]}
+        aggressive
+        onApplyRoleTitle={onApply}
+      />,
+    );
+    expect(screen.getByTestId("title-note-aggressive")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("title-note-apply"));
+    expect(onApply).toHaveBeenCalledWith(0, "Senior Fullstack Engineer");
   });
 
   it("never claims a match beside a partial number", () => {

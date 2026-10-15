@@ -1,6 +1,6 @@
 /**
  * Employee referrer profiles: "I work at this company and can refer candidates."
- * Owner-only writes; open profiles are publicly readable for /refer/?s=<slug>.
+ * Owner-only writes; open profiles are readable to signed-in users for /refer/?s=<slug>.
  *
  * Public reads return LoadResult so a failed query is not the same outcome as
  * an empty directory or a paused link. Supabase credentials stay in lib/supabase.ts.
@@ -80,7 +80,20 @@ export type LoadResult<T> =
 export const REFERRER_LINK_INACTIVE = "This referral link is not active.";
 export const REFERRER_LOOKUP_FAILED = "Could not load this referral link. Try again.";
 export const REFERRER_SEARCH_FAILED = "Could not search referrers. Try again.";
+export const REFERRER_COMPANIES_FAILED = "Could not load companies. Try again.";
 export const REFERRER_SESSION_FAILED = "Could not check your session. Try again.";
+
+/** One company with at least one open referrer. Used by the /refer directory grid. */
+export type OpenReferralCompany = {
+  company: string;
+  companySlug: string;
+  /** Favicon host when known (jobs corpus); empty → CompanyLogo guesses from slug. */
+  companyDomain: string;
+  openCount: number;
+  referredCount: number;
+};
+
+const OPEN_COMPANIES_LIMIT = 200;
 
 type ReferrerRow = {
   id: string;
@@ -220,8 +233,23 @@ export function referralWriteError(error: { code?: string; message?: string } | 
  * renders an orphan leading period, or a dangling " at Acme". Drop the empty
  * parts before joining rather than patching each call site.
  */
+/**
+ * Join the parts that are actually present, with any separator.
+ *
+ * ⚠️ THE RULE IS SEPARATOR-AGNOSTIC ON PURPOSE. `company_referrers.title` is
+ * `text not null default ''` (migration 044), so a row seeded outside the
+ * signup path has an empty title and a naive template renders a leading
+ * orphan — a stray "." in the ask form, a dangling " · " in the finder. That
+ * defect has now survived TWO full rewrites of this feature, each time because
+ * the new templates re-derived the join themselves. Reach for this rather than
+ * writing `a + sep + b` at a call site.
+ */
+export function joinNonEmpty(separator: string, ...parts: Array<string | null | undefined>): string {
+  return parts.map((part) => (part || "").trim()).filter(Boolean).join(separator);
+}
+
 export function joinReferrerSentences(...parts: Array<string | null | undefined>): string {
-  return parts.map((part) => (part || "").trim()).filter(Boolean).join(". ");
+  return joinNonEmpty(". ", ...parts);
 }
 
 export function referrerInitials(name: string): string {
@@ -410,6 +438,110 @@ export async function searchOpenReferrers(company: string): Promise<LoadResult<C
   } catch (err) {
     console.warn("[company_referrers] search:", err);
     return { ok: false, error: REFERRER_SEARCH_FAILED };
+  }
+}
+
+/** List open referrers for one company tile in the signed-in directory. */
+export async function listOpenReferrersForCompany(companySlug: string): Promise<LoadResult<CompanyReferrer[]>> {
+  const slug = companySlug.trim();
+  if (!slug) return { ok: true, data: [] };
+  try {
+    const { data, error } = await selectWithFallback(
+      REFERRER_PUBLIC_SELECT,
+      REFERRER_PUBLIC_SELECT_BASE,
+      "referred_count",
+      (columns) => getSupabaseClient()
+        .from("company_referrers")
+        .select(columns)
+        .eq("company_slug", slug)
+        .eq("open_to_refer", true)
+        .order("display_name", { ascending: true })
+        .limit(50),
+    );
+    if (error) {
+      console.warn("[company_referrers] list company referrers:", error.message);
+      return { ok: false, error: REFERRER_SEARCH_FAILED };
+    }
+    return { ok: true, data: ((data ?? []) as ReferrerRow[]).map(mapReferrerRow) };
+  } catch (err) {
+    console.warn("[company_referrers] list company referrers:", err);
+    return { ok: false, error: REFERRER_SEARCH_FAILED };
+  }
+}
+
+/**
+ * Collapse open referrer rows into one tile per company. Prefer the longest
+ * company spelling (more likely the full brand) and sum referred tallies.
+ */
+export function aggregateOpenCompanies(
+  rows: Array<Pick<CompanyReferrer, "company" | "companySlug" | "referredCount">>,
+  domainsBySlug: Record<string, string> = {},
+): OpenReferralCompany[] {
+  const bySlug = new Map<string, OpenReferralCompany>();
+  for (const row of rows) {
+    const slug = (row.companySlug || slugifyPart(row.company)).trim();
+    if (!slug) continue;
+    const existing = bySlug.get(slug);
+    const referred = row.referredCount ?? 0;
+    if (!existing) {
+      bySlug.set(slug, {
+        company: row.company.trim() || slug,
+        companySlug: slug,
+        companyDomain: domainsBySlug[slug] ?? "",
+        openCount: 1,
+        referredCount: referred,
+      });
+      continue;
+    }
+    existing.openCount += 1;
+    existing.referredCount += referred;
+    if (row.company.trim().length > existing.company.length) {
+      existing.company = row.company.trim();
+    }
+    if (!existing.companyDomain && domainsBySlug[slug]) {
+      existing.companyDomain = domainsBySlug[slug];
+    }
+  }
+  return Array.from(bySlug.values()).sort((a, b) => {
+    if (b.openCount !== a.openCount) return b.openCount - a.openCount;
+    return a.company.localeCompare(b.company);
+  });
+}
+
+/** Filter the company grid; empty query returns the full list. */
+export function filterOpenCompanies(companies: OpenReferralCompany[], query: string): OpenReferralCompany[] {
+  const q = sanitizeSearchTerm(query).toLowerCase();
+  if (q.length < 1) return companies;
+  return companies.filter((c) =>
+    c.company.toLowerCase().includes(q) || c.companySlug.includes(q),
+  );
+}
+
+/** Public directory: every company that currently has an open referrer. */
+export async function listOpenReferralCompanies(
+  domainsBySlug: Record<string, string> = {},
+): Promise<LoadResult<OpenReferralCompany[]>> {
+  try {
+    const { data, error } = await selectWithFallback(
+      REFERRER_PUBLIC_SELECT,
+      REFERRER_PUBLIC_SELECT_BASE,
+      "referred_count",
+      (columns) => getSupabaseClient()
+        .from("company_referrers")
+        .select(columns)
+        .eq("open_to_refer", true)
+        .order("company", { ascending: true })
+        .limit(OPEN_COMPANIES_LIMIT),
+    );
+    if (error) {
+      console.warn("[company_referrers] list companies:", error.message);
+      return { ok: false, error: REFERRER_COMPANIES_FAILED };
+    }
+    const rows = ((data ?? []) as ReferrerRow[]).map(mapReferrerRow);
+    return { ok: true, data: aggregateOpenCompanies(rows, domainsBySlug) };
+  } catch (err) {
+    console.warn("[company_referrers] list companies:", err);
+    return { ok: false, error: REFERRER_COMPANIES_FAILED };
   }
 }
 
