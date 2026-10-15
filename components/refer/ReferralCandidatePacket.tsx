@@ -18,6 +18,12 @@ import {
   signedReferralResumeUrl,
   type CompanyReferralRequest,
 } from "@/lib/companyReferrers";
+import {
+  PACKET_NOT_PROVIDED,
+  RESUME_OPEN_FAILED,
+  packetFieldOrFallback,
+  packetYearsLabel,
+} from "@/lib/referralEdgeCases";
 import { getSupabaseClient } from "@/lib/supabase";
 import { FS, FW, LH } from "@/lib/typography";
 
@@ -45,6 +51,7 @@ export default function ReferralCandidatePacket() {
   const searchParams = useSearchParams();
   const requestId = (searchParams?.get("r") || "").trim();
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [resumeError, setResumeError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,8 +88,13 @@ export default function ReferralCandidatePacket() {
   }, [requestId]);
 
   const openResume = async (path: string) => {
+    setResumeError(null);
     const url = await signedReferralResumeUrl(path);
-    if (url) window.open(url, "_blank", "noopener,noreferrer");
+    if (!url) {
+      setResumeError(RESUME_OPEN_FAILED);
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const body = (() => {
@@ -119,23 +131,30 @@ export default function ReferralCandidatePacket() {
 
     const row = state.request;
     const linkedinHref = safeHttpUrl(row.candidateLinkedin);
+    const hasLinks = !!(linkedinHref || row.resumePdfPath);
     return (
       <Stack spacing={2.5} sx={{ maxWidth: 560 }}>
         <AccentLink href="/profile?tab=referrals">Back to inbox</AccentLink>
-        <BoxHeader name={row.candidateName} status={REFERRAL_REQUEST_STATUS_LABELS[row.status]} />
+        <BoxHeader name={packetFieldOrFallback(row.candidateName)} status={REFERRAL_REQUEST_STATUS_LABELS[row.status]} />
         <Card elevation={0} sx={{ ...surfaceCardSx, p: 3 }}>
           <Stack spacing={2}>
-            {row.candidateHeadline ? <PacketRow label="Headline" value={row.candidateHeadline} /> : null}
-            <PacketRow label="Role they want" value={row.role || "—"} />
-            <PacketRow label="Email" value={row.candidateEmail || "—"} />
-            {row.candidatePhone ? <PacketRow label="Phone" value={row.candidatePhone} /> : null}
-            {row.candidateYearsExperience != null ? (
-              <PacketRow
-                label="Experience"
-                value={`${row.candidateYearsExperience} year${row.candidateYearsExperience === 1 ? "" : "s"}`}
-              />
-            ) : null}
-            {row.notes ? <PacketRow label="Note" value={row.notes} /> : null}
+            <PacketRow label="Headline" value={packetFieldOrFallback(row.candidateHeadline)} />
+            <PacketRow label="Role they want" value={packetFieldOrFallback(row.role)} />
+            <PacketRow label="Email" value={packetFieldOrFallback(row.candidateEmail)} />
+            <PacketRow label="Phone" value={packetFieldOrFallback(row.candidatePhone)} />
+            <PacketRow label="Experience" value={packetYearsLabel(row.candidateYearsExperience)} />
+            <PacketRow label="Note" value={packetFieldOrFallback(row.notes)} />
+            <PacketRow
+              label="LinkedIn / resume"
+              value={
+                hasLinks
+                  ? [
+                      linkedinHref ? "LinkedIn link on file" : null,
+                      row.resumePdfPath ? "PDF on file" : null,
+                    ].filter(Boolean).join(" · ")
+                  : PACKET_NOT_PROVIDED
+              }
+            />
             <Stack direction="row" spacing={1.5} sx={{ pt: 0.5, flexWrap: "wrap" }}>
               {linkedinHref ? (
                 <Button component="a" href={linkedinHref} target="_blank" rel="noreferrer" variant="outlined" sx={{ textTransform: "none" }}>
@@ -148,8 +167,9 @@ export default function ReferralCandidatePacket() {
                 </Button>
               ) : null}
             </Stack>
+            {resumeError ? <ReferAlert>{resumeError}</ReferAlert> : null}
             <Typography sx={{ ...mutedTextSx, fontSize: FS.small }}>
-              Snapshot from when they asked. This is not a live read of their full Resunova account.
+              Snapshot from when they asked. Fields marked "{PACKET_NOT_PROVIDED}" were left blank. This is not a live read of their full Resunova account.
             </Typography>
           </Stack>
         </Card>
