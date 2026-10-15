@@ -43,7 +43,6 @@ function renderSidebar(opts: { anonMode?: boolean } = {}) {
         active="home"
         onSwitchView={onSwitchView}
         onTemplateBuilderPage={false}
-        onTemplatesPage={false}
         onInterviewPrepPage={false}
         builderActive={false}
         navBuilderSubflow="tailor"

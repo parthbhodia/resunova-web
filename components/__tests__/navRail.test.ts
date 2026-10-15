@@ -4,7 +4,6 @@ import { activeRailKey } from "@/components/app-shell/nav-config";
 const idle = {
   active: "home" as const,
   onTemplateBuilderPage: false,
-  onTemplatesPage: false,
   onInterviewPrepPage: false,
   onCareerProfilePage: false,
   builderActive: false,
@@ -19,11 +18,10 @@ describe("activeRailKey", () => {
   });
 
   it("a routed page wins over the default home view underneath it", () => {
-    expect(activeRailKey({ ...idle, onTemplatesPage: true })).toBe("templates");
-    expect(activeRailKey({ ...idle, onInterviewPrepPage: true })).toBe("prep");
     expect(activeRailKey({ ...idle, onTemplateBuilderPage: true, builderActive: true })).toBe(
       "templates",
     );
+    expect(activeRailKey({ ...idle, onInterviewPrepPage: true })).toBe("prep");
   });
 
   it("tailor and the template subflow do not light together", () => {

@@ -24,6 +24,7 @@ export function GET(): Response {
 
 Key facts:
 - Free ATS resume checker at ${SITE_URL}/ats-resume-checker/
+- Free ATS-friendly resume templates at ${SITE_URL}/templates/
 - Resume template builder at ${SITE_URL}/template-builder/
 - Match scoring and tailoring are grounded in analysis of 100,000+ active US job postings, refreshed daily
 - Data research (salary transparency, hiring trends) is published on the blog with methodology notes
@@ -35,6 +36,7 @@ ${blogLines}
 ## Product pages
 
 - [ATS resume checker](${SITE_URL}/ats-resume-checker/): free instant check of how applicant tracking systems parse a resume PDF
+- [Resume templates](${SITE_URL}/templates/): free ATS-friendly resume templates, each openable in the builder with the style applied
 - [Resume template builder](${SITE_URL}/template-builder/): ATS-safe resume templates
 - [Resume examples](${SITE_URL}/resume-examples/): role-specific resume examples with real posting data
 
