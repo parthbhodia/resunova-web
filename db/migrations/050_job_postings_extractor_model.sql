@@ -12,7 +12,8 @@
 --
 --   select count(*) from job_postings
 --    where requirement_concepts is not null
---      and extractor_model is distinct from '<new-model>';
+--      and (extractor_model  is distinct from '<new-model>'
+--        or extractor_prompt is distinct from '<new-prompt>');
 --
 -- NULL is deliberately left unbackfilled and means "extracted before provenance
 -- was recorded", i.e. unknown. IS DISTINCT FROM includes NULL, so unknowns land
@@ -27,16 +28,24 @@
 -- Run in Supabase SQL Editor → New query
 
 alter table public.job_postings
-  add column if not exists extractor_model text;
+  add column if not exists extractor_model  text,
+  add column if not exists extractor_prompt text;
 
 comment on column public.job_postings.extractor_model is
   'Model that wrote requirement_concepts (EXTRACT_LLM_MODEL at write time, or '
   '''fallback-chain'' when undetermined). NULL = extracted before provenance was '
   'recorded. Never mix extractors in one ranked corpus — bucket distributions differ.';
 
+comment on column public.job_postings.extractor_prompt is
+  'Fingerprint of the prompt+schema that shaped requirement_concepts (sha256 of '
+  'the rendered template + char cap + JSON schema, 12 hex chars), or the '
+  'EXTRACT_PROMPT_VERSION override. NULL = recorded before provenance existed. '
+  'The prompt decides importance buckets too, so a prompt edit splits the corpus '
+  'exactly as a model swap does.';
+
 -- Partial index on the extracted rows only: the one query this column exists to
 -- serve is "which extracted rows did NOT come from <model>", and the ~unextracted
 -- backlog is irrelevant to it.
 create index concurrently if not exists job_postings_extractor_model_idx
-  on public.job_postings (extractor_model)
+  on public.job_postings (extractor_model, extractor_prompt)
   where requirement_concepts is not null;
