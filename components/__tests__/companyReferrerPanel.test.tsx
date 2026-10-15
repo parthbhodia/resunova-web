@@ -81,8 +81,12 @@ describe("CompanyReferrerPanel", () => {
         referrerId: "r1",
         candidateName: "Alex Kim",
         candidateEmail: "alex@example.com",
+        candidateUserId: null,
         candidateLinkedin: null,
         resumePdfPath: null,
+        candidatePhone: null,
+        candidateYearsExperience: null,
+        candidateHeadline: null,
         role: "Backend Engineer",
         notes: "Applied last week.",
         source: "request",
@@ -94,6 +98,7 @@ describe("CompanyReferrerPanel", () => {
     expect(await screen.findByText("Incoming requests")).toBeInTheDocument();
     expect(screen.getByLabelText("3 referred")).toBeInTheDocument();
     expect(screen.getByText("Alex Kim")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View profile" })).toHaveAttribute("href", "/refer/candidate/?r=q1");
     expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pause requests" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save referrer profile" })).toBeInTheDocument();

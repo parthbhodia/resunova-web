@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import {
   REFERRER_LINK_INACTIVE,
   REFERRER_SESSION_FAILED,
+  approxYearsFromExperience,
   createReferralRequest,
   fetchReferrerBySlug,
   filterOpenCompanies,
@@ -24,11 +25,14 @@ import {
   type OpenReferralCompany,
 } from "@/lib/companyReferrers";
 import { fetchFeaturedCompanies } from "@/lib/jobsApi";
-import { getSupabaseClient } from "@/lib/supabase";
+import { fetchExtractedProfile, fetchUserProfile, getSupabaseClient } from "@/lib/supabase";
 
 export type ReferralAskForm = {
   name: string;
   email: string;
+  phone: string;
+  years: string;
+  headline: string;
   linkedin: string;
   role: string;
   notes: string;
@@ -38,6 +42,9 @@ export type ReferralAskForm = {
 const EMPTY_ASK: ReferralAskForm = {
   name: "",
   email: "",
+  phone: "",
+  years: "",
+  headline: "",
   linkedin: "",
   role: "",
   notes: "",
@@ -218,19 +225,30 @@ export function useReferralAsk(referrer: CompanyReferrer) {
 
   useEffect(() => {
     let cancelled = false;
-    getSupabaseClient().auth.getSession().then(({ data }) => {
-      if (cancelled || !data.session?.user) return;
-      const user = data.session.user;
-      const metadata = user.user_metadata ?? {};
-      const suggestedName = String(metadata.full_name ?? metadata.name ?? "").trim();
-      setForm((previous) => ({
-        ...previous,
-        name: previous.name || suggestedName,
-        email: previous.email || user.email || "",
-      }));
-    }).catch(() => {
-      // The submit path reports session errors. Prefill is best-effort only.
-    });
+    void (async () => {
+      try {
+        const { data } = await getSupabaseClient().auth.getSession();
+        if (cancelled || !data.session?.user) return;
+        const user = data.session.user;
+        const metadata = user.user_metadata ?? {};
+        const suggestedName = String(metadata.full_name ?? metadata.name ?? "").trim();
+        const [profile, extracted] = await Promise.all([fetchUserProfile(), fetchExtractedProfile()]);
+        if (cancelled) return;
+        const years = approxYearsFromExperience(extracted?.experience);
+        setForm((previous) => ({
+          ...previous,
+          name: previous.name || extracted?.name || profile?.displayName || suggestedName,
+          email: previous.email || user.email || extracted?.email || profile?.email || "",
+          phone: previous.phone || extracted?.phone || profile?.phone || "",
+          years: previous.years || (years != null ? String(years) : ""),
+          headline: previous.headline || extracted?.headline || extracted?.role || profile?.headline || "",
+          linkedin: previous.linkedin || extracted?.linkedin || profile?.linkedin || "",
+          role: previous.role || extracted?.role || profile?.roles?.split(",")[0]?.trim() || "",
+        }));
+      } catch {
+        // The submit path reports session errors. Prefill is best-effort only.
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -292,6 +310,9 @@ export function useReferralAsk(referrer: CompanyReferrer) {
       candidateEmail: form.email,
       candidateLinkedin: form.linkedin,
       resumePdfPath,
+      candidatePhone: form.phone,
+      candidateYearsExperience: form.years,
+      candidateHeadline: form.headline,
       role: form.role,
       notes: form.notes,
       source: "request",

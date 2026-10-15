@@ -13,6 +13,7 @@ import {
   openRequestCount,
   referralRequestPipeline,
   referralRequestsThisMonth,
+  referralCandidatePath,
   referrerInitials,
   referrerPublicPath,
   safeHttpUrl,
@@ -523,13 +524,22 @@ function RequestCard({
     const url = await signedReferralResumeUrl(row.resumePdfPath);
     if (url) window.open(url, "_blank", "noopener,noreferrer");
   };
+  const metaBits = [
+    row.role,
+    row.candidateEmail,
+    row.candidatePhone,
+    row.candidateYearsExperience != null ? `${row.candidateYearsExperience} yr exp` : null,
+  ].filter(Boolean);
   return (
     <div style={{ border: "1px solid rgba(15,23,42,0.08)", borderRadius: 14, padding: 16, background: "#f8fafc" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
         <div>
           <div style={{ fontWeight: 800 }}>{row.candidateName}</div>
+          {row.candidateHeadline ? (
+            <div style={{ marginTop: 2, fontSize: 13, color: "#374151", fontWeight: 600 }}>{row.candidateHeadline}</div>
+          ) : null}
           <div style={{ marginTop: 3, fontSize: 13, color: "#6b7280" }}>
-            {row.role}{row.candidateEmail ? ` · ${row.candidateEmail}` : ""}
+            {metaBits.join(" · ")}
           </div>
         </div>
         <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
@@ -538,24 +548,25 @@ function RequestCard({
         </span>
       </div>
       {row.notes ? <p style={{ margin: "10px 0 0", fontSize: 13, color: "#4b5563", lineHeight: 1.55 }}>{row.notes}</p> : null}
-      {(linkedinHref || row.resumePdfPath) ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 10 }}>
-          {linkedinHref ? (
-            <a href={linkedinHref} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-              LinkedIn
-            </a>
-          ) : null}
-          {row.resumePdfPath ? (
-            <button
-              type="button"
-              onClick={() => void openResume()}
-              style={{ border: "none", background: "none", color: "#2563eb", fontWeight: 700, fontSize: 13, cursor: "pointer", padding: 0 }}
-            >
-              Open resume PDF
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 10 }}>
+        <Link href={referralCandidatePath(row.id)} style={{ color: "#2563eb", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+          View profile
+        </Link>
+        {linkedinHref ? (
+          <a href={linkedinHref} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+            LinkedIn
+          </a>
+        ) : null}
+        {row.resumePdfPath ? (
+          <button
+            type="button"
+            onClick={() => void openResume()}
+            style={{ border: "none", background: "none", color: "#2563eb", fontWeight: 700, fontSize: 13, cursor: "pointer", padding: 0 }}
+          >
+            Open resume PDF
+          </button>
+        ) : null}
+      </div>
       <label style={{ display: "block", marginTop: 12 }}>
         <select
           aria-label={`Status for ${row.candidateName}`}
