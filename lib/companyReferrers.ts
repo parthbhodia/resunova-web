@@ -1,6 +1,6 @@
 /**
  * Employee referrer profiles: "I work at this company and can refer candidates."
- * Owner-only writes; open profiles are publicly readable for /refer/?s=<slug>.
+ * Owner-only writes; open profiles are readable to signed-in users for /refer/?s=<slug>.
  *
  * Public reads return LoadResult so a failed query is not the same outcome as
  * an empty directory or a paused link. Supabase credentials stay in lib/supabase.ts.
@@ -412,6 +412,34 @@ export async function searchOpenReferrers(company: string): Promise<LoadResult<C
     return { ok: true, data: ((data ?? []) as ReferrerRow[]).map(mapReferrerRow) };
   } catch (err) {
     console.warn("[company_referrers] search:", err);
+    return { ok: false, error: REFERRER_SEARCH_FAILED };
+  }
+}
+
+/** List open referrers for one company tile in the signed-in directory. */
+export async function listOpenReferrersForCompany(companySlug: string): Promise<LoadResult<CompanyReferrer[]>> {
+  const slug = companySlug.trim();
+  if (!slug) return { ok: true, data: [] };
+  try {
+    const { data, error } = await selectWithFallback(
+      REFERRER_PUBLIC_SELECT,
+      REFERRER_PUBLIC_SELECT_BASE,
+      "referred_count",
+      (columns) => getSupabaseClient()
+        .from("company_referrers")
+        .select(columns)
+        .eq("company_slug", slug)
+        .eq("open_to_refer", true)
+        .order("display_name", { ascending: true })
+        .limit(50),
+    );
+    if (error) {
+      console.warn("[company_referrers] list company referrers:", error.message);
+      return { ok: false, error: REFERRER_SEARCH_FAILED };
+    }
+    return { ok: true, data: ((data ?? []) as ReferrerRow[]).map(mapReferrerRow) };
+  } catch (err) {
+    console.warn("[company_referrers] list company referrers:", err);
     return { ok: false, error: REFERRER_SEARCH_FAILED };
   }
 }

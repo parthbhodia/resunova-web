@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * State for the public referral route. It stays in a hook, not a store:
+ * State for the referral route. It stays in a hook, not a store:
  * nothing outside /refer reads it, and it should die with the page.
  * Shared app state (the scan, the suggestion list) still lives in store/.
  *
@@ -16,6 +16,7 @@ import {
   createReferralRequest,
   fetchReferrerBySlug,
   filterOpenCompanies,
+  listOpenReferrersForCompany,
   listOpenReferralCompanies,
   slugifyPart,
   type CompanyReferrer,
@@ -70,29 +71,27 @@ export function useReferSession(): { status: "loading" | "signed_out" | "signed_
 }
 
 export function useReferrerLookup(slug: string, enabled = true): ReferrerLookup {
-  const [lookup, setLookup] = useState<ReferrerLookup>(
-    slug && enabled ? { status: "loading" } : { status: "idle" },
-  );
+  const [result, setResult] = useState<{ slug: string; lookup: ReferrerLookup }>({
+    slug: slug && enabled ? slug : "",
+    lookup: slug && enabled ? { status: "loading" } : { status: "idle" },
+  });
 
   useEffect(() => {
-    if (!slug || !enabled) {
-      setLookup({ status: "idle" });
-      return;
-    }
+    if (!slug || !enabled) return;
     let cancelled = false;
-    setLookup({ status: "loading" });
     fetchReferrerBySlug(slug).then((result) => {
       if (cancelled) return;
-      if (!result.ok) setLookup({ status: "error", message: result.error });
-      else if (!result.data) setLookup({ status: "missing" });
-      else setLookup({ status: "ready", referrer: result.data });
+      if (!result.ok) setResult({ slug, lookup: { status: "error", message: result.error } });
+      else if (!result.data) setResult({ slug, lookup: { status: "missing" } });
+      else setResult({ slug, lookup: { status: "ready", referrer: result.data } });
     });
     return () => {
       cancelled = true;
     };
   }, [slug, enabled]);
 
-  return lookup;
+  if (!slug || !enabled) return { status: "idle" };
+  return result.slug === slug ? result.lookup : { status: "loading" };
 }
 
 export type OpenCompaniesDirectory = {
@@ -112,14 +111,8 @@ export function useOpenReferralCompanies(enabled = true): OpenCompaniesDirectory
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!enabled) {
-      setStatus("empty");
-      setCompanies([]);
-      setError(null);
-      return;
-    }
+    if (!enabled) return;
     let cancelled = false;
-    setStatus("loading");
     (async () => {
       let domainsBySlug: Record<string, string> = {};
       try {
@@ -157,11 +150,53 @@ export function useOpenReferralCompanies(enabled = true): OpenCompaniesDirectory
   return {
     query,
     setQuery,
-    status: viewStatus,
-    companies,
-    filtered: status === "ready" ? filtered : [],
-    error,
+    status: enabled ? viewStatus : "empty",
+    companies: enabled ? companies : [],
+    filtered: enabled && status === "ready" ? filtered : [],
+    error: enabled ? error : null,
   };
+}
+
+export type CompanyReferrerDirectory = {
+  status: "idle" | "loading" | "empty" | "error" | "ready";
+  referrers: CompanyReferrer[];
+  error: string | null;
+};
+
+/** Load the people behind a selected company tile. */
+export function useCompanyOpenReferrers(companySlug: string | null): CompanyReferrerDirectory {
+  const [result, setResult] = useState<CompanyReferrerDirectory & { companySlug: string }>({
+    companySlug: "",
+    status: "idle",
+    referrers: [],
+    error: null,
+  });
+
+  useEffect(() => {
+    if (!companySlug) return;
+    let cancelled = false;
+    listOpenReferrersForCompany(companySlug).then((response) => {
+      if (cancelled) return;
+      if (!response.ok) {
+        setResult({ companySlug, status: "error", referrers: [], error: response.error });
+        return;
+      }
+      setResult({
+        companySlug,
+        status: response.data.length ? "ready" : "empty",
+        referrers: response.data,
+        error: null,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [companySlug]);
+
+  if (!companySlug) return { status: "idle", referrers: [], error: null };
+  return result.companySlug === companySlug
+    ? result
+    : { status: "loading", referrers: [], error: null };
 }
 
 export type AskReferralOutcome = "sent" | "sign_in" | "error";
@@ -171,6 +206,26 @@ export function useReferralAsk(referrer: CompanyReferrer) {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSupabaseClient().auth.getSession().then(({ data }) => {
+      if (cancelled || !data.session?.user) return;
+      const user = data.session.user;
+      const metadata = user.user_metadata ?? {};
+      const suggestedName = String(metadata.full_name ?? metadata.name ?? "").trim();
+      setForm((previous) => ({
+        ...previous,
+        name: previous.name || suggestedName,
+        email: previous.email || user.email || "",
+      }));
+    }).catch(() => {
+      // The submit path reports session errors. Prefill is best-effort only.
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setField = (key: keyof ReferralAskForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));

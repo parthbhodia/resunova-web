@@ -57,12 +57,15 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
       ) : (
         <Card elevation={0} sx={surfaceCardSx}>
           <Stack component="form" spacing={1.5} onSubmit={(event) => void onSubmit(event)} sx={{ p: 3 }}>
-            <ReferField label="Your name" placeholder="e.g. Jordan Lee" value={ask.form.name} maxLength={REFERRER_LIMITS.name} onChange={(value) => ask.setField("name", value)} />
-            <ReferField label="Your email" type="email" placeholder="you@example.com" value={ask.form.email} maxLength={REFERRER_LIMITS.email} onChange={(value) => ask.setField("email", value)} />
-            <ReferField label="Role you want" placeholder="e.g. Software Engineer" value={ask.form.role} maxLength={REFERRER_LIMITS.role} onChange={(value) => ask.setField("role", value)} />
-            <ReferField label="LinkedIn or resume URL" placeholder="https://linkedin.com/in/your-name" value={ask.form.linkedin} maxLength={REFERRER_LIMITS.url} onChange={(value) => ask.setField("linkedin", value)} />
+            <Typography sx={{ ...mutedTextSx, fontSize: FS.small }}>
+              Add the role you want. Your account name and email fill in when available.
+            </Typography>
+            <ReferField label="Your name" placeholder="e.g. Jordan Lee" value={ask.form.name} maxLength={REFERRER_LIMITS.name} required onChange={(value) => ask.setField("name", value)} />
+            <ReferField label="Your email" type="email" placeholder="you@example.com" value={ask.form.email} maxLength={REFERRER_LIMITS.email} required onChange={(value) => ask.setField("email", value)} />
+            <ReferField label="Role you want" placeholder="e.g. Software Engineer" value={ask.form.role} maxLength={REFERRER_LIMITS.role} required onChange={(value) => ask.setField("role", value)} />
+            <ReferField label="LinkedIn or resume URL (optional)" placeholder="https://linkedin.com/in/your-name" value={ask.form.linkedin} maxLength={REFERRER_LIMITS.url} onChange={(value) => ask.setField("linkedin", value)} />
             <ReferField
-              label="Note to the referrer"
+              label="Note to the referrer (optional)"
               placeholder="Why this role, and why this company"
               value={ask.form.notes}
               maxLength={REFERRER_LIMITS.notes}
@@ -74,7 +77,7 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
               {ask.saving ? "Sending..." : "Ask for a referral"}
             </Button>
             <Typography sx={{ ...mutedTextSx, fontSize: FS.small }}>
-              Sign in to send this. {referrer.displayName} sees it in their inbox. Resunova does not submit the referral into {referrer.company}&apos;s ATS for them.
+              {referrer.displayName} will review your request. If they agree, they submit the referral through {referrer.company}&apos;s hiring process. Resunova does not submit it for them.
             </Typography>
           </Stack>
         </Card>

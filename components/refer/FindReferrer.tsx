@@ -1,23 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import CompanyLogo from "@/components/CompanyLogo";
 import {
   AccentLink,
+  OpenChip,
   ReferAlert,
   ReferField,
   ReferGoogleGate,
   ReferLede,
   ReferNote,
   ReferTitle,
+  ReferrerCard,
 } from "@/components/refer/referUi";
 import { surfaceCardSx } from "@/components/mui/cssVars";
-import { REFERRER_LIMITS, type OpenReferralCompany } from "@/lib/companyReferrers";
-import { useOpenReferralCompanies, useReferSession } from "@/hooks/usePublicReferral";
+import { REFERRER_LIMITS, referrerPublicPath, type OpenReferralCompany } from "@/lib/companyReferrers";
+import { useCompanyOpenReferrers, useOpenReferralCompanies, useReferSession } from "@/hooks/usePublicReferral";
 import { FS, FW, LH } from "@/lib/typography";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
 
 export function FindReferrer({ heading = "h1" }: { heading?: "h1" | "h2" }) {
   const session = useReferSession();
@@ -35,6 +39,8 @@ export function FindReferrer({ heading = "h1" }: { heading?: "h1" | "h2" }) {
 
 function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
   const directory = useOpenReferralCompanies(true);
+  const [selectedCompany, setSelectedCompany] = useState<OpenReferralCompany | null>(null);
+  const people = useCompanyOpenReferrers(selectedCompany?.companySlug ?? null);
   const showFilter = directory.status === "loading"
     || directory.status === "ready"
     || directory.status === "error"
@@ -44,13 +50,25 @@ function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
   return (
     <Stack spacing={2.5} sx={{ mt: heading === "h2" ? 4.5 : 0 }}>
       <Box>
-        <ReferTitle component={heading}>Ask an employee for a referral</ReferTitle>
-        <ReferLede>
-          Publish <AccentLink href="/profile?tab=referrals">now</AccentLink>.
-        </ReferLede>
+        {selectedCompany ? (
+          <>
+            <Button type="button" onClick={() => setSelectedCompany(null)} sx={{ mb: 1, px: 0, minWidth: 0 }}>
+              ← All companies
+            </Button>
+            <ReferTitle component={heading}>People who can refer you at {selectedCompany.company}</ReferTitle>
+            <ReferLede>Choose someone to ask. They decide whether they can submit a referral for you.</ReferLede>
+          </>
+        ) : (
+          <>
+            <ReferTitle component={heading}>Ask an employee for a referral</ReferTitle>
+            <ReferLede>
+              Find an open referrer by company, or <AccentLink href="/profile?tab=referrals">publish your profile</AccentLink>.
+            </ReferLede>
+          </>
+        )}
       </Box>
 
-      {showFilter ? (
+      {!selectedCompany && showFilter ? (
         <ReferField
           label="Filter companies"
           placeholder="e.g. Stripe"
@@ -61,16 +79,16 @@ function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
         />
       ) : null}
 
-      {directory.status === "loading" ? <ReferNote>Loading companies...</ReferNote> : null}
-      {directory.status === "error" && directory.error ? <ReferAlert>{directory.error}</ReferAlert> : null}
+      {!selectedCompany && directory.status === "loading" ? <ReferNote>Loading companies...</ReferNote> : null}
+      {!selectedCompany && directory.status === "error" && directory.error ? <ReferAlert>{directory.error}</ReferAlert> : null}
 
-      {directory.status === "empty" && directory.companies.length === 0 ? <BeTheFirst /> : null}
+      {!selectedCompany && directory.status === "empty" && directory.companies.length === 0 ? <BeTheFirst /> : null}
 
-      {directory.status === "empty" && directory.companies.length > 0 ? (
+      {!selectedCompany && directory.status === "empty" && directory.companies.length > 0 ? (
         <ReferNote>No companies match that filter.</ReferNote>
       ) : null}
 
-      {directory.filtered.length > 0 ? (
+      {!selectedCompany && directory.filtered.length > 0 ? (
         <Box
           component="ul"
           aria-label="Companies with open referrers"
@@ -85,10 +103,38 @@ function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
         >
           {directory.filtered.map((company) => (
             <Box component="li" key={company.companySlug} sx={{ minWidth: 0 }}>
-              <CompanyTile company={company} />
+              <CompanyTile company={company} onSelect={() => setSelectedCompany(company)} />
             </Box>
           ))}
         </Box>
+      ) : null}
+
+      {selectedCompany && people.status === "loading" ? <ReferNote>Loading referrers...</ReferNote> : null}
+      {selectedCompany && people.status === "error" && people.error ? <ReferAlert>{people.error}</ReferAlert> : null}
+      {selectedCompany && people.status === "empty" ? (
+        <ReferNote>No open referral profiles at this company right now. Browse companies or try again later.</ReferNote>
+      ) : null}
+      {selectedCompany && people.status === "ready" ? (
+        <Stack component="ul" aria-label={`Open referrers at ${selectedCompany.company}`} spacing={1.5} sx={{ listStyle: "none", m: 0, p: 0 }}>
+          {people.referrers.map((referrer) => (
+            <Box component="li" key={referrer.id}>
+              <ReferrerCard
+                name={referrer.displayName}
+                count={referrer.referredCount ?? 0}
+                href={referrerPublicPath(referrer.slug)}
+                ariaLabel={`Ask ${referrer.displayName} for a referral at ${referrer.company}`}
+                badge={<OpenChip />}
+              >
+                <Typography sx={{ mt: 0.5, fontSize: FS.body, color: "var(--muted)" }}>
+                  {referrer.title}{referrer.bio ? ` · ${referrer.bio}` : ""}
+                </Typography>
+                <Typography sx={{ mt: 0.5, fontSize: FS.small, fontWeight: FW.semibold, color: "var(--accent)" }}>
+                  Ask for a referral →
+                </Typography>
+              </ReferrerCard>
+            </Box>
+          ))}
+        </Stack>
       ) : null}
     </Stack>
   );
@@ -110,7 +156,7 @@ function BeTheFirst() {
   );
 }
 
-function CompanyTile({ company }: { company: OpenReferralCompany }) {
+function CompanyTile({ company, onSelect }: { company: OpenReferralCompany; onSelect: () => void }) {
   const openLabel = company.openCount === 1 ? "1 open referrer" : `${company.openCount} open referrers`;
   const referredLabel = company.referredCount === 1 ? "1 referred" : `${company.referredCount} referred`;
 
@@ -129,36 +175,44 @@ function CompanyTile({ company }: { company: OpenReferralCompany }) {
         },
       }}
     >
-      <Stack direction="row" spacing={1.75} sx={{ alignItems: "center", p: 2 }}>
-        <CompanyLogo
-          company={company.company}
-          companyDomain={company.companyDomain}
-          slug={company.companySlug}
-          size={48}
-          radius={12}
-        />
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography
-            component="h2"
-            sx={{
-              m: 0,
-              fontSize: FS.subhead,
-              fontWeight: FW.bold,
-              color: "var(--text)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {company.company}
-          </Typography>
-          <Typography sx={{ mt: 0.5, fontSize: FS.small, color: "var(--muted)", lineHeight: LH.snug }}>
-            {openLabel}
-            {" · "}
-            {referredLabel}
-          </Typography>
-        </Box>
-      </Stack>
+      <Button
+        type="button"
+        onClick={onSelect}
+        aria-label={`View ${company.openCount} open referrers at ${company.company}`}
+        sx={{ width: "100%", justifyContent: "flex-start", textAlign: "left", color: "inherit", p: 0, borderRadius: "inherit" }}
+      >
+        <Stack direction="row" spacing={1.75} sx={{ alignItems: "center", p: 2, width: "100%" }}>
+          <CompanyLogo
+            company={company.company}
+            companyDomain={company.companyDomain}
+            slug={company.companySlug}
+            size={48}
+            radius={12}
+          />
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              component="h2"
+              sx={{
+                m: 0,
+                fontSize: FS.subhead,
+                fontWeight: FW.bold,
+                color: "var(--text)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {company.company}
+            </Typography>
+            <Typography sx={{ mt: 0.5, fontSize: FS.small, color: "var(--muted)", lineHeight: LH.snug }}>
+              {openLabel}
+              {" · "}
+              {referredLabel}
+            </Typography>
+          </Box>
+          <Typography aria-hidden sx={{ fontSize: FS.title, color: "var(--accent)" }}>→</Typography>
+        </Stack>
+      </Button>
     </Card>
   );
 }
