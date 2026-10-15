@@ -136,7 +136,7 @@ export default function ReferralCandidatePacket() {
               />
             ) : null}
             {row.notes ? <PacketRow label="Note" value={row.notes} /> : null}
-            <Stack direction="row" flexWrap="wrap" gap={1.5} sx={{ pt: 0.5 }}>
+            <Stack direction="row" gap={1.5} sx={{ pt: 0.5, flexWrap: "wrap" }}>
               {linkedinHref ? (
                 <Button component="a" href={linkedinHref} target="_blank" rel="noreferrer" variant="outlined" sx={{ textTransform: "none" }}>
                   LinkedIn
