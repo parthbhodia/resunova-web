@@ -762,9 +762,24 @@ export async function createReferralRequest(input: {
   if (source !== "submitted" && !isUsableEmail(candidateEmail)) {
     return { request: null, error: askError };
   }
-  const candidateLinkedin = safeHttpUrl(input.candidateLinkedin);
+  const linkedinRaw = (input.candidateLinkedin ?? "").trim();
+  const candidateLinkedin = linkedinRaw ? safeHttpUrl(linkedinRaw) : null;
+  if (linkedinRaw && !candidateLinkedin) {
+    return {
+      request: null,
+      error: "That LinkedIn URL does not look valid. Fix it or clear the field and upload a PDF instead.",
+    };
+  }
   if (source !== "submitted" && !candidateLinkedin && !resumePdfPath) {
     return { request: null, error: "Could not send this request. Add a LinkedIn URL or upload your resume." };
+  }
+  const yearsRaw = input.candidateYearsExperience;
+  if (
+    yearsRaw != null
+    && String(yearsRaw).trim() !== ""
+    && parseYearsExperience(yearsRaw) == null
+  ) {
+    return { request: null, error: "Years of experience must be a whole number from 0 to 50." };
   }
   const payload = {
     referrer_id: input.referrerId,

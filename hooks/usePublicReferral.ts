@@ -25,6 +25,11 @@ import {
   type OpenReferralCompany,
 } from "@/lib/companyReferrers";
 import { fetchFeaturedCompanies } from "@/lib/jobsApi";
+import {
+  REFERRAL_ASK_MESSAGES,
+  normalizeReferralPhone,
+  validateReferralAsk,
+} from "@/lib/referralEdgeCases";
 import { fetchExtractedProfile, fetchUserProfile, getSupabaseClient } from "@/lib/supabase";
 
 export type ReferralAskForm = {
@@ -274,13 +279,14 @@ export function useReferralAsk(referrer: CompanyReferrer) {
       setError(REFERRER_SESSION_FAILED);
       return "error";
     }
-    if (!signedIn) {
+    const issue = validateReferralAsk(form, { signedIn });
+    if (issue === "sign_in") {
       setSaving(false);
       return "sign_in";
     }
-    if (!form.linkedin.trim() && !form.resumeFile) {
+    if (issue) {
       setSaving(false);
-      setError("Could not send this request. Add a LinkedIn URL or upload your resume.");
+      setError(REFERRAL_ASK_MESSAGES[issue]);
       return "error";
     }
     const stillOpen = await fetchReferrerBySlug(referrer.slug);
@@ -310,7 +316,7 @@ export function useReferralAsk(referrer: CompanyReferrer) {
       candidateEmail: form.email,
       candidateLinkedin: form.linkedin,
       resumePdfPath,
-      candidatePhone: form.phone,
+      candidatePhone: normalizeReferralPhone(form.phone),
       candidateYearsExperience: form.years,
       candidateHeadline: form.headline,
       role: form.role,

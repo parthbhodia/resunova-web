@@ -518,11 +518,17 @@ function RequestCard({
   onStatus: (status: ReferralRequestStatus) => void | Promise<void>;
   onRemove: () => void | Promise<void>;
 }) {
+  const [resumeError, setResumeError] = useState<string | null>(null);
   const linkedinHref = safeHttpUrl(row.candidateLinkedin);
   const openResume = async () => {
     if (!row.resumePdfPath) return;
+    setResumeError(null);
     const url = await signedReferralResumeUrl(row.resumePdfPath);
-    if (url) window.open(url, "_blank", "noopener,noreferrer");
+    if (!url) {
+      setResumeError("Could not open that resume. Try again in a moment.");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
   };
   const metaBits = [
     row.role,
@@ -567,6 +573,7 @@ function RequestCard({
           </button>
         ) : null}
       </div>
+      {resumeError ? <p role="alert" style={{ margin: "8px 0 0", color: "#dc2626", fontSize: 13 }}>{resumeError}</p> : null}
       <label style={{ display: "block", marginTop: 12 }}>
         <select
           aria-label={`Status for ${row.candidateName}`}
