@@ -5,6 +5,8 @@ import "./globals.css";
 import AuthGate from "@/components/AuthGate";
 import AuthHostRedirect from "@/components/AuthHostRedirect";
 import GoogleOneTap from "@/components/GoogleOneTap";
+import AnalyticsAuthEvents from "@/components/AnalyticsAuthEvents";
+import { APP_VIEW_TITLES } from "@/lib/appViewTitle";
 import { SignInDialogProvider } from "@/components/SignInDialog";
 import { Geist, Inter, DM_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -183,7 +185,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', '${GA_ID}');
+            /* The signed-in app lives at /?view=analyze|jobs|library|..., so the
+               automatic page_view reported every in-app screen under app/page.tsx's
+               marketing title and the Pages report could not tell a bounce from a
+               power user. The title is resolved HERE, in the same script that sends
+               the page_view, rather than from React: gtag loads afterInteractive, so
+               anything set during render would race the hit it is trying to label —
+               and sending a second corrected page_view would double the count. */
+            var __rnTitles = ${JSON.stringify(APP_VIEW_TITLES)};
+            var __rnTitle = null;
+            try {
+              var __rnView = (new URLSearchParams(location.search).get('view') || '').toLowerCase();
+              if (__rnView) __rnTitle = __rnTitles[__rnView] || null;
+            } catch (e) {}
+            if (__rnTitle) {
+              document.title = __rnTitle;
+              gtag('config', '${GA_ID}', { page_title: __rnTitle });
+            } else {
+              gtag('config', '${GA_ID}');
+            }
           `}
         </Script>
         <Script
@@ -195,6 +215,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AuthHostRedirect />
         <GoogleOneTap />
+        <AnalyticsAuthEvents />
         <SignInDialogProvider>
           <AuthGate>{children}</AuthGate>
         </SignInDialogProvider>

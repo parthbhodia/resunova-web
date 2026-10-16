@@ -50,7 +50,8 @@ function sourceFiles(dir: string): string[] {
  *
  * The third is why this matches `apiUrl(` anywhere inside the argument rather
  * than only at its start — a first pass anchored to the opening paren walked
- * straight past `fetch(apiBase + apiUrl(...))` in ScanUsageWidget.
+ * straight past `fetch(apiBase + apiUrl(...))` in the old ScanUsageWidget
+ * (since replaced by UsageLimitsCard, which goes through apiFetch).
  *
  * Matched against whole-file text rather than line by line, because several of
  * these wrap the URL onto its own line.

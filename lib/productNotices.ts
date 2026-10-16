@@ -12,6 +12,16 @@ export const TOASTED_REFERRAL_KEY = "rn_toasted_referral_ids_v1";
 export const TOASTED_SENT_REFERRAL_KEY = "rn_toasted_sent_referral_ids_v1";
 export const REFERRAL_INBOX_POLL_MS = 60_000;
 
+/**
+ * Bell rows for referrals are transient: they clear when the inbox is opened,
+ * not by being dismissed. ⚠️ NotificationBell keys its "persist a dismissal"
+ * branch off this prefix — it used to compare against two fixed ids, which a
+ * per-row id would silently fall through, writing every referral into the
+ * user's `dismissed_notices` jsonb forever.
+ */
+export const REFERRAL_ITEM_PREFIX = "referral:";
+const REFERRAL_HREF = "/profile?tab=referrals";
+
 export type ProductNotice = {
   id: string;
   title: string;
@@ -76,11 +86,30 @@ function finiteCount(value: number): number {
   return Math.floor(value);
 }
 
-/** Red-badge total: one per new feature, plus each unread ask, nudge, or outcome. */
+/**
+ * The bell's list, one row per thing that happened.
+ *
+ * ⚠️ WHY THIS TAKES ROWS AND NOT COUNTS. It used to take `inboxUnread` and
+ * `outcomeUnread` numbers, which made it a counter formatter: the only sentence
+ * it could write was "A request you sent was updated (reviewing, referred, or
+ * declined)". That enumerates the possibilities instead of naming the one that
+ * happened, so BEING REFERRED AND BEING DECLINED RENDERED AS THE IDENTICAL
+ * STRING — the best and the worst news in the product, indistinguishable, in a
+ * list whose whole job is to tell them apart. The rows were in the caller all
+ * along and were thrown away before this was called.
+ *
+ * A list is a list: one entry per referral, each naming the step it reached.
+ */
 export function notificationFeed(input: {
   notice: ProductNotice | null;
-  inboxUnread: number;
-  outcomeUnread: number;
+  /** Unread asks on the user's own referrer desk. */
+  inboxRows?: readonly CompanyReferralRequest[];
+  /** The desk's company, for "asked you for a referral at X". */
+  inboxCompany?: string;
+  /** Watermark, so an ask that is really a nudge can say so. */
+  inboxLastSeenAt?: string | null;
+  /** Unseen status changes on requests the user SENT. */
+  outcomeRows?: readonly ReferralOutcome[];
 }): NotificationFeed {
   const items: AppNotification[] = [];
   if (input.notice) {
@@ -91,26 +120,24 @@ export function notificationFeed(input: {
       href: input.notice.href,
     });
   }
-  const inboxUnread = finiteCount(input.inboxUnread);
-  if (inboxUnread > 0) {
+
+  const inboxRows = input.inboxRows ?? [];
+  for (const row of inboxRows) {
+    const copy = inboxNotificationCopy(row, input.inboxCompany ?? "", isFreshReferralNudge(row, input.inboxLastSeenAt ?? null));
+    items.push({ id: `${REFERRAL_ITEM_PREFIX}inbox:${row.id}`, href: REFERRAL_HREF, ...copy });
+  }
+
+  const outcomeRows = input.outcomeRows ?? [];
+  for (const row of outcomeRows) {
     items.push({
-      id: "referral-inbox",
-      title: inboxUnread === 1 ? "New referral request" : `${inboxUnread} new referral requests`,
-      body: "Someone asked you for a referral, or nudged you about one.",
-      href: "/profile?tab=referrals",
+      id: `${REFERRAL_ITEM_PREFIX}outcome:${row.id}:${row.status}`,
+      href: REFERRAL_HREF,
+      ...outcomeNotificationCopy(row),
     });
   }
-  const outcomeUnread = finiteCount(input.outcomeUnread);
-  if (outcomeUnread > 0) {
-    items.push({
-      id: "referral-outcomes",
-      title: outcomeUnread === 1 ? "Referral update" : `${outcomeUnread} referral updates`,
-      body: "A request you sent was updated (reviewing, referred, or declined).",
-      href: "/profile?tab=referrals",
-    });
-  }
+
   return {
-    count: (input.notice ? 1 : 0) + inboxUnread + outcomeUnread,
+    count: (input.notice ? 1 : 0) + inboxRows.length + outcomeRows.length,
     items,
   };
 }
@@ -225,33 +252,89 @@ export function unseenReferralOutcomes<T extends ReferralOutcome>(
   });
 }
 
-export function outcomeToastCopy(rows: readonly ReferralOutcome[]): { title: string; description: string } {
-  if (rows.length !== 1) {
-    return {
-      title: "Referral updates",
-      description: `${rows.length} of your referral requests were updated.`,
-    };
-  }
-  const row = rows[0];
+/** Who/what/where for one outcome row, with every part allowed to be missing. */
+function outcomeParts(row: ReferralOutcome) {
   const who = row.referrerName.trim() || "Your referrer";
   const role = row.role.trim() || "the role";
-  const place = row.referrerCompany.trim() ? ` at ${row.referrerCompany.trim()}` : "";
-  if (row.status === "reviewing") {
-    return {
-      title: "Referral update",
-      description: `${who} is reviewing your referral request for ${role}${place}.`,
-    };
+  const company = row.referrerCompany.trim();
+  // `company_referrers.company` is `text not null default ''`, so an untitled
+  // desk would otherwise render a dangling " at ".
+  const place = company ? ` at ${company}` : "";
+  return { who, role, company, place };
+}
+
+/**
+ * ONE bell row, naming the step this referral actually reached.
+ *
+ * ⚠️ The title carries the STEP and the body carries the detail, because the
+ * title is what someone scans in a list. "Referral update" over three rows tells
+ * you only that something happened three times.
+ */
+export function outcomeNotificationCopy(row: ReferralOutcome): { title: string; body: string } {
+  const { who, role, place } = outcomeParts(row);
+  if (row.status === "referred") {
+    return { title: "You were referred", body: `${who} marked you as referred for ${role}${place}.` };
   }
   if (row.status === "declined") {
-    return {
-      title: "Referral update",
-      description: `${who} declined your referral request for ${role}${place}.`,
-    };
+    return { title: "Referral declined", body: `${who} declined your referral request for ${role}${place}.` };
   }
-  return {
-    title: "Referral update",
-    description: `${who} marked you as referred for ${role}${place}.`,
-  };
+  return { title: "Now being reviewed", body: `${who} is reviewing your referral request for ${role}${place}.` };
+}
+
+/** ONE bell row for an ask landing on the user's own desk. */
+export function inboxNotificationCopy(
+  row: CompanyReferralRequest,
+  company: string,
+  isNudge: boolean,
+): { title: string; body: string } {
+  const name = row.candidateName?.trim() || "Someone";
+  const role = row.role?.trim();
+  const about = role ? ` for ${role}` : "";
+  const place = company.trim() ? ` at ${company.trim()}` : "";
+  // A nudge is a second ask about something already sitting in the inbox, and
+  // saying so is the difference between "act now" and "this is new".
+  if (isNudge) {
+    return { title: "Referral nudge", body: `${name} nudged you${about}${place}.` };
+  }
+  return { title: "New referral request", body: `${name} asked you for a referral${about}${place}.` };
+}
+
+/** Group outcomes by the step they reached, strongest news first. */
+function stepSummary(rows: readonly ReferralOutcome[]): string {
+  const order: Array<[string, string]> = [
+    ["referred", "Referred"],
+    ["declined", "Declined"],
+    ["reviewing", "Reviewing"],
+  ];
+  const clauses: string[] = [];
+  for (const [status, verb] of order) {
+    const matching = rows.filter((row) => row.status === status);
+    if (matching.length === 0) continue;
+    // Prefer the company as the discriminator — someone with several open asks
+    // has them at several companies — and fall back to the role.
+    const labels = Array.from(new Set(matching.map((row) => {
+      const { company, role } = outcomeParts(row);
+      return company || role;
+    })));
+    const shown = labels.slice(0, 3);
+    const rest = labels.length - shown.length;
+    const list = shown.length === 1
+      ? shown[0]
+      : `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`;
+    clauses.push(`${verb} at ${list}${rest > 0 ? ` and ${rest} more` : ""}`);
+  }
+  return clauses.join(". ") + ".";
+}
+
+export function outcomeToastCopy(rows: readonly ReferralOutcome[]): { title: string; description: string } {
+  if (rows.length !== 1) {
+    // ⚠️ NOT "N of your referral requests were updated". That sentence is the
+    // same for three referrals and three declines.
+    return { title: "Referral updates", description: stepSummary(rows) };
+  }
+  const copy = outcomeNotificationCopy(rows[0]);
+  // One producer for the bell row and the toast, so they cannot drift.
+  return { title: copy.title, description: copy.body };
 }
 
 export function outcomeToastIds(rows: readonly ReferralOutcome[]): string[] {

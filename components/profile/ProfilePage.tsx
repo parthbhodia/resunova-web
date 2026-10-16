@@ -57,7 +57,7 @@ import {
 } from "../../lib/profileStorage";
 import { fetchExtractedProfile, upsertExtractedProfile, fetchUserProfile, upsertUserProfile, getSupabaseClient } from "../../lib/supabase";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
-import { ScanUsageWidget } from "@/components/ScanUsageWidget";
+import UsageLimitsCard from "@/components/account/UsageLimitsCard";
 import PlanBillingCard from "@/components/PlanBillingCard";
 import { IntegrationsPanel, JobAlertsPanel, ReferralsPanel } from "@/components/profile/ProfileHubPanels";
 import { subscribeReferralAlerts } from "@/lib/productNotices";
@@ -302,7 +302,13 @@ export default function ProfilePage() {
     if (tab === "usage") {
       return (
         <ProfileGrid>
-          <ScanUsageWidget mode="light" />
+          {/* Main's MUI hub shell (#f49e970) is kept wholesale; only the usage
+              CONTENT changes. ScanUsageWidget drew a gauge per action, but the
+              access gate enforces ONE (RESUME_SCAN) plus interview prep inside
+              its handler — AI_REWRITE across ten routes, RESUME_EXPORT on two
+              and JD_TAILOR are all enforced=False, so gauges there advertised
+              scarcity this product does not implement. */}
+          <UsageLimitsCard />
           <HubCard>
             <SectionHeader
               icon={<ClipboardList size={18} />}

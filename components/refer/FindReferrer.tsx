@@ -14,7 +14,7 @@ import {
   ReferrerCard,
 } from "@/components/refer/referUi";
 import { surfaceCardSx } from "@/components/mui/cssVars";
-import { REFERRER_LIMITS, referrerPublicPath, type OpenReferralCompany } from "@/lib/companyReferrers";
+import { joinNonEmpty, REFERRER_LIMITS, referrerPublicPath, type OpenReferralCompany } from "@/lib/companyReferrers";
 import { useCompanyOpenReferrers, useOpenReferralCompanies, useReferSession } from "@/hooks/usePublicReferral";
 import { FS, FW, LH } from "@/lib/typography";
 import Box from "@mui/material/Box";
@@ -126,7 +126,7 @@ function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
                 badge={<OpenChip />}
               >
                 <Typography sx={{ mt: 0.5, fontSize: FS.body, color: "var(--muted)" }}>
-                  {referrer.title}{referrer.bio ? ` · ${referrer.bio}` : ""}
+                  {joinNonEmpty(" · ", referrer.title, referrer.bio)}
                 </Typography>
                 <Typography sx={{ mt: 0.5, fontSize: FS.small, fontWeight: FW.semibold, color: "var(--accent)" }}>
                   Ask for a referral →

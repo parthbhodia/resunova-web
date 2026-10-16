@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>/refer · comp v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Tokens copied verbatim from app/globals.css. Every colour here ships. */
+:root[data-theme="light"]{--bg:#f7f9fc;--surface:#ffffff;--surface2:#eef3f8;--surface3:#dbe4ee;--border:rgba(15,23,42,0.14);--border-h:rgba(15,23,42,0.26);--text:#0f172a;--muted:#475569;--dim:#64748b;--accent:#0969da;--accent-bg:rgba(9,105,218,0.11);--accent-ink:#0559c7;--green:#059669;--green-bg:rgba(5,150,105,0.12);--green-ink:#047857;--amber:#b45309;--amber-bg:rgba(180,83,9,0.12);--amber-ink:#92400e;--red:#dc2626;--red-bg:rgba(220,38,38,0.12);--red-ink:#991b1b;--on-fill:#ffffff;--shadow-card:0 10px 28px rgba(15,23,42,0.08)}
+:root[data-theme="dark"]{--bg:#0d1117;--surface:#161b22;--surface2:#1e2329;--surface3:#252c37;--border:rgba(230,237,243,0.12);--border-h:rgba(230,237,243,0.22);--text:#f0f6fc;--muted:rgba(240,246,252,0.74);--dim:rgba(240,246,252,0.54);--accent:#58a6ff;--accent-bg:rgba(88,166,255,0.15);--accent-ink:#58a6ff;--green:#34d399;--green-bg:rgba(52,211,153,0.16);--green-ink:#6ee7b7;--amber:#fbbf24;--amber-bg:rgba(251,191,36,0.16);--amber-ink:#fcd34d;--red:#f87171;--red-bg:rgba(248,113,113,0.16);--red-ink:#fca5a5;--on-fill:#0d1117;--shadow-card:0 8px 28px rgba(0,0,0,0.22)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:Geist,system-ui,sans-serif;padding:36px 24px 90px}
+.wrap{max-width:1180px;margin:0 auto}
+.ch{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:8px}
+.ct{font-size:24px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.cs{font-size:14px;line-height:1.65;color:var(--muted);max-width:76ch;margin-bottom:26px}
+.rule{border:0;border-top:1px solid var(--border);margin:52px 0}
+code{font-family:ui-monospace,monospace;font-size:.92em;background:var(--surface2);padding:1px 5px;border-radius:4px;color:var(--muted)}
+.toggle{position:fixed;right:16px;top:16px;z-index:50;padding:8px 13px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.frame{border:1px solid var(--border);border-radius:16px;background:var(--bg);padding:30px;overflow:hidden}
+.stack{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
+.notes{flex:1;min-width:300px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px 24px}
+.notes h3{font-size:13px;font-weight:700;margin-bottom:14px}
+.notes ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:12px}
+.notes li{font-size:13px;line-height:1.62;color:var(--muted)}
+.notes b{color:var(--text);font-weight:700}
+.measure{margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.6}
+
+/* page chrome */
+.page{max-width:760px;margin:0 auto}
+.logo{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:16px;letter-spacing:-.02em;margin-bottom:26px}
+.logo i{width:22px;height:22px;border-radius:7px;background:var(--accent);display:inline-block}
+.eyebrow{display:inline-flex;align-items:center;gap:6px;background:var(--accent-bg);color:var(--accent-ink);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700;margin-bottom:14px}
+h1.hero{font-size:32px;line-height:1.14;font-weight:800;letter-spacing:-.025em;text-wrap:balance;max-width:19ch}
+.lede{margin-top:11px;font-size:15px;line-height:1.65;color:var(--muted);max-width:52ch}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-card)}
+.field{width:100%;border-radius:10px;border:1px solid var(--border);background:var(--surface2);padding:12px 14px;font-size:14px;color:var(--text);font-family:inherit}
+.field::placeholder{color:var(--dim)}
+.btn{border:none;border-radius:10px;background:var(--accent);color:var(--on-fill);padding:12px 18px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.btnq{border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);padding:12px 18px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.link{color:var(--accent-ink);font-weight:600;font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700}
+.pill.g{background:var(--green-bg);color:var(--green-ink)}
+.pill.a{background:var(--amber-bg);color:var(--amber-ink)}
+.pill.n{background:var(--surface2);color:var(--muted)}
+
+/* two-up split */
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin-top:26px}
+.lane{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:var(--shadow-card);display:flex;flex-direction:column}
+.lane.primary{border-color:var(--accent);box-shadow:var(--shadow-card),0 0 0 1px var(--accent)}
+.lanetag{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);margin-bottom:9px}
+.lane h2{font-size:18px;font-weight:800;letter-spacing:-.018em;line-height:1.28}
+.lane p{margin-top:8px;font-size:13px;line-height:1.6;color:var(--muted);flex:1}
+.lane .act{margin-top:16px}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--border);border-radius:14px;overflow:hidden;margin-top:22px;border:1px solid var(--border)}
+.step{background:var(--surface);padding:18px 18px 20px}
+.stepn{width:22px;height:22px;border-radius:999px;background:var(--accent-bg);color:var(--accent-ink);font-size:11px;font-weight:800;display:grid;place-items:center;margin-bottom:10px}
+.step b{display:block;font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
+.step span{font-size:12px;line-height:1.55;color:var(--muted)}
+
+/* empty-result state */
+.empty{margin-top:14px;border:1px dashed var(--border);border-radius:14px;background:var(--surface2);padding:20px}
+.empty b{font-size:14px;font-weight:700;display:block;margin-bottom:5px}
+.empty p{font-size:13px;line-height:1.6;color:var(--muted);margin-bottom:13px}
+.emptyacts{display:flex;gap:9px;flex-wrap:wrap}
+
+/* slug page */
+.who{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;padding:22px}
+.mono{width:54px;height:54px;border-radius:50%;background:var(--surface3);color:var(--text);display:grid;place-items:center;font-size:21px;font-weight:700}
+.rowline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.whoname{font-size:18px;font-weight:800}
+.whorole{margin-top:3px;font-size:14px;color:var(--muted);line-height:1.55}
+.formgrid{display:grid;gap:10px;padding:22px;border-top:1px solid var(--border)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label.lab{font-size:12px;font-weight:700;color:var(--text);display:block;margin-bottom:5px}
+.hint{font-size:12px;color:var(--dim);line-height:1.55;margin-top:4px}
+.assure{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:14px;font-size:12px;color:var(--muted)}
+.assure span{display:inline-flex;align-items:center;gap:5px}
+.tick{width:13px;height:13px;flex:0 0 auto}
+.tick path{stroke:var(--green-ink);fill:none;stroke-width:2.6}
+.bar{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.6}
+@media(max-width:900px){.split,.steps,.two{grid-template-columns:minmax(0,1fr)}.notes{min-width:0;width:100%}}
+</style>
+</head>
+<body>
+<button class="toggle" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Toggle theme</button>
+<div class="wrap">
+
+<p class="ch">/refer · comp v1</p>
+<h2 class="ct">A referral marketplace with zero referrers in it</h2>
+<p class="cs">Measured against production before drawing anything: <b>company_referrers = 0, open = 0, company_referral_requests = 0</b>, against 95 accounts that could publish a desk. So <b>every search on this page returns "No open referrers for that company yet" — today that is not an edge case, it is the only reachable result.</b> The shipped page makes search the hero and puts that sentence in muted grey underneath. The fix is to lead with the side that works.</p>
+
+<!-- ============ STATE A : /refer/ ============ -->
+<p class="ch">State A · <code>/refer/</code></p>
+<h2 class="ct">Supply first, because demand cannot be served yet</h2>
+
+<div class="frame">
+<div class="page">
+  <div class="logo"><i></i>Resunova</div>
+
+  <span class="eyebrow">Referrals</span>
+  <h1 class="hero">Referrals happen between people, not portals.</h1>
+  <p class="lede">An employee says what they can refer for. A candidate asks them directly. Nothing is submitted to anyone's ATS without a person deciding.</p>
+
+  <div class="split">
+    <div class="lane primary">
+      <div class="lanetag">If you work somewhere</div>
+      <h2>Put “I can refer” on record.</h2>
+      <p>One form, once. You get a link to share, a private inbox of asks, and a switch to pause it when you are busy. You choose who you submit — we never touch your company's ATS.</p>
+      <div class="act"><button class="btn">Publish my referral desk</button></div>
+      <div class="assure">
+        <span><svg class="tick" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 5" stroke-linecap="round" stroke-linejoin="round"/></svg>Free</span>
+        <span><svg class="tick" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 5" stroke-linecap="round" stroke-linejoin="round"/></svg>Pause any time</span>
+        <span><svg class="tick" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 5" stroke-linecap="round" stroke-linejoin="round"/></svg>Work email never stored</span>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="lanetag">If you're looking</div>
+      <h2>Find someone inside.</h2>
+      <p>Search a company for employees who have opened their desk.</p>
+      <input class="field" placeholder="Company name" aria-label="Company name" value="Stripe">
+      <div class="empty">
+        <b>No one from Stripe has opened a desk yet.</b>
+        <p>Nobody has published for this company. Two things actually help, and neither is waiting.</p>
+        <div class="emptyacts">
+          <button class="btnq">Email me if someone does</button>
+          <button class="btnq">I work at Stripe — publish</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div class="stepn">1</div><b>You ask</b><span>Name, the role you want, and three lines on why. No account needed to send it.</span></div>
+    <div class="step"><div class="stepn">2</div><b>They read it</b><span>It lands in that employee's inbox on their Referrals tab. Only they see it.</span></div>
+    <div class="step"><div class="stepn">3</div><b>They decide</b><span>If they submit you, they mark it referred and you see that on your profile.</span></div>
+  </div>
+
+  <p class="bar">Resunova never writes into a company's applicant system. Every referral is one person choosing to vouch for another.</p>
+</div>
+</div>
+
+<div class="stack" style="margin-top:26px">
+<div class="notes">
+  <h3>What changed, and why each one</h3>
+  <ol>
+    <li><b>⚠️ The empty result is the DEFAULT, so it gets a designed state.</b> With 0 referrers, 100% of searches land there. The shipped page says “No open referrers for that company yet.” in muted grey with nothing to do next — a dead end on the only path the page can take. It now offers the two things that actually move: be told when supply appears, or become the supply.</li>
+    <li><b>Two lanes, and the employee lane is primary.</b> A marketplace with no sellers has nothing to sell. The ring marks it; the other lane is not hidden, because a candidate with the link still arrives here.</li>
+    <li><b>The headline is the product, not the instruction.</b> “Ask an employee for a referral” tells a visitor what to do on a page where doing it fails. The new line says what the thing is and sets up the three-step mechanism below.</li>
+    <li><b>The mechanism IS the reassurance.</b> “They decide” is the honest frame and also the credible one: nobody fills in a form for a stranger without knowing who sees it. All three steps are true of the shipped code.</li>
+    <li><b>“Work email never stored” is verified, not assumed.</b> The HLD states work email is deliberately not a column, because a public SELECT policy would leak it.</li>
+  </ol>
+  <p class="measure">⚠️ <b>Two claims are deliberately absent.</b> No count of referrers or companies — it is zero, and a counter that reads 0 is worse than silence. No “X referrals made” either. Both go in the moment the numbers exist and clear a floor, which is the rule <code>/api/score-standing</code> already follows.</p>
+</div>
+</div>
+
+<hr class="rule">
+
+<!-- ============ STATE B : /refer/?s=slug ============ -->
+<p class="ch">State B · <code>/refer/?s=&lt;slug&gt;</code></p>
+<h2 class="ct">One person, one company, and what happens after you press send</h2>
+
+<div class="frame">
+<div class="page">
+  <div class="logo"><i></i>Resunova</div>
+  <span class="eyebrow">Referral · Stripe</span>
+  <h1 class="hero" style="max-width:24ch">Priya can refer for Payments roles at Stripe.</h1>
+  <p class="lede">She opened her desk, so this ask goes straight to her. She decides whether to submit you.</p>
+
+  <div class="card" style="margin-top:22px">
+    <div class="who">
+      <div class="mono">PR</div>
+      <div>
+        <div class="rowline">
+          <span class="whoname">Priya R.</span>
+          <span class="pill g">Open to refer</span>
+          <span class="pill n">Replies in ~2 days</span>
+        </div>
+        <div class="whorole">Staff Engineer, Payments Platform · Can refer for backend, infra and platform roles.</div>
+      </div>
+    </div>
+
+    <div class="formgrid">
+      <div class="two">
+        <div><label class="lab">Your name</label><input class="field" placeholder="Alex Mensah"></div>
+        <div><label class="lab">Your email</label><input class="field" placeholder="you@example.com"></div>
+      </div>
+      <div><label class="lab">Role you want</label><input class="field" placeholder="Senior Backend Engineer, Payments"></div>
+      <div>
+        <label class="lab">LinkedIn or résumé link</label>
+        <input class="field" placeholder="https://linkedin.com/in/…">
+        <p class="hint">Optional, but it is what she will actually open.</p>
+      </div>
+      <div>
+        <label class="lab">Why this role, in three lines</label>
+        <textarea class="field" rows="3" placeholder="What you have shipped that is close to this work, and why this team."></textarea>
+        <p class="hint">She reads this before anything else. Specific beats polished.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px">
+        <button class="btn">Send to Priya</button>
+        <span style="font-size:12px;color:var(--muted)">Goes only to her. You can track it on your profile.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div class="stepn">1</div><b>Sent</b><span>It appears in Priya's inbox. Nobody else at Stripe sees it.</span></div>
+    <div class="step"><div class="stepn">2</div><b>She reviews</b><span>She may mark it reviewing while she looks, or decline — both are honest answers.</span></div>
+    <div class="step"><div class="stepn">3</div><b>Referred</b><span>If she submits you internally she marks it referred, and your profile shows that.</span></div>
+  </div>
+</div>
+</div>
+
+<div class="stack" style="margin-top:26px">
+<div class="notes">
+  <h3>What changed here</h3>
+  <ol>
+    <li><b>The headline names the person and what they can refer for</b>, which is the only thing on the page that makes the form worth filling. The shipped version leads with the eyebrow “EMPLOYEE REFERRAL” and a generic “Ask for a referral at {company}” buried as the third line of a card.</li>
+    <li><b>Five unlabelled placeholders become labelled fields.</b> Placeholder-as-label disappears the moment you type, so you cannot check your own form before sending — and two of these fields are the ones she judges you on.</li>
+    <li><b>The two hints are the valuable part</b> and they are honest: she opens the link, and she reads the pitch first. Neither is a stat.</li>
+    <li><b>“She decides” appears twice, deliberately</b> — once as the lede and once as step 2 — because a candidate's unspoken question on this page is whether this is an application or a favour. It is a favour.</li>
+    <li><b>Name + company in the title tag</b>, so a shared link previews as “Priya can refer at Stripe” rather than the generic page title.</li>
+  </ol>
+  <p class="measure">⚠️ <b>“Replies in ~2 days” is a PLACEHOLDER and must not ship as drawn.</b> There is no response-time data — 0 requests exist — so it is either computed from real medians once there are enough of them, or it is cut. Drawn here only to show where such a chip would sit. <b>Everything else on both states is backed by shipped code or by the HLD.</b></p>
+</div>
+</div>
+
+</div>
+</body>
+</html>

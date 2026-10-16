@@ -58,7 +58,7 @@ describe("AccountSettingsPage — composition", () => {
     expect(screen.getByRole("heading", { name: "Account settings" })).toBeInTheDocument();
     expect(screen.getByText("Profile")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Account" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Plan & usage" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Usage & limits" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Email preferences" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Visibility" })).toBeInTheDocument();
     // career data must NOT appear here

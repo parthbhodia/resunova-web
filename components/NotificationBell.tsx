@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { persistDismissedNotice, subscribeNotificationFeed, type AppNotification } from "@/lib/productNotices";
+import { persistDismissedNotice, subscribeNotificationFeed, REFERRAL_ITEM_PREFIX, type AppNotification } from "@/lib/productNotices";
 
 function BellIcon() {
   return (
@@ -49,7 +49,11 @@ export function NotificationBell() {
 
   const openItem = (item: AppNotification) => {
     setOpen(false);
-    if (item.id !== "referral-inbox" && item.id !== "referral-outcomes") {
+    // Referral rows are transient — they clear when the inbox is opened, not
+    // by dismissal. ⚠️ This was an equality check against two fixed ids; the
+    // per-row ids would have fallen through it and written every referral
+    // into the user's dismissed_notices jsonb permanently.
+    if (!item.id.startsWith(REFERRAL_ITEM_PREFIX)) {
       void persistDismissedNotice(item.id);
       window.dispatchEvent(new CustomEvent("rn:dismiss-notice", { detail: item.id }));
     }

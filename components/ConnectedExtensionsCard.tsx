@@ -58,21 +58,41 @@ export default function ConnectedExtensionsCard() {
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState(false);
 
-  const load = useCallback(async () => {
-    setState({ kind: "loading" });
+  /**
+   * The fetch, with no state of its own, so the first load and a retry can
+   * differ in exactly the way they should: `state` already STARTS as
+   * `loading`, so the first run must not re-set it (a redundant render, and
+   * the reason the effect tripped react-hooks/set-state-in-effect), while a
+   * retry from the error card does need to show the spinner again.
+   */
+  const fetchSessions = useCallback(async (): Promise<LoadState> => {
     try {
       const resp = await apiFetch("/api/extension/sessions");
       if (!resp.ok) throw new Error(String(resp.status));
       const body = (await resp.json()) as { sessions?: ExtensionSession[] };
-      setState({ kind: "ready", sessions: Array.isArray(body.sessions) ? body.sessions : [] });
+      return { kind: "ready", sessions: Array.isArray(body.sessions) ? body.sessions : [] };
     } catch {
-      setState({ kind: "error" });
+      return { kind: "error" };
     }
   }, []);
 
+  const load = useCallback(async () => {
+    setState({ kind: "loading" });
+    setState(await fetchSessions());
+  }, [fetchSessions]);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    // ⚠️ The guard is not ceremony: this card sits on a settings tab, so
+    // switching away mid-request would otherwise set state on an unmounted
+    // component. The original effect had no cleanup.
+    let alive = true;
+    void fetchSessions().then((next) => {
+      if (alive) setState(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [fetchSessions]);
 
   const disconnect = useCallback(
     async (target: string | "all") => {

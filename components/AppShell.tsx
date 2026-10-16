@@ -26,6 +26,8 @@ import { BugReportDialog } from "./app-shell/BugReportDialog";
 import { AppShellSidebarBridge } from "./app-shell/AppShellSidebarBridge";
 import { FreeScanWelcomeBanner } from "./FreeScanWelcomeBanner";
 import { useSignInDialog } from "./SignInDialog";
+import { trackEvent } from "@/lib/analytics";
+import { APP_VIEW_TITLES } from "@/lib/appViewTitle";
 import { UpgradeDialogProvider } from "./UpgradeDialog";
 import CheckoutReturnNotice from "./CheckoutReturnNotice";
 import { ProductNoticesHost } from "./ProductNoticesHost";
@@ -98,6 +100,31 @@ function AppShellBody({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const { openSignIn } = useSignInDialog();
   const active = useAppView();
+
+  /**
+   * One `app_view` per in-app screen.
+   *
+   * ⚠️ NOT A DUPLICATE OF THE TITLED page_view IN layout.tsx, and the
+   * difference is the whole reason it exists. That script can only read
+   * `?view=` from the URL, and bare "/" is the marketing landing page for a
+   * signed-out visitor and the app home for a signed-in one — nothing
+   * available at script time can tell those apart, so it deliberately leaves
+   * "/" titled as marketing. AppShell only renders when the app shell is
+   * genuinely on screen, so its mount IS the disambiguation.
+   *
+   * A CUSTOM EVENT rather than a second page_view on purpose: whether GA4's
+   * enhanced measurement fires page_view on history changes is a property
+   * setting this code cannot read, so sending our own would double-count
+   * wherever it is enabled. An `app_view` with a `view` param is queryable
+   * either way.
+   */
+  useEffect(() => {
+    const title = APP_VIEW_TITLES[active];
+    if (title) {
+      try { document.title = title; } catch { /* ignore */ }
+    }
+    trackEvent("app_view", { view: active });
+  }, [active]);
   const onTemplateBuilderPage =
     (pathname ?? "").replace(/\/$/, "") === "/template-builder";
   // /templates used to live here and needed this check for nav highlighting.

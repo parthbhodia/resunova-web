@@ -21,6 +21,7 @@ import { patchAppliedEditsIntoResume } from "@/lib/analyzeRescore";
 import { hiddenBulletTextsFromStructured } from "@/components/AnalyzeLiveResumeBody";
 import { estimateScoreAfterFixes } from "@/lib/analyzeScoreEstimate";
 import { resumeFileClientError } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics";
 import { isMissingLinkedInFlag, resumeShowsLinkedInProfile } from "@/lib/resumeLinkedIn";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
@@ -299,7 +300,7 @@ export default function AnalyzeResume() {
         const refusal = refusalFrom(resp.status, json);
         if (refusal?.remedy === "sign_in") {
           setFeedbackToast("Sign in to update your score. The rescored report is saved to your history.");
-          openSignIn({ reason: "Sign in to rescore and keep your report history." });
+          openSignIn({ ask: "rescore" });
           return;
         }
         if (refusal) {
@@ -388,6 +389,11 @@ export default function AnalyzeResume() {
         // sign in.
         const refusal = refusalFrom(status, json);
         if (refusal) {
+          // Its own event, never a scan_completed. A 429 or a sign-in wall is
+          // the funnel's most important failure, and folding it into
+          // completions would make the report look healthiest exactly where
+          // users are being turned away.
+          trackEvent("scan_blocked", { reason: refusal.remedy, status });
           if (refusal.remedy === "sign_in") {
             // A refusal with no limit is "you need an account"; one WITH a limit
             // is an allowance that ran out. Same remedy, different sentence —
@@ -399,11 +405,10 @@ export default function AnalyzeResume() {
                 ? "Sign in to scan. It's free, and your reports are saved."
                 : "Free scans used for today. Sign in (it's free) for 3 scans a day and saved reports.",
             );
-            openSignIn({
-              reason: needsAccount
-                ? "Scanning is free with an account: 3 a day, and every report is saved to your history."
-                : "Sign in free for more résumé scans and saved reports.",
-            });
+            // Two keys, not one sentence with a ternary: a guest who has
+            // already spent their free per-IP scan must not be told about an
+            // allowance they just used.
+            openSignIn({ ask: needsAccount ? "resume_scan" : "scan_allowance_spent" });
           } else {
             const freeLimit = refusal.limit && refusal.limit > 0 ? refusal.limit : 3;
             setFeedbackToast(`Daily limit reached. The free plan includes ${freeLimit} scans a day.`);
@@ -414,11 +419,15 @@ export default function AnalyzeResume() {
         // Content gate (422): not a résumé we can analyze — show a calm,
         // instructive banner instead of the generic "analysis failed" error.
         const gateErr = resumeGateErrorFromResponse(status, json);
-        if (gateErr) { setError(gateErr); return; }
+        if (gateErr) { trackEvent("scan_blocked", { reason: "not_a_resume", status }); setError(gateErr); return; }
+        trackEvent("scan_blocked", { reason: "error", status });
         setError(toUserFriendlyErrorMessage(json.error || "Analysis failed"));
         return;
       }
       const res = mergeAnalyzeApiJson(json as Record<string, unknown>) as unknown as AnalysisResult;
+      trackEvent("scan_completed", {
+        score: typeof res?.overallScore === "number" ? res.overallScore : undefined,
+      });
       const resWithMeta: AnalysisResult = { ...res, libraryFolder: null };
       const draftId = `local_${Date.now()}`;
       setActiveEditDraftId(draftId);
@@ -471,6 +480,7 @@ export default function AnalyzeResume() {
       // component unmounting mid-flight. A scan already cost the user one of
       // their daily allowance; dropping the answer because they changed tabs
       // charges them for nothing.
+      trackEvent("scan_started", { has_jd: jd.trim().length > 0 });
       const outcome = await startRun<AnalyzeOutcome>("analyze", async () => {
         const r = await apiFetch("/api/analyze-upload", { method: "POST", body: fd });
         return { ok: r.ok, status: r.status, json: await r.json(), fileName: file.name };
@@ -888,7 +898,7 @@ export default function AnalyzeResume() {
     if (!result) return;
     if (!userId) {
       stashPrewallEvent("edit_click", {});
-      openSignIn({ reason: "Sign in free to edit your résumé here and watch your score improve." });
+      openSignIn({ ask: "edit_resume" });
       return;
     }
     editClickedRef.current = true;
@@ -1060,10 +1070,7 @@ export default function AnalyzeResume() {
   /** Ask for sign-in, carrying any pasted JD across the OAuth page unload. */
   const askToSignIn = useCallback(() => {
     if (jd.trim()) stashAnalyzeJd(jd);
-    openSignIn({
-      title: "Sign in to score your résumé",
-      reason: "Scanning is free with an account: 3 a day, and every report is saved to your history.",
-    });
+    openSignIn({ ask: "resume_scan" });
   }, [jd, openSignIn]);
 
   const onFile = (f: File | null | undefined) => {
