@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   signInWithEmail: vi.fn(),
   signUpWithEmail: vi.fn(),
   sendPasswordReset: vi.fn(),
+  sendMagicLink: vi.fn(),
   signInWithGoogle: vi.fn(),
 }));
 
@@ -41,7 +42,7 @@ describe("SignInDialog", () => {
   });
 
   it("shows the email-confirmation state after signup", async () => {
-    mocks.signUpWithEmail.mockResolvedValue({ error: null, needsConfirmation: true });
+    mocks.signUpWithEmail.mockResolvedValue({ error: null, needsConfirmation: true, alreadyRegistered: false });
     const user = userEvent.setup();
     renderDialog();
 
@@ -51,6 +52,23 @@ describe("SignInDialog", () => {
     await user.type(screen.getByLabelText("Password"), "password123");
     await user.click(screen.getByRole("button", { name: "Create free account" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Check your inbox to confirm your email");
+    expect(await screen.findByRole("status")).toHaveTextContent("We sent a link to student@monroeu.edu");
+  });
+
+  it("tells an existing user they already have an account instead of promising a confirmation email", async () => {
+    mocks.signUpWithEmail.mockResolvedValue({ error: null, needsConfirmation: false, alreadyRegistered: true });
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByRole("button", { name: "Open account dialog" }));
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+    await user.type(screen.getByLabelText("Email"), "student@monroeu.edu");
+    await user.type(screen.getByLabelText("Password"), "password123");
+    await user.click(screen.getByRole("button", { name: "Create free account" }));
+
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("You already have an account");
+    expect(status).toHaveTextContent("Continue with Google");
+    expect(screen.getByRole("button", { name: "Sign in with email" })).toBeInTheDocument();
   });
 });

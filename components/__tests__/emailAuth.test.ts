@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   signInWithPassword: vi.fn(),
   signUp: vi.fn(),
   resetPasswordForEmail: vi.fn(),
+  signInWithOtp: vi.fn(),
   buildOAuthReturnUrl: vi.fn(() => "https://www.resunova.io/?view=jobs"),
   buildAuthRouteUrl: vi.fn(() => "https://www.resunova.io/reset-password/"),
   stashPostLoginDest: vi.fn(),
@@ -16,6 +17,7 @@ vi.mock("@/lib/supabase", () => ({
       signInWithPassword: mocks.signInWithPassword,
       signUp: mocks.signUp,
       resetPasswordForEmail: mocks.resetPasswordForEmail,
+      signInWithOtp: mocks.signInWithOtp,
     },
   }),
 }));
@@ -30,6 +32,7 @@ beforeEach(() => {
   mocks.signInWithPassword.mockReset();
   mocks.signUp.mockReset();
   mocks.resetPasswordForEmail.mockReset();
+  mocks.signInWithOtp.mockReset();
   mocks.stashPostLoginDest.mockClear();
 });
 
@@ -45,17 +48,38 @@ describe("email authentication", () => {
   });
 
   it("stashes the destination and reports when signup needs email confirmation", async () => {
-    mocks.signUp.mockResolvedValue({ data: { session: null }, error: null });
+    mocks.signUp.mockResolvedValue({
+      data: { session: null, user: { identities: [{ provider: "email" }] } },
+      error: null,
+    });
 
     await expect(signUpWithEmail("student@monroeu.edu", "password123")).resolves.toEqual({
       error: null,
       needsConfirmation: true,
+      alreadyRegistered: false,
     });
+    expect(mocks.signInWithOtp).not.toHaveBeenCalled();
     expect(mocks.stashPostLoginDest).toHaveBeenCalledOnce();
     expect(mocks.signUp).toHaveBeenCalledWith({
       email: "student@monroeu.edu",
       password: "password123",
       options: { emailRedirectTo: "https://www.resunova.io/?view=jobs" },
+    });
+  });
+
+  it("detects an existing account and emails a sign-in link instead of a dead confirmation", async () => {
+    // Supabase's response to a repeated signup: 200, no session, user with no identities, no email sent.
+    mocks.signUp.mockResolvedValue({ data: { session: null, user: { identities: [] } }, error: null });
+    mocks.signInWithOtp.mockResolvedValue({ error: null });
+
+    await expect(signUpWithEmail(" student@monroeu.edu ", "password123")).resolves.toEqual({
+      error: null,
+      needsConfirmation: false,
+      alreadyRegistered: true,
+    });
+    expect(mocks.signInWithOtp).toHaveBeenCalledWith({
+      email: "student@monroeu.edu",
+      options: { shouldCreateUser: false, emailRedirectTo: "https://www.resunova.io/?view=jobs" },
     });
   });
 

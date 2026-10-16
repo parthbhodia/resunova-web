@@ -157,8 +157,16 @@ export function SignInDialogProvider({ children }: { children: ReactNode }) {
       const result = await signUpWithEmail(email, password);
       setBusy(false);
       if (result.error) setError(result.error);
-      else if (result.needsConfirmation) {
-        setNotice("Check your inbox to confirm your email, then return to Resunova.");
+      else if (result.alreadyRegistered) {
+        setMode("sign-in");
+        setPassword("");
+        setNotice(
+          `You already have an account with ${email.trim()}. We emailed you a sign-in link, so tap it and you're in. If you first joined with Google, use Continue with Google below.`,
+        );
+      } else if (result.needsConfirmation) {
+        setNotice(
+          `We sent a link to ${email.trim()}. Tap it to finish creating your account and you'll land right back here, signed in.`,
+        );
       } else {
         setOpen(false);
       }
