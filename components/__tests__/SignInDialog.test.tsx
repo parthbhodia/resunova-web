@@ -34,9 +34,9 @@ describe("SignInDialog", () => {
     renderDialog();
 
     await user.click(screen.getByRole("button", { name: "Open account dialog" }));
-    await user.type(screen.getByLabelText("Email"), "student@monroeu.edu");
-    await user.type(screen.getByLabelText("Password"), "password123");
-    await user.click(screen.getByRole("button", { name: "Sign in with email" }));
+    await user.type(await screen.findByLabelText(/^Email/), "student@monroeu.edu");
+    await user.type(screen.getByLabelText(/^Password/), "password123");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
 
     expect(mocks.signInWithEmail).toHaveBeenCalledWith("student@monroeu.edu", "password123");
   });
@@ -47,10 +47,10 @@ describe("SignInDialog", () => {
     renderDialog();
 
     await user.click(screen.getByRole("button", { name: "Open account dialog" }));
+    await user.click(await screen.findByRole("button", { name: "Create an account" }));
+    await user.type(screen.getByLabelText(/^Email/), "student@monroeu.edu");
+    await user.type(screen.getByLabelText(/^Password/), "password123");
     await user.click(screen.getByRole("button", { name: "Create account" }));
-    await user.type(screen.getByLabelText("Email"), "student@monroeu.edu");
-    await user.type(screen.getByLabelText("Password"), "password123");
-    await user.click(screen.getByRole("button", { name: "Create free account" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("We sent a link to student@monroeu.edu");
   });
@@ -61,14 +61,36 @@ describe("SignInDialog", () => {
     renderDialog();
 
     await user.click(screen.getByRole("button", { name: "Open account dialog" }));
+    await user.click(await screen.findByRole("button", { name: "Create an account" }));
+    await user.type(screen.getByLabelText(/^Email/), "student@monroeu.edu");
+    await user.type(screen.getByLabelText(/^Password/), "password123");
     await user.click(screen.getByRole("button", { name: "Create account" }));
-    await user.type(screen.getByLabelText("Email"), "student@monroeu.edu");
-    await user.type(screen.getByLabelText("Password"), "password123");
-    await user.click(screen.getByRole("button", { name: "Create free account" }));
 
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("You already have an account");
     expect(status).toHaveTextContent("Continue with Google");
-    expect(screen.getByRole("button", { name: "Sign in with email" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sign in to Resunova" })).toBeInTheDocument();
+  });
+
+  it("puts Google first and loads the brand mark, not a generic icon", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: "Open account dialog" }));
+
+    const google = await screen.findByRole("button", { name: "Continue with Google" });
+    const email = screen.getByLabelText(/^Email/);
+    expect(google.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Resunova" })).toHaveAttribute("src", expect.stringContaining("icon-192.png"));
+  });
+
+  it("toggles password visibility", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: "Open account dialog" }));
+
+    const password = await screen.findByLabelText(/^Password/);
+    expect(password).toHaveAttribute("type", "password");
+    await user.click(screen.getByRole("button", { name: "Show password" }));
+    expect(password).toHaveAttribute("type", "text");
   });
 });

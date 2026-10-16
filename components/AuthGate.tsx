@@ -295,7 +295,7 @@ function SignInRequired({ pathname }: { pathname: string | null }) {
 
         <button
           type="button"
-          onClick={() => openSignIn({ reason: `Continue to ${label?.toLowerCase() || "your account"} with email or Google.` })}
+          onClick={() => openSignIn({ reason: `Sign in or create a free account to open ${label?.toLowerCase() || "your account"}.` })}
           disabled={oauthBusy}
           style={{
             width: "100%",
