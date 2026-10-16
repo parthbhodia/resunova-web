@@ -72,14 +72,38 @@ describe("the gate asks once, on one surface", () => {
 
 describe("the gate does not promise what the product lacks", () => {
   /**
-   * The approved comp's email action read "Email me a sign-in link". There is
-   * no signInWithOtp call anywhere in this repo, so that button would
-   * advertise a flow that does not exist — the same defect class as the
-   * template gallery's phantom "CV layout".
+   * The approved comp's email action read "Email me a sign-in link", and when
+   * this test was written there was no `signInWithOtp` anywhere in the repo —
+   * so that button would have advertised a flow that does not exist, the same
+   * defect class as the template gallery's phantom "CV layout".
+   *
+   * ⚠️ THE PREMISE CHANGED AND THE RULE DID NOT, WHICH IS WHY THIS IS NARROWED
+   * RATHER THAN DELETED. #335 added a magic link, but ONLY as the recovery for
+   * a repeated signup on an address that already has an account: the form tells
+   * that person an email is on its way. That is a notice after a failed
+   * action, not a door. The rule worth keeping is that no magic link is OFFERED
+   * AS A WAY IN — a third entry path beside Google and email is another
+   * decision at the point where the entire design is to present one.
+   *
+   * So the gate page, which has no signup path at all, still bans the phrase
+   * outright; the shared form bans the ACTION — a button, a submit label, or a
+   * call — while allowing the notice. Deleting the test would have been the
+   * easy read of this failure and would have left the door unguarded.
    */
-  it("offers no magic link, because there is no magic-link flow", () => {
+  it("the gate page offers no magic link at all", () => {
     expect(SRC).not.toMatch(/sign-in link|magic link|signInWithOtp/i);
-    expect(FORM_SRC).not.toMatch(/sign-in link|magic link|signInWithOtp/i);
+  });
+
+  it("⚠️ the shared form never offers a magic link as a way in", () => {
+    // No call: the form must not initiate one itself.
+    expect(FORM_SRC).not.toMatch(/signInWithOtp|sendMagicLink/);
+    // No control: the phrase may appear only inside a notice string, never as
+    // a button label or a submit label.
+    const controls = FORM_SRC.match(/<button[^>]*>[\s\S]{0,160}?<\/button>/g) ?? [];
+    expect(controls.length).toBeGreaterThan(2); // control: we did find the buttons
+    for (const control of controls) {
+      expect(control).not.toMatch(/sign-in link|magic link|email me a link/i);
+    }
   });
 
   /**

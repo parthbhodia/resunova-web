@@ -6,9 +6,10 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CardActionArea from "@mui/material/CardActionArea";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { EmailPreferencesCard, TailoringModeCard } from "@/components/accountSettingsCards";
-import { filledButtonSx, outlineButtonSx } from "@/components/mui/cssVars";
+import { fieldSx, filledButtonSx, outlineButtonSx } from "@/components/mui/cssVars";
 import { HubCard, ProfileGrid, SectionHeader, StatusChip } from "@/components/profile/profileMui";
 import { fetchJobFilters, type SavedFilter } from "@/lib/jobFiltersApi";
 import { signInWithGoogle } from "@/lib/anonScan";
@@ -160,16 +161,24 @@ function identityProviders(user: { identities?: Array<{ provider?: string }>; ap
   return Array.from(new Set([...fromIdentities, ...fromMeta]));
 }
 
+export type IntegrationLinks = {
+  linkedin: string;
+  github: string;
+  portfolio: string;
+};
+
 export function IntegrationsPanel({
   extracted,
   tailorDefaults,
   accountEmail,
-  onEditProfile,
+  onChangeLinks,
+  onOpenCareerProfile,
 }: {
   extracted: ExtractedProfileState;
   tailorDefaults: ProfileFormState;
   accountEmail: string | null;
-  onEditProfile: () => void;
+  onChangeLinks: (next: IntegrationLinks) => void;
+  onOpenCareerProfile: () => void;
 }) {
   const [providers, setProviders] = useState<string[]>([]);
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -191,13 +200,17 @@ export function IntegrationsPanel({
   const portfolio = extracted.portfolio || tailorDefaults.portfolio;
   const resumeConnected = !!(extracted.name || extracted.experience?.length || extracted.skills?.length);
 
+  const patchLink = (key: keyof IntegrationLinks, value: string) => {
+    onChangeLinks({ linkedin, github, portfolio, [key]: value });
+  };
+
   return (
     <Stack spacing={2.25}>
       <ProfileGrid>
         <HubCard>
           <SectionHeader
             title="Connected accounts"
-            subtitle="Sign-in and profile links Resunova can reuse."
+            subtitle="Sign-in and profile links Resunova can reuse. Links save with your Career Memory."
           />
           <Stack spacing={1.75} sx={{ p: 2.5 }}>
             <IntegrationRow
@@ -220,23 +233,26 @@ export function IntegrationsPanel({
                 </QuietButton>
               )}
             />
-            <IntegrationRow
-              title="LinkedIn"
-              detail={linkedin || "No LinkedIn URL saved on your profile"}
-              connected={!!linkedin}
-              action={<QuietButton onClick={onEditProfile}>{linkedin ? "Edit" : "Add"}</QuietButton>}
+            <IntegrationLinkField
+              label="LinkedIn"
+              value={linkedin}
+              placeholder="https://linkedin.com/in/your-name"
+              connected={!!linkedin.trim()}
+              onChange={(v) => patchLink("linkedin", v)}
             />
-            <IntegrationRow
-              title="GitHub"
-              detail={github || "No GitHub URL saved on your profile"}
-              connected={!!github}
-              action={<QuietButton onClick={onEditProfile}>{github ? "Edit" : "Add"}</QuietButton>}
+            <IntegrationLinkField
+              label="GitHub"
+              value={github}
+              placeholder="https://github.com/your-name"
+              connected={!!github.trim()}
+              onChange={(v) => patchLink("github", v)}
             />
-            <IntegrationRow
-              title="Portfolio"
-              detail={portfolio || "No portfolio URL saved"}
-              connected={!!portfolio}
-              action={<QuietButton onClick={onEditProfile}>{portfolio ? "Edit" : "Add"}</QuietButton>}
+            <IntegrationLinkField
+              label="Portfolio"
+              value={portfolio}
+              placeholder="https://your-site.com"
+              connected={!!portfolio.trim()}
+              onChange={(v) => patchLink("portfolio", v)}
             />
             {googleError ? (
               <Typography role="alert" sx={{ m: 0, fontSize: FS.body, color: "error.main" }}>{googleError}</Typography>
@@ -254,7 +270,11 @@ export function IntegrationsPanel({
               title="Career Memory"
               detail={resumeConnected ? "Resume facts saved to your account" : "Upload a resume to fill contact, experience, and skills"}
               connected={resumeConnected}
-              action={<QuietButton onClick={onEditProfile}>{resumeConnected ? "Review" : "Upload resume"}</QuietButton>}
+              action={
+                <QuietButton onClick={onOpenCareerProfile}>
+                  {resumeConnected ? "Open Career profile" : "Upload resume"}
+                </QuietButton>
+              }
             />
             <Typography sx={{ mt: 2, fontSize: FS.body, lineHeight: LH.normal, color: "text.secondary" }}>
               There is no separate LinkedIn scrape or Gmail sync yet. Google sign-in, the URLs on your profile, and the resume you approve are the live integrations.
@@ -263,6 +283,45 @@ export function IntegrationsPanel({
         </HubCard>
       </ProfileGrid>
       <TailoringModeCard />
+    </Stack>
+  );
+}
+
+function IntegrationLinkField({
+  label,
+  value,
+  placeholder,
+  connected,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  connected: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Stack spacing={1}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+        <Typography sx={{ fontSize: FS.subhead, fontWeight: FW.extrabold }}>{label}</Typography>
+        <StatusChip tone={connected ? "green" : "neutral"}>
+          {connected ? "Connected" : "Not connected"}
+        </StatusChip>
+      </Stack>
+      <TextField
+        fullWidth
+        size="small"
+        type="url"
+        label={`${label} URL`}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        slotProps={{
+          inputLabel: { shrink: true },
+          htmlInput: { maxLength: 300, "aria-label": `${label} URL` },
+        }}
+        sx={fieldSx}
+      />
     </Stack>
   );
 }

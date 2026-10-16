@@ -143,6 +143,56 @@ describe("SignInDialog — the email path still works", () => {
    * redesign would be a silent regression, so it is pinned — and the gate page
    * gains it for free now that both render the same form.
    */
+  /**
+   * ⚠️ CARRIED ACROSS FROM #335, WHICH FIXED THIS ON ITS OWN MODAL REBUILD.
+   * Supabase answers a repeated signup (an address first registered with
+   * Google, say) with 200, no session, and a user carrying NO identities — so
+   * `error` is null and `needsConfirmation` is false. The shipped dialog read
+   * that as "check your inbox" and pointed people at an email that never came.
+   *
+   * ⚠️ AND THE MERGE MADE IT WORSE BEFORE THIS TEST EXISTED: with main's
+   * `signUpWithEmail` and this component's old branch set, the success path
+   * ran and CLOSED the dialog on someone who was never signed in. The
+   * assertion that matters is therefore `onSignedIn` NOT firing.
+   */
+  it("tells an existing user their account exists instead of promising an email", async () => {
+    const user = userEvent.setup();
+    mocks.signUpWithEmail.mockResolvedValue({
+      error: null,
+      needsConfirmation: false,
+      alreadyRegistered: true,
+    });
+    renderDialog();
+    await open(user);
+    await openEmail(user);
+    await user.click(screen.getByRole("button", { name: /new here\? create an account/i }));
+    await user.type(screen.getByLabelText("Email"), "student@monroeu.edu");
+    await user.type(screen.getByLabelText("Password"), "password123");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(await screen.findByText(/already have an account/i)).toBeTruthy();
+    expect(screen.getByText(/emailed a sign-in link/i)).toBeTruthy();
+    // Never the confirmation promise that was the original defect.
+    expect(screen.queryByText(/finish creating your account/i)).toBeNull();
+  });
+
+  /**
+   * A typo in a masked field is the commonest reason a correct password is
+   * reported as wrong, and the 8-character rule makes it likelier on create.
+   */
+  it("toggles password visibility", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await open(user);
+    await openEmail(user);
+    const field = screen.getByLabelText("Password") as HTMLInputElement;
+    expect(field.type).toBe("password");
+    await user.click(screen.getByRole("button", { name: "Show password" }));
+    expect((screen.getByLabelText("Password") as HTMLInputElement).type).toBe("text");
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect((screen.getByLabelText("Password") as HTMLInputElement).type).toBe("password");
+  });
+
   it("keeps the password-reset path", async () => {
     mocks.sendPasswordReset.mockResolvedValue(null);
     const user = userEvent.setup();

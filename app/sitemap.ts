@@ -4,6 +4,7 @@ import { BLOG_LAST_MODIFIED, BLOG_POSTS } from "@/lib/atsBlogPosts";
 import { ROLE_RESUME_DATA, ROLE_DATA_LAST_UPDATED, roleResumeHref, skillsForResumeHref } from "@/lib/roleResumeData";
 import { COMPARISONS, comparisonHref } from "@/lib/competitorComparison";
 import { JOBS_GENERATED_AT, PUBLIC_JOBS, jobHref } from "@/lib/jobsSeoData";
+import { IS_STORE_LIVE } from "@/lib/extensionContent";
 
 export const dynamic = "force-static";
 
@@ -22,6 +23,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/privacy/`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/contact/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/jobs/`, lastModified: JOBS_GENERATED_AT ? new Date(JOBS_GENERATED_AT) : new Date(), changeFrequency: "daily", priority: 0.9 },
+    // Advertised only once the Web Store listing exists (NEXT_PUBLIC_CHROME_STORE_URL).
+    ...(IS_STORE_LIVE
+      ? [{ url: `${SITE_URL}/extension/`, lastModified: new Date(), changeFrequency: "monthly" as const, priority: 0.8 }]
+      : []),
   ];
 
   const blogPages: MetadataRoute.Sitemap = BLOG_POSTS.map((post) => ({

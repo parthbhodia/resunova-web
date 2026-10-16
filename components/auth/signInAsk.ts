@@ -57,7 +57,8 @@ export type SignInAskKey =
   | "library"
   | "tracker"
   | "advisor"
-  | "referral_ask";
+  | "referral_ask"
+  | "extension_connect";
 
 /** Lift the gate's wording for a destination both surfaces can reach. */
 function fromGate(pathname: string): SignInAsk {
@@ -66,6 +67,17 @@ function fromGate(pathname: string): SignInAsk {
 }
 
 const ASKS: Record<SignInAskKey, () => SignInAsk> = {
+  // ⚠️ CARRIED FROM #325, WHICH DID NOT COMPILE AGAINST THIS MODULE. The
+  // extension page called `openSignIn({ reason: "Sign in to connect the
+  // Resunova extension." })` — the deleted API, and a sentence leading with
+  // OUR requirement, which is the pair of defects this producer exists to end.
+  // It is the tenth hand-written variant, written after the other nine were
+  // consolidated, which is the argument for the producer rather than against.
+  extension_connect: () => ({
+    eyebrow: "Browser extension",
+    headline: "Autofill applications from the résumé already in your account.",
+    why: "Connecting links the extension to this account. You'll land back here.",
+  }),
   resume_scan: () => ({
     eyebrow: "Résumé scan",
     headline: `${FREE_SCAN_DAILY_LIMIT} scans a day, and every report saved to your account.`,

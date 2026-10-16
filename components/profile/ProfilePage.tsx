@@ -386,7 +386,11 @@ export default function ProfilePage() {
         extracted={extractedData}
         tailorDefaults={tailorDefaults}
         accountEmail={accountEmail}
-        onEditProfile={scrollToCareerMemory}
+        onChangeLinks={({ linkedin, github, portfolio }) => {
+          setExtractedData((prev) => ({ ...prev, linkedin, github, portfolio }));
+          setTailorDefaults((prev) => ({ ...prev, linkedin, portfolio }));
+        }}
+        onOpenCareerProfile={scrollToCareerMemory}
       />
     );
   }, [tab, completionStats.percent, extractedData, tailorDefaults, accountEmail, displayName, scrollToCareerMemory]);

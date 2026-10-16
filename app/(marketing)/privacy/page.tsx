@@ -171,17 +171,62 @@ export default function PrivacyPage() {
             <p>We recommend you do not include sensitive personal information (Social Security numbers, financial account details, passwords) in any content submitted to the Service.</p>
           </Section>
 
-          <Section title="6. Data Retention">
+          <Section title="6. Browser Extension (Chrome)">
+            <p>
+              The Resunova Auto-Fill extension fills job application forms using the profile on
+              your Resunova account. It supports Greenhouse, Ashby, Lever and Workday. This
+              section describes exactly what it handles.
+            </p>
+
+            <SubSection title="What the extension handles">
+              <DataTable rows={[
+                ["The page you are on", "The URL of the job posting, and only when you fill a form on it"],
+                ["Company, job title, location", "Read from that page's own metadata, and taken from our job database instead when we recognise the posting"],
+                ["Your Resunova profile", "Name, contact details, links, work history and the optional EEO answers you saved. Read only; the extension never writes to your profile"],
+                ["An extension session token", "Stored only in hashed form. Lets the extension read your profile, and revocable at any time"],
+              ]} />
+            </SubSection>
+
+            <SubSection title="What it does not handle">
+              <ul>
+                <li><b>The contents of your application forms.</b> Answers you type, cover-letter text and screening responses are never sent to us.</li>
+                <li><b>Pages you are not filling a form on.</b> The fill logic is injected only on the four supported job-board domains.</li>
+                <li><b>Your email, messages, or browsing elsewhere.</b> It cannot see them.</li>
+                <li><b>Usage telemetry.</b> The extension sends no analytics of its own.</li>
+              </ul>
+            </SubSection>
+
+            <Callout>
+              <b>Job application tracking.</b> When you fill a form with the extension, the job you
+              filled it for is added to your Application Tracker on Resunova, along with the date.
+              That tells us which companies you are applying to, which is a record of your
+              job-search activity. It is <b>always on while you are connected</b>, there is no
+              separate opt-in, and it is yours to remove: delete the entry in your tracker, or
+              disconnect the extension from its popup. The extension never submits an application
+              for you, so a tracked job records a form you filled, not necessarily one you sent.
+            </Callout>
+
+            <SubSection title="Where extension data is stored">
+              <ul>
+                <li><b>On your device:</b> the session token and a cached copy of your profile, in the browser&apos;s local extension storage. Disconnecting removes both.</li>
+                <li><b>On our servers:</b> your application tracker entries, and the hashed session token. Raw tokens are never stored.</li>
+              </ul>
+            </SubSection>
+          </Section>
+
+          <Section title="7. Data Retention">
             <p>We keep personal data no longer than necessary for the purposes in this policy: principally running the Service for you, analytics to improve the product, and internal training and quality work.</p>
             <ul>
               <li><b>Account data</b> (email, name): Retained until you delete your account</li>
               <li><b>Saved resumes and analysis history:</b> Retained until you delete individual records or your account</li>
               <li><b>Uploaded PDF text:</b> Processed in memory during generation; not permanently stored</li>
+              <li><b>Browser extension sessions:</b> Expire after 30 days without use, and after 90 days at most however often they are used. Changing your password, signing out, or disconnecting in Account settings ends them immediately. The one-time code used to create one is discarded within minutes.</li>
+              <li><b>Tracked applications:</b> Kept until you delete the entry or your account, like any other tracker row</li>
               <li><b>Analytics data:</b> Governed by Google Analytics retention settings (typically 14 months)</li>
             </ul>
           </Section>
 
-          <Section title="7. Your Rights">
+          <Section title="8. Your Rights">
             <p>Depending on your location, you may have the following rights regarding your personal data:</p>
             <ul>
               <li><b>Access:</b> Request a copy of the data we hold about you</li>
@@ -193,11 +238,11 @@ export default function PrivacyPage() {
             <p>To exercise any of these rights, email <a href={`mailto:${PRIVACY_EMAIL}`} style={{ color: "var(--accent)" }}>{PRIVACY_EMAIL}</a>. We will respond within 30 days.</p>
           </Section>
 
-          <Section title="8. Cookies">
+          <Section title="9. Cookies">
             <p>We use only essential session cookies required for authentication (managed by Supabase) and Google Analytics cookies for anonymous usage tracking. We do not use advertising or tracking cookies.</p>
           </Section>
 
-          <Section title="9. Security">
+          <Section title="10. Security">
             <p>We implement industry-standard measures to protect your data:</p>
             <ul>
               <li>All data is transmitted over HTTPS/TLS</li>
@@ -207,16 +252,16 @@ export default function PrivacyPage() {
             <p>No system is 100% secure. If you discover a security vulnerability, please disclose it responsibly to <a href="mailto:parthbhodia08@gmail.com" style={{ color: "var(--accent)" }}>parthbhodia08@gmail.com</a>.</p>
           </Section>
 
-          <Section title="10. Children's Privacy">
+          <Section title="11. Children's Privacy">
             <p>The Service is not directed to individuals under 16. We do not knowingly collect personal information from children. If you believe a child has provided us with personal data, contact us and we will delete it promptly.</p>
           </Section>
 
-          <Section title="11. Changes to This Policy">
+          <Section title="12. Changes to This Policy">
             <p>We may update this Privacy Policy periodically. Material changes will be communicated via email (if we have your contact) or a notice on the Service. The &ldquo;Last updated&rdquo; date at the top of this page reflects the most recent revision.</p>
             <p>Your continued use of the Service after changes constitutes acceptance of the updated policy.</p>
           </Section>
 
-          <Section title="12. Contact">
+          <Section title="13. Contact">
             <p>For privacy-related questions, data requests, or concerns:</p>
             <ContactCard />
           </Section>

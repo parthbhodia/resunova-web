@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   SIGN_IN_ASK_KEYS,
@@ -83,5 +85,47 @@ describe("the sign-in ask producer", () => {
     expect(signInAskFor("scan_allowance_spent").headline).not.toBe(
       signInAskFor("resume_scan").headline,
     );
+  });
+});
+
+/**
+ * ⚠️ WHY A CALL-SITE PIN AND NOT JUST THE TYPE. #325 shipped the extension
+ * page calling `openSignIn({ reason: "Sign in to connect the Resunova
+ * extension." })` — a tenth hand-written variant, leading with our
+ * requirement, written after the other nine had been consolidated into this
+ * module. It was caught here by the COMPILER, which is luck rather than
+ * design: the compiler sees a removed prop, and would see nothing at all if
+ * the next call site simply hand-wrote its copy into a heading beside a
+ * bare `openSignIn()`. The rules above cover every key in the producer; this
+ * covers the places that reach for it.
+ *
+ * Comments are stripped first — SignInDialog's own docstring quotes the old
+ * `{ title, reason }` API to explain its removal, and this repo has shipped a
+ * scan matching its own explanation three times.
+ */
+describe("the ask reaches the modal from the call sites", () => {
+  const code = (p: string) =>
+    readFileSync(resolve(__dirname, "..", "..", p), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/(^|[^:])\/\/[^\n]*/g, "$1 ");
+
+  it("⚠️ no call site hands the modal its own copy", () => {
+    for (const file of [
+      "components/ExtensionConnect.tsx",
+      "components/refer/ReferrerRequestForm.tsx",
+      "components/SignInDialog.tsx",
+    ]) {
+      const src = code(file);
+      // Control: the stripper must not have emptied the file being scanned.
+      expect(src.length, file).toBeGreaterThan(200);
+      expect(src, `${file} must not pass a hand-written title`).not.toMatch(/openSignIn\(\{[^}]*title:/);
+      expect(src, `${file} must not pass a hand-written reason`).not.toMatch(/openSignIn\(\{[^}]*reason:/);
+    }
+  });
+
+  it("⚠️ the extension page asks by key, so its copy lives in the producer", () => {
+    const src = code("components/ExtensionConnect.tsx");
+    expect(src).toMatch(/openSignIn\(\{\s*ask:\s*"extension_connect"\s*\}\)/);
+    expect(SIGN_IN_ASK_KEYS).toContain("extension_connect" as SignInAskKey);
   });
 });

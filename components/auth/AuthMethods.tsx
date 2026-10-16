@@ -22,9 +22,15 @@
  * in place — progressive disclosure, not a second surface and not a segmented
  * control, which is a decision before the decision.
  *
- * ⚠️ NO MAGIC LINK. There is no `signInWithOtp` call anywhere in this repo, so
- * an "email me a sign-in link" action would advertise a flow that does not
- * exist — the same defect class as the template gallery's phantom "CV layout".
+ * ⚠️ NO MAGIC LINK AS A PRIMARY ACTION — AND THE REASON HAS CHANGED, SO READ
+ * IT RATHER THAN REUSING IT. This file used to say flatly that no
+ * `signInWithOtp` call existed in the repo, which was true when written: an
+ * "email me a sign-in link" button would have advertised a flow that does not
+ * exist, the same defect class as the template gallery's phantom "CV layout".
+ * #335 has since added one, but ONLY as the recovery for a repeated signup on
+ * an address that already has an account. It is still not offered as a way in,
+ * because a third entry path beside Google and email is another decision at
+ * the point where the whole design is to present one.
  *
  * ⚠️ NO HARDCODED WHITE ON A FILL. DESIGN.md invariant 7: the hue tokens are
  * tuned to be READ on the background, so they are light in dark mode and
@@ -154,6 +160,7 @@ export default function AuthMethods({
   const [mode, setMode] = useState<EmailMode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -200,7 +207,19 @@ export default function AuthMethods({
       const result = await signUpWithEmail(email, password);
       setBusy(false);
       if (result.error) setError(result.error);
-      else if (result.needsConfirmation) setNotice(confirmationCopy);
+      else if (result.alreadyRegistered) {
+        // ⚠️ THIS BRANCH IS LOAD-BEARING, NOT A NICETY. Supabase answers a
+        // repeated signup with 200, no session and a user carrying no
+        // identities, so `needsConfirmation` is false and `error` is null.
+        // Without this case the next line down reads that as success and
+        // closes the dialog on someone who is not signed in — worse than the
+        // dead "check your inbox" notice it replaced.
+        switchMode("sign-in");
+        setPassword("");
+        setNotice(
+          `You already have an account for ${email.trim()}. We emailed a sign-in link — tap it and you're in. If you first joined with Google, use Continue with Google.`,
+        );
+      } else if (result.needsConfirmation) setNotice(confirmationCopy);
       else onSignedIn?.();
       return;
     }
@@ -260,16 +279,43 @@ export default function AuthMethods({
           ) : (
             <>
               <label htmlFor={`${idPrefix}-password`} className="sr-only">Password</label>
-              <input
-                id={`${idPrefix}-password`}
-                style={fieldStyle}
-                type="password"
-                required
-                autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
-                placeholder={mode === "sign-up" ? `Password (${MIN_PASSWORD}+ characters)` : "Password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div style={{ position: "relative" }}>
+                <input
+                  id={`${idPrefix}-password`}
+                  style={{ ...fieldStyle, paddingRight: 68 }}
+                  type={showPassword ? "text" : "password"}
+                  required
+                  autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+                  placeholder={mode === "sign-up" ? `Password (${MIN_PASSWORD}+ characters)` : "Password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                {/* A typo in a masked field is the commonest reason a correct
+                    password is reported as wrong, and the ${MIN_PASSWORD}-char
+                    rule makes it likelier on the create path. */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    right: 0,
+                    margin: "auto 0",
+                    height: 30,
+                    padding: "0 10px",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--accent-ink)",
+                  }}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </>
           )}
 

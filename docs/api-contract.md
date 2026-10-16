@@ -70,6 +70,67 @@ The scan screen reads this and says scoring is paused. The rest of the site stay
 | `/api/cohort-stats` | GET |
 | `/api/student-detail` | GET |
 
+## Extension (Chrome)
+
+The Resunova Auto-Fill extension authenticates with **its own revocable session token**, not
+with the user's Supabase tokens. Two-step handshake:
+
+| Endpoint | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `/api/extension/connect-code` | POST | Supabase bearer | Mint a single-use code (2 min TTL). Only the sha256 is stored. |
+| `/api/extension/exchange` | POST | the one-time code | Consume it, return a 30-day session token + `{id,email}`. Only the sha256 is stored. |
+| `/api/extension/refresh` | POST | extension session | Rotate the session (invalidates the old token). |
+| `/api/extension/revoke` | POST | extension session | Revoke it. |
+| `/api/extension/profile` | GET | extension session | Return the merged profile + `profileComplete`. |
+| `/api/extension/applications` | POST | extension session | Record the job whose form was just filled. Lands as `status: "saved"`. |
+| `/api/extension/applications/{app_id}` | PATCH | extension session | Change status, e.g. to `"applied"` on submit. |
+
+### `POST /api/extension/applications`
+
+Body: `{ url, company?, title?, location? }`.
+
+- `url` must be `http(s)` and is the only required field. Anything else is 400, because the stored value renders as an `href` in the tracker and a `javascript:` URL there would be stored XSS.
+- The backend matches `url` against `job_postings.external_url`, exactly first and then normalised for query string and trailing slash. On a match it takes `company`, `title` and `location` from the posting and sets `posting_id`, so the tracker row carries the rich card. Client-supplied values are used only when there is no match.
+- `user_id` always comes from the extension session, never from the body.
+- Re-filling never moves a row backwards. `_should_set_status` from `routes/applications.py` decides, so a job at `interviewing` stays there and a `rejected` job is not silently reopened.
+
+Response: `{ id, status, created }`.
+
+### `PATCH /api/extension/applications/{app_id}`
+
+Body: `{ status }`, one of the `job_applications` statuses. Scoped to the session user; another user's id returns 404, deliberately indistinguishable from a missing row. `applied_at` is stamped only the first time an active status is set.
+
+The frontend reads these rows through the existing `GET /api/applications`, so the Application Tracker needs no change. `source` is stored but not rendered by the tracker today.
+
+`GET /api/extension/profile` response:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `profile` | object | See below |
+| `profileComplete` | boolean | `name` and `email` both non-empty. `false` means "complete your profile". |
+
+`profile` merges two existing per-user records, and only those two. There is no
+extension-specific profile table:
+
+- `user_extracted_profiles.profile` (resume-derived career profile) wins where both have a value.
+- `user_profiles.profile` (Tailor defaults + EEO) fills the gaps. EEO values come **only** from here.
+- The account email is the last resort for `email`, and never overrides an explicit value.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `name` | string | |
+| `email` | string | Falls back to the login address |
+| `phone` / `location` / `headline` / `summary` / `role` | string | |
+| `linkedin` / `github` / `portfolio` | string | |
+| `skills` | string[] | Non-array values are normalised to `[]` |
+| `experience` / `education` / `projects` | array | Non-array values are normalised to `[]` |
+| `eeoWorkUs` / `eeoSponsor` / `eeoDisability` / `eeoVeteran` / `eeoGender` / `eeoLgbtq` | string | Optional disclosure answers |
+
+Access is declared in the backend's `routes/access.py` POLICY. Only `connect-code` sits behind a
+Supabase session; the other four authenticate inside the handler against `extension_sessions`,
+because the extension presents a non-Supabase token that the central gate would reject. Both
+tables are service-role only, RLS on, with no browser grants (migration 053).
+
 ## Types to keep in sync
 
 When the API changes these fields, update:
