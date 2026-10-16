@@ -15,7 +15,7 @@ import {
   REFERRAL_REQUEST_STATUS_LABELS,
   fetchReferralRequestById,
   safeHttpUrl,
-  signedReferralResumeUrl,
+  openReferralResumePdf,
   type CompanyReferralRequest,
 } from "@/lib/companyReferrers";
 import {
@@ -89,12 +89,8 @@ export default function ReferralCandidatePacket() {
 
   const openResume = async (path: string) => {
     setResumeError(null);
-    const url = await signedReferralResumeUrl(path);
-    if (!url) {
-      setResumeError(RESUME_OPEN_FAILED);
-      return;
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
+    const result = await openReferralResumePdf(path);
+    if (!result.ok) setResumeError(RESUME_OPEN_FAILED);
   };
 
   const body = (() => {

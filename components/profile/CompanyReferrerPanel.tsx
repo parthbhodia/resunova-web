@@ -19,7 +19,7 @@ import {
   isUsableCompanyUrl,
   referrerPublicPath,
   safeHttpUrl,
-  signedReferralResumeUrl,
+  openReferralResumePdf,
   updateReferralRequestStatus,
   upsertMyReferrerProfile,
   type CompanyReferralRequest,
@@ -573,12 +573,8 @@ function RequestCard({
   const openResume = async () => {
     if (!row.resumePdfPath) return;
     setResumeError(null);
-    const url = await signedReferralResumeUrl(row.resumePdfPath);
-    if (!url) {
-      setResumeError("Could not open that resume. Try again in a moment.");
-      return;
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
+    const result = await openReferralResumePdf(row.resumePdfPath);
+    if (!result.ok) setResumeError(result.error);
   };
   const metaBits = [
     row.role,

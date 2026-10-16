@@ -398,25 +398,60 @@ export async function uploadReferralResume(
   }
 }
 
-/** Short-lived signed URL so the referrer (or candidate) can open the PDF. */
-export async function signedReferralResumeUrl(
+/**
+ * Open a referral résumé WITHOUT ever producing a shareable link.
+ *
+ * ⚠️ THIS REPLACES A SIGNED URL, AND THE DIFFERENCE IS THE WHOLE POINT.
+ * `createSignedUrl` returns a bearer credential in a query string: anyone
+ * holding that string reads the file, no login, until it expires. It was
+ * handed to the browser and opened in a new tab, so it sat in the address bar
+ * and the history, one copy-paste from leaving the product — which is exactly
+ * how it got forwarded into a WhatsApp thread. The payload is a résumé: a real
+ * person's name, email, phone and employment history.
+ *
+ * A `blob:` URL cannot be forwarded. It is scoped to this origin AND this
+ * document, so pasting it anywhere else resolves to nothing, and it dies when
+ * the tab does. Authorization is also checked at REQUEST time against the
+ * caller's own session and the storage RLS policies, rather than baked into a
+ * token minted an hour earlier.
+ *
+ * ⚠️ The bucket was never the weak part: it is private, PDF-only, 5MB-capped,
+ * and its RLS lets a referrer read only a résumé attached to a request on
+ * their OWN desk. What leaked was the handle, not the door.
+ */
+export async function openReferralResumePdf(
   path: string,
-  expiresInSeconds = 3600,
-): Promise<string | null> {
-  const trimmed = path.trim();
-  if (!trimmed) return null;
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const trimmed = (path || "").trim();
+  if (!trimmed) return { ok: false, error: "No resume on this request." };
   try {
     const { data, error } = await getSupabaseClient().storage
       .from(REFERRAL_RESUME_BUCKET)
-      .createSignedUrl(trimmed, expiresInSeconds);
-    if (error || !data?.signedUrl) {
-      console.warn("[referral-resumes] signed url:", error?.message);
-      return null;
+      .download(trimmed);
+    if (error || !data) {
+      console.warn("[referral-resumes] download:", error?.message);
+      return { ok: false, error: "Could not open that resume. Try again in a moment." };
     }
-    return data.signedUrl;
+    const objectUrl = URL.createObjectURL(data);
+    const opened = window.open(objectUrl, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      // ⚠️ `window.open` after an await is outside the user-gesture window and
+      // browsers block it. An anchor click is not subject to that, so the
+      // popup blocker degrades to a download rather than to nothing happening.
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = trimmed.split("/").pop() || "resume.pdf";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    // Long enough for the new tab to read it, short enough not to linger.
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    return { ok: true };
   } catch (err) {
-    console.warn("[referral-resumes] signed url:", err);
-    return null;
+    console.warn("[referral-resumes] download:", err);
+    return { ok: false, error: "Could not open that resume. Try again in a moment." };
   }
 }
 
