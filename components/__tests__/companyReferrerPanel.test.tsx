@@ -125,7 +125,10 @@ describe("CompanyReferrerPanel", () => {
     });
     render(<CompanyReferrerPanel displayName="Parth Bhodia" title="Software Engineer" linkedin="" />);
     await screen.findByRole("button", { name: "Sign up as a referrer" });
-    await userEvent.type(screen.getByLabelText("Company you work at"), "Acme");
+    // ⚠️ Regex, not exact text: MUI appends a "*" to a required label
+    // (MuiFormLabel-asterisk), so an exact match silently stops finding the
+    // field the moment it becomes required.
+    await userEvent.type(screen.getByLabelText(/Company you work at/), "Acme");
     await userEvent.click(screen.getByRole("button", { name: "Sign up as a referrer" }));
     expect(mockUpsertMyReferrerProfile).toHaveBeenCalled();
     expect(await screen.findByText("You're signed up to refer")).toBeInTheDocument();

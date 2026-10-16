@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
+import { ReferField } from "@/components/refer/referUi";
 import {
   REFERRAL_REQUEST_STATUS_LABELS,
   REFERRAL_REQUEST_STATUS_TONES,
@@ -15,6 +16,7 @@ import {
   referralRequestsThisMonth,
   referralCandidatePath,
   referrerInitials,
+  isUsableCompanyUrl,
   referrerPublicPath,
   safeHttpUrl,
   signedReferralResumeUrl,
@@ -129,6 +131,7 @@ type ReferrerForm = {
   company: string;
   title: string;
   linkedin: string;
+  companyUrl: string;
   bio: string;
   openToRefer: boolean;
 };
@@ -140,19 +143,50 @@ function ReferrerFields({
   form: ReferrerForm;
   onChange: (next: ReferrerForm) => void;
 }) {
+  // ⚠️ VISIBLE LABELS, not placeholders. These were five unlabelled inputs
+  // carrying only `aria-label` and a placeholder, so a screen reader could tell
+  // "Your title" from "Roles you can refer for" and a sighted user could not —
+  // and the placeholder vanishes on the first keystroke, leaving two identical
+  // boxes both reading "Software Developer". That is the reported confusion.
+  // ReferField is MUI's TextField with a persistent label, already used by the
+  // public refer page; reusing it beats a second labelled-input of our own.
+  const companyUrlInvalid = form.companyUrl.trim().length > 0 && !isUsableCompanyUrl(form.companyUrl);
   return (
     <>
-      <input aria-label="Your name" placeholder="e.g. Jordan Lee" maxLength={REFERRER_LIMITS.name} value={form.displayName} onChange={(e) => onChange({ ...form, displayName: e.target.value })} style={fieldStyle} />
-      <input aria-label="Company you work at" placeholder="e.g. Stripe" maxLength={REFERRER_LIMITS.company} value={form.company} onChange={(e) => onChange({ ...form, company: e.target.value })} style={fieldStyle} />
-      <input aria-label="Your title" placeholder="e.g. Software Engineer" maxLength={REFERRER_LIMITS.title} value={form.title} onChange={(e) => onChange({ ...form, title: e.target.value })} style={fieldStyle} />
-      <input aria-label="LinkedIn URL" placeholder="https://linkedin.com/in/your-name" maxLength={REFERRER_LIMITS.url} value={form.linkedin} onChange={(e) => onChange({ ...form, linkedin: e.target.value })} style={fieldStyle} />
-      <input
-        aria-label="Roles you can refer for"
+      <ReferField label="Your name" placeholder="e.g. Jordan Lee" maxLength={REFERRER_LIMITS.name}
+        value={form.displayName} onChange={(v) => onChange({ ...form, displayName: v })} required />
+      <ReferField label="Company you work at" placeholder="e.g. Stripe" maxLength={REFERRER_LIMITS.company}
+        value={form.company} onChange={(v) => onChange({ ...form, company: v })} required />
+      {/* The two that were indistinguishable: whose role each one is about. */}
+      <ReferField label="Your job title at that company" placeholder="e.g. Software Engineer"
+        maxLength={REFERRER_LIMITS.title}
+        value={form.title} onChange={(v) => onChange({ ...form, title: v })} required />
+      <ReferField label="Your personal LinkedIn profile" placeholder="https://linkedin.com/in/your-name"
+        maxLength={REFERRER_LIMITS.url}
+        value={form.linkedin} onChange={(v) => onChange({ ...form, linkedin: v })} />
+      <ReferField
+        label="Company LinkedIn page or website"
+        placeholder="https://linkedin.com/company/stripe  ·  or  stripe.com"
+        maxLength={REFERRER_LIMITS.companyUrl}
+        value={form.companyUrl}
+        onChange={(v) => onChange({ ...form, companyUrl: v })}
+        required
+        sx={{ gridColumn: "1 / -1" }}
+      />
+      <p style={{ gridColumn: "1 / -1", margin: "-4px 0 0", fontSize: 12, lineHeight: 1.5,
+                  color: companyUrlInvalid ? "var(--red-ink)" : "var(--muted)" }}>
+        {companyUrlInvalid
+          ? "That needs to be the company's own page — a linkedin.com/company/… link or its website. Your personal /in/ profile goes in the field above."
+          : "Candidates see this and click it to check the company is real before sending you their résumé."}
+      </p>
+      <ReferField
+        label="Roles you can refer for"
         placeholder="e.g. Backend, new grad, intern"
         maxLength={REFERRER_LIMITS.bio}
         value={form.bio}
-        onChange={(e) => onChange({ ...form, bio: e.target.value })}
-        style={{ ...fieldStyle, gridColumn: "1 / -1" }}
+        onChange={(v) => onChange({ ...form, bio: v })}
+        multiline
+        sx={{ gridColumn: "1 / -1" }}
       />
     </>
   );
@@ -206,11 +240,12 @@ export function CompanyReferrerPanel({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ title: string; description: string; variant: "success" | "error" } | null>(null);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ReferrerForm>({
     displayName,
     company: "",
     title,
     linkedin,
+    companyUrl: "",
     bio: "",
     openToRefer: true,
   });
@@ -226,6 +261,7 @@ export function CompanyReferrerPanel({
           company: next.company,
           title: next.title,
           linkedin: next.linkedin ?? "",
+          companyUrl: next.companyUrl ?? "",
           bio: next.bio ?? "",
           openToRefer: next.openToRefer,
         });
@@ -276,7 +312,14 @@ export function CompanyReferrerPanel({
     const saved = await upsertMyReferrerProfile(form);
     setSaving(false);
     if (!saved) {
-      const message = "Could not save. Add your name, company, and title.";
+      // ⚠️ Name the field that is actually wrong. The save path rejects for
+      // several reasons and this message used to list three of them, so adding
+      // a fourth required field would have produced a confident, wrong
+      // explanation — the user fixes the name they already filled in and tries
+      // again. The company URL is checked first because it is the new rule.
+      const message = !isUsableCompanyUrl(form.companyUrl)
+        ? "Add your company's LinkedIn page or website — a linkedin.com/company/… link, or the company's own domain. Your personal profile goes in the field above it."
+        : "Could not save. Add your name, company, and title.";
       setError(message);
       setToast({ title: "Could not save", description: message, variant: "error" });
       return;
@@ -297,6 +340,10 @@ export function CompanyReferrerPanel({
       company: profile.company,
       title: profile.title,
       linkedin: profile.linkedin ?? "",
+      // ⚠️ Carry the stored value through. Pausing a desk must not have to
+      // re-validate a field the user is not editing — omitting it would make
+      // the now-required check reject the toggle.
+      companyUrl: profile.companyUrl ?? "",
       bio: profile.bio ?? "",
       openToRefer: nextOpen,
     });

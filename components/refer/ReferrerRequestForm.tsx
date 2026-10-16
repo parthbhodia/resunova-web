@@ -16,6 +16,7 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
   const { openSignIn } = useSignInDialog();
   const ask = useReferralAsk(referrer);
   const linkedinHref = safeHttpUrl(referrer.linkedin);
+  const companyHref = safeHttpUrl(referrer.companyUrl);
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -38,7 +39,15 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
             referrer.bio || "They signed up to refer candidates at this company.",
           )}
         </Typography>
-        {linkedinHref ? <AccentLink href={linkedinHref} external>LinkedIn</AccentLink> : null}
+        <Stack direction="row" spacing={2} sx={{ mt: 0.5, flexWrap: "wrap" }}>
+          {linkedinHref ? <AccentLink href={linkedinHref} external>Their LinkedIn</AccentLink> : null}
+          {/* ⚠️ The point of collecting the company URL: a candidate is about to
+              send a stranger their résumé, phone number and email on the
+              strength of a free-text employer name. This is the one link that
+              lets them check the company is real first. Rendered only when the
+              desk has one — older desks predate the field. */}
+          {companyHref ? <AccentLink href={companyHref} external>{referrer.company || "Company"} page</AccentLink> : null}
+        </Stack>
       </ReferrerCard>
 
       {ask.done ? (

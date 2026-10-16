@@ -25,6 +25,8 @@ export type CompanyReferrer = {
   companySlug: string;
   title: string;
   linkedin: string | null;
+  /** The COMPANY's LinkedIn page or website — not the referrer's own profile. */
+  companyUrl: string | null;
   slug: string;
   bio: string | null;
   openToRefer: boolean;
@@ -77,6 +79,7 @@ export const REFERRER_LIMITS = {
   email: 120,
   notes: 2000,
   phone: 40,
+  companyUrl: 500,
   headline: 160,
   years: 50,
 } as const;
@@ -117,6 +120,7 @@ type ReferrerRow = {
   company_slug: string | null;
   title: string | null;
   linkedin: string | null;
+  company_url?: string | null;
   slug: string;
   bio: string | null;
   open_to_refer: boolean | null;
@@ -175,6 +179,7 @@ export function mapReferrerRow(row: ReferrerRow): CompanyReferrer {
     companySlug: row.company_slug ?? "",
     title: row.title ?? "",
     linkedin: row.linkedin,
+    companyUrl: row.company_url ?? null,
     slug: row.slug,
     bio: row.bio,
     openToRefer: row.open_to_refer !== false,
@@ -255,6 +260,62 @@ export function approxYearsFromExperience(
 export function referralCandidatePath(requestId: string): string {
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
   return `${base}/refer/candidate/?r=${encodeURIComponent(requestId)}`;
+}
+
+/**
+ * A company's LinkedIn page or its website — the thing a candidate can click to
+ * check the company is real before handing over their résumé.
+ *
+ * ⚠️ A PERSONAL LinkedIn IS REJECTED, and that is the whole reason this is not
+ * a plain URL check. The field directly above it in the form is the referrer's
+ * OWN `linkedin.com/in/...` profile, so pasting the same value here is the
+ * mistake everyone will make, and it would pass any generic validator while
+ * verifying nothing about the company.
+ */
+export function isUsableCompanyUrl(value: string): boolean {
+  const raw = (value || "").trim();
+  if (!raw) return false;
+  let url: URL;
+  try {
+    url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  // ⚠️ USERINFO IS THE LOAD-BEARING GUARD, and a test is what found it.
+  // "mailto:hr@stripe.com" became "https://mailto:hr@stripe.com" once the
+  // scheme was prepended, which parses with userinfo "mailto:hr" and host
+  // "stripe.com" — so it PASSED. Same shape as "https://evil.com@stripe.com",
+  // and this value is rendered as a clickable link offered to candidates AS
+  // verification, which makes it worse than a cosmetic bug.
+  // A separate "reject non-http schemes" check was tried and REMOVED: probed
+  // against twelve scheme-carrying inputs it rejected nothing this line and the
+  // dotted-host check below do not already reject, and a guard no mutation can
+  // turn red is one that rots into false confidence.
+  if (url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  // A bare label ("localhost", "intranet") names nothing a candidate can check.
+  if (!host.includes(".") || host.endsWith(".")) return false;
+
+  if (host === "linkedin.com" || host.endsWith(".linkedin.com")) {
+    // Only the company directory. /in/ and /pub/ are people.
+    return /^\/(company|school)\/[^/]+/i.test(url.pathname);
+  }
+  return true;
+}
+
+/** Normalize for storage: add the scheme a user leaves off, drop trailing slash. */
+export function normalizeCompanyUrl(value: string): string {
+  const raw = (value || "").trim();
+  if (!raw) return "";
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const url = new URL(withScheme);
+    const path = url.pathname.replace(/\/+$/, "");
+    return `${url.protocol}//${url.host}${path}${url.search}`;
+  } catch {
+    return "";
+  }
 }
 
 export function isUsableEmail(value: string): boolean {
@@ -462,10 +523,10 @@ export function nudgeButtonLabel(
 }
 
 const REFERRER_SELECT_BASE =
-  "id, user_id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at";
+  "id, user_id, display_name, company, company_slug, title, linkedin, company_url, slug, bio, open_to_refer, created_at, updated_at";
 const REFERRER_SELECT = `${REFERRER_SELECT_BASE}, referred_count`;
 const REFERRER_PUBLIC_SELECT_BASE =
-  "id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at";
+  "id, display_name, company, company_slug, title, linkedin, company_url, slug, bio, open_to_refer, created_at, updated_at";
 const REFERRER_PUBLIC_SELECT = `${REFERRER_PUBLIC_SELECT_BASE}, referred_count`;
 const REQUEST_SELECT_BASE =
   "id, referrer_id, candidate_user_id, candidate_name, candidate_email, candidate_linkedin, resume_pdf_path, candidate_phone, candidate_years_experience, candidate_headline, role, notes, source, status, created_at";
@@ -681,6 +742,8 @@ export async function upsertMyReferrerProfile(input: {
   displayName: string;
   company: string;
   title: string;
+  /** The COMPANY's LinkedIn page or website. Required. */
+  companyUrl: string;
   linkedin?: string;
   bio?: string;
   openToRefer?: boolean;
@@ -688,7 +751,14 @@ export async function upsertMyReferrerProfile(input: {
   const displayName = clip(input.displayName, REFERRER_LIMITS.name);
   const company = clip(input.company, REFERRER_LIMITS.company);
   const title = clip(input.title, REFERRER_LIMITS.title);
+  // ⚠️ REQUIRED HERE, not just in the form. Anyone can type any employer into
+  // a free-text box; a clickable company page is the one thing on this desk a
+  // candidate can check before sending a stranger their résumé. The column is
+  // nullable only because desks created before this existed have no value —
+  // saving one now has to supply it.
+  const companyUrl = normalizeCompanyUrl(input.companyUrl ?? "");
   if (!displayName || !company || !title) return null;
+  if (!isUsableCompanyUrl(companyUrl)) return null;
   try {
     const userId = await currentUserId();
     if (!userId) return null;
@@ -701,6 +771,7 @@ export async function upsertMyReferrerProfile(input: {
       company_slug: slugifyPart(company),
       title,
       linkedin: safeHttpUrl(input.linkedin),
+      company_url: clip(companyUrl, REFERRER_LIMITS.companyUrl),
       slug,
       bio: clip(input.bio ?? "", REFERRER_LIMITS.bio) || null,
       open_to_refer: input.openToRefer ?? true,

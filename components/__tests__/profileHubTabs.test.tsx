@@ -56,7 +56,16 @@ describe("ReferralsPanel", () => {
   it("shows the referrer desk instead of the outreach tracker", async () => {
     render(<ReferralsPanel displayName="Parth Bhodia" title="Engineer" linkedin="" />);
     expect(await screen.findByText("Not signed up as a referrer yet")).toBeInTheDocument();
-    expect(screen.getByLabelText("Company you work at")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Company you work at/)).toBeInTheDocument();
+    // ⚠️ THE TWO FIELDS PEOPLE CONFUSED. They were unlabelled inputs carrying
+    // only an aria-label and a placeholder, so once you typed into both they
+    // were two identical boxes reading "Software Developer". The labels must
+    // say WHOSE role each one is about, and they must be visible — a visible
+    // <label> is what getByLabelText finds here, and the placeholder is not.
+    expect(screen.getByLabelText(/Your job title at that company/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Roles you can refer for/)).toBeInTheDocument();
+    // Required, because a free-text employer name is not checkable on its own.
+    expect(screen.getByLabelText(/Company LinkedIn page or website/)).toBeInTheDocument();
     expect(screen.queryByText(/Track the people you are asking/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Outreach list/i)).not.toBeInTheDocument();
   });
