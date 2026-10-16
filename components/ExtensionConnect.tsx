@@ -206,7 +206,7 @@ export default function ExtensionConnect() {
 
           <p className="extc-foot">
             Your Resunova password is never shared with the extension, and the connection can be
-            revoked from the extension&apos;s popup at any time.
+            revoked from the extension&apos;s popup or from Account settings at any time.
           </p>
         </main>
 

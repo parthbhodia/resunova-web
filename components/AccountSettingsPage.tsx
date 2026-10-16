@@ -14,6 +14,7 @@ import { signOutAndReturnHome } from "@/lib/authSignOut";
 import { Card } from "@/components/profileSettingsUi";
 import { ScanUsageWidget } from "@/components/ScanUsageWidget";
 import PlanBillingCard from "@/components/PlanBillingCard";
+import ConnectedExtensionsCard from "@/components/ConnectedExtensionsCard";
 import { EmailPreferencesCard, TailoringModeCard } from "@/components/accountSettingsCards";
 
 /** Read-only account summary + sign out. */
@@ -166,6 +167,8 @@ export default function AccountSettingsPage() {
         <EmailPreferencesCard />
 
         <TailoringModeCard />
+
+        <ConnectedExtensionsCard />
 
         <Card title="Visibility" badge="Soon">
           <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, marginBottom: 12 }}>

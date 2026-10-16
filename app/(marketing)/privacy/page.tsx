@@ -220,7 +220,7 @@ export default function PrivacyPage() {
               <li><b>Account data</b> (email, name): Retained until you delete your account</li>
               <li><b>Saved resumes and analysis history:</b> Retained until you delete individual records or your account</li>
               <li><b>Uploaded PDF text:</b> Processed in memory during generation; not permanently stored</li>
-              <li><b>Browser extension sessions:</b> Expire after 30 days. The one-time code used to create one is discarded within minutes.</li>
+              <li><b>Browser extension sessions:</b> Expire after 30 days without use, and after 90 days at most however often they are used. Changing your password, signing out, or disconnecting in Account settings ends them immediately. The one-time code used to create one is discarded within minutes.</li>
               <li><b>Tracked applications:</b> Kept until you delete the entry or your account, like any other tracker row</li>
               <li><b>Analytics data:</b> Governed by Google Analytics retention settings (typically 14 months)</li>
             </ul>
