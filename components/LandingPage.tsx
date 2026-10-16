@@ -1,5 +1,6 @@
 "use client";
 import { JOBS_ENABLED } from "@/lib/featureFlags";
+import { IS_STORE_LIVE } from "@/lib/extensionContent";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { TAILOR_ROUTE, tailorHref } from "@/lib/tailorRoute";
 import Link from "next/link";
@@ -1113,7 +1114,9 @@ export default function LandingPage() {
                 ["Skills for Resume", "/skills-for-resume"],
                 ["Cover Letter", "/cover-letter"],
                 ["ATS Checker", "/ats-resume-checker"],
-                ["Chrome Extension", "/extension/"],
+                // Hidden until the Web Store listing exists: before that the page
+                // can only lead to a connect flow nobody can complete.
+                ...(IS_STORE_LIVE ? [["Chrome Extension", "/extension/"] as [string, string]] : []),
                 ["Contact", "/contact"],
                 ["Privacy", "/privacy"],
                 ["Terms", "/terms"],

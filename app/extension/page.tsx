@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import ExtensionPage from "@/components/ExtensionPage";
 import { SITE_URL } from "@/lib/brand";
-import { FAQ_ITEMS } from "@/lib/extensionContent";
+import { FAQ_ITEMS, IS_STORE_LIVE } from "@/lib/extensionContent";
 
 export const metadata: Metadata = {
   title: "Chrome Extension: Auto-Fill Job Applications",
   description:
     "Resunova's Chrome extension fills job application forms from your Resunova profile on Greenhouse, Ashby, Lever and Workday. You review every field and click submit yourself.",
   alternates: { canonical: `${SITE_URL}/extension/` },
-  robots: { index: true, follow: true },
+  // Reachable by URL (store reviewers need it) but not indexed until the
+  // listing exists, so search never sends anyone to an uninstallable product.
+  robots: { index: IS_STORE_LIVE, follow: true },
 };
 
 const faqJsonLd = {

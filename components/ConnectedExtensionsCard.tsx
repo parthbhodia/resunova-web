@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/profileSettingsUi";
 import { apiFetch } from "@/lib/apiClient";
+import { IS_STORE_LIVE } from "@/lib/extensionContent";
 
 export type ExtensionSession = {
   id: string;
@@ -121,10 +122,15 @@ export default function ConnectedExtensionsCard() {
 
       {state.kind === "ready" && state.sessions.length === 0 && (
         <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: 0 }}>
-          No extension is connected to this account.{" "}
-          <Link href="/extension" style={{ color: "var(--accent-ink, var(--accent))", fontWeight: 600, textDecoration: "none" }}>
-            Get the Chrome extension
-          </Link>
+          No extension is connected to this account.
+          {IS_STORE_LIVE && (
+            <>
+              {" "}
+              <Link href="/extension" style={{ color: "var(--accent-ink, var(--accent))", fontWeight: 600, textDecoration: "none" }}>
+                Get the Chrome extension
+              </Link>
+            </>
+          )}
         </p>
       )}
 
