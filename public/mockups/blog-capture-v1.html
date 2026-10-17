@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blog capture · comp v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Tokens copied verbatim from app/globals.css, scoped by attribute so a single
+   page can show both themes side by side. Every colour here ships. */
+[data-theme="light"]{
+  --bg:#f7f9fc; --surface:#ffffff; --surface2:#eef3f8; --surface3:#dbe4ee;
+  --border:rgba(15,23,42,0.14); --text:#0f172a; --muted:#475569; --dim:#64748b;
+  --accent:#0969da; --accent-bg:rgba(9,105,218,0.11); --accent-ink:#0559c7;
+  --green:#059669; --green-bg:rgba(5,150,105,0.12); --green-ink:#047857;
+  --amber-bg:rgba(180,83,9,0.12); --amber-ink:#92400e;
+  --red-bg:rgba(220,38,38,0.1); --red-ink:#991b1b; --on-fill:#ffffff;
+  --scrim:rgba(2,6,23,.5); --lift:0 12px 32px rgba(2,6,23,.18);
+}
+[data-theme="dark"]{
+  --bg:#0d1117; --surface:#161b22; --surface2:#1e2329; --surface3:#252c37;
+  --border:rgba(230,237,243,0.12); --text:#f0f6fc; --muted:rgba(240,246,252,0.74); --dim:rgba(240,246,252,0.54);
+  --accent:#58a6ff; --accent-bg:rgba(88,166,255,0.15); --accent-ink:#58a6ff;
+  --green:#34d399; --green-bg:rgba(52,211,153,0.16); --green-ink:#6ee7b7;
+  --amber-bg:rgba(251,191,36,0.16); --amber-ink:#fcd34d;
+  --red-bg:rgba(248,113,113,0.14); --red-ink:#fca5a5; --on-fill:#0d1117;
+  --scrim:rgba(0,0,0,.62); --lift:0 12px 32px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:Geist,system-ui,sans-serif;padding:40px 24px 90px}
+.wrap{max-width:1500px;margin:0 auto}
+/* A pill, not a tracked uppercase label above the heading: the detector bans
+   that form outright, and the pill passes it. */
+.comp-h{display:inline-block;font-size:12px;font-weight:700;color:var(--accent-ink);background:var(--accent-bg);
+  border-radius:999px;padding:4px 11px;margin-bottom:12px}
+.comp-t{font-size:24px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;text-wrap:balance}
+.comp-s{font-size:14px;line-height:1.6;color:var(--muted);max-width:78ch;margin-bottom:24px}
+.rule{border:0;border-top:1px solid var(--border);margin:56px 0}
+code{font-family:ui-monospace,monospace;font-size:.92em;background:var(--surface2);padding:1px 5px;border-radius:4px}
+.cap{font-size:12px;line-height:1.55;color:var(--muted);margin:10px 0 0;max-width:90ch}
+.cap b{color:var(--text);font-weight:700}
+
+/* ---- measured ---- */
+.measured{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:10px}
+.m{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.m b{display:block;font-size:36px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-bottom:8px;font-variant-numeric:tabular-nums}
+.m span{font-size:13px;line-height:1.5;color:var(--muted)}
+
+/* ---- timing rail ---- */
+.rail{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px 28px 22px}
+.track{position:relative;height:14px;border-radius:7px;background:var(--surface3);overflow:hidden;display:flex}
+.track i{display:block;height:100%}
+.t-quiet{width:25%;background:var(--surface3)}
+.t-read{width:25%;background:var(--surface2)}
+.t-eligible{width:50%;background:var(--accent-bg);box-shadow:inset 0 0 0 1px var(--accent)}
+.marks{position:relative;height:0}
+.stops{display:grid;grid-template-columns:25% 25% 50%;margin-top:14px;gap:0}
+.stop{padding:0 16px 0 0}
+.stop h3{font-size:13px;font-weight:700;margin-bottom:5px}
+.stop p{font-size:12px;line-height:1.55;color:var(--muted)}
+.stop .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;margin-bottom:8px}
+.pill.q{background:var(--surface2);color:var(--muted)}
+.pill.e{background:var(--accent-bg);color:var(--accent-ink)}
+.pill.d{background:var(--green-bg);color:var(--green-ink)}
+.rail-extra{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}
+.rail-extra h3{font-size:13px;font-weight:700;margin-bottom:5px}
+.rail-extra p{font-size:12px;line-height:1.55;color:var(--muted)}
+
+/* ---- desktop viewport frame ---- */
+.vp{position:relative;width:1440px;height:700px;overflow:hidden;border:1px solid var(--border);border-radius:14px;
+  background:var(--bg);color:var(--text);font-family:'DM Sans',-apple-system,sans-serif}
+.vp-bar{position:absolute;left:0;right:0;top:0;height:3px;background:var(--surface3);z-index:2}
+.vp-bar i{display:block;height:100%;background:var(--accent)}
+.art{width:760px;margin:0 auto;padding:40px 24px 0}
+.art h1{font-size:36px;font-weight:800;letter-spacing:-1.1px;line-height:1.12;margin:0 0 14px}
+.art .sub{font-size:16px;color:var(--muted);line-height:1.65;margin:0 0 14px}
+.art .by{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);margin-bottom:26px;padding-bottom:22px;border-bottom:1px solid var(--border)}
+.art .av{width:22px;height:22px;border-radius:6px;background:var(--accent-bg);color:var(--accent-ink);font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.art h2{font-size:20px;font-weight:800;letter-spacing:-.4px;margin:30px 0 14px;line-height:1.25}
+.sk{height:9px;border-radius:5px;background:var(--surface3);margin:0 0 13px}
+.sk.h{background:var(--surface3)}
+
+/* ---- the prompt (shared by every variant) ---- */
+.prompt{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:16px;box-shadow:var(--lift);
+  padding:18px 18px 14px;font-family:'DM Sans',-apple-system,sans-serif}
+.prompt .top{display:flex;align-items:flex-start;gap:10px;justify-content:space-between}
+.prompt h3{font-size:16px;font-weight:700;letter-spacing:-.2px;line-height:1.3;text-wrap:balance;padding-top:2px}
+.x{flex:0 0 auto;width:44px;height:44px;margin:-10px -10px 0 0;border:0;background:none;color:var(--muted);border-radius:12px;
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.x svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
+.prompt .why{font-size:13px;line-height:1.55;color:var(--muted);margin:4px 0 14px}
+.field{width:100%;height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);
+  color:var(--text);font:inherit;font-size:14px;margin-bottom:8px}
+.field::placeholder{color:var(--muted)}
+.go{width:100%;height:44px;border-radius:10px;border:0;background:var(--accent);color:var(--on-fill);
+  font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+.foot small{font-size:12px;line-height:1.5;color:var(--muted)}
+.quiet{background:none;border:0;font:inherit;font-size:12px;color:var(--muted);text-decoration:underline;text-underline-offset:3px;
+  cursor:pointer;min-height:44px;padding:0 4px;white-space:nowrap}
+/* A decline the same size as the accept. Shrinking it is the guilt pattern. */
+.decline{width:100%;height:44px;margin-top:6px;border-radius:10px;border:1px solid var(--border);background:none;
+  color:var(--text);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.ok{display:flex;gap:12px;align-items:flex-start}
+.ok .tick{flex:0 0 auto;width:28px;height:28px;border-radius:999px;background:var(--green-bg);display:flex;align-items:center;justify-content:center;margin-top:1px}
+.ok .tick svg{width:15px;height:15px;stroke:var(--green-ink);stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ok h3{margin-bottom:3px}
+.ok p{font-size:13px;line-height:1.55;color:var(--muted)}
+
+.slide{position:absolute;right:20px;bottom:20px;width:320px;z-index:3}
+
+/* ---- phone frame ---- */
+.phones{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
+.ph{position:relative;width:390px;height:780px;overflow:hidden;border:1px solid var(--border);border-radius:30px;
+  background:var(--bg);color:var(--text);font-family:'DM Sans',-apple-system,sans-serif}
+.ph .art{width:auto;padding:26px 20px 0}
+.ph .art h1{font-size:24px;letter-spacing:-.6px;line-height:1.18}
+.ph .art .sub{font-size:14px}
+.dock{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border);
+  box-shadow:0 -8px 24px rgba(2,6,23,.1);padding:10px 12px 22px 16px;z-index:3}
+.dock .row{display:flex;align-items:center;gap:8px}
+.dock .row b{flex:1;font-size:14px;font-weight:600;line-height:1.3}
+.dock .mini{height:44px;min-width:76px;border-radius:10px;border:0;background:var(--accent);color:var(--on-fill);font:inherit;font-size:14px;font-weight:700}
+.dock .row .x{margin:0}
+.dock.open{padding:14px 16px 24px}
+.dock.open .top{margin-bottom:0}
+
+/* ---- exit card ---- */
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:4;display:flex;align-items:center;justify-content:center}
+.modal{width:440px;padding:24px 24px 16px}
+.modal h3{font-size:20px;letter-spacing:-.4px}
+.modal .why{font-size:14px;margin:6px 0 16px}
+
+/* ---- two offers ---- */
+.offers{display:grid;grid-template-columns:1fr 1fr;gap:26px;background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:30px}
+.offers .lab{font-size:12px;font-weight:700;margin-bottom:10px;color:var(--muted)}
+.offers .prompt{width:100%;max-width:360px}
+.offers .go.alt{background:var(--accent)}
+
+/* ---- tables and lists ---- */
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;font-size:13px}
+th{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 16px;background:var(--surface2)}
+td{padding:14px 16px;border-top:1px solid var(--border);vertical-align:top;line-height:1.55;color:var(--muted)}
+td b{color:var(--text);font-weight:700}
+td .n{font-variant-numeric:tabular-nums;color:var(--text);font-weight:600}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px}
+.card h3{font-size:14px;font-weight:700;margin-bottom:12px}
+.card ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:9px}
+.card li{font-size:13px;line-height:1.55;color:var(--muted)}
+.card li b{color:var(--text)}
+.card.no h3{color:var(--red-ink)}
+.card.yes h3{color:var(--green-ink)}
+@media(max-width:1500px){.vp{zoom:.78}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="comp-h">Blog capture · comp v1</p>
+  <h2 class="comp-t">Offer the next step to readers who have earned it, and never stand between a reader and the page</h2>
+  <p class="comp-s">A prompt for blog readers who are not converting, designed against the real LinkedIn applicant-count post. Tokens are copied from <code>app/globals.css</code>, the article chrome from <code>BlogArticleLayout</code>, and the confirmation copy from <code>BlogSubscribe</code> as shipped. The article body is elided to bars on purpose: the comp is about the prompt, not the prose.</p>
+
+  <!-- ===== 0. MEASURED ===== -->
+  <p class="comp-h">What the data says first</p>
+  <h2 class="comp-t">The audience is smaller than it feels, and the existing form has captured nobody</h2>
+  <div class="measured">
+    <div class="m"><b>361</b><span>tracked blog views since the counter shipped, across 11 posts</span></div>
+    <div class="m"><b>31%</b><span>of those on one post, the LinkedIn applicant-count analysis (111 views)</span></div>
+    <div class="m"><b>0</b><span>real subscribers. The only row is a test address and it never confirmed</span></div>
+    <div class="m"><b>2</b><span>account signups so far in October, against 23 in May and 26 in June</span></div>
+  </div>
+  <p class="cap">Queried 2026-10-17 from <code>blog_post_views</code>, <code>blog_subscribers</code> and <code>auth.users</code>. The views counter has no start date on record, so 361 is a floor on volume, not a rate.</p>
+
+  <hr class="rule">
+
+  <!-- ===== 1. TIMING ===== -->
+  <p class="comp-h">When anything appears</p>
+  <h2 class="comp-t">Nothing for the first quarter of the article. One prompt for someone who has read half of it.</h2>
+  <div class="rail">
+    <div class="track"><i class="t-quiet"></i><i class="t-read"></i><i class="t-eligible"></i></div>
+    <div class="stops">
+      <div class="stop"><span class="pill q">0 to 25%</span><h3>Nothing appears</h3><p>The reader is deciding whether this page is worth it. It is also the window Google judges when someone arrives from search.</p></div>
+      <div class="stop"><span class="pill q">25 to 50%</span><h3>Still nothing</h3><p>The reader is partway in and has not yet earned a prompt. A long time on the page does not change that.</p></div>
+      <div class="stop"><span class="pill e">50% and 45 seconds on the page</span><h3>Slide-in, once per session</h3><p>The prompt needs both conditions. Scrolling fast past halfway is skimming, and 45 seconds at the top of the page is a tab left open, so it appears only for a reader who has done both.</p></div>
+    </div>
+    <div class="rail-extra">
+      <div><span class="pill d" style="display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;margin-bottom:8px">End of article</span><h3>Inline form, already shipped</h3><p>Stays where it is, above "Continue reading". The slide-in never appears once someone has reached it, so the same person is not asked twice.</p></div>
+      <div><span class="pill e" style="display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;margin-bottom:8px">Desktop only</span><h3>Exit card, once per visitor</h3><p>When the pointer leaves through the top of the window and the slide-in has not been shown or dismissed. A modal does not interrupt reading at that moment, because the reader is already leaving. Phones have no equivalent, so they never get this one.</p></div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ===== 2. DESKTOP SLIDE-IN ===== -->
+  <p class="comp-h">A · Slide-in, desktop</p>
+  <h2 class="comp-t">A card in the right gutter that does not cover a word of the article</h2>
+  <p class="comp-s">At 1440 the article text ends about 24px before the card begins (23px measured, the frame's own border taking the other pixel). It is non-modal: it does not take focus, does not lock scroll, and leaves the page fully usable behind it. Shown here 55% of the way down, after 72 seconds.</p>
+
+  <div class="vp" data-theme="light" id="vp-light">
+    <div class="vp-bar"><i style="width:55%"></i></div>
+    <div class="art">
+      <h2 style="margin-top:34px">A lot of the pile isn't even trying to compete with you</h2>
+      <div class="sk" style="width:100%"></div><div class="sk" style="width:97%"></div><div class="sk" style="width:99%"></div><div class="sk" style="width:62%"></div>
+      <div style="height:14px"></div>
+      <div class="sk" style="width:98%"></div><div class="sk" style="width:100%"></div><div class="sk" style="width:94%"></div><div class="sk" style="width:99%"></div><div class="sk" style="width:41%"></div>
+      <h2>So what is the real number?</h2>
+      <div class="sk" style="width:100%"></div><div class="sk" style="width:96%"></div><div class="sk" style="width:100%"></div><div class="sk" style="width:88%"></div>
+      <div style="height:14px"></div>
+      <div class="sk" style="width:99%"></div><div class="sk" style="width:93%"></div><div class="sk" style="width:100%"></div><div class="sk" style="width:58%"></div>
+      <h2>What to actually do with this</h2>
+      <div class="sk" style="width:100%"></div><div class="sk" style="width:95%"></div><div class="sk" style="width:99%"></div>
+    </div>
+    <aside class="prompt slide" aria-label="Get the next analysis by email">
+      <div class="top"><h3>Get the next analysis by email</h3><button class="x" aria-label="Close"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button></div>
+      <p class="why">One email, only when we publish the next look at what job postings actually say.</p>
+      <input class="field" type="email" placeholder="you@example.com" aria-label="Email address">
+      <button class="go">Send me the next one</button>
+      <div class="foot"><small>We email once to confirm.</small><button class="quiet">Don't show again</button></div>
+    </aside>
+  </div>
+  <p class="cap"><b>Light.</b> Heading 16, body 13, footnote 12, all on the shipped type ladder. Field and button are 44px, the same floor the MUI theme sets, and the close target is 44px with a 16px glyph.</p>
+
+  <div class="vp" data-theme="dark" id="vp-dark" style="margin-top:28px">
+    <div class="vp-bar"><i style="width:55%"></i></div>
+    <div class="art">
+      <h2 style="margin-top:34px">A lot of the pile isn't even trying to compete with you</h2>
+      <div class="sk" style="width:100%"></div><div class="sk" style="width:97%"></div><div class="sk" style="width:99%"></div><div class="sk" style="width:62%"></div>
+      <div style="height:14px"></div>
+      <div class="sk" style="width:98%"></div><div class="sk" style="width:100%"></div><div class="sk" style="width:94%"></div><div class="sk" style="width:99%"></div><div class="sk" style="width:41%"></div>
+      <h2>So what is the real number?</h2>
+      <div class="sk" style="width:100%"></div><div class="sk" style="width:96%"></div><div class="sk" style="width:100%"></div><div class="sk" style="width:88%"></div>
+      <div style="height:14px"></div>
+      <div class="sk" style="width:99%"></div><div class="sk" style="width:93%"></div><div class="sk" style="width:100%"></div><div class="sk" style="width:58%"></div>
+      <h2>What to actually do with this</h2>
+      <div class="sk" style="width:100%"></div><div class="sk" style="width:95%"></div><div class="sk" style="width:99%"></div>
+    </div>
+    <aside class="prompt slide" aria-label="Get the next analysis by email">
+      <div class="top"><h3>Get the next analysis by email</h3><button class="x" aria-label="Close"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button></div>
+      <p class="why">One email, only when we publish the next look at what job postings actually say.</p>
+      <input class="field" type="email" placeholder="you@example.com" aria-label="Email address">
+      <button class="go">Send me the next one</button>
+      <div class="foot"><small>We email once to confirm.</small><button class="quiet">Don't show again</button></div>
+    </aside>
+  </div>
+  <p class="cap"><b>Dark.</b> The button takes <code>--on-fill</code> (near-black on <code>#58a6ff</code>, 7.49:1). The blog's two shipped buttons hardcode <code>#fff</code> there and measure 2.53:1, which is a conversion bug in its own right and ships today.</p>
+
+  <hr class="rule">
+
+  <!-- ===== 3. PHONE ===== -->
+  <p class="comp-h">B · Dock, phone</p>
+  <h2 class="comp-t">A bar the height of a thumb, never a sheet that covers the page</h2>
+  <p class="comp-s">Same trigger as the desktop card, nothing on arrival. It starts as one line and one button. Tapping the button grows the bar in place to take an email, never beyond 40% of the screen, with no scroll lock and no scrim.</p>
+
+  <div class="phones" data-theme="light">
+    <div>
+      <div class="ph" data-theme="light">
+        <div class="art">
+          <h1>LinkedIn's Applicant Count Is Measuring Clicks, Not Applications</h1>
+          <p class="sub">For postings that redirect to a company's own site, LinkedIn keeps no record of who applied.</p>
+          <h2>What the pile looks like from the other side of the desk</h2>
+          <div class="sk" style="width:100%"></div><div class="sk" style="width:96%"></div><div class="sk" style="width:99%"></div><div class="sk" style="width:60%"></div>
+          <div style="height:12px"></div>
+          <div class="sk" style="width:98%"></div><div class="sk" style="width:100%"></div><div class="sk" style="width:92%"></div>
+        </div>
+        <div class="dock" role="region" aria-label="Get the next analysis by email">
+          <div class="row"><b>Get the next analysis by email</b><button class="mini">Get it</button><button class="x" aria-label="Close"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button></div>
+        </div>
+      </div>
+      <p class="cap" style="max-width:390px"><b>1 · Resting.</b> 64px bar, 44px targets, bottom padding clears the home indicator.</p>
+    </div>
+
+    <div>
+      <div class="ph" data-theme="light">
+        <div class="art">
+          <h1>LinkedIn's Applicant Count Is Measuring Clicks, Not Applications</h1>
+          <p class="sub">For postings that redirect to a company's own site, LinkedIn keeps no record of who applied.</p>
+          <h2>What the pile looks like from the other side of the desk</h2>
+          <div class="sk" style="width:100%"></div><div class="sk" style="width:96%"></div><div class="sk" style="width:99%"></div><div class="sk" style="width:60%"></div>
+          <div style="height:12px"></div>
+          <div class="sk" style="width:98%"></div><div class="sk" style="width:100%"></div><div class="sk" style="width:92%"></div>
+        </div>
+        <div class="dock open prompt" style="border-radius:16px 16px 0 0" role="region" aria-label="Get the next analysis by email">
+          <div class="top"><h3>Get the next analysis by email</h3><button class="x" aria-label="Close"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button></div>
+          <p class="why">One email, only when we publish the next look at what job postings actually say.</p>
+          <input class="field" type="email" placeholder="you@example.com" aria-label="Email address">
+          <button class="go">Send me the next one</button>
+          <div class="foot"><small>We email once to confirm.</small><button class="quiet">Don't show again</button></div>
+        </div>
+      </div>
+      <p class="cap" style="max-width:390px"><b>2 · Open.</b> The page behind stays scrollable and readable. The keyboard raises the dock rather than covering the field.</p>
+    </div>
+
+    <div>
+      <div class="ph" data-theme="light">
+        <div class="art">
+          <h1>LinkedIn's Applicant Count Is Measuring Clicks, Not Applications</h1>
+          <p class="sub">For postings that redirect to a company's own site, LinkedIn keeps no record of who applied.</p>
+          <h2>What the pile looks like from the other side of the desk</h2>
+          <div class="sk" style="width:100%"></div><div class="sk" style="width:96%"></div><div class="sk" style="width:99%"></div><div class="sk" style="width:60%"></div>
+          <div style="height:12px"></div>
+          <div class="sk" style="width:98%"></div><div class="sk" style="width:100%"></div><div class="sk" style="width:92%"></div>
+        </div>
+        <div class="dock open prompt" style="border-radius:16px 16px 0 0" role="status">
+          <div class="ok">
+            <span class="tick"><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg></span>
+            <div><h3>Check your email</h3><p>Check your email for a link to confirm. It should arrive in a minute.</p></div>
+          </div>
+          <div class="foot" style="margin-top:8px"><small></small><button class="quiet">Done</button></div>
+        </div>
+      </div>
+      <p class="cap" style="max-width:390px"><b>3 · Sent.</b> This is the shipped success string, word for word. It says "confirm" because double opt-in means the reader is not yet on the list, and the prompt must not claim otherwise.</p>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ===== 4. EXIT ===== -->
+  <p class="comp-h">C · Exit card, desktop only</p>
+  <h2 class="comp-t">The literal pop-up, kept for the one moment it costs nothing</h2>
+  <p class="comp-s">Fires when the pointer leaves through the top of the window, once per visitor, and only if the slide-in has not already been shown or dismissed. This one is a true dialog: it takes focus, closes on Escape, and returns focus to where it was.</p>
+
+  <div class="vp" data-theme="light" id="vp-exit">
+    <div class="vp-bar"><i style="width:34%"></i></div>
+    <div class="art">
+      <h1>LinkedIn's Applicant Count Is Measuring Clicks, Not Applications</h1>
+      <p class="sub">For postings that redirect to a company's own site, LinkedIn keeps no record of who applied. Add the 42% who don't meet requirements and the median posting's 13 hard requirements, and "127 applicants" is a much smaller number of real competitors.</p>
+      <div class="by"><span class="av">R</span><span>Resunova Team</span><span aria-hidden="true">·</span><span>6 min read</span><span aria-hidden="true">·</span><span>Published Jul 16, 2026</span></div>
+      <h2>The badge is counting clicks</h2>
+      <div class="sk" style="width:100%"></div><div class="sk" style="width:97%"></div><div class="sk" style="width:99%"></div><div class="sk" style="width:62%"></div>
+      <div style="height:14px"></div>
+      <div class="sk" style="width:98%"></div><div class="sk" style="width:100%"></div><div class="sk" style="width:94%"></div>
+      <h2>What the pile looks like from the other side of the desk</h2>
+      <div class="sk" style="width:100%"></div><div class="sk" style="width:96%"></div>
+    </div>
+    <div class="scrim">
+      <div class="prompt modal" role="dialog" aria-modal="true" aria-labelledby="exit-h">
+        <div class="top"><h3 id="exit-h">Want the next analysis when it's out?</h3><button class="x" aria-label="Close"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button></div>
+        <p class="why">One email when we publish the next look at what job postings actually say. Confirm once, unsubscribe in one click.</p>
+        <input class="field" type="email" placeholder="you@example.com" aria-label="Email address">
+        <button class="go">Send me the next one</button>
+        <button class="decline">No thanks</button>
+      </div>
+    </div>
+  </div>
+  <p class="cap"><b>No countdown, no guilt copy.</b> The decline is a plain "No thanks", a real button at the same 44px height and 14px size as the accept. It is outlined rather than filled, so there is still a clear primary, but it is never a smaller, greyer link.</p>
+
+  <hr class="rule">
+
+  <!-- ===== 5. TWO OFFERS ===== -->
+  <p class="comp-h">What the card says</p>
+  <h2 class="comp-t">Two offers, matched to what the reader is doing</h2>
+  <p class="comp-s">A generic "subscribe" is the weakest ask on the page. A reader of a data analysis is learning; a reader of a résumé guide is about to do something. The card changes its offer to match, and each one only claims what is true today.</p>
+
+  <div class="offers" data-theme="light">
+    <div>
+      <p class="lab">Data posts · wants to learn more</p>
+      <aside class="prompt">
+        <div class="top"><h3>Get the next analysis by email</h3><button class="x" aria-label="Close"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button></div>
+        <p class="why">One email, only when we publish the next look at what job postings actually say.</p>
+        <input class="field" type="email" placeholder="you@example.com" aria-label="Email address">
+        <button class="go">Send me the next one</button>
+        <div class="foot"><small>We email once to confirm.</small><button class="quiet">Don't show again</button></div>
+      </aside>
+    </div>
+    <div>
+      <p class="lab">Résumé posts · about to act</p>
+      <aside class="prompt">
+        <div class="top"><h3>Check this against a real posting</h3><button class="x" aria-label="Close"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button></div>
+        <p class="why">Paste a job description and see which requirements your résumé already shows. Free account, no credit card.</p>
+        <button class="go">Check my résumé</button>
+        <div class="foot"><small>You'll sign in first.</small><button class="quiet">Don't show again</button></div>
+      </aside>
+    </div>
+  </div>
+  <p class="cap">The right-hand card never says "no account" and the footnote says so plainly: scanning requires one, and <code>scanRequiresAccount.test.ts</code> fails the build on any marketing line that claims otherwise. Its button goes through <code>openSignIn({ ask })</code> so the sign-in dialog repeats the same promise instead of a generic welcome.</p>
+
+  <div style="height:26px"></div>
+  <table>
+    <thead><tr><th style="width:34%">Post (tracked views)</th><th style="width:20%">Reader is</th><th style="width:26%">Card offers</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><b>LinkedIn applicant counts</b> <span class="n">111</span><br>Salary transparency <span class="n">32</span><br>Ghost jobs <span class="n">32</span><br>S&amp;P 100 tech hiring <span class="n">15</span></td><td>Learning</td><td>The next analysis, by email</td><td>Cold readers, mostly from search or social. Lowest commitment that still gives them a reason to return.</td></tr>
+      <tr><td><b>Tailor a résumé to a JD</b> <span class="n">55</span><br>AI rewrite failure modes <span class="n">31</span><br>Claude résumé prompts <span class="n">29</span><br>Optimizing for ATS <span class="n">27</span><br>How ATS really works <span class="n">25</span></td><td>About to act</td><td>Check a posting against their résumé</td><td>These readers are mid-task. Email is a detour for them; the product is the next paragraph.</td></tr>
+      <tr><td>Job search 2026 <span class="n">2</span><br>Employee referrals <span class="n">2</span></td><td>Learning</td><td>Same as data posts</td><td>Too little traffic to justify a third variant.</td></tr>
+      <tr><td><b>Methodology</b></td><td>Checking our work</td><td>Nothing</td><td>A trust page. Anyone here is deciding whether to believe the others, and a prompt on it reads as a sales page.</td></tr>
+    </tbody>
+  </table>
+
+  <hr class="rule">
+
+  <!-- ===== 6. RULES ===== -->
+  <p class="comp-h">Rules</p>
+  <h2 class="comp-t">What makes this safe for search and for the people reading</h2>
+  <div class="cols">
+    <div class="card yes">
+      <h3>Ship</h3>
+      <ul>
+        <li><b>Once per session, then a 30-day memory.</b> "Don't show again" and a successful signup both end it for good.</li>
+        <li><b>Both conditions to appear:</b> 50% depth and 45 seconds, so skimming and a forgotten tab both stay quiet.</li>
+        <li><b>Non-modal on phones and in the desktop gutter.</b> Only the exit card is a dialog, and it traps focus properly and closes on Escape.</li>
+        <li><b>Signed-in readers never see the résumé offer.</b> Its footnote promises a sign-in step that would be false for them, so they get the email card or nothing.</li>
+        <li><b>Reduced motion removes the entrance outright</b>, as the rest of the marketing surface does. It simply appears.</li>
+        <li><b>Every number comes from a constant.</b> The only figures near this card are in the article itself, which already cites its source.</li>
+        <li><b>Events through the typed analytics seam:</b> shown, dismissed, submitted, each with post, variant and trigger, so the result can be read instead of guessed.</li>
+      </ul>
+    </div>
+    <div class="card no">
+      <h3>Never</h3>
+      <ul>
+        <li><b>Anything on arrival from search.</b> A full-screen overlay on the first screen of a mobile search visit is the pattern Google's interstitial guidance targets, and these posts are the best door the site has.</li>
+        <li><b>A timer on its own.</b> Time on the page without scroll depth is usually a tab left open.</li>
+        <li><b>A scrim or scroll lock on a phone.</b></li>
+        <li><b>Guilt copy or a countdown.</b> "No thanks, I don't want to get hired" is the tone that loses people who would have come back.</li>
+        <li><b>Re-showing after a dismissal within 30 days.</b></li>
+        <li><b>Covering the table of contents, the byline or the existing end-of-article form.</b></li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
