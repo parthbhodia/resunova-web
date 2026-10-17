@@ -367,7 +367,7 @@ export default function EmployeeReferralsHelpAndAskPage() {
 
       <CTACard
         heading="Find an open referrer, or publish your own desk"
-        body="Browse companies where employees are open to refer, or share a private link from Profile when you can help someone else."
+        body="With a free account you can see who is open to referring at the companies you are targeting, or share a private link from Profile when you can help someone else."
         href="/refer/"
         cta="Open the referral desk"
       />

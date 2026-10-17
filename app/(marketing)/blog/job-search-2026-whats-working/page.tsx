@@ -439,7 +439,7 @@ export default function JobSearch2026WhatsWorkingPage() {
 
       <CTACard
         heading="Make the applications you do send count"
-        body="When you pick a real role, score your résumé against that job description so the hours you spend on the portal match the channel research above."
+        body="When you pick a real role, score your résumé against that job description so the hours you spend on the portal match the channel research above. Free with an account, no credit card."
         href="/?view=analyze"
         cta="Score your résumé free"
       />

@@ -126,7 +126,7 @@ export default function BlogSubscribe({
               borderRadius: 9,
               border: "none",
               background: "var(--accent)",
-              color: "#fff",
+              color: "var(--on-fill)",
               fontSize: 14,
               fontWeight: 700,
               fontFamily: "inherit",

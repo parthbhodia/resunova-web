@@ -288,7 +288,7 @@ export default function LinkedInApplicantCountPage() {
       <CTACard
         heading="Let the counting be automatic"
         body="Paste a job description and Resunova extracts its requirements the same way this analysis did, then shows which ones your resume already evidences and which ones it doesn't. Free with an account, no credit card."
-        href="/"
+        href="/?view=analyze"
         cta="Count my requirements free"
       />
 
@@ -357,7 +357,7 @@ export default function LinkedInApplicantCountPage() {
           Resunova extracts the hard requirements out of any job description and scores your résumé against them, one by
           one, so you can see what you clear and what you are missing before you spend an hour on the application.
         </p>
-        <Link href="/?view=analyze" style={{ display: "inline-block", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "9px 16px", fontSize: 14, fontWeight: 650, textDecoration: "none" }}>
+        <Link href="/?view=analyze" style={{ display: "inline-block", background: "var(--accent)", color: "var(--on-fill)", borderRadius: 9, padding: "9px 16px", fontSize: 14, fontWeight: 650, textDecoration: "none" }}>
           Check a job description
         </Link>
       </div>

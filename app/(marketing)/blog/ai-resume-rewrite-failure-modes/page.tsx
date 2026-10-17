@@ -319,7 +319,7 @@ export default function AiResumeRewriteFailureModesPage() {
 
       <CTACard
         heading="Get suggestions that already passed these checks"
-        body="Resunova runs every AI rewrite through the validators described in this post before it reaches you. Dropped metrics, no-op edits, and false quantification claims never make it to the screen."
+        body="Resunova runs every AI rewrite through the validators described in this post before it reaches you. Dropped metrics, no-op edits, and false quantification claims never make it to the screen. Free with an account, no credit card."
         href="/?view=analyze"
         cta="Score my resume free"
       />
