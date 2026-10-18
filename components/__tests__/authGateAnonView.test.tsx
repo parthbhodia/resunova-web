@@ -3,9 +3,10 @@ import { render, screen, waitFor, act } from "@testing-library/react";
 
 /**
  * `/?view=analyze` is a signed-out ENTRY POINT, not just a URL a visitor can be
- * handed: six blog CTAs and a job-detail link are Next <Link>s into it, so the
- * gate has to open the app shell on a CLIENT navigation — not only on a page
- * load, and not only on back/forward.
+ * handed: 4 of the 15 blog posts carry a Next <Link> CTA into it, so the gate
+ * has to open the app shell on a CLIENT navigation — not only on a page load,
+ * and not only on back/forward. Those posts sit on a marketing path, so the
+ * navigation changes the pathname, which is what the dependency keys on.
  *
  * Reading the view once on mount (plus popstate) satisfied every direct-load
  * test and still failed in the browser: a <Link> pushes history and swaps the
