@@ -11,11 +11,12 @@ import {
   readForceLandingAfterSignOut,
   subscribeForceLandingAfterSignOut,
 } from "@/lib/authSignOut";
-import { signInWithGoogle, urlRequestsPublicAppView } from "@/lib/anonScan";
+import { isPublicAppView, signInWithGoogle, urlRequestsPublicAppView } from "@/lib/anonScan";
 import { nextGateSession } from "@/lib/authGateSession";
 import { useSignInDialog } from "./SignInDialog";
 import LandingPage from "./LandingPage";
 import AppShellSkeleton from "./app-shell/AppShellSkeleton";
+import { VIEW_LABELS, type AppView } from "./app-shell/nav-config";
 
 /** Human name for a gated route, so the prompt says what you were heading to. */
 const GATED_ROUTE_LABELS: Record<string, string> = {
@@ -408,6 +409,183 @@ function isHomePath(pathname: string | null): boolean {
   return trimmed === "" || trimmed === "/";
 }
 
+/**
+ * The `?view=` a signed-out visitor asked for that needs an account to open —
+ * `cover-letter` today, reached from three CTAs on the public /cover-letter page.
+ *
+ * Both halves are lookups, never a second hand-kept list: `VIEW_LABELS` is the
+ * set of views AppShell can actually render (a `?view=` it doesn't know falls
+ * back to "home"), and `isPublicAppView` is the same allowlist AuthGate and the
+ * sidebar already share. A marketing surface advertising a view that is missing
+ * from PUBLIC_APP_VIEWS is exactly how `/?view=cover-letter` used to answer a
+ * signed-out visitor with the marketing hero.
+ *
+ * `home` is excluded: it's the hub behind the landing page, not something a
+ * visitor was denied.
+ */
+function accountOnlyView(): AppView | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = (new URLSearchParams(window.location.search).get("view") || "").toLowerCase();
+    if (!raw || raw === "home") return null;
+    if (!(raw in VIEW_LABELS)) return null;
+    if (isPublicAppView(raw)) return null;
+    return raw as AppView;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sign-in prompt for a view that needs an account, shown IN PLACE at the URL the
+ * visitor asked for.
+ *
+ * The alternative — bouncing to the marketing page — threw away the reason they
+ * came: they wanted this view, and the CTA that sent them here said so. Worse,
+ * it read as a broken link, because the URL still said `?view=cover-letter`
+ * under a hero that has nothing to do with cover letters.
+ *
+ * Signing in here rather than redirecting is what makes the destination work
+ * with no extra plumbing: `signInWithGoogle` stashes the post-login destination
+ * and builds its OAuth `redirectTo` from `window.location`, so both already
+ * point at `/?view=cover-letter`. The visitor signs in once and lands on the
+ * view they clicked.
+ *
+ * Deliberately NOT an account-bound surface: no dashboard, no résumé list — the
+ * same promise `/templates` makes ("open any of them in the builder, no sign-up
+ * required"), one step closer to the thing they came for.
+ */
+function SignInToOpenView({ view }: { view: AppView }) {
+  const { openSignIn } = useSignInDialog();
+  const [oauthBusy, setOauthBusy] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const label = VIEW_LABELS[view].toLowerCase();
+
+  const handleGoogle = async () => {
+    setOauthBusy(true);
+    setOauthError(null);
+    const err = await signInWithGoogle();
+    if (err) {
+      setOauthError(err);
+      setOauthBusy(false);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "40px 20px",
+      background: "var(--bg)",
+    }}>
+      <div style={{
+        maxWidth: "440px",
+        width: "100%",
+        textAlign: "center",
+      }}>
+        <div style={{
+          display: "flex",
+          justifyContent: "center",
+          marginBottom: "16px",
+        }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "60px",
+            height: "60px",
+            borderRadius: "14px",
+            background: "var(--accent-bg)",
+          }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="M7 9h6M7 13h10" />
+            </svg>
+          </div>
+        </div>
+
+        <h1 style={{
+          margin: "0 0 12px",
+          fontSize: "30px",
+          fontWeight: "800",
+          letterSpacing: "-0.8px",
+          color: "var(--text)",
+          lineHeight: 1.2,
+        }}>
+          Sign in to open {label}
+        </h1>
+
+        <p style={{
+          fontSize: "15px",
+          color: "var(--muted)",
+          lineHeight: "1.7",
+          maxWidth: "380px",
+          margin: "0 auto 28px",
+        }}>
+          {`Create a free account to use the ${label}. Signing in takes you straight there, so this page is not lost.`}
+        </p>
+
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          marginBottom: "24px",
+        }}>
+          <button
+            type="button"
+            onClick={() => void handleGoogle()}
+            disabled={oauthBusy}
+            style={{
+              width: "100%",
+              padding: "12px 24px",
+              borderRadius: "12px",
+              border: "none",
+              background: "var(--accent)",
+              color: "#fff",
+              fontSize: "15px",
+              fontWeight: "600",
+              fontFamily: "inherit",
+              cursor: "pointer",
+              transition: "all 0.2s ease-out",
+              opacity: oauthBusy ? 0.7 : 1,
+            }}
+          >
+            {oauthBusy ? "Opening Google…" : "Continue with Google"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openSignIn({ reason: `Sign in or create a free account to open ${label}.` })}
+            disabled={oauthBusy}
+            style={{
+              width: "100%",
+              padding: "12px 24px",
+              borderRadius: "12px",
+              border: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--muted)",
+              fontSize: "15px",
+              fontWeight: "600",
+              fontFamily: "inherit",
+              cursor: "pointer",
+              transition: "all 0.2s ease-out",
+              opacity: oauthBusy ? 0.7 : 1,
+            }}
+          >
+            Use email instead
+          </button>
+        </div>
+
+        {oauthError && (
+          <p style={{ fontSize: "14px", color: "#c0392b", margin: 0 }}>{oauthError}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const publicRoute = isPublicPath(pathname);
@@ -430,12 +608,18 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // the JS session so in-app view switches don't bounce the user to landing.
   const [anonView, setAnonView] = useState(false);
 
+  // A view the app can render but signed-out visitors may not open. Kept beside
+  // anonView because both are answers to the same question ("what did this URL
+  // ask for?") read from the same place, on the same trigger.
+  const [accountView, setAccountView] = useState<AppView | null>(null);
+
   // Re-check when the path changes: client navigations from a marketing route
   // (e.g. /pricing → /?view=analyze) do not fire popstate, and a one-shot mount
   // read would leave anonView false and trap the visitor on the marketing home.
   useEffect(() => {
     const check = () => {
       if (urlRequestsPublicAppView()) setAnonView(true);
+      setAccountView(accountOnlyView());
     };
     check();
     window.addEventListener("popstate", check);
@@ -502,6 +686,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       // visitor into the app shell. Sign-in CTAs inside the shell gate the
       // actions that need an account (save, export, etc.).
       if (anonView) return <>{children}</>;
+      // A view that needs an account (cover letter, today). Same reasoning as
+      // the gated routes below, and for the same reason: say so and KEEP THE
+      // URL, so signing in here lands the visitor on the view they asked for.
+      // Rendering the marketing page left `?view=cover-letter` in the address
+      // bar above a hero that had nothing to do with cover letters.
+      if (accountView) return <SignInToOpenView view={accountView} />;
       return <LandingPage />;
     }
     return <>{children}</>;
