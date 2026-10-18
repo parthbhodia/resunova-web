@@ -80,3 +80,20 @@ export const CL_TEMPLATES: { id: CLTemplateId; label: string; description: strin
     { id: "tech", label: "Tech Cover Letter", description: "A sleek, monospace-accented layout perfect for engineering roles." },
     { id: "elegant", label: "Elegant Cover Letter", description: "A refined, classic serif design with elegant spacing." },
 ];
+
+/**
+ * Resolve the `?clt=` layout param to a layout id, or null when absent/unknown.
+ *
+ * NOT `?cl=`. That one is a saved-document id (`loadFromServer` →
+ * `fetchCoverLetterById`, used by LibraryResumeDetailPanel to reopen a stored
+ * letter), so a layout id passed there fetches a record that cannot exist: the
+ * localStorage fallback is skipped, `loaded` never flips, and the editor sits on
+ * the mode screen with no draft. Presetting a layout for a NEW letter needs its
+ * own param, and it validates against CL_TEMPLATES so a hand-edited URL cannot
+ * set a templateId that has no renderer.
+ */
+export function resolveLayoutParam(raw: string | null | undefined): CLTemplateId | null {
+    const id = (raw ?? "").trim().toLowerCase();
+    if (!id) return null;
+    return CL_TEMPLATES.some((t) => t.id === id) ? (id as CLTemplateId) : null;
+}
