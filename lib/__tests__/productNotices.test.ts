@@ -7,6 +7,10 @@ import {
   PRODUCT_NOTICES,
   referralAlertCopy,
   referralToastForUnread,
+  rewardFeed,
+  rewardNotificationId,
+  rememberToastedRewardIds,
+  TOASTED_REWARD_KEY,
   unreadReferralRequests,
   unseenReferralOutcomes,
 } from "@/lib/productNotices";
@@ -22,6 +26,8 @@ function request(partial: Partial<CompanyReferralRequest> & Pick<CompanyReferral
     candidatePhone: null,
     candidateYearsExperience: null,
     candidateHeadline: null,
+    candidateOutcome: null,
+    candidateOutcomeAt: null,
     role: "Backend Engineer",
     notes: null,
     source: "request",
@@ -31,6 +37,55 @@ function request(partial: Partial<CompanyReferralRequest> & Pick<CompanyReferral
 }
 
 describe("product notices", () => {
+  it("adds rewards to the bell alongside asks and outcomes", () => {
+    const feed = notificationFeed({
+      notice: null,
+      inboxUnread: 1,
+      outcomeUnread: 0,
+      rewardUnread: 2,
+      rewardDays: 13,
+    });
+    expect(feed.count).toBe(3);
+    expect(feed.items.map((i) => i.id)).toEqual(["referral-inbox", "referral-rewards"]);
+    expect(feed.items[1].body).toMatch(/13 Pro days/i);
+  });
+
+  it("says rewards were earned even when the day total is zero", () => {
+    // A revoked or malformed row must not produce an empty sentence.
+    const feed = notificationFeed({
+      notice: null, inboxUnread: 0, outcomeUnread: 0, rewardUnread: 1, rewardDays: 0,
+    });
+    expect(feed.items[0].body).toMatch(/earned/i);
+  });
+
+  it("keeps pending rewards visible in the count", () => {
+    // Hiding pending would make a reward look like it was never earned.
+    expect(rewardFeed([{ kind: "referred", status: "pending", days: 3 }])).toEqual({
+      count: 1, days: 3, unseen: true,
+    });
+  });
+
+  it("ignores revoked rewards in both count and days", () => {
+    expect(rewardFeed([{ kind: "referred", status: "revoked", days: 3 }])).toEqual({
+      count: 0, days: 0, unseen: false,
+    });
+  });
+
+  it("keys a reward on kind AND status, so settling it is a second notification", () => {
+    const row = { id: "a1", kind: "interview", status: "pending" };
+    const settled = { id: "a1", kind: "interview", status: "granted" };
+    expect(rewardNotificationId(row)).not.toBe(rewardNotificationId(settled));
+    // Same state twice is the same notification.
+    expect(rewardNotificationId(row)).toBe(rewardNotificationId({ ...row }));
+  });
+
+  it("keeps the reward seen-list bounded so localStorage does not grow forever", () => {
+    const many = Array.from({ length: 250 }, (_, i) => `r${i}`);
+    rememberToastedRewardIds(many);
+    const stored = JSON.parse(localStorage.getItem(TOASTED_REWARD_KEY)!);
+    expect(stored.length).toBeLessThanOrEqual(200);
+  });
+
   it("counts a feature plus each unread ask and outcome on the red badge", () => {
     const feed = notificationFeed({
       notice: PRODUCT_NOTICES[0],

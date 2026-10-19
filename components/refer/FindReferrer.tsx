@@ -10,11 +10,18 @@ import {
   ReferGoogleGate,
   ReferLede,
   ReferNote,
+  ReferSortToggle,
   ReferTitle,
   ReferrerCard,
+  TopReferrerChip,
 } from "@/components/refer/referUi";
 import { surfaceCardSx } from "@/components/mui/cssVars";
-import { REFERRER_LIMITS, referrerPublicPath, type OpenReferralCompany } from "@/lib/companyReferrers";
+import {
+  REFERRER_LIMITS,
+  referrerPublicPath,
+  topReferrerId,
+  type OpenReferralCompany,
+} from "@/lib/companyReferrers";
 import { useCompanyOpenReferrers, useOpenReferralCompanies, useReferSession } from "@/hooks/usePublicReferral";
 import { FS, FW, LH } from "@/lib/typography";
 import Box from "@mui/material/Box";
@@ -41,11 +48,15 @@ function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
   const directory = useOpenReferralCompanies(true);
   const [selectedCompany, setSelectedCompany] = useState<OpenReferralCompany | null>(null);
   const people = useCompanyOpenReferrers(selectedCompany?.companySlug ?? null);
+  // One badge per company, and only where somebody has actually referred someone.
+  const topId = topReferrerId(people.referrers);
   const showFilter = directory.status === "loading"
     || directory.status === "ready"
     || directory.status === "error"
     || directory.companies.length > 0
     || directory.query.trim().length > 0;
+  // Only worth offering when it would change the order.
+  const showSort = !selectedCompany && directory.companies.length > 1;
 
   return (
     <Stack spacing={2.5} sx={{ mt: heading === "h2" ? 4.5 : 0 }}>
@@ -88,6 +99,8 @@ function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
         <ReferNote>No companies match that filter.</ReferNote>
       ) : null}
 
+      {showSort ? <ReferSortToggle value={directory.sort} onChange={directory.setSort} /> : null}
+
       {!selectedCompany && directory.filtered.length > 0 ? (
         <Box
           component="ul"
@@ -123,7 +136,12 @@ function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
                 count={referrer.referredCount ?? 0}
                 href={referrerPublicPath(referrer.slug)}
                 ariaLabel={`Ask ${referrer.displayName} for a referral at ${referrer.company}`}
-                badge={<OpenChip />}
+                badge={
+                  <>
+                    {referrer.id === topId ? <TopReferrerChip /> : null}
+                    <OpenChip />
+                  </>
+                }
               >
                 <Typography sx={{ mt: 0.5, fontSize: FS.body, color: "var(--muted)" }}>
                   {referrer.title}{referrer.bio ? ` · ${referrer.bio}` : ""}
