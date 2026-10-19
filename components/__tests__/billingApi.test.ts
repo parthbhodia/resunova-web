@@ -44,7 +44,37 @@ describe("describeBillingStatus", () => {
 });
 
 describe("PLAN_PRICE_LABELS", () => {
-  it("covers exactly the two live price keys", () => {
-    expect(Object.keys(PLAN_PRICE_LABELS).sort()).toEqual(["pro_monthly", "pro_quarterly"]);
+  it("covers exactly the three live price keys", () => {
+    expect(Object.keys(PLAN_PRICE_LABELS).sort()).toEqual(["pro_monthly", "pro_quarterly", "pro_weekly"]);
+  });
+
+  /** The weekly rate is above the monthly one on purpose. If someone "fixes"
+   *  that by dropping weekly, the chip claiming "Monthly is $19, saves 12%"
+   *  becomes a lie, so pin the relationship rather than the prose. */
+  it("prices weekly above the monthly run rate", () => {
+    const weekly = Number(PLAN_PRICE_LABELS.pro_weekly.price.replace("$", ""));
+    const monthly = Number(PLAN_PRICE_LABELS.pro_monthly.price.replace("$", ""));
+    expect(weekly * (52 / 12)).toBeGreaterThan(monthly);
+    expect(PLAN_PRICE_LABELS.pro_weekly.nudgeTo).toBe("pro_monthly");
+  });
+
+  /** Only the longest period may omit a nudge: no longer period exists to
+   *  point at, so its value claim has to stand on its own. */
+  it("nudges every period except the longest", () => {
+    expect(PLAN_PRICE_LABELS.pro_weekly.nudgeTo).toBeDefined();
+    expect(PLAN_PRICE_LABELS.pro_monthly.nudgeTo).toBeDefined();
+    expect(PLAN_PRICE_LABELS.pro_quarterly.nudgeTo).toBeUndefined();
+    expect(PLAN_PRICE_LABELS.pro_quarterly.note).toBeTruthy();
+  });
+
+  /** Every nudge must name a real key. A typo here is silent: the chip simply
+   *  never renders and the reader loses the only value comparison. */
+  it("points every nudge at a key that exists", () => {
+    for (const [key, label] of Object.entries(PLAN_PRICE_LABELS)) {
+      if (label.nudgeTo === undefined) continue;
+      expect(Object.keys(PLAN_PRICE_LABELS)).toContain(label.nudgeTo);
+      expect(label.nudgeLabel, `${key} needs nudge copy`).toBeTruthy();
+      expect(label.nudgeTo).not.toBe(key);
+    }
   });
 });

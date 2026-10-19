@@ -10,10 +10,15 @@
  *
  * Three plan towers were replaced by one plan and a billing toggle: the plans
  * only ever differed by a number, so three near-identical feature lists made
- * the reader do the diffing. The toggle maps 1:1 onto the two Stripe price
- * keys, and the feature rows state the free→Pro delta directly. Every number
+ * the reader do the diffing. The toggle maps 1:1 onto the Stripe price keys,
+ * and the feature rows state the free→Pro delta directly. Every number
  * is interpolated from the limit constants, so a limit change cannot leave a
  * stale claim on a public page.
+ *
+ * Three periods, one plan. The cadence line and the value claim both come off
+ * the selected label rather than off a two-way ternary: with a third option
+ * added, `selected === "pro_monthly" ? ... : "billed every 3 months"` quietly
+ * told a weekly buyer they were being billed quarterly.
  *
  * Built on MUI per AGENTS.md ("new chrome goes to MUI"): the segmented control
  * is a real ToggleButtonGroup, so grouping semantics, pressed state, the 44px
@@ -70,7 +75,11 @@ const FEATURES: { label: string; value: string; kind: "delta" | "flat" }[] = [
   { label: "Clean PDF downloads", value: "On every plan", kind: "flat" },
 ];
 
+/** Ordered shortest commitment first, so the reader scans cheapest-entry to
+ *  best-value. The weekly option is what most one-off clickers want, but it
+ *  has to sit next to monthly for the price-per-day comparison to be honest. */
 const TOGGLE: { key: BillingPriceKey; label: string }[] = [
+  { key: "pro_weekly", label: "Weekly" },
   { key: "pro_monthly", label: "Monthly" },
   { key: "pro_quarterly", label: "Quarterly" },
 ];
@@ -117,7 +126,10 @@ function PricingPlansInner() {
   }, [busy, router, selected]);
 
   const plan = PLAN_PRICE_LABELS[selected];
-  const savingsNote = PLAN_PRICE_LABELS.pro_quarterly.note;
+  // A label only carries `nudgeTo` when a longer period is genuinely cheaper,
+  // so "no nudge" is the signal that this period is already the best value
+  // and the claim should read as a statement rather than an invitation.
+  const nudgeKey = plan.nudgeTo ?? null;
 
   return (
     <Paper elevation={0} className="pr-panel pr-rise" style={{ animationDelay: "160ms" }}>
@@ -183,38 +195,36 @@ function PricingPlansInner() {
         {plan.price}
       </Typography>
       <Typography component="p" sx={{ fontSize: 14, color: "var(--muted)", mt: 1 }}>
-        {selected === "pro_monthly" ? "per month, billed monthly" : "billed every 3 months"}
+        {plan.cadence}
       </Typography>
 
-      {savingsNote ? (
-        selected === "pro_monthly" ? (
-          <Chip
-            label={`Quarterly is ${savingsNote}`}
-            onClick={() => setSelected("pro_quarterly")}
-            size="small"
-            sx={{
-              mt: 1.75,
-              fontWeight: 600,
-              fontSize: 13,
-              // MUI Chip centres its label by fixed height with no vertical
-              // inset, which reads flush against a tinted fill. Real padding.
-              height: "auto",
-              py: 0.75,
-              "& .MuiChip-label": { px: 1.25 },
-              // -ink, not --accent: --accent on --accent-bg is 4.46:1 in light.
-              color: "var(--accent-ink)",
-              background: "var(--accent-bg)",
-              borderRadius: "var(--md-shape-xs)",
-            }}
-          />
-        ) : (
-          <Typography
-            component="p"
-            sx={{ mt: 1.75, fontSize: 13, fontWeight: 600, color: "var(--accent-ink)" }}
-          >
-            {savingsNote}
-          </Typography>
-        )
+      {nudgeKey ? (
+        <Chip
+          label={plan.nudgeLabel ?? PLAN_PRICE_LABELS[nudgeKey].note}
+          onClick={() => setSelected(nudgeKey)}
+          size="small"
+          sx={{
+            mt: 1.75,
+            fontWeight: 600,
+            fontSize: 13,
+            // MUI Chip centres its label by fixed height with no vertical
+            // inset, which reads flush against a tinted fill. Real padding.
+            height: "auto",
+            py: 0.75,
+            "& .MuiChip-label": { px: 1.25 },
+            // -ink, not --accent: --accent on --accent-bg is 4.46:1 in light.
+            color: "var(--accent-ink)",
+            background: "var(--accent-bg)",
+            borderRadius: "var(--md-shape-xs)",
+          }}
+        />
+      ) : plan.note ? (
+        <Typography
+          component="p"
+          sx={{ mt: 1.75, fontSize: 13, fontWeight: 600, color: "var(--accent-ink)" }}
+        >
+          {plan.note}
+        </Typography>
       ) : null}
 
       {/* Static markup: plain list elements rather than Stack. MUI is here for
