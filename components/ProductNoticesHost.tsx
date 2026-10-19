@@ -20,17 +20,22 @@ import {
   readLastSeenSentReferralAt,
   readToastedReferralIds,
   readToastedSentReferralIds,
+  readToastedRewardIds,
   referralToastForUnread,
   rememberToastedReferralIds,
+  rememberToastedRewardIds,
   rememberToastedSentReferralIds,
   requestReferralInboxRefresh,
   requestSentReferralRefresh,
+  rewardFeed,
+  rewardNotificationId,
   subscribeReferralAlerts,
   subscribeSentReferralSeen,
   unreadReferralRequests,
   unseenReferralOutcomes,
   type ProductNotice,
 } from "@/lib/productNotices";
+import { fetchMyReferralRewards, rewardToastCopy } from "@/lib/referralRewards";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type ToastCopy = { title: string; description: string };
@@ -44,8 +49,10 @@ export function ProductNoticesHost() {
   const [notice, setNotice] = useState<ProductNotice | null>(null);
   const [toast, setToast] = useState<ToastCopy | null>(null);
   const [outcome, setOutcome] = useState<ToastCopy | null>(null);
+  const [reward, setReward] = useState<ToastCopy | null>(null);
   const [inboxUnread, setInboxUnread] = useState(0);
   const [outcomeUnread, setOutcomeUnread] = useState(0);
+  const [rewardSummary, setRewardSummary] = useState({ count: 0, days: 0 });
 
   useEffect(() => {
     if (!toast) return;
@@ -58,6 +65,12 @@ export function ProductNoticesHost() {
     const timer = window.setTimeout(() => setOutcome(null), 6000);
     return () => window.clearTimeout(timer);
   }, [outcome]);
+
+  useEffect(() => {
+    if (!reward) return;
+    const timer = window.setTimeout(() => setReward(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [reward]);
 
   useEffect(() => subscribeReferralAlerts((snap) => {
     if (snap.unread === 0) {
@@ -72,11 +85,23 @@ export function ProductNoticesHost() {
   }), []);
 
   useEffect(() => {
-    publishNotificationFeed(notificationFeed({ notice, inboxUnread, outcomeUnread }));
-  }, [notice, inboxUnread, outcomeUnread]);
+    publishNotificationFeed(notificationFeed({
+      notice,
+      inboxUnread,
+      outcomeUnread,
+      rewardUnread: rewardSummary.count,
+      rewardDays: rewardSummary.days,
+    }));
+  }, [notice, inboxUnread, outcomeUnread, rewardSummary]);
 
   useEffect(() => () => {
-    publishNotificationFeed(notificationFeed({ notice: null, inboxUnread: 0, outcomeUnread: 0 }));
+    publishNotificationFeed(notificationFeed({
+      notice: null,
+      inboxUnread: 0,
+      outcomeUnread: 0,
+      rewardUnread: 0,
+      rewardDays: 0,
+    }));
   }, []);
 
   useEffect(() => {
@@ -177,8 +202,29 @@ export function ProductNoticesHost() {
         setToast(decision.toast);
       };
 
+      const refreshRewards = async () => {
+        // One fetch serves both: the bell count and the toast.
+        const loaded = await fetchMyReferralRewards();
+        if (cancelled || gen !== generation) return;
+        if (!loaded.ok) return;
+        const entries = loaded.data;
+        setRewardSummary(rewardFeed(entries));
+
+        const seen = new Set(readToastedRewardIds());
+        const unseen = entries.filter((entry) => !seen.has(rewardNotificationId(entry)));
+        if (unseen.length === 0) return;
+        // The rewards card is on screen showing the same numbers, so a toast on
+        // top of it would repeat the page.
+        if (isReferralInboxOpen()) return;
+        const interview = unseen.find((entry) => entry.kind === "interview");
+        const entry = interview ?? unseen[0];
+        rememberToastedRewardIds([rewardNotificationId(entry)]);
+        setReward(rewardToastCopy(entry));
+      };
+
       await refreshSent();
       await refreshInbox();
+      await refreshRewards();
       if (cancelled || gen !== generation) return;
 
       const sentChannel = supabase.channel(`sent-referrals-${userId}`);
@@ -230,6 +276,7 @@ export function ProductNoticesHost() {
       poll = window.setInterval(() => {
         void refreshSent();
         void refreshInbox();
+        void refreshRewards();
       }, REFERRAL_INBOX_POLL_MS);
     };
 
@@ -245,8 +292,10 @@ export function ProductNoticesHost() {
         setNotice(null);
         setToast(null);
         setOutcome(null);
+        setReward(null);
         setInboxUnread(0);
         setOutcomeUnread(0);
+        setRewardSummary({ count: 0, days: 0 });
         publishReferralAlerts({ unread: 0, company: "" });
         return;
       }
@@ -260,7 +309,7 @@ export function ProductNoticesHost() {
     };
   }, []);
 
-  if (!notice && !toast && !outcome) return null;
+  if (!notice && !toast && !outcome && !reward) return null;
 
   const dismissNotice = () => {
     if (!notice) return;
@@ -298,6 +347,22 @@ export function ProductNoticesHost() {
             label: "Open inbox",
             onClick: () => {
               setToast(null);
+              router.push("/profile?tab=referrals");
+            },
+          }}
+        />
+      ) : null}
+      {reward ? (
+        <FeedbackToastCard
+          embedded
+          variant="success"
+          title={reward.title}
+          description={reward.description}
+          onDismiss={() => setReward(null)}
+          primaryAction={{
+            label: "View rewards",
+            onClick: () => {
+              setReward(null);
               router.push("/profile?tab=referrals");
             },
           }}

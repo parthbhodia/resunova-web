@@ -25,11 +25,21 @@ import {
   type ReferralRequestStatus,
 } from "@/lib/companyReferrers";
 import {
+  REFERRAL_NOTE_COPY_FAILED,
+  buildReferralNote,
+  copyText,
+  hasReferralNoteBody,
+  referralNoteSubject,
+} from "@/lib/referralNote";
+import { REFERRAL_REWARD_DAYS } from "@/lib/referralRewards";
+import { ReferralRewardsCard } from "@/components/profile/ReferralRewardsCard";
+import { ReferralNotifyCard } from "@/components/profile/ReferralNotifyCard";
+import {
   onReferralInboxRefresh,
   persistLastSeenReferral,
   setReferralInboxOpen,
 } from "@/lib/productNotices";
-import { FeedbackToastCard } from "@/components/FeedbackToastCard";
+import { FeedbackToastCard, type FeedbackToastVariant } from "@/components/FeedbackToastCard";
 import { ReferrerName } from "@/components/refer/ReferrerName";
 import { SentReferralsCard } from "@/components/profile/SentReferralsCard";
 
@@ -50,6 +60,80 @@ const fieldStyle: CSSProperties = {
   color: "#111827",
   fontFamily: "inherit",
 };
+
+function NoteButton({
+  row,
+  referrerName,
+  referrerTitle,
+  referrerCompany,
+}: {
+  row: CompanyReferralRequest;
+  referrerName: string;
+  referrerTitle: string;
+  referrerCompany: string;
+}) {
+  const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
+  const [toast, setToast] = useState<{ title: string; description: string; variant: FeedbackToastVariant } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const onCopy = async () => {
+    const referrer = { displayName: referrerName, title: referrerTitle, company: referrerCompany };
+    const note = buildReferralNote(row, referrer);
+    const ok = await copyText(`${referralNoteSubject(row, referrer)}\n\n${note}`);
+    setCopied(ok ? "copied" : "failed");
+    if (ok) {
+      setToast({
+        title: "Referral note copied",
+        description: "Paste it into your ATS or an email. Add your reason for vouching for them before you send it.",
+        variant: "success",
+      });
+    } else {
+      setToast({
+        title: "Could not copy",
+        description: REFERRAL_NOTE_COPY_FAILED,
+        variant: "error",
+      });
+    }
+    window.setTimeout(() => setCopied("idle"), 2400);
+  };
+
+  if (!hasReferralNoteBody(row)) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => void onCopy()}
+        style={{
+          border: "1px solid rgba(15,23,42,0.10)",
+          background: "#fff",
+          color: "#2563eb",
+          borderRadius: 10,
+          padding: "6px 10px",
+          fontWeight: 800,
+          fontSize: 13,
+          cursor: "pointer",
+        }}
+      >
+        {copied === "copied" ? "Note copied" : "Copy referral note"}
+      </button>
+      {toast ? (
+        <FeedbackToastCard
+          variant={toast.variant}
+          role={toast.variant === "error" ? "alert" : "status"}
+          title={toast.title}
+          description={toast.description}
+          onDismiss={() => setToast(null)}
+        />
+      ) : null}
+    </>
+  );
+}
 
 const pillTones: Record<"neutral" | "green" | "amber" | "blue" | "red", CSSProperties> = {
   neutral: { background: "#f3f4f6", color: "#6b7280" },
@@ -205,7 +289,11 @@ export function CompanyReferrerPanel({
   const [pausing, setPausing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ title: string; description: string; variant: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{
+    title: string;
+    description: string;
+    variant: "success" | "error" | "info" | "warning";
+  } | null>(null);
   const [form, setForm] = useState({
     displayName,
     company: "",
@@ -436,6 +524,9 @@ export function CompanyReferrerPanel({
                   <RequestCard
                     key={row.id}
                     row={row}
+                    referrerName={shownName}
+                    referrerTitle={profile?.title ?? ""}
+                    referrerCompany={profile?.company ?? ""}
                     onStatus={async (status) => {
                       const previous = row.status;
                       setRequests((prev) => prev.map((item) => (item.id === row.id ? { ...item, status } : item)));
@@ -443,6 +534,27 @@ export function CompanyReferrerPanel({
                       if (!ok) {
                         setRequests((prev) => prev.map((item) => (item.id === row.id ? { ...item, status: previous } : item)));
                         setError("Could not update that request status.");
+                        setToast({
+                          title: "Could not update",
+                          description: "That request is back where it was. Try again.",
+                          variant: "error",
+                        });
+                        return;
+                      }
+                      // Confirm the outcome that matters and, on the one status
+                      // that pays, say what it paid.
+                      if (status === "referred") {
+                        setToast({
+                          title: `${row.candidateName || "Candidate"} marked as referred`,
+                          description: `${REFERRAL_REWARD_DAYS.referred} Pro days on the way. If they report an interview, that becomes ${REFERRAL_REWARD_DAYS.interview}.`,
+                          variant: "success",
+                        });
+                      } else if (status === "declined") {
+                        setToast({
+                          title: "Request declined",
+                          description: `${row.candidateName || "They"} will see that you passed on this one.`,
+                          variant: "info",
+                        });
                       }
                     }}
                     onRemove={() => void removeRequest(row)}
@@ -494,6 +606,16 @@ export function CompanyReferrerPanel({
       )}
 
       <SentReferralsCard />
+      <ReferralRewardsCard
+        requests={requests}
+        onRequestRefresh={() => {
+          if (!profile?.id) return;
+          void fetchMyReferralRequests(profile.id).then((loaded) => {
+            if (loaded) setRequests(loaded);
+          });
+        }}
+      />
+      <ReferralNotifyCard />
 
       {error ? <p role="alert" style={{ margin: 0, color: "#dc2626", fontSize: 13 }}>{error}</p> : null}
       {toast ? (
@@ -513,10 +635,16 @@ function RequestCard({
   row,
   onStatus,
   onRemove,
+  referrerName,
+  referrerTitle,
+  referrerCompany,
 }: {
   row: CompanyReferralRequest;
   onStatus: (status: ReferralRequestStatus) => void | Promise<void>;
   onRemove: () => void | Promise<void>;
+  referrerName: string;
+  referrerTitle: string;
+  referrerCompany: string;
 }) {
   const [resumeError, setResumeError] = useState<string | null>(null);
   const linkedinHref = safeHttpUrl(row.candidateLinkedin);
@@ -572,6 +700,12 @@ function RequestCard({
             Open resume PDF
           </button>
         ) : null}
+        <NoteButton
+          row={row}
+          referrerName={referrerName}
+          referrerTitle={referrerTitle}
+          referrerCompany={referrerCompany}
+        />
       </div>
       {resumeError ? <p role="alert" style={{ margin: "8px 0 0", color: "#dc2626", fontSize: 13 }}>{resumeError}</p> : null}
       <label style={{ display: "block", marginTop: 12 }}>

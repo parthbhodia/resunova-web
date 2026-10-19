@@ -13,12 +13,14 @@ import Chip from "@mui/material/Chip";
 import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import type { SxProps, Theme } from "@mui/material/styles";
 import { ReferrerName } from "@/components/refer/ReferrerName";
 import { accentLinkSx, fieldSx, filledButtonSx, mutedTextSx, surfaceCardSx } from "@/components/mui/cssVars";
 import { signInWithGoogle } from "@/lib/anonScan";
-import { referrerInitials } from "@/lib/companyReferrers";
+import { referrerInitials, type OpenCompanySort } from "@/lib/companyReferrers";
 import { FS, FW, LH } from "@/lib/typography";
 
 function GoogleGlyph({ size = 18 }: { size?: number }) {
@@ -201,6 +203,86 @@ export function OpenChip() {
         fontSize: FS.caption,
       }}
     />
+  );
+}
+
+/**
+ * Marks the most proven referrer at a company.
+ *
+ * Deliberately not a trophy: it reads "Top referrer", the same claim as the
+ * count beside their name, and it sits next to that count rather than replacing
+ * it. A badge on someone at zero would be a lie the directory has no way to
+ * walk back, so `topReferrerId` returns null in that case and nothing renders.
+ */
+export function TopReferrerChip() {
+  return (
+    <Chip
+      label="Top referrer"
+      size="small"
+      sx={{
+        height: 22,
+        bgcolor: "var(--accent-bg)",
+        color: "var(--accent-ink)",
+        fontWeight: FW.bold,
+        fontSize: FS.caption,
+      }}
+    />
+  );
+}
+
+const SORT_LABELS: Record<OpenCompanySort, string> = {
+  referred: "Most referred",
+  open: "Most open desks",
+};
+
+const SORT_HINTS: Record<OpenCompanySort, string> = {
+  referred: "Companies whose employees have referred the most people",
+  open: "Companies with the most employees open to refer",
+};
+
+/**
+ * Two-button sort, not a dropdown. "Most referred" is the default and the one
+ * that tells a candidate something, so the alternative needs to be one click
+ * away and no more prominent than that.
+ */
+export function ReferSortToggle({
+  value,
+  onChange,
+}: {
+  value: OpenCompanySort;
+  onChange: (next: OpenCompanySort) => void;
+}) {
+  return (
+    <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
+      <Typography sx={{ fontSize: FS.small, color: "var(--muted)" }}>Sort by</Typography>
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={value}
+        onChange={(_event, next: OpenCompanySort | null) => {
+          if (next) onChange(next);
+        }}
+        aria-label="Sort companies"
+        sx={{
+          "& .MuiToggleButton-root": {
+            textTransform: "none",
+            fontWeight: FW.semibold,
+            fontSize: FS.small,
+            minHeight: 32,
+            px: 1.5,
+          },
+        }}
+      >
+        {(Object.keys(SORT_LABELS) as OpenCompanySort[]).map((mode) => (
+          // No aria-label: the accessible name stays the visible text, and the
+          // longer explanation rides on title so it does not replace the label
+          // a screen reader user is reading.
+          <ToggleButton key={mode} value={mode} title={SORT_HINTS[mode]}>
+            {SORT_LABELS[mode]}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+    </Stack>
   );
 }
 
