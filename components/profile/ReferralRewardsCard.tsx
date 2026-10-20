@@ -28,6 +28,7 @@ import {
   type RewardEntry,
 } from "@/lib/referralRewards";
 import type { CompanyReferralRequest } from "@/lib/companyReferrers";
+import { markRewardIdsSeen, rewardNotificationId } from "@/lib/productNotices";
 
 const cardStyle: CSSProperties = {
   borderRadius: 18,
@@ -43,6 +44,13 @@ type LoadState =
   | { status: "error"; message: string }
   | { status: "ready"; entries: RewardEntry[] };
 
+/** This card is where rewards are read, so rendering them clears the bell. */
+function acknowledgeRewards(entries: RewardEntry[]) {
+  markRewardIdsSeen(
+    entries.filter((entry) => entry.status !== "revoked").map(rewardNotificationId),
+  );
+}
+
 export function ReferralRewardsCard({
   requests = [],
 }: {
@@ -54,6 +62,7 @@ export function ReferralRewardsCard({
   const load = useCallback(async () => {
     const result = await fetchMyReferralRewards();
     if (result.ok) {
+      acknowledgeRewards(result.data);
       setState(result.data.length === 0 ? { status: "empty" } : { status: "ready", entries: result.data });
     } else {
       setState({ status: "error", message: result.error });
@@ -66,6 +75,7 @@ export function ReferralRewardsCard({
       const result = await fetchMyReferralRewards();
       if (cancelled) return;
       if (result.ok) {
+        acknowledgeRewards(result.data);
         setState(result.data.length === 0 ? { status: "empty" } : { status: "ready", entries: result.data });
       } else {
         setState({ status: "error", message: result.error });

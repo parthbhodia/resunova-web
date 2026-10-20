@@ -168,7 +168,9 @@ export function rewardNotificationId(entry: { id: string; kind: string; status: 
  * count.
  */
 export function rewardFeed(
-  entries: ReadonlyArray<{ kind: string; status: string; days?: number | null }>,
+  entries: ReadonlyArray<{ id?: string; kind: string; status: string; days?: number | null }>,
+  /** Rows the rewards card has already shown. Seen rows keep their days but leave the badge. */
+  seenIds: readonly string[] = [],
 ): {
   count: number;
   days: number;
@@ -179,7 +181,18 @@ export function rewardFeed(
     (total, entry) => total + Math.max(0, Number(entry.days) || 0),
     0,
   );
-  return { count: live.length, days, unseen: live.length > 0 };
+  const seen = new Set(seenIds);
+  const unseen = live.filter(
+    (entry) =>
+      !seen.has(
+        rewardNotificationId({
+          id: entry.id ?? "",
+          kind: entry.kind,
+          status: entry.status,
+        }),
+      ),
+  );
+  return { count: unseen.length, days, unseen: unseen.length > 0 };
 }
 
 let rewardToastSlot: { title: string; description: string } | null = null;
@@ -574,6 +587,29 @@ export function rememberToastedRewardIds(ids: readonly string[]) {
   } catch {
     /* private mode */
   }
+}
+
+const rewardsSeenListeners = new Set<() => void>();
+
+export function onRewardsSeen(listener: () => void): () => void {
+  rewardsSeenListeners.add(listener);
+  return () => {
+    rewardsSeenListeners.delete(listener);
+  };
+}
+
+/**
+ * The rewards card rendered these rows, so they are no longer news.
+ *
+ * Without this the badge counted every live ledger row forever: only a toast
+ * ever wrote to the seen set, and the toast is suppressed while the card is on
+ * screen. Recording the ids also lets the shell recolour the bell immediately
+ * instead of waiting for its next poll.
+ */
+export function markRewardIdsSeen(ids: readonly string[]) {
+  if (ids.length === 0) return;
+  rememberToastedRewardIds(ids);
+  rewardsSeenListeners.forEach((listener) => listener());
 }
 
 function laterIso(a: string | null, b: string | null): string | null {

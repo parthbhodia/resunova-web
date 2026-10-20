@@ -9,6 +9,7 @@ import {
   isReferralInboxOpen,
   loadNoticeState,
   notificationFeed,
+  onRewardsSeen,
   outcomeToastForUnseen,
   pendingProductNotice,
   persistDismissedNotice,
@@ -118,11 +119,13 @@ export function ProductNoticesHost() {
     let generation = 0;
     let poll: number | undefined;
     const channels: Array<{ unsubscribe?: () => void }> = [];
+    const stops: Array<() => void> = [];
     const supabase = getSupabaseClient();
 
     const stopWatch = () => {
       if (poll) window.clearInterval(poll);
       poll = undefined;
+      while (stops.length) stops.pop()?.();
       while (channels.length) {
         const channel = channels.pop();
         if (channel) void supabase.removeChannel(channel as never);
@@ -203,24 +206,40 @@ export function ProductNoticesHost() {
       };
 
       const refreshRewards = async () => {
-        // One fetch serves both: the bell count and the toast.
+        // One fetch serves both: the bell count and the toast. The seen set is
+        // what the bell subtracts; without it every reward ever earned stayed
+        // on the badge after the card had shown it.
         const loaded = await fetchMyReferralRewards();
         if (cancelled || gen !== generation) return;
         if (!loaded.ok) return;
         const entries = loaded.data;
-        setRewardSummary(rewardFeed(entries));
-
         const seen = new Set(readToastedRewardIds());
-        const unseen = entries.filter((entry) => !seen.has(rewardNotificationId(entry)));
+        let unseen = entries.filter(
+          (entry) => entry.status !== "revoked" && !seen.has(rewardNotificationId(entry)),
+        );
+        setRewardSummary(rewardFeed(entries, readToastedRewardIds()));
+
+        // The rewards card is on screen showing the same rows, so looking at
+        // the tab acknowledges them and a toast on top would repeat the page.
+        if (unseen.length > 0 && isReferralInboxOpen()) {
+          rememberToastedRewardIds(unseen.map(rewardNotificationId));
+          unseen = [];
+          setRewardSummary(rewardFeed(entries, readToastedRewardIds()));
+        }
         if (unseen.length === 0) return;
-        // The rewards card is on screen showing the same numbers, so a toast on
-        // top of it would repeat the page.
-        if (isReferralInboxOpen()) return;
         const interview = unseen.find((entry) => entry.kind === "interview");
         const entry = interview ?? unseen[0];
         rememberToastedRewardIds([rewardNotificationId(entry)]);
+        // The toast announced one row; any others stay on the badge.
+        setRewardSummary(rewardFeed(entries, readToastedRewardIds()));
         setReward(rewardToastCopy(entry));
       };
+
+      // The Rewards card marks what it rendered as seen. Refresh the badge now
+      // rather than waiting for the next minute-long poll.
+      stops.push(onRewardsSeen(() => {
+        void refreshRewards();
+      }));
 
       await refreshSent();
       await refreshInbox();

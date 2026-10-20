@@ -6,9 +6,10 @@ import { SentReferralsCard } from "@/components/profile/SentReferralsCard";
 import { TopReferrerChip, ReferSortToggle } from "@/components/refer/referUi";
 import type { SentReferralRequest } from "@/lib/companyReferrers";
 
-const { mockRpc, mockSentRows } = vi.hoisted(() => ({
+const { mockRpc, mockSentRows, mockMarkRewardIdsSeen } = vi.hoisted(() => ({
   mockRpc: vi.fn(),
   mockSentRows: { current: [] as SentReferralRequest[] },
+  mockMarkRewardIdsSeen: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -23,6 +24,9 @@ vi.mock("@/lib/companyReferrers", async (importOriginal) => ({
 vi.mock("@/lib/productNotices", () => ({
   persistLastSeenSentReferral: vi.fn(async () => {}),
   onSentReferralRefresh: vi.fn(() => () => {}),
+  markRewardIdsSeen: mockMarkRewardIdsSeen,
+  rewardNotificationId: (entry: { id: string; kind: string; status: string }) =>
+    `${entry.id}:${entry.kind}:${entry.status}`,
 }));
 
 vi.mock("@/lib/utils", async (importOriginal) => ({
@@ -76,6 +80,7 @@ function installRewards(entries: unknown[] | "fail" | "missing") {
 
 beforeEach(() => {
   mockRpc.mockReset();
+  mockMarkRewardIdsSeen.mockReset();
 });
 
 describe("ReferralRewardsCard", () => {
@@ -112,6 +117,17 @@ describe("ReferralRewardsCard", () => {
     ]);
     render(<ReferralRewardsCard />);
     expect(await screen.findByText(/Candidate marked as referred: Alex Kim/)).toBeInTheDocument();
+  });
+
+  it("marks the rows it rendered as seen, so the bell can clear", async () => {
+    installRewards([
+      { id: "a1", kind: "referred", days: 3, status: "granted", createdAt: "2026-10-01T00:00:00Z" },
+      { id: "a2", kind: "interview", days: 10, status: "revoked", createdAt: "2026-10-05T00:00:00Z" },
+    ]);
+    render(<ReferralRewardsCard />);
+    expect(await screen.findByText("Added to your Pro")).toBeInTheDocument();
+    // Revoked rows are not on the card and must not be acknowledged as news.
+    expect(mockMarkRewardIdsSeen).toHaveBeenCalledWith(["a1:referred:granted"]);
   });
 
   it("surfaces a real failure with a retry", async () => {
