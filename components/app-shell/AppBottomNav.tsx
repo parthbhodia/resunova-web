@@ -196,12 +196,14 @@ export function AppBottomNav({
           <div className="mt-3 border-t border-border pt-1">
             <button
               type="button"
+              role="switch"
+              aria-checked={theme === "dark"}
               className="flex w-full items-center justify-between px-5 py-3 text-left text-sm text-[var(--text)] active:bg-[var(--surface2)]"
               onClick={() => { onToggleTheme(); }}
             >
               <span className="flex items-center gap-3">
                 <span className="text-[var(--muted)]">
-                  {theme === "dark" ? NAV_ICONS.themeDark : NAV_ICONS.themeLight}
+                  {theme === "dark" ? NAV_ICONS.moon : NAV_ICONS.sun}
                 </span>
                 Dark mode
               </span>
