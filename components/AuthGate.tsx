@@ -24,6 +24,7 @@ const GATED_ROUTE_LABELS: Record<string, string> = {
   "/my-resumes": "My Résumés",
   "/refer": "referrals",
   "/account": "your account",
+  "/profile": "your profile",
 };
 
 function gatedRouteLabel(pathname: string | null): string | null {
@@ -381,7 +382,10 @@ const PUBLIC_ROUTES = new Set<string>([
   "/skills-for-resume",
   "/template-builder",
   "/templates",
-  "/profile",
+  // /profile is NOT here: it is the signed-in account hub (plan, usage,
+  // referral alerts, Career Memory) and ProfilePage has no signed-out state.
+  // While it was public, an anonymous visitor got the full dashboard with a
+  // "Signed in account" header and a working "Sign out" button.
   "/reset-password",
   // /extension is the public install explainer. /extension/connect is the auth
   // handshake page and MUST stay gated: its only job is to mint a connection
