@@ -11,11 +11,11 @@ never granted.
 
 | Step | Repo | State |
 |---|---|---|
-| 1. Relax `price_key` CHECK | `resunova-web` (`db/migrations/060_*.sql`) | **done, not applied** |
-| 2. Frontend offers the period | `resunova-web` | **done** |
-| 3. Stripe Price object | Stripe dashboard | **not created** |
-| 4. Backend knows the key | `resunova-api` | **not applied** |
-| 5. Set `STRIPE_PRICE_PRO_WEEKLY` | Railway | **not set** |
+| 1. Relax `price_key` CHECK | `resunova-web` (`db/migrations/060_*.sql`) | **applied to prod 2026-10-20** |
+| 2. Frontend offers the period | `resunova-web` | **done** (PR #345) |
+| 3. Stripe Price object | Stripe live | **created** `price_1USfb0EiPBRzTTdd9IdIXlpr` ($4.99 / week, product `prod_VQaht0npeZg5Nw`) |
+| 4. Backend knows the key | `resunova-api` | **PR #191** |
+| 5. Set `STRIPE_PRICE_PRO_WEEKLY` | Railway `resume-scoring-ai` production | **set** (redeploy triggered) |
 
 ## Apply in this order
 
