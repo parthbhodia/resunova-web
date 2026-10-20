@@ -115,21 +115,56 @@ beforeEach(() => {
 });
 
 describe("ReferPublicPage", () => {
-  it("allures unsigned visitors with Google sign-in and hides the directory", async () => {
+  it("shows the company directory to unsigned visitors", async () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockListOpenReferralCompanies.mockResolvedValue(loaded([
+      { company: "Stripe", companySlug: "stripe", companyDomain: "stripe.com", openCount: 2, referredCount: 5 },
+    ]));
     render(<ReferPublicPage />);
-    expect(await screen.findByRole("heading", { name: "Get employee referrals" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
-    expect(screen.queryByLabelText("Filter companies")).not.toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Companies with open referrers" })).not.toBeInTheDocument();
-    expect(mockListOpenReferralCompanies).not.toHaveBeenCalled();
+    expect(await screen.findByRole("heading", { name: "Ask an employee for a referral" })).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: "Companies with open referrers" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Stripe" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter companies")).toBeInTheDocument();
+    expect(mockListOpenReferralCompanies).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Continue with Google" })).not.toBeInTheDocument();
   });
 
-  it("starts Google OAuth from the locked gate", async () => {
+  it("asks for sign-in at the ask, not at the page", async () => {
+    search.slug = "parth-bhodia-at-acme-abcdef";
     mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockFetchReferrerBySlug.mockResolvedValue(loaded({
+      id: "r1",
+      userId: "u1",
+      displayName: "Parth Bhodia",
+      company: "Acme",
+      companySlug: "acme",
+      title: "Software Engineer",
+      linkedin: null,
+      slug: "parth-bhodia-at-acme-abcdef",
+      bio: "Backend, intern",
+      openToRefer: true,
+      referredCount: 12,
+      createdAt: "",
+      updatedAt: "",
+    }));
     render(<ReferPublicPage />);
-    await userEvent.click(await screen.findByRole("button", { name: "Continue with Google" }));
-    expect(mockSignInWithGoogle).toHaveBeenCalled();
+
+    // The referrer and the form are public.
+    expect(await screen.findByText("Parth Bhodia")).toBeInTheDocument();
+    expect(screen.getByText("Ask for a referral at Acme")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
+    await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
+    await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
+    await userEvent.type(screen.getByLabelText(/LinkedIn URL/), "https://linkedin.com/in/alex");
+
+    // Only the action asks for an account: submit resolves to sign_in before
+    // any field validation or write.
+    await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
+    expect(mockOpenSignIn).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Sign in to ask for a referral",
+    }));
+    expect(mockCreateReferralRequest).not.toHaveBeenCalled();
   });
 
   it("shows Be the first for a signed-in empty directory", async () => {
@@ -195,14 +230,28 @@ describe("ReferPublicPage", () => {
     expect(screen.queryByRole("link", { name: "Profile" })).not.toBeInTheDocument();
   });
 
-  it("locks a share link behind Google until signed in", async () => {
+  it("opens a shared referrer link for unsigned visitors", async () => {
     search.slug = "parth-bhodia-at-acme-abcdef";
     mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockFetchReferrerBySlug.mockResolvedValue(loaded({
+      id: "r1",
+      userId: "u1",
+      displayName: "Parth Bhodia",
+      company: "Acme",
+      companySlug: "acme",
+      title: "Software Engineer",
+      linkedin: null,
+      slug: "parth-bhodia-at-acme-abcdef",
+      bio: "Backend, intern",
+      openToRefer: true,
+      referredCount: 12,
+      createdAt: "",
+      updatedAt: "",
+    }));
     render(<ReferPublicPage />);
-    expect(await screen.findByRole("heading", { name: "Someone shared a referral link with you" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
-    expect(mockFetchReferrerBySlug).not.toHaveBeenCalled();
-    expect(screen.queryByText("Parth Bhodia")).not.toBeInTheDocument();
+    expect(await screen.findByText("Parth Bhodia")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Someone shared a referral link with you" })).not.toBeInTheDocument();
+    expect(mockFetchReferrerBySlug).toHaveBeenCalledWith("parth-bhodia-at-acme-abcdef");
   });
 
   it("renders the ask form for an open referrer slug", async () => {
@@ -403,7 +452,7 @@ describe("ReferPublicPage", () => {
     expect(screen.queryByRole("button", { name: "See Pro" })).not.toBeInTheDocument();
   });
 
-  it("does not load a referrer while unsigned, even if the slug is known", async () => {
+  it("loads a named referrer while unsigned and still blocks the send", async () => {
     search.slug = "parth-bhodia-at-acme-abcdef";
     mockGetSession.mockResolvedValue({ data: { session: null } });
     mockFetchReferrerBySlug.mockResolvedValue(loaded({
@@ -422,8 +471,11 @@ describe("ReferPublicPage", () => {
       updatedAt: "",
     }));
     render(<ReferPublicPage />);
-    expect(await screen.findByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
-    expect(mockFetchReferrerBySlug).not.toHaveBeenCalled();
+    // The row itself is public now: the slug is looked up without a session.
+    expect(await screen.findByText("Parth Bhodia")).toBeInTheDocument();
+    expect(mockFetchReferrerBySlug).toHaveBeenCalledWith("parth-bhodia-at-acme-abcdef");
+    expect(screen.getByLabelText(/Your email/)).toBeInTheDocument();
+    // Nothing is written until the visitor authenticates.
     expect(mockCreateReferralRequest).not.toHaveBeenCalled();
   });
 

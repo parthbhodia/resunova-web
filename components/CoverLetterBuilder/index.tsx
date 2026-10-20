@@ -14,6 +14,7 @@ import { parseJsonOrThrow } from "@/lib/utils";
 import { saveBlobAsDownload } from "@/lib/saveBlobDownload";
 import { useSupabaseSignedIn } from "@/hooks/useSupabaseSignedIn";
 import SignInToUseAi from "./SignInToUseAi";
+import { resolveLayoutParam } from "./types";
 import { apiFetch } from "@/lib/apiClient";
 
 type TabKey = "recipient" | "author" | "content" | "style";
@@ -31,8 +32,14 @@ function CoverLetterBuilderInner() {
   const { data, loaded, saveStatus, savedId, label } = store;
   const searchParams = useSearchParams();
   const clId = searchParams?.get("cl") ?? null;
+  // `?clt=` presets a layout for a NEW letter. Every layout card on /cover-letter
+  // links with it, so the card you click is the layout you land in.
+  const presetLayout = resolveLayoutParam(searchParams?.get("clt"));
 
-  const [step, setStep] = useState<Step>("mode");
+  // Seeded from the URL rather than switched to in the load effect: a layout card
+// is a direct request for that layout, so there is no mode step to sit through,
+// and CI's lint ratchet fails a change that adds a setState-in-effect error.
+  const [step, setStep] = useState<Step>(() => (presetLayout ? "build" : "mode"));
   const [activeTab, setActiveTab] = useState<TabKey>("recipient");
   const [editingField, setEditingField] = useState<{ field: string, rect: DOMRect } | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -81,6 +88,12 @@ function CoverLetterBuilderInner() {
       void store.loadFromServer(clId);
     } else {
       store.loadFromStorage();
+      // Applied AFTER the load on purpose: loadFromStorage replaces the whole
+      // data object, so a preset set before it would be overwritten. A saved
+      // document (`?cl=`) wins over a preset, since it carries its own layout.
+      if (presetLayout) {
+        store.setCustomization("templateId", presetLayout);
+      }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

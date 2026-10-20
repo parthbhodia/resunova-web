@@ -141,7 +141,7 @@ export default function CoverLetterShowcase() {
                   <Typography variant="body2" sx={{ ...mutedTextSx, mt: 0.5, mb: 2, flex: 1 }}>
                     {template.description}
                   </Typography>
-                  <Button component={Link} href="/?view=cover-letter" variant="text" sx={{ alignSelf: "flex-start", px: 0, color: "var(--accent)" }}>
+                  <Button component={Link} href={`/?view=cover-letter&clt=${template.id}`} variant="text" sx={{ alignSelf: "flex-start", px: 0, color: "var(--accent)" }}>
                     Open in the builder
                   </Button>
                 </CardContent>

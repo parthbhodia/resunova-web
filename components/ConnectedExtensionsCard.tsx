@@ -58,21 +58,42 @@ export default function ConnectedExtensionsCard() {
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState(false);
 
+  const fetchSessions = useCallback(async (): Promise<ExtensionSession[]> => {
+    const resp = await apiFetch("/api/extension/sessions");
+    if (!resp.ok) throw new Error(String(resp.status));
+    const body = (await resp.json()) as { sessions?: ExtensionSession[] };
+    return Array.isArray(body.sessions) ? body.sessions : [];
+  }, []);
+
+  // Retry from the error card. Separate from the mount effect below because
+  // this one DOES want to put the card back into `loading` first.
   const load = useCallback(async () => {
     setState({ kind: "loading" });
     try {
-      const resp = await apiFetch("/api/extension/sessions");
-      if (!resp.ok) throw new Error(String(resp.status));
-      const body = (await resp.json()) as { sessions?: ExtensionSession[] };
-      setState({ kind: "ready", sessions: Array.isArray(body.sessions) ? body.sessions : [] });
+      setState({ kind: "ready", sessions: await fetchSessions() });
     } catch {
       setState({ kind: "error" });
     }
-  }, []);
+  }, [fetchSessions]);
 
+  // Mount fetch reaches its first `await` before touching state, so the effect
+  // is not a synchronous setState from an effect body. Routing it through `load`
+  // instead was the +1 error that reddened main's lint ratchet in #325: the
+  // rule follows the call into `load` and sees setState before any await.
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const sessions = await fetchSessions();
+        if (!cancelled) setState({ kind: "ready", sessions });
+      } catch {
+        if (!cancelled) setState({ kind: "error" });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchSessions]);
 
   const disconnect = useCallback(
     async (target: string | "all") => {

@@ -19,8 +19,11 @@ describe("cover letter page showcase", () => {
     }
     const layoutLinks = screen.getAllByRole("link", { name: "Open in the builder" });
     expect(layoutLinks).toHaveLength(CL_TEMPLATES.length);
-    for (const link of layoutLinks) {
-      expect(link.getAttribute("href")).toBe("/?view=cover-letter");
+    // Each card opens ITS OWN layout. They used to all link to a bare
+    // `/?view=cover-letter`, so clicking "Wakanda" dropped you into the default
+    // one — the card was decoration, not a choice.
+    for (const [i, link] of layoutLinks.entries()) {
+      expect(link.getAttribute("href")).toBe(`/?view=cover-letter&clt=${CL_TEMPLATES[i].id}`);
     }
   });
 });

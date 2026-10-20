@@ -7,7 +7,6 @@ import {
   OpenChip,
   ReferAlert,
   ReferField,
-  ReferGoogleGate,
   ReferLede,
   ReferNote,
   ReferSortToggle,
@@ -22,7 +21,7 @@ import {
   topReferrerId,
   type OpenReferralCompany,
 } from "@/lib/companyReferrers";
-import { useCompanyOpenReferrers, useOpenReferralCompanies, useReferSession } from "@/hooks/usePublicReferral";
+import { useCompanyOpenReferrers, useOpenReferralCompanies } from "@/hooks/usePublicReferral";
 import { FS, FW, LH } from "@/lib/typography";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -30,21 +29,16 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 
+/**
+ * The directory is public. Anonymous visitors browse companies and the people
+ * open to refer; the sign-in ask lives on the action (publishing a profile or
+ * sending a request), not on the page.
+ */
 export function FindReferrer({ heading = "h1" }: { heading?: "h1" | "h2" }) {
-  const session = useReferSession();
-
-  if (session.status === "loading") {
-    return <ReferNote>Loading...</ReferNote>;
-  }
-
-  if (session.status === "signed_out") {
-    return <ReferGoogleGate heading={heading} />;
-  }
-
-  return <SignedInCompanyDirectory heading={heading} />;
+  return <CompanyDirectory heading={heading} />;
 }
 
-function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
+function CompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
   const directory = useOpenReferralCompanies(true);
   const [selectedCompany, setSelectedCompany] = useState<OpenReferralCompany | null>(null);
   const people = useCompanyOpenReferrers(selectedCompany?.companySlug ?? null);
