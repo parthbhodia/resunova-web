@@ -55,6 +55,15 @@ describe("referral reward numbers", () => {
     expect(OUTCOME_REWARD_KINDS.closed).toBeNull();
   });
 
+  it("shows a placement without paying a second award for it", () => {
+    // The hire is self-reported and unverifiable, so it maps to the same
+    // 10-day kind the offer already earned. A direct null -> placed report
+    // still gets those days, because the offer must have happened.
+    expect(OUTCOME_REWARD_KINDS.placed).toBe("interview");
+    expect(REFERRAL_OUTCOME_LABELS.placed).toBe("I got the job");
+    expect(isReferralOutcome("placed")).toBe(true);
+  });
+
   it("runs the invite curve so signup pays the friend and activation pays the referrer", () => {
     expect(INVITE_REWARDS.signed_up).toEqual({ referrerDays: 0, friendDays: 7, friendDiscountPct: 0 });
     expect(INVITE_REWARDS.activated.referrerDays).toBe(7);
@@ -118,9 +127,10 @@ describe("referral reward copy", () => {
     expect(rewardSummary({ kind: "invite_signup", subject: null })).toMatch(/signed up/i);
   });
 
-  it("offers the candidate three real outcomes", () => {
+  it("offers the candidate four real outcomes", () => {
     expect(REFERRAL_OUTCOME_LABELS.interview).toBe("I got an interview");
     expect(isReferralOutcome("interview")).toBe(true);
+    expect(isReferralOutcome("placed")).toBe(true);
     expect(isReferralOutcome("hired")).toBe(false);
   });
 });

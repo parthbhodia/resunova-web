@@ -606,15 +606,7 @@ export function CompanyReferrerPanel({
       )}
 
       <SentReferralsCard />
-      <ReferralRewardsCard
-        requests={requests}
-        onRequestRefresh={() => {
-          if (!profile?.id) return;
-          void fetchMyReferralRequests(profile.id).then((loaded) => {
-            if (loaded) setRequests(loaded);
-          });
-        }}
-      />
+      <ReferralRewardsCard requests={requests} />
       <ReferralNotifyCard />
 
       {error ? <p role="alert" style={{ margin: 0, color: "#dc2626", fontSize: 13 }}>{error}</p> : null}

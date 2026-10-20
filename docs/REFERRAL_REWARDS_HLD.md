@@ -68,7 +68,7 @@ choice.
 | Event | Award | Why there |
 |---|---|---|
 | Mark a candidate `referred` | 3 Pro days | Nearly free to do, so it pays little |
-| Candidate reports an interview or offer | 10 more | The referrer has to wait for a real result, so it pays most |
+| Candidate reports an interview, offer, or hire | 10 more | The referrer has to wait for a real result, so it pays most |
 | Friend signs up via invite | 0 to referrer, 7 to friend | The friend needs to be able to act before paying us |
 | Friend completes a first scan | 7 to referrer | Proves the signup was a person |
 | Friend subscribes | 14 to referrer, 20% off for 3 months | Strongest signal |
@@ -82,6 +82,12 @@ drive-by asks and pays the desk for volume it did not create. The ledger has no
 
 **An offer pays the same as an interview.** Otherwise the better outcome earns
 less, which is both unfair and an obvious bug to whoever notices it first.
+
+**A hire is informational for now.** `placed` is a real outcome so the referrer
+learns the referral worked, but it pays nothing beyond the 10 days the interview
+or offer already earned. The candidate reports it about themselves and cannot
+prove it; paying more for an unverifiable self-report, to the referrer, is a
+collusion vector. Revisit if placement verification ever exists.
 
 The invite curve is not yet built. `lib/referralRewards.ts` holds it as
 `INVITE_REWARDS` and `makeInviteCode`, and `INVITE_ANNUAL_DAY_CAP` is the only
@@ -114,7 +120,7 @@ award themselves 10 days. Note the asymmetry that makes this necessary: the RLS
 UPDATE grant runs to the *referrer*, not the candidate, so the referrer is the
 one who can already write to the row. The candidate reaches the column through
 `report_referral_outcome`, a SECURITY DEFINER RPC, which also enforces
-`status = 'referred'` and one report per request.
+`status = 'referred'` and forward-only outcome progression.
 
 `nudge_count` and `last_nudged_at` are deliberately still absent from the
 immutable column list. `nudge_referral_request` updates them, so pinning them
@@ -141,6 +147,31 @@ The trigger deliberately does **not** read the opt-in. Email preferences live in
 `user_profiles.notify_prefs` behind `/api/profile/notify-prefs`, which is
 backend-owned, and gating at send time means a preference change takes effect on
 the next ask instead of stranding rows nobody drains.
+
+## Migration 061
+
+Adds `placed` to `candidate_outcome` and makes the report a progression instead
+of a single choice. The 059 RPC refused a second report, which froze every
+request at whatever the candidate picked first; an interview could never become
+an offer or a hire.
+
+The rules:
+
+- Only the candidate can report, and only once `status = 'referred'`.
+- Forward only: `interview` → `offer` → `placed`, with `closed` allowed from any
+  open state. `placed` and `closed` are final.
+- Repeating the current value is a no-op, so a retried request is safe.
+- `null` → `placed` pays the same 10 days, because the offer must have happened.
+  `placed` itself never pays a second award.
+
+The award trigger changes in exactly one place: the first-outcome branch now
+also fires on `'placed'`. The ledger's `(user_id, kind, request_id)` unique index
+still caps a referral at 13 days (3 + 10).
+
+The web half moves the reporting UI to `SentReferralsCard`, the candidate's own
+"Your requests" surface. The referrer's `ReferralRewardsCard` is read-only and
+shows what candidates reported, because the RPC would reject the referrer's
+click anyway.
 
 ## What the web repo can and cannot do
 

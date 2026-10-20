@@ -13,12 +13,17 @@ export type ReferralRequestStatus = (typeof REFERRAL_REQUEST_STATUSES)[number];
 /**
  * What a candidate reports back after a referral.
  *
- * `interview` and `offer` both mean it worked and both earn the same reward;
- * `closed` records the honest miss and earns nothing. Declared here because it
- * is a column on the request row, and lib/referralRewards re-exports it rather
- * than the other way round, so there is one definition.
+ * `interview`, `offer` and `placed` all mean it worked; the first two earn the
+ * same 10-day reward today and `placed` is informational, so a direct report of
+ * a hire still pays those 10 days. `closed` records the honest miss and earns
+ * nothing. Declared here because it is a column on the request row, and
+ * lib/referralRewards re-exports it rather than the other way round, so there is
+ * one definition.
+ *
+ * The order matters: the RPC only moves forwards (interview -> offer -> placed)
+ * and treats placed/closed as final.
  */
-export const REFERRAL_OUTCOMES = ["interview", "offer", "closed"] as const;
+export const REFERRAL_OUTCOMES = ["interview", "offer", "placed", "closed"] as const;
 export type ReferralOutcome = (typeof REFERRAL_OUTCOMES)[number];
 
 export const REFERRAL_REQUEST_STATUS_LABELS: Record<ReferralRequestStatus, string> = {

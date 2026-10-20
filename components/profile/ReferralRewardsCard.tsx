@@ -20,18 +20,14 @@ import {
   fetchMyReferralRewards,
   grantedRewardDays,
   pendingRewardDays,
-  referralOutcomeError,
-  reportReferralOutcome,
   rewardDaysLabel,
   rewardStatusLabel,
   rewardSummary,
-  REFERRAL_OUTCOMES,
   REFERRAL_OUTCOME_LABELS,
   REFERRAL_REWARD_DAYS,
   type RewardEntry,
 } from "@/lib/referralRewards";
 import type { CompanyReferralRequest } from "@/lib/companyReferrers";
-import { FeedbackToastCard, type FeedbackToastVariant } from "@/components/FeedbackToastCard";
 
 const cardStyle: CSSProperties = {
   borderRadius: 18,
@@ -49,33 +45,11 @@ type LoadState =
 
 export function ReferralRewardsCard({
   requests = [],
-  onRequestRefresh,
 }: {
-  /** Referred requests the panel already has, so the report needs no second read. */
+  /** The referrer's asks, used read-only to show what candidates reported back. */
   requests?: CompanyReferralRequest[];
-  onRequestRefresh?: () => void;
 }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [reportingId, setReportingId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ title: string; description: string; variant: FeedbackToastVariant } | null>(null);
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 6000);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
-
-  /**
-   * Only offer the report on requests that have not been reported yet. The RPC
-   * refuses a second report, so the button must not invite one.
-   *
-   * Computed before the early returns because the report section is the whole
-   * point of this card for a referrer who has not yet reported anything: it is
-   * the moment they learn there is 10 days on the table.
-   */
-  const reportable = requests.filter(
-    (row) => row.status === "referred" && row.candidateOutcome == null && row.source === "request",
-  );
 
   const load = useCallback(async () => {
     const result = await fetchMyReferralRewards();
@@ -111,10 +85,12 @@ export function ReferralRewardsCard({
     );
   }
 
+  const reported = requests.filter((row) => row.candidateOutcome != null);
+
   // Silent until there is something to say. An empty card on every fresh desk
-  // teaches referrers to scroll past it. An unreported referral is something to
-  // say, so it keeps the card visible even with no entries behind it.
-  if (state.status === "empty" && reportable.length === 0) return null;
+  // teaches referrers to scroll past it. A reported outcome is worth showing
+  // even when the ledger has not caught up.
+  if (state.status === "empty" && reported.length === 0) return null;
 
   if (state.status === "error") {
     return (
@@ -132,37 +108,6 @@ export function ReferralRewardsCard({
   const granted = grantedRewardDays(entries);
   const pending = pendingRewardDays(entries);
 
-  const onReport = async (row: CompanyReferralRequest, outcome: "interview" | "offer" | "closed") => {
-    setReportingId(row.id);
-    const result = await reportReferralOutcome(row.id, outcome);
-    setReportingId(null);
-    if (!result.ok) {
-      setToast({
-        title: "Could not save that",
-        description: result.error ?? referralOutcomeError(null),
-        variant: "error",
-      });
-      return;
-    }
-    // The referrer is the one who gets paid for this, so the confirmation names
-    // the reward rather than just confirming the click.
-    const earns = outcome === "closed" ? 0 : REFERRAL_REWARD_DAYS.interview;
-    setToast(
-      earns > 0
-        ? {
-            title: "Thanks for closing the loop",
-            description: `${rewardDaysLabel(earns)} on the way to your Pro account.`,
-            variant: "success",
-          }
-        : {
-            title: "Noted",
-            description: "No reward for a referral that did not work out, and thanks for saying so.",
-            variant: "info",
-          },
-    );
-    onRequestRefresh?.();
-  };
-
   return (
     <Card>
       <Body>
@@ -170,6 +115,7 @@ export function ReferralRewardsCard({
         <p style={{ margin: "8px 0 0", color: "#6b7280", fontSize: 14, lineHeight: 1.55 }}>
           Marking a candidate referred earns {rewardDaysLabel(REFERRAL_REWARD_DAYS.referred)}.
           If they report an interview, that becomes {rewardDaysLabel(REFERRAL_REWARD_DAYS.interview)}.
+          Candidates report from their own requests; a hire is shown here once they tell us.
         </p>
 
         <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
@@ -177,46 +123,23 @@ export function ReferralRewardsCard({
           <Stat label="On the way" value={pending} tone="#b45309" />
         </div>
 
-        {reportable.length > 0 ? (
+        {reported.length > 0 ? (
           <div style={{ marginTop: 18 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#374151" }}>Close the loop</div>
-            <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: 13 }}>
-              If a referral you submitted turned into an interview, telling us pays you the rest.
-            </p>
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-              {reportable.map((row) => (
-                <div key={row.id} style={{ border: "1px solid rgba(15,23,42,0.08)", borderRadius: 14, padding: 14, background: "#f8fafc" }}>
-                  <div style={{ fontWeight: 800, fontSize: 14 }}>
-                    {row.candidateName || "This candidate"}
-                    {row.role ? <span style={{ fontWeight: 500, color: "#6b7280" }}> · {row.role}</span> : null}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                    {REFERRAL_OUTCOMES.map((outcome) => (
-                      <button
-                        key={outcome}
-                        type="button"
-                        disabled={reportingId === row.id}
-                        onClick={() => void onReport(row, outcome)}
-                        style={{
-                          border: outcome === "closed" ? "1px solid rgba(15,23,42,0.10)" : "none",
-                          background: outcome === "closed" ? "#fff" : "#2563eb",
-                          color: outcome === "closed" ? "#6b7280" : "#fff",
-                          borderRadius: 10,
-                          padding: "8px 12px",
-                          fontWeight: 800,
-                          fontSize: 13,
-                          cursor: reportingId === row.id ? "default" : "pointer",
-                          opacity: reportingId === row.id ? 0.6 : 1,
-                        }}
-                      >
-                        {REFERRAL_OUTCOME_LABELS[outcome]}
-                      </button>
-                    ))}
-                  </div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#374151" }}>What candidates told us</div>
+            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+              {reported.map((row) => (
+                <div key={row.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", fontSize: 13 }}>
+                  <span style={{ color: "#374151", minWidth: 0 }}>
+                    {row.candidateName || "A candidate"}
+                    {row.role ? <span style={{ color: "#9ca3af" }}> · {row.role}</span> : null}
+                  </span>
+                  <span style={{ color: row.candidateOutcome === "closed" ? "#6b7280" : "#15803d", fontWeight: 800, whiteSpace: "nowrap" }}>
+                    {REFERRAL_OUTCOME_LABELS[row.candidateOutcome!]}
+                  </span>
                 </div>
               ))}
             </div>
-            </div>
+          </div>
         ) : null}
 
         {entries.length > 0 ? (
@@ -238,15 +161,6 @@ export function ReferralRewardsCard({
           </div>
         ) : null}
       </Body>
-      {toast ? (
-        <FeedbackToastCard
-          variant={toast.variant}
-          role={toast.variant === "error" ? "alert" : "status"}
-          title={toast.title}
-          description={toast.description}
-          onDismiss={() => setToast(null)}
-        />
-      ) : null}
     </Card>
   );
 }

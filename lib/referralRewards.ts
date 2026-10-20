@@ -106,13 +106,20 @@ export { REFERRAL_OUTCOMES, type ReferralOutcome };
 export const REFERRAL_OUTCOME_LABELS: Record<ReferralOutcome, string> = {
   interview: "I got an interview",
   offer: "I got an offer",
+  placed: "I got the job",
   closed: "It did not work out",
 };
 
-/** Both outcomes mean the referral paid off, so both earn the same days. */
+/**
+ * The reward kind an outcome earns. Placement pays nothing extra: it maps to the
+ * interview kind because the offer must have happened, and a self-reported hire
+ * is not verifiable enough to pay a second time. An interview and a closed
+ * outcome set the same kind, so a later close cannot revoke the days.
+ */
 export const OUTCOME_REWARD_KINDS: Record<ReferralOutcome, RewardKind | null> = {
   interview: "interview",
   offer: "interview",
+  placed: "interview",
   closed: null,
 };
 
@@ -283,12 +290,14 @@ export const REFERRAL_OUTCOME_FAILED = "Could not save that. Try again.";
 export function referralOutcomeError(error: { message?: string } | null | undefined): string {
   const message = (error?.message ?? "").toLowerCase();
   if (message.includes("not your request")) return "That request is not yours to update.";
-  // Matches the RPC text in migration 059 exactly. The status guard is the one
-  // a candidate will actually hit, so it has to land on a real message.
+  // Matches the RPC text in migrations 059/061. The status guard is the one a
+  // candidate will actually hit, so it has to land on a real message.
   if (message.includes("once you are referred")) {
     return "You can only report an outcome once you are marked referred.";
   }
   if (message.includes("already reported")) return "You already reported an outcome for this request.";
+  if (message.includes("already final")) return "This referral is already marked as final.";
+  if (message.includes("move backwards")) return "An outcome cannot move backwards.";
   return REFERRAL_OUTCOME_FAILED;
 }
 
