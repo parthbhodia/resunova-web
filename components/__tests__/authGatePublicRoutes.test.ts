@@ -19,6 +19,14 @@ describe("AuthGate public marketing routes", () => {
     expect(isPublicPath("/refer")).toBe(false);
     expect(isPublicPath("/refer/")).toBe(false);
   });
+
+  it("keeps the account hub gated: it has no signed-out state", () => {
+    // ProfilePage reads the signed-in user's plan, usage, referral alerts and
+    // Career Memory. With /profile in PUBLIC_ROUTES it rendered that whole
+    // dashboard to anonymous visitors, header and Sign out button included.
+    expect(isPublicPath("/profile")).toBe(false);
+    expect(isPublicPath("/profile/")).toBe(false);
+  });
 });
 
 it("the template gallery is public, like the builder it leads into", () => {
