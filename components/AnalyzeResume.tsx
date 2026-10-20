@@ -24,6 +24,7 @@ import { resumeFileClientError } from "@/lib/utils";
 import { isMissingLinkedInFlag, resumeShowsLinkedInProfile } from "@/lib/resumeLinkedIn";
 import { apiErrorFromUnknown, toUserFriendlyErrorMessage, resumeGateErrorFromResponse } from "@/lib/userFriendlyError";
 import { mergeAnalyzeApiJson } from "@/lib/mergeAnalyzeApiJson";
+import { trackEvent } from "@/lib/analytics";
 import { stripResumeBulletPrefix } from "@/lib/stripResumeBulletPrefix";
 import { useResumeAnalyzeStore } from "@/store/resumeAnalyzeStore";
 import { getSupabaseClient, fetchAnalysisById, insertAnalysis, createAnalysisVersion, deleteAnalysis } from "@/lib/supabase";
@@ -420,6 +421,9 @@ export default function AnalyzeResume() {
       }
       const res = mergeAnalyzeApiJson(json as Record<string, unknown>) as unknown as AnalysisResult;
       const resWithMeta: AnalysisResult = { ...res, libraryFolder: null };
+      // Paired with scan_started in run(). Score is the report the visitor
+      // actually saw, so it can be bucketed without refetching anything.
+      trackEvent("scan_completed", { source: "upload", score: resWithMeta.overallScore });
       const draftId = `local_${Date.now()}`;
       setActiveEditDraftId(draftId);
       setResult(resWithMeta);
@@ -467,6 +471,9 @@ export default function AnalyzeResume() {
         fd.set("user_id", session.user.id);
         if (session.user.email) fd.set("user_email", session.user.email);
       }
+      // Fires only past the sign-in gate: a refusal lands in
+      // applyAnalyzeOutcome below and never reaches this line.
+      trackEvent("scan_started", { source: "upload", with_jd: jd.trim().length > 0 });
       // The scan runs in a module-level slot, so the result survives this
       // component unmounting mid-flight. A scan already cost the user one of
       // their daily allowance; dropping the answer because they changed tabs

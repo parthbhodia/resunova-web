@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import AuthGate from "@/components/AuthGate";
+import AnalyticsAuthEvents from "@/components/AnalyticsAuthEvents";
 import AuthHostRedirect from "@/components/AuthHostRedirect";
 import GoogleOneTap from "@/components/GoogleOneTap";
 import { SignInDialogProvider } from "@/components/SignInDialog";
@@ -195,6 +196,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AuthHostRedirect />
         <GoogleOneTap />
+        <AnalyticsAuthEvents />
         <SignInDialogProvider>
           <AuthGate>{children}</AuthGate>
         </SignInDialogProvider>
