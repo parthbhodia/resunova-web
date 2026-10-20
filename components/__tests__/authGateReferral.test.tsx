@@ -1,9 +1,6 @@
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-
-const mockSignInWithGoogle = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/refer" }));
 vi.mock("next/link", () => ({
@@ -23,7 +20,7 @@ vi.mock("@/lib/authSignOut", () => ({
   subscribeForceLandingAfterSignOut: () => () => {},
 }));
 vi.mock("@/lib/anonScan", () => ({
-  signInWithGoogle: mockSignInWithGoogle,
+  signInWithGoogle: vi.fn(),
   urlRequestsPublicAppView: () => false,
 }));
 vi.mock("@/components/SignInDialog", () => ({
@@ -34,17 +31,18 @@ vi.mock("@/components/app-shell/AppShellSkeleton", () => ({ default: () => <div>
 
 import AuthGate from "@/components/AuthGate";
 
-describe("AuthGate referral protection", () => {
-  it("shows the referral-specific sign-in gate instead of rendering referral data", async () => {
+describe("AuthGate referral directory", () => {
+  it("renders the referral page for a signed-out visitor", () => {
+    // /refer used to be gated at the route boundary (migration 052's privacy
+    // model). The directory is public now and only the ask needs an account,
+    // which the form itself handles, so the route must not wall first.
     render(
       <AuthGate>
-        <div>Private referral directory</div>
+        <div>Open referral directory</div>
       </AuthGate>,
     );
 
-    expect(await screen.findByRole("heading", { name: "Sign in to view referrals" })).toBeInTheDocument();
-    expect(screen.queryByText("Private referral directory")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Continue with Google" }));
-    expect(mockSignInWithGoogle).toHaveBeenCalledOnce();
+    expect(screen.getByText("Open referral directory")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sign in to view referrals" })).not.toBeInTheDocument();
   });
 });

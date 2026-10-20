@@ -38,9 +38,16 @@ vi.mock("@/lib/apiClient", async (importOriginal) => {
         ok: true,
         json: () =>
           Promise.resolve(
-            path.includes("/api/applications")
-              ? { stats: { saved: 1, applied: 2, interviewing: 0, offer: 0, rejected: 0, archived: 0, total: 3 } }
-              : { enforced: true, unlimited: false, limit: 3, used: 1, remaining: 2, usedLast7Days: 2 },
+            path.includes("/api/jobs/top-matches")
+              ? {
+                  jobs: [
+                    { id: "job-1", title: "Backend Engineer", company: "Acme", matchScore: 82 },
+                    { id: "job-2", title: "Platform Engineer", company: "Globex", matchScore: 64 },
+                  ],
+                }
+              : path.includes("/api/applications")
+                ? { stats: { saved: 1, applied: 2, interviewing: 0, offer: 0, rejected: 0, archived: 0, total: 3 } }
+                : { enforced: true, unlimited: false, limit: 3, used: 1, remaining: 2, usedLast7Days: 2 },
           ),
       }),
   };
@@ -97,6 +104,7 @@ function statValue(label: string): string {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
 });
 
 describe("Best ATS score", () => {
@@ -169,6 +177,25 @@ describe("the greeting", () => {
   it("picks up where you left off once there is something to pick up", async () => {
     setup([analyzed(72, 10)]);
     await waitFor(() => expect(screen.getByText(/Pick up where you left off/)).toBeInTheDocument());
+  });
+});
+
+describe("matched jobs and referrals", () => {
+  it("lists the top matches with their score and company", async () => {
+    setup([analyzed(72, 10)]);
+    expect(await screen.findByText("Matched jobs")).toBeInTheDocument();
+    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
+    expect(screen.getByText("Globex")).toBeInTheDocument();
+    expect(screen.getByText("82")).toBeInTheDocument();
+    expect(screen.getByText(/Ranked against your latest résumé scan/)).toBeInTheDocument();
+  });
+
+  it("surfaces Referrals beside the other quick actions", async () => {
+    setup([]);
+    await waitFor(() => expect(screen.getByText("Referrals")).toBeInTheDocument());
+    expect(
+      screen.getByText("Get referred, or refer someone at your company."),
+    ).toBeInTheDocument();
   });
 });
 

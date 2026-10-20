@@ -62,6 +62,24 @@ The scan screen reads this and says scoring is paused. The rest of the site stay
 | `/api/suggest-gap-fix` | POST | JD gap rewrite suggestions. Additive: `suggested_role` on a suggestion retitles that existing Experience role (aggressive mode only; frontend also fills this from the posting title when the model omits it). |
 | `/api/extract-jd` | POST | Parse job description URL/text |
 
+## Referral rewards
+
+Supabase bearer. See [`REFERRAL_REWARDS_HLD.md`](REFERRAL_REWARDS_HLD.md).
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/referral/rewards` | GET | The caller's `referral_reward_ledger` rows, newest first (auth; `resunova-api` `feat/referral-rewards`) |
+
+Response `{ entries: [...] }`, each entry `{ id, kind, source, days, status, subject, createdAt, grantedAt }`.
+
+`kind` ∈ `referred` | `interview` | `invite_signup` | `invite_activated`. `source` ∈ `desk_referral` | `invite`. `status` ∈ `pending` | `granted` | `revoked`.
+
+`pending` is normal for a few seconds: a database trigger records the award and the backend has not yet extended the subscription. The UI shows those days as "on the way" rather than hiding them, so **do not filter pending rows out of this response** or a reward looks like it was never earned.
+
+A `404` is the expected response until this route ships; the client reads it as an empty list, not an error.
+
+The candidate-reported outcome does **not** go through this API. It is the `report_referral_outcome` RPC called on Supabase directly, because RLS grants UPDATE on the request row to the referrer rather than to the candidate.
+
 ## Advisor
 
 | Endpoint | Method |

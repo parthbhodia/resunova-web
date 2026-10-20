@@ -6,14 +6,21 @@ import Card from "@mui/material/Card";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { AccentLink, OpenChip, ReferAlert, ReferField, ReferNote, ReferrerCard } from "@/components/refer/referUi";
-import { filledButtonSx, mutedTextSx, surfaceCardSx } from "@/components/mui/cssVars";
+import { filledButtonSx, mutedTextSx, outlineButtonSx, surfaceCardSx } from "@/components/mui/cssVars";
 import { useSignInDialog } from "@/components/SignInDialog";
-import { REFERRER_LIMITS, safeHttpUrl, type CompanyReferrer } from "@/lib/companyReferrers";
+import { useUpgradeDialog } from "@/components/UpgradeDialog";
+import {
+  REFERRAL_ASK_BLOCKED_COPY,
+  REFERRER_LIMITS,
+  safeHttpUrl,
+  type CompanyReferrer,
+} from "@/lib/companyReferrers";
 import { useReferralAsk } from "@/hooks/usePublicReferral";
 import { FS, FW, LH } from "@/lib/typography";
 
 export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer }) {
   const { openSignIn } = useSignInDialog();
+  const { openUpgrade } = useUpgradeDialog();
   const ask = useReferralAsk(referrer);
   const linkedinHref = safeHttpUrl(referrer.linkedin);
 
@@ -25,8 +32,20 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
         title: "Sign in to ask for a referral",
         reason: "Your request is saved to your account so you can track it.",
       });
+      return;
+    }
+    if (outcome === "upgrade") {
+      openUpgrade({ source: "referral-ask" });
     }
   };
+
+  // Renders the form disabled rather than hiding it: the user still sees what
+  // they would be asking for and where it goes, which is what makes the upgrade
+  // read as a choice instead of a dead end. Signed-out visitors are the
+  // exception: the ask is enabled and resolves to sign-in, because the write is
+  // gated on the account, not on a plan they have not chosen yet.
+  const needsSignIn = ask.entitlement?.reason === "sign_in" && !ask.checkingPlan;
+  const blocked = !ask.allowed && !ask.checkingPlan && !needsSignIn;
 
   return (
     <Stack spacing={2.5}>
@@ -99,9 +118,29 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
               onChange={(value) => ask.setField("notes", value)}
             />
             {ask.error ? <ReferAlert>{ask.error}</ReferAlert> : null}
-            <Button type="submit" variant="contained" disabled={ask.saving} sx={filledButtonSx}>
-              {ask.saving ? "Sending..." : "Ask for a referral"}
-            </Button>
+            {blocked && !ask.error ? (
+              <ReferAlert>{REFERRAL_ASK_BLOCKED_COPY[ask.entitlement?.reason ?? "upgrade"]}</ReferAlert>
+            ) : null}
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+              <Button type="submit" variant="contained" disabled={ask.saving || (!ask.allowed && !needsSignIn)} sx={filledButtonSx}>
+                {ask.checkingPlan ? "Checking your plan..." : ask.saving ? "Sending..." : "Ask for a referral"}
+              </Button>
+              {blocked ? (
+                <Button
+                  type="button"
+                  variant="outlined"
+                  onClick={() => (ask.entitlement?.reason === "sign_in"
+                    ? openSignIn({
+                        title: "Sign in to ask for a referral",
+                        reason: "Your request is saved to your account so you can track it.",
+                      })
+                    : openUpgrade({ source: "referral-ask" }))}
+                  sx={{ ...outlineButtonSx, textTransform: "none" }}
+                >
+                  {ask.entitlement?.reason === "sign_in" ? "Sign in" : "See Pro"}
+                </Button>
+              ) : null}
+            </Stack>
             <Typography sx={{ ...mutedTextSx, fontSize: FS.small }}>
               {referrer.displayName} will review your request. If they agree, they submit the referral through {referrer.company}&apos;s hiring process. Resunova does not submit it for them.
             </Typography>

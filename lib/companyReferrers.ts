@@ -10,6 +10,22 @@ import { getSupabaseClient } from "@/lib/supabase";
 export const REFERRAL_REQUEST_STATUSES = ["requested", "reviewing", "referred", "declined"] as const;
 export type ReferralRequestStatus = (typeof REFERRAL_REQUEST_STATUSES)[number];
 
+/**
+ * What a candidate reports back after a referral.
+ *
+ * `interview`, `offer` and `placed` all mean it worked; the first two earn the
+ * same 10-day reward today and `placed` is informational, so a direct report of
+ * a hire still pays those 10 days. `closed` records the honest miss and earns
+ * nothing. Declared here because it is a column on the request row, and
+ * lib/referralRewards re-exports it rather than the other way round, so there is
+ * one definition.
+ *
+ * The order matters: the RPC only moves forwards (interview -> offer -> placed)
+ * and treats placed/closed as final.
+ */
+export const REFERRAL_OUTCOMES = ["interview", "offer", "placed", "closed"] as const;
+export type ReferralOutcome = (typeof REFERRAL_OUTCOMES)[number];
+
 export const REFERRAL_REQUEST_STATUS_LABELS: Record<ReferralRequestStatus, string> = {
   requested: "Requested",
   reviewing: "Reviewing",
@@ -51,6 +67,13 @@ export type CompanyReferralRequest = {
   notes: string | null;
   source: "request" | "submitted";
   status: ReferralRequestStatus;
+  /**
+   * What the candidate reported back after being referred. Only the candidate
+   * can set it (migration 059), because the referrer is the party the interview
+   * reward pays.
+   */
+  candidateOutcome: ReferralOutcome | null;
+  candidateOutcomeAt: string | null;
   createdAt: string;
   updatedAt?: string;
   nudgeCount?: number;
@@ -107,6 +130,27 @@ export type OpenReferralCompany = {
   referredCount: number;
 };
 
+/**
+ * Directory order.
+ *
+ * `referred` is the default because it is the only order that tells a candidate
+ * anything: a company with one open referrer who has submitted six people is a
+ * better bet than a company with six referrers who have submitted none.
+ */
+export type OpenCompanySort = "referred" | "open";
+
+export function sortOpenCompanies(
+  companies: OpenReferralCompany[],
+  mode: OpenCompanySort = "referred",
+): OpenReferralCompany[] {
+  return [...companies].sort((a, b) => {
+    if (mode === "open" && b.openCount !== a.openCount) return b.openCount - a.openCount;
+    if (b.referredCount !== a.referredCount) return b.referredCount - a.referredCount;
+    if (b.openCount !== a.openCount) return b.openCount - a.openCount;
+    return a.company.localeCompare(b.company);
+  });
+}
+
 const OPEN_COMPANIES_LIMIT = 200;
 
 type ReferrerRow = {
@@ -140,6 +184,8 @@ type RequestRow = {
   notes: string | null;
   source: string | null;
   status: string | null;
+  candidate_outcome?: string | null;
+  candidate_outcome_at?: string | null;
   created_at: string;
   updated_at?: string | null;
   nudge_count?: number | null;
@@ -184,6 +230,10 @@ export function mapReferrerRow(row: ReferrerRow): CompanyReferrer {
   };
 }
 
+function mapOutcome(value: string | null | undefined): ReferralOutcome | null {
+  return REFERRAL_OUTCOMES.includes(value as ReferralOutcome) ? (value as ReferralOutcome) : null;
+}
+
 export function mapRequestRow(row: RequestRow): CompanyReferralRequest {
   const status = REFERRAL_REQUEST_STATUSES.includes(row.status as ReferralRequestStatus)
     ? (row.status as ReferralRequestStatus)
@@ -205,6 +255,8 @@ export function mapRequestRow(row: RequestRow): CompanyReferralRequest {
     notes: row.notes,
     source: row.source === "submitted" ? "submitted" : "request",
     status,
+    candidateOutcome: mapOutcome(row.candidate_outcome),
+    candidateOutcomeAt: row.candidate_outcome_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
     nudgeCount: row.nudge_count ?? 0,
@@ -373,6 +425,44 @@ export const REFERRAL_REQUEST_STATUS_TONES: Record<ReferralRequestStatus, "amber
   declined: "red",
 };
 
+/**
+ * Whether this caller may send an ask through a referral link.
+ *
+ * The gate is plan-based, and the answer is deliberately NOT derived from a
+ * Pro subscription here: the authoritative tier comes from the API's
+ * entitlements policy via `GET /api/scan-limit-status`, and duplicating the
+ * rule in the browser is how the two drift. This type exists so a call site has
+ * to make the decision explicitly and so the copy that follows can name a
+ * remedy rather than guess.
+ */
+export type ReferralAskBlockReason = "upgrade" | "sign_in";
+
+export type ReferralAskEntitlement =
+  /** Pro, admin, or an institution seat. */
+  | { allowed: true; reason?: undefined }
+  /** Free plan: can browse the directory, cannot send an ask. */
+  | { allowed: false; reason: ReferralAskBlockReason };
+
+export const REFERRAL_ASK_BLOCKED_COPY: Record<ReferralAskBlockReason, string> = {
+  upgrade: "Asking for a referral is part of Pro. Your desk and your saved requests stay on the free plan.",
+  sign_in: "Sign in to ask for a referral.",
+};
+
+export function referralAskEntitlement(input: {
+  signedIn: boolean;
+  /** `plan` from /api/scan-limit-status, or null when unknown. */
+  plan: string | null;
+  unlimited: boolean;
+}): ReferralAskEntitlement {
+  if (!input.signedIn) return { allowed: false, reason: "sign_in" };
+  // null plan means the status call failed or has not landed. Do not read an
+  // unknown plan as free-with-privileges: gate closed, and the copy asks them
+  // to sign in rather than to pay.
+  if (input.plan === null && !input.unlimited) return { allowed: false, reason: "sign_in" };
+  if (input.plan === "pro" || input.plan === "admin" || input.unlimited) return { allowed: true };
+  return { allowed: false, reason: "upgrade" };
+}
+
 export function referralRequestPipeline(rows: CompanyReferralRequest[]): Record<ReferralRequestStatus, number> {
   const counts: Record<ReferralRequestStatus, number> = {
     requested: 0,
@@ -445,6 +535,14 @@ const REFERRER_PUBLIC_SELECT = `${REFERRER_PUBLIC_SELECT_BASE}, referred_count`;
 const REQUEST_SELECT_BASE =
   "id, referrer_id, candidate_user_id, candidate_name, candidate_email, candidate_linkedin, resume_pdf_path, candidate_phone, candidate_years_experience, candidate_headline, role, notes, source, status, created_at";
 const REQUEST_SELECT = `${REQUEST_SELECT_BASE}, updated_at, nudge_count, last_nudged_at`;
+/**
+ * The outcome columns arrived in migration 059, so every read falls back to the
+ * pre-059 set if they are missing. Without that, applying the migration and
+ * deploying the web half in the wrong order breaks the inbox rather than
+ * deferring the feature.
+ */
+const REQUEST_SELECT_OUTCOME = `${REQUEST_SELECT}, candidate_outcome, candidate_outcome_at`;
+const REQUEST_SELECT_OUTCOME_MISSING = "candidate_outcome";
 
 function columnMissing(error: { message?: string } | null | undefined, column: string): boolean {
   const message = (error?.message ?? "").toLowerCase();
@@ -557,13 +655,20 @@ export async function listOpenReferrersForCompany(companySlug: string): Promise<
       REFERRER_PUBLIC_SELECT,
       REFERRER_PUBLIC_SELECT_BASE,
       "referred_count",
-      (columns) => getSupabaseClient()
-        .from("company_referrers")
-        .select(columns)
-        .eq("company_slug", slug)
-        .eq("open_to_refer", true)
-        .order("display_name", { ascending: true })
-        .limit(50),
+      // Sort by the tally so the most proven referrer leads the list, but only
+      // order by it when the column was actually selected: the fallback column
+      // set omits it, and ordering by a column that is not in the select fails.
+      (columns) => {
+        let query = getSupabaseClient()
+          .from("company_referrers")
+          .select(columns)
+          .eq("company_slug", slug)
+          .eq("open_to_refer", true);
+        query = columns.includes("referred_count")
+          ? query.order("referred_count", { ascending: false }).order("display_name", { ascending: true })
+          : query.order("display_name", { ascending: true });
+        return query.limit(50);
+      },
     );
     if (error) {
       console.warn("[company_referrers] list company referrers:", error.message);
@@ -609,10 +714,31 @@ export function aggregateOpenCompanies(
       existing.companyDomain = domainsBySlug[slug];
     }
   }
-  return Array.from(bySlug.values()).sort((a, b) => {
-    if (b.openCount !== a.openCount) return b.openCount - a.openCount;
-    return a.company.localeCompare(b.company);
-  });
+  return sortOpenCompanies(Array.from(bySlug.values()));
+}
+
+/**
+ * Highest `referredCount` in a company, or null when nobody has referred anyone.
+ *
+ * The "Top referrer" badge is the one status signal in this product, and a
+ * badge that shows up on a newcomer at zero referrals is worth nothing. The
+ * threshold is deliberately the max rather than a fixed number: with a handful
+ * of referrers per company, "the best of what is here" is the only ranking that
+ * is true, and it stays true as more people join.
+ */
+export function topReferrerId(
+  referrers: ReadonlyArray<Pick<CompanyReferrer, "id" | "referredCount">>,
+): string | null {
+  let bestId: string | null = null;
+  let best = 0;
+  for (const referrer of referrers) {
+    const count = referrer.referredCount ?? 0;
+    if (count > best) {
+      best = count;
+      bestId = referrer.id;
+    }
+  }
+  return best > 0 ? bestId : null;
 }
 
 /** Filter the company grid; empty query returns the full list. */
@@ -707,9 +833,9 @@ export async function fetchMyReferralRequests(referrerId?: string): Promise<Comp
     const id = referrerId ?? (await fetchMyReferrerProfile())?.id;
     if (!id) return [];
     const { data, error } = await selectWithFallback(
+      REQUEST_SELECT_OUTCOME,
       REQUEST_SELECT,
-      REQUEST_SELECT_BASE,
-      "nudge_count",
+      REQUEST_SELECT_OUTCOME_MISSING,
       (columns) => getSupabaseClient()
         .from("company_referral_requests")
         .select(columns)
@@ -852,11 +978,16 @@ export async function fetchReferralRequestById(id: string): Promise<LoadResult<C
   const trimmed = id.trim();
   if (!trimmed) return { ok: true, data: null };
   try {
-    const { data, error } = await getSupabaseClient()
-      .from("company_referral_requests")
-      .select(REQUEST_SELECT)
-      .eq("id", trimmed)
-      .maybeSingle();
+    const { data, error } = await selectWithFallback(
+      REQUEST_SELECT_OUTCOME,
+      REQUEST_SELECT,
+      REQUEST_SELECT_OUTCOME_MISSING,
+      (columns) => getSupabaseClient()
+        .from("company_referral_requests")
+        .select(columns)
+        .eq("id", trimmed)
+        .maybeSingle(),
+    );
     if (error) {
       console.warn("[company_referral_requests] fetch by id:", error.message);
       return { ok: false, error: "Could not load this candidate profile. Try again." };
@@ -893,9 +1024,9 @@ export async function fetchMySentReferralRequests(): Promise<SentReferralRequest
     const userId = await currentUserId();
     if (!userId) return [];
     const { data, error } = await selectWithFallback(
+      REQUEST_SELECT_OUTCOME,
       REQUEST_SELECT,
-      REQUEST_SELECT_BASE,
-      "nudge_count",
+      REQUEST_SELECT_OUTCOME_MISSING,
       (columns) => getSupabaseClient()
         .from("company_referral_requests")
         .select(columns)
