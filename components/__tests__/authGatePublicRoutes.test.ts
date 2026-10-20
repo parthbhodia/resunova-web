@@ -10,14 +10,14 @@ describe("AuthGate public marketing routes", () => {
     "/resume-examples/software-engineer/",
     "/pricing",
     "/pricing/",
+    "/refer",
+    "/refer/",
   ])("allows %s without initializing auth", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });
 
-  it("keeps account-owned routes and referral requests gated", () => {
+  it("keeps account-owned routes gated", () => {
     expect(isPublicPath("/my-resumes")).toBe(false);
-    expect(isPublicPath("/refer")).toBe(false);
-    expect(isPublicPath("/refer/")).toBe(false);
   });
 
   it("keeps the account hub gated: it has no signed-out state", () => {

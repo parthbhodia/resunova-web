@@ -22,7 +22,6 @@ import { VIEW_LABELS, type AppView } from "./app-shell/nav-config";
 const GATED_ROUTE_LABELS: Record<string, string> = {
   "/interview-prep": "Interview Prep",
   "/my-resumes": "My Résumés",
-  "/refer": "referrals",
   "/account": "your account",
   "/profile": "your profile",
 };
@@ -387,6 +386,10 @@ const PUBLIC_ROUTES = new Set<string>([
   // While it was public, an anonymous visitor got the full dashboard with a
   // "Signed in account" header and a working "Sign out" button.
   "/reset-password",
+  // /refer is the public referral directory. Anonymous visitors get the page,
+  // the company grid and the open referrers; the ask form prompts sign-in at
+  // the action. See migration 061 for the matching anon read grant.
+  "/refer",
   // /extension is the public install explainer. /extension/connect is the auth
   // handshake page and MUST stay gated: its only job is to mint a connection
   // code, so rendering it to a signed-out visitor would be a dead end. It is

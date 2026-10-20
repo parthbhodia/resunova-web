@@ -1,14 +1,15 @@
 "use client";
 
 /**
- * Referral route. AuthGate protects the route; site chrome is
- * app/(marketing)/layout.tsx
+ * Referral route. Site chrome is app/(marketing)/layout.tsx
  * (PublicSiteFrame). This file only chooses which screen to show. Search,
  * load, and submit state live in hooks/usePublicReferral.ts. Shared controls
  * live in referUi.tsx.
  *
- * Data reads also wait for a signed-in session, so an auth transition cannot
- * briefly expose company or referrer details before AuthGate updates.
+ * The route is public: anonymous visitors browse the directory and can open a
+ * shared referrer link. Sign-in is asked for when they act (publish a profile,
+ * send a request), which the ask form already handles through its entitlement
+ * gate. Migration 061 carries the matching anonymous read grant.
  */
 
 import { Suspense, useEffect } from "react";
@@ -18,7 +19,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import { makeTheme } from "@/components/mui/theme";
 import { FindReferrer } from "@/components/refer/FindReferrer";
 import { ReferrerRequestForm } from "@/components/refer/ReferrerRequestForm";
-import { AccentLink, ReferAlert, ReferGoogleGate, ReferLede, ReferNote, ReferTitle } from "@/components/refer/referUi";
+import { AccentLink, ReferAlert, ReferLede, ReferNote, ReferTitle } from "@/components/refer/referUi";
 import { REFERRER_LINK_INACTIVE } from "@/lib/companyReferrers";
 import { clearPostLoginDest } from "@/lib/oauthRedirect";
 import { useReferSession, useReferrerLookup } from "@/hooks/usePublicReferral";
@@ -55,7 +56,7 @@ function ReferRoute() {
 function ReferSlugView({ slug }: { slug: string }) {
   const session = useReferSession();
   const signedIn = session.status === "signed_in";
-  const lookup = useReferrerLookup(slug, signedIn);
+  const lookup = useReferrerLookup(slug);
 
   // OAuth from this page stashes /refer/… for AppShell. If Supabase already
   // returned us here, drop the stash so the next home visit does not bounce back.
@@ -65,17 +66,6 @@ function ReferSlugView({ slug }: { slug: string }) {
 
   if (!slug) {
     return <FindReferrer />;
-  }
-
-  if (session.status === "loading") return <ReferNote>Loading...</ReferNote>;
-
-  if (session.status === "signed_out") {
-    return (
-      <ReferGoogleGate
-        title="Someone shared a referral link with you"
-        lede="Continue with Google to open it. We keep who is ready to refer private until you are signed in."
-      />
-    );
   }
 
   if (lookup.status === "loading" || lookup.status === "idle") return <ReferNote>Loading...</ReferNote>;
