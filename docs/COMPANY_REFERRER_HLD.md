@@ -47,10 +47,14 @@ Two new tables, next to (not replacing) `referral_contacts`.
 |---|---|
 | `user_id` | Unique. Owner of the desk |
 | `display_name`, `title`, `company`, `company_slug` | Public identity |
+| `company_website` | Required on save. Homepage or careers URL; shown on `/refer` and used for the logo host |
+| `company_location` | Required on save. City/region or Remote where this desk hires from |
 | `linkedin` | Optional public URL |
 | `bio` | Roles they can refer for (free text) |
 | `slug` | Public link key: `{name}-at-{company}-{6-char user suffix}` |
 | `open_to_refer` | Readable to signed-in users if true; hidden from search and slug page if paused |
+
+Migration `063` adds `company_location` and `company_website` (nullable for existing rows; the web upsert requires both).
 
 Work email is **not** stored. A public `SELECT` policy would leak it. Work-email verification is a later feature and needs a private column plus a non-public policy.
 

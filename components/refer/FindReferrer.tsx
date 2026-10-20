@@ -138,7 +138,11 @@ function CompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
                 }
               >
                 <Typography sx={{ mt: 0.5, fontSize: FS.body, color: "var(--muted)" }}>
-                  {referrer.title}{referrer.bio ? ` · ${referrer.bio}` : ""}
+                  {[
+                    referrer.title,
+                    referrer.companyLocation,
+                    referrer.bio,
+                  ].filter(Boolean).join(" · ")}
                 </Typography>
                 <Typography sx={{ mt: 0.5, fontSize: FS.small, fontWeight: FW.semibold, color: "var(--accent)" }}>
                   Ask for a referral →
@@ -217,9 +221,7 @@ function CompanyTile({ company, onSelect }: { company: OpenReferralCompany; onSe
               {company.company}
             </Typography>
             <Typography sx={{ mt: 0.5, fontSize: FS.small, color: "var(--muted)", lineHeight: LH.snug }}>
-              {openLabel}
-              {" · "}
-              {referredLabel}
+              {[company.companyLocation || null, openLabel, referredLabel].filter(Boolean).join(" · ")}
             </Typography>
           </Box>
           <Typography aria-hidden sx={{ fontSize: FS.title, color: "var(--accent)" }}>→</Typography>

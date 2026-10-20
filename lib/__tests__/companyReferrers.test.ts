@@ -25,6 +25,7 @@ import {
   slugifyPart,
   referralAskEntitlement,
   REFERRAL_ASK_BLOCKED_COPY,
+  websiteHostname,
 } from "@/lib/companyReferrers";
 
 describe("companyReferrers helpers", () => {
@@ -84,6 +85,8 @@ describe("companyReferrers helpers", () => {
     expect(referrer).toMatchObject({
       displayName: "Parth Bhodia",
       company: "Acme",
+      companyLocation: null,
+      companyWebsite: null,
       openToRefer: true,
       referredCount: 4,
     });
@@ -202,18 +205,40 @@ describe("companyReferrers helpers", () => {
       { stripe: "stripe.com" },
     );
     expect(companies).toEqual([
-      { company: "Stripe Inc", companySlug: "stripe", companyDomain: "stripe.com", openCount: 2, referredCount: 5 },
-      { company: "Acme", companySlug: "acme", companyDomain: "", openCount: 1, referredCount: 0 },
+      { company: "Stripe Inc", companySlug: "stripe", companyDomain: "stripe.com", companyLocation: "", companyWebsite: "", openCount: 2, referredCount: 5 },
+      { company: "Acme", companySlug: "acme", companyDomain: "", companyLocation: "", companyWebsite: "", openCount: 1, referredCount: 0 },
     ]);
     expect(filterOpenCompanies(companies, "str")).toHaveLength(1);
     expect(filterOpenCompanies(companies, "zzz")).toHaveLength(0);
   });
 
+  it("prefers a desk website hostname over the jobs-corpus domain", () => {
+    const companies = aggregateOpenCompanies(
+      [
+        {
+          company: "Acme",
+          companySlug: "acme",
+          referredCount: 1,
+          companyLocation: "Austin, TX",
+          companyWebsite: "https://www.acme.com/careers",
+        },
+      ],
+      { acme: "jobs-corpus.example" },
+    );
+    expect(companies[0]).toMatchObject({
+      companyDomain: "acme.com",
+      companyLocation: "Austin, TX",
+      companyWebsite: "https://www.acme.com/careers",
+    });
+    expect(websiteHostname("https://www.stripe.com/jobs")).toBe("stripe.com");
+    expect(websiteHostname("not a url")).toBe("");
+  });
+
   it("defaults the directory to most-referred, with open count as the tiebreak", () => {
     const rows = [
-      { company: "Beta", companySlug: "beta", companyDomain: "", openCount: 9, referredCount: 0 },
-      { company: "Alpha", companySlug: "alpha", companyDomain: "", openCount: 1, referredCount: 4 },
-      { company: "Gamma", companySlug: "gamma", companyDomain: "", openCount: 3, referredCount: 4 },
+      { company: "Beta", companySlug: "beta", companyDomain: "", companyLocation: "", companyWebsite: "", openCount: 9, referredCount: 0 },
+      { company: "Alpha", companySlug: "alpha", companyDomain: "", companyLocation: "", companyWebsite: "", openCount: 1, referredCount: 4 },
+      { company: "Gamma", companySlug: "gamma", companyDomain: "", companyLocation: "", companyWebsite: "", openCount: 3, referredCount: 4 },
     ];
     // Alpha and Gamma tie on referrals, so the busier desk wins.
     expect(sortOpenCompanies(rows).map((c) => c.company)).toEqual(["Gamma", "Alpha", "Beta"]);

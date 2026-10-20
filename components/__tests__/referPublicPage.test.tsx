@@ -118,7 +118,7 @@ describe("ReferPublicPage", () => {
   it("shows the company directory to unsigned visitors", async () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
     mockListOpenReferralCompanies.mockResolvedValue(loaded([
-      { company: "Stripe", companySlug: "stripe", companyDomain: "stripe.com", openCount: 2, referredCount: 5 },
+      { company: "Stripe", companySlug: "stripe", companyDomain: "stripe.com", companyLocation: "San Francisco, CA", companyWebsite: "https://stripe.com/", openCount: 2, referredCount: 5 },
     ]));
     render(<ReferPublicPage />);
     expect(await screen.findByRole("heading", { name: "Ask an employee for a referral" })).toBeInTheDocument();
@@ -142,6 +142,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: "Backend, intern",
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       referredCount: 12,
       createdAt: "",
@@ -151,12 +153,12 @@ describe("ReferPublicPage", () => {
 
     // The referrer and the form are public.
     expect(await screen.findByText("Parth Bhodia")).toBeInTheDocument();
-    expect(screen.getByText("Ask for a referral at Acme")).toBeInTheDocument();
+    expect(screen.getByText(/Ask for a referral at Acme/)).toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
-    await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
-    await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
-    await userEvent.type(screen.getByLabelText(/LinkedIn URL/), "https://linkedin.com/in/alex");
+    await userEvent.type(screen.getByLabelText(/Full name/), "Alex Kim");
+    await userEvent.type(screen.getByLabelText(/Email the referrer/), "alex@example.com");
+    await userEvent.type(screen.getByLabelText(/Role you want a referral for/), "Backend Engineer");
+    await userEvent.type(screen.getByLabelText(/LinkedIn profile URL/), "https://linkedin.com/in/alex");
 
     // Only the action asks for an account: submit resolves to sign_in before
     // any field validation or write.
@@ -176,13 +178,14 @@ describe("ReferPublicPage", () => {
 
   it("lets signed-in candidates open a company and choose a specific referrer", async () => {
     mockListOpenReferralCompanies.mockResolvedValue(loaded([
-      { company: "Stripe", companySlug: "stripe", companyDomain: "stripe.com", openCount: 2, referredCount: 5 },
-      { company: "Acme", companySlug: "acme", companyDomain: "", openCount: 1, referredCount: 0 },
+      { company: "Stripe", companySlug: "stripe", companyDomain: "stripe.com", companyLocation: "San Francisco, CA", companyWebsite: "https://stripe.com/", openCount: 2, referredCount: 5 },
+      { company: "Acme", companySlug: "acme", companyDomain: "", companyLocation: "", companyWebsite: "", openCount: 1, referredCount: 0 },
     ]));
     render(<ReferPublicPage />);
     expect(await screen.findByRole("list", { name: "Companies with open referrers" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Stripe" })).toBeInTheDocument();
-    expect(screen.getByText("2 open referrers · 5 referred")).toBeInTheDocument();
+    expect(screen.getByText(/2 open referrers · 5 referred/)).toBeInTheDocument();
+    expect(screen.getByText(/San Francisco, CA/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Acme" })).toBeInTheDocument();
     expect(screen.getByLabelText("Filter companies")).toBeInTheDocument();
     expect(screen.queryByText(/Software Engineer at/)).not.toBeInTheDocument();
@@ -197,6 +200,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "morgan-lee-at-stripe-abcdef",
       bio: "Design systems",
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       referredCount: 3,
       createdAt: "",
@@ -243,6 +248,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: "Backend, intern",
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       referredCount: 12,
       createdAt: "",
@@ -266,6 +273,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: "Backend, intern",
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       referredCount: 12,
       createdAt: "",
@@ -275,13 +284,13 @@ describe("ReferPublicPage", () => {
     expect(await screen.findByRole("button", { name: "Ask for a referral" })).toBeInTheDocument();
     expect(screen.getByText("Parth Bhodia")).toBeInTheDocument();
     expect(screen.getByLabelText("12 referred")).toBeInTheDocument();
-    expect(screen.getByText("Ask for a referral at Acme")).toBeInTheDocument();
+    expect(screen.getByText(/Ask for a referral at Acme/)).toBeInTheDocument();
     expect(screen.getByText(/does not submit it for them/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Your name/)).toBeRequired();
-    expect(screen.getByLabelText(/Your email/)).toBeRequired();
-    expect(screen.getByLabelText(/Role you want/)).toBeRequired();
-    expect(screen.getByLabelText(/LinkedIn URL/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Resume PDF/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Full name/)).toBeRequired();
+    expect(screen.getByLabelText(/Email the referrer/)).toBeRequired();
+    expect(screen.getByLabelText(/Role you want a referral for/)).toBeRequired();
+    expect(screen.getByLabelText(/LinkedIn profile URL/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Résumé PDF/)).toBeInTheDocument();
   });
 
   it("prefills the ask form from the signed-in account", async () => {
@@ -299,6 +308,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: null,
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       createdAt: "",
       updatedAt: "",
@@ -320,6 +331,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: null,
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       createdAt: "",
       updatedAt: "",
@@ -346,10 +359,10 @@ describe("ReferPublicPage", () => {
     });
     render(<ReferPublicPage />);
     await screen.findByRole("button", { name: "Ask for a referral" });
-    await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
-    await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
-    await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
-    await userEvent.type(screen.getByLabelText(/LinkedIn URL/), "https://linkedin.com/in/alex");
+    await userEvent.type(screen.getByLabelText(/Full name/), "Alex Kim");
+    await userEvent.type(screen.getByLabelText(/Email the referrer/), "alex@example.com");
+    await userEvent.type(screen.getByLabelText(/Role you want a referral for/), "Backend Engineer");
+    await userEvent.type(screen.getByLabelText(/LinkedIn profile URL/), "https://linkedin.com/in/alex");
     await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
     expect(mockCreateReferralRequest).toHaveBeenCalledWith({
       referrerId: "r1",
@@ -382,6 +395,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: null,
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       createdAt: "",
       updatedAt: "",
@@ -413,6 +428,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: null,
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       createdAt: "",
       updatedAt: "",
@@ -420,10 +437,10 @@ describe("ReferPublicPage", () => {
     render(<ReferPublicPage />);
     await screen.findByRole("button", { name: "Ask for a referral" });
     const form = document.querySelector("form")!;
-    await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
-    await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
-    await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
-    await userEvent.type(screen.getByLabelText(/LinkedIn URL/), "https://linkedin.com/in/alex");
+    await userEvent.type(screen.getByLabelText(/Full name/), "Alex Kim");
+    await userEvent.type(screen.getByLabelText(/Email the referrer/), "alex@example.com");
+    await userEvent.type(screen.getByLabelText(/Role you want a referral for/), "Backend Engineer");
+    await userEvent.type(screen.getByLabelText(/LinkedIn profile URL/), "https://linkedin.com/in/alex");
     await userEvent.click(document.activeElement ?? form);
     form.requestSubmit();
     await waitFor(() => expect(mockCreateReferralRequest).not.toHaveBeenCalled());
@@ -443,6 +460,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: null,
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       createdAt: "",
       updatedAt: "",
@@ -465,6 +484,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: null,
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       referredCount: 0,
       createdAt: "",
@@ -474,7 +495,7 @@ describe("ReferPublicPage", () => {
     // The row itself is public now: the slug is looked up without a session.
     expect(await screen.findByText("Parth Bhodia")).toBeInTheDocument();
     expect(mockFetchReferrerBySlug).toHaveBeenCalledWith("parth-bhodia-at-acme-abcdef");
-    expect(screen.getByLabelText(/Your email/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Email the referrer/)).toBeInTheDocument();
     // Nothing is written until the visitor authenticates.
     expect(mockCreateReferralRequest).not.toHaveBeenCalled();
   });
@@ -491,6 +512,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: null,
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       createdAt: "",
       updatedAt: "",
@@ -499,10 +522,10 @@ describe("ReferPublicPage", () => {
     render(<ReferPublicPage />);
     await screen.findByRole("button", { name: "Ask for a referral" });
     mockFetchReferrerBySlug.mockResolvedValue(loaded(null));
-    await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
-    await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
-    await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
-    await userEvent.type(screen.getByLabelText(/LinkedIn URL/), "https://linkedin.com/in/alex");
+    await userEvent.type(screen.getByLabelText(/Full name/), "Alex Kim");
+    await userEvent.type(screen.getByLabelText(/Email the referrer/), "alex@example.com");
+    await userEvent.type(screen.getByLabelText(/Role you want a referral for/), "Backend Engineer");
+    await userEvent.type(screen.getByLabelText(/LinkedIn profile URL/), "https://linkedin.com/in/alex");
     await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
     expect(await screen.findByText(REFERRER_LINK_INACTIVE)).toBeInTheDocument();
     expect(mockCreateReferralRequest).not.toHaveBeenCalled();
@@ -541,6 +564,8 @@ describe("ReferPublicPage", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: null,
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       createdAt: "",
       updatedAt: "",
@@ -552,10 +577,10 @@ describe("ReferPublicPage", () => {
     mockGetSession.mockResolvedValue({ data: { session: { user: { id: "candidate" } } } });
     render(<ReferPublicPage />);
     await screen.findByRole("button", { name: "Ask for a referral" });
-    await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
-    await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
-    await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
-    await userEvent.type(screen.getByLabelText(/LinkedIn URL/), "https://linkedin.com/in/alex");
+    await userEvent.type(screen.getByLabelText(/Full name/), "Alex Kim");
+    await userEvent.type(screen.getByLabelText(/Email the referrer/), "alex@example.com");
+    await userEvent.type(screen.getByLabelText(/Role you want a referral for/), "Backend Engineer");
+    await userEvent.type(screen.getByLabelText(/LinkedIn profile URL/), "https://linkedin.com/in/alex");
     mockGetSession.mockRejectedValue(new Error("offline"));
     await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(REFERRER_SESSION_FAILED);
