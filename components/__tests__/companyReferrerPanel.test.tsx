@@ -27,6 +27,9 @@ vi.mock("@/lib/productNotices", () => ({
   persistLastSeenSentReferral: vi.fn().mockResolvedValue(undefined),
   onReferralInboxRefresh: () => () => {},
   onSentReferralRefresh: () => () => {},
+  markRewardIdsSeen: vi.fn(),
+  rewardNotificationId: (entry: { id: string; kind: string; status: string }) =>
+    `${entry.id}:${entry.kind}:${entry.status}`,
 }));
 
 vi.mock("@/lib/companyReferrers", async (orig) => ({
