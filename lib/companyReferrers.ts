@@ -454,11 +454,22 @@ export function referralAskEntitlement(input: {
   plan: string | null;
   unlimited: boolean;
 }): ReferralAskEntitlement {
+  // Session wins over any stale plan field left on a guest payload.
   if (!input.signedIn) return { allowed: false, reason: "sign_in" };
-  if (input.plan === "pro" || input.plan === "admin" || input.unlimited) return { allowed: true };
-  // Free and unknown both land here. /api/scan-limit-status omits `plan` on the
-  // metered free tier, so null is the normal free reading, not a missing session.
-  // Asking a signed-in free user to sign in again was the bug.
+  const plan = (input.plan || "").trim().toLowerCase();
+  // Metered Pro still has plan:"pro" with unlimited:false. Institution/admin
+  // are named tiers even if a status payload drops unlimited.
+  if (
+    input.unlimited
+    || plan === "pro"
+    || plan === "admin"
+    || plan === "institution"
+  ) {
+    return { allowed: true };
+  }
+  // Free (plan omitted or "free") and unknown named plans: Pro wall.
+  // /api/scan-limit-status omits `plan` on the metered free tier, so null while
+  // signed in is the normal free reading, not a missing session.
   return { allowed: false, reason: "upgrade" };
 }
 

@@ -342,12 +342,13 @@ export function useReferralAsk(referrer: CompanyReferrer) {
     // affordance, not the gate, and a submit can still arrive from a stale
     // render or a keyboard submit on a form the user has not scrolled to.
     if (!allowed) {
-      setError(
-        entitlement && !entitlement.allowed
-          ? REFERRAL_ASK_BLOCKED_COPY[entitlement.reason]
-          : REFERRAL_ASK_BLOCKED_COPY.sign_in,
-      );
-      return entitlement && entitlement.reason === "sign_in" ? "sign_in" : "upgrade";
+      // Plan check still in flight: do not guess sign-in vs upgrade. Enter-key
+      // submit can fire while the button is disabled.
+      if (!entitlement) {
+        return "error";
+      }
+      setError(REFERRAL_ASK_BLOCKED_COPY[entitlement.reason]);
+      return entitlement.reason === "sign_in" ? "sign_in" : "upgrade";
     }
     setSaving(true);
     setError(null);
