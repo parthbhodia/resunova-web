@@ -41,8 +41,11 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
 
   // Renders the form disabled rather than hiding it: the user still sees what
   // they would be asking for and where it goes, which is what makes the upgrade
-  // read as a choice instead of a dead end.
-  const blocked = !ask.allowed && !ask.checkingPlan;
+  // read as a choice instead of a dead end. Signed-out visitors are the
+  // exception: the ask is enabled and resolves to sign-in, because the write is
+  // gated on the account, not on a plan they have not chosen yet.
+  const needsSignIn = ask.entitlement?.reason === "sign_in" && !ask.checkingPlan;
+  const blocked = !ask.allowed && !ask.checkingPlan && !needsSignIn;
 
   return (
     <Stack spacing={2.5}>
@@ -119,7 +122,7 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
               <ReferAlert>{REFERRAL_ASK_BLOCKED_COPY[ask.entitlement?.reason ?? "upgrade"]}</ReferAlert>
             ) : null}
             <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-              <Button type="submit" variant="contained" disabled={ask.saving || !ask.allowed} sx={filledButtonSx}>
+              <Button type="submit" variant="contained" disabled={ask.saving || (!ask.allowed && !needsSignIn)} sx={filledButtonSx}>
                 {ask.checkingPlan ? "Checking your plan..." : ask.saving ? "Sending..." : "Ask for a referral"}
               </Button>
               {blocked ? (
