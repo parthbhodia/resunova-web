@@ -44,6 +44,9 @@ next-env.d.ts
 # claude code machine-local settings (holds the impeccable design hook)
 .claude/settings.local.json
 
+# OpenCode local MCP config (may point at prod project refs)
+opencode.json
+
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.
 # Unanchored: .impeccable may sit at the repo root or under a nested
