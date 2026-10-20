@@ -152,7 +152,7 @@ export const NAV_ICONS = {
       />
     </svg>
   ),
-  themeDark: (
+  sun: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
       <path
@@ -163,7 +163,7 @@ export const NAV_ICONS = {
       />
     </svg>
   ),
-  themeLight: (
+  moon: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path
         d="M13.5 10.5A6 6 0 015.5 2.5a6 6 0 000 11 6 6 0 008-3z"
@@ -180,6 +180,40 @@ export const NAV_ICONS = {
         d="M2.5 4.5 8 8.5l5.5-4"
         stroke="currentColor"
         strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  terms: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M4 2.2h5.1L12 5.1v8.7a.9.9 0 0 1-.9.9H4a.9.9 0 0 1-.9-.9V3.1a.9.9 0 0 1 .9-.9Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 2.4V5.2h2.7M5.6 8h4.8M5.6 10.4h4.8"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  ),
+  privacy: (
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M8 2.2 12.4 3.8v3.7c0 2.6-1.7 4.6-4.4 5.8-2.7-1.2-4.4-3.2-4.4-5.8V3.8L8 2.2Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m6.2 7.7 1.3 1.3 2.4-2.4"
+        stroke="currentColor"
+        strokeWidth="1.3"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
