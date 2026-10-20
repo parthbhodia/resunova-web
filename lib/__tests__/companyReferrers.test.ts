@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateOpenCompanies,
   filterOpenCompanies,
+  sortOpenCompanies,
+  topReferrerId,
   approxYearsFromExperience,
+  type CompanyReferralRequest,
   isUsableEmail,
   makeReferrerSlug,
   mapReferrerRow,
@@ -20,9 +23,37 @@ import {
   safeHttpUrl,
   sanitizeSearchTerm,
   slugifyPart,
+  referralAskEntitlement,
+  REFERRAL_ASK_BLOCKED_COPY,
 } from "@/lib/companyReferrers";
 
 describe("companyReferrers helpers", () => {
+  it("gates asking for a referral on plan, and keeps the desk free", () => {
+    // Pro and admins may ask; free may not.
+    expect(referralAskEntitlement({ signedIn: true, plan: "pro", unlimited: true })).toEqual({ allowed: true });
+    expect(referralAskEntitlement({ signedIn: true, plan: "admin", unlimited: false })).toEqual({ allowed: true });
+    // A university seat reports unlimited, so it must not be walled.
+    expect(referralAskEntitlement({ signedIn: true, plan: "institution", unlimited: true })).toEqual({ allowed: true });
+    expect(referralAskEntitlement({ signedIn: true, plan: "free", unlimited: false })).toEqual({
+      allowed: false,
+      reason: "upgrade",
+    });
+    expect(referralAskEntitlement({ signedIn: false, plan: null, unlimited: false })).toEqual({
+      allowed: false,
+      reason: "sign_in",
+    });
+  });
+
+  it("treats an unknown plan as a sign-in prompt, not a paywall", () => {
+    // plan: null means the status call failed or has not landed. Selling to
+    // someone because our own request flaked is worse than showing nothing.
+    expect(referralAskEntitlement({ signedIn: true, plan: null, unlimited: false }).reason).toBe("sign_in");
+    expect(REFERRAL_ASK_BLOCKED_COPY.upgrade).toMatch(/pro/i);
+    expect(REFERRAL_ASK_BLOCKED_COPY.sign_in).toMatch(/sign in/i);
+    // Neither string may carry a spaced em dash.
+    expect(REFERRAL_ASK_BLOCKED_COPY.upgrade).not.toMatch(/[^\s][ ][—–][ ][^\s]/);
+    expect(REFERRAL_ASK_BLOCKED_COPY.sign_in).not.toMatch(/[^\s][ ][—–][ ][^\s]/);
+  });
   it("builds a stable public slug from name, company, and user id", () => {
     expect(slugifyPart("Acme Robotics")).toBe("acme-robotics");
     expect(makeReferrerSlug("Parth Bhodia", "Acme", "abcdef12-3456-7890-abcd-ef1234567890")).toBe(
@@ -92,6 +123,8 @@ describe("companyReferrers helpers", () => {
       candidateYearsExperience: null as number | null,
       candidateHeadline: null as string | null,
       resumePdfPath: null as string | null,
+      candidateOutcome: null as CompanyReferralRequest["candidateOutcome"],
+      candidateOutcomeAt: null,
     };
     const rows = [
       { id: "1", referrerId: "r", candidateName: "A", candidateEmail: "", candidateLinkedin: null, ...emptyPacket, role: "SWE", notes: null, source: "request" as const, status: "requested" as const, createdAt: "2026-10-02T00:00:00Z" },
@@ -174,5 +207,26 @@ describe("companyReferrers helpers", () => {
     ]);
     expect(filterOpenCompanies(companies, "str")).toHaveLength(1);
     expect(filterOpenCompanies(companies, "zzz")).toHaveLength(0);
+  });
+
+  it("defaults the directory to most-referred, with open count as the tiebreak", () => {
+    const rows = [
+      { company: "Beta", companySlug: "beta", companyDomain: "", openCount: 9, referredCount: 0 },
+      { company: "Alpha", companySlug: "alpha", companyDomain: "", openCount: 1, referredCount: 4 },
+      { company: "Gamma", companySlug: "gamma", companyDomain: "", openCount: 3, referredCount: 4 },
+    ];
+    // Alpha and Gamma tie on referrals, so the busier desk wins.
+    expect(sortOpenCompanies(rows).map((c) => c.company)).toEqual(["Gamma", "Alpha", "Beta"]);
+    expect(sortOpenCompanies(rows, "open").map((c) => c.company)).toEqual(["Beta", "Gamma", "Alpha"]);
+    // Sorted by copy, not in place: the caller's array keeps its own order.
+    expect(rows[0].company).toBe("Beta");
+  });
+
+  it("badges the top referrer only when somebody has actually referred someone", () => {
+    expect(topReferrerId([{ id: "a", referredCount: 0 }, { id: "b", referredCount: 0 }])).toBeNull();
+    expect(topReferrerId([])).toBeNull();
+    expect(topReferrerId([{ id: "a", referredCount: 2 }, { id: "b", referredCount: 7 }])).toBe("b");
+    // A missing count is treated as zero rather than as a win.
+    expect(topReferrerId([{ id: "a", referredCount: 1 }, { id: "b", referredCount: undefined }])).toBe("a");
   });
 });

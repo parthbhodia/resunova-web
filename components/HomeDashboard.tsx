@@ -29,6 +29,7 @@ import { useUpgradeDialog } from "@/components/UpgradeDialog";
 import { readCache, writeCache } from "@/lib/clientCache";
 import { apiFetch, type ScanLimitStatus } from "@/lib/apiClient";
 import { loadScanLimitStatus } from "@/components/app-shell/useScansRemaining";
+import { useJobTopMatches } from "@/lib/useJobTopMatches";
 import {
   computeScoreProgress,
   formatScoreProgress,
@@ -159,6 +160,76 @@ function QuickAction({
       <span className="text-[14px] font-semibold text-[var(--text)]">{title}</span>
       <span className="text-[13px] leading-snug text-[var(--muted)]">{desc}</span>
     </button>
+  );
+}
+
+/**
+ * Matched jobs, ranked by the same endpoint the Jobs feed uses.
+ *
+ * The filters are the ones the visitor last set on Jobs (role, country and the
+ * scan to rank against), so the card agrees with the feed instead of quietly
+ * ranking against different inputs. When the feed has nothing for them the
+ * section disappears rather than showing an empty shelf.
+ */
+function MatchedJobs({
+  jobs,
+  loading,
+  onOpen,
+  onViewAll,
+}: {
+  jobs: { id: string; title: string; company: string; matchScore: number | null }[];
+  loading: boolean;
+  onOpen: (id: string) => void;
+  onViewAll: () => void;
+}) {
+  if (!loading && jobs.length === 0) return null;
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold text-[var(--text)]">Matched jobs</h2>
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="text-[13px] font-medium text-accent hover:underline"
+        >
+          View all →
+        </button>
+      </div>
+      <div className="flex flex-col gap-2">
+        {loading && jobs.length === 0 ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-[62px] rounded-xl" />
+          ))
+        ) : (
+          jobs.map((job) => (
+            <button
+              key={job.id}
+              type="button"
+              onClick={() => onOpen(job.id)}
+              className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-left transition-colors hover:border-[color:var(--accent)]"
+            >
+              <span
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--surface2)] text-[13px] font-bold"
+                style={job.matchScore !== null ? { color: scoreTone(job.matchScore) } : undefined}
+              >
+                {job.matchScore ?? "—"}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] font-semibold text-[var(--text)]">
+                  {job.title}
+                </span>
+                <span className="block truncate text-[12px] text-[var(--dim)]">{job.company}</span>
+              </span>
+              <span className="shrink-0 text-[13px] text-[var(--muted)]" aria-hidden>
+                →
+              </span>
+            </button>
+          ))
+        )}
+      </div>
+      <p className="mt-2 text-[11px] text-[var(--dim)]">Ranked against your latest résumé scan.</p>
+    </section>
   );
 }
 
@@ -294,6 +365,25 @@ type HomeSnapshot = {
 const HOME_CACHE_KEY = "home:dashboard";
 const HOME_TTL_MS = 90_000;
 
+/**
+ * The Jobs feed persists the filters it was last used with. Home borrows them
+ * so "Matched jobs" agrees with the feed. Lazy state keeps this a render-time
+ * read instead of a second paint, and the SSR guard keeps the server render
+ * identical (the section stays hidden until the client asks for matches).
+ */
+function readJobFilters(): { role: string; country: string; analysisId: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return {
+      role: localStorage.getItem("rn_jobs_role_v1") || "",
+      country: localStorage.getItem("rn_jobs_country_v1") || "US",
+      analysisId: localStorage.getItem("rn_jobs_rank_analysis_v1") || "",
+    };
+  } catch {
+    return { role: "", country: "US", analysisId: "" };
+  }
+}
+
 /* ---------- main component ---------- */
 
 export default function HomeDashboard() {
@@ -308,6 +398,7 @@ export default function HomeDashboard() {
   const [items, setItems] = useState<LibraryItem[]>(cached?.items ?? []);
   const [stats, setStats] = useState<AppStats | null>(cached?.stats ?? null);
   const [scan, setScan] = useState<ScanStatus | null>(cached?.scan ?? null);
+  const [jobFilters] = useState(readJobFilters);
 
   useEffect(() => {
     let alive = true;
@@ -435,6 +526,16 @@ export default function HomeDashboard() {
   const allDone = doneCount === checklist.length;
   const recent = items.slice(0, 4);
 
+  const topMatches = useJobTopMatches({
+    enabled: jobFilters !== null,
+    // Same defaults the Jobs feed opens with: past week, US, latest scan.
+    days: 7,
+    countryScope: jobFilters?.country || "US",
+    roleQuery: jobFilters?.role || "",
+    analysisId: jobFilters?.analysisId || "",
+    limit: 4,
+  });
+
   const planLabel = scan?.unlimited
     ? (scan.plan === "pro" ? "Pro" : scan.plan === "institution" ? "University" : scan.plan === "admin" ? "Admin" : "Unlimited")
     : scan?.enforced && typeof scan.remaining === "number"
@@ -524,7 +625,7 @@ export default function HomeDashboard() {
           {/* Quick actions */}
           <section>
             <h2 className="mb-3 text-[15px] font-semibold text-[var(--text)]">Quick actions</h2>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
               <QuickAction
                 title="ATS check"
                 desc="Score your résumé against recruiter filters."
@@ -550,8 +651,21 @@ export default function HomeDashboard() {
                 icon="◆"
                 onClick={() => router.push("/interview-prep")}
               />
+              <QuickAction
+                title="Referrals"
+                desc="Get referred, or refer someone at your company."
+                icon="⇄"
+                onClick={() => router.push("/profile?tab=referrals")}
+              />
             </div>
           </section>
+
+          <MatchedJobs
+            jobs={topMatches.jobs}
+            loading={topMatches.loading}
+            onOpen={(id) => router.push(`/?view=jobs&job=${encodeURIComponent(id)}`)}
+            onViewAll={() => router.push("/?view=jobs")}
+          />
 
           {/* Start from a template — founder-directed: users could not find
               the templates, so Home points at them explicitly. */}

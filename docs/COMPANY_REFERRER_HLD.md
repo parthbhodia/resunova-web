@@ -4,6 +4,12 @@ Status: **v1 in progress** on production (Supabase project `Resume Builder`, `ei
 
 Employee-referrer is a **desk**, not a rewards loop. An employee publishes “I work at X and can refer.” A candidate asks through a private link or a company search. The employee decides who to submit. Resunova never writes into the company’s ATS.
 
+Rewards now sit on top of it, which reverses the “not a rewards loop” line below:
+Pro days for submitting a candidate and for that candidate landing an interview,
+plus a shared ledger the invite program draws from. See
+[`REFERRAL_REWARDS_HLD.md`](REFERRAL_REWARDS_HLD.md). Still no cash to an
+employee of another company, for the reason given there.
+
 That is separate from **Profile → Referrals outreach** (`referral_contacts`, migration `021`): that table is “people I am asking.” This product is “people asking me.” It is also not the old friend-invite 20% / +7 Pro days card.
 
 Schema of record: `db/migrations/044_company_referrers.sql`.
@@ -118,9 +124,13 @@ flowchart LR
 
 ## In v1 / not in v1
 
-**In:** signup, edit profile after signup, roles, open/paused, private share link, inbox statuses, remove a request, company directory of open employees, duplicate-email and inbox-cap guards.
+**In:** signup, edit profile after signup, roles, open/paused, private share link, inbox statuses, remove a request, company directory of open employees, duplicate-email and inbox-cap guards, top-referrer badge and directory sort, copy-ready referral note, rewards card, email opt-in for a new ask.
 
-**Not:** ATS submit, cash or Pro-day rewards, work-email verification, auto alumni matching, showing paused people in search, job-page strip, monthly slot caps, email notify on a new ask, more than one company per account.
+**Not:** ATS submit, cash rewards, work-email verification, auto alumni matching, showing paused people in search, job-page strip, monthly slot caps, more than one company per account.
+
+**Pro-day rewards and the email send** are specified in
+[`REFERRAL_REWARDS_HLD.md`](REFERRAL_REWARDS_HLD.md) (migration 059). The web
+half is here; both need resunova-api.
 
 ## Copy and UX constraints
 

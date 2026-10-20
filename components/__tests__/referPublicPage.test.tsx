@@ -1,9 +1,13 @@
 import type { ReactNode } from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const search = vi.hoisted(() => ({ slug: "" }));
+/** Mutated per test: Pro by default so the ask form is usable. */
+const mockPlanBody = vi.hoisted(() => ({
+  value: { enforced: true, unlimited: true, plan: "pro" } as Record<string, unknown>,
+}));
 const {
   mockFetchReferrerBySlug,
   mockListOpenReferralCompanies,
@@ -25,11 +29,16 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: ReactNode }) => <a href={href} {...rest}>{children}</a>,
 }));
-const { mockGetSession, mockOpenSignIn, mockSignInWithGoogle } = vi.hoisted(() => ({
+const { mockGetSession, mockOpenSignIn, mockSignInWithGoogle, mockOpenUpgrade } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockOpenSignIn: vi.fn(),
   mockSignInWithGoogle: vi.fn(),
+  mockOpenUpgrade: vi.fn(),
 }));
+
+function planStatus(body: Record<string, unknown>) {
+  return { ok: true as const, status: 200, json: async () => body };
+}
 
 vi.mock("@/lib/supabase", () => ({
   getSupabaseClient: () => ({
@@ -43,6 +52,9 @@ vi.mock("@/lib/supabase", () => ({
 }));
 vi.mock("@/components/SignInDialog", () => ({
   useSignInDialog: () => ({ openSignIn: mockOpenSignIn }),
+}));
+vi.mock("@/components/UpgradeDialog", () => ({
+  useUpgradeDialog: () => ({ openUpgrade: mockOpenUpgrade }),
 }));
 vi.mock("@/lib/anonScan", () => ({
   signInWithGoogle: (...args: unknown[]) => mockSignInWithGoogle(...args),
@@ -58,10 +70,21 @@ vi.mock("@/lib/jobsApi", async (orig) => ({
   ...(await orig<typeof import("@/lib/jobsApi")>()),
   fetchFeaturedCompanies: (...args: unknown[]) => mockFetchFeaturedCompanies(...args),
 }));
+// apiFetch is only used for the plan gate here, so stub it rather than a global fetch.
+vi.mock("@/lib/apiClient", async (orig) => ({
+  ...(await orig<typeof import("@/lib/apiClient")>()),
+  apiFetch: (path: string) => {
+    if (path.includes("scan-limit-status")) {
+      return Promise.resolve(planStatus(mockPlanBody.value));
+    }
+    return Promise.resolve(planStatus({}));
+  },
+}));
 
 import ReferPublicPage from "@/components/refer/ReferPublicPage";
 import { PublicSiteFrame } from "@/components/site/PublicSiteFrame";
 import {
+  REFERRAL_ASK_BLOCKED_COPY,
   REFERRER_COMPANIES_FAILED,
   REFERRER_LINK_INACTIVE,
   REFERRER_LOOKUP_FAILED,
@@ -79,6 +102,7 @@ function loaded<T>(data: T) {
 
 beforeEach(() => {
   search.slug = "";
+  mockPlanBody.value = { enforced: true, unlimited: true, plan: "pro" };
   mockFetchReferrerBySlug.mockResolvedValue(loaded(null));
   mockListOpenReferralCompanies.mockResolvedValue(loaded([]));
   mockListOpenReferrersForCompany.mockResolvedValue(loaded([]));
@@ -86,6 +110,7 @@ beforeEach(() => {
   mockCreateReferralRequest.mockResolvedValue({ request: null, error: "Could not send this request. Add your name, a valid email, the role you want, and a LinkedIn URL or resume PDF." });
   mockGetSession.mockResolvedValue({ data: { session: { user: { id: "candidate" } } } });
   mockOpenSignIn.mockReset();
+  mockOpenUpgrade.mockReset();
   mockSignInWithGoogle.mockResolvedValue(null);
 });
 
@@ -342,6 +367,91 @@ describe("ReferPublicPage", () => {
     expect(await screen.findByText("Request sent")).toBeInTheDocument();
   });
 
+  it("walls a free-plan candidate out of sending, and offers Pro", async () => {
+    search.slug = "parth-bhodia-at-acme-abcdef";
+    // "free" is a real plan value: planLabel returns null for metered free, and
+    // the gate must read it as blocked.
+    mockPlanBody.value = { enforced: true, unlimited: false, plan: "free" };
+    mockFetchReferrerBySlug.mockResolvedValue(loaded({
+      id: "r1",
+      userId: "u1",
+      displayName: "Parth Bhodia",
+      company: "Acme",
+      companySlug: "acme",
+      title: "Software Engineer",
+      linkedin: null,
+      slug: "parth-bhodia-at-acme-abcdef",
+      bio: null,
+      openToRefer: true,
+      createdAt: "",
+      updatedAt: "",
+    }));
+    render(<ReferPublicPage />);
+
+    // The form still renders: the user sees what they would be asking for.
+    const submit = await screen.findByRole("button", { name: "Ask for a referral" });
+    expect(submit).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "See Pro" })).toBeInTheDocument();
+    expect(screen.getByText(REFERRAL_ASK_BLOCKED_COPY.upgrade)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "See Pro" }));
+    expect(mockOpenUpgrade).toHaveBeenCalledWith({ source: "referral-ask" });
+    expect(mockCreateReferralRequest).not.toHaveBeenCalled();
+  });
+
+  it("still blocks a free candidate who submits by keyboard", async () => {
+    // The disabled button is an affordance, not the gate.
+    search.slug = "parth-bhodia-at-acme-abcdef";
+    mockPlanBody.value = { enforced: true, unlimited: false, plan: null };
+    mockFetchReferrerBySlug.mockResolvedValue(loaded({
+      id: "r1",
+      userId: "u1",
+      displayName: "Parth Bhodia",
+      company: "Acme",
+      companySlug: "acme",
+      title: "Software Engineer",
+      linkedin: null,
+      slug: "parth-bhodia-at-acme-abcdef",
+      bio: null,
+      openToRefer: true,
+      createdAt: "",
+      updatedAt: "",
+    }));
+    render(<ReferPublicPage />);
+    await screen.findByRole("button", { name: "Ask for a referral" });
+    const form = document.querySelector("form")!;
+    await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
+    await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
+    await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
+    await userEvent.type(screen.getByLabelText(/LinkedIn URL/), "https://linkedin.com/in/alex");
+    await userEvent.click(document.activeElement ?? form);
+    form.requestSubmit();
+    await waitFor(() => expect(mockCreateReferralRequest).not.toHaveBeenCalled());
+  });
+
+  it("lets a university seat ask without hitting the wall", async () => {
+    // An institution seat reports unlimited, not plan: "pro".
+    search.slug = "parth-bhodia-at-acme-abcdef";
+    mockPlanBody.value = { enforced: false, unlimited: true, plan: "institution" };
+    mockFetchReferrerBySlug.mockResolvedValue(loaded({
+      id: "r1",
+      userId: "u1",
+      displayName: "Parth Bhodia",
+      company: "Acme",
+      companySlug: "acme",
+      title: "Software Engineer",
+      linkedin: null,
+      slug: "parth-bhodia-at-acme-abcdef",
+      bio: null,
+      openToRefer: true,
+      createdAt: "",
+      updatedAt: "",
+    }));
+    render(<ReferPublicPage />);
+    expect(await screen.findByRole("button", { name: "Ask for a referral" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "See Pro" })).not.toBeInTheDocument();
+  });
+
   it("loads a named referrer while unsigned and still blocks the send", async () => {
     search.slug = "parth-bhodia-at-acme-abcdef";
     mockGetSession.mockResolvedValue({ data: { session: null } });
@@ -421,11 +531,6 @@ describe("ReferPublicPage", () => {
 
   it("reports a session check failure instead of opening sign in", async () => {
     search.slug = "parth-bhodia-at-acme-abcdef";
-    // Page body resolves session on mount; reject only on submit.
-    mockGetSession
-      .mockResolvedValueOnce({ data: { session: { user: { id: "candidate" } } } })
-      .mockResolvedValueOnce({ data: { session: { user: { id: "candidate" } } } })
-      .mockRejectedValueOnce(new Error("offline"));
     mockFetchReferrerBySlug.mockResolvedValue(loaded({
       id: "r1",
       userId: "u1",
@@ -440,15 +545,22 @@ describe("ReferPublicPage", () => {
       createdAt: "",
       updatedAt: "",
     }));
+    // Mount resolves the session more than once (the page body gate, then the
+    // plan check). Counting calls would make this test break whenever the hook
+    // order changes, so let everything succeed until the form is on screen and
+    // only then start rejecting.
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: "candidate" } } } });
     render(<ReferPublicPage />);
     await screen.findByRole("button", { name: "Ask for a referral" });
     await userEvent.type(screen.getByLabelText(/Your name/), "Alex Kim");
     await userEvent.type(screen.getByLabelText(/Your email/), "alex@example.com");
     await userEvent.type(screen.getByLabelText(/Role you want/), "Backend Engineer");
     await userEvent.type(screen.getByLabelText(/LinkedIn URL/), "https://linkedin.com/in/alex");
+    mockGetSession.mockRejectedValue(new Error("offline"));
     await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(REFERRER_SESSION_FAILED);
     expect(mockOpenSignIn).not.toHaveBeenCalled();
+    expect(mockOpenUpgrade).not.toHaveBeenCalled();
     expect(mockCreateReferralRequest).not.toHaveBeenCalled();
   });
 });

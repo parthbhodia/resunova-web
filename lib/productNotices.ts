@@ -4,12 +4,14 @@
  */
 import type { CompanyReferralRequest } from "@/lib/companyReferrers";
 import { getSupabaseClient } from "@/lib/supabase";
+import { fetchMyReferralRewards, rewardDaysLabel, rewardToastCopy, type RewardEntry } from "@/lib/referralRewards";
 
 export const DISMISSED_NOTICES_KEY = "rn_dismissed_notices_v1";
 export const LAST_SEEN_REFERRAL_KEY = "rn_last_seen_referral_at_v1";
 export const LAST_SEEN_SENT_REFERRAL_KEY = "rn_last_seen_sent_referral_at_v1";
 export const TOASTED_REFERRAL_KEY = "rn_toasted_referral_ids_v1";
 export const TOASTED_SENT_REFERRAL_KEY = "rn_toasted_sent_referral_ids_v1";
+export const TOASTED_REWARD_KEY = "rn_toasted_reward_ids_v1";
 export const REFERRAL_INBOX_POLL_MS = 60_000;
 
 export type ProductNotice = {
@@ -71,8 +73,8 @@ export type NotificationFeed = {
 
 const EMPTY_FEED: NotificationFeed = { count: 0, items: [] };
 
-function finiteCount(value: number): number {
-  if (!Number.isFinite(value) || value <= 0) return 0;
+function finiteCount(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return 0;
   return Math.floor(value);
 }
 
@@ -81,6 +83,9 @@ export function notificationFeed(input: {
   notice: ProductNotice | null;
   inboxUnread: number;
   outcomeUnread: number;
+  /** Live (non-revoked) ledger rows, for the rewards row on the bell. */
+  rewardUnread?: number | undefined;
+  rewardDays?: number | undefined;
 }): NotificationFeed {
   const items: AppNotification[] = [];
   if (input.notice) {
@@ -109,8 +114,20 @@ export function notificationFeed(input: {
       href: "/profile?tab=referrals",
     });
   }
+  const rewardUnread = finiteCount(input.rewardUnread);
+  if (rewardUnread > 0) {
+    const days = finiteCount(input.rewardDays);
+    items.push({
+      id: "referral-rewards",
+      title: rewardUnread === 1 ? "Referral reward earned" : `${rewardUnread} referral rewards`,
+      body: days > 0
+        ? `${rewardDaysLabel(days)} from referrals so far.`
+        : "You earned Pro days by referring candidates.",
+      href: "/profile?tab=referrals",
+    });
+  }
   return {
-    count: (input.notice ? 1 : 0) + inboxUnread + outcomeUnread,
+    count: (input.notice ? 1 : 0) + inboxUnread + outcomeUnread + rewardUnread,
     items,
   };
 }
@@ -129,6 +146,100 @@ export function subscribeNotificationFeed(listener: (feed: NotificationFeed) => 
   return () => {
     feedListeners.delete(listener);
   };
+}
+
+/* ── Referral rewards: bell + toast ────────────────────────────────────── */
+
+/**
+ * Keys off `kind:status` rather than id alone, so a reward that lands as
+ * `pending` and then settles to `granted` is a second notification, not a
+ * repeat of the first. It is the transition that carries the news: pending
+ * means the trigger recorded the award, granted means the subscription was
+ * actually extended.
+ */
+export function rewardNotificationId(entry: { id: string; kind: string; status: string }): string {
+  return `${entry.id || entry.kind}:${entry.kind}:${entry.status}`;
+}
+
+/**
+ * One bell row per user, not per award. A referrer who earned four rewards in
+ * an hour gets "4 referral rewards" rather than four rows, because the bell is
+ * a list of things to look at and four identical rows is a worse version of a
+ * count.
+ */
+export function rewardFeed(
+  entries: ReadonlyArray<{ id?: string; kind: string; status: string; days?: number | null }>,
+  /** Rows the rewards card has already shown. Seen rows keep their days but leave the badge. */
+  seenIds: readonly string[] = [],
+): {
+  count: number;
+  days: number;
+  unseen: boolean;
+} {
+  const live = entries.filter((entry) => entry.status !== "revoked");
+  const days = live.reduce(
+    (total, entry) => total + Math.max(0, Number(entry.days) || 0),
+    0,
+  );
+  const seen = new Set(seenIds);
+  const unseen = live.filter(
+    (entry) =>
+      !seen.has(
+        rewardNotificationId({
+          id: entry.id ?? "",
+          kind: entry.kind,
+          status: entry.status,
+        }),
+      ),
+  );
+  return { count: unseen.length, days, unseen: unseen.length > 0 };
+}
+
+let rewardToastSlot: { title: string; description: string } | null = null;
+const rewardToastListeners = new Set<(toast: { title: string; description: string } | null) => void>();
+
+export function publishRewardToast(toast: { title: string; description: string } | null) {
+  rewardToastSlot = toast;
+  rewardToastListeners.forEach((listener) => listener(rewardToastSlot));
+}
+
+export function subscribeRewardToast(
+  listener: (toast: { title: string; description: string } | null) => void,
+): () => void {
+  rewardToastListeners.add(listener);
+  listener(rewardToastSlot);
+  return () => {
+    rewardToastListeners.delete(listener);
+  };
+}
+
+/**
+ * Load the caller's rewards and toast the newest one they have not seen.
+ *
+ * Two rules, both about not crying wolf:
+ *
+ *   * the interview award outranks the referred one, because it is the event a
+ *     referrer actually wants to know about and the other is near-automatic;
+ *   * a reward that arrives while the rewards card is on screen is not toasted,
+ *     because the user is already looking at it.
+ */
+export async function maybeToastNewReward(opts: {
+  alreadySeen: readonly string[];
+  visible: boolean;
+}): Promise<{ entry: RewardEntry; toast: { title: string; description: string } } | null> {
+  if (opts.visible) return null;
+  const result = await fetchMyReferralRewards();
+  if (!result.ok) return null;
+  const entries = result.data;
+  if (entries.length === 0) return null;
+
+  const seen = new Set(opts.alreadySeen);
+  const unseen = entries.filter((entry) => !seen.has(rewardNotificationId(entry)));
+  if (unseen.length === 0) return null;
+
+  const interview = unseen.find((entry) => entry.kind === "interview");
+  const entry = interview ?? unseen[0];
+  return { entry, toast: rewardToastCopy(entry) };
 }
 
 function seenCutoff(lastSeenAt: string | null): number {
@@ -454,6 +565,51 @@ export function rememberToastedReferralIds(ids: readonly string[]) {
   } catch {
     /* private mode */
   }
+}
+
+export function readToastedRewardIds(): string[] {
+  if (typeof window === "undefined") return [];
+  return readStringList(window.localStorage, TOASTED_REWARD_KEY);
+}
+
+/**
+ * Bounded. Unlike the referral toast keys, this one grows on its own (every
+ * reward ever seen) rather than being cleared when a surface is opened, so it
+ * keeps only the most recent slice. A referrer with years of history would
+ * otherwise carry an unbounded array in localStorage.
+ */
+const REWARD_SEEN_LIMIT = 200;
+
+export function rememberToastedRewardIds(ids: readonly string[]) {
+  const next = Array.from(new Set([...ids, ...readToastedRewardIds()])).slice(0, REWARD_SEEN_LIMIT);
+  try {
+    window.localStorage.setItem(TOASTED_REWARD_KEY, JSON.stringify(next));
+  } catch {
+    /* private mode */
+  }
+}
+
+const rewardsSeenListeners = new Set<() => void>();
+
+export function onRewardsSeen(listener: () => void): () => void {
+  rewardsSeenListeners.add(listener);
+  return () => {
+    rewardsSeenListeners.delete(listener);
+  };
+}
+
+/**
+ * The rewards card rendered these rows, so they are no longer news.
+ *
+ * Without this the badge counted every live ledger row forever: only a toast
+ * ever wrote to the seen set, and the toast is suppressed while the card is on
+ * screen. Recording the ids also lets the shell recolour the bell immediately
+ * instead of waiting for its next poll.
+ */
+export function markRewardIdsSeen(ids: readonly string[]) {
+  if (ids.length === 0) return;
+  rememberToastedRewardIds(ids);
+  rewardsSeenListeners.forEach((listener) => listener());
 }
 
 function laterIso(a: string | null, b: string | null): string | null {

@@ -47,9 +47,17 @@ export function NotificationBell() {
     };
   }, [open]);
 
-  const openItem = (item: AppNotification) => {
+  /**
+ * These ids are live counters rather than one-shot notices, so clicking one
+ * must not mark it dismissed: the count comes back from the next poll and an
+ * "unread" marker written here would come back as a permanently struck-through
+ * item. Opening the tab is what clears them.
+ */
+const LIVE_FEED_IDS = new Set(["referral-inbox", "referral-outcomes", "referral-rewards"]);
+
+const openItem = (item: AppNotification) => {
     setOpen(false);
-    if (item.id !== "referral-inbox" && item.id !== "referral-outcomes") {
+    if (!LIVE_FEED_IDS.has(item.id)) {
       void persistDismissedNotice(item.id);
       window.dispatchEvent(new CustomEvent("rn:dismiss-notice", { detail: item.id }));
     }
