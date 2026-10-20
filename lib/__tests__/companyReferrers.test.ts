@@ -44,10 +44,13 @@ describe("companyReferrers helpers", () => {
     });
   });
 
-  it("treats an unknown plan as a sign-in prompt, not a paywall", () => {
-    // plan: null means the status call failed or has not landed. Selling to
-    // someone because our own request flaked is worse than showing nothing.
-    expect(referralAskEntitlement({ signedIn: true, plan: null, unlimited: false }).reason).toBe("sign_in");
+  it("treats a signed-in free or unknown plan as Pro, not a second sign-in", () => {
+    // /api/scan-limit-status omits `plan` on the metered free tier. That used to
+    // map to sign_in and ask people who were already signed in to sign in again.
+    expect(referralAskEntitlement({ signedIn: true, plan: null, unlimited: false })).toEqual({
+      allowed: false,
+      reason: "upgrade",
+    });
     expect(REFERRAL_ASK_BLOCKED_COPY.upgrade).toMatch(/pro/i);
     expect(REFERRAL_ASK_BLOCKED_COPY.sign_in).toMatch(/sign in/i);
     // Neither string may carry a spaced em dash.

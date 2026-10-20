@@ -369,9 +369,9 @@ describe("ReferPublicPage", () => {
 
   it("walls a free-plan candidate out of sending, and offers Pro", async () => {
     search.slug = "parth-bhodia-at-acme-abcdef";
-    // "free" is a real plan value: planLabel returns null for metered free, and
-    // the gate must read it as blocked.
-    mockPlanBody.value = { enforced: true, unlimited: false, plan: "free" };
+    // Production omits `plan` on the metered free tier. That must still be Pro,
+    // never a second sign-in prompt for someone who already has a session.
+    mockPlanBody.value = { enforced: true, unlimited: false };
     mockFetchReferrerBySlug.mockResolvedValue(loaded({
       id: "r1",
       userId: "u1",
@@ -392,6 +392,7 @@ describe("ReferPublicPage", () => {
     const submit = await screen.findByRole("button", { name: "Ask for a referral" });
     expect(submit).toBeDisabled();
     expect(await screen.findByRole("button", { name: "See Pro" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
     expect(screen.getByText(REFERRAL_ASK_BLOCKED_COPY.upgrade)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "See Pro" }));

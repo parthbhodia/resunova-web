@@ -237,10 +237,9 @@ export type AskReferralOutcome = "sent" | "sign_in" | "upgrade" | "error";
  * Plan gate for sending an ask.
  *
  * Asking is Pro-only. The authoritative tier comes from the API via
- * /api/scan-limit-status, so this reads `plan` rather than re-deciding the rule
- * locally. A failed or absent status is treated as "not allowed" and the caller
- * offers sign-in, not a purchase: showing someone a paywall because our own
- * status call flaked is worse than showing them nothing.
+ * /api/scan-limit-status, so this reads `plan` / `unlimited` rather than
+ * re-deciding the rule locally. A signed-in free (or unknown) reading is an
+ * upgrade wall; only a missing session asks for sign-in.
  */
 export function useReferralAskEntitlement(enabled = true) {
   const [state, setState] = useState<{ signedIn: boolean; plan: string | null; unlimited: boolean } | null>(null);

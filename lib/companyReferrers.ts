@@ -455,11 +455,10 @@ export function referralAskEntitlement(input: {
   unlimited: boolean;
 }): ReferralAskEntitlement {
   if (!input.signedIn) return { allowed: false, reason: "sign_in" };
-  // null plan means the status call failed or has not landed. Do not read an
-  // unknown plan as free-with-privileges: gate closed, and the copy asks them
-  // to sign in rather than to pay.
-  if (input.plan === null && !input.unlimited) return { allowed: false, reason: "sign_in" };
   if (input.plan === "pro" || input.plan === "admin" || input.unlimited) return { allowed: true };
+  // Free and unknown both land here. /api/scan-limit-status omits `plan` on the
+  // metered free tier, so null is the normal free reading, not a missing session.
+  // Asking a signed-in free user to sign in again was the bug.
   return { allowed: false, reason: "upgrade" };
 }
 
