@@ -1,9 +1,10 @@
 # Referral rewards — HLD
 
-Status: **built on both sides.** Web half here; backend on `resunova-api`
-branch `feat/referral-rewards`. Migration 059 was applied to prod
-(`eiumlptnsmowvkxucprl`) on 2026-10-19, and the two drains run on a Railway cron
-service every five minutes.
+Status: **built on both sides, not fully live.** Web half here; backend on
+`resunova-api` branch `feat/referral-rewards` (PR #183, unmerged). Migration 059
+was applied to prod (`eiumlptnsmowvkxucprl`) on 2026-10-19. Migration 064 moves
+the Pro-day grant into a database trigger and was applied on 2026-10-20. The
+email drain needs its own Railway cron service, which does not exist yet.
 
 Companion to [`COMPANY_REFERRER_HLD.md`](COMPANY_REFERRER_HLD.md). That document
 describes the desk. This one covers the rewards layer sitting on top of it, and
@@ -135,8 +136,9 @@ Two partial unique indexes make it idempotent:
   collapsing them would silently drop 10 of the 13 days.
 - `(user_id, kind, invitee_user_id)` for invites, which have no `request_id`.
 
-`status` moves `pending` → `granted`. The trigger writes `pending`; the backend
-sets `granted` when it has actually extended the subscription.
+`status` moves `pending` → `granted`. The award trigger writes `pending`, and
+the grant trigger from migration 064 settles it to `granted` in the same
+transaction (see "Granting the days").
 
 **3. `referral_notify_queue`.** An outbox, not a send. An ask can be inserted by
 anyone including an anonymous visitor, so Resunova cannot email from the form.
@@ -197,9 +199,9 @@ state and every fresh desk should not see a failure. `ReferralRewardsCard`
 renders nothing when there is nothing earned.
 
 Pending days are shown as "On the way", not hidden and not rounded up to
-"granted". The award is recorded by a trigger and the subscription is extended
-by the backend, so for a few seconds the two disagree; a reward that silently
-never arrives costs more trust than a day of delay does.
+"granted". Since migration 064 a row is granted in the same transaction it is
+written, so "On the way" should read zero; it stays as the honest display for a
+row that was written before 064 was applied.
 
 ## Backend contract — built
 
@@ -208,7 +210,8 @@ Lives in `resunova-api` on branch `feat/referral-rewards`:
 | File | Role |
 |---|---|
 | `resume_gui/routes/referral_rewards.py` | `GET /api/referral/rewards` |
-| `resume_gui/services/referral_rewards.py` | The two drains: grant days, send the email |
+| `resume_gui/services/referral_rewards.py` | Ledger reads and the new-ask email drain (the grant is migration 064) |
+| `resume_gui/services/billing_store.py` | `user_has_pro` also reads `user_pro_grants.pro_until` |
 | `resume_gui/routes/notify_prefs.py` | Adds `referralAsks` |
 | `resume_gui/tests/test_referral_rewards.py` | 31 tests, no network or DB |
 
@@ -249,23 +252,28 @@ reward silently invisible.
 
 ### Granting the days
 
-`grant_pending_rewards()` reads pending rows, groups them by user, and extends
-`billing_subscriptions.current_period_end` once per user rather than once per
-award. Then it marks the group `granted` with `granted_at` and `expires_at`.
+Migration 064. An AFTER INSERT trigger on `referral_reward_ledger` adds the
+award's days to `user_pro_grants.pro_until` and marks the row `granted`, with
+`expires_at` set to the new `pro_until`. Days stack from whichever is later,
+now or the current `pro_until`. resunova-api's `user_has_pro` returns true for a
+Stripe Pro status or an unexpired `pro_until`, so earned time is real Pro for
+free and paying users alike.
 
-Three things it deliberately does not do:
+**Why not the subscription period.** The first version extended
+`billing_subscriptions.current_period_end` from a scheduled backend job. That
+did nothing: Pro is decided by subscription status, not the period end; the
+Stripe webhook overwrites the period end on every renewal; and a free referrer
+has no subscription row to extend. For a paying subscriber, earned days run
+after their subscription ends; discounting a Stripe invoice would need the
+Stripe API and is out of scope.
 
-**It never creates a subscription.** A user with no `billing_subscriptions` row
-is settled as granted with no days added, because there is no Pro period to
-extend and upserting a row would make a free user look like a subscriber to
-every plan check in `entitlements.py`.
+**Why AFTER INSERT.** The award trigger inserts with `on conflict do nothing`.
+BEFORE row triggers fire before the conflict check, so a BEFORE grant would pay
+for a duplicate award that is then discarded.
 
-**It leaves rows pending on failure.** A transient billing error must not
-consume the award; the next drain retries, and the ledger's unique index is what
-stops a retry paying twice.
-
-**It chunks `in_()` filters at 50.** That filter rides in the query string, and
-a large id list can 400 the request.
+`user_pro_grants` is service-role only with no policies, like
+`billing_subscriptions`: a client that could write `pro_until` could give
+itself Pro.
 
 `expires_at` is set on every grant. A day credit that never expires turns a
 one-off favor into a permanent entitlement, which is what the invite annual cap
@@ -305,10 +313,10 @@ The web already writes the same key to the same localStorage
 (`rn_notify_prefs_v1`) `EmailPreferencesCard` uses, so there is one preference
 surface rather than two.
 
-### Wiring the drains
+### Wiring the drain
 
-Both are plain functions, so any scheduler works. **Decision: Railway cron**,
-as a second service in the API project. It runs:
+Only the email needs a scheduler; Postgres cannot send mail. **Decision:
+Railway cron**, as a second service in the API project. It runs:
 
 ```bash
 python -m resume_gui.jobs.referral_drains
@@ -317,26 +325,24 @@ python -m resume_gui.jobs.referral_drains
 every five minutes (UTC, Railway's minimum interval), with restart policy
 Never and no public networking. `resume_gui/jobs/referral_drains.py` is a
 one-shot process, not a loop: Railway skips the next tick while a previous run
-is still active, so it has to exit when the two drains return.
+is still active, so it has to exit when the drain returns.
 
 Two properties matter more than the schedule:
 
-- **It refuses without a database client.** Both drains swallow a missing
-  Supabase client and return 0, which looks identical to "nothing to do". The
+- **It refuses without a database client.** The drain swallows a missing
+  Supabase client and returns 0, which looks identical to "nothing to do". The
   entrypoint checks `drains_available()` first and exits 1, so a deploy with the
-  wrong env vars fails in the run history instead of sitting green while rewards
-  stay pending.
-- **It refuses to touch the email queue without `RESEND_API_KEY`.** A drain with
-  no sender returns False from `send`, increments the row's attempt counter, and
-  after five runs the ask is never retried. Rewards are still granted;
-  `--skip-email` is the explicit way to run rewards only.
+  wrong env vars fails in the run history instead of sitting green.
+- **It refuses to touch the email queue without an email transport.** A drain
+  with no sender returns False from `send`, increments the row's attempt
+  counter, and after five runs the ask is never retried. A transport that is
+  configured but failing (a rejected Resend key, a rate-limited Zoho mailbox)
+  is not caught by this check and still burns attempts.
 
 The jobs pipeline deliberately has **no in-process scheduler** (Railway cron or
 an external trigger drives it), so this stays out of the web process as well.
-The reward grants are the one piece of this feature that is not end-to-end on a
-request: without a drain, the trigger still records the award as `pending` and
-the UI shows it as "on the way" indefinitely. Service settings live in the API
-repo's `DEPLOY.md`.
+Rewards do not depend on it: migration 064 grants them in the database. Service
+settings live in the API repo's `DEPLOY.md`.
 
 ## Rollout
 
@@ -348,6 +354,14 @@ degrades the report section instead of breaking the inbox.
 
 The rewards card hides itself until `GET /api/referral/rewards` exists, so
 nothing user-visible changes on deploy.
+
+Migration 064 and the API change in PR #183 are independent in either order.
+Applied first, 064 grants days into `user_pro_grants` that the old API ignores
+until #183 deploys; deployed first, `get_pro_until` degrades to None while the
+table is missing. Apply 064 before anyone can earn a reward that the API should
+honor. A dry run in a rolled-back transaction against prod (2026-10-20) granted
+3 days, stacked a second award to 13, settled both rows to `granted`, and left
+nothing behind.
 
 ## Metrics
 
