@@ -56,7 +56,9 @@ describe("ReferralsPanel", () => {
   it("shows the referrer desk instead of the outreach tracker", async () => {
     render(<ReferralsPanel displayName="Parth Bhodia" title="Engineer" linkedin="" />);
     expect(await screen.findByText("Not signed up as a referrer yet")).toBeInTheDocument();
-    expect(screen.getByLabelText("Company you work at")).toBeInTheDocument();
+    expect(screen.getByLabelText("Company name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Company website")).toBeInTheDocument();
+    expect(screen.getByLabelText("Company location")).toBeInTheDocument();
     expect(screen.queryByText(/Track the people you are asking/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Outreach list/i)).not.toBeInTheDocument();
   });

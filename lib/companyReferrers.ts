@@ -43,6 +43,10 @@ export type CompanyReferrer = {
   linkedin: string | null;
   slug: string;
   bio: string | null;
+  /** City/region or Remote, where this desk hires from. */
+  companyLocation: string | null;
+  /** Company homepage or careers URL. Required on save. */
+  companyWebsite: string | null;
   openToRefer: boolean;
   /** People this employee has marked Referred. Absent means unknown, show 0. */
   referredCount?: number;
@@ -93,6 +97,7 @@ export type SentReferralRequest = CompanyReferralRequest & {
 export const REFERRER_LIMITS = {
   name: 80,
   company: 80,
+  location: 80,
   title: 80,
   bio: 400,
   url: 500,
@@ -103,6 +108,9 @@ export const REFERRER_LIMITS = {
   headline: 160,
   years: 50,
 } as const;
+
+export const REFERRER_PROFILE_REQUIRED =
+  "Add your name, company, title, company website, and company location.";
 
 export type ReferralWriteResult = {
   request: CompanyReferralRequest | null;
@@ -124,8 +132,10 @@ export const REFERRER_SESSION_FAILED = "Could not check your session. Try again.
 export type OpenReferralCompany = {
   company: string;
   companySlug: string;
-  /** Favicon host when known (jobs corpus); empty → CompanyLogo guesses from slug. */
+  /** Favicon host when known (desk website, else jobs corpus); empty → CompanyLogo guesses from slug. */
   companyDomain: string;
+  companyLocation: string;
+  companyWebsite: string;
   openCount: number;
   referredCount: number;
 };
@@ -163,6 +173,8 @@ type ReferrerRow = {
   linkedin: string | null;
   slug: string;
   bio: string | null;
+  company_location?: string | null;
+  company_website?: string | null;
   open_to_refer: boolean | null;
   referred_count?: number | null;
   created_at: string;
@@ -223,11 +235,24 @@ export function mapReferrerRow(row: ReferrerRow): CompanyReferrer {
     linkedin: row.linkedin,
     slug: row.slug,
     bio: row.bio,
+    companyLocation: row.company_location?.trim() || null,
+    companyWebsite: row.company_website?.trim() || null,
     openToRefer: row.open_to_refer !== false,
     referredCount: row.referred_count ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/** Hostname for CompanyLogo / favicon. Empty when the URL is not usable. */
+export function websiteHostname(value: string | null | undefined): string {
+  const url = safeHttpUrl(value);
+  if (!url) return "";
+  try {
+    return new URL(url).hostname.replace(/^www\./i, "");
+  } catch {
+    return "";
+  }
 }
 
 function mapOutcome(value: string | null | undefined): ReferralOutcome | null {
@@ -537,10 +562,10 @@ export function nudgeButtonLabel(
 }
 
 const REFERRER_SELECT_BASE =
-  "id, user_id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at";
+  "id, user_id, display_name, company, company_slug, title, linkedin, slug, bio, company_location, company_website, open_to_refer, created_at, updated_at";
 const REFERRER_SELECT = `${REFERRER_SELECT_BASE}, referred_count`;
 const REFERRER_PUBLIC_SELECT_BASE =
-  "id, display_name, company, company_slug, title, linkedin, slug, bio, open_to_refer, created_at, updated_at";
+  "id, display_name, company, company_slug, title, linkedin, slug, bio, company_location, company_website, open_to_refer, created_at, updated_at";
 const REFERRER_PUBLIC_SELECT = `${REFERRER_PUBLIC_SELECT_BASE}, referred_count`;
 const REQUEST_SELECT_BASE =
   "id, referrer_id, candidate_user_id, candidate_name, candidate_email, candidate_linkedin, resume_pdf_path, candidate_phone, candidate_years_experience, candidate_headline, role, notes, source, status, created_at";
@@ -696,7 +721,10 @@ export async function listOpenReferrersForCompany(companySlug: string): Promise<
  * company spelling (more likely the full brand) and sum referred tallies.
  */
 export function aggregateOpenCompanies(
-  rows: Array<Pick<CompanyReferrer, "company" | "companySlug" | "referredCount">>,
+  rows: Array<
+    Pick<CompanyReferrer, "company" | "companySlug" | "referredCount">
+    & Partial<Pick<CompanyReferrer, "companyLocation" | "companyWebsite">>
+  >,
   domainsBySlug: Record<string, string> = {},
 ): OpenReferralCompany[] {
   const bySlug = new Map<string, OpenReferralCompany>();
@@ -705,11 +733,16 @@ export function aggregateOpenCompanies(
     if (!slug) continue;
     const existing = bySlug.get(slug);
     const referred = row.referredCount ?? 0;
+    const location = (row.companyLocation ?? "").trim();
+    const website = safeHttpUrl(row.companyWebsite) ?? "";
+    const fromWebsite = websiteHostname(website);
     if (!existing) {
       bySlug.set(slug, {
         company: row.company.trim() || slug,
         companySlug: slug,
-        companyDomain: domainsBySlug[slug] ?? "",
+        companyDomain: fromWebsite || domainsBySlug[slug] || "",
+        companyLocation: location,
+        companyWebsite: website,
         openCount: 1,
         referredCount: referred,
       });
@@ -720,8 +753,13 @@ export function aggregateOpenCompanies(
     if (row.company.trim().length > existing.company.length) {
       existing.company = row.company.trim();
     }
-    if (!existing.companyDomain && domainsBySlug[slug]) {
-      existing.companyDomain = domainsBySlug[slug];
+    if (!existing.companyLocation && location) existing.companyLocation = location;
+    if (!existing.companyWebsite && website) {
+      existing.companyWebsite = website;
+      if (fromWebsite) existing.companyDomain = fromWebsite;
+    }
+    if (!existing.companyDomain) {
+      existing.companyDomain = fromWebsite || domainsBySlug[slug] || "";
     }
   }
   return sortOpenCompanies(Array.from(bySlug.values()));
@@ -792,6 +830,8 @@ export async function upsertMyReferrerProfile(input: {
   displayName: string;
   company: string;
   title: string;
+  companyLocation: string;
+  companyWebsite: string;
   linkedin?: string;
   bio?: string;
   openToRefer?: boolean;
@@ -799,7 +839,9 @@ export async function upsertMyReferrerProfile(input: {
   const displayName = clip(input.displayName, REFERRER_LIMITS.name);
   const company = clip(input.company, REFERRER_LIMITS.company);
   const title = clip(input.title, REFERRER_LIMITS.title);
-  if (!displayName || !company || !title) return null;
+  const companyLocation = clip(input.companyLocation, REFERRER_LIMITS.location);
+  const companyWebsite = safeHttpUrl(input.companyWebsite);
+  if (!displayName || !company || !title || !companyLocation || !companyWebsite) return null;
   try {
     const userId = await currentUserId();
     if (!userId) return null;
@@ -814,6 +856,8 @@ export async function upsertMyReferrerProfile(input: {
       linkedin: safeHttpUrl(input.linkedin),
       slug,
       bio: clip(input.bio ?? "", REFERRER_LIMITS.bio) || null,
+      company_location: companyLocation,
+      company_website: companyWebsite,
       open_to_refer: input.openToRefer ?? true,
       updated_at: new Date().toISOString(),
     };

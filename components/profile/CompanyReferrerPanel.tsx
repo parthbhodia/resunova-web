@@ -7,6 +7,7 @@ import {
   REFERRAL_REQUEST_STATUS_TONES,
   REFERRAL_REQUEST_STATUSES,
   REFERRER_LIMITS,
+  REFERRER_PROFILE_REQUIRED,
   deleteReferralRequest,
   fetchMyReferralRequests,
   fetchMyReferrerProfile,
@@ -211,11 +212,33 @@ function PrimaryButton({
 type ReferrerForm = {
   displayName: string;
   company: string;
+  companyWebsite: string;
+  companyLocation: string;
   title: string;
   linkedin: string;
   bio: string;
   openToRefer: boolean;
 };
+
+function Field({
+  label,
+  hint,
+  style,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
+  return (
+    <label style={{ display: "grid", gap: 6, minWidth: 0, ...style }}>
+      <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{label}</span>
+      {children}
+      {hint ? <span style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.4 }}>{hint}</span> : null}
+    </label>
+  );
+}
 
 function ReferrerFields({
   form,
@@ -226,18 +249,88 @@ function ReferrerFields({
 }) {
   return (
     <>
-      <input aria-label="Your name" placeholder="e.g. Jordan Lee" maxLength={REFERRER_LIMITS.name} value={form.displayName} onChange={(e) => onChange({ ...form, displayName: e.target.value })} style={fieldStyle} />
-      <input aria-label="Company you work at" placeholder="e.g. Stripe" maxLength={REFERRER_LIMITS.company} value={form.company} onChange={(e) => onChange({ ...form, company: e.target.value })} style={fieldStyle} />
-      <input aria-label="Your title" placeholder="e.g. Software Engineer" maxLength={REFERRER_LIMITS.title} value={form.title} onChange={(e) => onChange({ ...form, title: e.target.value })} style={fieldStyle} />
-      <input aria-label="LinkedIn URL" placeholder="https://linkedin.com/in/your-name" maxLength={REFERRER_LIMITS.url} value={form.linkedin} onChange={(e) => onChange({ ...form, linkedin: e.target.value })} style={fieldStyle} />
-      <input
-        aria-label="Roles you can refer for"
-        placeholder="e.g. Backend, new grad, intern"
-        maxLength={REFERRER_LIMITS.bio}
-        value={form.bio}
-        onChange={(e) => onChange({ ...form, bio: e.target.value })}
-        style={{ ...fieldStyle, gridColumn: "1 / -1" }}
-      />
+      <Field label="Your name at work">
+        <input
+          aria-label="Your name at work"
+          placeholder="e.g. Jordan Lee"
+          maxLength={REFERRER_LIMITS.name}
+          value={form.displayName}
+          onChange={(e) => onChange({ ...form, displayName: e.target.value })}
+          style={fieldStyle}
+        />
+      </Field>
+      <Field label="Company name">
+        <input
+          aria-label="Company name"
+          placeholder="e.g. Stripe"
+          maxLength={REFERRER_LIMITS.company}
+          value={form.company}
+          onChange={(e) => onChange({ ...form, company: e.target.value })}
+          style={fieldStyle}
+        />
+      </Field>
+      <Field
+        label="Company website"
+        hint="Homepage or careers page. Candidates see this on /refer."
+      >
+        <input
+          aria-label="Company website"
+          placeholder="https://stripe.com"
+          maxLength={REFERRER_LIMITS.url}
+          value={form.companyWebsite}
+          onChange={(e) => onChange({ ...form, companyWebsite: e.target.value })}
+          style={fieldStyle}
+          required
+        />
+      </Field>
+      <Field
+        label="Company location"
+        hint="City and region, or Remote. Where this desk hires from."
+      >
+        <input
+          aria-label="Company location"
+          placeholder="e.g. San Francisco, CA"
+          maxLength={REFERRER_LIMITS.location}
+          value={form.companyLocation}
+          onChange={(e) => onChange({ ...form, companyLocation: e.target.value })}
+          style={fieldStyle}
+          required
+        />
+      </Field>
+      <Field label="Your job title">
+        <input
+          aria-label="Your job title"
+          placeholder="e.g. Software Engineer"
+          maxLength={REFERRER_LIMITS.title}
+          value={form.title}
+          onChange={(e) => onChange({ ...form, title: e.target.value })}
+          style={fieldStyle}
+        />
+      </Field>
+      <Field label="LinkedIn profile (optional)">
+        <input
+          aria-label="LinkedIn profile (optional)"
+          placeholder="https://linkedin.com/in/your-name"
+          maxLength={REFERRER_LIMITS.url}
+          value={form.linkedin}
+          onChange={(e) => onChange({ ...form, linkedin: e.target.value })}
+          style={fieldStyle}
+        />
+      </Field>
+      <Field
+        label="Roles you can refer for"
+        hint="Short list helps candidates decide whether to ask you."
+        style={{ gridColumn: "1 / -1" }}
+      >
+        <input
+          aria-label="Roles you can refer for"
+          placeholder="e.g. Backend, new grad, intern"
+          maxLength={REFERRER_LIMITS.bio}
+          value={form.bio}
+          onChange={(e) => onChange({ ...form, bio: e.target.value })}
+          style={fieldStyle}
+        />
+      </Field>
     </>
   );
 }
@@ -294,9 +387,11 @@ export function CompanyReferrerPanel({
     description: string;
     variant: "success" | "error" | "info" | "warning";
   } | null>(null);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ReferrerForm>({
     displayName,
     company: "",
+    companyWebsite: "",
+    companyLocation: "",
     title,
     linkedin,
     bio: "",
@@ -312,6 +407,8 @@ export function CompanyReferrerPanel({
         setForm({
           displayName: next.displayName,
           company: next.company,
+          companyWebsite: next.companyWebsite ?? "",
+          companyLocation: next.companyLocation ?? "",
           title: next.title,
           linkedin: next.linkedin ?? "",
           bio: next.bio ?? "",
@@ -361,10 +458,17 @@ export function CompanyReferrerPanel({
     setSaving(true);
     setError(null);
     const creating = !profile;
+    if (!form.companyLocation.trim() || !safeHttpUrl(form.companyWebsite)) {
+      const message = REFERRER_PROFILE_REQUIRED;
+      setSaving(false);
+      setError(message);
+      setToast({ title: "Could not save", description: message, variant: "error" });
+      return;
+    }
     const saved = await upsertMyReferrerProfile(form);
     setSaving(false);
     if (!saved) {
-      const message = "Could not save. Add your name, company, and title.";
+      const message = REFERRER_PROFILE_REQUIRED;
       setError(message);
       setToast({ title: "Could not save", description: message, variant: "error" });
       return;
@@ -384,13 +488,17 @@ export function CompanyReferrerPanel({
       displayName: profile.displayName,
       company: profile.company,
       title: profile.title,
+      companyLocation: profile.companyLocation ?? form.companyLocation,
+      companyWebsite: profile.companyWebsite ?? form.companyWebsite,
       linkedin: profile.linkedin ?? "",
       bio: profile.bio ?? "",
       openToRefer: nextOpen,
     });
     setPausing(false);
     if (!saved) {
-      const message = "Could not update request availability.";
+      const message = !profile.companyWebsite || !profile.companyLocation
+        ? "Add a company website and location, then save, before you can pause or reopen."
+        : "Could not update request availability.";
       setError(message);
       setToast({ title: "Could not update", description: message, variant: "error" });
       return;
@@ -400,7 +508,7 @@ export function CompanyReferrerPanel({
     setToast(nextOpen
       ? { title: "Requests are open", description: "People can ask you for a referral again.", variant: "success" }
       : { title: "Requests paused", description: "Your link will not accept requests until you reopen it.", variant: "success" });
-  }, [profile]);
+  }, [form.companyLocation, form.companyWebsite, profile]);
 
   const shareUrl = profile
     ? `${typeof window !== "undefined" ? window.location.origin : ""}${referrerPublicPath(profile.slug)}`
@@ -461,9 +569,22 @@ export function CompanyReferrerPanel({
               {loading
                 ? "Loading your referrer profile..."
                 : profile
-                  ? `${profile.title} at ${profile.company}`
+                  ? [
+                      `${profile.title} at ${profile.company}`,
+                      profile.companyLocation,
+                    ].filter(Boolean).join(" · ")
                   : "Not signed up as a referrer yet"}
             </div>
+            {profile?.companyWebsite ? (
+              <a
+                href={profile.companyWebsite}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: "inline-block", marginTop: 4, fontSize: 13, fontWeight: 700, color: "#2563eb", textDecoration: "none" }}
+              >
+                Company website
+              </a>
+            ) : null}
             {profile?.bio ? (
               <div style={{ marginTop: 6, fontSize: 13, color: "#4b5563" }}>Can refer for {profile.bio}</div>
             ) : null}
