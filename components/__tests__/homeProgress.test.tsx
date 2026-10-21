@@ -11,15 +11,17 @@
 
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import HomeDashboard from "@/components/HomeDashboard";
 import { invalidateCache } from "@/lib/clientCache";
 import type { LibraryItem } from "@/lib/supabase";
 
-const { mockGetSession, mockItems, mockProfile } = vi.hoisted(() => ({
+const { mockGetSession, mockItems, mockProfile, mockPush, mockTrack } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockItems: vi.fn(),
   mockProfile: vi.fn(),
+  mockPush: vi.fn(),
+  mockTrack: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -27,7 +29,11 @@ vi.mock("@/lib/supabase", () => ({
   fetchLibraryItems: mockItems,
   fetchUserProfile: mockProfile,
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
+vi.mock("@/lib/jobsApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/jobsApi")>()),
+  trackJobEvent: mockTrack,
+}));
 vi.mock("@/components/UpgradeDialog", () => ({
   useUpgradeDialog: () => ({ openUpgrade: vi.fn() }),
 }));
@@ -43,8 +49,22 @@ vi.mock("@/lib/apiClient", async (importOriginal) => {
             path.includes("/api/jobs/top-matches")
               ? {
                   jobs: [
-                    { id: "job-1", title: "Backend Engineer", company: "Acme", matchScore: 82 },
-                    { id: "job-2", title: "Platform Engineer", company: "Globex", matchScore: 64 },
+                    {
+                      id: "job-1",
+                      title: "Backend Engineer",
+                      company: "Acme",
+                      matchScore: 82,
+                      url: "https://jobs.acme.com/123",
+                      location: "Remote",
+                    },
+                    { id: "job-2", title: "Platform Engineer", company: "Globex", matchScore: 64, url: "" },
+                    {
+                      id: "job-3",
+                      title: "Data Engineer",
+                      company: "Initech",
+                      matchScore: 58,
+                      url: "javascript:alert(1)",
+                    },
                   ],
                 }
               : path.includes("/api/applications")
@@ -183,15 +203,48 @@ describe("the greeting", () => {
 });
 
 describe("matched jobs and referrals", () => {
-  it("lists the top matches with their score and company", async () => {
+  it("lists the top matches with their score, company and location", async () => {
     setup([analyzed(72, 10)]);
     // Wait on a row, not the section title: the heading paints while skeletons
     // are still up, so asserting the title then a job races the fetch.
     expect(await screen.findByText("Backend Engineer")).toBeInTheDocument();
     expect(screen.getByText("Matched jobs")).toBeInTheDocument();
+    expect(screen.getByText("Acme · Remote")).toBeInTheDocument();
     expect(screen.getByText("Globex")).toBeInTheDocument();
     expect(screen.getByText("82")).toBeInTheDocument();
     expect(screen.getByText(/Ranked with your Jobs filters/)).toBeInTheDocument();
+  });
+
+  it("sits in the side rail, not the main column", async () => {
+    setup([analyzed(72, 10)]);
+    const title = await screen.findByText("Backend Engineer");
+    expect(title.closest("aside")).not.toBeNull();
+  });
+
+  it("opens the posting itself in a new tab and records the click", async () => {
+    setup([analyzed(72, 10)]);
+    const link = (await screen.findByText("Backend Engineer")).closest("a");
+    expect(link).not.toBeNull();
+    expect(link).toHaveAttribute("href", "https://jobs.acme.com/123");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    fireEvent.click(link!);
+    expect(mockTrack).toHaveBeenCalledWith("job-1", "apply_click");
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the job in Jobs when the posting has no usable link", async () => {
+    setup([analyzed(72, 10)]);
+    for (const [title, id] of [
+      ["Platform Engineer", "job-2"],
+      ["Data Engineer", "job-3"],
+    ]) {
+      const row = (await screen.findByText(title)).closest("li")!;
+      expect(row.querySelector("a")).toBeNull();
+      fireEvent.click(row.querySelector("button")!);
+      expect(mockPush).toHaveBeenLastCalledWith(`/?view=jobs&job=${id}`);
+    }
+    expect(mockTrack).not.toHaveBeenCalled();
   });
 
   it("surfaces Referrals beside the other quick actions", async () => {
