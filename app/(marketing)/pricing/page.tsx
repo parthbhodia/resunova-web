@@ -11,7 +11,7 @@ const newsreader = Newsreader({ subsets: ["latin"], weight: ["400"], style: ["it
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Resunova Pro raises the daily caps from 3 résumé scans to 30, with 30 job-match scores, tailored résumés and interview-prep runs a day. $19 a month, cancel any time.",
+    "Resunova Pro raises the daily caps from 3 résumé scans to 30, with 30 job-match scores, tailored résumés and interview-prep runs a day. From $4.99 a week, cancel any time.",
   robots: { index: true, follow: true },
 };
 
