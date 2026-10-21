@@ -228,7 +228,7 @@ function MatchedJobs({
           ))
         )}
       </div>
-      <p className="mt-2 text-[11px] text-[var(--dim)]">Ranked against your latest résumé scan.</p>
+      <p className="mt-2 text-[11px] text-[var(--dim)]">Ranked with your Jobs filters.</p>
     </section>
   );
 }

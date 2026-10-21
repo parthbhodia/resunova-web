@@ -28,7 +28,9 @@ vi.mock("@/lib/supabase", () => ({
   fetchUserProfile: mockProfile,
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("@/components/UpgradeDialog", () => ({ useUpgradeDialog: () => vi.fn() }));
+vi.mock("@/components/UpgradeDialog", () => ({
+  useUpgradeDialog: () => ({ openUpgrade: vi.fn() }),
+}));
 vi.mock("@/lib/apiClient", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/apiClient")>();
   return {
@@ -183,11 +185,13 @@ describe("the greeting", () => {
 describe("matched jobs and referrals", () => {
   it("lists the top matches with their score and company", async () => {
     setup([analyzed(72, 10)]);
-    expect(await screen.findByText("Matched jobs")).toBeInTheDocument();
-    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
+    // Wait on a row, not the section title: the heading paints while skeletons
+    // are still up, so asserting the title then a job races the fetch.
+    expect(await screen.findByText("Backend Engineer")).toBeInTheDocument();
+    expect(screen.getByText("Matched jobs")).toBeInTheDocument();
     expect(screen.getByText("Globex")).toBeInTheDocument();
     expect(screen.getByText("82")).toBeInTheDocument();
-    expect(screen.getByText(/Ranked against your latest résumé scan/)).toBeInTheDocument();
+    expect(screen.getByText(/Ranked with your Jobs filters/)).toBeInTheDocument();
   });
 
   it("surfaces Referrals beside the other quick actions", async () => {
