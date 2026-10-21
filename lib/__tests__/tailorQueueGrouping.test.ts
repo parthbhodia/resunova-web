@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   groupQueueBySeverity,
   QUEUE_BAND_ORDER,
+  queueCounts,
   type QueueItem,
 } from "@/lib/tailorWorkQueue";
 
@@ -137,6 +138,8 @@ describe("groupQueueBySeverity", () => {
       // The covered band is reached by STATUS, not by kind, so it needs an
       // item of its own here or the exhaustiveness claim is only about kinds.
       { ...item("cov", "qualification"), status: "covered" as const },
+      // Reached only by the row's band override.
+      { ...item("s", "qualification"), band: "stronger" as const },
     ];
     expect(groupQueueBySeverity(all)).toHaveLength(QUEUE_BAND_ORDER.length);
   });
@@ -216,5 +219,26 @@ describe("no work row is hidden, and no header undercounts", () => {
     const g = groupQueueBySeverity(many("contextual", 6), true);
     expect(g[0].items).toHaveLength(6);
     expect(g[0].hidden).toBe(0);
+  });
+});
+
+describe("the Could be stronger band", () => {
+  // Field: "i dont think we need all of these to be added, this is vague."
+  // Rows whose term is already on the résumé moved nothing, yet sat open under
+  // "Worth adding" beside the keywords that do.
+  const stronger = (id: string): QueueItem => ({ ...item(id, "qualification"), band: "stronger" });
+
+  it("starts collapsed, below Worth adding, still counting its rows", () => {
+    const g = groupQueueBySeverity([item("k", "keyword"), stronger("s1"), stronger("s2")]);
+    expect(g.map((x) => x.band)).toEqual(["boost", "stronger"]);
+    const band = g.find((x) => x.band === "stronger")!;
+    expect(band.label).toBe("Could be stronger");
+    expect(band.items).toHaveLength(0);
+    expect(band.hidden).toBe(2);
+    expect(band.open).toBe(2);
+  });
+
+  it("is not counted as open work", () => {
+    expect(queueCounts([item("k", "keyword"), stronger("s1"), stronger("s2")]).open).toBe(1);
   });
 });
