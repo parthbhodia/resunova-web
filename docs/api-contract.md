@@ -62,6 +62,18 @@ The scan screen reads this and says scoring is paused. The rest of the site stay
 | `/api/suggest-gap-fix` | POST | JD gap rewrite suggestions. Additive: `suggested_role` on a suggestion retitles that existing Experience role (aggressive mode only; frontend also fills this from the posting title when the model omits it). |
 | `/api/extract-jd` | POST | Parse job description URL/text |
 
+## Public share links
+
+Recipients open `/r/?id=<shortid>`. Minting and revoking happen from `ShareButton`.
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/share/{folder}` | POST | Mint (or reuse) a link. Body `{ user_id, pdf_url }`. Response `{ shortid, pdf_url, views?, reused }` |
+| `/api/share/{shortid}` | GET | Public resolve to `{ shortid, folder, pdf_url, views, created_at }`. `410` when revoked |
+| `/api/share/{shortid}` | DELETE | Owner revoke. Body `{ user_id }` |
+
+`folder` is either a tailored résumé's library folder (checked against `resumes`) or `analyze-<analysis id>` for an Analyze scan (checked against `resume_analyses`). For a scan the backend always links the stored `source_pdf_url` and ignores the `pdf_url` in the body. A scan with no uploaded PDF returns `404`, so the UI only offers Share when `sourcePdfUrl` is set.
+
 ## Referral rewards
 
 Supabase bearer. See [`REFERRAL_REWARDS_HLD.md`](REFERRAL_REWARDS_HLD.md).
