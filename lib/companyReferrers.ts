@@ -721,7 +721,10 @@ export async function listOpenReferrersForCompany(companySlug: string): Promise<
  * company spelling (more likely the full brand) and sum referred tallies.
  */
 export function aggregateOpenCompanies(
-  rows: Array<Pick<CompanyReferrer, "company" | "companySlug" | "referredCount" | "companyLocation" | "companyWebsite">>,
+  rows: Array<
+    Pick<CompanyReferrer, "company" | "companySlug" | "referredCount">
+    & Partial<Pick<CompanyReferrer, "companyLocation" | "companyWebsite">>
+  >,
   domainsBySlug: Record<string, string> = {},
 ): OpenReferralCompany[] {
   const bySlug = new Map<string, OpenReferralCompany>();
@@ -751,7 +754,10 @@ export function aggregateOpenCompanies(
       existing.company = row.company.trim();
     }
     if (!existing.companyLocation && location) existing.companyLocation = location;
-    if (!existing.companyWebsite && website) existing.companyWebsite = website;
+    if (!existing.companyWebsite && website) {
+      existing.companyWebsite = website;
+      if (fromWebsite) existing.companyDomain = fromWebsite;
+    }
     if (!existing.companyDomain) {
       existing.companyDomain = fromWebsite || domainsBySlug[slug] || "";
     }

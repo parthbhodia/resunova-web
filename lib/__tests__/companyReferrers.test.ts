@@ -248,6 +248,14 @@ describe("companyReferrers helpers", () => {
       companyLocation: "Austin, TX",
       companyWebsite: "https://www.acme.com/careers",
     });
+    const merged = aggregateOpenCompanies(
+      [
+        { company: "Acme", companySlug: "acme", referredCount: 0 },
+        { company: "Acme", companySlug: "acme", referredCount: 0, companyWebsite: "https://acme.com" },
+      ],
+      { acme: "jobs-corpus.example" },
+    );
+    expect(merged[0].companyDomain).toBe("acme.com");
     expect(websiteHostname("https://www.stripe.com/jobs")).toBe("stripe.com");
     expect(websiteHostname("not a url")).toBe("");
   });
