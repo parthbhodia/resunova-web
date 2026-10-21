@@ -3,8 +3,8 @@
 Status: **built on both sides, not fully live.** Web half here; backend on
 `resunova-api` branch `feat/referral-rewards` (PR #183, unmerged). Migration 059
 was applied to prod (`eiumlptnsmowvkxucprl`) on 2026-10-19. Migration 064 moves
-the Pro-day grant into a database trigger and is not applied yet. The email
-drain needs its own Railway cron service, which does not exist yet.
+the Pro-day grant into a database trigger and was applied on 2026-10-20. The
+email drain needs its own Railway cron service, which does not exist yet.
 
 Companion to [`COMPANY_REFERRER_HLD.md`](COMPANY_REFERRER_HLD.md). That document
 describes the desk. This one covers the rewards layer sitting on top of it, and
