@@ -331,11 +331,14 @@ export default function ProfilePage() {
 
     if (tab === "referrals") {
       return (
-        <ReferralsPanel
-          displayName={displayName}
-          title={extractedData.role || extractedData.headline || ""}
-          linkedin={extractedData.linkedin || tailorDefaults.linkedin}
-        />
+        <Stack spacing={2.25}>
+          <ScanUsageWidget mode="light" />
+          <ReferralsPanel
+            displayName={displayName}
+            title={extractedData.role || extractedData.headline || ""}
+            linkedin={extractedData.linkedin || tailorDefaults.linkedin}
+          />
+        </Stack>
       );
     }
 

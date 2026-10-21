@@ -90,7 +90,8 @@ export type RailKey =
   | "resumes"
   | "jobs"
   | "refer"
-  | "prep";
+  | "prep"
+  | "profile";
 
 export const RAIL_LABELS: Record<RailKey, string> = {
   home: "Home",
@@ -101,6 +102,7 @@ export const RAIL_LABELS: Record<RailKey, string> = {
   jobs: "Jobs",
   refer: "Refer",
   prep: "Prep",
+  profile: "Profile",
 };
 
 /** Spoken name when the visible label is shortened to fit the rail. */
@@ -113,6 +115,7 @@ export const RAIL_ARIA: Record<RailKey, string> = {
   jobs: "Jobs",
   refer: "Referrals",
   prep: "Interview Prep",
+  profile: "Profile and usage",
 };
 
 export const RAIL_ICONS: Record<RailKey, ReactNode> = {
@@ -124,6 +127,7 @@ export const RAIL_ICONS: Record<RailKey, ReactNode> = {
   jobs: NAV_ICONS.jobs,
   refer: NAV_ICONS.referrals,
   prep: NAV_ICONS.interviewPrep,
+  profile: NAV_ICONS.profile,
 };
 
 /** Work on the document, in funnel order. */
@@ -136,6 +140,14 @@ export const RAIL_APPLY: RailKey[] = [
   "prep",
 ];
 
+/**
+ * Account destinations that are not part of the document funnel. Profile sits
+ * here rather than in the account menu alone: the referral desk and the scan
+ * usage both live on /profile, and burying the only route to them behind the
+ * avatar made the section hard to find.
+ */
+export const RAIL_ACCOUNT: RailKey[] = ["profile"];
+
 export function activeRailKey(input: {
   active: AppView;
   onTemplateBuilderPage: boolean;
@@ -145,7 +157,7 @@ export function activeRailKey(input: {
   navBuilderSubflow: "tailor" | "template";
 }): RailKey | null {
   if (input.onInterviewPrepPage) return "prep";
-  if (input.onCareerProfilePage) return null;
+  if (input.onCareerProfilePage) return "profile";
   if (input.onTemplateBuilderPage) return "templates";
   if (input.builderActive && input.navBuilderSubflow === "template") return "templates";
   if (input.builderActive) return "tailor";
@@ -158,6 +170,8 @@ export function activeRailKey(input: {
       return "resumes";
     case "jobs":
       return "jobs";
+    case "profile":
+      return "profile";
     default:
       return null;
   }
