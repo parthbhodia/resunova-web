@@ -229,6 +229,8 @@ export default function LibraryResumeDetailPanel({
 
         {!loading && !notFound && item?.kind === "analyzed" && analysis && (
           <AnalyzedDetails
+            analysisId={item.id}
+            userId={user?.id ?? null}
             title={item.title}
             score={item.score}
             createdAt={dateShort}
@@ -447,6 +449,8 @@ function BuilderDraftDetails({
 }
 
 function AnalyzedDetails({
+  analysisId,
+  userId,
   title,
   score,
   createdAt,
@@ -460,6 +464,8 @@ function AnalyzedDetails({
   onTailorAnalysis,
   onEditInTemplateBuilder,
 }: {
+  analysisId: string;
+  userId: string | null;
   title: string;
   score: number | null;
   createdAt: string;
@@ -621,6 +627,11 @@ function AnalyzedDetails({
         <Button type="button" onClick={onExportPdf} disabled={exportingPdf} variant="outline" size="lg" style={{ width: "100%" }}>
           {exportingPdf ? "Exporting…" : "Export PDF"}
         </Button>
+        {sourcePdfUrl ? (
+          <div style={{ display: "flex", justifyContent: "center", paddingTop: 4 }}>
+            <ShareButton folder={`analyze-${analysisId}`} pdfUrl={sourcePdfUrl} userId={userId} />
+          </div>
+        ) : null}
       </div>
 
       {exportPdfError ? (

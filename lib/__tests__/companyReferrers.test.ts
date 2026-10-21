@@ -29,11 +29,13 @@ import {
 
 describe("companyReferrers helpers", () => {
   it("gates asking for a referral on plan, and keeps the desk free", () => {
-    // Pro and admins may ask; free may not.
+    // Unlimited Pro, metered Pro, admin, and university may ask; free may not.
     expect(referralAskEntitlement({ signedIn: true, plan: "pro", unlimited: true })).toEqual({ allowed: true });
+    expect(referralAskEntitlement({ signedIn: true, plan: "pro", unlimited: false })).toEqual({ allowed: true });
     expect(referralAskEntitlement({ signedIn: true, plan: "admin", unlimited: false })).toEqual({ allowed: true });
-    // A university seat reports unlimited, so it must not be walled.
     expect(referralAskEntitlement({ signedIn: true, plan: "institution", unlimited: true })).toEqual({ allowed: true });
+    // Institution is entitled as Pro even if unlimited is dropped from the payload.
+    expect(referralAskEntitlement({ signedIn: true, plan: "institution", unlimited: false })).toEqual({ allowed: true });
     expect(referralAskEntitlement({ signedIn: true, plan: "free", unlimited: false })).toEqual({
       allowed: false,
       reason: "upgrade",
@@ -44,13 +46,29 @@ describe("companyReferrers helpers", () => {
     });
   });
 
-  it("treats an unknown plan as a sign-in prompt, not a paywall", () => {
-    // plan: null means the status call failed or has not landed. Selling to
-    // someone because our own request flaked is worse than showing nothing.
-    expect(referralAskEntitlement({ signedIn: true, plan: null, unlimited: false }).reason).toBe("sign_in");
+  it("covers every signed-in / plan combination the status endpoint can return", () => {
+    // Production omits `plan` on metered free. That used to map to sign_in.
+    expect(referralAskEntitlement({ signedIn: true, plan: null, unlimited: false })).toEqual({
+      allowed: false,
+      reason: "upgrade",
+    });
+    // Empty / whitespace plan after a bad payload: still signed in → Pro wall.
+    expect(referralAskEntitlement({ signedIn: true, plan: "", unlimited: false }).reason).toBe("upgrade");
+    expect(referralAskEntitlement({ signedIn: true, plan: "  ", unlimited: false }).reason).toBe("upgrade");
+    // Unknown named plan: do not invent access.
+    expect(referralAskEntitlement({ signedIn: true, plan: "enterprise", unlimited: false }).reason).toBe("upgrade");
+    // Case / trim: status values are lowercase today; tolerate drift.
+    expect(referralAskEntitlement({ signedIn: true, plan: "PRO", unlimited: false })).toEqual({ allowed: true });
+    expect(referralAskEntitlement({ signedIn: true, plan: " Admin ", unlimited: false })).toEqual({ allowed: true });
+    // Unlimited with no plan name (legacy unlimited badge path).
+    expect(referralAskEntitlement({ signedIn: true, plan: null, unlimited: true })).toEqual({ allowed: true });
+    // A guest payload must never inherit a stale Pro plan field.
+    expect(referralAskEntitlement({ signedIn: false, plan: "pro", unlimited: true })).toEqual({
+      allowed: false,
+      reason: "sign_in",
+    });
     expect(REFERRAL_ASK_BLOCKED_COPY.upgrade).toMatch(/pro/i);
     expect(REFERRAL_ASK_BLOCKED_COPY.sign_in).toMatch(/sign in/i);
-    // Neither string may carry a spaced em dash.
     expect(REFERRAL_ASK_BLOCKED_COPY.upgrade).not.toMatch(/[^\s][ ][—–][ ][^\s]/);
     expect(REFERRAL_ASK_BLOCKED_COPY.sign_in).not.toMatch(/[^\s][ ][—–][ ][^\s]/);
   });

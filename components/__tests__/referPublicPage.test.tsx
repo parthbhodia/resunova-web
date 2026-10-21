@@ -7,6 +7,8 @@ const search = vi.hoisted(() => ({ slug: "" }));
 /** Mutated per test: Pro by default so the ask form is usable. */
 const mockPlanBody = vi.hoisted(() => ({
   value: { enforced: true, unlimited: true, plan: "pro" } as Record<string, unknown>,
+  /** When false, scan-limit-status answers !ok (status flake). */
+  ok: true,
 }));
 const {
   mockFetchReferrerBySlug,
@@ -75,6 +77,9 @@ vi.mock("@/lib/apiClient", async (orig) => ({
   ...(await orig<typeof import("@/lib/apiClient")>()),
   apiFetch: (path: string) => {
     if (path.includes("scan-limit-status")) {
+      if (!mockPlanBody.ok) {
+        return Promise.resolve({ ok: false as const, status: 500, json: async () => ({}) });
+      }
       return Promise.resolve(planStatus(mockPlanBody.value));
     }
     return Promise.resolve(planStatus({}));
@@ -103,6 +108,7 @@ function loaded<T>(data: T) {
 beforeEach(() => {
   search.slug = "";
   mockPlanBody.value = { enforced: true, unlimited: true, plan: "pro" };
+  mockPlanBody.ok = true;
   mockFetchReferrerBySlug.mockResolvedValue(loaded(null));
   mockListOpenReferralCompanies.mockResolvedValue(loaded([]));
   mockListOpenReferrersForCompany.mockResolvedValue(loaded([]));
@@ -369,9 +375,9 @@ describe("ReferPublicPage", () => {
 
   it("walls a free-plan candidate out of sending, and offers Pro", async () => {
     search.slug = "parth-bhodia-at-acme-abcdef";
-    // "free" is a real plan value: planLabel returns null for metered free, and
-    // the gate must read it as blocked.
-    mockPlanBody.value = { enforced: true, unlimited: false, plan: "free" };
+    // Production omits `plan` on the metered free tier. That must still be Pro,
+    // never a second sign-in prompt for someone who already has a session.
+    mockPlanBody.value = { enforced: true, unlimited: false };
     mockFetchReferrerBySlug.mockResolvedValue(loaded({
       id: "r1",
       userId: "u1",
@@ -392,6 +398,7 @@ describe("ReferPublicPage", () => {
     const submit = await screen.findByRole("button", { name: "Ask for a referral" });
     expect(submit).toBeDisabled();
     expect(await screen.findByRole("button", { name: "See Pro" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
     expect(screen.getByText(REFERRAL_ASK_BLOCKED_COPY.upgrade)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "See Pro" }));
@@ -450,6 +457,61 @@ describe("ReferPublicPage", () => {
     render(<ReferPublicPage />);
     expect(await screen.findByRole("button", { name: "Ask for a referral" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "See Pro" })).not.toBeInTheDocument();
+  });
+
+  it("lets metered Pro ask (plan pro, not unlimited)", async () => {
+    search.slug = "parth-bhodia-at-acme-abcdef";
+    mockPlanBody.value = {
+      enforced: true,
+      unlimited: false,
+      plan: "pro",
+      limit: 30,
+      used: 4,
+      remaining: 26,
+    };
+    mockFetchReferrerBySlug.mockResolvedValue(loaded({
+      id: "r1",
+      userId: "u1",
+      displayName: "Parth Bhodia",
+      company: "Acme",
+      companySlug: "acme",
+      title: "Software Engineer",
+      linkedin: null,
+      slug: "parth-bhodia-at-acme-abcdef",
+      bio: null,
+      openToRefer: true,
+      createdAt: "",
+      updatedAt: "",
+    }));
+    render(<ReferPublicPage />);
+    expect(await screen.findByRole("button", { name: "Ask for a referral" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "See Pro" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
+  });
+
+  it("offers Pro, not sign-in, when the plan status call fails for a signed-in user", async () => {
+    // A 500 used to collapse into plan:null → sign_in. Signed-in must stay on
+    // the upgrade wall so we never ask them to authenticate again.
+    search.slug = "parth-bhodia-at-acme-abcdef";
+    mockPlanBody.ok = false;
+    mockFetchReferrerBySlug.mockResolvedValue(loaded({
+      id: "r1",
+      userId: "u1",
+      displayName: "Parth Bhodia",
+      company: "Acme",
+      companySlug: "acme",
+      title: "Software Engineer",
+      linkedin: null,
+      slug: "parth-bhodia-at-acme-abcdef",
+      bio: null,
+      openToRefer: true,
+      createdAt: "",
+      updatedAt: "",
+    }));
+    render(<ReferPublicPage />);
+    expect(await screen.findByRole("button", { name: "See Pro" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
+    expect(screen.getByText(REFERRAL_ASK_BLOCKED_COPY.upgrade)).toBeInTheDocument();
   });
 
   it("loads a named referrer while unsigned and still blocks the send", async () => {

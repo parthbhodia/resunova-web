@@ -53,10 +53,10 @@ Two consequences worth knowing:
 limit, because there is no free allowance to exhaust. A quota refusal renders
 as "come back tomorrow", which would be false.
 
-**An unknown plan asks for sign-in, not for money.** `referralAskEntitlement`
-reads `plan` from `/api/scan-limit-status` rather than re-deciding the rule in
-the browser, and treats `plan: null` as a session problem. Selling to someone
-because our own status call flaked is worse than showing them nothing.
+**A signed-in free or unknown plan asks for Pro, not for sign-in.**
+`referralAskEntitlement` reads `plan` / `unlimited` from `/api/scan-limit-status`.
+The metered free tier omits `plan`, so `plan: null` while signed in is the normal
+free reading. Only a missing session returns `sign_in`.
 
 The form renders **disabled rather than hidden**, so a free candidate still sees
 what they would be asking for and where it goes. A paywall that hides the product
