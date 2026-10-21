@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   collectUnaddressedGaps, countGaps, batchGapName, batchGapNotes, MAX_GAPS_PER_BATCH,
-  appendBulletLine, suggestionIsUsable, uncoverableReason,
+  appendBulletLine, suggestionIsUsable, uncoverableReason, inventedBulletPermission,
 } from "@/lib/fixEverything";
 import type { RatingsData } from "@/lib/types";
 
@@ -117,6 +117,20 @@ describe("batch request shape", () => {
     // slots, and a bullet shipped ending "using XYZ methodology."
     const notes = batchGapNotes(collectUnaddressedGaps(ratings(), NONE)[0], "aggressive");
     expect(notes).not.toMatch(/\bXYZ\b|\[[XYZ]\]/);
+  });
+
+  it("sends no instruction word the server would demand in every rewrite", () => {
+    // The server's extract_gap_target_terms treats any CamelCase or 3+ letter
+    // all-caps token in gap_notes as a required posting term. "XYZ" and "MAY"
+    // in this text made it drop every rewrite that did not contain both:
+    // a nine-row pass applied one fix, and that one said "using XYZ methodology".
+    const camelOrCaps = /\b[A-Z][a-zA-Z0-9]*(?:[A-Z][a-z0-9]*)+\b/g;
+    for (const mode of ["aggressive", "honest"] as const) {
+      expect(inventedBulletPermission(mode).match(camelOrCaps)).toBeNull();
+    }
+    const q = collectUnaddressedGaps(ratings(), NONE)[0];
+    const instructions = batchGapNotes(q, "aggressive").slice(q.notes.length);
+    expect(instructions.match(camelOrCaps)).toBeNull();
   });
 
   it("lets aggressive mode retitle an existing role toward the posting", () => {

@@ -117,6 +117,11 @@ export function batchGapName(batch: GapBatch): string {
  * bullet under a role the résumé already lists is the fix. A new employer,
  * credential, or number is still refused. Retitling an existing role toward
  * the posting is allowed when the work is the same job under a different name.
+ *
+ * ⚠️ No all-caps or CamelCase words in this text. The server reads every such
+ * token in gap_notes as a posting term each rewrite must contain, so "XYZ" and
+ * "MAY" here made it reject every honest rewrite and keep only the ones that
+ * wrote "using XYZ methodology" into a bullet.
  */
 export function inventedBulletPermission(mode: TailoringMode | null | undefined): string {
   if (mode !== "aggressive") return "";
@@ -128,7 +133,7 @@ export function inventedBulletPermission(mode: TailoringMode | null | undefined)
     + "Return a new bullet with an empty original and the full line as suggested. "
     + "Any result you cite must already be on the résumé. "
     + "Do not invent a new employer, credential, or number. "
-    + "You MAY retitle an existing role toward the posting's job title when the work already described is the same job under a different name. "
+    + "You may retitle an existing role toward the posting's job title when the work already described is the same job under a different name. "
     + "If you retitle, set suggested_role to the new title on that suggestion and keep employer unchanged. "
     + "Do not invent a new role, do not change an employer name, and do not promote intern or student titles to senior, staff, or director."
   );
