@@ -611,6 +611,45 @@ describe("only a real check on the résumé may claim absence", () => {
     expect(row.verdict).toBe("not_evidenced");
   });
 
+  it("drops the tail of a degree clause, which is not a requirement", () => {
+    // "Bachelor's degree or equivalent experience" arrives with its tail split
+    // off as its own row; "Add" on it could only paste the phrase into a bullet.
+    for (const name of ["equivalent experience", "or equivalent practical experience", "related field"]) {
+      expect(deriveScorerQueue(typed(name, "experience"), EMPTY_RATER, new Set())).toEqual([]);
+    }
+    const merged = mergeQueues([], [
+      { id: "qualification:eq", name: "Equivalent experience", kind: "qualification", status: "queued", detail: "" },
+    ]);
+    expect(merged).toEqual([]);
+  });
+
+  it("keeps real requirements that merely contain those words", () => {
+    const [row] = deriveScorerQueue(
+      typed("experience with related data systems", "experience"), EMPTY_RATER, new Set(),
+    );
+    expect(row?.name).toBe("experience with related data systems");
+  });
+
+  it("drops a 'CS degree' row when the résumé lists a degree", () => {
+    // Field report: "CS degree" sat under hard requirements as "Scanner didn't
+    // find it" and was then "fixed" by rewriting a project bullet, for someone
+    // whose Education section already listed the degree.
+    const out = deriveScorerQueue(
+      typed("CS degree", "degree"), EMPTY_RATER, new Set(), undefined,
+      "EDUCATION\nBachelor of Science in Computer Science, UMBC",
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("claims absence for a 'CS degree' row only when no degree is on the résumé", () => {
+    const [row] = deriveScorerQueue(
+      typed("CS degree", "degree"), EMPTY_RATER, new Set(), undefined,
+      "EXPERIENCE\nSoftware Developer.",
+    );
+    expect(row.verdict).toBe("not_evidenced");
+    expect(itemAction(row, row.verdict)).toBe("no_fabrication");
+  });
+
   it("does NOT claim absence for a certification, which nothing checked", () => {
     // isCredentialRequirement groups certifications with degrees for ROUTING,
     // and that grouping is not evidence: degreeRequirementSatisfied returns
@@ -664,8 +703,9 @@ describe("only a real check on the résumé may claim absence", () => {
     const row = merged.find((r) => r.name === "5 years of Python");
     expect(row?.verdict).toBe("unbacked");
     // And out of the red band: nothing can filter on a term that is present
-    // in the document, so this class is upside, not a blocker.
-    expect(row?.band).toBe("boost");
+    // in the document. Out of "Worth adding" too: it moves nothing, so it
+    // sits in the collapsed optional band.
+    expect(row?.band).toBe("stronger");
   });
 
   it("leaves CONTEXTUAL rows out of the unbacked machinery entirely", () => {

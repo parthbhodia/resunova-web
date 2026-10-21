@@ -128,7 +128,7 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
               <ReferAlert>{REFERRAL_ASK_BLOCKED_COPY[ask.entitlement?.reason ?? "upgrade"]}</ReferAlert>
             ) : null}
             <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-              <Button type="submit" variant="contained" disabled={ask.saving || (!ask.allowed && !needsSignIn)} sx={filledButtonSx}>
+              <Button type="submit" variant="contained" disabled={ask.saving || ask.checkingPlan || (!ask.allowed && !needsSignIn)} sx={filledButtonSx}>
                 {ask.checkingPlan ? "Checking your plan..." : ask.saving ? "Sending..." : "Ask for a referral"}
               </Button>
               {blocked ? (

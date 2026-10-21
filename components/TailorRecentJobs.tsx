@@ -5,7 +5,7 @@ import { tailorHref } from "@/lib/tailorRoute";
 import { useRouter } from "next/navigation";
 import { fetchResumes } from "@/lib/supabase";
 import type { ResumeRecord } from "@/lib/types";
-import { TAILOR_PREFILL_JD, TAILOR_PREFILL_COMPANY, TAILOR_PREFILL_ROLE } from "@/lib/tailorPrefill";
+import { stashTailorPrefillFromLibrary } from "@/lib/tailorPrefill";
 import { RESUME_LIBRARY_CHANGED_EVENT } from "@/lib/resumeLibraryEvents";
 import { scoreColor } from "./ratings/scoreColor";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,21 +72,7 @@ export default function TailorRecentJobs({
       onPick?.();
       return;
     }
-    try {
-      if (r.job_description) sessionStorage.setItem(TAILOR_PREFILL_JD, r.job_description);
-      if (r.company) sessionStorage.setItem(TAILOR_PREFILL_COMPANY, r.company);
-      if (r.role) sessionStorage.setItem(TAILOR_PREFILL_ROLE, r.role);
-      // Restore profile text if available in resume_doc
-      const profile =
-        typeof r.resume_doc?.profile === "string" ? r.resume_doc.profile : null;
-      if (profile) sessionStorage.setItem("rn_builder_profile_prefill", profile);
-      const structured = r.resume_doc?.structured ?? r.resume_doc?.structuredResume;
-      if (structured && typeof structured === "object") {
-        try {
-          sessionStorage.setItem("rn_builder_structured_prefill", JSON.stringify(structured));
-        } catch { /* ignore */ }
-      }
-    } catch { /* ignore */ }
+    stashTailorPrefillFromLibrary(r);
 
     onPick?.();
     const url = tailorHref({ intentJob: true, base: r.folder || undefined });

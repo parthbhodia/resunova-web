@@ -168,6 +168,12 @@ function actionLabel(action: QueueItemAction, it: QueueItem): string {
   return ACTION_LABEL[action];
 }
 
+/** "A", "A and B", "A, B and C". */
+function joinBandNames(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 /** The claim, in the user's words. */
 const VERDICT_LABEL: Record<QueueVerdict, string> = {
   partial: "Partial match",
@@ -534,14 +540,14 @@ export function TailorWorkQueue({
   // found a button. Every work row is now visible by default; only the two
   // advisory bands collapse, each behind its own control.
   const groups = groupQueueBySeverity(filtered, showAll);
-  const shown = groups.flatMap((g) => g.items);
   const hiddenCount = groups.reduce((n, g) => n + g.hidden, 0);
   // Rows the collapse control governs. Only ever the advisory bands, so the
   // "collapse" affordance disappears when there is nothing to collapse rather
   // than offering to hide work.
   const collapsibleTotal = filtered.filter(
-    (it) => it.status === "covered" || it.kind === "contextual",
+    (it) => it.status === "covered" || it.kind === "contextual" || it.band === "stronger",
   ).length;
+  const hiddenBandNames = groups.filter((g) => g.hidden > 0).map((g) => g.label);
   // Credentials are excluded for the same reason contextual rows are: the pass
   // skips them by design (no bullet rewrite can evidence a degree), so counting
   // them makes the button promise work it will not attempt. Ticking a degree
@@ -584,12 +590,15 @@ export function TailorWorkQueue({
    * only widens to the rest once those are handled. The per-row actions and the
    * selection path are untouched, so nothing is taken away.
    */
+  // "Could be stronger" rows are opt-in one at a time; the default pass never
+  // sweeps them up.
+  const defaultTargets = selectable.filter((it) => it.band !== "stronger");
   const bulkTarget = selected.length > 0
     ? selected
     : blockerTargets.length > 0
       ? blockerTargets
-      : selectable;
-  const bulkCount = selectable.length || c.open;
+      : defaultTargets;
+  const bulkCount = defaultTargets.length || c.open;
   const bulkLabel = fixAllBusy
     ? "Improving…"
     : selected.length > 0
@@ -764,7 +773,7 @@ export function TailorWorkQueue({
       ) : null}
 
       <ul style={{ listStyle: "none", margin: "6px 0 0", padding: "0 6px 4px" }}>
-        {shown.length === 0 ? (
+        {groups.length === 0 ? (
           <li style={{ padding: "10px 8px", fontSize: FS.small, color: "var(--muted)" }}>
             Nothing to add here. You&rsquo;re already covered.
           </li>
@@ -806,6 +815,7 @@ export function TailorWorkQueue({
                   would skip them anyway and a checked row the button ignores
                   is a lie. */}
               {(() => {
+                if (group.band === "stronger") return null;
                 const bandSelectable = group.items.filter(isSelectable);
                 if (bandSelectable.length < 2) return null;
                 const allSelected = bandSelectable.every((it) => selectedIds.has(it.id));
@@ -1144,7 +1154,7 @@ export function TailorWorkQueue({
           {/* Names the bands, not a bare count. What is behind this is context
               and reassurance, never a blocker, and saying so is the difference
               between a control you can skip and one you have to open to know. */}
-          Show {hiddenCount} more from About the employer and Already covered
+          Show {hiddenCount} more from {joinBandNames(hiddenBandNames)}
         </button>
       ) : showAll && collapsibleTotal > 0 ? (
         <button

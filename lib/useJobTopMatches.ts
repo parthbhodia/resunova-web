@@ -7,6 +7,9 @@ export type JobTopMatch = {
   title: string;
   company: string;
   matchScore: number | null;
+  /** The posting on the company's own site; "" when the source gave none. */
+  url?: string;
+  location?: string;
 };
 
 export type UseJobTopMatchesParams = {

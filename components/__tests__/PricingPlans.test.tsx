@@ -13,8 +13,28 @@ const createCheckoutSession = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/lib/billingApi", () => ({
   PLAN_PRICE_LABELS: {
-    pro_monthly: { title: "Pro Monthly", price: "$19", cadence: "per month" },
-    pro_quarterly: { title: "Pro Quarterly", price: "$39", cadence: "every 3 months", note: "$13/mo, save 32%" },
+    pro_weekly: {
+      title: "Pro Weekly",
+      price: "$4.99",
+      cadence: "per week, billed weekly",
+      note: "$21.6/mo if you keep it weekly",
+      nudgeTo: "pro_monthly",
+      nudgeLabel: "Monthly is $19, saves 12%",
+    },
+    pro_monthly: {
+      title: "Pro Monthly",
+      price: "$19",
+      cadence: "per month, billed monthly",
+      note: "$13/mo, save 32%",
+      nudgeTo: "pro_quarterly",
+      nudgeLabel: "Quarterly is $13/mo, save 32%",
+    },
+    pro_quarterly: {
+      title: "Pro Quarterly",
+      price: "$39",
+      cadence: "billed every 3 months",
+      note: "$13/mo, save 32%",
+    },
   },
   createCheckoutSession: (...args: unknown[]) => createCheckoutSession(...args),
 }));
@@ -69,5 +89,53 @@ describe("PricingPlans billing toggle", () => {
     expect(
       screen.getByText(`${FREE_INTERVIEW_DAILY_LIMIT} → ${PRO_INTERVIEW_DAILY_LIMIT} a day`),
     ).toBeTruthy();
+  });
+});
+
+describe("PricingPlans weekly period", () => {
+  /** Regression. The cadence line used to be
+   *  `selected === "pro_monthly" ? "per month…" : "billed every 3 months"`,
+   *  which told a weekly buyer they were billed quarterly directly beneath a
+   *  weekly price. Pin the line to the selected label. */
+  it("states the selected period's own cadence", () => {
+    render(<PricingPlans />);
+    fireEvent.click(screen.getByRole("button", { name: "Weekly" }));
+    expect(screen.getByText("per week, billed weekly")).toBeTruthy();
+    expect(screen.queryByText("billed every 3 months")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Quarterly" }));
+    expect(screen.getByText("billed every 3 months")).toBeTruthy();
+    expect(screen.queryByText("per week, billed weekly")).toBeNull();
+  });
+
+  it("shows the weekly price and is billed the weekly key", async () => {
+    render(<PricingPlans />);
+    fireEvent.click(screen.getByRole("button", { name: "Weekly" }));
+    expect(screen.getByText("$4.99")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Weekly" }).getAttribute("aria-pressed")).toBe("true");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Upgrade to Pro/ }));
+    });
+    expect(createCheckoutSession).toHaveBeenCalledWith("pro_weekly");
+  });
+
+  /** Weekly is priced above the monthly run rate, so the panel has to admit
+   *  it. A reader who sees only "$4.99" reasonably assumes it is the deal. */
+  it("points a weekly reader at the cheaper monthly option", () => {
+    render(<PricingPlans />);
+    fireEvent.click(screen.getByRole("button", { name: "Weekly" }));
+    fireEvent.click(screen.getByText("Monthly is $19, saves 12%"));
+    expect(screen.getByText("$19")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Monthly" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  /** The longest period has nothing better to point at, so its claim renders
+   *  as text and the chip must be absent, not a chip switching to itself. */
+  it("shows quarterly's value claim as text, with no nudge chip", () => {
+    render(<PricingPlans />);
+    fireEvent.click(screen.getByRole("button", { name: "Quarterly" }));
+    expect(screen.getByText("$13/mo, save 32%").tagName).toBe("P");
+    expect(screen.queryByText("Quarterly is $13/mo, save 32%")).toBeNull();
   });
 });
