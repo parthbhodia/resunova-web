@@ -68,9 +68,11 @@ Recipients open `/r/?id=<shortid>`. Minting and revoking happen from `ShareButto
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/share/{folder}` | POST | Mint (or reuse) a link. Body `{ user_id, pdf_url }`. Response `{ shortid, pdf_url, views?, reused }` |
+| `/api/share/{folder}` | POST | Mint (or reuse) a link (auth). Body `{ pdf_url }`. Response `{ shortid, pdf_url, views?, reused }` |
 | `/api/share/{shortid}` | GET | Public resolve to `{ shortid, folder, pdf_url, views, created_at }`. `410` when revoked |
-| `/api/share/{shortid}` | DELETE | Owner revoke. Body `{ user_id }` |
+| `/api/share/{shortid}` | DELETE | Owner revoke (auth) |
+
+Create and revoke act as the Supabase bearer's user and `401` without one. A `user_id` in the body is ignored; `ShareButton` still sends it, which is harmless.
 
 `folder` is either a tailored résumé's library folder (checked against `resumes`) or `analyze-<analysis id>` for an Analyze scan (checked against `resume_analyses`). For a scan the backend always links the stored `source_pdf_url` and ignores the `pdf_url` in the body. A scan with no uploaded PDF returns `404`, so the UI only offers Share when `sourcePdfUrl` is set.
 
