@@ -246,25 +246,45 @@ describe("the mentioned-not-proven card is coherent", () => {
     await waitFor(() => expect(screen.getByText("Terraform")).toBeInTheDocument());
   }
 
+  /** Open rows in "Could be stronger" start collapsed. */
+  function expandAdvisory() {
+    fireEvent.click(screen.getByRole("button", { name: /^Show \d+ more from .*Could be stronger/ }));
+  }
+
+  it("starts the mentioned-not-proven rows collapsed", async () => {
+    // Field: "i dont think we need all of these to be added, this is vague."
+    // These rows move nothing and are already on the résumé.
+    await renderMerged();
+    expect(rowFor("Distributed backend services")).toBeNull();
+    expandAdvisory();
+    expect(rowFor("Distributed backend services")).not.toBeNull();
+  });
+
   it("renders the unbacked chip, never Not evidenced beside an already-counted note", async () => {
     await renderMerged();
+    expandAdvisory();
     const row = rowFor("Distributed backend services");
     expect(row).not.toBeNull();
     expect(row!.textContent).toContain("Mentioned, not proven");
     expect(row!.textContent).not.toContain("Not evidenced");
   });
 
-  it("banded as upside, not under the filtered-out claim", async () => {
-    // A term that is present in the document cannot fail a keyword screen.
+  it("banded as optional, not under the filtered-out claim or Worth adding", async () => {
+    // A term that is present in the document cannot fail a keyword screen,
+    // and strengthening it does not move the score.
     await renderMerged();
+    expandAdvisory();
     const row = rowFor("Distributed backend services");
     const band = row!.parentElement!.closest("li");
-    expect(band?.textContent).toContain("Worth adding");
+    expect(band?.textContent).toContain("Could be stronger");
+    expect(band?.textContent).not.toContain("Worth adding");
     expect(band?.textContent).not.toContain("filtered out");
+    expect(within(band as HTMLElement).queryByRole("checkbox", { name: /^Select all in/ })).toBeNull();
   });
 
   it("explains what fixing it is FOR when the percentage will not move", async () => {
     await renderMerged();
+    expandAdvisory();
     const row = rowFor("Distributed backend services");
     fireEvent.click(screen.getAllByText("Why this matters").find((el) => row!.contains(el))!);
     // The old note explained our bookkeeping and made the fix look pointless
