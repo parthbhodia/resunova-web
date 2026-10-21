@@ -57,7 +57,12 @@
  */
 
 import type { AddressedGapAction } from "@/lib/types";
-import { degreeRequirementSatisfied, isCredentialRequirement, requiredDegreeLevel } from "@/lib/degreeRequirement";
+import {
+  degreeRequirementSatisfied,
+  isCredentialRequirement,
+  isUnleveledDegreeRequirement,
+  requiredDegreeLevel,
+} from "@/lib/degreeRequirement";
 import { isGapAddressed } from "@/lib/tailorGapFix";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import {
@@ -238,7 +243,9 @@ const YEARS_RE = /\b\d{1,2}\s*\+?\s*(?:years?|yrs?)\b/i;
  * will.
  */
 export function blockerReasonFor(name: string, type?: string): string | null {
-  if (requiredDegreeLevel(name) !== null) return BLOCKER_REASON.degree;
+  if (requiredDegreeLevel(name) !== null || isUnleveledDegreeRequirement(name)) {
+    return BLOCKER_REASON.degree;
+  }
   if (/\bcertif/i.test(name)) return BLOCKER_REASON.certification;
   if (/\blicen[sc]e/i.test(name)) return BLOCKER_REASON.license;
   if (/\bclearance\b/i.test(name)) return BLOCKER_REASON.clearance;
@@ -584,7 +591,11 @@ export function deriveScorerQueue(
       // i.e. we read the résumé and found nothing at or above that level. That
       // is the evidence behind the only claim this row is allowed to make about
       // the candidate. See verdictFor.
-      verdict: verdictFor(kind, raterCovered, requiredDegreeLevel(name) !== null),
+      verdict: verdictFor(
+        kind,
+        raterCovered,
+        requiredDegreeLevel(name) !== null || isUnleveledDegreeRequirement(name),
+      ),
     });
   }
   return out;

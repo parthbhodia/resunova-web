@@ -611,6 +611,26 @@ describe("only a real check on the résumé may claim absence", () => {
     expect(row.verdict).toBe("not_evidenced");
   });
 
+  it("drops a 'CS degree' row when the résumé lists a degree", () => {
+    // Field report: "CS degree" sat under hard requirements as "Scanner didn't
+    // find it" and was then "fixed" by rewriting a project bullet, for someone
+    // whose Education section already listed the degree.
+    const out = deriveScorerQueue(
+      typed("CS degree", "degree"), EMPTY_RATER, new Set(), undefined,
+      "EDUCATION\nBachelor of Science in Computer Science, UMBC",
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("claims absence for a 'CS degree' row only when no degree is on the résumé", () => {
+    const [row] = deriveScorerQueue(
+      typed("CS degree", "degree"), EMPTY_RATER, new Set(), undefined,
+      "EXPERIENCE\nSoftware Developer.",
+    );
+    expect(row.verdict).toBe("not_evidenced");
+    expect(itemAction(row, row.verdict)).toBe("no_fabrication");
+  });
+
   it("does NOT claim absence for a certification, which nothing checked", () => {
     // isCredentialRequirement groups certifications with degrees for ROUTING,
     // and that grouping is not evidence: degreeRequirementSatisfied returns
