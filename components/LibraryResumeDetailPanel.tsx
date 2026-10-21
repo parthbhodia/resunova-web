@@ -6,6 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import type { ResumeRecord } from "@/lib/types";
 import { apiUrl } from "@/lib/utils";
 import { displayPdfUrlForResume } from "@/lib/displayResumePdfUrl";
+import { shareTargetFor } from "@/lib/libraryShare";
 import { getSupabaseClient } from "@/lib/supabase";
 import { type LibraryItem } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,7 @@ export default function LibraryResumeDetailPanel({
     : {};
 
   const pdfUrl = useMemo(() => (meta ? displayPdfUrlForResume(meta) : null), [meta]);
+  const shareTarget = useMemo(() => (item ? shareTargetFor(item) : null), [item]);
   const pdfSrc = pdfUrl
     ? pdfUrl.startsWith("http")
       ? pdfUrl
@@ -165,20 +167,31 @@ export default function LibraryResumeDetailPanel({
             {loading ? "…" : notFound ? "Not found" : titleShort || "—"}
           </h2>
         </div>
-        <Button
-          type="button"
-          onClick={onClose}
-          aria-label="Close panel"
-          variant="outline"
-          size="icon"
-          style={{
-            flexShrink: 0,
-            fontSize: 18,
-            lineHeight: 1,
-          }}
-        >
-          ×
-        </Button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {shareTarget && !loading && !notFound ? (
+            <ShareButton
+              key={shareTarget.folder}
+              folder={shareTarget.folder}
+              pdfUrl={shareTarget.pdfUrl}
+              userId={user?.id ?? null}
+              triggerStyle={{ height: 36, padding: "0 12px", borderRadius: "var(--radius, 8px)" }}
+            />
+          ) : null}
+          <Button
+            type="button"
+            onClick={onClose}
+            aria-label="Close panel"
+            variant="outline"
+            size="icon"
+            style={{
+              flexShrink: 0,
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </Button>
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "18px 18px 24px" }}>
@@ -229,8 +242,6 @@ export default function LibraryResumeDetailPanel({
 
         {!loading && !notFound && item?.kind === "analyzed" && analysis && (
           <AnalyzedDetails
-            analysisId={item.id}
-            userId={user?.id ?? null}
             title={item.title}
             score={item.score}
             createdAt={dateShort}
@@ -385,9 +396,6 @@ export default function LibraryResumeDetailPanel({
               >
                 Tailor for a new job
               </Button>
-              <div style={{ display: "flex", justifyContent: "center", paddingTop: 4 }}>
-                <ShareButton folder={meta.folder} pdfUrl={pdfUrl} userId={user?.id ?? null} />
-              </div>
             </div>
 
             <ResumePublicLinkSettings folder={meta.folder} userId={user?.id ?? null} />
@@ -449,8 +457,6 @@ function BuilderDraftDetails({
 }
 
 function AnalyzedDetails({
-  analysisId,
-  userId,
   title,
   score,
   createdAt,
@@ -464,8 +470,6 @@ function AnalyzedDetails({
   onTailorAnalysis,
   onEditInTemplateBuilder,
 }: {
-  analysisId: string;
-  userId: string | null;
   title: string;
   score: number | null;
   createdAt: string;
@@ -627,11 +631,6 @@ function AnalyzedDetails({
         <Button type="button" onClick={onExportPdf} disabled={exportingPdf} variant="outline" size="lg" style={{ width: "100%" }}>
           {exportingPdf ? "Exporting…" : "Export PDF"}
         </Button>
-        {sourcePdfUrl ? (
-          <div style={{ display: "flex", justifyContent: "center", paddingTop: 4 }}>
-            <ShareButton folder={`analyze-${analysisId}`} pdfUrl={sourcePdfUrl} userId={userId} />
-          </div>
-        ) : null}
       </div>
 
       {exportPdfError ? (

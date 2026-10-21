@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { parseJsonOrThrow } from "@/lib/utils";
 import { apiFetch } from "@/lib/apiClient";
@@ -51,12 +52,16 @@ function toUserFacingShareError(x: unknown): string {
   return String(x);
 }
 
-export default function ShareButton({ folder, pdfUrl, userId, ensureLibraryRow }: {
+export default function ShareButton({ folder, pdfUrl, userId, ensureLibraryRow, wrapperStyle, triggerStyle }: {
   folder: string;
   pdfUrl: string | null;
   userId: string | null;
   /** If /api/share returns “not saved yet”, run this once then retry (library upsert race). */
   ensureLibraryRow?: () => Promise<void>;
+  /** Layout of the anchor, e.g. a flex share when it sits in a row of actions. */
+  wrapperStyle?: CSSProperties;
+  /** Merged over the trigger's own look so it can match neighbouring buttons. */
+  triggerStyle?: CSSProperties;
 }) {
   const [open,    setOpen]    = useState(false);
   const [loading, setLoading] = useState(false);
@@ -182,6 +187,8 @@ export default function ShareButton({ folder, pdfUrl, userId, ensureLibraryRow }
   const popoverPanel = (
     <div
       ref={menuRef}
+      role="dialog"
+      aria-label="Public share link"
       style={{
         position: "fixed",
         top: popoverPos.top,
@@ -262,21 +269,35 @@ export default function ShareButton({ folder, pdfUrl, userId, ensureLibraryRow }
     </div>
   );
 
+  // React bubbles events out of the portal through this tree, so without the
+  // stops a click in the popover would also select the card hosting the button.
   return (
-    <div ref={anchorRef} style={{ position: "relative" }}>
+    <div
+      ref={anchorRef}
+      style={{ position: "relative", ...wrapperStyle }}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => {
+        e.stopPropagation();
+        if (e.key === "Escape") setOpen(false);
+      }}
+    >
       <button
+        type="button"
         onClick={onClick}
         title="Get a public share link"
+        aria-expanded={open}
+        aria-haspopup="dialog"
         style={{
-          display: "flex", alignItems: "center", gap: 7,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
           padding: "9px 14px",
           background: "var(--surface2)", border: "1px solid var(--border)",
           borderRadius: 9, color: "var(--text)", cursor: "pointer",
           fontSize: 13, fontWeight: 500, letterSpacing: -0.3,
           whiteSpace: "nowrap", fontFamily: "inherit",
+          ...triggerStyle,
         }}
       >
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
           <circle cx="3" cy="6.5" r="1.7" stroke="currentColor" strokeWidth="1.4" />
           <circle cx="10" cy="3"   r="1.7" stroke="currentColor" strokeWidth="1.4" />
           <circle cx="10" cy="10"  r="1.7" stroke="currentColor" strokeWidth="1.4" />

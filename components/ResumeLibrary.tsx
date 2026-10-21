@@ -27,6 +27,8 @@ function resolvePdfUrl(raw: string | null | undefined): string | null {
 }
 import { stashTailorPrefillFromLibrary } from "@/lib/tailorPrefill";
 import { displayPdfUrlForResume } from "@/lib/displayResumePdfUrl";
+import { shareTargetFor } from "@/lib/libraryShare";
+import ShareButton from "./ShareButton";
 import { deleteBuilderResume, fetchLibraryItems, getSupabaseClient, type LibraryItem } from "@/lib/supabase";
 import { RESUME_LIBRARY_CHANGED_EVENT } from "@/lib/resumeLibraryEvents";
 import { RN_BUILDER_LAYOUT_ONLY_KEY } from "@/lib/resumeTemplateStudioPrefs";
@@ -102,6 +104,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
   const [loadError, setLoadError] = useState<string | null>(null);
   /** `null` until first auth check completes — avoids flashing the wrong empty state. */
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const { openSignIn } = useSignInDialog();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -124,6 +127,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
       const { data: { session } } = await supabase.auth.getSession();
       if (cancelled) return;
       setSignedIn(!!session?.user?.id);
+      setUserId(session?.user?.id ?? null);
       setLoading(true);
       try {
         const feed = await fetchLibraryItems();
@@ -791,6 +795,7 @@ export default function ResumeLibrary({ onUseAsBase }: {
                             : selectedFolder === item.record.folder
                     }
                     stagger={Math.min(i % 5, 4)}
+                    userId={userId}
                     onOpen={() => openItem(item)}
                     onUseAsBase={() => applyResumeAsBase(item)}
                     onOpenAnalysis={() => openAnalysis(item)}
@@ -985,6 +990,7 @@ function ResumeCard({
   item,
   isSelected,
   stagger,
+  userId,
   onOpen,
   onUseAsBase,
   onOpenAnalysis,
@@ -998,6 +1004,7 @@ function ResumeCard({
   item: LibraryItem;
   isSelected?: boolean;
   stagger: number;
+  userId: string | null;
   onOpen: () => void;
   onUseAsBase: () => void;
   onOpenAnalysis: () => void;
@@ -1023,6 +1030,7 @@ function ResumeCard({
       ),
     [item, displayPdf],
   );
+  const shareTarget = useMemo(() => shareTargetFor(item), [item]);
   const sc = item.score;
   const dateStr = item.createdAt
     ? new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
@@ -1158,6 +1166,15 @@ function ResumeCard({
           )}
         </>
       )}
+      {shareTarget ? (
+        <ShareButton
+          folder={shareTarget.folder}
+          pdfUrl={shareTarget.pdfUrl}
+          userId={userId}
+          wrapperStyle={{ flex: actionBtnGhost.flex, minWidth: actionBtnGhost.minWidth, display: "flex" }}
+          triggerStyle={{ ...actionBtnGhost, flex: "1 1 auto", gap: 6 }}
+        />
+      ) : null}
     </div>
   );
 
@@ -1173,6 +1190,8 @@ function ResumeCard({
       }}
       onClick={onOpen}
       onKeyDown={e => {
+        // Keys pressed on a button inside the card belong to that button.
+        if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onOpen();
