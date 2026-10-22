@@ -19,8 +19,8 @@ vi.mock("next/link", () => ({
 const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body }) as Response;
 const refused = (status: number, body: unknown) => ({ ok: false, status, json: async () => body }) as Response;
 
-function fire(name: string) {
-  act(() => { window.dispatchEvent(new CustomEvent(name)); });
+function fire(name: string, detail?: unknown) {
+  act(() => { window.dispatchEvent(new CustomEvent(name, { detail })); });
 }
 
 async function connectedPage() {
@@ -49,6 +49,31 @@ describe("ExtensionConnect handshake outcomes", () => {
     fire("resunova-extension-error");
     expect(await screen.findByText("The extension couldn't finish")).toBeInTheDocument();
     expect(screen.queryByText("We can't see the extension")).toBeNull();
+  });
+
+  it("shows the extension's error code so a failure can be diagnosed", async () => {
+    await connectedPage();
+    fire("resunova-extension-error", { error: "invalid_or_expired_code" });
+    expect(await screen.findByText("invalid_or_expired_code")).toBeInTheDocument();
+  });
+
+  it("never renders an error detail that is not a short code", async () => {
+    await connectedPage();
+    fire("resunova-extension-error", { error: "<img src=x onerror=alert(1)> some prose" });
+    await screen.findByText("The extension couldn't finish");
+    expect(screen.queryByText(/Reference for support/)).toBeNull();
+    expect(document.querySelector("img[src='x']")).toBeNull();
+  });
+
+  it("a second failure without a code does not show the first failure's reference", async () => {
+    await connectedPage();
+    fire("resunova-extension-error", { error: "invalid_or_expired_code" });
+    expect(await screen.findByText("invalid_or_expired_code")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    await screen.findByText("Linking the extension");
+    fire("resunova-extension-error"); // this time the extension reports nothing
+    await screen.findByText("The extension couldn't finish");
+    expect(screen.queryByText("invalid_or_expired_code")).toBeNull();
   });
 
   it("no answer in 4s means the extension was not found", async () => {

@@ -83,6 +83,8 @@ export default function ExtensionConnect() {
   const [phase, setPhase] = useState<Phase>("checking");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  // The short code the extension reports when its exchange fails, for support.
+  const [reference, setReference] = useState<string | null>(null);
   const { openSignIn } = useSignInDialog();
 
   // One in-flight handshake at a time, and a late answer must not resolve an
@@ -127,7 +129,11 @@ export default function ExtensionConnect() {
   useEffect(() => {
     const live = () => phaseRef.current === "handing_off" || phaseRef.current === "waiting";
     const onAck = () => { if (live()) go("connected"); };
-    const onErr = () => { if (live()) go("failed"); };
+    const onErr = (e: Event) => {
+      if (!live()) return;
+      setReference(referenceFrom(e));
+      go("failed");
+    };
     window.addEventListener(ACK_EVENT, onAck);
     window.addEventListener(ERROR_EVENT, onErr);
     return () => {
@@ -229,6 +235,12 @@ export default function ExtensionConnect() {
               </p>
             )}
 
+            {phase === "failed" && reference && (
+              <p className="extc-ref">
+                Reference for support: <code>{reference}</code>
+              </p>
+            )}
+
             <div className="extc-acts" aria-live="polite">
               <Action
                 phase={phase}
@@ -289,6 +301,16 @@ export default function ExtensionConnect() {
       </div>
     </MuiThemeRegistry>
   );
+}
+
+/**
+ * The extension reports a machine code ("invalid_or_expired_code"), never prose.
+ * Only a short snake_case token is shown: this value comes from a window event,
+ * so anything else is dropped rather than rendered.
+ */
+export function referenceFrom(e: Event): string | null {
+  const raw = (e as CustomEvent<{ error?: unknown }>).detail?.error;
+  return typeof raw === "string" && /^[a-z][a-z0-9_]{1,63}$/i.test(raw) ? raw : null;
 }
 
 function srState(s: StepState): string {
@@ -400,6 +422,8 @@ const EXT_CSS = `
   .extc-h1 { font-size: var(--fs-display); font-weight: 800; letter-spacing: -1.1px; line-height: 1.12; max-width: 15ch; margin: 0 0 14px; }
   .extc-lede { font-size: var(--fs-subhead); color: var(--muted); line-height: 1.65; max-width: 46ch; margin: 0 0 26px; }
   .extc-alert { font-size: var(--fs-body); color: var(--red-ink); background: var(--red-bg); border-radius: 12px; padding: 11px 14px; margin: 0 0 20px; line-height: 1.55; max-width: 52ch; }
+  .extc-ref { margin: -8px 0 20px; font-size: var(--fs-small); color: var(--muted); }
+  .extc-ref code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); background: var(--surface2); padding: 2px 6px; border-radius: 6px; }
   .extc-acts { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .extc-tips { list-style: none; margin: 30px 0 0; padding: 24px 0 0; border-top: 1px solid var(--border); display: grid; gap: 12px; max-width: 50ch; }
   .extc-tips li { display: flex; gap: 11px; font-size: var(--fs-body); color: var(--muted); line-height: 1.55; }
