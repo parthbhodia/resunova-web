@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import BlogEngagement from "@/components/blog/BlogEngagement";
+import BlogReaderPrompt from "@/components/blog/BlogReaderPrompt";
 import BlogSubscribe from "@/components/blog/BlogSubscribe";
 import JsonLd from "@/components/seo/JsonLd";
 import {
@@ -65,12 +66,13 @@ export default function BlogArticleLayout({
       ) : (
         <div style={{ margin: articleMeta ? "0 0 32px" : "0 0 36px", paddingBottom: 28, borderBottom: "1px solid var(--border)" }} />
       )}
-      <article style={{ fontSize: 15, lineHeight: 1.75, color: "var(--muted)" }}>{children}</article>
+      <article data-blog-article="" style={{ fontSize: 15, lineHeight: 1.75, color: "var(--muted)" }}>{children}</article>
       {/* Subscribe sits above "Continue reading" on purpose: a reader who has
           finished the piece is at peak intent, and the related-posts list is
           an invitation to leave this page. */}
       <BlogSubscribe source={slug ?? "article"} />
       {slug ? <RelatedPosts currentSlug={slug} /> : null}
+      {slug ? <BlogReaderPrompt slug={slug} /> : null}
     </div>
   );
 }

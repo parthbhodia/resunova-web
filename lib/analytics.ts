@@ -39,7 +39,13 @@ export type AnalyticsEventName =
   | "scan_blocked"
   | "tailor_started"
   | "download"
-  | "app_view";
+  | "app_view"
+  // The blog's reader prompt. Each carries `post` and `variant`, so a result can
+  // be read per post and per offer instead of guessed.
+  | "blog_prompt_shown"
+  | "blog_prompt_dismissed"
+  | "blog_prompt_submitted"
+  | "blog_prompt_clicked";
 
 export type AnalyticsParams = Record<string, string | number | boolean | undefined>;
 
