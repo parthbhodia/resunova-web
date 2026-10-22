@@ -29,17 +29,30 @@
 
   /* review controls, not part of the design */
   .ctl { position:sticky; top:0; z-index:60; display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:8px 16px; background:var(--surface3); border-bottom:1px solid var(--border); font-size:12px; color:var(--muted); }
+  .ctl select { font:inherit; font-size:12px; padding:4px 8px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); }
   .ctl button { font:inherit; font-size:12px; padding:4px 10px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; }
   .ctl button[aria-pressed="true"] { background:var(--text); color:var(--bg); border-color:var(--text); }
   .ctl .sp { flex:1; }
 
   /* site header, as shipped */
   .hd { height:56px; padding:0 24px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); background:var(--surface); }
-  .brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:16px; letter-spacing:-.3px; color:var(--text); }
-  .mark { width:26px; height:26px; border-radius:8px; background:var(--accent); color:var(--on-fill); display:grid; place-items:center; font-weight:800; font-size:14px; }
+  .brand { display:flex; align-items:center; gap:8px; font-weight:700; font-size:17px; letter-spacing:-.5px; line-height:1; color:var(--text); font-family:'DM Sans',-apple-system,sans-serif; }
   .back { font-size:13px; color:var(--dim); text-decoration:none; }
 
   /* page: copy left, the thing it connects to right */
+  /* progress: one bar, four stops. Position on the bar is the state. */
+  .prog { max-width:1080px; margin:0 auto; padding:28px 24px 0; }
+  .prog ol { list-style:none; padding:0; display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .prog li { display:grid; gap:8px; cursor:pointer; }
+  .prog .seg { height:6px; border-radius:999px; background:var(--surface3); position:relative; overflow:hidden; }
+  .prog .seg::after { content:""; position:absolute; inset:0; width:0; background:var(--accent); border-radius:inherit; transition:width .35s cubic-bezier(.2,0,0,1); }
+  .prog li.done .seg::after { width:100%; background:var(--green-ink); }
+  .prog li.now .seg::after { width:55%; }
+  .prog li.fail .seg::after { width:100%; background:var(--red-ink); }
+  .prog .lb { font-size:12px; font-weight:600; color:var(--muted); display:flex; gap:6px; align-items:center; }
+  .prog li.now .lb, .prog li.done .lb { color:var(--text); }
+  .prog li.fail .lb { color:var(--red-ink); }
+  .prog .sub { font-size:11px; color:var(--muted); font-weight:400; }
   .page { max-width:1080px; margin:0 auto; padding:56px 24px 72px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,440px); gap:56px; align-items:start; }
   .pill { display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:700; padding:5px 11px; border-radius:999px; background:var(--accent-bg); color:var(--accent-ink); margin-bottom:18px; }
   .pill i { width:6px; height:6px; border-radius:50%; background:currentColor; }
@@ -66,7 +79,7 @@
   .bar { width:100%; display:flex; align-items:center; gap:8px; padding:0 4px 14px; font-size:12px; color:var(--muted); }
   .bar .dots { display:flex; gap:5px; } .bar .dots i { width:9px; height:9px; border-radius:50%; background:var(--surface3); }
   .bar .url { flex:1; text-align:center; }
-  .bar .ext { width:22px; height:22px; border-radius:7px; background:var(--accent); color:var(--on-fill); display:grid; place-items:center; font-size:12px; font-weight:800; }
+  .bar .ext { display:grid; }
   /* the extension's own popup is dark in every theme, as shipped */
   .pop { width:300px; background:#0f1624; color:#e6edf3; border-radius:12px; overflow:hidden; box-shadow:var(--shadow); border:1px solid rgba(240,246,252,.12); }
   .pop .ph { display:flex; gap:11px; align-items:center; padding:14px 16px; border-bottom:1px solid rgba(240,246,252,.1); }
@@ -97,28 +110,23 @@
   .foot { margin-top:26px; font-size:12px; color:var(--dim); line-height:1.65; max-width:52ch; }
 
   @media (max-width: 880px) { .page { grid-template-columns:1fr; gap:32px; padding-top:36px; } h1 { font-size:30px; } .pop { width:100%; } }
-  @media (prefers-reduced-motion: reduce) { .btn { transition:none; } .steps li.now .dot.spin::after { animation:none; } }
+  @media (prefers-reduced-motion: reduce) { .prog .seg::after { transition:none; } .btn { transition:none; } .steps li.now .dot.spin::after { animation:none; } }
 </style>
 </head>
 <body>
 <div class="ctl" role="toolbar" aria-label="Mockup controls">
-  <span>State:</span>
-  <button data-s="signed_out">Signed out</button>
-  <button data-s="ready" aria-pressed="true">Ready</button>
-  <button data-s="working">Connecting</button>
-  <button data-s="connected">Connected</button>
-  <button data-s="missing">No extension</button>
-  <button data-s="failed">Extension could not finish</button>
-  <button data-s="expired">Session expired</button>
+  <span>Click a step to move along the path. Failure branch:</span>
+  <select id="branch" aria-label="Failure branch"><option value="">none</option><option value="missing">No extension found</option><option value="failed">Extension could not finish</option><option value="expired">Session expired</option><option value="signed_out">Signed out</option></select>
   <span class="sp"></span>
   <button id="theme">Dark</button>
 </div>
 
 <header class="hd">
-  <span class="brand"><span class="mark">R</span>Resunova</span>
+  <span class="brand"><svg width="26" height="26" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#c4793a"/><path d="M8.7 8.2v12.6" stroke="white" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="white" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="white" opacity="0.88"/></svg>Resunova</span>
   <a class="back" href="#">Back to home</a>
 </header>
 
+<nav class="prog" aria-label="Connection progress"><ol id="prog"></ol></nav>
 <main class="page">
   <section>
     <span class="pill" id="pill"><i></i><span id="pilltxt">Chrome extension</span></span>
@@ -135,14 +143,13 @@
 
   <aside class="stage" aria-label="What the extension will show">
     <div class="popwrap">
-      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">resunova.io/extension/connect</span><span class="ext">R</span></div>
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">resunova.io/extension/connect</span><span class="ext"><svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#c4793a"/><path d="M8.7 8.2v12.6" stroke="white" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="white" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="white" opacity="0.88"/></svg></span></div>
       <div class="pop" aria-hidden="true">
         <div class="ph"><span class="pi"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><div><div class="pt">Resunova Auto-Fill</div><div class="ps">Job form autofill</div></div></div>
         <div class="pb" id="popbody"></div>
         <div class="pf"><span>Help &amp; instructions</span><span>Resunova</span></div>
       </div>
     </div>
-    <ol class="steps" id="steps"></ol>
   </aside>
 </main>
 
@@ -151,19 +158,20 @@
 <script>
   var EMAIL = "you@example.com";
   var S = {
-    signed_out:{ pill:["Chrome extension",""], h:"Sign in to connect", l:"Your Resunova profile is what the extension fills forms from, so this browser needs to be signed in first.", acts:[["Sign in","btn"]], pop:["off","Not connected","Sign in to enable auto-fill",["Connect your account →"]], st:["now","fail0"] },
+    signed_out:{ pill:["Chrome extension",""], h:"Sign in to connect", l:"Your Resunova profile is what the extension fills forms from, so this browser needs to be signed in first.", acts:[["Sign in","btn"]], pop:["off","Not connected","Sign in to enable auto-fill",["Connect your account →"]], st:["now","",""," "] },
     ready:{ pill:["Signed in as "+EMAIL,"ok"], h:"Connect Resunova Auto-Fill", l:"One click links this browser's extension to your profile. You can disconnect it whenever you like.", acts:[["Connect extension","btn"]], pop:["off","Not connected","Ready to link to "+EMAIL,["Waiting for you…"]], st:["done","now","",""] },
     working:{ pill:["Connecting",""], h:"Linking the extension", l:"We made a one-time code and handed it to the extension. It is exchanging it for its own sign-in.", acts:[["Working…","btn dis"]], pop:["off","Connecting…","Exchanging the code",[""]], st:["done","done","now spin",""] },
-    connected:{ pill:["Connected","ok"], h:"You're connected", l:"Open any supported job posting and use Auto-Fill. The extension reads your profile from Resunova each time.", acts:[["Check your profile","btn"],["Supported sites","btn quiet"]], pop:["on","Connected",EMAIL,["Fill this page"]], st:["done","done","done"] },
-    missing:{ pill:["Extension not found","warn"], h:"We can't see the extension", l:"The code was created but nothing picked it up. Install the extension, or reload this tab if you just added it.", acts:[["Try again","btn"],["Install the extension","btn quiet"]], pop:["off","Not detected","This tab never heard back",[""]], st:["done","done","now",""] },
-    failed:{ pill:["Extension found","warn"], h:"The extension couldn't finish", l:"It is installed and received the code, but could not complete sign-in. Nothing was shared and no account was changed.", acts:[["Try again","btn"]], err:"Technical detail for support: the exchange step failed. Trying again makes a new code.", pop:["bad","Could not connect","Sign-in did not complete",["Connect your account →"]], st:["done","done","fail"] },
-    expired:{ pill:["Session expired","warn"], h:"Sign in again to continue", l:"Your Resunova session ended while you were here. Sign in and we will pick up where you left off.", acts:[["Sign in","btn"]], pop:["off","Not connected","Session ended",[""]], st:["fail0"] }
+    connected:{ pill:["Connected","ok"], h:"You're connected", l:"Open any supported job posting and use Auto-Fill. The extension reads your profile from Resunova each time.", acts:[["Check your profile","btn"],["Supported sites","btn quiet"]], pop:["on","Connected",EMAIL,["Fill this page"]], st:["done","done","done","done"] },
+    missing:{ pill:["Extension not found","warn"], h:"We can't see the extension", l:"The code was created but nothing picked it up. Install the extension, or reload this tab if you just added it.", acts:[["Try again","btn"],["Install the extension","btn quiet"]], pop:["off","Not detected","This tab never heard back",[""]], st:["done","done","fail",""] },
+    failed:{ pill:["Extension found","warn"], h:"The extension couldn't finish", l:"It is installed and received the code, but could not complete sign-in. Nothing was shared and your Resunova account is unchanged.", acts:[["Try again","btn"]], err:"Technical detail for support: the exchange step failed. Trying again makes a new code.", pop:["bad","Could not connect","Sign-in did not complete",["Connect your account →"]], st:["done","done","fail",""] },
+    expired:{ pill:["Session expired","warn"], h:"Sign in again to continue", l:"Your Resunova session ended while you were here. Sign in and we will pick up where you left off.", acts:[["Sign in","btn"]], pop:["off","Not connected","Session ended",[""]], st:["fail0","","",""] }
   };
   var STEPS = [
     ["Signed in to Resunova","Your profile is what gets filled."],
     ["One-time code","Made on this page. Works once, expires in 2 minutes."],
     ["Extension signs itself in","It keeps its own sign-in and never sees your password."]
   ];
+  var PATH=["ready","ready","working","connected"], BR=["missing","failed","expired","signed_out"];
   function render(k){
     var s=S[k], el=function(i){return document.getElementById(i)};
     el("pill").className="pill "+(s.pill[1]||""); el("pilltxt").textContent=s.pill[0];
@@ -172,14 +180,13 @@
     var e=el("err"); e.hidden=!s.err; e.textContent=s.err||"";
     var led=s.pop[0]==="on"?"on":s.pop[0]==="bad"?"bad":"";
     el("popbody").innerHTML='<div class="row"><span class="led '+led+'"></span><div><div class="rt">'+s.pop[1]+'</div><div class="rs">'+s.pop[2]+'</div></div></div>'+(s.pop[3][0]?'<div class="pbtn">'+s.pop[3][0]+'</div>':'');
-    el("steps").innerHTML=STEPS.map(function(t,i){
-      var st=(s.st[i]||""), cls=st.split(" ")[0]; if(cls==="fail0")cls=""; 
-      var mark=cls==="done"?"✓":cls==="fail"?"!":(i+1);
-      return '<li class="'+cls+'"><span class="dot'+(st.indexOf("spin")>-1?" spin":"")+'">'+(st.indexOf("spin")>-1?"":mark)+'</span><div><div class="t">'+t[0]+'</div><div class="d">'+t[1]+'</div></div></li>';
-    }).join("");
-    document.querySelectorAll(".ctl [data-s]").forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.s===k))});
+    var P=["Sign in","One-time code","Extension","Connected"], sub=["Your profile","Valid 2 minutes","Signs itself in","Ready to fill"];
+    el("prog").innerHTML=P.map(function(t,i){var c=s.st[i]||"";c=c.split(" ")[0];if(c==="fail0")c="fail";
+      return '<li class="'+c+'" data-i="'+i+'"><span class="seg"></span><span class="lb">'+t+'<span class="sub">'+sub[i]+'</span></span></li>'}).join("");
+    el("branch").value=BR.indexOf(k)>-1?k:"";
+    document.querySelectorAll(".prog li").forEach(function(li){li.onclick=function(){render(PATH[+li.dataset.i])}});
   }
-  document.querySelectorAll(".ctl [data-s]").forEach(function(b){b.onclick=function(){render(b.dataset.s)}});
+  document.getElementById("branch").onchange=function(){render(this.value||"ready")};
   document.getElementById("theme").onclick=function(){var d=document.documentElement,n=d.dataset.theme==="dark"?"light":"dark";d.dataset.theme=n;this.textContent=n==="dark"?"Light":"Dark"};
   var q=new URLSearchParams(location.search); if(q.get("theme")==="dark"){document.documentElement.dataset.theme="dark";document.getElementById("theme").textContent="Light"}
   render(q.get("s")||"ready");
