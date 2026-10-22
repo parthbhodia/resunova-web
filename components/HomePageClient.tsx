@@ -20,8 +20,6 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { useSearchParams, useRouter } from "next/navigation";
 import AppShell, { useAppView } from "@/components/AppShell";
-import { appViewTitle } from "@/components/app-shell/nav-config";
-import { trackEvent } from "@/lib/analytics";
 import ResumeBuilder from "@/components/ResumeBuilder";
 import ContentSourcePicker from "@/components/ContentSourcePicker";
 import ManualResumeForm from "@/components/ManualResumeForm";
@@ -88,24 +86,6 @@ function RouterView() {
   const view = useAppView();
   const base = (params?.get("base") || "").trim();
   const flow = (params?.get("flow") || "tailor").toLowerCase();
-
-  /**
-   * Every app view shares the homepage's metadata title, so GA reported the
-   * analyzer, the builder and the library as "Free AI Resume Builder: Get
-   * Past the ATS" — the same row as the marketing homepage. Name the surface
-   * in the tab title and record which one was opened, so product usage stops
-   * hiding inside the homepage's number.
-   *
-   * `baseTitle` is whatever Next put there on mount; home restores it rather
-   * than hardcoding the string a second time.
-   */
-  const baseTitleRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (baseTitleRef.current === null) baseTitleRef.current = document.title;
-    document.title = appViewTitle(view, baseTitleRef.current);
-    if (view !== "home") trackEvent("app_view", { view });
-  }, [view]);
-
   /** Legacy `flow=scratch` matched tailor; normalize URL so bookmarks still work. */
   const scratchNormalizedRef = useRef(false);
   useEffect(() => {

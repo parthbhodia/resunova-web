@@ -1,3 +1,4 @@
+import { markSignUpPending } from "@/lib/analyticsAuth";
 import { getSupabaseClient } from "@/lib/supabase";
 import { buildAuthRouteUrl, buildOAuthReturnUrl, stashPostLoginDest } from "@/lib/oauthRedirect";
 
@@ -34,9 +35,19 @@ export async function signUpWithEmail(email: string, password: string): Promise<
 
   const alreadyRegistered = !data.session && data.user?.identities?.length === 0;
   if (alreadyRegistered) {
+    // ⚠️ DELIBERATELY NO SIGN-UP MARKER ON THIS PATH. The marker survives 24h
+    // and is consumed by the next SIGNED_IN — which here is the magic-link
+    // arrival seconds later, for an account that already existed. Marking it
+    // would report a returning user as a new account, inflating the one number
+    // the signup funnel exists to measure.
     const linkError = await sendMagicLink(trimmed);
     return { error: linkError, needsConfirmation: false, alreadyRegistered: true };
   }
+  // A genuinely new account. With email confirmation on, Supabase creates the
+  // row now but only signs the user in when they click the link — often an
+  // hour later, by which time `created_at` is too old for the new-account
+  // window to recognise. This marker is what keeps that arrival a sign_up.
+  markSignUpPending();
   return { error: null, needsConfirmation: !data.session, alreadyRegistered: false };
 }
 

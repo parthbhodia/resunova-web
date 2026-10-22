@@ -169,9 +169,10 @@ describe("ReferPublicPage", () => {
     // Only the action asks for an account: submit resolves to sign_in before
     // any field validation or write.
     await userEvent.click(screen.getByRole("button", { name: "Ask for a referral" }));
-    expect(mockOpenSignIn).toHaveBeenCalledWith(expect.objectContaining({
-      title: "Sign in to ask for a referral",
-    }));
+    // The KEY, not hand-written copy: `{ title, reason }` is gone, and the
+    // words for this ask live in components/auth/signInAsk.ts beside the other
+    // sign-in reasons. A bare toHaveBeenCalled would pass against either API.
+    expect(mockOpenSignIn).toHaveBeenCalledWith({ ask: "referral_ask" });
     expect(mockCreateReferralRequest).not.toHaveBeenCalled();
   });
 

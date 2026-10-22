@@ -33,6 +33,7 @@ vi.mock("@/components/LandingPage", () => ({ default: () => <div>landing</div> }
 vi.mock("@/components/SignInDialog", () => ({ useSignInDialog: () => ({ openSignIn: vi.fn() }) }));
 
 import AuthGate from "@/components/AuthGate";
+import { gateContentForView } from "@/components/auth/gateContent";
 
 /** Flipped per test: the prompt is the signed-out case, the shell is the after. */
 let currentSession: unknown = null;
@@ -53,7 +54,7 @@ describe("AuthGate for a signed-out visitor asking for an account-bound view", (
     render(<AuthGate><App /></AuthGate>);
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: /sign in to open cover letter/i })).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: gateContentForView("cover-letter").headline })).toBeInTheDocument()
     );
     expect(screen.queryByText("landing")).toBeNull();
     expect(screen.queryByText("app shell")).toBeNull();
@@ -74,7 +75,7 @@ describe("AuthGate for a signed-out visitor asking for an account-bound view", (
     rerender(<AuthGate><App /></AuthGate>);
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: /sign in to open cover letter/i })).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: gateContentForView("cover-letter").headline })).toBeInTheDocument()
     );
     expect(screen.queryByText("app shell")).toBeNull();
   });

@@ -32,6 +32,7 @@ vi.mock("@/components/LandingPage", () => ({ default: () => <div>Landing page</d
 vi.mock("@/components/app-shell/AppShellSkeleton", () => ({ default: () => <div>Loading app</div> }));
 
 import AuthGate from "@/components/AuthGate";
+import { gateContentFor } from "@/components/auth/gateContent";
 
 describe("AuthGate account hub protection", () => {
   it("does not render the profile hub to a signed-out visitor", async () => {
@@ -44,7 +45,8 @@ describe("AuthGate account hub protection", () => {
       </AuthGate>,
     );
 
-    expect(await screen.findByRole("heading", { name: "Sign in to continue" })).toBeInTheDocument();
+    // The gate names the destination it is protecting.
+    expect(await screen.findByRole("heading", { name: gateContentFor("/profile").headline })).toBeInTheDocument();
     expect(screen.queryByText("Signed in account")).not.toBeInTheDocument();
     expect(screen.queryByText("Sign out")).not.toBeInTheDocument();
   });

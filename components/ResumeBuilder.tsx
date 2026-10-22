@@ -162,6 +162,7 @@ import { appendEducation } from "@/lib/educationEntry";
 import { removeSkill } from "@/lib/skillsEntry";
 import type { StructuredResumeEducation } from "@/store/resumeAnalyzeStore";
 import { apiFetch } from "@/lib/apiClient";
+import { trackEvent } from "@/lib/analytics";
 
 const TailoredPdfPreview = dynamic(
   () => import("@/components/TailoredPdfPreview"),
@@ -1574,7 +1575,7 @@ export default function ResumeBuilder({
 
   const signInForAts = useCallback(async () => {
     setAtsError(null);
-    openSignIn({ title: "Sign in to run ATS & job match", reason: "Sign in free to score your résumé against the job and unlock per-bullet fixes." });
+    openSignIn({ ask: "tailor_match" });
   }, [openSignIn]);
 
   const runAtsCheck = useCallback(async (folder: string, updateMatchScore = false) => {
@@ -1830,6 +1831,9 @@ export default function ResumeBuilder({
     setAnalyzeError(null);
     setError(null);
     saveStatus.resetForNewRun();
+    // After the two guards above, so this counts tailor runs that actually
+    // start rather than clicks on a form with no JD or no résumé yet.
+    trackEvent("tailor_started", { mode: tailoringMode ?? "unknown" });
     try {
       const resp = await apiFetch("/api/analyze", {
         method: "POST",

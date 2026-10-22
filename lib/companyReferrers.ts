@@ -334,6 +334,48 @@ export function referralCandidatePath(requestId: string): string {
   return `${base}/refer/candidate/?r=${encodeURIComponent(requestId)}`;
 }
 
+/**
+ * A company's LinkedIn page or its website — the thing a candidate can click to
+ * check the company is real before handing over their résumé.
+ *
+ * ⚠️ A PERSONAL LinkedIn IS REJECTED, and that is the whole reason this is not
+ * a plain URL check. The field directly above it in the form is the referrer's
+ * OWN `linkedin.com/in/...` profile, so pasting the same value here is the
+ * mistake everyone will make, and it would pass any generic validator while
+ * verifying nothing about the company.
+ */
+export function isUsableCompanyUrl(value: string): boolean {
+  const raw = (value || "").trim();
+  if (!raw) return false;
+  let url: URL;
+  try {
+    url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  // ⚠️ USERINFO IS THE LOAD-BEARING GUARD, and a test is what found it.
+  // "mailto:hr@stripe.com" became "https://mailto:hr@stripe.com" once the
+  // scheme was prepended, which parses with userinfo "mailto:hr" and host
+  // "stripe.com" — so it PASSED. Same shape as "https://evil.com@stripe.com",
+  // and this value is rendered as a clickable link offered to candidates AS
+  // verification, which makes it worse than a cosmetic bug.
+  // A separate "reject non-http schemes" check was tried and REMOVED: probed
+  // against twelve scheme-carrying inputs it rejected nothing this line and the
+  // dotted-host check below do not already reject, and a guard no mutation can
+  // turn red is one that rots into false confidence.
+  if (url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  // A bare label ("localhost", "intranet") names nothing a candidate can check.
+  if (!host.includes(".") || host.endsWith(".")) return false;
+
+  if (host === "linkedin.com" || host.endsWith(".linkedin.com")) {
+    // Only the company directory. /in/ and /pub/ are people.
+    return /^\/(company|school)\/[^/]+/i.test(url.pathname);
+  }
+  return true;
+}
+
 export function isUsableEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
@@ -414,26 +456,86 @@ export async function uploadReferralResume(
   }
 }
 
-/** Short-lived signed URL so the referrer (or candidate) can open the PDF. */
-export async function signedReferralResumeUrl(
+/**
+ * Open a referral résumé WITHOUT ever producing a shareable link.
+ *
+ * ⚠️ THIS REPLACES A SIGNED URL, AND THE DIFFERENCE IS THE WHOLE POINT.
+ * `createSignedUrl` returns a bearer credential in a query string: anyone
+ * holding that string reads the file, no login, until it expires. It was
+ * handed to the browser and opened in a new tab, so it sat in the address bar
+ * and the history, one copy-paste from leaving the product — which is exactly
+ * how it got forwarded into a WhatsApp thread. The payload is a résumé: a real
+ * person's name, email, phone and employment history.
+ *
+ * A `blob:` URL cannot be forwarded. It is scoped to this origin AND this
+ * document, so pasting it anywhere else resolves to nothing, and it dies when
+ * the tab does. Authorization is also checked at REQUEST time against the
+ * caller's own session and the storage RLS policies, rather than baked into a
+ * token minted an hour earlier.
+ *
+ * ⚠️ The bucket was never the weak part: it is private, PDF-only, 5MB-capped,
+ * and its RLS lets a referrer read only a résumé attached to a request on
+ * their OWN desk. What leaked was the handle, not the door.
+ */
+export async function openReferralResumePdf(
   path: string,
-  expiresInSeconds = 3600,
-): Promise<string | null> {
-  const trimmed = path.trim();
-  if (!trimmed) return null;
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const trimmed = (path || "").trim();
+  if (!trimmed) return { ok: false, error: "No resume on this request." };
   try {
     const { data, error } = await getSupabaseClient().storage
       .from(REFERRAL_RESUME_BUCKET)
-      .createSignedUrl(trimmed, expiresInSeconds);
-    if (error || !data?.signedUrl) {
-      console.warn("[referral-resumes] signed url:", error?.message);
-      return null;
+      .download(trimmed);
+    if (error || !data) {
+      console.warn("[referral-resumes] download:", error?.message);
+      return { ok: false, error: "Could not open that resume. Try again in a moment." };
     }
-    return data.signedUrl;
+    const objectUrl = URL.createObjectURL(data);
+    const opened = window.open(objectUrl, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      // ⚠️ `window.open` after an await is outside the user-gesture window and
+      // browsers block it. An anchor click is not subject to that, so the
+      // popup blocker degrades to a download rather than to nothing happening.
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = trimmed.split("/").pop() || "resume.pdf";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    // Long enough for the new tab to read it, short enough not to linger.
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    return { ok: true };
   } catch (err) {
-    console.warn("[referral-resumes] signed url:", err);
-    return null;
+    console.warn("[referral-resumes] download:", err);
+    return { ok: false, error: "Could not open that resume. Try again in a moment." };
   }
+}
+
+/**
+ * `company_referrers.title` is `text not null default ''` (migration 044), so a
+ * row seeded outside the signup path carries no title and a naive template
+ * renders an orphan leading period, or a dangling " at Acme". Drop the empty
+ * parts before joining rather than patching each call site.
+ */
+/**
+ * Join the parts that are actually present, with any separator.
+ *
+ * ⚠️ THE RULE IS SEPARATOR-AGNOSTIC ON PURPOSE. `company_referrers.title` is
+ * `text not null default ''` (migration 044), so a row seeded outside the
+ * signup path has an empty title and a naive template renders a leading
+ * orphan — a stray "." in the ask form, a dangling " · " in the finder. That
+ * defect has now survived TWO full rewrites of this feature, each time because
+ * the new templates re-derived the join themselves. Reach for this rather than
+ * writing `a + sep + b` at a call site.
+ */
+export function joinNonEmpty(separator: string, ...parts: Array<string | null | undefined>): string {
+  return parts.map((part) => (part || "").trim()).filter(Boolean).join(separator);
+}
+
+export function joinReferrerSentences(...parts: Array<string | null | undefined>): string {
+  return joinNonEmpty(". ", ...parts);
 }
 
 export function referrerInitials(name: string): string {
@@ -840,7 +942,15 @@ export async function upsertMyReferrerProfile(input: {
   const company = clip(input.company, REFERRER_LIMITS.company);
   const title = clip(input.title, REFERRER_LIMITS.title);
   const companyLocation = clip(input.companyLocation, REFERRER_LIMITS.location);
-  const companyWebsite = safeHttpUrl(input.companyWebsite);
+  // ⚠️ `isUsableCompanyUrl` BEFORE `safeHttpUrl`, and it is a finding carried
+  // across from the competing implementation this replaced. `safeHttpUrl` only
+  // asks "does this parse as http(s)?", which let `mailto:hr@stripe.com` through
+  // (prepending the scheme gives `https://mailto:hr@stripe.com`: userinfo
+  // `mailto:hr`, host `stripe.com`), as well as `https://evil.com@stripe.com`,
+  // a bare label like `localhost`, and a PERSONAL linkedin.com/in/ profile
+  // pasted into the field above this one. This value is rendered as a clickable
+  // link offered to candidates as the way to check the employer is real.
+  const companyWebsite = isUsableCompanyUrl(input.companyWebsite ?? "") ? safeHttpUrl(input.companyWebsite) : null;
   if (!displayName || !company || !title || !companyLocation || !companyWebsite) return null;
   try {
     const userId = await currentUserId();

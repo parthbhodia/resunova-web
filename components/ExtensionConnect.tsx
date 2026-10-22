@@ -193,7 +193,7 @@ export default function ExtensionConnect() {
             onConnect={() => void connect()}
             onRetry={retry}
             onSignIn={() =>
-              openSignIn({ reason: "Sign in to connect the Resunova extension." })
+              openSignIn({ ask: "extension_connect" })
             }
           />
 

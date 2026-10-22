@@ -133,9 +133,11 @@ describe("CompanyReferrerPanel", () => {
     });
     render(<CompanyReferrerPanel displayName="Parth Bhodia" title="Software Engineer" linkedin="" />);
     await screen.findByRole("button", { name: "Sign up as a referrer" });
-    await userEvent.type(screen.getByLabelText("Company name"), "Acme");
-    await userEvent.type(screen.getByLabelText("Company website"), "https://acme.com");
-    await userEvent.type(screen.getByLabelText("Company location"), "Austin, TX");
+    // ⚠️ Regex, not exact text: MUI-style required labels gain a "*", and an
+    // exact match silently stops finding a field the moment it becomes required.
+    await userEvent.type(screen.getByLabelText(/Company name/), "Acme");
+    await userEvent.type(screen.getByLabelText(/Company website/), "https://acme.com");
+    await userEvent.type(screen.getByLabelText(/Company location/), "Austin, TX");
     await userEvent.click(screen.getByRole("button", { name: "Sign up as a referrer" }));
     expect(mockUpsertMyReferrerProfile).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -26,17 +26,17 @@ import { onSentReferralRefresh, persistLastSeenSentReferral } from "@/lib/produc
 
 const cardStyle: CSSProperties = {
   borderRadius: 18,
-  border: "1px solid rgba(15,23,42,0.08)",
-  background: "#ffffff",
-  boxShadow: "0 8px 30px rgba(15,23,42,0.05)",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
+  boxShadow: "var(--shadow-card)",
 };
 
 const tones: Record<string, CSSProperties> = {
-  neutral: { background: "#f3f4f6", color: "#6b7280" },
-  green: { background: "#dcfce7", color: "#15803d" },
-  amber: { background: "#fef3c7", color: "#b45309" },
-  blue: { background: "#dbeafe", color: "#2563eb" },
-  red: { background: "#fee2e2", color: "#dc2626" },
+  neutral: { background: "var(--surface2)", color: "var(--muted)" },
+  green: { background: "var(--green-bg)", color: "var(--green-ink)" },
+  amber: { background: "var(--amber-bg)", color: "var(--amber-ink)" },
+  blue: { background: "var(--accent-bg)", color: "var(--accent-ink)" },
+  red: { background: "var(--red-bg)", color: "var(--red-ink)" },
 };
 
 /**
@@ -159,16 +159,16 @@ export function SentReferralsCard() {
     <div style={cardStyle}>
       <div style={{ padding: "22px 22px 8px" }}>
         <div style={{ fontSize: 17, fontWeight: 800 }}>Your requests</div>
-        <div style={{ marginTop: 4, fontSize: 14, color: "#6b7280" }}>
+        <div style={{ marginTop: 4, fontSize: 14, color: "var(--muted)" }}>
           Referrals you asked for, and where each one stands.
         </div>
       </div>
       <div style={{ padding: 22, display: "grid", gap: 12 }}>
-        {loading ? <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>Loading your requests...</p> : null}
+        {loading ? <p style={{ margin: 0, color: "var(--muted)", fontSize: 14 }}>Loading your requests…</p> : null}
         {!loading && rows.length === 0 ? (
-          <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
+          <p style={{ margin: 0, color: "var(--muted)", fontSize: 14 }}>
             You have not asked anyone for a referral yet.{" "}
-            <Link href="/refer" style={{ color: "#2563eb", fontWeight: 700, textDecoration: "none" }}>Find an employee</Link>
+            <Link href="/refer" style={{ color: "var(--accent-ink)", fontWeight: 700, textDecoration: "none" }}>Find an employee</Link>
           </p>
         ) : null}
         {rows.map((row) => {
@@ -176,13 +176,13 @@ export function SentReferralsCard() {
           const who = row.referrerName || "them";
           const options = nextOutcomes(row.candidateOutcome);
           return (
-            <div key={row.id} style={{ border: "1px solid rgba(15,23,42,0.08)", borderRadius: 14, padding: 16, background: "#f8fafc" }}>
+            <div key={row.id} style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 16, background: "var(--surface2)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
                 <div>
                   <div style={{ fontWeight: 800 }}>
                     <ReferrerName name={who} count={row.referrerReferredCount} />
                   </div>
-                  <div style={{ marginTop: 3, fontSize: 13, color: "#6b7280" }}>
+                  <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted)" }}>
                     {row.role}{row.referrerCompany ? ` at ${row.referrerCompany}` : ""}
                   </div>
                 </div>
@@ -197,9 +197,9 @@ export function SentReferralsCard() {
                   onClick={() => void onNudge(row)}
                   style={{
                     marginTop: 12,
-                    border: "1px solid rgba(15,23,42,0.10)",
-                    background: "#fff",
-                    color: label === "Nudge" ? "#2563eb" : "#9ca3af",
+                    border: "1px solid var(--border)",
+                    background: "var(--surface)",
+                    color: label === "Nudge" ? "var(--accent-ink)" : "var(--dim)",
                     borderRadius: 10,
                     padding: "8px 12px",
                     fontWeight: 800,
@@ -212,19 +212,19 @@ export function SentReferralsCard() {
               ) : null}
 
               {row.status === "referred" && row.candidateUserId ? (
-                <div style={{ marginTop: 14, borderTop: "1px solid rgba(15,23,42,0.08)", paddingTop: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#374151" }}>How did it go?</div>
+                <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>How did it go?</div>
                   {row.candidateOutcome ? (
-                    <p style={{ margin: "6px 0 0", fontSize: 13, color: "#6b7280" }}>
+                    <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)" }}>
                       You told us:{" "}
-                      <strong style={{ color: row.candidateOutcome === "closed" ? "#6b7280" : "#15803d" }}>
+                      <strong style={{ color: row.candidateOutcome === "closed" ? "var(--muted)" : "var(--green-ink)" }}>
                         {REFERRAL_OUTCOME_LABELS[row.candidateOutcome]}
                       </strong>
                     </p>
                   ) : null}
                   {options.length > 0 ? (
                     <>
-                      <p style={{ margin: "6px 0 0", fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
+                      <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
                         {row.candidateOutcome
                           ? "If it turned into a job, update it here. It tells them the referral worked."
                           : `Tell ${who} what happened. If you got an interview, they earn ${rewardDaysLabel(REFERRAL_REWARD_DAYS.interview)}.`}
@@ -237,9 +237,10 @@ export function SentReferralsCard() {
                             disabled={reportingId === row.id}
                             onClick={() => void onReport(row, outcome)}
                             style={{
-                              border: outcome === "closed" ? "1px solid rgba(15,23,42,0.10)" : "none",
-                              background: outcome === "closed" ? "#fff" : "#2563eb",
-                              color: outcome === "closed" ? "#6b7280" : "#fff",
+                              border: outcome === "closed" ? "1px solid var(--border)" : "none",
+                              // --on-fill on --accent: white on the dark-mode accent measured 2.53:1.
+                              background: outcome === "closed" ? "var(--surface)" : "var(--accent)",
+                              color: outcome === "closed" ? "var(--muted)" : "var(--on-fill)",
                               borderRadius: 10,
                               padding: "8px 12px",
                               fontWeight: 800,
@@ -259,7 +260,7 @@ export function SentReferralsCard() {
             </div>
           );
         })}
-        {error ? <p role="alert" style={{ margin: 0, color: "#dc2626", fontSize: 13 }}>{error}</p> : null}
+        {error ? <p role="alert" style={{ margin: 0, color: "var(--red-ink)", fontSize: 13 }}>{error}</p> : null}
       </div>
       {toast ? (
         <FeedbackToastCard

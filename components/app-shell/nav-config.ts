@@ -25,19 +25,6 @@ export const VIEW_LABELS: Record<AppView, string> = {
   account: "Account settings",
 };
 
-/**
- * Document title for an app view.
- *
- * App views are not routes: they are `/` plus `?view=<name>`, so they all
- * inherit `app/page.tsx`'s metadata title and every one of them reported as
- * "Free AI Resume Builder: Get Past the ATS" in GA. Naming the surface here
- * keeps the browser tab honest and lets the homepage row stop absorbing all
- * product usage.
- */
-export function appViewTitle(view: AppView, baseTitle: string): string {
-  return view === "home" ? baseTitle : `${VIEW_LABELS[view]} · Resunova`;
-}
-
 export const VIEW_ICONS: Record<AppView, ReactNode> = {
   home: NAV_ICONS.home,
   analyze: NAV_ICONS.analyze,

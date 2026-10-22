@@ -16,6 +16,7 @@ import {
 } from "@/components/refer/referUi";
 import { surfaceCardSx } from "@/components/mui/cssVars";
 import {
+  joinNonEmpty,
   REFERRER_LIMITS,
   referrerPublicPath,
   topReferrerId,
@@ -138,11 +139,10 @@ function CompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
                 }
               >
                 <Typography sx={{ mt: 0.5, fontSize: FS.body, color: "var(--muted)" }}>
-                  {[
-                    referrer.title,
-                    referrer.companyLocation,
-                    referrer.bio,
-                  ].filter(Boolean).join(" · ")}
+                  {/* joinNonEmpty, not a bare filter(Boolean).join: `company_referrers.title` is
+                      `not null default ''`, and the dangling-separator orphan this prevents
+                      survived one full rewrite of this component already. */}
+                  {joinNonEmpty(" · ", referrer.title, referrer.companyLocation, referrer.bio)}
                 </Typography>
                 <Typography sx={{ mt: 0.5, fontSize: FS.small, fontWeight: FW.semibold, color: "var(--accent)" }}>
                   Ask for a referral →
