@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
-import { ReferField } from "@/components/refer/referUi";
 import {
   REFERRAL_REQUEST_STATUS_LABELS,
   REFERRAL_REQUEST_STATUS_TONES,
   REFERRAL_REQUEST_STATUSES,
   REFERRER_LIMITS,
+  REFERRER_PROFILE_REQUIRED,
   deleteReferralRequest,
   fetchMyReferralRequests,
   fetchMyReferrerProfile,
@@ -27,11 +27,21 @@ import {
   type ReferralRequestStatus,
 } from "@/lib/companyReferrers";
 import {
+  REFERRAL_NOTE_COPY_FAILED,
+  buildReferralNote,
+  copyText,
+  hasReferralNoteBody,
+  referralNoteSubject,
+} from "@/lib/referralNote";
+import { REFERRAL_REWARD_DAYS } from "@/lib/referralRewards";
+import { ReferralRewardsCard } from "@/components/profile/ReferralRewardsCard";
+import { ReferralNotifyCard } from "@/components/profile/ReferralNotifyCard";
+import {
   onReferralInboxRefresh,
   persistLastSeenReferral,
   setReferralInboxOpen,
 } from "@/lib/productNotices";
-import { FeedbackToastCard } from "@/components/FeedbackToastCard";
+import { FeedbackToastCard, type FeedbackToastVariant } from "@/components/FeedbackToastCard";
 import { ReferrerName } from "@/components/refer/ReferrerName";
 import { SentReferralsCard } from "@/components/profile/SentReferralsCard";
 
@@ -52,6 +62,80 @@ const fieldStyle: CSSProperties = {
   color: "var(--text)",
   fontFamily: "inherit",
 };
+
+function NoteButton({
+  row,
+  referrerName,
+  referrerTitle,
+  referrerCompany,
+}: {
+  row: CompanyReferralRequest;
+  referrerName: string;
+  referrerTitle: string;
+  referrerCompany: string;
+}) {
+  const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
+  const [toast, setToast] = useState<{ title: string; description: string; variant: FeedbackToastVariant } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const onCopy = async () => {
+    const referrer = { displayName: referrerName, title: referrerTitle, company: referrerCompany };
+    const note = buildReferralNote(row, referrer);
+    const ok = await copyText(`${referralNoteSubject(row, referrer)}\n\n${note}`);
+    setCopied(ok ? "copied" : "failed");
+    if (ok) {
+      setToast({
+        title: "Referral note copied",
+        description: "Paste it into your ATS or an email. Add your reason for vouching for them before you send it.",
+        variant: "success",
+      });
+    } else {
+      setToast({
+        title: "Could not copy",
+        description: REFERRAL_NOTE_COPY_FAILED,
+        variant: "error",
+      });
+    }
+    window.setTimeout(() => setCopied("idle"), 2400);
+  };
+
+  if (!hasReferralNoteBody(row)) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => void onCopy()}
+        style={{
+          border: "1px solid var(--border)",
+          background: "var(--surface)",
+          color: "var(--accent-ink)",
+          borderRadius: 10,
+          padding: "6px 10px",
+          fontWeight: 800,
+          fontSize: 13,
+          cursor: "pointer",
+        }}
+      >
+        {copied === "copied" ? "Note copied" : "Copy referral note"}
+      </button>
+      {toast ? (
+        <FeedbackToastCard
+          variant={toast.variant}
+          role={toast.variant === "error" ? "alert" : "status"}
+          title={toast.title}
+          description={toast.description}
+          onDismiss={() => setToast(null)}
+        />
+      ) : null}
+    </>
+  );
+}
 
 const pillTones: Record<"neutral" | "green" | "amber" | "blue" | "red", CSSProperties> = {
   neutral: { background: "var(--surface2)", color: "var(--muted)" },
@@ -126,15 +210,51 @@ function PrimaryButton({
   );
 }
 
+/**
+ * Shown when the company website fails `isUsableCompanyUrl`. It names the likely
+ * mistake, a personal /in/ profile pasted here, because candidates open this
+ * link as their check that the employer is real.
+ */
+const WEBSITE_INVALID_MESSAGE =
+  "Use the company's own site, or its linkedin.com/company/… page. Your personal profile goes in the LinkedIn field.";
+
 type ReferrerForm = {
   displayName: string;
   company: string;
+  companyWebsite: string;
+  companyLocation: string;
   title: string;
   linkedin: string;
-  companyUrl: string;
   bio: string;
   openToRefer: boolean;
 };
+
+function Field({
+  label,
+  hint,
+  invalid = false,
+  style,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  /** Recolours the hint as an error. The words carry it too, so colour is never the only signal. */
+  invalid?: boolean;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
+  // Tokens, not #111827 / #6b7280: this panel mounts inside the THEMED profile
+  // hub, so a hardcoded colour is a light-mode label on a dark page.
+  return (
+    <label style={{ display: "grid", gap: 6, minWidth: 0, ...style }}>
+      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{label}</span>
+      {children}
+      {hint ? (
+        <span style={{ fontSize: 12, color: invalid ? "var(--red-ink)" : "var(--muted)", lineHeight: 1.4 }}>{hint}</span>
+      ) : null}
+    </label>
+  );
+}
 
 function ReferrerFields({
   form,
@@ -143,51 +263,92 @@ function ReferrerFields({
   form: ReferrerForm;
   onChange: (next: ReferrerForm) => void;
 }) {
-  // ⚠️ VISIBLE LABELS, not placeholders. These were five unlabelled inputs
-  // carrying only `aria-label` and a placeholder, so a screen reader could tell
-  // "Your title" from "Roles you can refer for" and a sighted user could not —
-  // and the placeholder vanishes on the first keystroke, leaving two identical
-  // boxes both reading "Software Developer". That is the reported confusion.
-  // ReferField is MUI's TextField with a persistent label, already used by the
-  // public refer page; reusing it beats a second labelled-input of our own.
-  const companyUrlInvalid = form.companyUrl.trim().length > 0 && !isUsableCompanyUrl(form.companyUrl);
+  const websiteInvalid = form.companyWebsite.trim().length > 0 && !isUsableCompanyUrl(form.companyWebsite);
   return (
     <>
-      <ReferField label="Your name" placeholder="e.g. Jordan Lee" maxLength={REFERRER_LIMITS.name}
-        value={form.displayName} onChange={(v) => onChange({ ...form, displayName: v })} required />
-      <ReferField label="Company you work at" placeholder="e.g. Stripe" maxLength={REFERRER_LIMITS.company}
-        value={form.company} onChange={(v) => onChange({ ...form, company: v })} required />
-      {/* The two that were indistinguishable: whose role each one is about. */}
-      <ReferField label="Your job title at that company" placeholder="e.g. Software Engineer"
-        maxLength={REFERRER_LIMITS.title}
-        value={form.title} onChange={(v) => onChange({ ...form, title: v })} required />
-      <ReferField label="Your personal LinkedIn profile" placeholder="https://linkedin.com/in/your-name"
-        maxLength={REFERRER_LIMITS.url}
-        value={form.linkedin} onChange={(v) => onChange({ ...form, linkedin: v })} />
-      <ReferField
-        label="Company LinkedIn page or website"
-        placeholder="https://linkedin.com/company/stripe  ·  or  stripe.com"
-        maxLength={REFERRER_LIMITS.companyUrl}
-        value={form.companyUrl}
-        onChange={(v) => onChange({ ...form, companyUrl: v })}
-        required
-        sx={{ gridColumn: "1 / -1" }}
-      />
-      <p style={{ gridColumn: "1 / -1", margin: "-4px 0 0", fontSize: 12, lineHeight: 1.5,
-                  color: companyUrlInvalid ? "var(--red-ink)" : "var(--muted)" }}>
-        {companyUrlInvalid
-          ? "That needs to be the company's own page — a linkedin.com/company/… link or its website. Your personal /in/ profile goes in the field above."
-          : "Candidates see this and click it to check the company is real before sending you their résumé."}
-      </p>
-      <ReferField
+      <Field label="Your name at work">
+        <input
+          aria-label="Your name at work"
+          placeholder="e.g. Jordan Lee"
+          maxLength={REFERRER_LIMITS.name}
+          value={form.displayName}
+          onChange={(e) => onChange({ ...form, displayName: e.target.value })}
+          style={fieldStyle}
+        />
+      </Field>
+      <Field label="Company name">
+        <input
+          aria-label="Company name"
+          placeholder="e.g. Stripe"
+          maxLength={REFERRER_LIMITS.company}
+          value={form.company}
+          onChange={(e) => onChange({ ...form, company: e.target.value })}
+          style={fieldStyle}
+        />
+      </Field>
+      <Field
+        label="Company website"
+        hint={websiteInvalid ? WEBSITE_INVALID_MESSAGE : "Homepage or careers page. Candidates see this on /refer."}
+        invalid={websiteInvalid}
+      >
+        <input
+          aria-label="Company website"
+          placeholder="https://stripe.com"
+          maxLength={REFERRER_LIMITS.url}
+          value={form.companyWebsite}
+          onChange={(e) => onChange({ ...form, companyWebsite: e.target.value })}
+          style={fieldStyle}
+          required
+        />
+      </Field>
+      <Field
+        label="Company location"
+        hint="City and region, or Remote. Where this desk hires from."
+      >
+        <input
+          aria-label="Company location"
+          placeholder="e.g. San Francisco, CA"
+          maxLength={REFERRER_LIMITS.location}
+          value={form.companyLocation}
+          onChange={(e) => onChange({ ...form, companyLocation: e.target.value })}
+          style={fieldStyle}
+          required
+        />
+      </Field>
+      <Field label="Your job title">
+        <input
+          aria-label="Your job title"
+          placeholder="e.g. Software Engineer"
+          maxLength={REFERRER_LIMITS.title}
+          value={form.title}
+          onChange={(e) => onChange({ ...form, title: e.target.value })}
+          style={fieldStyle}
+        />
+      </Field>
+      <Field label="LinkedIn profile (optional)">
+        <input
+          aria-label="LinkedIn profile (optional)"
+          placeholder="https://linkedin.com/in/your-name"
+          maxLength={REFERRER_LIMITS.url}
+          value={form.linkedin}
+          onChange={(e) => onChange({ ...form, linkedin: e.target.value })}
+          style={fieldStyle}
+        />
+      </Field>
+      <Field
         label="Roles you can refer for"
-        placeholder="e.g. Backend, new grad, intern"
-        maxLength={REFERRER_LIMITS.bio}
-        value={form.bio}
-        onChange={(v) => onChange({ ...form, bio: v })}
-        multiline
-        sx={{ gridColumn: "1 / -1" }}
-      />
+        hint="Short list helps candidates decide whether to ask you."
+        style={{ gridColumn: "1 / -1" }}
+      >
+        <input
+          aria-label="Roles you can refer for"
+          placeholder="e.g. Backend, new grad, intern"
+          maxLength={REFERRER_LIMITS.bio}
+          value={form.bio}
+          onChange={(e) => onChange({ ...form, bio: e.target.value })}
+          style={fieldStyle}
+        />
+      </Field>
     </>
   );
 }
@@ -239,13 +400,18 @@ export function CompanyReferrerPanel({
   const [pausing, setPausing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ title: string; description: string; variant: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{
+    title: string;
+    description: string;
+    variant: "success" | "error" | "info" | "warning";
+  } | null>(null);
   const [form, setForm] = useState<ReferrerForm>({
     displayName,
     company: "",
+    companyWebsite: "",
+    companyLocation: "",
     title,
     linkedin,
-    companyUrl: "",
     bio: "",
     openToRefer: true,
   });
@@ -259,9 +425,10 @@ export function CompanyReferrerPanel({
         setForm({
           displayName: next.displayName,
           company: next.company,
+          companyWebsite: next.companyWebsite ?? "",
+          companyLocation: next.companyLocation ?? "",
           title: next.title,
           linkedin: next.linkedin ?? "",
-          companyUrl: next.companyUrl ?? "",
           bio: next.bio ?? "",
           openToRefer: next.openToRefer,
         });
@@ -309,17 +476,24 @@ export function CompanyReferrerPanel({
     setSaving(true);
     setError(null);
     const creating = !profile;
+    if (!form.companyLocation.trim() || !isUsableCompanyUrl(form.companyWebsite)) {
+      const message = form.companyWebsite.trim() && !isUsableCompanyUrl(form.companyWebsite)
+        ? WEBSITE_INVALID_MESSAGE
+        : REFERRER_PROFILE_REQUIRED;
+      setSaving(false);
+      setError(message);
+      setToast({ title: "Could not save", description: message, variant: "error" });
+      return;
+    }
     const saved = await upsertMyReferrerProfile(form);
     setSaving(false);
     if (!saved) {
-      // ⚠️ Name the field that is actually wrong. The save path rejects for
-      // several reasons and this message used to list three of them, so adding
-      // a fourth required field would have produced a confident, wrong
-      // explanation — the user fixes the name they already filled in and tries
-      // again. The company URL is checked first because it is the new rule.
-      const message = !isUsableCompanyUrl(form.companyUrl)
-        ? "Add your company's LinkedIn page or website — a linkedin.com/company/… link, or the company's own domain. Your personal profile goes in the field above it."
-        : "Could not save. Add your name, company, and title.";
+      // The website is named when IT is what failed: the generic line lists five
+      // fields, and the likeliest mistake is pasting a personal /in/ profile
+      // into the website box, which that line gives no way to discover.
+      const message = !isUsableCompanyUrl(form.companyWebsite)
+        ? WEBSITE_INVALID_MESSAGE
+        : REFERRER_PROFILE_REQUIRED;
       setError(message);
       setToast({ title: "Could not save", description: message, variant: "error" });
       return;
@@ -339,17 +513,20 @@ export function CompanyReferrerPanel({
       displayName: profile.displayName,
       company: profile.company,
       title: profile.title,
+      companyLocation: profile.companyLocation ?? form.companyLocation,
+      companyWebsite: profile.companyWebsite ?? form.companyWebsite,
       linkedin: profile.linkedin ?? "",
       // ⚠️ Carry the stored value through. Pausing a desk must not have to
       // re-validate a field the user is not editing — omitting it would make
       // the now-required check reject the toggle.
-      companyUrl: profile.companyUrl ?? "",
       bio: profile.bio ?? "",
       openToRefer: nextOpen,
     });
     setPausing(false);
     if (!saved) {
-      const message = "Could not update request availability.";
+      const message = !profile.companyWebsite || !profile.companyLocation
+        ? "Add a company website and location, then save, before you can pause or reopen."
+        : "Could not update request availability.";
       setError(message);
       setToast({ title: "Could not update", description: message, variant: "error" });
       return;
@@ -359,7 +536,7 @@ export function CompanyReferrerPanel({
     setToast(nextOpen
       ? { title: "Requests are open", description: "People can ask you for a referral again.", variant: "success" }
       : { title: "Requests paused", description: "Your link will not accept requests until you reopen it.", variant: "success" });
-  }, [profile]);
+  }, [form.companyLocation, form.companyWebsite, profile]);
 
   const shareUrl = profile
     ? `${typeof window !== "undefined" ? window.location.origin : ""}${referrerPublicPath(profile.slug)}`
@@ -420,9 +597,22 @@ export function CompanyReferrerPanel({
               {loading
                 ? "Loading your referrer profile..."
                 : profile
-                  ? `${profile.title} at ${profile.company}`
+                  ? [
+                      `${profile.title} at ${profile.company}`,
+                      profile.companyLocation,
+                    ].filter(Boolean).join(" · ")
                   : "Not signed up as a referrer yet"}
             </div>
+            {profile?.companyWebsite ? (
+              <a
+                href={profile.companyWebsite}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: "inline-block", marginTop: 4, fontSize: 13, fontWeight: 700, color: "var(--accent-ink)", textDecoration: "none" }}
+              >
+                Company website
+              </a>
+            ) : null}
             {profile?.bio ? (
               <div style={{ marginTop: 6, fontSize: 13, color: "var(--muted)" }}>Can refer for {profile.bio}</div>
             ) : null}
@@ -483,6 +673,9 @@ export function CompanyReferrerPanel({
                   <RequestCard
                     key={row.id}
                     row={row}
+                    referrerName={shownName}
+                    referrerTitle={profile?.title ?? ""}
+                    referrerCompany={profile?.company ?? ""}
                     onStatus={async (status) => {
                       const previous = row.status;
                       setRequests((prev) => prev.map((item) => (item.id === row.id ? { ...item, status } : item)));
@@ -490,6 +683,27 @@ export function CompanyReferrerPanel({
                       if (!ok) {
                         setRequests((prev) => prev.map((item) => (item.id === row.id ? { ...item, status: previous } : item)));
                         setError("Could not update that request status.");
+                        setToast({
+                          title: "Could not update",
+                          description: "That request is back where it was. Try again.",
+                          variant: "error",
+                        });
+                        return;
+                      }
+                      // Confirm the outcome that matters and, on the one status
+                      // that pays, say what it paid.
+                      if (status === "referred") {
+                        setToast({
+                          title: `${row.candidateName || "Candidate"} marked as referred`,
+                          description: `${REFERRAL_REWARD_DAYS.referred} Pro days on the way. If they report an interview, that becomes ${REFERRAL_REWARD_DAYS.interview}.`,
+                          variant: "success",
+                        });
+                      } else if (status === "declined") {
+                        setToast({
+                          title: "Request declined",
+                          description: `${row.candidateName || "They"} will see that you passed on this one.`,
+                          variant: "info",
+                        });
                       }
                     }}
                     onRemove={() => void removeRequest(row)}
@@ -541,6 +755,8 @@ export function CompanyReferrerPanel({
       )}
 
       <SentReferralsCard />
+      <ReferralRewardsCard requests={requests} />
+      <ReferralNotifyCard />
 
       {/* --red-ink, not #dc2626: this panel mounts inside the THEMED profile hub,
           so a hardcoded red is the light-mode-card-on-a-dark-page defect that
@@ -563,10 +779,16 @@ function RequestCard({
   row,
   onStatus,
   onRemove,
+  referrerName,
+  referrerTitle,
+  referrerCompany,
 }: {
   row: CompanyReferralRequest;
   onStatus: (status: ReferralRequestStatus) => void | Promise<void>;
   onRemove: () => void | Promise<void>;
+  referrerName: string;
+  referrerTitle: string;
+  referrerCompany: string;
 }) {
   const [resumeError, setResumeError] = useState<string | null>(null);
   const linkedinHref = safeHttpUrl(row.candidateLinkedin);
@@ -618,6 +840,12 @@ function RequestCard({
             Open resume PDF
           </button>
         ) : null}
+        <NoteButton
+          row={row}
+          referrerName={referrerName}
+          referrerTitle={referrerTitle}
+          referrerCompany={referrerCompany}
+        />
       </div>
       {resumeError ? <p role="alert" style={{ margin: "8px 0 0", color: "var(--red-ink)", fontSize: 13 }}>{resumeError}</p> : null}
       <label style={{ display: "block", marginTop: 12 }}>

@@ -115,8 +115,11 @@ describe("blog CTA destinations", () => {
   it("the checker flags each way a landing goes wrong, and passes the good ones", () => {
     expect(destinationProblem("/")).toMatch(/homepage/);
     expect(destinationProblem("/?view=jobs")).toMatch(/not a public app view/);
-    expect(destinationProblem("/refer/", "Browse companies where employees refer")).toMatch(/gated/);
-    expect(destinationProblem("/refer/", "With a free account you can see who is open")).toBeNull();
+    // /interview-prep is a gated route. (/refer was the example here until main
+    // opened the directory in #342, which moved it to the public set.)
+    expect(destinationProblem("/interview-prep/", "Practice questions from your résumé")).toMatch(/gated/);
+    expect(destinationProblem("/interview-prep/", "With a free account your prep is saved")).toBeNull();
+    expect(destinationProblem("/refer/")).toBeNull();
     expect(destinationProblem("/?view=analyze")).toBeNull();
     expect(destinationProblem("/jobs/")).toBeNull();
     expect(destinationProblem("/ats-resume-checker/")).toBeNull();

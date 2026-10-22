@@ -1,4 +1,15 @@
--- Migration 062: a referrer desk must point at the company it claims.
+-- Migration 068 (numbered 062 until main took 059-064 for referrals).
+--
+-- ⚠️ SUPERSEDED, KEPT AS THE RECORD OF A COLUMN THAT EXISTS. Main shipped
+-- `company_website` + `company_location` (migration 063) for the same purpose,
+-- and the app reads and writes those. This column was applied to production
+-- first and holds NO data (0 of 4 desks), so nothing depends on it. Dropping it
+-- is a destructive production change and is left to a deliberate follow-up
+-- rather than done as a side effect of a merge. The validation rule this
+-- migration was written for (a personal LinkedIn is not a company page; userinfo
+-- disguises the host) now guards `company_website`, in `isUsableCompanyUrl`.
+--
+-- Original rationale: a referrer desk must point at the company it claims.
 --
 -- WHY. `company` is free text: anyone can type "Stripe" and publish a desk.
 -- Nothing on the page let a candidate check that claim before sending a

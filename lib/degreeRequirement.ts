@@ -31,9 +31,25 @@
  */
 export function isCredentialRequirement(name: string): boolean {
   if (requiredDegreeLevel(name) !== null) return true;
+  if (isUnleveledDegreeRequirement(name)) return true;
   return /\b(certification|certified|certificate|licen[sc]e[d]?|accreditation|clearance)\b/i.test(
     name,
   );
+}
+
+/**
+ * "CS degree", "Degree in a related field": a degree ask that names a field but
+ * no level. Without this the row matched no level, was not treated as a
+ * credential, and went to the bullet fixer, which then "fixed" a CS degree by
+ * rewriting a project bullet for someone whose Education section already
+ * listed one.
+ *
+ * "360-degree" and "degree of autonomy" are not degree asks; the guards exist
+ * for exactly those phrasings.
+ */
+export function isUnleveledDegreeRequirement(name: string): boolean {
+  if (!name || requiredDegreeLevel(name) !== null) return false;
+  return /(?<![\w-])degrees?\b(?!\s+of\b)/i.test(name);
 }
 
 /** Ordered low to high. The number is the only thing compared. */
@@ -65,11 +81,11 @@ const DEGREE_PATTERNS: ReadonlyArray<readonly [DegreeLevel, RegExp]> = [
   ],
   [
     "master",
-    /\b(master'?s?|mba|m\.\s?s\.|m\.\s?a\.|m\.?sc|m\.?eng|m\.?tech|m\.?phil)(?![A-Za-z])/i,
+    /\b(master'?s?|mba|m\.\s?s\.|m\.\s?a\.|m\.\s?e\.|m\.?sc|m\.?eng|m\.?tech|m\.?phil)(?![A-Za-z])/i,
   ],
   [
     "bachelor",
-    /\b(bachelor'?s?|b\.\s?s\.|b\.\s?a\.|b\.?sc|b\.?eng|b\.?tech|undergraduate\s+degree)(?![A-Za-z])/i,
+    /\b(bachelor'?s?|b\.\s?s\.|b\.\s?a\.|b\.\s?e\.|b\.?sc|b\.?eng|b\.?tech|undergraduate\s+degree)(?![A-Za-z])/i,
   ],
   [
     "associate",
@@ -119,8 +135,11 @@ export function degreeRequirementSatisfied(
   resumeText: string,
 ): boolean {
   const need = requiredDegreeLevel(requirement);
-  if (need === null) return false; // not a degree requirement -- not ours to answer
   const held = highestDegreeIn(resumeText);
+  if (need === null) {
+    // No level named: any degree clears it, for the same field-of-study reason above.
+    return isUnleveledDegreeRequirement(requirement) && held !== null;
+  }
   if (held === null) return false;
   return DEGREE_RANK[held] >= DEGREE_RANK[need];
 }

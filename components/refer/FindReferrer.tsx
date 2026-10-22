@@ -7,15 +7,22 @@ import {
   OpenChip,
   ReferAlert,
   ReferField,
-  ReferGoogleGate,
   ReferLede,
   ReferNote,
+  ReferSortToggle,
   ReferTitle,
   ReferrerCard,
+  TopReferrerChip,
 } from "@/components/refer/referUi";
 import { surfaceCardSx } from "@/components/mui/cssVars";
-import { joinNonEmpty, REFERRER_LIMITS, referrerPublicPath, type OpenReferralCompany } from "@/lib/companyReferrers";
-import { useCompanyOpenReferrers, useOpenReferralCompanies, useReferSession } from "@/hooks/usePublicReferral";
+import {
+  joinNonEmpty,
+  REFERRER_LIMITS,
+  referrerPublicPath,
+  topReferrerId,
+  type OpenReferralCompany,
+} from "@/lib/companyReferrers";
+import { useCompanyOpenReferrers, useOpenReferralCompanies } from "@/hooks/usePublicReferral";
 import { FS, FW, LH } from "@/lib/typography";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -23,29 +30,28 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 
+/**
+ * The directory is public. Anonymous visitors browse companies and the people
+ * open to refer; the sign-in ask lives on the action (publishing a profile or
+ * sending a request), not on the page.
+ */
 export function FindReferrer({ heading = "h1" }: { heading?: "h1" | "h2" }) {
-  const session = useReferSession();
-
-  if (session.status === "loading") {
-    return <ReferNote>Loading...</ReferNote>;
-  }
-
-  if (session.status === "signed_out") {
-    return <ReferGoogleGate heading={heading} />;
-  }
-
-  return <SignedInCompanyDirectory heading={heading} />;
+  return <CompanyDirectory heading={heading} />;
 }
 
-function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
+function CompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
   const directory = useOpenReferralCompanies(true);
   const [selectedCompany, setSelectedCompany] = useState<OpenReferralCompany | null>(null);
   const people = useCompanyOpenReferrers(selectedCompany?.companySlug ?? null);
+  // One badge per company, and only where somebody has actually referred someone.
+  const topId = topReferrerId(people.referrers);
   const showFilter = directory.status === "loading"
     || directory.status === "ready"
     || directory.status === "error"
     || directory.companies.length > 0
     || directory.query.trim().length > 0;
+  // Only worth offering when it would change the order.
+  const showSort = !selectedCompany && directory.companies.length > 1;
 
   return (
     <Stack spacing={2.5} sx={{ mt: heading === "h2" ? 4.5 : 0 }}>
@@ -88,6 +94,8 @@ function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
         <ReferNote>No companies match that filter.</ReferNote>
       ) : null}
 
+      {showSort ? <ReferSortToggle value={directory.sort} onChange={directory.setSort} /> : null}
+
       {!selectedCompany && directory.filtered.length > 0 ? (
         <Box
           component="ul"
@@ -123,10 +131,18 @@ function SignedInCompanyDirectory({ heading }: { heading: "h1" | "h2" }) {
                 count={referrer.referredCount ?? 0}
                 href={referrerPublicPath(referrer.slug)}
                 ariaLabel={`Ask ${referrer.displayName} for a referral at ${referrer.company}`}
-                badge={<OpenChip />}
+                badge={
+                  <>
+                    {referrer.id === topId ? <TopReferrerChip /> : null}
+                    <OpenChip />
+                  </>
+                }
               >
                 <Typography sx={{ mt: 0.5, fontSize: FS.body, color: "var(--muted)" }}>
-                  {joinNonEmpty(" · ", referrer.title, referrer.bio)}
+                  {/* joinNonEmpty, not a bare filter(Boolean).join: `company_referrers.title` is
+                      `not null default ''`, and the dangling-separator orphan this prevents
+                      survived one full rewrite of this component already. */}
+                  {joinNonEmpty(" · ", referrer.title, referrer.companyLocation, referrer.bio)}
                 </Typography>
                 <Typography sx={{ mt: 0.5, fontSize: FS.small, fontWeight: FW.semibold, color: "var(--accent)" }}>
                   Ask for a referral →
@@ -205,9 +221,7 @@ function CompanyTile({ company, onSelect }: { company: OpenReferralCompany; onSe
               {company.company}
             </Typography>
             <Typography sx={{ mt: 0.5, fontSize: FS.small, color: "var(--muted)", lineHeight: LH.snug }}>
-              {openLabel}
-              {" · "}
-              {referredLabel}
+              {[company.companyLocation || null, openLabel, referredLabel].filter(Boolean).join(" · ")}
             </Typography>
           </Box>
           <Typography aria-hidden sx={{ fontSize: FS.title, color: "var(--accent)" }}>→</Typography>

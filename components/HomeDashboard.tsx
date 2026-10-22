@@ -29,6 +29,9 @@ import { useUpgradeDialog } from "@/components/UpgradeDialog";
 import { readCache, writeCache } from "@/lib/clientCache";
 import { apiFetch, type ScanLimitStatus } from "@/lib/apiClient";
 import { loadScanLimitStatus } from "@/components/app-shell/useScansRemaining";
+import { useJobTopMatches, type JobTopMatch } from "@/lib/useJobTopMatches";
+import { trackJobEvent } from "@/lib/jobsApi";
+import { safeHttpUrl } from "@/lib/companyReferrers";
 import {
   computeScoreProgress,
   formatScoreProgress,
@@ -159,6 +162,105 @@ function QuickAction({
       <span className="text-[14px] font-semibold text-[var(--text)]">{title}</span>
       <span className="text-[13px] leading-snug text-[var(--muted)]">{desc}</span>
     </button>
+  );
+}
+
+/**
+ * Matched jobs, ranked by the same endpoint the Jobs feed uses.
+ *
+ * The filters are the ones the visitor last set on Jobs (role, country and the
+ * scan to rank against), so the card agrees with the feed instead of quietly
+ * ranking against different inputs. When the feed has nothing for them the
+ * section disappears rather than showing an empty shelf.
+ *
+ * Lives in the rail and opens the posting itself, in a new tab, so Home stays
+ * where it was. Clicking fires the same `apply_click` the feed's Apply button
+ * does, which is what drops an opened job out of these matches next time. A
+ * posting with no usable link falls back to its detail page in Jobs.
+ */
+function MatchedJobs({
+  jobs,
+  loading,
+  onOpenInJobs,
+  onViewAll,
+}: {
+  jobs: JobTopMatch[];
+  loading: boolean;
+  onOpenInJobs: (id: string) => void;
+  onViewAll: () => void;
+}) {
+  if (!loading && jobs.length === 0) return null;
+
+  const rowClass =
+    "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[var(--surface2)]";
+
+  return (
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold text-[var(--text)]">Matched jobs</h2>
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="text-[13px] font-medium text-accent hover:underline"
+        >
+          View all →
+        </button>
+      </div>
+      <ul className="-mx-2 mt-3 flex flex-col gap-1">
+        {loading && jobs.length === 0 ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <li key={i}>
+              <Skeleton className="h-[52px] rounded-lg" />
+            </li>
+          ))
+        ) : (
+          jobs.map((job) => {
+            const href = safeHttpUrl(job.url);
+            const meta = [job.company, job.location].filter(Boolean).join(" · ");
+            const body = (
+              <>
+                <span
+                  className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--surface2)] text-[13px] font-bold"
+                  style={job.matchScore !== null ? { color: scoreTone(job.matchScore) } : undefined}
+                >
+                  {job.matchScore ?? "—"}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-semibold text-[var(--text)]">
+                    {job.title}
+                  </span>
+                  <span className="block truncate text-[12px] text-[var(--dim)]">{meta}</span>
+                </span>
+                <span className="shrink-0 text-[13px] text-[var(--muted)]" aria-hidden>
+                  {href ? "↗" : "→"}
+                </span>
+              </>
+            );
+            return (
+              <li key={job.id}>
+                {href ? (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => void trackJobEvent(job.id, "apply_click")}
+                    className={rowClass}
+                  >
+                    {body}
+                    <span className="sr-only">(opens the posting in a new tab)</span>
+                  </a>
+                ) : (
+                  <button type="button" onClick={() => onOpenInJobs(job.id)} className={rowClass}>
+                    {body}
+                  </button>
+                )}
+              </li>
+            );
+          })
+        )}
+      </ul>
+      <p className="mt-3 text-[11px] text-[var(--dim)]">Ranked with your Jobs filters.</p>
+    </section>
   );
 }
 
@@ -294,6 +396,25 @@ type HomeSnapshot = {
 const HOME_CACHE_KEY = "home:dashboard";
 const HOME_TTL_MS = 90_000;
 
+/**
+ * The Jobs feed persists the filters it was last used with. Home borrows them
+ * so "Matched jobs" agrees with the feed. Lazy state keeps this a render-time
+ * read instead of a second paint, and the SSR guard keeps the server render
+ * identical (the section stays hidden until the client asks for matches).
+ */
+function readJobFilters(): { role: string; country: string; analysisId: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return {
+      role: localStorage.getItem("rn_jobs_role_v1") || "",
+      country: localStorage.getItem("rn_jobs_country_v1") || "US",
+      analysisId: localStorage.getItem("rn_jobs_rank_analysis_v1") || "",
+    };
+  } catch {
+    return { role: "", country: "US", analysisId: "" };
+  }
+}
+
 /* ---------- main component ---------- */
 
 export default function HomeDashboard() {
@@ -308,6 +429,7 @@ export default function HomeDashboard() {
   const [items, setItems] = useState<LibraryItem[]>(cached?.items ?? []);
   const [stats, setStats] = useState<AppStats | null>(cached?.stats ?? null);
   const [scan, setScan] = useState<ScanStatus | null>(cached?.scan ?? null);
+  const [jobFilters] = useState(readJobFilters);
 
   useEffect(() => {
     let alive = true;
@@ -435,6 +557,16 @@ export default function HomeDashboard() {
   const allDone = doneCount === checklist.length;
   const recent = items.slice(0, 4);
 
+  const topMatches = useJobTopMatches({
+    enabled: jobFilters !== null,
+    // Same defaults the Jobs feed opens with: past week, US, latest scan.
+    days: 7,
+    countryScope: jobFilters?.country || "US",
+    roleQuery: jobFilters?.role || "",
+    analysisId: jobFilters?.analysisId || "",
+    limit: 4,
+  });
+
   const planLabel = scan?.unlimited
     ? (scan.plan === "pro" ? "Pro" : scan.plan === "institution" ? "University" : scan.plan === "admin" ? "Admin" : "Unlimited")
     : scan?.enforced && typeof scan.remaining === "number"
@@ -518,13 +650,13 @@ export default function HomeDashboard() {
         )}
       </div>
 
-      {/* Main grid: quick actions + recent (left), checklist (right) */}
+      {/* Main grid: quick actions + recent (left), checklist + matched jobs (right) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="flex flex-col gap-6">
           {/* Quick actions */}
           <section>
             <h2 className="mb-3 text-[15px] font-semibold text-[var(--text)]">Quick actions</h2>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
               <QuickAction
                 title="ATS check"
                 desc="Score your résumé against recruiter filters."
@@ -549,6 +681,12 @@ export default function HomeDashboard() {
                 desc="Practice questions from your résumé."
                 icon="◆"
                 onClick={() => router.push("/interview-prep")}
+              />
+              <QuickAction
+                title="Referrals"
+                desc="Get referred, or refer someone at your company."
+                icon="⇄"
+                onClick={() => router.push("/profile?tab=referrals")}
               />
             </div>
           </section>
@@ -632,8 +770,11 @@ export default function HomeDashboard() {
         {/* The rail: setup while there IS setup, then what you've built.
             A finished checklist is five struck-through lines telling a
             returning user they have nothing to do, in the most persistent slot
-            on the page. Once it is done it has said everything it can. */}
-        <aside className="lg:sticky lg:top-4 lg:self-start">
+            on the page. Once it is done it has said everything it can.
+            Not sticky: with matched jobs under it the rail outgrows a laptop
+            viewport, and a sticky column taller than the screen hides its own
+            bottom rows. */}
+        <aside className="flex flex-col gap-6 lg:self-start">
           {allDone ? (
             <ProgressCard
               progress={progress}
@@ -643,6 +784,12 @@ export default function HomeDashboard() {
           ) : (
             <SetupChecklist items={checklist} doneCount={doneCount} />
           )}
+          <MatchedJobs
+            jobs={topMatches.jobs}
+            loading={topMatches.loading}
+            onOpenInJobs={(id) => router.push(`/?view=jobs&job=${encodeURIComponent(id)}`)}
+            onViewAll={() => router.push("/?view=jobs")}
+          />
         </aside>
       </div>
     </div>

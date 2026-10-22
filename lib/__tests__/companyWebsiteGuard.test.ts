@@ -1,8 +1,21 @@
-import { describe, expect, it } from "vitest";
-import { isUsableCompanyUrl, normalizeCompanyUrl } from "@/lib/companyReferrers";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// A signed-out client, not a throwing one: the save path swallows I/O errors
+// into null either way, so what separates "refused by the guard" from "got as
+// far as asking for a session" is only whether this was ever called.
+const getSupabaseClient = vi.hoisted(() => vi.fn(() => ({
+  auth: { getSession: async () => ({ data: { session: null } }) },
+})));
+vi.mock("@/lib/supabase", () => ({ getSupabaseClient }));
+
+import { isUsableCompanyUrl, upsertMyReferrerProfile } from "@/lib/companyReferrers";
 
 /**
- * The company URL on a referrer desk.
+ * The company website on a referrer desk.
+ *
+ * Main's `company_website` field replaced this branch's own `company_url`, and
+ * this file keeps the guard that field was missing: `safeHttpUrl` only asks
+ * whether a value parses as http(s).
  *
  * ⚠️ WHY THIS IS NOT A PLAIN URL CHECK. `company` is free text — anyone can
  * publish a desk claiming any employer. This field is the one thing a candidate
@@ -60,28 +73,31 @@ describe("isUsableCompanyUrl", () => {
   });
 });
 
-describe("normalizeCompanyUrl", () => {
-  it("adds the scheme people leave off", () => {
-    expect(normalizeCompanyUrl("stripe.com")).toBe("https://stripe.com");
+describe("saving a desk applies that guard", () => {
+  beforeEach(() => getSupabaseClient.mockClear());
+
+  const desk = {
+    displayName: "Jordan Lee",
+    company: "Stripe",
+    title: "Software Engineer",
+    companyLocation: "San Francisco, CA",
+  };
+
+  // ⚠️ A rejected save and a failed save both return null, so the return value
+  // cannot tell the guard from a missing session. Whether the save got as far
+  // as asking for a client can: the guard runs before any I/O.
+  it.each([
+    ["a personal LinkedIn profile", "https://www.linkedin.com/in/jordan-lee"],
+    ["a mailto: that parses as userinfo once the scheme is prepended", "mailto:hr@stripe.com"],
+    ["userinfo disguising the host", "https://evil.example.com@stripe.com"],
+    ["a bare host", "localhost"],
+  ])("refuses %s before touching the database", async (_label, companyWebsite) => {
+    expect(await upsertMyReferrerProfile({ ...desk, companyWebsite })).toBeNull();
+    expect(getSupabaseClient).not.toHaveBeenCalled();
   });
 
-  it("drops a trailing slash so two spellings store identically", () => {
-    expect(normalizeCompanyUrl("https://linkedin.com/company/stripe/"))
-      .toBe(normalizeCompanyUrl("https://linkedin.com/company/stripe"));
-  });
-
-  it("keeps a path and query, which can carry the real company page", () => {
-    expect(normalizeCompanyUrl("https://jobs.example.com/about?team=eng"))
-      .toBe("https://jobs.example.com/about?team=eng");
-  });
-
-  it("returns empty for junk rather than a half-formed href", () => {
-    expect(normalizeCompanyUrl("")).toBe("");
-    expect(normalizeCompanyUrl("   ")).toBe("");
-  });
-
-  it("⚠️ normalizing does not launder a personal profile into a valid one", () => {
-    const normalized = normalizeCompanyUrl("linkedin.com/in/parthbhodia");
-    expect(isUsableCompanyUrl(normalized)).toBe(false);
+  it("lets a real company site through to the database", async () => {
+    await upsertMyReferrerProfile({ ...desk, companyWebsite: "stripe.com" });
+    expect(getSupabaseClient).toHaveBeenCalled();
   });
 });

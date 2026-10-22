@@ -58,39 +58,40 @@ export default function ConnectedExtensionsCard() {
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState(false);
 
-  /**
-   * The fetch, with no state of its own, so the first load and a retry can
-   * differ in exactly the way they should: `state` already STARTS as
-   * `loading`, so the first run must not re-set it (a redundant render, and
-   * the reason the effect tripped react-hooks/set-state-in-effect), while a
-   * retry from the error card does need to show the spinner again.
-   */
-  const fetchSessions = useCallback(async (): Promise<LoadState> => {
-    try {
-      const resp = await apiFetch("/api/extension/sessions");
-      if (!resp.ok) throw new Error(String(resp.status));
-      const body = (await resp.json()) as { sessions?: ExtensionSession[] };
-      return { kind: "ready", sessions: Array.isArray(body.sessions) ? body.sessions : [] };
-    } catch {
-      return { kind: "error" };
-    }
+  const fetchSessions = useCallback(async (): Promise<ExtensionSession[]> => {
+    const resp = await apiFetch("/api/extension/sessions");
+    if (!resp.ok) throw new Error(String(resp.status));
+    const body = (await resp.json()) as { sessions?: ExtensionSession[] };
+    return Array.isArray(body.sessions) ? body.sessions : [];
   }, []);
 
+  // Retry from the error card. Separate from the mount effect below because
+  // this one DOES want to put the card back into `loading` first.
   const load = useCallback(async () => {
     setState({ kind: "loading" });
-    setState(await fetchSessions());
+    try {
+      setState({ kind: "ready", sessions: await fetchSessions() });
+    } catch {
+      setState({ kind: "error" });
+    }
   }, [fetchSessions]);
 
+  // Mount fetch reaches its first `await` before touching state, so the effect
+  // is not a synchronous setState from an effect body. Routing it through `load`
+  // instead was the +1 error that reddened main's lint ratchet in #325: the
+  // rule follows the call into `load` and sees setState before any await.
   useEffect(() => {
-    // ⚠️ The guard is not ceremony: this card sits on a settings tab, so
-    // switching away mid-request would otherwise set state on an unmounted
-    // component. The original effect had no cleanup.
-    let alive = true;
-    void fetchSessions().then((next) => {
-      if (alive) setState(next);
-    });
+    let cancelled = false;
+    void (async () => {
+      try {
+        const sessions = await fetchSessions();
+        if (!cancelled) setState({ kind: "ready", sessions });
+      } catch {
+        if (!cancelled) setState({ kind: "error" });
+      }
+    })();
     return () => {
-      alive = false;
+      cancelled = true;
     };
   }, [fetchSessions]);
 

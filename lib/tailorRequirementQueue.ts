@@ -57,7 +57,12 @@
  */
 
 import type { AddressedGapAction } from "@/lib/types";
-import { degreeRequirementSatisfied, isCredentialRequirement, requiredDegreeLevel } from "@/lib/degreeRequirement";
+import {
+  degreeRequirementSatisfied,
+  isCredentialRequirement,
+  isUnleveledDegreeRequirement,
+  requiredDegreeLevel,
+} from "@/lib/degreeRequirement";
 import { isGapAddressed } from "@/lib/tailorGapFix";
 import type { QueueItem, QueueKind } from "@/lib/tailorWorkQueue";
 import {
@@ -238,7 +243,9 @@ const YEARS_RE = /\b\d{1,2}\s*\+?\s*(?:years?|yrs?)\b/i;
  * will.
  */
 export function blockerReasonFor(name: string, type?: string): string | null {
-  if (requiredDegreeLevel(name) !== null) return BLOCKER_REASON.degree;
+  if (requiredDegreeLevel(name) !== null || isUnleveledDegreeRequirement(name)) {
+    return BLOCKER_REASON.degree;
+  }
   if (/\bcertif/i.test(name)) return BLOCKER_REASON.certification;
   if (/\blicen[sc]e/i.test(name)) return BLOCKER_REASON.license;
   if (/\bclearance\b/i.test(name)) return BLOCKER_REASON.clearance;
@@ -436,6 +443,19 @@ function verdictFor(
 }
 
 /**
+ * The tail of a degree clause, split off by extraction as its own requirement:
+ * "Bachelor's degree or equivalent experience" yields a row reading
+ * "equivalent experience". It names nothing a résumé could show, so "Add" on
+ * it could only paste the phrase into a bullet.
+ */
+const FRAGMENT_RE =
+  /^(?:or\s+)?(?:an?\s+)?(?:equivalent|comparable|relevant|related)(?:\s+(?:practical|professional|work|industry))?\s+(?:experience|field)$|^(?:or\s+)?equivalent$/i;
+
+export function isRequirementFragment(name: string): boolean {
+  return FRAGMENT_RE.test(name.trim().replace(/[.;,]+$/, ""));
+}
+
+/**
  * Build the queue rows the deterministic scorer is complaining about.
  *
  * Returns ONLY the scorer-derived rows. The caller merges them with
@@ -495,6 +515,8 @@ export function deriveScorerQueue(
     // the user can change an Experience title, and aggressive mode can apply
     // the posting's wording on the closest existing role.
     if (String(req?.id ?? "").trim() === "req:job-title") continue;
+
+    if (isRequirementFragment(name)) continue;
 
     // Extraction's own type first: it is a claim about what the requirement
     // IS. The rater's list membership is only where it filed the comparison,
@@ -584,7 +606,11 @@ export function deriveScorerQueue(
       // i.e. we read the résumé and found nothing at or above that level. That
       // is the evidence behind the only claim this row is allowed to make about
       // the candidate. See verdictFor.
-      verdict: verdictFor(kind, raterCovered, requiredDegreeLevel(name) !== null),
+      verdict: verdictFor(
+        kind,
+        raterCovered,
+        requiredDegreeLevel(name) !== null || isUnleveledDegreeRequirement(name),
+      ),
     });
   }
   return out;
@@ -682,6 +708,7 @@ export function mergeQueues(
 ): SourcedQueueItem[] {
   const covered = scorerItems.map((it) => it.name);
   const extra = raterItems
+    .filter((it) => !isRequirementFragment(it.name))
     .filter((it) => !covered.some((name) => sameRequirement(name, it.name)))
     .map<SourcedQueueItem>((it) => ({
       ...it,
@@ -724,7 +751,7 @@ export function mergeQueues(
        * the override move the ✓ to a different band at that moment is the
        * "where did it go?" disappearance again, one band over.
        */
-      band: it.status === "queued" && it.kind !== "contextual" ? "boost" : undefined,
+      band: it.status === "queued" && it.kind !== "contextual" ? "stronger" : undefined,
       detail: it.kind === "contextual"
         ? it.detail
         : sentenceJoin(it.detail ?? "", NO_SCORE_MOVE_NOTE),

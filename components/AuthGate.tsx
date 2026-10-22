@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase";
 import {
   clearForceLandingAfterSignOut,
   readForceLandingAfterSignOut,
+  subscribeForceLandingAfterSignOut,
 } from "@/lib/authSignOut";
-import { urlRequestsPublicAppView } from "@/lib/anonScan";
+import { isPublicAppView, urlRequestsPublicAppView } from "@/lib/anonScan";
 import { nextGateSession } from "@/lib/authGateSession";
 import LandingPage from "./LandingPage";
 import SignInRequiredPage from "./auth/SignInRequiredPage";
 import AppShellSkeleton from "./app-shell/AppShellSkeleton";
+import { VIEW_LABELS, type AppView } from "./app-shell/nav-config";
 
 // Routes that intentionally bypass auth — design-system / preview pages.
+// Marketing chrome for the free open subset lives in app/(marketing)/layout.tsx
+// (PublicSiteFrame). Not every public path uses that frame (/r, /profile, previews).
 const PUBLIC_ROUTES = new Set<string>([
   "/editor-preview",
   "/profile-mockup",
@@ -32,8 +36,20 @@ const PUBLIC_ROUTES = new Set<string>([
   "/skills-for-resume",
   "/template-builder",
   "/templates",
-  "/profile",
+  // /profile is NOT here: it is the signed-in account hub (plan, usage,
+  // referral alerts, Career Memory) and ProfilePage has no signed-out state.
+  // While it was public, an anonymous visitor got the full dashboard with a
+  // "Signed in account" header and a working "Sign out" button.
   "/reset-password",
+  // /refer is the public referral directory. Anonymous visitors get the page,
+  // the company grid and the open referrers; the ask form prompts sign-in at
+  // the action. See migration 061 for the matching anon read grant.
+  "/refer",
+  // /extension is the public install explainer. /extension/connect is the auth
+  // handshake page and MUST stay gated: its only job is to mint a connection
+  // code, so rendering it to a signed-out visitor would be a dead end. It is
+  // intentionally absent here rather than covered by a prefix.
+  "/extension",
 ]);
 // Path prefixes that bypass auth — recipient share pages live at /r/<shortid>,
 // programmatic SEO role pages at /resume-examples/<role>, comparisons at /compare/<slug>.
@@ -55,6 +71,33 @@ function isHomePath(pathname: string | null): boolean {
   return trimmed === "" || trimmed === "/";
 }
 
+/**
+ * The `?view=` a signed-out visitor asked for that needs an account to open —
+ * `cover-letter` today, reached from three CTAs on the public /cover-letter page.
+ *
+ * Both halves are lookups, never a second hand-kept list: `VIEW_LABELS` is the
+ * set of views AppShell can actually render (a `?view=` it doesn't know falls
+ * back to "home"), and `isPublicAppView` is the same allowlist AuthGate and the
+ * sidebar already share. A marketing surface advertising a view that is missing
+ * from PUBLIC_APP_VIEWS is exactly how `/?view=cover-letter` used to answer a
+ * signed-out visitor with the marketing hero.
+ *
+ * `home` is excluded: it's the hub behind the landing page, not something a
+ * visitor was denied.
+ */
+function accountOnlyView(): AppView | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = (new URLSearchParams(window.location.search).get("view") || "").toLowerCase();
+    if (!raw || raw === "home") return null;
+    if (!(raw in VIEW_LABELS)) return null;
+    if (isPublicAppView(raw)) return null;
+    return raw as AppView;
+  } catch {
+    return null;
+  }
+}
+
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const publicRoute = isPublicPath(pathname);
@@ -64,7 +107,11 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // dashboard once we confirm the user is signed in on the client.
   const [session, setSession] = useState<Session | null>(null);
   const [checked, setChecked] = useState(false);
-  const [forceLanding, setForceLanding] = useState(false);
+  const forceLanding = useSyncExternalStore(
+    subscribeForceLandingAfterSignOut,
+    readForceLandingAfterSignOut,
+    () => false,
+  );
   // Anonymous free-scan entry: `/?view=analyze` renders the app shell without a
   // session (one free scan; full report locks behind sign-in). Read from
   // window.location — NOT useSearchParams, which would swap the prerendered
@@ -73,46 +120,63 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   // the JS session so in-app view switches don't bounce the user to landing.
   const [anonView, setAnonView] = useState(false);
 
+  // A view the app can render but signed-out visitors may not open. Kept beside
+  // anonView because both are answers to the same question ("what did this URL
+  // ask for?") read from the same place, on the same trigger.
+  const [accountView, setAccountView] = useState<AppView | null>(null);
+
+  // Re-check when the path changes: client navigations from a marketing route
+  // (e.g. /pricing → /?view=analyze) do not fire popstate, and a one-shot mount
+  // read would leave anonView false and trap the visitor on the marketing home.
   useEffect(() => {
     const check = () => {
       if (urlRequestsPublicAppView()) setAnonView(true);
+      setAccountView(accountOnlyView());
     };
     check();
     window.addEventListener("popstate", check);
     return () => window.removeEventListener("popstate", check);
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
-    setForceLanding(readForceLandingAfterSignOut());
-    // Public documents never need auth to render. Avoid initializing Supabase so
-    // SEO/local-preview pages also work when client auth env vars are absent.
-    if (publicRoute) {
-      setChecked(true);
-      return;
+    // Still resolve the session on public routes; without a session here, a
+    // signed-in visitor who then opens /?view=analyze flashes (or sticks on)
+    // the marketing landing until a full remount. Missing env is non-fatal so
+    // static SEO previews keep working.
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    try {
+      const supabase = getSupabaseClient();
+      supabase.auth.getSession().then(({ data }) => {
+        if (cancelled) return;
+        setSession(data.session);
+        if (data.session) {
+          clearForceLandingAfterSignOut();
+        }
+        setChecked(true);
+      });
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((ev, s) => {
+        // Only an explicit sign-out ends the session here. supabase-js re-emits
+        // on tab refocus and token refresh, and those re-emits do not always
+        // carry a session; taking a momentary null at face value unmounted every
+        // route under this gate and destroyed whatever was in progress.
+        setSession((prev) => nextGateSession(prev, ev, s));
+        if (s) {
+          clearForceLandingAfterSignOut();
+        }
+      });
+      unsubscribe = () => subscription.unsubscribe();
+    } catch {
+      queueMicrotask(() => {
+        if (!cancelled) setChecked(true);
+      });
     }
-    const supabase = getSupabaseClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) {
-        clearForceLandingAfterSignOut();
-        setForceLanding(false);
-      }
-      setChecked(true);
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((ev, s) => {
-      // Only an explicit sign-out ends the session here. supabase-js re-emits
-      // on tab refocus and token refresh, and those re-emits do not always
-      // carry a session; taking a momentary null at face value unmounted every
-      // route under this gate and destroyed whatever was in progress.
-      setSession((prev) => nextGateSession(prev, ev, s));
-      if (s) {
-        clearForceLandingAfterSignOut();
-        setForceLanding(false);
-      }
-    });
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [publicRoute]);
 
   if (publicRoute) return <>{children}</>;
@@ -134,6 +198,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       // visitor into the app shell. Sign-in CTAs inside the shell gate the
       // actions that need an account (save, export, etc.).
       if (anonView) return <>{children}</>;
+      // A view that needs an account (cover letter, today). Same reasoning as
+      // the gated routes below, and for the same reason: say so and KEEP THE
+      // URL, so signing in here lands the visitor on the view they asked for.
+      // Rendering the marketing page left `?view=cover-letter` in the address
+      // bar above a hero that had nothing to do with cover letters.
+      if (accountView) return <SignInRequiredPage pathname={pathname} view={accountView} />;
       return <LandingPage />;
     }
     return <>{children}</>;

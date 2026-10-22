@@ -1,4 +1,5 @@
 import type { GatePreviewCard } from "./GatePreview";
+import { VIEW_LABELS, type AppView } from "@/components/app-shell/nav-config";
 
 /**
  * What the gate says, per destination.
@@ -98,32 +99,15 @@ const BY_PREFIX: Array<[string, GateContent]> = [
     },
   ],
   [
-    "/refer",
+    "/profile",
     {
-      // ⚠️ /refer is GATED, and that is main's deliberate product call (#309/#310),
-      // pinned by two of its own tests. You need an account to ASK for a referral,
-      // so the referrer knows who is asking. This is separate from the in-form
-      // openSignIn, which fires when the server refuses a submit from a session
-      // that still looked valid client-side.
-      eyebrow: "Referrals",
-      headline: "Sign in to view referrals",
+      // /profile left PUBLIC_ROUTES on main (#340): it is the signed-in hub, and
+      // ProfilePage has no signed-out state. Before this entry it fell through
+      // to the generic ask, so the gate did not say which page you were heading to.
+      eyebrow: "Profile",
+      headline: "Your plan, usage and referral activity in one place.",
       lede:
-        "A referral is a real person putting their name next to yours, so they need to know who is asking. Sign in and your request reaches them with your name on it.",
-      previewLabel: "What's behind this",
-      previewCards: [
-        {
-          tag: "Open",
-          tone: "green",
-          text: "Engineers at companies you're targeting, open to referring",
-          hint: "Each one chose to publish a desk, so you are not cold-messaging a stranger.",
-        },
-        {
-          tag: "Your ask",
-          tone: "accent",
-          text: "The role you want, in your own words",
-          hint: "They see your name, the role, and whatever link you choose to share.",
-        },
-      ],
+        "Sign in to see your plan and what you have left today, your referral requests and rewards, and the career details your tailored résumés start from.",
     },
   ],
   [
@@ -136,6 +120,35 @@ const BY_PREFIX: Array<[string, GateContent]> = [
     },
   ],
 ];
+
+/**
+ * What the gate says for a `/?view=` the app can render but a signed-out visitor
+ * may not open (cover letter today). Main's own prompt for this, #337, was a
+ * third hand-rolled sign-in surface with its own copy and a `#fff` primary on
+ * `--accent`; the gate and the dialog already share one form, so this is one
+ * more destination for it rather than one more form.
+ *
+ * `library` and `account` are the same destinations as their routes, so they
+ * reuse that copy instead of describing one place two ways. Anything else gets
+ * the generic ask under the view's own name, which keeps the "you'll land back
+ * on X" footer true.
+ */
+const BY_VIEW: Record<string, GateContent> = {
+  "cover-letter": {
+    eyebrow: "Cover letter",
+    headline: "A cover letter drafted from your résumé and the posting.",
+    lede:
+      "Paste the job description and get a draft grounded in your own experience, then pick a layout, edit it and export. Sign in and each letter you write is saved.",
+  },
+};
+
+export function gateContentForView(view: AppView): GateContent {
+  const known = BY_VIEW[view];
+  if (known) return known;
+  if (view === "library") return gateContentFor("/my-resumes");
+  if (view === "account") return gateContentFor("/account");
+  return { ...GENERIC, eyebrow: VIEW_LABELS[view] };
+}
 
 export function gateContentFor(pathname: string | null): GateContent {
   if (!pathname) return GENERIC;

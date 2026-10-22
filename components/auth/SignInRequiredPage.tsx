@@ -3,7 +3,8 @@
 import Link from "next/link";
 import AuthMethods from "./AuthMethods";
 import GatePreview from "./GatePreview";
-import { gateContentFor } from "./gateContent";
+import type { AppView } from "@/components/app-shell/nav-config";
+import { gateContentFor, gateContentForView } from "./gateContent";
 
 /**
  * The page a signed-out visitor lands on when they open something gated.
@@ -48,8 +49,15 @@ import { gateContentFor } from "./gateContent";
  * now lives with the form, in `AuthMethods`.
  */
 
-export default function SignInRequiredPage({ pathname }: { pathname: string | null }) {
-  const content = gateContentFor(pathname);
+export default function SignInRequiredPage({
+  pathname,
+  view,
+}: {
+  pathname: string | null;
+  /** A `/?view=` the visitor asked for that needs an account. Wins over the path. */
+  view?: AppView | null;
+}) {
+  const content = view ? gateContentForView(view) : gateContentFor(pathname);
   const hasPreview = Boolean(content.previewCards?.length);
 
   return (

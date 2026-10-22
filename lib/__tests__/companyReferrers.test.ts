@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateOpenCompanies,
   filterOpenCompanies,
+  sortOpenCompanies,
+  topReferrerId,
   approxYearsFromExperience,
+  type CompanyReferralRequest,
   isUsableEmail,
   joinReferrerSentences,
   makeReferrerSlug,
@@ -21,9 +24,56 @@ import {
   safeHttpUrl,
   sanitizeSearchTerm,
   slugifyPart,
+  referralAskEntitlement,
+  REFERRAL_ASK_BLOCKED_COPY,
+  websiteHostname,
 } from "@/lib/companyReferrers";
 
 describe("companyReferrers helpers", () => {
+  it("gates asking for a referral on plan, and keeps the desk free", () => {
+    // Unlimited Pro, metered Pro, admin, and university may ask; free may not.
+    expect(referralAskEntitlement({ signedIn: true, plan: "pro", unlimited: true })).toEqual({ allowed: true });
+    expect(referralAskEntitlement({ signedIn: true, plan: "pro", unlimited: false })).toEqual({ allowed: true });
+    expect(referralAskEntitlement({ signedIn: true, plan: "admin", unlimited: false })).toEqual({ allowed: true });
+    expect(referralAskEntitlement({ signedIn: true, plan: "institution", unlimited: true })).toEqual({ allowed: true });
+    // Institution is entitled as Pro even if unlimited is dropped from the payload.
+    expect(referralAskEntitlement({ signedIn: true, plan: "institution", unlimited: false })).toEqual({ allowed: true });
+    expect(referralAskEntitlement({ signedIn: true, plan: "free", unlimited: false })).toEqual({
+      allowed: false,
+      reason: "upgrade",
+    });
+    expect(referralAskEntitlement({ signedIn: false, plan: null, unlimited: false })).toEqual({
+      allowed: false,
+      reason: "sign_in",
+    });
+  });
+
+  it("covers every signed-in / plan combination the status endpoint can return", () => {
+    // Production omits `plan` on metered free. That used to map to sign_in.
+    expect(referralAskEntitlement({ signedIn: true, plan: null, unlimited: false })).toEqual({
+      allowed: false,
+      reason: "upgrade",
+    });
+    // Empty / whitespace plan after a bad payload: still signed in → Pro wall.
+    expect(referralAskEntitlement({ signedIn: true, plan: "", unlimited: false }).reason).toBe("upgrade");
+    expect(referralAskEntitlement({ signedIn: true, plan: "  ", unlimited: false }).reason).toBe("upgrade");
+    // Unknown named plan: do not invent access.
+    expect(referralAskEntitlement({ signedIn: true, plan: "enterprise", unlimited: false }).reason).toBe("upgrade");
+    // Case / trim: status values are lowercase today; tolerate drift.
+    expect(referralAskEntitlement({ signedIn: true, plan: "PRO", unlimited: false })).toEqual({ allowed: true });
+    expect(referralAskEntitlement({ signedIn: true, plan: " Admin ", unlimited: false })).toEqual({ allowed: true });
+    // Unlimited with no plan name (legacy unlimited badge path).
+    expect(referralAskEntitlement({ signedIn: true, plan: null, unlimited: true })).toEqual({ allowed: true });
+    // A guest payload must never inherit a stale Pro plan field.
+    expect(referralAskEntitlement({ signedIn: false, plan: "pro", unlimited: true })).toEqual({
+      allowed: false,
+      reason: "sign_in",
+    });
+    expect(REFERRAL_ASK_BLOCKED_COPY.upgrade).toMatch(/pro/i);
+    expect(REFERRAL_ASK_BLOCKED_COPY.sign_in).toMatch(/sign in/i);
+    expect(REFERRAL_ASK_BLOCKED_COPY.upgrade).not.toMatch(/[^\s][ ][—–][ ][^\s]/);
+    expect(REFERRAL_ASK_BLOCKED_COPY.sign_in).not.toMatch(/[^\s][ ][—–][ ][^\s]/);
+  });
   it("builds a stable public slug from name, company, and user id", () => {
     expect(slugifyPart("Acme Robotics")).toBe("acme-robotics");
     expect(makeReferrerSlug("Parth Bhodia", "Acme", "abcdef12-3456-7890-abcd-ef1234567890")).toBe(
@@ -54,6 +104,8 @@ describe("companyReferrers helpers", () => {
     expect(referrer).toMatchObject({
       displayName: "Parth Bhodia",
       company: "Acme",
+      companyLocation: null,
+      companyWebsite: null,
       openToRefer: true,
       referredCount: 4,
     });
@@ -93,6 +145,8 @@ describe("companyReferrers helpers", () => {
       candidateYearsExperience: null as number | null,
       candidateHeadline: null as string | null,
       resumePdfPath: null as string | null,
+      candidateOutcome: null as CompanyReferralRequest["candidateOutcome"],
+      candidateOutcomeAt: null,
     };
     const rows = [
       { id: "1", referrerId: "r", candidateName: "A", candidateEmail: "", candidateLinkedin: null, ...emptyPacket, role: "SWE", notes: null, source: "request" as const, status: "requested" as const, createdAt: "2026-10-02T00:00:00Z" },
@@ -170,11 +224,62 @@ describe("companyReferrers helpers", () => {
       { stripe: "stripe.com" },
     );
     expect(companies).toEqual([
-      { company: "Stripe Inc", companySlug: "stripe", companyDomain: "stripe.com", openCount: 2, referredCount: 5 },
-      { company: "Acme", companySlug: "acme", companyDomain: "", openCount: 1, referredCount: 0 },
+      { company: "Stripe Inc", companySlug: "stripe", companyDomain: "stripe.com", companyLocation: "", companyWebsite: "", openCount: 2, referredCount: 5 },
+      { company: "Acme", companySlug: "acme", companyDomain: "", companyLocation: "", companyWebsite: "", openCount: 1, referredCount: 0 },
     ]);
     expect(filterOpenCompanies(companies, "str")).toHaveLength(1);
     expect(filterOpenCompanies(companies, "zzz")).toHaveLength(0);
+  });
+
+  it("prefers a desk website hostname over the jobs-corpus domain", () => {
+    const companies = aggregateOpenCompanies(
+      [
+        {
+          company: "Acme",
+          companySlug: "acme",
+          referredCount: 1,
+          companyLocation: "Austin, TX",
+          companyWebsite: "https://www.acme.com/careers",
+        },
+      ],
+      { acme: "jobs-corpus.example" },
+    );
+    expect(companies[0]).toMatchObject({
+      companyDomain: "acme.com",
+      companyLocation: "Austin, TX",
+      companyWebsite: "https://www.acme.com/careers",
+    });
+    const merged = aggregateOpenCompanies(
+      [
+        { company: "Acme", companySlug: "acme", referredCount: 0 },
+        { company: "Acme", companySlug: "acme", referredCount: 0, companyWebsite: "https://acme.com" },
+      ],
+      { acme: "jobs-corpus.example" },
+    );
+    expect(merged[0].companyDomain).toBe("acme.com");
+    expect(websiteHostname("https://www.stripe.com/jobs")).toBe("stripe.com");
+    expect(websiteHostname("not a url")).toBe("");
+  });
+
+  it("defaults the directory to most-referred, with open count as the tiebreak", () => {
+    const rows = [
+      { company: "Beta", companySlug: "beta", companyDomain: "", companyLocation: "", companyWebsite: "", openCount: 9, referredCount: 0 },
+      { company: "Alpha", companySlug: "alpha", companyDomain: "", companyLocation: "", companyWebsite: "", openCount: 1, referredCount: 4 },
+      { company: "Gamma", companySlug: "gamma", companyDomain: "", companyLocation: "", companyWebsite: "", openCount: 3, referredCount: 4 },
+    ];
+    // Alpha and Gamma tie on referrals, so the busier desk wins.
+    expect(sortOpenCompanies(rows).map((c) => c.company)).toEqual(["Gamma", "Alpha", "Beta"]);
+    expect(sortOpenCompanies(rows, "open").map((c) => c.company)).toEqual(["Beta", "Gamma", "Alpha"]);
+    // Sorted by copy, not in place: the caller's array keeps its own order.
+    expect(rows[0].company).toBe("Beta");
+  });
+
+  it("badges the top referrer only when somebody has actually referred someone", () => {
+    expect(topReferrerId([{ id: "a", referredCount: 0 }, { id: "b", referredCount: 0 }])).toBeNull();
+    expect(topReferrerId([])).toBeNull();
+    expect(topReferrerId([{ id: "a", referredCount: 2 }, { id: "b", referredCount: 7 }])).toBe("b");
+    // A missing count is treated as zero rather than as a win.
+    expect(topReferrerId([{ id: "a", referredCount: 1 }, { id: "b", referredCount: undefined }])).toBe("a");
   });
 });
 

@@ -11,7 +11,7 @@
 import { getSupabaseClient } from "@/lib/supabase";
 import { apiFetch } from "@/lib/apiClient";
 
-export type BillingPriceKey = "pro_monthly" | "pro_quarterly";
+export type BillingPriceKey = "pro_weekly" | "pro_monthly" | "pro_quarterly";
 
 export type BillingScanStatus = {
   enforced?: boolean;
@@ -34,12 +34,54 @@ export type BillingStatus = {
   scan: BillingScanStatus | null;
 };
 
-/** Display copy for the two live Stripe prices. The AMOUNTS here are labels
+export type PlanPriceLabel = {
+  title: string;
+  price: string;
+  cadence: string;
+  /** Value claim shown as plain text. Read on its own once this period is
+   *  selected, so it has to stand alone ("$13/mo, save 32%"), not as the tail
+   *  of a sentence that only made sense next to the chip. */
+  note?: string;
+  /** A longer period is cheaper per day, so every option except the longest
+   *  points at the next one up. Set only where there IS a better value to
+   *  point at — the quarterly option has none, and carries `note` alone. */
+  nudgeTo?: BillingPriceKey;
+  /** Chip copy for `nudgeTo`. Spelling out the target period matters: the
+   *  chip is the only thing telling the reader what the click will change. */
+  nudgeLabel?: string;
+};
+
+/** Display copy for the live Stripe prices. The AMOUNTS here are labels
  * only — the charge always comes from the Stripe Price object (see the
- * runbook: keep these in sync with the configured Price IDs). */
-export const PLAN_PRICE_LABELS: Record<BillingPriceKey, { title: string; price: string; cadence: string; note?: string }> = {
-  pro_monthly: { title: "Pro Monthly", price: "$19", cadence: "per month" },
-  pro_quarterly: { title: "Pro Quarterly", price: "$39", cadence: "every 3 months", note: "$13/mo, save 32%" },
+ * runbook: keep these in sync with the configured Price IDs).
+ *
+ * Weekly is priced above the monthly run rate on purpose: $4.99 x 52 is
+ * ~$21.6/mo against $19. It is the "I'm applying to two roles this week"
+ * impulse buy, and the nudge chip says so rather than pretending it is a
+ * bargain. */
+export const PLAN_PRICE_LABELS: Record<BillingPriceKey, PlanPriceLabel> = {
+  pro_weekly: {
+    title: "Pro Weekly",
+    price: "$4.99",
+    cadence: "per week, billed weekly",
+    note: "$21.6/mo if you keep it weekly",
+    nudgeTo: "pro_monthly",
+    nudgeLabel: "Monthly is $19, saves 12%",
+  },
+  pro_monthly: {
+    title: "Pro Monthly",
+    price: "$19",
+    cadence: "per month, billed monthly",
+    note: "$13/mo, save 32%",
+    nudgeTo: "pro_quarterly",
+    nudgeLabel: "Quarterly is $13/mo, save 32%",
+  },
+  pro_quarterly: {
+    title: "Pro Quarterly",
+    price: "$39",
+    cadence: "billed every 3 months",
+    note: "$13/mo, save 32%",
+  },
 };
 
 async function accessToken(): Promise<string | null> {

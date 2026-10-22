@@ -4,6 +4,12 @@ Status: **v1 in progress** on production (Supabase project `Resume Builder`, `ei
 
 Employee-referrer is a **desk**, not a rewards loop. An employee publishes “I work at X and can refer.” A candidate asks through a private link or a company search. The employee decides who to submit. Resunova never writes into the company’s ATS.
 
+Rewards now sit on top of it, which reverses the “not a rewards loop” line below:
+Pro days for submitting a candidate and for that candidate landing an interview,
+plus a shared ledger the invite program draws from. See
+[`REFERRAL_REWARDS_HLD.md`](REFERRAL_REWARDS_HLD.md). Still no cash to an
+employee of another company, for the reason given there.
+
 That is separate from **Profile → Referrals outreach** (`referral_contacts`, migration `021`): that table is “people I am asking.” This product is “people asking me.” It is also not the old friend-invite 20% / +7 Pro days card.
 
 Schema of record: `db/migrations/044_company_referrers.sql`.
@@ -41,10 +47,14 @@ Two new tables, next to (not replacing) `referral_contacts`.
 |---|---|
 | `user_id` | Unique. Owner of the desk |
 | `display_name`, `title`, `company`, `company_slug` | Public identity |
+| `company_website` | Required on save. Homepage or careers URL; shown on `/refer` and used for the logo host |
+| `company_location` | Required on save. City/region or Remote where this desk hires from |
 | `linkedin` | Optional public URL |
 | `bio` | Roles they can refer for (free text) |
 | `slug` | Public link key: `{name}-at-{company}-{6-char user suffix}` |
 | `open_to_refer` | Readable to signed-in users if true; hidden from search and slug page if paused |
+
+Migration `063` adds `company_location` and `company_website` (nullable for existing rows; the web upsert requires both).
 
 Work email is **not** stored. A public `SELECT` policy would leak it. Work-email verification is a later feature and needs a private column plus a non-public policy.
 
@@ -118,9 +128,13 @@ flowchart LR
 
 ## In v1 / not in v1
 
-**In:** signup, edit profile after signup, roles, open/paused, private share link, inbox statuses, remove a request, company directory of open employees, duplicate-email and inbox-cap guards.
+**In:** signup, edit profile after signup, roles, open/paused, private share link, inbox statuses, remove a request, company directory of open employees, duplicate-email and inbox-cap guards, top-referrer badge and directory sort, copy-ready referral note, rewards card, email opt-in for a new ask.
 
-**Not:** ATS submit, cash or Pro-day rewards, work-email verification, auto alumni matching, showing paused people in search, job-page strip, monthly slot caps, email notify on a new ask, more than one company per account.
+**Not:** ATS submit, cash rewards, work-email verification, auto alumni matching, showing paused people in search, job-page strip, monthly slot caps, more than one company per account.
+
+**Pro-day rewards and the email send** are specified in
+[`REFERRAL_REWARDS_HLD.md`](REFERRAL_REWARDS_HLD.md) (migration 059). The web
+half is here; both need resunova-api.
 
 ## Copy and UX constraints
 

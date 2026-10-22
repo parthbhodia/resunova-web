@@ -15,8 +15,12 @@
  * HONESTY NOTE: the Free-vs-Pro numbers below are the REAL server-side caps
  * (FREE_SCAN_DAILY_LIMIT=3, PRO_SCAN_DAILY_LIMIT=30, INTERVIEW free=2 / Pro=30
  * in the API's services/entitlements.py POLICY_V1). Everything else — job feed,
- * tracker, referrals, AI rewrites & PDF export — has no daily cap today, so it's
+ * tracker, referral DESKS, AI rewrites & PDF export — has no daily cap today, so it's
  * shown as "Included", not a fake number.
+ * The one exception is ASKING for a referral, which is a feature wall rather
+ * than a quota: the ask is a Pro capability (see referralAskEntitlement in
+ * lib/companyReferrers.ts). Publishing your own desk stays free — the people who
+ * help candidates must never have to pay to do it.
  * The CTA opens Stripe Checkout via POST /api/billing/checkout; when checkout
  * isn't live (flag off / signed out / request failure) it falls back to the
  * /pricing page instead of dead-ending.
@@ -94,7 +98,14 @@ function resetLabel(resetAt?: string | null): string | null {
   return `in ${Math.max(1, mins)}m`;
 }
 
+/**
+ * `source` records which surface opened the dialog. It exists so a wall can be
+ * told apart from a limit: a referral ask from a free plan is a missing feature,
+ * not a spent quota, and the copy in here reads the two differently.
+ */
 export type UpgradeDialogOptions = {
+  /** Where the upgrade was triggered from, e.g. "referral-ask". */
+  source?: string;
   /** Feature that hit its cap, e.g. "resume scans" / "interview prep". */
   feature?: string;
   /** The 429 payload `code` (daily_scan_limit_reached / interview_prep_limit_reached). */
@@ -125,7 +136,9 @@ const PLAN_ROWS: PlanRow[] = [
   { label: "Job match & tailoring", free: `${FREE_SCAN_DAILY_LIMIT} / day`, pro: `${PRO_SCAN_DAILY_LIMIT} / day` },
   { label: "Interview-prep scans", free: `${FREE_INTERVIEW_DAILY_LIMIT} / day`, pro: `${PRO_INTERVIEW_DAILY_LIMIT} / day` },
   { label: "AI rewrites & clean PDF export", free: "Included", pro: "Included", freeMuted: true },
-  { label: "Job feed, tracker & referrals", free: "Included", pro: "Included", freeMuted: true },
+  { label: "Job feed & application tracker", free: "Included", pro: "Included", freeMuted: true },
+  { label: "Ask an employee for a referral", free: "Pro", pro: "Included" },
+  { label: "Publish your own referral desk", free: "Included", pro: "Included", freeMuted: true },
 ];
 
 const PRO_UNLOCKS = [
@@ -133,6 +146,14 @@ const PRO_UNLOCKS = [
   `${PRO_SCAN_DAILY_LIMIT} job-match scores & tailored résumés / day`,
   `${PRO_INTERVIEW_DAILY_LIMIT} interview-prep scans / day`,
   "Clean PDF downloads included",
+];
+
+/** The referral wall sells the referral feature first, then the plan. */
+const PRO_UNLOCKS_REFERRAL = [
+  "Ask any employee on Resunova for a referral",
+  "Track each request until someone submits you",
+  `${PRO_SCAN_DAILY_LIMIT} résumé & ATS checks + AI fixes / day`,
+  `${PRO_INTERVIEW_DAILY_LIMIT} interview-prep scans / day`,
 ];
 
 export function UpgradeDialogProvider({ children }: { children: ReactNode }) {
@@ -149,6 +170,16 @@ export function UpgradeDialogProvider({ children }: { children: ReactNode }) {
 
   const hitLimit = typeof opts.limit === "number" || Boolean(opts.code);
   const resetIn = resetLabel(opts.resetAt);
+  // A feature wall and a spent quota are different pitches. "You've used your
+  // scans" invites a wait; "asking for a referral is part of Pro" invites a
+  // purchase, and the left rail should say which one it is selling.
+  const wallCopy: Record<string, { eyebrow: string; lede: string }> = {
+    "referral-ask": {
+      eyebrow: "Asking for a referral is part of Pro",
+      lede: "Ask employees at any company on Resunova, and track every request until someone submits you. Publishing your own referral desk stays free, because the people who help candidates should never have to pay for it.",
+    },
+  };
+  const wall = opts.source ? wallCopy[opts.source] : undefined;
 
   const [checkingOut, setCheckingOut] = useState(false);
 
@@ -181,27 +212,35 @@ export function UpgradeDialogProvider({ children }: { children: ReactNode }) {
               style={{ background: "color-mix(in srgb, var(--accent) 8%, var(--surface))" }}
             >
               <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">
-                {hitLimit ? "Daily free limit reached" : "You're on the Free plan"}
+                {wall?.eyebrow ?? (hitLimit ? "Daily free limit reached" : "You're on the Free plan")}
               </p>
 
-              <div className="flex items-center gap-3">
-                <span className="text-4xl font-bold leading-none text-[var(--text)]">
-                  {opts.limit ?? FREE_SCAN_DAILY_LIMIT}
-                </span>
-                <span className="text-2xl text-[var(--muted)]">→</span>
-                <span className="text-4xl font-bold leading-none text-accent">{PRO_SCAN_DAILY_LIMIT}</span>
-              </div>
+              {/* The 3 → 30 scan counter is meaningless on a feature wall, so it is
+                  hidden there rather than shown next to a pitch about referrals. */}
+              {wall ? null : (
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl font-bold leading-none text-[var(--text)]">
+                    {opts.limit ?? FREE_SCAN_DAILY_LIMIT}
+                  </span>
+                  <span className="text-2xl text-[var(--muted)]">→</span>
+                  <span className="text-4xl font-bold leading-none text-accent">{PRO_SCAN_DAILY_LIMIT}</span>
+                </div>
+              )}
 
               <DialogTitle className="text-[19px] font-semibold leading-snug text-[var(--text)]">
                 Unlock the <span className="text-accent">full job-hunt toolkit</span>
               </DialogTitle>
               <DialogDescription className="text-[13px] leading-relaxed text-[var(--muted)]">
-                Pro is the whole engine: {PRO_SCAN_DAILY_LIMIT} ATS checks &amp; AI fixes per day,
-                tailored résumés for every job, and clean PDF downloads.
+                {wall?.lede ?? (
+                  <>
+                    Pro is the whole engine: {PRO_SCAN_DAILY_LIMIT} ATS checks &amp; AI fixes per day,
+                    tailored résumés for every job, and clean PDF downloads.
+                  </>
+                )}
               </DialogDescription>
 
               <ul className="mt-1 flex flex-col gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-                {PRO_UNLOCKS.map((p) => (
+                {(wall ? PRO_UNLOCKS_REFERRAL : PRO_UNLOCKS).map((p) => (
                   <li key={p} className="flex items-start gap-2.5 text-[13px] text-[var(--text)]">
                     <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] text-accent">
                       {CheckIcon}

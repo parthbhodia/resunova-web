@@ -70,9 +70,10 @@ export interface QueueItem {
    * Exists for exactly one class so far: a rater row whose TERM the scanner
    * already matched (`unbacked`). Its kind is `qualification`, and
    * qualifications band as "Could get you filtered out" — but nothing can
-   * filter on a term that is present in the document, so the honest home is
-   * the upside band. Optional and absent everywhere else: an unset override
-   * is byte-identical old behaviour.
+   * filter on a term that is present in the document, and nothing about it
+   * moves the score, so it sits in the collapsed "Could be stronger" band.
+   * Optional and absent everywhere else: an unset override is byte-identical
+   * old behaviour.
    */
   band?: QueueBand;
 }
@@ -369,7 +370,7 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
   let notCoverable = 0;
   let ignored = 0;
   let covered = 0;
-  let contextual = 0;
+  let advisory = 0;
   for (const it of items) {
     if (it.status === "applied") applied++;
     else if (it.status === "needs_review") needsReview++;
@@ -382,7 +383,10 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
     // announcing the exclusion (field: "if it is not included fucking keep it
     // to your self"). They render in their own advisory band; they are not
     // left to review.
-    else if (it.kind === "contextual") contextual++;
+    else if (it.kind === "contextual") advisory++;
+    // Same reasoning for the collapsed "Could be stronger" band: optional,
+    // already on the résumé, and never what the header or bulk button counts.
+    else if (it.band === "stronger") advisory++;
   }
   return {
     total: items.length,
@@ -391,7 +395,7 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
     notCoverable,
     ignored,
     covered,
-    open: items.length - applied - needsReview - notCoverable - ignored - covered - contextual,
+    open: items.length - applied - needsReview - notCoverable - ignored - covered - advisory,
   };
 }
 
@@ -417,12 +421,13 @@ export function queueCounts(items: readonly QueueItem[]): QueueCounts {
  * Band is derived from kind, so it needs no join between two independent LLM
  * outputs and cannot collapse to one bucket the way importance does.
  */
-export type QueueBand = "blocker" | "boost" | "context" | "covered";
+export type QueueBand = "blocker" | "boost" | "stronger" | "context" | "covered";
 
 /** Ordered by what it costs to leave the band unaddressed. */
 export const QUEUE_BAND_ORDER: readonly QueueBand[] = [
   "blocker",
   "boost",
+  "stronger",
   "context",
   // Last on purpose: it is the only band that asks nothing of the reader, so
   // it must never sit above work.
@@ -441,6 +446,7 @@ const BAND_OF_KIND: Record<QueueKind, QueueBand> = {
 export const QUEUE_BAND_LABEL: Record<QueueBand, string> = {
   blocker: "Could get you filtered out",
   boost: "Worth adding",
+  stronger: "Could be stronger",
   context: "About the employer",
   covered: "Already covered",
 };
@@ -454,6 +460,7 @@ export const QUEUE_BAND_LABEL: Record<QueueBand, string> = {
 export const QUEUE_BAND_LABEL_DONE: Record<QueueBand, string> = {
   blocker: "Hard requirements",
   boost: "Keywords",
+  stronger: QUEUE_BAND_LABEL.stronger,
   context: QUEUE_BAND_LABEL.context,
   covered: QUEUE_BAND_LABEL.covered,
 };
@@ -465,6 +472,7 @@ export type QueueTone = "crit" | "warn" | "muted" | "good";
 const BAND_TONE: Record<QueueBand, QueueTone> = {
   blocker: "crit",
   boost: "warn",
+  stronger: "muted",
   context: "muted",
   covered: "good",
 };
@@ -497,10 +505,16 @@ export interface QueueGroup {
  *
  * The advisory bands still collapse: neither asks the user to do anything, so
  * length there is cost without benefit.
+ *
+ * `stronger` starts fully collapsed. Its rows are already on the résumé and
+ * move nothing; listed open under "Worth adding" they read as eight vague
+ * chores (field: "i dont think we need all of these to be added, this is
+ * vague").
  */
 export const BAND_ROW_CAP: Record<QueueBand, number> = {
   blocker: Infinity,
   boost: Infinity,
+  stronger: 0,
   context: 3,
   covered: 3,
 };

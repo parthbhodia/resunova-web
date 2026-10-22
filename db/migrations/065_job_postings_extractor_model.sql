@@ -1,4 +1,4 @@
--- Migration 059: record WHICH model extracted each posting's requirement_concepts
+-- Migration 065 (numbered 059 until main took 059-064 for referrals): record WHICH model extracted each posting's requirement_concepts
 --
 -- The feed's weighted match score renormalizes over non-empty importance
 -- buckets, and those bucket distributions differ per extractor. Measured on one

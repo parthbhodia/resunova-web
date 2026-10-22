@@ -7,6 +7,7 @@
 
 import { useEffect, useState, useCallback, type CSSProperties, type ReactNode } from "react";
 import { tailorHref } from "@/lib/tailorRoute";
+import { stashTailorPrefillFromLibrary } from "@/lib/tailorPrefill";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { UmbcProvider } from "@/contexts/UmbcContext";
@@ -346,12 +347,13 @@ function AppShellBody({ children }: { children: ReactNode }) {
                 <SheetTitle className="sr-only">Resume history</SheetTitle>
                 <ResumeSidebar
                   activeFolder={null}
-                  onSelect={(folder) => {
+                  onSelect={(folder, record) => {
                     try {
                       sessionStorage.removeItem(RN_BUILDER_LAYOUT_ONLY_KEY);
                     } catch {
                       /* ignore */
                     }
+                    stashTailorPrefillFromLibrary({ resume_doc: record.resume_doc });
                     router.push(
                       tailorHref({ base: folder, intentJob: true }),
                     );

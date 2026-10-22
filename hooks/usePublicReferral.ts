@@ -19,11 +19,16 @@ import {
   filterOpenCompanies,
   listOpenReferrersForCompany,
   listOpenReferralCompanies,
+  referralAskEntitlement,
+  REFERRAL_ASK_BLOCKED_COPY,
+  sortOpenCompanies,
   slugifyPart,
+  type OpenCompanySort,
   uploadReferralResume,
   type CompanyReferrer,
   type OpenReferralCompany,
 } from "@/lib/companyReferrers";
+import { apiFetch, scanLimitFrom } from "@/lib/apiClient";
 import { fetchFeaturedCompanies } from "@/lib/jobsApi";
 import {
   REFERRAL_ASK_MESSAGES,
@@ -121,12 +126,15 @@ export type OpenCompaniesDirectory = {
   status: "loading" | "empty" | "error" | "ready";
   companies: OpenReferralCompany[];
   filtered: OpenReferralCompany[];
+  sort: OpenCompanySort;
+  setSort: (next: OpenCompanySort) => void;
   error: string | null;
 };
 
 /** Load open companies once; search filters the grid client-side (no people list). */
 export function useOpenReferralCompanies(enabled = true): OpenCompaniesDirectory {
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<OpenCompanySort>("referred");
   const [status, setStatus] = useState<OpenCompaniesDirectory["status"]>(enabled ? "loading" : "empty");
   const [companies, setCompanies] = useState<OpenReferralCompany[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -162,7 +170,8 @@ export function useOpenReferralCompanies(enabled = true): OpenCompaniesDirectory
     };
   }, [enabled]);
 
-  const filtered = filterOpenCompanies(companies, query);
+  // Sort after filtering so the chosen order holds for a filtered view too.
+  const filtered = sortOpenCompanies(filterOpenCompanies(companies, query), sort);
   const viewStatus: OpenCompaniesDirectory["status"] =
     status === "ready" && filtered.length === 0 && query.trim().length > 0
       ? "empty"
@@ -174,6 +183,8 @@ export function useOpenReferralCompanies(enabled = true): OpenCompaniesDirectory
     status: enabled ? viewStatus : "empty",
     companies: enabled ? companies : [],
     filtered: enabled && status === "ready" ? filtered : [],
+    sort,
+    setSort,
     error: enabled ? error : null,
   };
 }
@@ -220,13 +231,72 @@ export function useCompanyOpenReferrers(companySlug: string | null): CompanyRefe
     : { status: "loading", referrers: [], error: null };
 }
 
-export type AskReferralOutcome = "sent" | "sign_in" | "error";
+export type AskReferralOutcome = "sent" | "sign_in" | "upgrade" | "error";
+
+/**
+ * Plan gate for sending an ask.
+ *
+ * Asking is Pro-only. The authoritative tier comes from the API via
+ * /api/scan-limit-status, so this reads `plan` / `unlimited` rather than
+ * re-deciding the rule locally. A signed-in free (or unknown) reading is an
+ * upgrade wall; only a missing session asks for sign-in.
+ */
+export function useReferralAskEntitlement(enabled = true) {
+  const [state, setState] = useState<{ signedIn: boolean; plan: string | null; unlimited: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    void (async () => {
+      const client = getSupabaseClient();
+      let signedIn = false;
+      try {
+        const { data } = await client.auth.getSession();
+        signedIn = !!data.session?.user;
+      } catch {
+        signedIn = false;
+      }
+      if (cancelled) return;
+      if (!signedIn) {
+        setState({ signedIn: false, plan: null, unlimited: false });
+        return;
+      }
+      try {
+        const resp = await apiFetch("/api/scan-limit-status");
+        if (cancelled) return;
+        if (!resp.ok) {
+          setState({ signedIn: true, plan: null, unlimited: false });
+          return;
+        }
+        const status = scanLimitFrom(await resp.json());
+        if (cancelled) return;
+        setState({ signedIn: true, plan: status.plan, unlimited: status.unlimited });
+      } catch {
+        if (!cancelled) setState({ signedIn: true, plan: null, unlimited: false });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  if (!enabled || !state) return { status: "loading" as const, entitlement: null };
+  return {
+    status: "ready" as const,
+    entitlement: referralAskEntitlement(state),
+  };
+}
 
 export function useReferralAsk(referrer: CompanyReferrer) {
   const [form, setForm] = useState<ReferralAskForm>(EMPTY_ASK);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Unknown until the plan check lands, and treated as blocked: the submit
+  // button stays disabled rather than letting a request through the gap.
+  const gate = useReferralAskEntitlement();
+  const entitlement = gate.status === "ready" ? gate.entitlement : null;
+  const allowed = entitlement?.allowed === true;
 
   useEffect(() => {
     let cancelled = false;
@@ -268,6 +338,18 @@ export function useReferralAsk(referrer: CompanyReferrer) {
   };
 
   const submit = async (): Promise<AskReferralOutcome> => {
+    // Checked here as well as in the UI: the button being disabled is a
+    // affordance, not the gate, and a submit can still arrive from a stale
+    // render or a keyboard submit on a form the user has not scrolled to.
+    if (!allowed) {
+      // Plan check still in flight: do not guess sign-in vs upgrade. Enter-key
+      // submit can fire while the button is disabled.
+      if (!entitlement) {
+        return "error";
+      }
+      setError(REFERRAL_ASK_BLOCKED_COPY[entitlement.reason]);
+      return entitlement.reason === "sign_in" ? "sign_in" : "upgrade";
+    }
     setSaving(true);
     setError(null);
     let signedIn = false;
@@ -335,5 +417,17 @@ export function useReferralAsk(referrer: CompanyReferrer) {
     return "sent";
   };
 
-  return { form, setField, setResumeFile, saving, done, error, submit };
+  return {
+    form,
+    setField,
+    setResumeFile,
+    saving,
+    done,
+    error,
+    submit,
+    /** `null` while the plan check is in flight; the form treats it as blocked. */
+    entitlement,
+    allowed,
+    checkingPlan: gate.status === "loading",
+  };
 }

@@ -62,6 +62,38 @@ The scan screen reads this and says scoring is paused. The rest of the site stay
 | `/api/suggest-gap-fix` | POST | JD gap rewrite suggestions. Additive: `suggested_role` on a suggestion retitles that existing Experience role (aggressive mode only; frontend also fills this from the posting title when the model omits it). |
 | `/api/extract-jd` | POST | Parse job description URL/text |
 
+## Public share links
+
+Recipients open `/r/?id=<shortid>`. Minting and revoking happen from `ShareButton`.
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/share/{folder}` | POST | Mint (or reuse) a link (auth). Body `{ pdf_url }`. Response `{ shortid, pdf_url, views?, reused }` |
+| `/api/share/{shortid}` | GET | Public resolve to `{ shortid, folder, pdf_url, views, created_at }`. `410` when revoked |
+| `/api/share/{shortid}` | DELETE | Owner revoke (auth) |
+
+Create and revoke act as the Supabase bearer's user and `401` without one. A `user_id` in the body is ignored; `ShareButton` still sends it, which is harmless.
+
+`folder` is either a tailored résumé's library folder (checked against `resumes`) or `analyze-<analysis id>` for an Analyze scan (checked against `resume_analyses`). For a scan the backend always links the stored `source_pdf_url` and ignores the `pdf_url` in the body. A scan with no uploaded PDF returns `404`, so the UI only offers Share when `sourcePdfUrl` is set.
+
+## Referral rewards
+
+Supabase bearer. See [`REFERRAL_REWARDS_HLD.md`](REFERRAL_REWARDS_HLD.md).
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/referral/rewards` | GET | The caller's `referral_reward_ledger` rows, newest first (auth; `resunova-api` `feat/referral-rewards`) |
+
+Response `{ entries: [...] }`, each entry `{ id, kind, source, days, status, subject, createdAt, grantedAt }`.
+
+`kind` ∈ `referred` | `interview` | `invite_signup` | `invite_activated`. `source` ∈ `desk_referral` | `invite`. `status` ∈ `pending` | `granted` | `revoked`.
+
+`pending` is normal for a few seconds: a database trigger records the award and the backend has not yet extended the subscription. The UI shows those days as "on the way" rather than hiding them, so **do not filter pending rows out of this response** or a reward looks like it was never earned.
+
+A `404` is the expected response until this route ships; the client reads it as an empty list, not an error.
+
+The candidate-reported outcome does **not** go through this API. It is the `report_referral_outcome` RPC called on Supabase directly, because RLS grants UPDATE on the request row to the referrer rather than to the candidate.
+
 ## Advisor
 
 | Endpoint | Method |

@@ -27,6 +27,9 @@ vi.mock("@/lib/productNotices", () => ({
   persistLastSeenSentReferral: vi.fn().mockResolvedValue(undefined),
   onReferralInboxRefresh: () => () => {},
   onSentReferralRefresh: () => () => {},
+  markRewardIdsSeen: vi.fn(),
+  rewardNotificationId: (entry: { id: string; kind: string; status: string }) =>
+    `${entry.id}:${entry.kind}:${entry.status}`,
 }));
 
 vi.mock("@/lib/companyReferrers", async (orig) => ({
@@ -42,6 +45,7 @@ vi.mock("@/lib/companyReferrers", async (orig) => ({
 }));
 
 import { CompanyReferrerPanel } from "@/components/profile/CompanyReferrerPanel";
+import { REFERRER_PROFILE_REQUIRED } from "@/lib/companyReferrers";
 
 beforeEach(() => {
   mockFetchMyReferrerProfile.mockResolvedValue(null);
@@ -70,6 +74,8 @@ describe("CompanyReferrerPanel", () => {
       linkedin: null,
       slug: "parth-bhodia-at-acme-abcdef",
       bio: "Backend, intern",
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       referredCount: 3,
       createdAt: "",
@@ -119,19 +125,39 @@ describe("CompanyReferrerPanel", () => {
       linkedin: "",
       slug: "parth-bhodia-at-acme-abcdef",
       bio: "Backend",
+      companyLocation: "San Francisco, CA",
+      companyWebsite: "https://example.com",
       openToRefer: true,
       createdAt: "",
       updatedAt: "",
     });
     render(<CompanyReferrerPanel displayName="Parth Bhodia" title="Software Engineer" linkedin="" />);
     await screen.findByRole("button", { name: "Sign up as a referrer" });
-    // ⚠️ Regex, not exact text: MUI appends a "*" to a required label
-    // (MuiFormLabel-asterisk), so an exact match silently stops finding the
-    // field the moment it becomes required.
-    await userEvent.type(screen.getByLabelText(/Company you work at/), "Acme");
+    // ⚠️ Regex, not exact text: MUI-style required labels gain a "*", and an
+    // exact match silently stops finding a field the moment it becomes required.
+    await userEvent.type(screen.getByLabelText(/Company name/), "Acme");
+    await userEvent.type(screen.getByLabelText(/Company website/), "https://acme.com");
+    await userEvent.type(screen.getByLabelText(/Company location/), "Austin, TX");
     await userEvent.click(screen.getByRole("button", { name: "Sign up as a referrer" }));
-    expect(mockUpsertMyReferrerProfile).toHaveBeenCalled();
+    expect(mockUpsertMyReferrerProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        company: "Acme",
+        companyWebsite: "https://acme.com",
+        companyLocation: "Austin, TX",
+      }),
+    );
     expect(await screen.findByText("You're signed up to refer")).toBeInTheDocument();
     expect(await screen.findByText("Your referral link")).toBeInTheDocument();
+  });
+
+  it("refuses signup without a company website or location", async () => {
+    render(<CompanyReferrerPanel displayName="Parth Bhodia" title="Software Engineer" linkedin="" />);
+    await screen.findByRole("button", { name: "Sign up as a referrer" });
+    await userEvent.type(screen.getByLabelText("Company name"), "Acme");
+    await userEvent.click(screen.getByRole("button", { name: "Sign up as a referrer" }));
+    expect(mockUpsertMyReferrerProfile).not.toHaveBeenCalled();
+    expect(
+      (await screen.findAllByText(REFERRER_PROFILE_REQUIRED)).length,
+    ).toBeGreaterThan(0);
   });
 });

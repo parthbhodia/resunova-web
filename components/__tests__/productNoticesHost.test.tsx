@@ -62,6 +62,8 @@ const referrer = {
   linkedin: null,
   slug: "parth-at-acme",
   bio: null,
+  companyLocation: "San Francisco, CA",
+  companyWebsite: "https://example.com",
   openToRefer: true,
   createdAt: "",
   updatedAt: "",

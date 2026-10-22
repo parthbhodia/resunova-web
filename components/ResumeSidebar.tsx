@@ -9,7 +9,7 @@ import { scoreColor } from "@/lib/utils";
 
 interface Props {
   activeFolder: string | null;
-  onSelect: (folder: string) => void;
+  onSelect: (folder: string, record: ResumeRecord) => void;
 }
 
 export default function ResumeSidebar({ activeFolder, onSelect }: Props) {
@@ -153,7 +153,7 @@ export default function ResumeSidebar({ activeFolder, onSelect }: Props) {
                 >
                   {/* Main row — click to use as base */}
                   <button
-                    onClick={() => onSelect(r.folder)}
+                    onClick={() => onSelect(r.folder, r)}
                     title="Use as base for next generation"
                     style={{
                       display: "flex", alignItems: "center", gap: 8,

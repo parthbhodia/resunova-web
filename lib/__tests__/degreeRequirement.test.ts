@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   degreeRequirementSatisfied,
   highestDegreeIn,
+  isCredentialRequirement,
+  isUnleveledDegreeRequirement,
   requiredDegreeLevel,
 } from "@/lib/degreeRequirement";
 
@@ -56,6 +58,37 @@ describe("a higher degree clears a lower requirement", () => {
 });
 
 /**
+ * Field report: "CS degree" was flagged for a candidate whose résumé listed a
+ * Computer Science degree, because a requirement naming no level was not
+ * treated as a degree requirement at all.
+ */
+describe("a degree requirement that names no level", () => {
+  it("is a degree requirement and a credential", () => {
+    expect(isUnleveledDegreeRequirement("CS degree")).toBe(true);
+    expect(isUnleveledDegreeRequirement("Degree in Computer Science or related field")).toBe(true);
+    expect(isCredentialRequirement("CS degree")).toBe(true);
+  });
+
+  it("is satisfied by any degree on the résumé", () => {
+    expect(
+      degreeRequirementSatisfied("CS degree", "EDUCATION\nBachelor of Science, Computer Science"),
+    ).toBe(true);
+    expect(degreeRequirementSatisfied("Degree in a related field", "M.S. in Physics")).toBe(true);
+  });
+
+  it("is not satisfied when the résumé lists no degree", () => {
+    expect(degreeRequirementSatisfied("CS degree", "EXPERIENCE\nSoftware Developer.")).toBe(false);
+    expect(degreeRequirementSatisfied("CS degree", "Jane Doe · Boston, MA")).toBe(false);
+  });
+
+  it("does not read 'degree' phrasings that are not degree asks", () => {
+    expect(isUnleveledDegreeRequirement("360-degree feedback")).toBe(false);
+    expect(isUnleveledDegreeRequirement("high degree of autonomy")).toBe(false);
+    expect(isCredentialRequirement("360-degree feedback")).toBe(false);
+  });
+});
+
+/**
  * The abbreviation trap. This repo already shipped this bug in another form --
  * jp_is_non_us read "Pune, IN" as Indiana -- so the guard is pinned here.
  */
@@ -85,6 +118,11 @@ describe("bare two-letter abbreviations are never read as degrees", () => {
     expect(
       highestDegreeIn("Bachelor of Science, 2019\nMaster of Science, 2021"),
     ).toBe("master");
+  });
+
+  it("reads dotted B.E. and M.E.", () => {
+    expect(highestDegreeIn("B.E. Computer Science, Anna University")).toBe("bachelor");
+    expect(highestDegreeIn("M.E. Electrical Engineering")).toBe("master");
   });
 
   it("returns null for a résumé with no education at all", () => {

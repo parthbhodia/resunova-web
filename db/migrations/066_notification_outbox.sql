@@ -1,4 +1,4 @@
--- Migration 060: notification outbox — the seam between "it happened" and
+-- Migration 066 (numbered 060 until main took 059-064 for referrals): notification outbox — the seam between "it happened" and
 --                "they were told".
 --
 -- WHY AN OUTBOX AND NOT A TRIGGER THAT SENDS.
@@ -21,7 +21,7 @@
 -- this.
 --
 -- APPLY: Supabase SQL Editor → New query. All of this is transaction-safe
--- (no CREATE INDEX CONCURRENTLY — see migration 059 for that trap).
+-- (no CREATE INDEX CONCURRENTLY — see migration 065 for that trap).
 
 -- ── 1. The outbox ────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
--- Migration 061: fire the drain from the database, not from GitHub Actions.
+-- Migration 067 (numbered 061 until main took 059-064 for referrals): fire the drain from the database, not from GitHub Actions.
 --
 -- ⚠️ THIS REPLACES A GITHUB ACTIONS CRON, AND THE REASON IS LATENCY. GitHub's
 -- scheduler is best-effort and drifts badly under load — this project has
@@ -16,9 +16,9 @@
 -- a background worker performs the call. It cannot block or fail the referral
 -- the user just submitted, which is what makes it safe to call from a trigger.
 -- What it cannot do is RETRY — which is exactly why the outbox row (migration
--- 060) is written first and the drain is what actually sends.
+-- 066) is written first and the drain is what actually sends.
 --
--- APPLY AFTER 060. Supabase SQL Editor → New query.
+-- APPLY AFTER 066. Supabase SQL Editor → New query.
 
 create extension if not exists pg_net;
 create extension if not exists pg_cron;
@@ -81,8 +81,8 @@ grant execute on function public.ping_notification_drain() to service_role;
 
 -- ── 3. The instant path: the trigger pings after queueing ────────────────────
 --
--- `create or replace` so this is safe to run whether or not 060's version is
--- already installed. The body is 060's, with the ping appended.
+-- `create or replace` so this is safe to run whether or not 066's version is
+-- already installed. The body is 066's, with the ping appended.
 
 create or replace function public.queue_referral_notification()
 returns trigger

@@ -34,6 +34,21 @@ import {
 
 let SUBSCRIBED = false;
 
+/**
+ * The surface the visitor is on when the account event lands. App views all
+ * live at `/?view=...` under the homepage's title, so without this a sign-up
+ * cannot be attributed to the surface that produced it. Carried across from the
+ * competing implementation main shipped in #341, which had this and we did not.
+ */
+function currentView(): string {
+  if (typeof window === "undefined") return "home";
+  try {
+    return new URLSearchParams(window.location.search).get("view") || "home";
+  } catch {
+    return "home";
+  }
+}
+
 export default function AnalyticsAuthEvents() {
   useEffect(() => {
     // No Supabase env (bare marketing builds, local SEO previews) means no
@@ -65,7 +80,7 @@ export default function AnalyticsAuthEvents() {
           signUpPending: consumeSignUpPending(),
         });
         if (!decision) return;
-        trackEvent(decision.name, { method: decision.method });
+        trackEvent(decision.name, { method: decision.method, view: currentView() });
         // Mark AFTER reporting, and mark both: a new account's first session
         // reports sign_up, and without also sealing the login key the very
         // next refocus re-emit would report a login seconds later.
