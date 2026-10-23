@@ -2009,13 +2009,20 @@ export default function ResumeBuilder({
       });
       if (!resp.ok) {
         const body = await resp.text().catch(() => "");
+        let msg = `Re-check failed (HTTP ${resp.status})`;
         try {
-          const j = JSON.parse(body) as { code?: string; limit?: number };
+          const j = JSON.parse(body) as { error?: string; code?: string; limit?: number };
+          if (j?.error) msg = j.error;
           if (resp.status === 429) {
             handleScanError(j);
           }
         } catch {
           /* */
+        }
+        // A 429 already has its own scan-limit toast; anything else (a 422 gate
+        // refusal, a 5xx) used to vanish and leave a stale score with no reason.
+        if (resp.status !== 429 && tailorJobIsCurrent(requestJobId)) {
+          setError(toUserFriendlyErrorMessage(msg));
         }
         return false;
       }
@@ -2026,7 +2033,12 @@ export default function ResumeBuilder({
         error?: string;
         bulletAnalysis?: LiveBulletItem[];
       };
-      if (data.error || !data.ratings) return false;
+      if (data.error || !data.ratings) {
+        if (tailorJobIsCurrent(requestJobId)) {
+          setError(toUserFriendlyErrorMessage(data.error ?? "Re-check returned no ratings."));
+        }
+        return false;
+      }
 
       if (tailorJobIsCurrent(requestJobId)) applyStructuredFromAnalyze(raw, prof);
 
@@ -2104,6 +2116,7 @@ export default function ResumeBuilder({
         }
         setScoreStale(false);
         setFixCollisionNotice(null);
+        setError(null);
       }
       return true;
     } catch (e: unknown) {
