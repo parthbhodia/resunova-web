@@ -1,6 +1,12 @@
 {
-  "updated": "2026-10-12T15:57:10Z",
+  "updated": "2026-10-23T11:55:07Z",
   "events": [
+    {
+      "at": "2026-10-23T11:22:37.247733+00:00",
+      "kind": "ui",
+      "state": "crash",
+      "detail": "/resume-examples/ Failed to load chunk https://www.resunova.io/_next/static/chunks/0aps_w276lpe6.js from module 64893"
+    },
     {
       "at": "2026-10-12T15:57:10Z",
       "kind": "tailor",
