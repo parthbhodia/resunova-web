@@ -33,10 +33,14 @@ describe("activeRailKey", () => {
     );
   });
 
+  it("lights Profile on the profile route and its view", () => {
+    expect(activeRailKey({ ...idle, onCareerProfilePage: true })).toBe("profile");
+    expect(activeRailKey({ ...idle, active: "profile" })).toBe("profile");
+  });
+
   it("folded destinations light nothing on the rail", () => {
     expect(activeRailKey({ ...idle, active: "cover-letter" })).toBeNull();
     expect(activeRailKey({ ...idle, active: "advisor" })).toBeNull();
     expect(activeRailKey({ ...idle, active: "account" })).toBeNull();
-    expect(activeRailKey({ ...idle, onCareerProfilePage: true })).toBeNull();
   });
 });

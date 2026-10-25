@@ -8,9 +8,11 @@
  * the rail always came back shrunk. There is no second state to get stuck in.
  *
  * Order is the product funnel: work on the document (Home, Analyze, Tailor,
- * Templates, Resumes), then use it (Jobs, Refer, Prep), then Feedback. Cover
- * letter, History, theme, Contact and Advisor live in the account menu. Nothing
- * is removed. The mobile bottom bar is a separate component and is not this rail.
+ * Templates, Resumes), then use it (Jobs, Refer, Prep), then Feedback. Profile
+ * is a utility row rather than account-menu-only: the referral desk and scan
+ * usage both live there, and the avatar was the only route. Cover letter,
+ * History, theme, Contact and Advisor live in the account menu. Nothing is
+ * removed. The mobile bottom bar is a separate component and is not this rail.
  *
  * Stays on the shadcn sidebar primitive. New chrome elsewhere goes to MUI, and
  * the shell is still on the "to migrate" side of that table. Converting
@@ -32,6 +34,7 @@ import { NAV_ICONS } from "./nav-icons";
 import { RailQuota } from "./ScansRemainingPill";
 import { accountHasQuota, useScansRemaining } from "./useScansRemaining";
 import {
+  RAIL_ACCOUNT,
   RAIL_APPLY,
   RAIL_ARIA,
   RAIL_DOCUMENT,
@@ -185,6 +188,9 @@ export function AppSidebar({
       case "prep":
         goPath("/interview-prep", pathLocked("/interview-prep"));
         break;
+      case "profile":
+        goPath("/profile", pathLocked("/profile"));
+        break;
     }
   };
 
@@ -245,6 +251,20 @@ export function AppSidebar({
                 railKey={key}
                 active={lit === key}
                 locked={applyLocked(key)}
+                onClick={() => onRail(key)}
+              />
+            ))}
+          </div>
+
+          <RailRule />
+
+          <div className="flex flex-col gap-0.5">
+            {RAIL_ACCOUNT.map((key) => (
+              <RailButton
+                key={key}
+                railKey={key}
+                active={lit === key}
+                locked={pathLocked("/profile")}
                 onClick={() => onRail(key)}
               />
             ))}

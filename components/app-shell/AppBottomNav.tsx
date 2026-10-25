@@ -153,8 +153,8 @@ export function AppBottomNav({
                 {userInitial}
               </span>
               <span className="flex flex-col">
-                <span className="text-sm font-medium text-[var(--text)]">Account</span>
-                <span className="text-xs text-[var(--muted)]">Profile & settings</span>
+                <span className="text-sm font-medium text-[var(--text)]">Account settings</span>
+                <span className="text-xs text-[var(--muted)]">Plan, sign-in and privacy</span>
               </span>
             </button>
           )}
