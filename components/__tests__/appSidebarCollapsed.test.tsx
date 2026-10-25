@@ -37,6 +37,7 @@ function renderSidebar(opts: { anonMode?: boolean } = {}) {
   const onSignIn = vi.fn();
   const onSwitchView = vi.fn();
   const onHistoryOpenChange = vi.fn();
+  const onToggleTheme = vi.fn();
   render(
     <SidebarProvider>
       <AppSidebar
@@ -49,7 +50,7 @@ function renderSidebar(opts: { anonMode?: boolean } = {}) {
         advisorAllowed={false}
         isUmbc={false}
         theme="light"
-        onToggleTheme={vi.fn()}
+        onToggleTheme={onToggleTheme}
         userInitial="T"
         onHistoryOpenChange={onHistoryOpenChange}
         onGoBuilderFlow={onGoBuilderFlow}
@@ -59,7 +60,7 @@ function renderSidebar(opts: { anonMode?: boolean } = {}) {
       />
     </SidebarProvider>,
   );
-  return { onGoBuilderFlow, onSignIn, onSwitchView, onHistoryOpenChange };
+  return { onGoBuilderFlow, onSignIn, onSwitchView, onHistoryOpenChange, onToggleTheme };
 }
 
 describe("the rail", () => {
@@ -103,10 +104,23 @@ describe("the rail", () => {
     expect(screen.queryByRole("button", { name: "Cover letter" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
+    expect(screen.getByText("Your work")).toBeInTheDocument();
+    expect(screen.getByText("Account")).toBeInTheDocument();
+    expect(screen.getByText("About")).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Cover letter" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "History" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Dark mode" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemcheckbox", { name: "Dark mode" })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
     expect(screen.getByRole("menuitem", { name: "Contact" })).toBeInTheDocument();
+  });
+
+  it("switches the theme from the menu without leaving the state guessable", () => {
+    const { onToggleTheme } = renderSidebar();
+    fireEvent.click(screen.getByRole("button", { name: "Account" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Dark mode" }));
+    expect(onToggleTheme).toHaveBeenCalledTimes(1);
   });
 });
 
