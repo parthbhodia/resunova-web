@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import ResumeUpload from "./ResumeUpload";
 import TargetsEditor from "./TargetsEditor";
+import ApplicationAnswers, { type AnswersSaveState } from "./ApplicationAnswers";
 import {
   HubCard,
   ProfileGrid,
@@ -108,6 +109,10 @@ export default function ProfilePage() {
   const tdDirty = typeof window !== "undefined" && tdBaseline !== "" && tdBaseline !== JSON.stringify(tailorDefaults);
   const anyDirty = dirty || tdDirty;
   const anySaving = saving || tdSaving;
+  // The answers live in the Tailor-defaults record, so only that record's state counts.
+  // `tdBaseline` stays empty until the saved profile has loaded.
+  const answersSaveState: AnswersSaveState =
+    tdBaseline === "" ? "loading" : tdSaving ? "saving" : tdDirty ? "unsaved" : "saved";
 
   useEffect(() => {
     let mounted = true;
@@ -274,6 +279,25 @@ export default function ProfilePage() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [pendingCareerScroll, tab]);
+
+  // The extension links here (`?edit=application-answers`) when a form asked something
+  // the profile has no answer for. Land on the card, not at the top of a tab.
+  const wantsAnswers = searchParams.get("edit") === "application-answers";
+  const answersScrolledRef = useRef(false);
+  useEffect(() => {
+    if (!wantsAnswers || answersScrolledRef.current) return;
+    if (tab !== "career-profile") {
+      selectTab("career-profile");
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const card = document.getElementById("application-answers");
+      if (!card) return;
+      answersScrolledRef.current = true;
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [wantsAnswers, tab, selectTab]);
 
   const reviewExperience = useCallback(() => {
     setLedgerOpen((prev) => ({ ...prev, experience: true }));
@@ -791,6 +815,16 @@ export default function ProfilePage() {
                 </Box>
               )}
             </HubCard>
+            </Box>
+          ) : null}
+
+          {tab === "career-profile" ? (
+            <Box id="application-answers" sx={{ mt: 3.25, scrollMarginTop: 16 }}>
+              <ApplicationAnswers
+                value={tailorDefaults}
+                onChange={setTailorDefaults}
+                saveState={answersSaveState}
+              />
             </Box>
           ) : null}
         </Box>
