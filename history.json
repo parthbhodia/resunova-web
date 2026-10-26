@@ -1,6 +1,12 @@
 {
-  "updated": "2026-10-23T11:55:07Z",
+  "updated": "2026-10-26T17:31:53Z",
   "events": [
+    {
+      "at": "2026-10-26T13:41:06.878924+00:00",
+      "kind": "ui",
+      "state": "crash",
+      "detail": "/resume-examples/data-analyst/ Failed to load chunk https://www.resunova.io/_next/static/chunks/0aps_w276lpe6.js from module 64893"
+    },
     {
       "at": "2026-10-23T11:22:37.247733+00:00",
       "kind": "ui",
