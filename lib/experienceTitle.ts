@@ -12,6 +12,8 @@
  * even in aggressive mode; the user can still type that themselves.
  */
 
+import { resolveTailoringMode } from "@/lib/tailoringModeDefault";
+
 export function titlesEqual(a: string, b: string): boolean {
   return normalizeTitle(a) === normalizeTitle(b);
 }
@@ -180,7 +182,7 @@ export function attachAggressiveRoleTitle<T extends RoleTitleSuggestion>(
   jdTitle: string,
   mode: string | null | undefined,
 ): T[] {
-  if (mode !== "aggressive") {
+  if (resolveTailoringMode(mode) !== "aggressive") {
     return suggestions.map((s) => (s.suggested_role ? { ...s, suggested_role: undefined } : s));
   }
   const jd = jdTitle.trim();

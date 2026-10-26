@@ -99,8 +99,26 @@ describe("batch request shape", () => {
 
   it("tells the model to leave a gap uncovered rather than fabricate", () => {
     const q = collectUnaddressedGaps(ratings(), NONE)[0];
-    expect(batchGapNotes(q).toLowerCase()).toContain("never invent");
-    expect(batchGapNotes(q)).toContain("qualifications");
+    // Honest is an explicit choice now (aggressive is the default), so say so.
+    expect(batchGapNotes(q, "honest").toLowerCase()).toContain("never invent");
+    expect(batchGapNotes(q, "honest")).toContain("qualifications");
+  });
+
+  it("treats a missing mode as the default, which is aggressive", () => {
+    const q = collectUnaddressedGaps(ratings(), NONE)[0];
+    expect(batchGapNotes(q)).toBe(batchGapNotes(q, "aggressive"));
+    expect(batchGapNotes(q, null)).toBe(batchGapNotes(q, "aggressive"));
+    expect(batchGapNotes(q)).not.toBe(batchGapNotes(q, "honest"));
+    expect(inventedBulletPermission(undefined)).toBe(inventedBulletPermission("aggressive"));
+    expect(inventedBulletPermission(null)).not.toBe("");
+    expect(inventedBulletPermission("honest")).toBe("");
+  });
+
+  it("lets aggressive mode name the tool a requirement calls for, without lifting the floor", () => {
+    const text = inventedBulletPermission("aggressive");
+    expect(text).toContain("Name the tool, platform or method this requirement calls for");
+    // The floor does not move: still no new employer, credential or number.
+    expect(text).toContain("Do not invent a new employer, credential, or number");
   });
 
   it("lets aggressive mode invent one new bullet under an existing role", () => {

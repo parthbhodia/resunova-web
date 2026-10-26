@@ -4,7 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { Card, ToggleSwitch } from "@/components/profileSettingsUi";
 import { TailoringModeSelector } from "@/components/TailoringModeModal";
-import { TAILORING_MODE_META, fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
+import {
+  TAILORING_MODE_META,
+  fetchTailoringMode,
+  getCachedTailoringMode,
+  resolveTailoringMode,
+  saveTailoringMode,
+  type TailoringMode,
+} from "@/lib/tailoringMode";
 import { apiFetch } from "@/lib/apiClient";
 
 type NotifyPrefs = { accountChanges: boolean; scanLimit: boolean; features: boolean };
@@ -121,14 +128,14 @@ export function TailoringModeCard() {
     void fetchTailoringMode().then((m) => { if (!cancelled && m) setMode(m); });
     return () => { cancelled = true; };
   }, []);
-  const effective = mode ?? "honest";
+  const effective = resolveTailoringMode(mode);
   return (
     <Card title="Résumé tailoring">
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0, flex: "1 1 260px" }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>AI rewrite style</div>
           <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)", lineHeight: 1.5, maxWidth: 480 }}>
-            {TAILORING_MODE_META[effective].blurb} Applies to Tailor gap fixes and Jobs Boost. Either way, nothing is ever fabricated — rewrites always start from real bullets on your résumé.
+            {TAILORING_MODE_META[effective].blurb} Applies to Tailor gap fixes and Jobs Boost. In either style, rewrites start from a real bullet on your résumé and never add employers, titles, dates, degrees or certifications.
           </p>
         </div>
         <TailoringModeSelector

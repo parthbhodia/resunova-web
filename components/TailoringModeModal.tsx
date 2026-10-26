@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { TAILORING_MODE_META, type TailoringMode } from "@/lib/tailoringMode";
+import { DEFAULT_TAILORING_MODE, TAILORING_MODE_META, type TailoringMode } from "@/lib/tailoringMode";
 
 /** Compact segmented Honest | Aggressive control — used in the Tailor results
  *  header and Account settings. Purely presentational; owner persists. */
@@ -74,7 +74,7 @@ export function TailoringModeSelector({
  *  to user_profiles.tailoring_mode. */
 export function TailoringModeModal({
   open,
-  initialMode = "honest",
+  initialMode = DEFAULT_TAILORING_MODE,
   onSave,
   onCancel,
 }: {
@@ -147,7 +147,7 @@ export function TailoringModeModal({
                 }} />
                 <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
                   {TAILORING_MODE_META[mode].label}
-                  {mode === "honest" && (
+                  {mode === DEFAULT_TAILORING_MODE && (
                     <span style={{ marginLeft: 7, fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: 0.4 }}>
                       Recommended
                     </span>
@@ -162,7 +162,7 @@ export function TailoringModeModal({
         })}
 
         <p style={{ margin: "10px 0 14px", fontSize: 11, color: "var(--dim, var(--muted))", lineHeight: 1.5 }}>
-          Either way, Resunova never invents employers, credentials, or metrics. Aggressive mode can retitle an existing role toward the posting when the work is the same job under a different name. Every rewrite starts from a real bullet on your résumé.
+          Either way, Resunova never adds employers, titles, dates, degrees or certifications, and every rewrite starts from a real bullet on your résumé. Aggressive mode can add tools and detail the job asks for and marks each one for you to confirm. It can also retitle an existing role toward the posting when the work is the same job under a different name.
         </p>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

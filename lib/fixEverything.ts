@@ -14,7 +14,7 @@
 import type { AddressedGapAction, RatingsData } from "@/lib/types";
 import { isDetailedRatings } from "@/lib/types";
 import { isGapAddressed } from "@/lib/tailorGapFix";
-import type { TailoringMode } from "@/lib/tailoringMode";
+import { resolveTailoringMode, type TailoringMode } from "@/lib/tailoringModeDefault";
 import { isUnleveledDegreeRequirement } from "@/lib/degreeRequirement";
 
 export type GapType = AddressedGapAction["type"];
@@ -112,11 +112,13 @@ export function batchGapName(batch: GapBatch): string {
 /**
  * Permission to add a line the résumé does not already have.
  *
- * Honest mode never gets this. Aggressive mode does: a duty that cannot land
- * on an existing bullet was being dropped, then shown as impossible. A new
- * bullet under a role the résumé already lists is the fix. A new employer,
- * credential, or number is still refused. Retitling an existing role toward
- * the posting is allowed when the work is the same job under a different name.
+ * Honest mode never gets this. Aggressive mode does, and it is the default (a
+ * missing mode resolves to it here, the same way the API resolves it): a duty
+ * that cannot land on an existing bullet was being dropped, then shown as
+ * impossible. A new bullet under a role the résumé already lists is the fix. A
+ * new employer, credential, or number is still refused. Retitling an existing
+ * role toward the posting is allowed when the work is the same job under a
+ * different name.
  *
  * ⚠️ No all-caps or CamelCase words in this text. The server reads every such
  * token in gap_notes as a posting term each rewrite must contain, so "XYZ" and
@@ -124,10 +126,11 @@ export function batchGapName(batch: GapBatch): string {
  * wrote "using XYZ methodology" into a bullet.
  */
 export function inventedBulletPermission(mode: TailoringMode | null | undefined): string {
-  if (mode !== "aggressive") return "";
+  if (resolveTailoringMode(mode) !== "aggressive") return "";
   return (
     "Write the bullet as what was accomplished, the result it produced, and how it was done, in one plain sentence. "
     + "Naturally include this requirement. Start with a strong action verb. "
+    + "Name the tool, platform or method this requirement calls for when it fits the work described. "
     + "Never name a formula or method for writing bullets, and never output template letters or brackets such as X, Y, Z or [ ]. "
     + "If it cannot be woven into an existing bullet, invent one new bullet under the closest existing role. "
     + "Return a new bullet with an empty original and the full line as suggested. "
