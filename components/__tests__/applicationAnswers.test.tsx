@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ApplicationAnswers, { type AnswersSaveState } from "@/components/profile/ApplicationAnswers";
 import { EMPTY_PROFILE, type ProfileFormState } from "@/lib/profileStorage";
@@ -52,6 +52,29 @@ describe("the questions", () => {
   it("says out loud that a blank answer stays blank", () => {
     setup();
     expect(screen.getByText(/Anything you leave blank stays blank/)).toBeInTheDocument();
+  });
+});
+
+describe("application autofill details", () => {
+  it("shows and saves preferred first name and country", async () => {
+    const { onChange } = setup({ preferredName: "Alex", country: "Canada" });
+    const preferredName = screen.getByRole("textbox", { name: "Preferred first name" });
+    const country = screen.getByRole("textbox", { name: "Country" });
+    expect(preferredName).toHaveValue("Alex");
+    expect(country).toHaveValue("Canada");
+
+    fireEvent.change(preferredName, { target: { value: "Avery" } });
+    expect(lastValue(onChange).preferredName).toBe("Avery");
+    expect(lastValue(onChange).country).toBe("Canada");
+
+    fireEvent.change(country, { target: { value: "United States" } });
+    expect(lastValue(onChange).country).toBe("United States");
+  });
+
+  it("keeps both fields disabled until the saved profile loads", () => {
+    setup({}, "loading");
+    expect(screen.getByRole("textbox", { name: "Preferred first name" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Country" })).toBeDisabled();
   });
 });
 

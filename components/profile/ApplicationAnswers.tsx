@@ -20,6 +20,7 @@
 import React from "react";
 import { ShieldCheck } from "lucide-react";
 import Box from "@mui/material/Box";
+import TextField from "@mui/material/TextField";
 import { HubCard, SectionHeader } from "./profileMui";
 import { FS, FW } from "@/lib/typography";
 import type { ProfileFormState } from "@/lib/profileStorage";
@@ -62,6 +63,30 @@ export default function ApplicationAnswers({ value, onChange, saveState }: Props
         subtitle="Reused on every job application. Anything you leave blank stays blank."
       />
       <Box sx={{ px: { xs: 2.25, sm: 3 }, py: 3, display: "grid", gap: 3.5 }}>
+        <Group title="Application autofill details" help="Used to pre-fill matching fields on supported application forms. Review every answer before submitting.">
+          <div className="aa-profile-fields">
+            <TextField
+              label="Preferred first name"
+              value={value.preferredName}
+              onChange={(event) => onChange({ ...value, preferredName: event.target.value })}
+              autoComplete="given-name"
+              disabled={disabled}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Country"
+              value={value.country}
+              onChange={(event) => onChange({ ...value, country: event.target.value })}
+              autoComplete="country-name"
+              placeholder="e.g. United States"
+              disabled={disabled}
+              fullWidth
+              size="small"
+            />
+          </div>
+        </Group>
+
         <Group title="Work eligibility">
           {eligibility.map((q) => (
             <Question key={q.key} q={q} value={value[q.key]} disabled={disabled} onSet={(v) => set(q, v)} />
@@ -155,6 +180,7 @@ function Question({
 
 const CSS = `
   .aa-group-title { margin: 0; font-size: ${FS.bodyLg}px; font-weight: ${FW.bold}; color: var(--text); }
+  .aa-profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .aa-help { margin: 4px 0 0; font-size: ${FS.small}px; color: var(--muted); max-width: 62ch; line-height: 1.5; }
   .aa-q { display: grid; gap: 8px; }
   .aa-q-label { font-size: ${FS.body}px; font-weight: ${FW.semibold}; color: var(--text); }
@@ -194,4 +220,5 @@ const CSS = `
   @media (prefers-reduced-motion: no-preference) {
     .aa-chip { transition: border-color var(--md-duration-short, 150ms) var(--md-easing-standard, ease), background-color var(--md-duration-short, 150ms) var(--md-easing-standard, ease), color var(--md-duration-short, 150ms) var(--md-easing-standard, ease); }
   }
+  @media (max-width: 600px) { .aa-profile-fields { grid-template-columns: 1fr; } }
 `;
