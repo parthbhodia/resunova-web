@@ -14,6 +14,8 @@ import { type ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "./resumeE
 
 export type ProfileFormState = {
   displayName: string;
+  preferredName: string;
+  country: string;
   tagline: string;
   email: string;
   phone: string;
@@ -40,6 +42,8 @@ export const PROFILE_STORAGE_KEY = "rn_profile_v1";
 
 export const EMPTY_PROFILE: ProfileFormState = {
   displayName: "",
+  preferredName: "",
+  country: "",
   tagline: "",
   email: "",
   phone: "",

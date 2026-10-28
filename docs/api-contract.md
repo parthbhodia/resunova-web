@@ -151,6 +151,7 @@ extension-specific profile table:
 | Field | Type | Notes |
 |-------|------|-------|
 | `name` | string | |
+| `preferredName` / `country` | string | Application autofill details from `user_profiles.profile` |
 | `email` | string | Falls back to the login address |
 | `phone` / `location` / `headline` / `summary` / `role` | string | |
 | `linkedin` / `github` / `portfolio` | string | |
