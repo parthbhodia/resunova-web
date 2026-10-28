@@ -19,6 +19,7 @@ const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans', weight:
 const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL ?? BRAND_SITE_URL;
 const SITE_NAME = "Resunova";
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const IS_STATIC_EXPORT = process.env.STATIC_EXPORT === "1";
 const CANONICAL_SITE_URL = SITE_URL.replace(/\/$/, "");
 
 /** Runs before React hydrates so OAuth hash tokens survive github.io → custom domain. */
@@ -200,11 +201,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SignInDialogProvider>
           <AuthGate>{children}</AuthGate>
         </SignInDialogProvider>
-        {/* Vercel Web Analytics. Reports only from Vercel deployments, so it is
-            silent on the GitHub Pages build that still serves production and
-            starts collecting once DNS moves (see next.config.ts). Cookieless,
-            so unlike GA above it keeps counting visitors who refuse cookies. */}
-        <Analytics />
+        {/* Vercel Web Analytics requires Vercel's /_vercel/insights endpoint,
+            which GitHub Pages cannot serve. Keep it on server deployments but
+            omit it from the static Pages export. */}
+        {!IS_STATIC_EXPORT && <Analytics />}
       </body>
     </html>
   );
