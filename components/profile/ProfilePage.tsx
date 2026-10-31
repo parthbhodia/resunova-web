@@ -824,6 +824,8 @@ export default function ProfilePage() {
                 value={tailorDefaults}
                 onChange={setTailorDefaults}
                 saveState={answersSaveState}
+                resume={extractedData}
+                accountEmail={accountEmail ?? undefined}
               />
             </Box>
           ) : null}

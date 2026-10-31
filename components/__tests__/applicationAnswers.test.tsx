@@ -10,10 +10,14 @@ import { EMPTY_PROFILE, type ProfileFormState } from "@/lib/profileStorage";
  * live ledger renders only after a résumé is uploaded.
  */
 
-function setup(initial: Partial<ProfileFormState> = {}, saveState: AnswersSaveState = "saved") {
+function setup(
+  initial: Partial<ProfileFormState> = {},
+  saveState: AnswersSaveState = "saved",
+  extra: Partial<React.ComponentProps<typeof ApplicationAnswers>> = {},
+) {
   const onChange = vi.fn();
   const value = { ...EMPTY_PROFILE, ...initial };
-  render(<ApplicationAnswers value={value} onChange={onChange} saveState={saveState} />);
+  render(<ApplicationAnswers value={value} onChange={onChange} saveState={saveState} {...extra} />);
   return { onChange, value };
 }
 
@@ -71,10 +75,101 @@ describe("application autofill details", () => {
     expect(lastValue(onChange).country).toBe("United States");
   });
 
-  it("keeps both fields disabled until the saved profile loads", () => {
+  it("keeps every field disabled until the saved profile loads", () => {
     setup({}, "loading");
     expect(screen.getByRole("textbox", { name: "Preferred first name" })).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "Country" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "City and state" })).toBeDisabled();
+  });
+
+  it("saves the city the Chrome extension asks for, and nothing else with it", () => {
+    // The widget lists "Your city" as missing and links here. Until this field
+    // existed the only source was a résumé upload, so a person with no résumé
+    // had nowhere to type it.
+    const { onChange } = setup({ roles: "Data Analyst", country: "United States" });
+    const city = screen.getByRole("textbox", { name: "City and state" });
+    expect(city).toHaveValue("");
+
+    fireEvent.change(city, { target: { value: "Baltimore, MD" } });
+    const next = lastValue(onChange);
+    expect(next.currentLocation).toBe("Baltimore, MD");
+    expect(next.country).toBe("United States");
+    expect(next.roles).toBe("Data Analyst");
+  });
+
+  it("shows a saved city and describes the expected format to a screen reader", () => {
+    setup({ currentLocation: "Austin, TX" });
+    const city = screen.getByRole("textbox", { name: "City and state" });
+    expect(city).toHaveValue("Austin, TX");
+    // The hint is a description, never part of the accessible name.
+    expect(city).toHaveAccessibleDescription(/City, State/);
+  });
+});
+
+describe("contact details typed for applications", () => {
+  const RESUME = {
+    name: "Ada Lovelace",
+    email: "ada@resume.example",
+    phone: "555-0100",
+    linkedin: "linkedin.com/in/ada",
+    github: "github.com/ada",
+    portfolio: "ada.dev",
+  };
+  const BOXES: [string, keyof ProfileFormState][] = [
+    ["Full name", "typedName"],
+    ["Email", "typedEmail"],
+    ["Phone", "typedPhone"],
+    ["LinkedIn", "typedLinkedin"],
+    ["GitHub", "typedGithub"],
+    ["Portfolio or website", "typedPortfolio"],
+  ];
+
+  it("offers all six, each writing its own typed key and nothing else", () => {
+    for (const [label, key] of BOXES) {
+      const { onChange } = setup({ roles: "Data Analyst" }, "saved", { resume: RESUME });
+      fireEvent.change(screen.getAllByRole("textbox", { name: label })[0], { target: { value: "typed value" } });
+      const next = lastValue(onChange);
+      expect(next[key]).toBe("typed value");
+      // Every other typed key is still blank, and the rest of the record is intact.
+      for (const [, other] of BOXES) if (other !== key) expect(next[other]).toBe("");
+      expect(next.roles).toBe("Data Analyst");
+      document.body.innerHTML = "";
+    }
+  });
+
+  it("shows what the résumé says as the placeholder, so blank is visibly 'use the résumé's'", () => {
+    setup({}, "saved", { resume: RESUME });
+    expect(screen.getByRole("textbox", { name: "Full name" })).toHaveAttribute("placeholder", "Ada Lovelace");
+    expect(screen.getByRole("textbox", { name: "Phone" })).toHaveAttribute("placeholder", "555-0100");
+    expect(screen.getByRole("textbox", { name: "GitHub" })).toHaveAttribute("placeholder", "github.com/ada");
+    // A typed value shows as the value, not the placeholder.
+    document.body.innerHTML = "";
+    setup({ typedPhone: "555-9999" }, "saved", { resume: RESUME });
+    expect(screen.getByRole("textbox", { name: "Phone" })).toHaveValue("555-9999");
+  });
+
+  it("falls back to the sign-in address for Email, and to a neutral hint with no résumé", () => {
+    setup({}, "saved", { accountEmail: "me@login.example" });
+    expect(screen.getByRole("textbox", { name: "Email" })).toHaveAttribute("placeholder", "me@login.example");
+    expect(screen.getByRole("textbox", { name: "Phone" })).toHaveAttribute("placeholder", "From your résumé");
+  });
+
+  it("clearing a box writes a blank, which means use the résumé's again", () => {
+    const { onChange } = setup({ typedPhone: "555-9999" }, "saved", { resume: RESUME });
+    fireEvent.change(screen.getByRole("textbox", { name: "Phone" }), { target: { value: "" } });
+    expect(lastValue(onChange).typedPhone).toBe("");
+  });
+
+  it("turns browser autofill off, so a saved browser profile cannot be written and autosaved unseen", () => {
+    setup({}, "saved", { resume: RESUME });
+    for (const [label] of BOXES) {
+      expect(screen.getByRole("textbox", { name: label })).toHaveAttribute("autocomplete", "off");
+    }
+  });
+
+  it("keeps every contact box disabled until the saved profile loads", () => {
+    setup({}, "loading", { resume: RESUME });
+    for (const [label] of BOXES) expect(screen.getByRole("textbox", { name: label })).toBeDisabled();
   });
 });
 

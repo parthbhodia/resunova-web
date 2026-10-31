@@ -24,6 +24,7 @@ import TextField from "@mui/material/TextField";
 import { HubCard, SectionHeader } from "./profileMui";
 import { FS, FW } from "@/lib/typography";
 import type { ProfileFormState } from "@/lib/profileStorage";
+import type { ExtractedProfileState } from "@/lib/resumeExtractorService";
 import {
   APPLICATION_ANSWER_QUESTIONS,
   answeredCount,
@@ -39,13 +40,31 @@ const SAVE_COPY: Record<AnswersSaveState, string> = {
   saved: "Saved automatically",
 };
 
+/** Where each typed contact field is saved, what it is called, and which résumé value it overrides. */
+const CONTACT_FIELDS: {
+  key: "typedName" | "typedEmail" | "typedPhone" | "typedLinkedin" | "typedGithub" | "typedPortfolio";
+  label: string;
+  resumeKey: "name" | "email" | "phone" | "linkedin" | "github" | "portfolio";
+}[] = [
+  { key: "typedName", label: "Full name", resumeKey: "name" },
+  { key: "typedEmail", label: "Email", resumeKey: "email" },
+  { key: "typedPhone", label: "Phone", resumeKey: "phone" },
+  { key: "typedLinkedin", label: "LinkedIn", resumeKey: "linkedin" },
+  { key: "typedGithub", label: "GitHub", resumeKey: "github" },
+  { key: "typedPortfolio", label: "Portfolio or website", resumeKey: "portfolio" },
+];
+
 type Props = {
   value: ProfileFormState;
   onChange: (next: ProfileFormState) => void;
   saveState: AnswersSaveState;
+  /** What the uploaded résumé says, shown as the placeholder of each contact box. */
+  resume?: Partial<Pick<ExtractedProfileState, "name" | "email" | "phone" | "linkedin" | "github" | "portfolio">>;
+  /** The sign-in address, the placeholder for Email when the résumé has none. */
+  accountEmail?: string;
 };
 
-export default function ApplicationAnswers({ value, onChange, saveState }: Props) {
+export default function ApplicationAnswers({ value, onChange, saveState, resume, accountEmail }: Props) {
   // Editing before the saved profile has loaded would be overwritten by it.
   const disabled = saveState === "loading";
   const eligibility = APPLICATION_ANSWER_QUESTIONS.filter((q) => q.group === "eligibility");
@@ -63,6 +82,31 @@ export default function ApplicationAnswers({ value, onChange, saveState }: Props
         subtitle="Reused on every job application. Anything you leave blank stays blank."
       />
       <Box sx={{ px: { xs: 2.25, sm: 3 }, py: 3, display: "grid", gap: 3.5 }}>
+        <Group
+          title="Contact details"
+          help="What you type here is used on applications instead of what your résumé says. Leave a box blank to use the résumé’s."
+        >
+          <div className="aa-profile-fields">
+            {CONTACT_FIELDS.map((f) => {
+              const fromResume = (resume?.[f.resumeKey] ?? "").trim() || (f.key === "typedEmail" ? accountEmail ?? "" : "");
+              return (
+                <TextField
+                  key={f.key}
+                  label={f.label}
+                  value={value[f.key]}
+                  onChange={(event) => onChange({ ...value, [f.key]: event.target.value })}
+                  // Off, so a browser's saved profile cannot fill these and have the page autosave it.
+                  autoComplete="off"
+                  placeholder={fromResume || "From your résumé"}
+                  disabled={disabled}
+                  fullWidth
+                  size="small"
+                />
+              );
+            })}
+          </div>
+        </Group>
+
         <Group title="Application autofill details" help="Used to pre-fill matching fields on supported application forms. Review every answer before submitting.">
           <div className="aa-profile-fields">
             <TextField
@@ -80,6 +124,17 @@ export default function ApplicationAnswers({ value, onChange, saveState }: Props
               onChange={(event) => onChange({ ...value, country: event.target.value })}
               autoComplete="country-name"
               placeholder="e.g. United States"
+              disabled={disabled}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="City and state"
+              value={value.currentLocation}
+              onChange={(event) => onChange({ ...value, currentLocation: event.target.value })}
+              autoComplete="off"
+              placeholder="e.g. Baltimore, MD"
+              helperText="Written as City, State. Used for “where do you live” questions."
               disabled={disabled}
               fullWidth
               size="small"

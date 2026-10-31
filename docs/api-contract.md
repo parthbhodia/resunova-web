@@ -150,11 +150,11 @@ extension-specific profile table:
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `name` | string | |
+| `name` | string | The person's typed name (`typedName`) when set, otherwise the résumé's |
 | `preferredName` / `country` | string | Application autofill details from `user_profiles.profile` |
-| `email` | string | Falls back to the login address |
-| `phone` / `location` / `headline` / `summary` / `role` | string | |
-| `linkedin` / `github` / `portfolio` | string | |
+| `email` | string | The typed email (`typedEmail`) when set, otherwise the résumé's, then the login address |
+| `phone` / `location` / `headline` / `summary` / `role` | string | `phone` is `typedPhone` when set, otherwise the résumé's. `location` is the person's own `currentLocation` ("City, ST", saved on `/profile`) when set, otherwise the résumé's |
+| `linkedin` / `github` / `portfolio` | string | A typed value (`typedLinkedin` / `typedGithub` / `typedPortfolio`) wins over the résumé's |
 | `skills` | string[] | Non-array values are normalised to `[]` |
 | `experience` / `education` / `projects` | array | Non-array values are normalised to `[]` |
 | `eeoWorkUs` / `eeoSponsor` / `eeoDisability` / `eeoVeteran` / `eeoGender` / `eeoLgbtq` | string | Optional disclosure answers |

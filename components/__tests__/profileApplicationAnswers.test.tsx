@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EMPTY_PROFILE, type ProfileFormState } from "@/lib/profileStorage";
+import { INITIAL_EXTRACTED_PROFILE } from "@/lib/resumeExtractorService";
 
 /**
  * The seam that matters: the card on the live /profile page. The component has
@@ -112,6 +113,51 @@ describe("saving", () => {
     expect(written.roles).toBe("Data Analyst");
     expect(written.tone).toBe("formal");
     await waitFor(() => expect(within(card).getByRole("status")).toHaveTextContent("Saved automatically"));
+  }, 10000);
+
+  it("saves a typed city with no résumé uploaded, which is the case that had no field", async () => {
+    // The widget says "Add your city" and links here. With no résumé the city
+    // had no source at all, so a person in this state could never answer it.
+    render(<ProfilePage />);
+    await waitFor(() => expect(within(workAuth()).getByRole("radio", { name: "Yes" })).toBeChecked());
+
+    await userEvent.type(screen.getByRole("textbox", { name: "City and state" }), "Baltimore, MD");
+    await waitFor(() => expect(h.upsertUserProfile).toHaveBeenCalled(), { timeout: 5000 });
+    const written = h.upsertUserProfile.mock.calls.at(-1)?.[0] as ProfileFormState;
+    expect(written.currentLocation).toBe("Baltimore, MD");
+    expect(written.eeoWorkUs).toBe("Yes");
+    expect(written.roles).toBe("Data Analyst");
+  }, 10000);
+
+  it("shows the uploaded résumé's values as the contact placeholders and the sign-in address for Email", async () => {
+    // A blank box has to say what it falls back to, or "blank" reads as "empty".
+    h.fetchExtractedProfile.mockResolvedValue({
+      ...INITIAL_EXTRACTED_PROFILE,
+      name: "Ada Lovelace",
+      phone: "555-0100",
+      github: "github.com/ada",
+    });
+    render(<ProfilePage />);
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Full name" })).toHaveAttribute("placeholder", "Ada Lovelace"));
+    expect(screen.getByRole("textbox", { name: "Phone" })).toHaveAttribute("placeholder", "555-0100");
+    expect(screen.getByRole("textbox", { name: "GitHub" })).toHaveAttribute("placeholder", "github.com/ada");
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Email" })).toHaveAttribute("placeholder", "ada@example.com"));
+  });
+
+  it("saves a typed phone next to the résumé's, without touching the seeded phone", async () => {
+    // The seeded `phone` and the typed `typedPhone` are different keys on purpose:
+    // the extension prefers the typed one, and a résumé re-upload cannot undo it.
+    h.fetchUserProfile.mockResolvedValue(saved({ eeoWorkUs: "Yes", phone: "555-0100" }));
+    render(<ProfilePage />);
+    await waitFor(() => expect(within(workAuth()).getByRole("radio", { name: "Yes" })).toBeChecked());
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Phone" }), "555-9999");
+    await waitFor(() => expect(h.upsertUserProfile).toHaveBeenCalled(), { timeout: 5000 });
+    const written = h.upsertUserProfile.mock.calls.at(-1)?.[0] as ProfileFormState;
+    expect(written.typedPhone).toBe("555-9999");
+    expect(written.phone).toBe("555-0100");
+    expect(written.eeoWorkUs).toBe("Yes");
+    expect(written.roles).toBe("Data Analyst");
   }, 10000);
 
   it("writes nothing just because the page was opened", async () => {
