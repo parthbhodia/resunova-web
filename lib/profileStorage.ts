@@ -18,6 +18,18 @@ export type ProfileFormState = {
   country: string;
   /** Where the person lives, written "City, ST". Read by the Chrome extension for location questions. */
   currentLocation: string;
+  /**
+   * Contact details the person typed for applications. They live under their own
+   * keys, apart from displayName/email/phone/linkedin/portfolio, because those are
+   * seeded from a résumé upload and cannot be told from a typed value. The Chrome
+   * extension prefers a typed value over the résumé's; blank means "use the résumé's".
+   */
+  typedName: string;
+  typedEmail: string;
+  typedPhone: string;
+  typedLinkedin: string;
+  typedGithub: string;
+  typedPortfolio: string;
   tagline: string;
   email: string;
   phone: string;
@@ -47,6 +59,12 @@ export const EMPTY_PROFILE: ProfileFormState = {
   preferredName: "",
   country: "",
   currentLocation: "",
+  typedName: "",
+  typedEmail: "",
+  typedPhone: "",
+  typedLinkedin: "",
+  typedGithub: "",
+  typedPortfolio: "",
   tagline: "",
   email: "",
   phone: "",
