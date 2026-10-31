@@ -84,6 +84,17 @@ export default function ApplicationAnswers({ value, onChange, saveState }: Props
               fullWidth
               size="small"
             />
+            <TextField
+              label="City and state"
+              value={value.currentLocation}
+              onChange={(event) => onChange({ ...value, currentLocation: event.target.value })}
+              autoComplete="off"
+              placeholder="e.g. Baltimore, MD"
+              helperText="Written as City, State. Used for “where do you live” questions."
+              disabled={disabled}
+              fullWidth
+              size="small"
+            />
           </div>
         </Group>
 

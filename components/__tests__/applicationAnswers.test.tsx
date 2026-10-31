@@ -71,10 +71,34 @@ describe("application autofill details", () => {
     expect(lastValue(onChange).country).toBe("United States");
   });
 
-  it("keeps both fields disabled until the saved profile loads", () => {
+  it("keeps every field disabled until the saved profile loads", () => {
     setup({}, "loading");
     expect(screen.getByRole("textbox", { name: "Preferred first name" })).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "Country" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "City and state" })).toBeDisabled();
+  });
+
+  it("saves the city the Chrome extension asks for, and nothing else with it", () => {
+    // The widget lists "Your city" as missing and links here. Until this field
+    // existed the only source was a résumé upload, so a person with no résumé
+    // had nowhere to type it.
+    const { onChange } = setup({ roles: "Data Analyst", country: "United States" });
+    const city = screen.getByRole("textbox", { name: "City and state" });
+    expect(city).toHaveValue("");
+
+    fireEvent.change(city, { target: { value: "Baltimore, MD" } });
+    const next = lastValue(onChange);
+    expect(next.currentLocation).toBe("Baltimore, MD");
+    expect(next.country).toBe("United States");
+    expect(next.roles).toBe("Data Analyst");
+  });
+
+  it("shows a saved city and describes the expected format to a screen reader", () => {
+    setup({ currentLocation: "Austin, TX" });
+    const city = screen.getByRole("textbox", { name: "City and state" });
+    expect(city).toHaveValue("Austin, TX");
+    // The hint is a description, never part of the accessible name.
+    expect(city).toHaveAccessibleDescription(/City, State/);
   });
 });
 

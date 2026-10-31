@@ -114,6 +114,20 @@ describe("saving", () => {
     await waitFor(() => expect(within(card).getByRole("status")).toHaveTextContent("Saved automatically"));
   }, 10000);
 
+  it("saves a typed city with no résumé uploaded, which is the case that had no field", async () => {
+    // The widget says "Add your city" and links here. With no résumé the city
+    // had no source at all, so a person in this state could never answer it.
+    render(<ProfilePage />);
+    await waitFor(() => expect(within(workAuth()).getByRole("radio", { name: "Yes" })).toBeChecked());
+
+    await userEvent.type(screen.getByRole("textbox", { name: "City and state" }), "Baltimore, MD");
+    await waitFor(() => expect(h.upsertUserProfile).toHaveBeenCalled(), { timeout: 5000 });
+    const written = h.upsertUserProfile.mock.calls.at(-1)?.[0] as ProfileFormState;
+    expect(written.currentLocation).toBe("Baltimore, MD");
+    expect(written.eeoWorkUs).toBe("Yes");
+    expect(written.roles).toBe("Data Analyst");
+  }, 10000);
+
   it("writes nothing just because the page was opened", async () => {
     render(<ProfilePage />);
     await waitFor(() => expect(within(workAuth()).getByRole("radio", { name: "Yes" })).toBeChecked());

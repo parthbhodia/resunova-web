@@ -153,7 +153,7 @@ extension-specific profile table:
 | `name` | string | |
 | `preferredName` / `country` | string | Application autofill details from `user_profiles.profile` |
 | `email` | string | Falls back to the login address |
-| `phone` / `location` / `headline` / `summary` / `role` | string | |
+| `phone` / `location` / `headline` / `summary` / `role` | string | `location` is the person's own `currentLocation` ("City, ST", saved on `/profile`) when set, otherwise the résumé's |
 | `linkedin` / `github` / `portfolio` | string | |
 | `skills` | string[] | Non-array values are normalised to `[]` |
 | `experience` / `education` / `projects` | array | Non-array values are normalised to `[]` |

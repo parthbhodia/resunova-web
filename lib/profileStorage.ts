@@ -16,6 +16,8 @@ export type ProfileFormState = {
   displayName: string;
   preferredName: string;
   country: string;
+  /** Where the person lives, written "City, ST". Read by the Chrome extension for location questions. */
+  currentLocation: string;
   tagline: string;
   email: string;
   phone: string;
@@ -44,6 +46,7 @@ export const EMPTY_PROFILE: ProfileFormState = {
   displayName: "",
   preferredName: "",
   country: "",
+  currentLocation: "",
   tagline: "",
   email: "",
   phone: "",
