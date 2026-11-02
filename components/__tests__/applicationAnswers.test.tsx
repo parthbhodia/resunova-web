@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import ApplicationAnswers, { birthDateProblem, type AnswersSaveState } from "@/components/profile/ApplicationAnswers";
 import { RACE_OPTIONS } from "@/lib/applicationAnswers";
 import { EMPTY_PROFILE, type ProfileFormState } from "@/lib/profileStorage";
@@ -172,6 +174,21 @@ describe("contact details typed for applications", () => {
   it("keeps every contact box disabled until the saved profile loads", () => {
     setup({}, "loading", { resume: RESUME });
     for (const [label] of BOXES) expect(screen.getByRole("textbox", { name: label })).toBeDisabled();
+  });
+});
+
+describe("how the fields are laid out", () => {
+  it("restores MUI's content-box on its inputs, which the app's unlayered reset otherwise flattens", () => {
+    // jsdom does no layout, so the visible failure (every box one line high, a dropdown's value
+    // clipped to nothing) cannot be seen here. It is pinned as a source fact instead, and was
+    // verified in a real browser: MUI's rule sits in @layer mui, `* { box-sizing: border-box }`
+    // in globals.css does not, and an unlayered rule beats a layered one whatever its specificity.
+    const source = readFileSync(join(process.cwd(), "components/profile/ApplicationAnswers.tsx"), "utf8");
+    expect(source).toMatch(/\.aa-card \.MuiInputBase-input\s*\{\s*box-sizing:\s*content-box;/);
+    expect(source).toMatch(/className="aa-card"/);
+    expect(readFileSync(join(process.cwd(), "app/globals.css"), "utf8")).toMatch(
+      /\*,\s*\*::before,\s*\*::after\s*\{\s*box-sizing:\s*border-box;/,
+    );
   });
 });
 

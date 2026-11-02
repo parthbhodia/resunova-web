@@ -82,7 +82,7 @@ export default function ApplicationAnswers({ value, onChange, saveState, resume,
         title="Application answers"
         subtitle="Reused on every job application. Anything you leave blank stays blank."
       />
-      <Box sx={{ px: { xs: 2.25, sm: 3 }, py: 3, display: "grid", gap: 3.5 }}>
+      <Box className="aa-card" sx={{ px: { xs: 2.25, sm: 3 }, py: 3, display: "grid", gap: 3.5 }}>
         <Group
           title="Contact details"
           help="What you type here is used on applications instead of what your résumé says. Leave a box blank to use the résumé’s."
@@ -325,9 +325,15 @@ function SelectQuestion({
 }
 
 const CSS = `
+  /* MUI declares its inputs content-box inside @layer mui, and this app's global reset
+     (* { box-sizing: border-box }) is unlayered, so it wins over any layered rule. Without this,
+     every field is squashed to one line of text and a dropdown's value is clipped to nothing. */
+  .aa-card .MuiInputBase-input { box-sizing: content-box; }
+  /* MUI's small helper text is 10.5px, under the legibility floor. */
+  .aa-card .MuiFormHelperText-root { font-size: ${FS.small}px; margin-left: 0; }
   .aa-group-title { margin: 0; font-size: ${FS.bodyLg}px; font-weight: ${FW.bold}; color: var(--text); }
   .aa-profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-  .aa-help { margin: 4px 0 0; font-size: ${FS.small}px; color: var(--muted); max-width: 62ch; line-height: 1.5; }
+  .aa-help { margin: 4px 0 0; font-size: ${FS.small}px; color: var(--muted); max-width: 62ch; line-height: 1.5; text-wrap: pretty; }
   .aa-q { display: grid; gap: 8px; }
   .aa-q-label { font-size: ${FS.body}px; font-weight: ${FW.semibold}; color: var(--text); }
   .aa-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

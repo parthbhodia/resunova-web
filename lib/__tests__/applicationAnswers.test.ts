@@ -12,7 +12,25 @@ import {
  * option here does not fail anywhere visible: the extension just stops filling
  * that question. So the vocabulary is pinned, not merely typed.
  */
-const EXTENSION_UNDERSTANDS = new Set(["Yes", "No", "Decline to state", "Male", "Female", "Non-Binary"]);
+const EXTENSION_UNDERSTANDS = new Set([
+  "Yes",
+  "No",
+  "Decline to state",
+  "Male",
+  "Female",
+  "Non-Binary",
+  // The seven EEO-1 categories, spelled the way the EEOC publishes them. Written out here on
+  // purpose rather than imported: the extension matches these strings, and a test that read them
+  // from the code under test could not notice a reworded one. "(Not Hispanic or Latino)" carries
+  // meaning (the extension answers a separate Hispanic Yes/No from it), so it is not decoration.
+  "Hispanic or Latino",
+  "White (Not Hispanic or Latino)",
+  "Black or African American (Not Hispanic or Latino)",
+  "Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino)",
+  "Asian (Not Hispanic or Latino)",
+  "American Indian or Alaska Native (Not Hispanic or Latino)",
+  "Two or More Races (Not Hispanic or Latino)",
+]);
 
 describe("the answer vocabulary is the extension's contract", () => {
   it("offers only values the extension can match", () => {
@@ -21,6 +39,15 @@ describe("the answer vocabulary is the extension's contract", () => {
         expect(EXTENSION_UNDERSTANDS.has(opt), `${q.key}: ${opt}`).toBe(true);
       }
     }
+  });
+
+  it("offers exactly seven race categories plus Decline, and every category but the first says it is not Hispanic", () => {
+    const race = APPLICATION_ANSWER_QUESTIONS.find((q) => q.key === "eeoRace")!;
+    expect(race.options).toHaveLength(8);
+    expect(race.options[race.options.length - 1]).toBe("Decline to state");
+    const categories = race.options.slice(0, -1);
+    expect(categories[0]).toBe("Hispanic or Latino");
+    for (const c of categories.slice(1)) expect(c).toMatch(/ \(Not Hispanic or Latino\)$/);
   });
 
   it("covers every EEO field the profile stores, once each", () => {
