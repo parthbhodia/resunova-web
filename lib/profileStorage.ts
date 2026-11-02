@@ -50,6 +50,14 @@ export type ProfileFormState = {
   eeoVeteran: string;
   eeoGender: string;
   eeoLgbtq: string;
+  /** One of `RACE_OPTIONS` (the EEO-1 category names) or "Decline to state". Blank is unanswered. */
+  eeoRace: string;
+  /**
+   * Date of birth as YYYY-MM-DD, typed by the person. Only the Chrome extension
+   * reads it, and only to fill a field that asks for it. Never taken from a
+   * résumé and never sent to the drafting model.
+   */
+  dateOfBirth: string;
 };
 
 export const PROFILE_STORAGE_KEY = "rn_profile_v1";
@@ -85,6 +93,8 @@ export const EMPTY_PROFILE: ProfileFormState = {
   eeoVeteran: "",
   eeoGender: "",
   eeoLgbtq: "",
+  eeoRace: "",
+  dateOfBirth: "",
 };
 
 export function loadProfile(): ProfileFormState {

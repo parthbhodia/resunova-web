@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import ApplicationAnswers, { type AnswersSaveState } from "@/components/profile/ApplicationAnswers";
+import ApplicationAnswers, { birthDateProblem, type AnswersSaveState } from "@/components/profile/ApplicationAnswers";
+import { RACE_OPTIONS } from "@/lib/applicationAnswers";
 import { EMPTY_PROFILE, type ProfileFormState } from "@/lib/profileStorage";
 
 /**
@@ -26,9 +27,10 @@ const workAuth = () => screen.getByRole("radiogroup", { name: /authorized to wor
 const lastValue = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)?.[0] as ProfileFormState;
 
 describe("the questions", () => {
-  it("asks all six, each as its own group", () => {
+  it("asks six as chip groups, each its own group, and race and ethnicity as a dropdown", () => {
     setup();
     expect(screen.getAllByRole("radiogroup")).toHaveLength(6);
+    expect(screen.getByRole("combobox", { name: /race and ethnicity/i })).toBeInTheDocument();
     expect(workAuth()).toBeInTheDocument();
     expect(sponsorship()).toBeInTheDocument();
     expect(screen.getByRole("radiogroup", { name: /disability/i })).toBeInTheDocument();
@@ -173,6 +175,180 @@ describe("contact details typed for applications", () => {
   });
 });
 
+describe("date of birth", () => {
+  const dob = () => screen.getByLabelText("Date of birth");
+
+  it("writes the typed date to its own key and nothing else", () => {
+    const { onChange } = setup({ roles: "Data Analyst", eeoWorkUs: "Yes" });
+    fireEvent.change(dob(), { target: { value: "1990-03-04" } });
+    const next = lastValue(onChange);
+    expect(next.dateOfBirth).toBe("1990-03-04");
+    expect(next.roles).toBe("Data Analyst");
+    expect(next.eeoWorkUs).toBe("Yes");
+    expect(next.typedName).toBe("");
+  });
+
+  it("is a real date input, so the browser's picker prevents a malformed value", () => {
+    setup();
+    expect(dob()).toHaveAttribute("type", "date");
+  });
+
+  it("shows a saved date, and survives a null where a string was expected", () => {
+    setup({ dateOfBirth: "1990-03-04" });
+    expect(dob()).toHaveValue("1990-03-04");
+    document.body.innerHTML = "";
+    // A stored JSON null overrides the empty default when the record is spread.
+    setup({ dateOfBirth: null as unknown as string });
+    expect(dob()).toHaveValue("");
+  });
+
+  it("does not flip the box from uncontrolled to controlled when a stored null becomes a date", () => {
+    // A JSON null in the saved record overrides the empty default. If it reached the
+    // input as null, React would treat the box as uncontrolled and warn the moment a
+    // real date arrived. The box has to be controlled from the first render.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const onChange = vi.fn();
+      const { rerender } = render(
+        <ApplicationAnswers
+          value={{ ...EMPTY_PROFILE, dateOfBirth: null as unknown as string }}
+          onChange={onChange}
+          saveState="saved"
+        />,
+      );
+      rerender(
+        <ApplicationAnswers value={{ ...EMPTY_PROFILE, dateOfBirth: "1990-03-04" }} onChange={onChange} saveState="saved" />,
+      );
+      const warned = spy.mock.calls.filter((c) => /controlled|should not be null/i.test(String(c[0])));
+      expect(warned).toEqual([]);
+      expect(dob()).toHaveValue("1990-03-04");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("says where it is used and where it is not, so blank reads as a choice", () => {
+    setup();
+    expect(screen.getByText(/only filled when an application asks for it/i)).toBeInTheDocument();
+    expect(screen.getByText(/never read from your résumé/i)).toBeInTheDocument();
+    expect(screen.getByText(/never shown to the AI/i)).toBeInTheDocument();
+  });
+
+  it("turns browser autofill off, so a saved birthday cannot be written and autosaved unseen", () => {
+    setup();
+    expect(dob()).toHaveAttribute("autocomplete", "off");
+  });
+
+  it("clearing it writes a blank", () => {
+    const { onChange } = setup({ dateOfBirth: "1990-03-04" });
+    fireEvent.change(dob(), { target: { value: "" } });
+    expect(lastValue(onChange).dateOfBirth).toBe("");
+  });
+
+  it("is disabled until the saved profile has loaded", () => {
+    setup({}, "loading");
+    expect(dob()).toBeDisabled();
+  });
+
+  it("warns when a saved date would not be used, instead of saving it quietly", () => {
+    setup({ dateOfBirth: "2999-01-01" });
+    expect(dob()).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/will not be used/i)).toBeInTheDocument();
+    document.body.innerHTML = "";
+    setup({ dateOfBirth: "1990-03-04" });
+    expect(dob()).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.queryByText(/will not be used/i)).not.toBeInTheDocument();
+  });
+
+  describe("birthDateProblem", () => {
+    const now = new Date(2026, 10, 2, 12, 0, 0); // 2 Nov 2026, local
+    it.each([
+      ["1990-03-04", ""],
+      ["2026-11-02", ""], // today is fine
+      ["1900-01-01", ""], // the floor is inclusive
+      ["", ""], // blank is not a problem
+      ["   ", ""],
+      [null, ""],
+      [undefined, ""],
+    ])("accepts %j", (raw, expected) => {
+      expect(birthDateProblem(raw as string, now)).toBe(expected);
+    });
+    it.each([["2026-11-03"], ["2999-01-01"], ["1899-12-31"], ["03/04/1990"], ["1990-3-4"], ["not a date"]])(
+      "rejects %j",
+      (raw) => {
+        expect(birthDateProblem(raw, now)).toMatch(/will not be used/);
+      },
+    );
+  });
+});
+
+describe("race and ethnicity", () => {
+  const race = () => screen.getByRole("combobox", { name: /race and ethnicity/i }) as HTMLSelectElement;
+
+  it("offers exactly the EEO-1 categories in the EEOC's wording, then Decline, after a blank", () => {
+    setup();
+    const shown = Array.from(race().options).map((o) => o.value);
+    expect(shown).toEqual([
+      "",
+      "Hispanic or Latino",
+      "White (Not Hispanic or Latino)",
+      "Black or African American (Not Hispanic or Latino)",
+      "Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino)",
+      "Asian (Not Hispanic or Latino)",
+      "American Indian or Alaska Native (Not Hispanic or Latino)",
+      "Two or More Races (Not Hispanic or Latino)",
+      "Decline to state",
+    ]);
+    // The same list the extension is told to read.
+    expect(shown.slice(1)).toEqual([...RACE_OPTIONS]);
+  });
+
+  it("writes the chosen category to its own key and nothing else", () => {
+    const { onChange } = setup({ roles: "Data Analyst", eeoGender: "Female" });
+    fireEvent.change(race(), { target: { value: "Asian (Not Hispanic or Latino)" } });
+    const next = lastValue(onChange);
+    expect(next.eeoRace).toBe("Asian (Not Hispanic or Latino)");
+    expect(next.eeoGender).toBe("Female");
+    expect(next.roles).toBe("Data Analyst");
+  });
+
+  it("shows the saved category as selected", () => {
+    setup({ eeoRace: "Hispanic or Latino" });
+    expect(race()).toHaveValue("Hispanic or Latino");
+  });
+
+  it("starts unanswered, and the blank option is the way back", () => {
+    const { onChange } = setup({ eeoRace: "Decline to state" });
+    expect(race()).toHaveValue("Decline to state");
+    fireEvent.change(race(), { target: { value: "" } });
+    expect(lastValue(onChange).eeoRace).toBe("");
+  });
+
+  it("says what is saved when it is not one of the categories, instead of looking unanswered", () => {
+    setup({ eeoRace: "Caucasian" });
+    expect(screen.getByText(/Saved as “Caucasian”/)).toBeInTheDocument();
+    expect(race()).toHaveValue("");
+  });
+
+  it("counts as an answer only when it is one of the categories", () => {
+    setup({ eeoRace: "Asian (Not Hispanic or Latino)" });
+    expect(screen.getByText("1 of 7 answered")).toBeInTheDocument();
+    document.body.innerHTML = "";
+    setup({ eeoRace: "Caucasian" });
+    expect(screen.getByText("0 of 7 answered")).toBeInTheDocument();
+  });
+
+  it("is disabled until the saved profile has loaded", () => {
+    setup({}, "loading");
+    expect(race()).toBeDisabled();
+  });
+
+  it("is introduced as optional, with Decline to state always valid", () => {
+    setup();
+    expect(screen.getByText(/“Decline to state” is always a valid answer/)).toBeInTheDocument();
+  });
+});
+
 describe("saving an answer", () => {
   it("writes exactly the value the extension reads", async () => {
     const { onChange } = setup();
@@ -277,6 +453,6 @@ describe("the save line", () => {
 
   it("counts the answers", () => {
     setup({ eeoWorkUs: "Yes", eeoSponsor: "No", eeoGender: "Male" });
-    expect(screen.getByText("3 of 6 answered")).toBeInTheDocument();
+    expect(screen.getByText("3 of 7 answered")).toBeInTheDocument();
   });
 });

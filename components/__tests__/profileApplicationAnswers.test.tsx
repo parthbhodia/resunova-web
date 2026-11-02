@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within, act } from "@testing-library/react";
+import { render, screen, waitFor, within, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EMPTY_PROFILE, type ProfileFormState } from "@/lib/profileStorage";
 import { INITIAL_EXTRACTED_PROFILE } from "@/lib/resumeExtractorService";
@@ -159,6 +159,36 @@ describe("saving", () => {
     expect(written.eeoWorkUs).toBe("Yes");
     expect(written.roles).toBe("Data Analyst");
   }, 10000);
+
+  it("saves a date of birth and a race answer to user_profiles without dropping the rest of the record", async () => {
+    // Both are new keys on the same jsonb record the whole page upserts. A save that
+    // rebuilt the record from a fixed list of keys would silently drop them, or drop
+    // everything else when they were set.
+    h.fetchUserProfile.mockResolvedValue(saved({ eeoWorkUs: "Yes", typedPhone: "555-9999" }));
+    render(<ProfilePage />);
+    await waitFor(() => expect(within(workAuth()).getByRole("radio", { name: "Yes" })).toBeChecked());
+
+    fireEvent.change(screen.getByLabelText("Date of birth"), { target: { value: "1990-03-04" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /race and ethnicity/i }), {
+      target: { value: "Two or More Races (Not Hispanic or Latino)" },
+    });
+    await waitFor(() => expect(h.upsertUserProfile).toHaveBeenCalled(), { timeout: 5000 });
+    const written = h.upsertUserProfile.mock.calls.at(-1)?.[0] as ProfileFormState;
+    expect(written.dateOfBirth).toBe("1990-03-04");
+    expect(written.eeoRace).toBe("Two or More Races (Not Hispanic or Latino)");
+    expect(written.eeoWorkUs).toBe("Yes");
+    expect(written.typedPhone).toBe("555-9999");
+    expect(written.roles).toBe("Data Analyst");
+  }, 10000);
+
+  it("shows a date of birth and race that were saved earlier", async () => {
+    h.fetchUserProfile.mockResolvedValue(
+      saved({ dateOfBirth: "1985-07-21", eeoRace: "Hispanic or Latino" }),
+    );
+    render(<ProfilePage />);
+    await waitFor(() => expect(screen.getByLabelText("Date of birth")).toHaveValue("1985-07-21"));
+    expect(screen.getByRole("combobox", { name: /race and ethnicity/i })).toHaveValue("Hispanic or Latino");
+  });
 
   it("writes nothing just because the page was opened", async () => {
     render(<ProfilePage />);

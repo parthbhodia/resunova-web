@@ -70,6 +70,7 @@ export default function ApplicationAnswers({ value, onChange, saveState, resume,
   const eligibility = APPLICATION_ANSWER_QUESTIONS.filter((q) => q.group === "eligibility");
   const voluntary = APPLICATION_ANSWER_QUESTIONS.filter((q) => q.group === "voluntary");
   const answered = answeredCount(value);
+  const dobProblem = birthDateProblem(value.dateOfBirth);
 
   const set = (q: ApplicationAnswerQuestion, next: string) => onChange({ ...value, [q.key]: next });
 
@@ -142,6 +143,28 @@ export default function ApplicationAnswers({ value, onChange, saveState, resume,
           </div>
         </Group>
 
+        <Group
+          title="Date of birth"
+          help="Only filled when an application asks for it. It is never read from your résumé and never shown to the AI that drafts answers. Leave it blank and it stays blank."
+        >
+          <div className="aa-profile-fields">
+            <TextField
+              label="Date of birth"
+              type="date"
+              value={value.dateOfBirth ?? ""}
+              onChange={(event) => onChange({ ...value, dateOfBirth: event.target.value })}
+              // Off, so a browser's saved birthday cannot be written and autosaved unseen.
+              autoComplete="off"
+              error={dobProblem !== ""}
+              helperText={dobProblem || undefined}
+              disabled={disabled}
+              fullWidth
+              size="small"
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: DOB_MIN } }}
+            />
+          </div>
+        </Group>
+
         <Group title="Work eligibility">
           {eligibility.map((q) => (
             <Question key={q.key} q={q} value={value[q.key]} disabled={disabled} onSet={(v) => set(q, v)} />
@@ -152,9 +175,13 @@ export default function ApplicationAnswers({ value, onChange, saveState, resume,
           title="Voluntary self-identification"
           help="Optional. Employers ask these for equal opportunity reporting, and “Decline to state” is always a valid answer."
         >
-          {voluntary.map((q) => (
-            <Question key={q.key} q={q} value={value[q.key]} disabled={disabled} onSet={(v) => set(q, v)} />
-          ))}
+          {voluntary.map((q) =>
+            q.control === "select" ? (
+              <SelectQuestion key={q.key} q={q} value={value[q.key]} disabled={disabled} onSet={(v) => set(q, v)} />
+            ) : (
+              <Question key={q.key} q={q} value={value[q.key]} disabled={disabled} onSet={(v) => set(q, v)} />
+            ),
+          )}
         </Group>
 
         <div className="aa-foot">
@@ -168,6 +195,22 @@ export default function ApplicationAnswers({ value, onChange, saveState, resume,
       </Box>
     </HubCard>
   );
+}
+
+/** The earliest date the extension will use; the API drops anything before it. */
+const DOB_MIN = "1900-01-01";
+
+/**
+ * Why a typed date will not be used, or "" when it is fine. The API refuses a date
+ * that is not a real past one, so this says so rather than letting it save quietly
+ * and then do nothing. It is computed at render, not stored: "today" moves.
+ */
+export function birthDateProblem(raw: string | null | undefined, now: Date = new Date()): string {
+  const v = (raw ?? "").trim();
+  if (!v) return "";
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || v < DOB_MIN || v > today) return "That date will not be used. Enter a real date in the past.";
+  return "";
 }
 
 function Group({ title, help, children }: { title: string; help?: string; children: React.ReactNode }) {
@@ -228,6 +271,54 @@ function Question({
           </button>
         ) : null}
       </div>
+      {stray ? <div className="aa-stray">Saved as “{stray}”. Pick an option to replace it.</div> : null}
+    </div>
+  );
+}
+
+/**
+ * A question with too many long options to be chips (race and ethnicity): a native
+ * dropdown, with a blank first option as the way back to "unanswered". Native on
+ * purpose, so the person's own browser handles a long list and a phone shows its
+ * usual picker.
+ */
+function SelectQuestion({
+  q,
+  value,
+  disabled,
+  onSet,
+}: {
+  q: ApplicationAnswerQuestion;
+  value: string;
+  disabled: boolean;
+  onSet: (v: string) => void;
+}) {
+  const labelId = `aa-label-${q.key}`;
+  const known = q.options.includes(value);
+  const stray = value && !known ? value : "";
+  return (
+    <div className="aa-q">
+      <div id={labelId} className="aa-q-label">{q.label}</div>
+      <TextField
+        select
+        value={known ? value : ""}
+        onChange={(event) => onSet(event.target.value)}
+        autoComplete="off"
+        disabled={disabled}
+        fullWidth
+        size="small"
+        slotProps={{
+          select: { native: true },
+          htmlInput: { "aria-labelledby": labelId, name: `aa-${q.key}` },
+        }}
+      >
+        <option value="">Leave blank</option>
+        {q.options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </TextField>
       {stray ? <div className="aa-stray">Saved as “{stray}”. Pick an option to replace it.</div> : null}
     </div>
   );
