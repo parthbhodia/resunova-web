@@ -8,6 +8,12 @@
  * it understands exactly "Yes", "No", "Decline to state" and, for gender,
  * "Male", "Female" and "Non-Binary". Change a string here and the extension
  * silently stops matching it.
+ *
+ * Race and ethnicity use the seven EEO-1 category names, spelled the way the
+ * EEOC publishes them, because that spelling is what tells the extension whether
+ * an answer also means "not Hispanic or Latino" (forms that ask that as a
+ * separate Yes/No question). They are the same contract: the extension reads
+ * these exact strings from `RACE_OPTIONS`.
  */
 
 import type { ProfileFormState } from "@/lib/profileStorage";
@@ -18,7 +24,8 @@ export type ApplicationAnswerKey =
   | "eeoDisability"
   | "eeoVeteran"
   | "eeoGender"
-  | "eeoLgbtq";
+  | "eeoLgbtq"
+  | "eeoRace";
 
 export type ApplicationAnswerQuestion = {
   key: ApplicationAnswerKey;
@@ -26,10 +33,31 @@ export type ApplicationAnswerQuestion = {
   options: readonly string[];
   /** `eligibility` questions are required by most forms; `voluntary` ones are optional by law. */
   group: "eligibility" | "voluntary";
+  /** How the options are shown. Short Yes/No sets are chips; a long list of names is a dropdown. */
+  control?: "chips" | "select";
 };
 
 const YES_NO = ["Yes", "No"] as const;
 const YES_NO_DECLINE = ["Yes", "No", "Decline to state"] as const;
+
+/**
+ * The EEO-1 race and ethnicity categories, in the EEOC's own wording and order,
+ * plus the decline option every form must offer. A person who is Hispanic or Latino
+ * of any race picks "Hispanic or Latino"; the other six all say "(Not Hispanic or
+ * Latino)" because that is how the category is defined, not decoration. Multi-select
+ * forms and the 2024 OMB categories (such as Middle Eastern or North African) are not
+ * modelled: a form whose options cannot say one of these is left for the person.
+ */
+export const RACE_OPTIONS = [
+  "Hispanic or Latino",
+  "White (Not Hispanic or Latino)",
+  "Black or African American (Not Hispanic or Latino)",
+  "Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino)",
+  "Asian (Not Hispanic or Latino)",
+  "American Indian or Alaska Native (Not Hispanic or Latino)",
+  "Two or More Races (Not Hispanic or Latino)",
+  "Decline to state",
+] as const;
 
 export const APPLICATION_ANSWER_QUESTIONS: readonly ApplicationAnswerQuestion[] = [
   {
@@ -61,6 +89,13 @@ export const APPLICATION_ANSWER_QUESTIONS: readonly ApplicationAnswerQuestion[] 
     label: "What is your gender?",
     options: ["Male", "Female", "Non-Binary", "Decline to state"],
     group: "voluntary",
+  },
+  {
+    key: "eeoRace",
+    label: "How do you describe your race and ethnicity?",
+    options: RACE_OPTIONS,
+    group: "voluntary",
+    control: "select",
   },
   {
     key: "eeoLgbtq",

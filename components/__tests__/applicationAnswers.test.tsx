@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import ApplicationAnswers, { type AnswersSaveState } from "@/components/profile/ApplicationAnswers";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import ApplicationAnswers, { birthDateProblem, type AnswersSaveState } from "@/components/profile/ApplicationAnswers";
+import { RACE_OPTIONS } from "@/lib/applicationAnswers";
 import { EMPTY_PROFILE, type ProfileFormState } from "@/lib/profileStorage";
 
 /**
@@ -10,10 +13,14 @@ import { EMPTY_PROFILE, type ProfileFormState } from "@/lib/profileStorage";
  * live ledger renders only after a résumé is uploaded.
  */
 
-function setup(initial: Partial<ProfileFormState> = {}, saveState: AnswersSaveState = "saved") {
+function setup(
+  initial: Partial<ProfileFormState> = {},
+  saveState: AnswersSaveState = "saved",
+  extra: Partial<React.ComponentProps<typeof ApplicationAnswers>> = {},
+) {
   const onChange = vi.fn();
   const value = { ...EMPTY_PROFILE, ...initial };
-  render(<ApplicationAnswers value={value} onChange={onChange} saveState={saveState} />);
+  render(<ApplicationAnswers value={value} onChange={onChange} saveState={saveState} {...extra} />);
   return { onChange, value };
 }
 
@@ -22,9 +29,10 @@ const workAuth = () => screen.getByRole("radiogroup", { name: /authorized to wor
 const lastValue = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)?.[0] as ProfileFormState;
 
 describe("the questions", () => {
-  it("asks all six, each as its own group", () => {
+  it("asks six as chip groups, each its own group, and race and ethnicity as a dropdown", () => {
     setup();
     expect(screen.getAllByRole("radiogroup")).toHaveLength(6);
+    expect(screen.getByRole("combobox", { name: /race and ethnicity/i })).toBeInTheDocument();
     expect(workAuth()).toBeInTheDocument();
     expect(sponsorship()).toBeInTheDocument();
     expect(screen.getByRole("radiogroup", { name: /disability/i })).toBeInTheDocument();
@@ -71,10 +79,290 @@ describe("application autofill details", () => {
     expect(lastValue(onChange).country).toBe("United States");
   });
 
-  it("keeps both fields disabled until the saved profile loads", () => {
+  it("keeps every field disabled until the saved profile loads", () => {
     setup({}, "loading");
     expect(screen.getByRole("textbox", { name: "Preferred first name" })).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "Country" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "City and state" })).toBeDisabled();
+  });
+
+  it("saves the city the Chrome extension asks for, and nothing else with it", () => {
+    // The widget lists "Your city" as missing and links here. Until this field
+    // existed the only source was a résumé upload, so a person with no résumé
+    // had nowhere to type it.
+    const { onChange } = setup({ roles: "Data Analyst", country: "United States" });
+    const city = screen.getByRole("textbox", { name: "City and state" });
+    expect(city).toHaveValue("");
+
+    fireEvent.change(city, { target: { value: "Baltimore, MD" } });
+    const next = lastValue(onChange);
+    expect(next.currentLocation).toBe("Baltimore, MD");
+    expect(next.country).toBe("United States");
+    expect(next.roles).toBe("Data Analyst");
+  });
+
+  it("shows a saved city and describes the expected format to a screen reader", () => {
+    setup({ currentLocation: "Austin, TX" });
+    const city = screen.getByRole("textbox", { name: "City and state" });
+    expect(city).toHaveValue("Austin, TX");
+    // The hint is a description, never part of the accessible name.
+    expect(city).toHaveAccessibleDescription(/City, State/);
+  });
+});
+
+describe("contact details typed for applications", () => {
+  const RESUME = {
+    name: "Ada Lovelace",
+    email: "ada@resume.example",
+    phone: "555-0100",
+    linkedin: "linkedin.com/in/ada",
+    github: "github.com/ada",
+    portfolio: "ada.dev",
+  };
+  const BOXES: [string, keyof ProfileFormState][] = [
+    ["Full name", "typedName"],
+    ["Email", "typedEmail"],
+    ["Phone", "typedPhone"],
+    ["LinkedIn", "typedLinkedin"],
+    ["GitHub", "typedGithub"],
+    ["Portfolio or website", "typedPortfolio"],
+  ];
+
+  it("offers all six, each writing its own typed key and nothing else", () => {
+    for (const [label, key] of BOXES) {
+      const { onChange } = setup({ roles: "Data Analyst" }, "saved", { resume: RESUME });
+      fireEvent.change(screen.getAllByRole("textbox", { name: label })[0], { target: { value: "typed value" } });
+      const next = lastValue(onChange);
+      expect(next[key]).toBe("typed value");
+      // Every other typed key is still blank, and the rest of the record is intact.
+      for (const [, other] of BOXES) if (other !== key) expect(next[other]).toBe("");
+      expect(next.roles).toBe("Data Analyst");
+      document.body.innerHTML = "";
+    }
+  });
+
+  it("shows what the résumé says as the placeholder, so blank is visibly 'use the résumé's'", () => {
+    setup({}, "saved", { resume: RESUME });
+    expect(screen.getByRole("textbox", { name: "Full name" })).toHaveAttribute("placeholder", "Ada Lovelace");
+    expect(screen.getByRole("textbox", { name: "Phone" })).toHaveAttribute("placeholder", "555-0100");
+    expect(screen.getByRole("textbox", { name: "GitHub" })).toHaveAttribute("placeholder", "github.com/ada");
+    // A typed value shows as the value, not the placeholder.
+    document.body.innerHTML = "";
+    setup({ typedPhone: "555-9999" }, "saved", { resume: RESUME });
+    expect(screen.getByRole("textbox", { name: "Phone" })).toHaveValue("555-9999");
+  });
+
+  it("falls back to the sign-in address for Email, and to a neutral hint with no résumé", () => {
+    setup({}, "saved", { accountEmail: "me@login.example" });
+    expect(screen.getByRole("textbox", { name: "Email" })).toHaveAttribute("placeholder", "me@login.example");
+    expect(screen.getByRole("textbox", { name: "Phone" })).toHaveAttribute("placeholder", "From your résumé");
+  });
+
+  it("clearing a box writes a blank, which means use the résumé's again", () => {
+    const { onChange } = setup({ typedPhone: "555-9999" }, "saved", { resume: RESUME });
+    fireEvent.change(screen.getByRole("textbox", { name: "Phone" }), { target: { value: "" } });
+    expect(lastValue(onChange).typedPhone).toBe("");
+  });
+
+  it("turns browser autofill off, so a saved browser profile cannot be written and autosaved unseen", () => {
+    setup({}, "saved", { resume: RESUME });
+    for (const [label] of BOXES) {
+      expect(screen.getByRole("textbox", { name: label })).toHaveAttribute("autocomplete", "off");
+    }
+  });
+
+  it("keeps every contact box disabled until the saved profile loads", () => {
+    setup({}, "loading", { resume: RESUME });
+    for (const [label] of BOXES) expect(screen.getByRole("textbox", { name: label })).toBeDisabled();
+  });
+});
+
+describe("how the fields are laid out", () => {
+  it("restores MUI's content-box on its inputs, which the app's unlayered reset otherwise flattens", () => {
+    // jsdom does no layout, so the visible failure (every box one line high, a dropdown's value
+    // clipped to nothing) cannot be seen here. It is pinned as a source fact instead, and was
+    // verified in a real browser: MUI's rule sits in @layer mui, `* { box-sizing: border-box }`
+    // in globals.css does not, and an unlayered rule beats a layered one whatever its specificity.
+    const source = readFileSync(join(process.cwd(), "components/profile/ApplicationAnswers.tsx"), "utf8");
+    expect(source).toMatch(/\.aa-card \.MuiInputBase-input\s*\{\s*box-sizing:\s*content-box;/);
+    expect(source).toMatch(/className="aa-card"/);
+    expect(readFileSync(join(process.cwd(), "app/globals.css"), "utf8")).toMatch(
+      /\*,\s*\*::before,\s*\*::after\s*\{\s*box-sizing:\s*border-box;/,
+    );
+  });
+});
+
+describe("date of birth", () => {
+  const dob = () => screen.getByLabelText("Date of birth");
+
+  it("writes the typed date to its own key and nothing else", () => {
+    const { onChange } = setup({ roles: "Data Analyst", eeoWorkUs: "Yes" });
+    fireEvent.change(dob(), { target: { value: "1990-03-04" } });
+    const next = lastValue(onChange);
+    expect(next.dateOfBirth).toBe("1990-03-04");
+    expect(next.roles).toBe("Data Analyst");
+    expect(next.eeoWorkUs).toBe("Yes");
+    expect(next.typedName).toBe("");
+  });
+
+  it("is a real date input, so the browser's picker prevents a malformed value", () => {
+    setup();
+    expect(dob()).toHaveAttribute("type", "date");
+  });
+
+  it("shows a saved date, and survives a null where a string was expected", () => {
+    setup({ dateOfBirth: "1990-03-04" });
+    expect(dob()).toHaveValue("1990-03-04");
+    document.body.innerHTML = "";
+    // A stored JSON null overrides the empty default when the record is spread.
+    setup({ dateOfBirth: null as unknown as string });
+    expect(dob()).toHaveValue("");
+  });
+
+  it("does not flip the box from uncontrolled to controlled when a stored null becomes a date", () => {
+    // A JSON null in the saved record overrides the empty default. If it reached the
+    // input as null, React would treat the box as uncontrolled and warn the moment a
+    // real date arrived. The box has to be controlled from the first render.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const onChange = vi.fn();
+      const { rerender } = render(
+        <ApplicationAnswers
+          value={{ ...EMPTY_PROFILE, dateOfBirth: null as unknown as string }}
+          onChange={onChange}
+          saveState="saved"
+        />,
+      );
+      rerender(
+        <ApplicationAnswers value={{ ...EMPTY_PROFILE, dateOfBirth: "1990-03-04" }} onChange={onChange} saveState="saved" />,
+      );
+      const warned = spy.mock.calls.filter((c) => /controlled|should not be null/i.test(String(c[0])));
+      expect(warned).toEqual([]);
+      expect(dob()).toHaveValue("1990-03-04");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("says where it is used and where it is not, so blank reads as a choice", () => {
+    setup();
+    expect(screen.getByText(/only filled when an application asks for it/i)).toBeInTheDocument();
+    expect(screen.getByText(/never read from your résumé/i)).toBeInTheDocument();
+    expect(screen.getByText(/never shown to the AI/i)).toBeInTheDocument();
+  });
+
+  it("turns browser autofill off, so a saved birthday cannot be written and autosaved unseen", () => {
+    setup();
+    expect(dob()).toHaveAttribute("autocomplete", "off");
+  });
+
+  it("clearing it writes a blank", () => {
+    const { onChange } = setup({ dateOfBirth: "1990-03-04" });
+    fireEvent.change(dob(), { target: { value: "" } });
+    expect(lastValue(onChange).dateOfBirth).toBe("");
+  });
+
+  it("is disabled until the saved profile has loaded", () => {
+    setup({}, "loading");
+    expect(dob()).toBeDisabled();
+  });
+
+  it("warns when a saved date would not be used, instead of saving it quietly", () => {
+    setup({ dateOfBirth: "2999-01-01" });
+    expect(dob()).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/will not be used/i)).toBeInTheDocument();
+    document.body.innerHTML = "";
+    setup({ dateOfBirth: "1990-03-04" });
+    expect(dob()).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.queryByText(/will not be used/i)).not.toBeInTheDocument();
+  });
+
+  describe("birthDateProblem", () => {
+    const now = new Date(2026, 10, 2, 12, 0, 0); // 2 Nov 2026, local
+    it.each([
+      ["1990-03-04", ""],
+      ["2026-11-02", ""], // today is fine
+      ["1900-01-01", ""], // the floor is inclusive
+      ["", ""], // blank is not a problem
+      ["   ", ""],
+      [null, ""],
+      [undefined, ""],
+    ])("accepts %j", (raw, expected) => {
+      expect(birthDateProblem(raw as string, now)).toBe(expected);
+    });
+    it.each([["2026-11-03"], ["2999-01-01"], ["1899-12-31"], ["03/04/1990"], ["1990-3-4"], ["not a date"]])(
+      "rejects %j",
+      (raw) => {
+        expect(birthDateProblem(raw, now)).toMatch(/will not be used/);
+      },
+    );
+  });
+});
+
+describe("race and ethnicity", () => {
+  const race = () => screen.getByRole("combobox", { name: /race and ethnicity/i }) as HTMLSelectElement;
+
+  it("offers exactly the EEO-1 categories in the EEOC's wording, then Decline, after a blank", () => {
+    setup();
+    const shown = Array.from(race().options).map((o) => o.value);
+    expect(shown).toEqual([
+      "",
+      "Hispanic or Latino",
+      "White (Not Hispanic or Latino)",
+      "Black or African American (Not Hispanic or Latino)",
+      "Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino)",
+      "Asian (Not Hispanic or Latino)",
+      "American Indian or Alaska Native (Not Hispanic or Latino)",
+      "Two or More Races (Not Hispanic or Latino)",
+      "Decline to state",
+    ]);
+    // The same list the extension is told to read.
+    expect(shown.slice(1)).toEqual([...RACE_OPTIONS]);
+  });
+
+  it("writes the chosen category to its own key and nothing else", () => {
+    const { onChange } = setup({ roles: "Data Analyst", eeoGender: "Female" });
+    fireEvent.change(race(), { target: { value: "Asian (Not Hispanic or Latino)" } });
+    const next = lastValue(onChange);
+    expect(next.eeoRace).toBe("Asian (Not Hispanic or Latino)");
+    expect(next.eeoGender).toBe("Female");
+    expect(next.roles).toBe("Data Analyst");
+  });
+
+  it("shows the saved category as selected", () => {
+    setup({ eeoRace: "Hispanic or Latino" });
+    expect(race()).toHaveValue("Hispanic or Latino");
+  });
+
+  it("starts unanswered, and the blank option is the way back", () => {
+    const { onChange } = setup({ eeoRace: "Decline to state" });
+    expect(race()).toHaveValue("Decline to state");
+    fireEvent.change(race(), { target: { value: "" } });
+    expect(lastValue(onChange).eeoRace).toBe("");
+  });
+
+  it("says what is saved when it is not one of the categories, instead of looking unanswered", () => {
+    setup({ eeoRace: "Caucasian" });
+    expect(screen.getByText(/Saved as “Caucasian”/)).toBeInTheDocument();
+    expect(race()).toHaveValue("");
+  });
+
+  it("counts as an answer only when it is one of the categories", () => {
+    setup({ eeoRace: "Asian (Not Hispanic or Latino)" });
+    expect(screen.getByText("1 of 7 answered")).toBeInTheDocument();
+    document.body.innerHTML = "";
+    setup({ eeoRace: "Caucasian" });
+    expect(screen.getByText("0 of 7 answered")).toBeInTheDocument();
+  });
+
+  it("is disabled until the saved profile has loaded", () => {
+    setup({}, "loading");
+    expect(race()).toBeDisabled();
+  });
+
+  it("is introduced as optional, with Decline to state always valid", () => {
+    setup();
+    expect(screen.getByText(/“Decline to state” is always a valid answer/)).toBeInTheDocument();
   });
 });
 
@@ -182,6 +470,6 @@ describe("the save line", () => {
 
   it("counts the answers", () => {
     setup({ eeoWorkUs: "Yes", eeoSponsor: "No", eeoGender: "Male" });
-    expect(screen.getByText("3 of 6 answered")).toBeInTheDocument();
+    expect(screen.getByText("3 of 7 answered")).toBeInTheDocument();
   });
 });

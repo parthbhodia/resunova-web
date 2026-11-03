@@ -24,6 +24,7 @@ import TextField from "@mui/material/TextField";
 import { HubCard, SectionHeader } from "./profileMui";
 import { FS, FW } from "@/lib/typography";
 import type { ProfileFormState } from "@/lib/profileStorage";
+import type { ExtractedProfileState } from "@/lib/resumeExtractorService";
 import {
   APPLICATION_ANSWER_QUESTIONS,
   answeredCount,
@@ -39,18 +40,37 @@ const SAVE_COPY: Record<AnswersSaveState, string> = {
   saved: "Saved automatically",
 };
 
+/** Where each typed contact field is saved, what it is called, and which résumé value it overrides. */
+const CONTACT_FIELDS: {
+  key: "typedName" | "typedEmail" | "typedPhone" | "typedLinkedin" | "typedGithub" | "typedPortfolio";
+  label: string;
+  resumeKey: "name" | "email" | "phone" | "linkedin" | "github" | "portfolio";
+}[] = [
+  { key: "typedName", label: "Full name", resumeKey: "name" },
+  { key: "typedEmail", label: "Email", resumeKey: "email" },
+  { key: "typedPhone", label: "Phone", resumeKey: "phone" },
+  { key: "typedLinkedin", label: "LinkedIn", resumeKey: "linkedin" },
+  { key: "typedGithub", label: "GitHub", resumeKey: "github" },
+  { key: "typedPortfolio", label: "Portfolio or website", resumeKey: "portfolio" },
+];
+
 type Props = {
   value: ProfileFormState;
   onChange: (next: ProfileFormState) => void;
   saveState: AnswersSaveState;
+  /** What the uploaded résumé says, shown as the placeholder of each contact box. */
+  resume?: Partial<Pick<ExtractedProfileState, "name" | "email" | "phone" | "linkedin" | "github" | "portfolio">>;
+  /** The sign-in address, the placeholder for Email when the résumé has none. */
+  accountEmail?: string;
 };
 
-export default function ApplicationAnswers({ value, onChange, saveState }: Props) {
+export default function ApplicationAnswers({ value, onChange, saveState, resume, accountEmail }: Props) {
   // Editing before the saved profile has loaded would be overwritten by it.
   const disabled = saveState === "loading";
   const eligibility = APPLICATION_ANSWER_QUESTIONS.filter((q) => q.group === "eligibility");
   const voluntary = APPLICATION_ANSWER_QUESTIONS.filter((q) => q.group === "voluntary");
   const answered = answeredCount(value);
+  const dobProblem = birthDateProblem(value.dateOfBirth);
 
   const set = (q: ApplicationAnswerQuestion, next: string) => onChange({ ...value, [q.key]: next });
 
@@ -62,7 +82,32 @@ export default function ApplicationAnswers({ value, onChange, saveState }: Props
         title="Application answers"
         subtitle="Reused on every job application. Anything you leave blank stays blank."
       />
-      <Box sx={{ px: { xs: 2.25, sm: 3 }, py: 3, display: "grid", gap: 3.5 }}>
+      <Box className="aa-card" sx={{ px: { xs: 2.25, sm: 3 }, py: 3, display: "grid", gap: 3.5 }}>
+        <Group
+          title="Contact details"
+          help="What you type here is used on applications instead of what your résumé says. Leave a box blank to use the résumé’s."
+        >
+          <div className="aa-profile-fields">
+            {CONTACT_FIELDS.map((f) => {
+              const fromResume = (resume?.[f.resumeKey] ?? "").trim() || (f.key === "typedEmail" ? accountEmail ?? "" : "");
+              return (
+                <TextField
+                  key={f.key}
+                  label={f.label}
+                  value={value[f.key]}
+                  onChange={(event) => onChange({ ...value, [f.key]: event.target.value })}
+                  // Off, so a browser's saved profile cannot fill these and have the page autosave it.
+                  autoComplete="off"
+                  placeholder={fromResume || "From your résumé"}
+                  disabled={disabled}
+                  fullWidth
+                  size="small"
+                />
+              );
+            })}
+          </div>
+        </Group>
+
         <Group title="Application autofill details" help="Used to pre-fill matching fields on supported application forms. Review every answer before submitting.">
           <div className="aa-profile-fields">
             <TextField
@@ -84,6 +129,39 @@ export default function ApplicationAnswers({ value, onChange, saveState }: Props
               fullWidth
               size="small"
             />
+            <TextField
+              label="City and state"
+              value={value.currentLocation}
+              onChange={(event) => onChange({ ...value, currentLocation: event.target.value })}
+              autoComplete="off"
+              placeholder="e.g. Baltimore, MD"
+              helperText="Written as City, State. Used for “where do you live” questions."
+              disabled={disabled}
+              fullWidth
+              size="small"
+            />
+          </div>
+        </Group>
+
+        <Group
+          title="Date of birth"
+          help="Only filled when an application asks for it. It is never read from your résumé and never shown to the AI that drafts answers. Leave it blank and it stays blank."
+        >
+          <div className="aa-profile-fields">
+            <TextField
+              label="Date of birth"
+              type="date"
+              value={value.dateOfBirth ?? ""}
+              onChange={(event) => onChange({ ...value, dateOfBirth: event.target.value })}
+              // Off, so a browser's saved birthday cannot be written and autosaved unseen.
+              autoComplete="off"
+              error={dobProblem !== ""}
+              helperText={dobProblem || undefined}
+              disabled={disabled}
+              fullWidth
+              size="small"
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: DOB_MIN } }}
+            />
           </div>
         </Group>
 
@@ -97,9 +175,13 @@ export default function ApplicationAnswers({ value, onChange, saveState }: Props
           title="Voluntary self-identification"
           help="Optional. Employers ask these for equal opportunity reporting, and “Decline to state” is always a valid answer."
         >
-          {voluntary.map((q) => (
-            <Question key={q.key} q={q} value={value[q.key]} disabled={disabled} onSet={(v) => set(q, v)} />
-          ))}
+          {voluntary.map((q) =>
+            q.control === "select" ? (
+              <SelectQuestion key={q.key} q={q} value={value[q.key]} disabled={disabled} onSet={(v) => set(q, v)} />
+            ) : (
+              <Question key={q.key} q={q} value={value[q.key]} disabled={disabled} onSet={(v) => set(q, v)} />
+            ),
+          )}
         </Group>
 
         <div className="aa-foot">
@@ -113,6 +195,22 @@ export default function ApplicationAnswers({ value, onChange, saveState }: Props
       </Box>
     </HubCard>
   );
+}
+
+/** The earliest date the extension will use; the API drops anything before it. */
+const DOB_MIN = "1900-01-01";
+
+/**
+ * Why a typed date will not be used, or "" when it is fine. The API refuses a date
+ * that is not a real past one, so this says so rather than letting it save quietly
+ * and then do nothing. It is computed at render, not stored: "today" moves.
+ */
+export function birthDateProblem(raw: string | null | undefined, now: Date = new Date()): string {
+  const v = (raw ?? "").trim();
+  if (!v) return "";
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || v < DOB_MIN || v > today) return "That date will not be used. Enter a real date in the past.";
+  return "";
 }
 
 function Group({ title, help, children }: { title: string; help?: string; children: React.ReactNode }) {
@@ -178,10 +276,64 @@ function Question({
   );
 }
 
+/**
+ * A question with too many long options to be chips (race and ethnicity): a native
+ * dropdown, with a blank first option as the way back to "unanswered". Native on
+ * purpose, so the person's own browser handles a long list and a phone shows its
+ * usual picker.
+ */
+function SelectQuestion({
+  q,
+  value,
+  disabled,
+  onSet,
+}: {
+  q: ApplicationAnswerQuestion;
+  value: string;
+  disabled: boolean;
+  onSet: (v: string) => void;
+}) {
+  const labelId = `aa-label-${q.key}`;
+  const known = q.options.includes(value);
+  const stray = value && !known ? value : "";
+  return (
+    <div className="aa-q">
+      <div id={labelId} className="aa-q-label">{q.label}</div>
+      <TextField
+        select
+        value={known ? value : ""}
+        onChange={(event) => onSet(event.target.value)}
+        autoComplete="off"
+        disabled={disabled}
+        fullWidth
+        size="small"
+        slotProps={{
+          select: { native: true },
+          htmlInput: { "aria-labelledby": labelId, name: `aa-${q.key}` },
+        }}
+      >
+        <option value="">Leave blank</option>
+        {q.options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </TextField>
+      {stray ? <div className="aa-stray">Saved as “{stray}”. Pick an option to replace it.</div> : null}
+    </div>
+  );
+}
+
 const CSS = `
+  /* MUI declares its inputs content-box inside @layer mui, and this app's global reset
+     (* { box-sizing: border-box }) is unlayered, so it wins over any layered rule. Without this,
+     every field is squashed to one line of text and a dropdown's value is clipped to nothing. */
+  .aa-card .MuiInputBase-input { box-sizing: content-box; }
+  /* MUI's small helper text is 10.5px, under the legibility floor. */
+  .aa-card .MuiFormHelperText-root { font-size: ${FS.small}px; margin-left: 0; }
   .aa-group-title { margin: 0; font-size: ${FS.bodyLg}px; font-weight: ${FW.bold}; color: var(--text); }
   .aa-profile-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-  .aa-help { margin: 4px 0 0; font-size: ${FS.small}px; color: var(--muted); max-width: 62ch; line-height: 1.5; }
+  .aa-help { margin: 4px 0 0; font-size: ${FS.small}px; color: var(--muted); max-width: 62ch; line-height: 1.5; text-wrap: pretty; }
   .aa-q { display: grid; gap: 8px; }
   .aa-q-label { font-size: ${FS.body}px; font-weight: ${FW.semibold}; color: var(--text); }
   .aa-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

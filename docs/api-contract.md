@@ -150,14 +150,16 @@ extension-specific profile table:
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `name` | string | |
+| `name` | string | The person's typed name (`typedName`) when set, otherwise the résumé's |
 | `preferredName` / `country` | string | Application autofill details from `user_profiles.profile` |
-| `email` | string | Falls back to the login address |
-| `phone` / `location` / `headline` / `summary` / `role` | string | |
-| `linkedin` / `github` / `portfolio` | string | |
+| `email` | string | The typed email (`typedEmail`) when set, otherwise the résumé's, then the login address |
+| `phone` / `location` / `headline` / `summary` / `role` | string | `phone` is `typedPhone` when set, otherwise the résumé's. `location` is the person's own `currentLocation` ("City, ST", saved on `/profile`) when set, otherwise the résumé's |
+| `linkedin` / `github` / `portfolio` | string | A typed value (`typedLinkedin` / `typedGithub` / `typedPortfolio`) wins over the résumé's |
 | `skills` | string[] | Non-array values are normalised to `[]` |
 | `experience` / `education` / `projects` | array | Non-array values are normalised to `[]` |
 | `eeoWorkUs` / `eeoSponsor` / `eeoDisability` / `eeoVeteran` / `eeoGender` / `eeoLgbtq` | string | Optional disclosure answers |
+| `eeoRace` | string | One of the seven EEO-1 category names (`RACE_OPTIONS` in `lib/applicationAnswers.ts`) or "Decline to state". The strings are a contract with the extension: it reads "(Not Hispanic or Latino)" to answer a separate Hispanic Yes/No. From `user_profiles` only |
+| `dateOfBirth` | string | `YYYY-MM-DD`, typed on `/profile`, or `""`. The API drops anything that is not a real calendar date between 1900 and today. From `user_profiles` only, never the résumé, and never given to the answer-drafting model |
 
 Access is declared in the backend's `routes/access.py` POLICY. Only `connect-code` sits behind a
 Supabase session; the other four authenticate inside the handler against `extension_sessions`,
