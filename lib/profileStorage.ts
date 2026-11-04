@@ -14,6 +14,22 @@ import { type ExtractedProfileState, INITIAL_EXTRACTED_PROFILE } from "./resumeE
 
 export type ProfileFormState = {
   displayName: string;
+  preferredName: string;
+  country: string;
+  /** Where the person lives, written "City, ST". Read by the Chrome extension for location questions. */
+  currentLocation: string;
+  /**
+   * Contact details the person typed for applications. They live under their own
+   * keys, apart from displayName/email/phone/linkedin/portfolio, because those are
+   * seeded from a résumé upload and cannot be told from a typed value. The Chrome
+   * extension prefers a typed value over the résumé's; blank means "use the résumé's".
+   */
+  typedName: string;
+  typedEmail: string;
+  typedPhone: string;
+  typedLinkedin: string;
+  typedGithub: string;
+  typedPortfolio: string;
   tagline: string;
   email: string;
   phone: string;
@@ -34,12 +50,29 @@ export type ProfileFormState = {
   eeoVeteran: string;
   eeoGender: string;
   eeoLgbtq: string;
+  /** One of `RACE_OPTIONS` (the EEO-1 category names) or "Decline to state". Blank is unanswered. */
+  eeoRace: string;
+  /**
+   * Date of birth as YYYY-MM-DD, typed by the person. Only the Chrome extension
+   * reads it, and only to fill a field that asks for it. Never taken from a
+   * résumé and never sent to the drafting model.
+   */
+  dateOfBirth: string;
 };
 
 export const PROFILE_STORAGE_KEY = "rn_profile_v1";
 
 export const EMPTY_PROFILE: ProfileFormState = {
   displayName: "",
+  preferredName: "",
+  country: "",
+  currentLocation: "",
+  typedName: "",
+  typedEmail: "",
+  typedPhone: "",
+  typedLinkedin: "",
+  typedGithub: "",
+  typedPortfolio: "",
   tagline: "",
   email: "",
   phone: "",
@@ -60,6 +93,8 @@ export const EMPTY_PROFILE: ProfileFormState = {
   eeoVeteran: "",
   eeoGender: "",
   eeoLgbtq: "",
+  eeoRace: "",
+  dateOfBirth: "",
 };
 
 export function loadProfile(): ProfileFormState {
