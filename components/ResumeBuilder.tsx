@@ -155,13 +155,21 @@ import { TailorSkillsFollowUp, mergeSkillsFollowUp, type SkillsFollowUp } from "
 import { normalizeQueueName, type QueueItem } from "@/lib/tailorWorkQueue";
 import type { FixSuggestion } from "@/components/tailor/TailorFixExpansion";
 import { TailoringModeModal, TailoringModeSelector } from "@/components/TailoringModeModal";
-import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
+import {
+  DEFAULT_TAILORING_MODE,
+  fetchTailoringMode,
+  getCachedTailoringMode,
+  resolveTailoringMode,
+  saveTailoringMode,
+  type TailoringMode,
+} from "@/lib/tailoringMode";
 import { applyBulletOpToStructured, remapOverlayPaths, removeBulletByText, type StructuredBulletOp } from "@/lib/structuredBulletOps";
 import { structuredToPlainText } from "@/lib/structuredResumeText";
 import { appendEducation } from "@/lib/educationEntry";
 import { removeSkill } from "@/lib/skillsEntry";
 import type { StructuredResumeEducation } from "@/store/resumeAnalyzeStore";
 import { apiFetch } from "@/lib/apiClient";
+import { trackEvent } from "@/lib/analytics";
 
 const TailoredPdfPreview = dynamic(
   () => import("@/components/TailoredPdfPreview"),
@@ -1574,7 +1582,7 @@ export default function ResumeBuilder({
 
   const signInForAts = useCallback(async () => {
     setAtsError(null);
-    openSignIn({ title: "Sign in to run ATS & job match", reason: "Sign in free to score your résumé against the job and unlock per-bullet fixes." });
+    openSignIn({ ask: "tailor_match" });
   }, [openSignIn]);
 
   const runAtsCheck = useCallback(async (folder: string, updateMatchScore = false) => {
@@ -1830,6 +1838,9 @@ export default function ResumeBuilder({
     setAnalyzeError(null);
     setError(null);
     saveStatus.resetForNewRun();
+    // After the two guards above, so this counts tailor runs that actually
+    // start rather than clicks on a form with no JD or no résumé yet.
+    trackEvent("tailor_started", { mode: tailoringMode ?? "unknown" });
     try {
       const resp = await apiFetch("/api/analyze", {
         method: "POST",
@@ -3037,7 +3048,7 @@ export default function ResumeBuilder({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tailoring_mode: tailoringMode ?? "honest",
+          tailoring_mode: resolveTailoringMode(tailoringMode),
           gap_name: gap.name,
           gap_notes: `${gap.notes}\n\n${inventedBulletPermission(tailoringMode)}`.trim(),
           job_description: jd.trim(),
@@ -3147,7 +3158,7 @@ export default function ResumeBuilder({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tailoring_mode: tailoringMode ?? "honest",
+          tailoring_mode: resolveTailoringMode(tailoringMode),
           gap_name: item.name,
           gap_notes: `${notes}\n\n${inventedBulletPermission(tailoringMode)}`.trim(),
           job_description: jd.trim(),
@@ -3819,9 +3830,9 @@ export default function ResumeBuilder({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              tailoring_mode: tailoringMode ?? "honest",
+              tailoring_mode: resolveTailoringMode(tailoringMode),
               gap_name: batchGapName(batch),
-              gap_notes: batchGapNotes(batch, tailoringMode ?? "honest"),
+              gap_notes: batchGapNotes(batch, tailoringMode),
               job_description: jd.trim(),
               ...(structured ? { structured_resume: structured } : {}),
               ...(prof ? { candidate_profile: prof } : {}),
@@ -4179,15 +4190,15 @@ export default function ResumeBuilder({
 
       <TailoringModeModal
         open={showTailoringModal}
-        initialMode={tailoringMode ?? "honest"}
+        initialMode={resolveTailoringMode(tailoringMode)}
         onSave={commitTailoringMode}
         onCancel={() => {
-          // "Not now" = keep the honest default for this run and stop asking
-          // this session; the setting stays changeable from the header/settings.
+          // "Not now" = keep the default for this run and stop asking this
+          // session; the setting stays changeable from the header/settings.
           setShowTailoringModal(false);
           if (pendingAnalyzeAfterModeRef.current) {
             pendingAnalyzeAfterModeRef.current = false;
-            setTailoringMode("honest");
+            setTailoringMode(DEFAULT_TAILORING_MODE);
             setTimeout(() => handleAnalyzeRef.current?.(), 0);
           }
         }}
@@ -5183,7 +5194,7 @@ export default function ResumeBuilder({
                   <span title="How AI rewrites tailor to the JD. Applies to gap fixes and Boost." style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 0.4 }}>AI style</span>
                     <TailoringModeSelector
-                      value={tailoringMode ?? "honest"}
+                      value={resolveTailoringMode(tailoringMode)}
                       onChange={commitTailoringMode}
                     />
                   </span>
@@ -5477,7 +5488,7 @@ export default function ResumeBuilder({
                         bulletAnalysis={tailorBulletAnalysis}
                         onUndoChange={undoResumeChange}
                         experienceRoles={experienceRoles}
-                        aggressive={tailoringMode === "aggressive"}
+                        aggressive={resolveTailoringMode(tailoringMode) === "aggressive"}
                         onApplyRoleTitle={
                           tailorStructuredResume
                             ? (index, title) => { applyExperienceTitleChange(index, title); }

@@ -13,7 +13,11 @@ import { FS, FW, LH } from "@/lib/typography";
 type Sx = SystemStyleObject<Theme>;
 
 export const pageColumnSx: Sx = {
-  minHeight: "100vh",
+  // 100dvh, not 100vh: on mobile Safari and Chrome `vh` counts the retracting
+  // URL bar, so a full-height column overflows by that bar's height and the
+  // page scrolls when it has nothing to scroll. This is shared chrome, so the
+  // unit here decides it for every public surface that mounts the frame.
+  minHeight: "100dvh",
   display: "flex",
   flexDirection: "column",
   bgcolor: "var(--bg)",

@@ -228,8 +228,8 @@ export default function Sp100TechHiringPage() {
 
       <CTACard
         heading="See how you read against these requirements"
-        body="The same extraction that produced the skill counts above runs on any job description you paste in, scored against your own resume: which of its requirements you already evidence, and which you don't. Free to try."
-        href="/"
+        body="The same extraction that produced the skill counts above runs on any job description you paste in, scored against your own resume: which of its requirements you already evidence, and which you don't. Free with an account, no credit card."
+        href="/?view=analyze"
         cta="Score my resume free"
       />
 
@@ -274,7 +274,7 @@ export default function Sp100TechHiringPage() {
           Every posting in this analysis is live and searchable on Resunova, ranked against your résumé, with skill-by-skill
           match breakdowns and H-1B sponsor data on each job.
         </p>
-        <Link href="/jobs/" style={{ display: "inline-block", background: "var(--accent)", color: "#fff", borderRadius: 9, padding: "9px 16px", fontSize: 14, fontWeight: 650, textDecoration: "none" }}>
+        <Link href="/jobs/" style={{ display: "inline-block", background: "var(--accent)", color: "var(--on-fill)", borderRadius: 9, padding: "9px 16px", fontSize: 14, fontWeight: 650, textDecoration: "none" }}>
           Browse live jobs
         </Link>
       </div>

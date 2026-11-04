@@ -98,6 +98,13 @@ describe("attachAggressiveRoleTitle", () => {
     expect(out[0].suggested_role).toBeUndefined();
   });
 
+  it("treats a missing mode as the default, which is aggressive", () => {
+    for (const mode of [null, undefined, "yolo"]) {
+      const out = attachAggressiveRoleTitle([sug()], rows, "Senior Fullstack Engineer", mode);
+      expect(out[0].suggested_role).toBeDefined();
+    }
+  });
+
   it("strips a model-supplied title in honest mode", () => {
     const out = attachAggressiveRoleTitle(
       [sug({ suggested_role: "Senior Fullstack Engineer" })],

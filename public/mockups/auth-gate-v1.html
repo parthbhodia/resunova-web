@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auth gate — comp v1</title>
+<style>
+/* Tokens copied verbatim from app/globals.css (lines 775-836 dark, 837+ light). */
+[data-theme="light"]{
+  --bg:#f7f9fc; --surface:#ffffff; --surface2:#eef3f8; --surface3:#dbe4ee;
+  --border:rgba(15,23,42,0.14); --text:#0f172a; --muted:#475569; --dim:#64748b;
+  --accent:#0969da; --accent-bg:rgba(9,105,218,0.11); --accent-ink:#0559c7;
+  --green:#059669; --green-bg:rgba(5,150,105,0.12); --green-ink:#047857;
+  --amber-bg:rgba(180,83,9,0.12); --amber-ink:#92400e;
+  --red-bg:rgba(220,38,38,0.12); --red-ink:#b91c1c;
+  --on-fill:#ffffff;
+}
+[data-theme="dark"]{
+  --bg:#0d1117; --surface:#161b22; --surface2:#1e2329; --surface3:#252c37;
+  --border:rgba(230,237,243,0.12); --text:#f0f6fc; --muted:rgba(240,246,252,0.74);
+  --dim:rgba(240,246,252,0.54);
+  --accent:#58a6ff; --accent-bg:rgba(88,166,255,0.15); --accent-ink:#58a6ff;
+  --green:#34d399; --green-bg:rgba(52,211,153,0.16); --green-ink:#6ee7b7;
+  --amber-bg:rgba(251,191,36,0.16); --amber-ink:#fcd34d;
+  --red-bg:rgba(248,81,73,0.16); --red-ink:#ff7b72;
+  --on-fill:#0d1117;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:40px 24px 80px}
+.comp-h{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 6px}
+.comp-t{font-size:24px;font-weight:800;letter-spacing:-.01em;margin:0 0 6px}
+.comp-s{font-size:14px;color:var(--muted);margin:0 0 20px;max-width:68ch;line-height:1.6}
+.rule{height:1px;background:var(--border);margin:56px 0 40px;border:0}
+.stage{background:var(--bg);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+
+/* ---------- 1. CURRENT, annotated ---------- */
+.cur-stage{display:grid;grid-template-columns:1fr 300px;gap:0}
+.cur-canvas{background:var(--bg);display:flex;align-items:center;justify-content:center;padding:56px 24px;min-height:420px;position:relative}
+.cur-card{width:min(420px,100%);text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:30px 26px;position:relative}
+.cur-card h1{margin:0 0 8px;font-size:20px;font-weight:800;color:var(--text)}
+.cur-card p{margin:0 0 20px;font-size:14px;color:var(--muted);line-height:1.6}
+.cur-btn{width:100%;padding:11px 18px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:700;font-family:inherit}
+.cur-back{display:inline-block;margin-top:14px;font-size:13px;font-weight:600;color:var(--muted);text-decoration:none}
+.pin{position:absolute;width:20px;height:20px;border-radius:999px;background:var(--red-ink);color:var(--bg);
+  font-size:11px;font-weight:800;display:grid;place-items:center;z-index:2}
+.notes{background:var(--surface);border-left:1px solid var(--border);padding:20px 18px}
+.notes ol{margin:0;padding-left:0;list-style:none;counter-reset:n}
+.notes li{counter-increment:n;position:relative;padding-left:26px;margin-bottom:13px;font-size:12px;line-height:1.5;color:var(--muted)}
+.notes li::before{content:counter(n);position:absolute;left:0;top:1px;width:17px;height:17px;border-radius:999px;
+  background:var(--red-bg);color:var(--red-ink);font-size:10px;font-weight:800;display:grid;place-items:center}
+.notes li b{color:var(--text);font-weight:700}
+.notes h4{margin:0 0 14px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+
+/* ---------- Direction A ---------- */
+.a{display:grid;grid-template-columns:minmax(0,46fr) minmax(0,54fr);min-height:560px}
+.a-ask{padding:52px 48px;display:flex;flex-direction:column;justify-content:center;background:var(--surface)}
+.eyebrow{display:inline-flex;align-items:center;gap:7px;align-self:flex-start;
+  background:var(--accent-bg);color:var(--accent-ink);border-radius:999px;
+  padding:5px 11px 5px 8px;font-size:12px;font-weight:700;margin-bottom:18px}
+.eyebrow svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8}
+.a-ask h1{margin:0 0 10px;font-size:30px;line-height:1.15;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+.a-ask .lede{margin:0 0 26px;font-size:14px;line-height:1.65;color:var(--muted);max-width:42ch}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px 18px;
+  border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);
+  font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;margin-bottom:10px}
+.gbtn svg{width:17px;height:17px}
+.orline{display:flex;align-items:center;gap:12px;margin:14px 0;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em}
+.orline::before,.orline::after{content:"";flex:1;height:1px;background:var(--border)}
+.field{width:100%;padding:12px 13px;border-radius:10px;border:1px solid var(--border);background:var(--bg);
+  color:var(--text);font-size:14px;font-family:inherit;margin-bottom:10px}
+.field::placeholder{color:var(--dim)}
+.pbtn{width:100%;padding:13px 18px;border-radius:10px;border:none;background:var(--accent);
+  color:var(--on-fill);font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
+.assure{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:16px;font-size:12px;color:var(--muted)}
+.assure span{display:inline-flex;align-items:center;gap:5px}
+.assure svg{width:13px;height:13px;stroke:var(--green-ink);fill:none;stroke-width:2.4}
+.a-foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--dim)}
+.a-foot a{color:var(--muted);font-weight:600;text-decoration:none}
+
+/* preview side */
+.a-prev{padding:40px 40px 0;background:var(--surface2);position:relative;overflow:hidden;
+  border-left:1px solid var(--border);display:flex;flex-direction:column}
+.a-prev .plabel{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 16px}
+.qcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 16px;margin-bottom:11px}
+.qtag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:3px 7px;border-radius:5px;margin-bottom:8px}
+.t-beh{background:var(--accent-bg);color:var(--accent-ink)}
+.t-tec{background:var(--amber-bg);color:var(--amber-ink)}
+.t-sto{background:var(--green-bg);color:var(--green-ink)}
+.qcard p{margin:0;font-size:13px;line-height:1.55;color:var(--text);font-weight:600}
+.qcard .hint{margin-top:7px;font-size:12px;line-height:1.5;color:var(--muted);font-weight:400}
+.fade{position:absolute;left:0;right:0;bottom:0;height:150px;pointer-events:none}
+[data-theme="light"] .fade{background:linear-gradient(to bottom,rgba(238,243,248,0),#eef3f8 78%)}
+[data-theme="dark"] .fade{background:linear-gradient(to bottom,rgba(30,35,41,0),#1e2329 78%)}
+
+/* ---------- Direction B ---------- */
+.b{padding:64px 56px;background:var(--surface);min-height:420px;display:grid;
+   grid-template-columns:minmax(0,1fr) 290px;gap:56px;align-items:center}
+.b h1{margin:0 0 12px;font-size:36px;line-height:1.1;font-weight:800;letter-spacing:-.025em;text-wrap:balance}
+.b .lede{margin:0 0 22px;font-size:15px;line-height:1.65;color:var(--muted);max-width:46ch}
+.blist{margin:0 0 4px;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+.blist li{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--muted);line-height:1.5}
+.blist svg{width:15px;height:15px;stroke:var(--green-ink);fill:none;stroke-width:2.4;flex:0 0 auto;margin-top:1px}
+.blist b{color:var(--text);font-weight:700}
+.bpanel{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:22px 20px}
+.bpanel h3{margin:0 0 4px;font-size:13px;font-weight:700;color:var(--text)}
+.bpanel .sm{margin:0 0 16px;font-size:12px;color:var(--muted);line-height:1.5}
+.badge{position:absolute;top:14px;right:16px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;
+  background:var(--green-bg);color:var(--green-ink)}
+.stage{position:relative}
+@media(max-width:900px){
+  .cur-stage,.a,.b{grid-template-columns:1fr}
+  .a-prev{border-left:0;border-top:1px solid var(--border)}
+  .notes{border-left:0;border-top:1px solid var(--border)}
+}
+.toggle{position:fixed;right:16px;top:16px;z-index:50;padding:8px 13px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+<button class="toggle" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Toggle theme</button>
+<div class="wrap">
+
+  <p class="comp-h">Auth gate · comp v1</p>
+  <h2 class="comp-t">The page a signed-out visitor hits when they click something gated</h2>
+  <p class="comp-s">Today it is a 420px card in an empty field whose button opens a second sign-in surface on top of it. Below: what is wrong, then two directions. All colour, type and spacing come from the shipped tokens in <code>app/globals.css</code>.</p>
+
+  <!-- ===== 1. CURRENT ===== -->
+  <div class="stage cur-stage">
+    <div class="cur-canvas">
+      <div class="cur-card">
+        <h1>Sign in to continue</h1>
+        <p>Interview Prep needs a free account so your work is saved to it.</p>
+        <button class="cur-btn">Sign in, it's free</button><br>
+        <a class="cur-back" href="#">Back to home</a>
+      </div>
+    </div>
+    <aside class="notes">
+      <h4>What's wrong</h4>
+      <ol>
+        <li><b>A door onto another door.</b> The button opens the <code>SignInDialog</code> modal on top of this page. Two sign-in surfaces, one after the other, for one decision.</li>
+        <li><b>It asks while showing nothing.</b> The visitor clicked Interview Prep for a reason. The page knows the destination and does nothing with it — no preview, no sample, no reason to want it.</li>
+        <li><b>It leads with our requirement, not their gain.</b> "needs a free account" is our constraint. What they get is buried in a subordinate clause.</li>
+        <li><b>The exit competes with the entrance.</b> "Back to home" sits directly under the CTA, the second-most prominent thing on a page whose only job is conversion.</li>
+        <li><b>Contrast bug.</b> <code>color:#fff</code> on <code>var(--accent)</code> measures <b>2.53:1 in dark mode</b> — the exact pairing DESIGN.md invariant 7 forbids. Should be <code>--on-fill</code>.</li>
+        <li><b>A 420px card in a 100dvh field.</b> Most of the screen is empty and the card carries no weight.</li>
+      </ol>
+    </aside>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ===== 2. DIRECTION A ===== -->
+  <p class="comp-h">Direction A — recommended</p>
+  <h2 class="comp-t">Show the thing, ask once</h2>
+  <p class="comp-s">The form is <b>on the page</b>, so the modal is gone and there is one surface for one decision. The right half shows the destination half-open with real content, faded rather than locked — it says there is more behind this without claiming a number we cannot source.</p>
+
+  <div class="stage">
+    <div class="a">
+      <div class="a-ask">
+        <span class="eyebrow">
+          <svg viewBox="0 0 16 16"><path d="M8 2.5 14.5 5.5 8 8.5 1.5 5.5 8 2.5z" stroke-linejoin="round"/><path d="M4 7v3.5c0 .9 1.8 2 4 2s4-1.1 4-2V7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Interview Prep
+        </span>
+        <h1>Your prep, saved and waiting when you come back.</h1>
+        <p class="lede">Questions built from your own résumé and the job you're chasing. Sign in and this set is yours to keep, edit and return to.</p>
+
+        <button class="gbtn">
+          <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7c2.2-2 3.4-5 3.4-8.6z"/><path fill="#34A853" d="M12 24c3.1 0 5.7-1 7.6-2.8l-3.7-2.9c-1 .7-2.3 1.1-3.9 1.1-3 0-5.5-2-6.4-4.7H1.8v3C3.7 21.4 7.6 24 12 24z"/><path fill="#FBBC05" d="M5.6 14.7a7.2 7.2 0 0 1 0-4.6v-3H1.8a12 12 0 0 0 0 10.6l3.8-3z"/><path fill="#EA4335" d="M12 4.8c1.7 0 3.2.6 4.4 1.7l3.3-3.3C17.7 1.2 15.1 0 12 0 7.6 0 3.7 2.6 1.8 6.1l3.8 3c.9-2.7 3.4-4.3 6.4-4.3z"/></svg>
+          Continue with Google
+        </button>
+        <div class="orline">OR</div>
+        <input class="field" type="email" placeholder="you@example.com">
+        <button class="pbtn">Email me a sign-in link</button>
+
+        <div class="assure">
+          <span><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 5" stroke-linecap="round" stroke-linejoin="round"/></svg>Free</span>
+          <span><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 5" stroke-linecap="round" stroke-linejoin="round"/></svg>No credit card</span>
+          <span><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 5" stroke-linecap="round" stroke-linejoin="round"/></svg>About 10 seconds</span>
+        </div>
+
+        <p class="a-foot">You'll land back on Interview Prep, not the home page. &nbsp;·&nbsp; <a href="#">Back to home</a></p>
+      </div>
+
+      <div class="a-prev">
+        <p class="plabel">What's behind this</p>
+        <div class="qcard">
+          <span class="qtag t-beh">Behavioural</span>
+          <p>Tell me about a time you shipped something on a deadline you didn't set.</p>
+          <p class="hint">They're testing whether you negotiate scope or quietly absorb it.</p>
+        </div>
+        <div class="qcard">
+          <span class="qtag t-tec">From the posting</span>
+          <p>This role asks for Airflow. Walk me through a pipeline you've owned end to end.</p>
+          <p class="hint">Your résumé has the Pub/Sub → Dataflow work. Lead with that one.</p>
+        </div>
+        <div class="qcard">
+          <span class="qtag t-sto">Your story bank</span>
+          <p>The schema migration you ran at Tata — framed as Situation, Task, Action, Result.</p>
+          <p class="hint">Drafted from your résumé. Edit it in your own words.</p>
+        </div>
+        <div class="qcard">
+          <span class="qtag t-beh">Behavioural</span>
+          <p>Describe a disagreement with a senior engineer about an approach.</p>
+        </div>
+        <div class="fade"></div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ===== 3. DIRECTION B ===== -->
+  <p class="comp-h">Direction B — leaner</p>
+  <h2 class="comp-t">One screen, no preview to maintain</h2>
+  <p class="comp-s">Same structural fix (form on the page, no modal, gain-first headline) without a per-route preview to build and keep true. Cheaper to ship and to own; it converts on copy and clarity rather than on showing the product.</p>
+
+  <div class="stage">
+    <div class="b">
+      <div>
+        <span class="eyebrow">
+          <svg viewBox="0 0 16 16"><path d="M8 2.5 14.5 5.5 8 8.5 1.5 5.5 8 2.5z" stroke-linejoin="round"/><path d="M4 7v3.5c0 .9 1.8 2 4 2s4-1.1 4-2V7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Interview Prep
+        </span>
+        <h1>Create an account and your prep is saved.</h1>
+        <p class="lede">Resunova builds your questions from your résumé and the posting you're targeting. An account is what keeps that set around after you close the tab.</p>
+        <ul class="blist">
+          <li><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 5" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>Your prep kit persists</b> — questions, your STAR stories, and your notes.</span></li>
+          <li><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 5" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>Scans and tailored résumés live in one library</b>, so prep knows what you applied with.</span></li>
+          <li><svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 5" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>You land back here</b>, not on the home page.</span></li>
+        </ul>
+      </div>
+      <div class="bpanel">
+        <h3>Sign in</h3>
+        <p class="sm">Free, no credit card.</p>
+        <button class="gbtn">
+          <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7c2.2-2 3.4-5 3.4-8.6z"/><path fill="#34A853" d="M12 24c3.1 0 5.7-1 7.6-2.8l-3.7-2.9c-1 .7-2.3 1.1-3.9 1.1-3 0-5.5-2-6.4-4.7H1.8v3C3.7 21.4 7.6 24 12 24z"/><path fill="#FBBC05" d="M5.6 14.7a7.2 7.2 0 0 1 0-4.6v-3H1.8a12 12 0 0 0 0 10.6l3.8-3z"/><path fill="#EA4335" d="M12 4.8c1.7 0 3.2.6 4.4 1.7l3.3-3.3C17.7 1.2 15.1 0 12 0 7.6 0 3.7 2.6 1.8 6.1l3.8 3c.9-2.7 3.4-4.3 6.4-4.3z"/></svg>
+          Continue with Google
+        </button>
+        <div class="orline">OR</div>
+        <input class="field" type="email" placeholder="you@example.com">
+        <button class="pbtn">Email me a link</button>
+        <p class="a-foot" style="margin-top:18px"><a href="#">Back to home</a></p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

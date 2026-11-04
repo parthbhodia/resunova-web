@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FeedbackToastCard } from "@/components/FeedbackToastCard";
-import { fetchMyReferralRequests, fetchMyReferrerProfile, fetchMySentReferralRequests } from "@/lib/companyReferrers";
+import { fetchMyReferralRequests, fetchMyReferrerProfile, fetchMySentReferralRequests,
+  type CompanyReferralRequest } from "@/lib/companyReferrers";
 import {
   REFERRAL_INBOX_POLL_MS,
   isReferralInboxOpen,
   loadNoticeState,
   notificationFeed,
+  type ReferralOutcome,
   onRewardsSeen,
   outcomeToastForUnseen,
   pendingProductNotice,
@@ -50,9 +52,13 @@ export function ProductNoticesHost() {
   const [notice, setNotice] = useState<ProductNotice | null>(null);
   const [toast, setToast] = useState<ToastCopy | null>(null);
   const [outcome, setOutcome] = useState<ToastCopy | null>(null);
+  // Rows, not counts: the bell names the step each referral reached, and a
+  // count cannot say which one. Lengths are what the badge used to read.
+  const [inboxRows, setInboxRows] = useState<CompanyReferralRequest[]>([]);
+  const [inboxCompany, setInboxCompany] = useState("");
+  const [inboxLastSeen, setInboxLastSeen] = useState<string | null>(null);
+  const [outcomeRows, setOutcomeRows] = useState<ReferralOutcome[]>([]);
   const [reward, setReward] = useState<ToastCopy | null>(null);
-  const [inboxUnread, setInboxUnread] = useState(0);
-  const [outcomeUnread, setOutcomeUnread] = useState(0);
   const [rewardSummary, setRewardSummary] = useState({ count: 0, days: 0 });
 
   useEffect(() => {
@@ -76,33 +82,25 @@ export function ProductNoticesHost() {
   useEffect(() => subscribeReferralAlerts((snap) => {
     if (snap.unread === 0) {
       setToast(null);
-      setInboxUnread(0);
+      setInboxRows([]);
     }
   }), []);
 
   useEffect(() => subscribeSentReferralSeen(() => {
     setOutcome(null);
-    setOutcomeUnread(0);
+    setOutcomeRows([]);
   }), []);
 
   useEffect(() => {
     publishNotificationFeed(notificationFeed({
-      notice,
-      inboxUnread,
-      outcomeUnread,
+      notice, inboxRows, inboxCompany, inboxLastSeenAt: inboxLastSeen, outcomeRows,
       rewardUnread: rewardSummary.count,
       rewardDays: rewardSummary.days,
     }));
-  }, [notice, inboxUnread, outcomeUnread, rewardSummary]);
+  }, [notice, inboxRows, inboxCompany, inboxLastSeen, outcomeRows, rewardSummary]);
 
   useEffect(() => () => {
-    publishNotificationFeed(notificationFeed({
-      notice: null,
-      inboxUnread: 0,
-      outcomeUnread: 0,
-      rewardUnread: 0,
-      rewardDays: 0,
-    }));
+    publishNotificationFeed(notificationFeed({ notice: null }));
   }, []);
 
   useEffect(() => {
@@ -150,7 +148,7 @@ export function ProductNoticesHost() {
         if (cancelled || gen !== generation || rows === null) return;
         const lastSeen = readLastSeenSentReferralAt();
         if (!lastSeen) {
-          setOutcomeUnread(0);
+          setOutcomeRows([]);
           void persistLastSeenSentReferral();
           return;
         }
@@ -158,7 +156,7 @@ export function ProductNoticesHost() {
         // Never suppress candidate outcome toasts when the referrer inbox is
         // open. That shared flag used to hide "reviewing" updates for askers.
         const decision = outcomeToastForUnseen(unseen, readToastedSentReferralIds(), false);
-        setOutcomeUnread(decision.markSeen ? 0 : unseen.length);
+        setOutcomeRows(decision.markSeen ? [] : unseen);
         if (decision.markSeen) {
           void persistLastSeenSentReferral();
           setOutcome(null);
@@ -173,7 +171,7 @@ export function ProductNoticesHost() {
 
       const refreshInbox = async () => {
         if (!profile) {
-          setInboxUnread(0);
+          setInboxRows([]);
           publishReferralAlerts({ unread: 0, company: "" });
           return;
         }
@@ -189,7 +187,9 @@ export function ProductNoticesHost() {
           lastSeen,
         );
         const unreadCount = decision.markSeen ? 0 : unread.length;
-        setInboxUnread(unreadCount);
+        setInboxRows(decision.markSeen ? [] : unread);
+        setInboxCompany(profile.company);
+        setInboxLastSeen(lastSeen);
         publishReferralAlerts({
           unread: unreadCount,
           company: profile.company,
@@ -311,9 +311,10 @@ export function ProductNoticesHost() {
         setNotice(null);
         setToast(null);
         setOutcome(null);
+        setInboxRows([]);
+        setOutcomeRows([]);
+        setInboxCompany("");
         setReward(null);
-        setInboxUnread(0);
-        setOutcomeUnread(0);
         setRewardSummary({ count: 0, days: 0 });
         publishReferralAlerts({ unread: 0, company: "" });
         return;

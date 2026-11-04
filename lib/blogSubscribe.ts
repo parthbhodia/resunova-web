@@ -1,6 +1,15 @@
 import { apiFetch } from "@/lib/apiClient";
 
 /**
+ * The words both signup surfaces show (the inline form and the reader prompt).
+ * One home, because the success line is a promise about double opt-in and two
+ * hand-typed copies are how one of them starts saying "you're subscribed".
+ */
+export const SUBSCRIBE_CONFIRM_MESSAGE = "Check your email for a link to confirm. It should arrive in a minute.";
+export const SUBSCRIBE_INVALID_MESSAGE = "That doesn't look like an email address.";
+export const SUBSCRIBE_ERROR_MESSAGE = "That didn't go through. Try again in a moment.";
+
+/**
  * Client-side sanity check on an address, mirroring the pattern in
  * `normalize_email` (resunova-api resume_gui/blog/subscribers.py).
  *

@@ -290,7 +290,11 @@ textarea:not([class*="Mui"]):focus, select:not([class*="Mui"]):focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.22);
 }
-input::placeholder, textarea::placeholder { color: var(--dim); }
+/* ⚠️ --muted, not --dim. The hue/neutral tokens are each tuned against ONE
+   ground: --dim is readable on --surface and measures 4.3:1 once a field sits
+   on --surface2, which most of ours do. Found by the detector on /refer, not
+   by looking — the same compositing trap as the gate's green tag. */
+input::placeholder, textarea::placeholder { color: var(--muted); }
 textarea { resize: vertical; line-height: 1.6; }
 select { appearance: none; cursor: pointer; }
 select option { background: var(--surface); }
@@ -816,7 +820,7 @@ select option { background: var(--surface); }
   --popover: var(--surface);
   --popover-foreground: var(--text);
   --primary: var(--accent);
-  --primary-foreground: #ffffff;
+  --primary-foreground: var(--on-fill);
   --secondary: var(--surface2);
   --secondary-foreground: var(--text);
   --muted-foreground: var(--muted);
@@ -827,7 +831,7 @@ select option { background: var(--surface); }
   --sidebar: var(--surface);
   --sidebar-foreground: var(--text);
   --sidebar-primary: var(--accent);
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary-foreground: var(--on-fill);
   --sidebar-accent: var(--surface2);
   --sidebar-accent-foreground: var(--text);
   --sidebar-border: var(--border);
@@ -1757,4 +1761,128 @@ select option { background: var(--surface); }
 .pr-rise { animation: pr-rise var(--md-duration-long) var(--md-easing-decelerate) both; }
 @media (prefers-reduced-motion: reduce) {
   .pr-rise { animation: none; opacity: 1; transform: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Auth gate (components/auth/SignInRequiredPage.tsx)
+
+   Page-scoped, following the .lp-* / .pr-* convention: the card's two-column
+   split and its gutters need media queries, which inline styles cannot carry.
+   Everything else on that surface stays inline beside the markup it styles.
+--------------------------------------------------------------------------- */
+.rn-gate-shell { padding: 24px; }
+@media (max-width: 640px) {
+  /* 16px side gutter at phone width, per DESIGN.md. */
+  .rn-gate-shell { padding: 16px; }
+}
+
+@media (max-width: 900px) {
+  /* The preview stacks UNDER the ask rather than beside it. It is the reason
+     to sign in, not the thing being asked for, so it must never push the form
+     below the fold on a narrow screen. */
+  .rn-gate { grid-template-columns: minmax(0, 1fr) !important; }
+  .rn-gate-preview { border-left: 0 !important; border-top: 1px solid var(--border); }
+}
+@media (max-width: 640px) {
+  .rn-gate-ask { padding: 34px 22px !important; }
+  .rn-gate-preview { display: none; }
+}
+
+/* ── Blog reader prompt (components/blog/BlogReaderPrompt.tsx) ─────────────
+   A canvas, so it is CSS; the controls inside it are MUI. One DOM serves two
+   layouts: a card in the right-hand gutter on a wide screen, a bar along the
+   bottom everywhere else.
+
+   1424px is not arbitrary. The article column is 760px and centred, its text
+   ends 24px inside that, and the card is 320px at right:20px. The card clears
+   the text by 16px or more only from a 1424px viewport up; below that it would
+   sit on the prose, so the bar takes over.
+
+   z-index 40: above the page, below every MUI modal (1300) and the sign-in
+   dialog, so a prompt can never cover the thing the reader just opened.
+   Nothing here dims the page, locks scroll or takes focus. */
+.bp {
+  position: fixed;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--surface);
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  box-shadow: var(--md-elevation-3);
+  padding: 10px 12px calc(14px + env(safe-area-inset-bottom, 0px)) 16px;
+  animation: bp-in var(--md-duration-medium) var(--md-easing-standard);
+}
+@keyframes bp-in {
+  from { opacity: 0; transform: translateY(12px); }
+}
+/* Entrances are removed outright under reduced motion, not shortened. */
+@media (prefers-reduced-motion: reduce) {
+  .bp { animation: none; }
+}
+@media print {
+  .bp { display: none; }
+}
+/* The inline signup form is on screen: this would be a second ask for the same
+   address in one viewport. It returns when the form leaves. */
+.bp[data-stepped-aside="true"] { display: none; }
+
+/* In bar mode the content sits in a reading-width column, so on a laptop the
+   offer and its button are not 900px apart at opposite edges of the screen. */
+.bp-rest, .bp-full { max-width: 640px; margin-inline: auto; }
+.bp-rest { display: flex; align-items: center; gap: 8px; }
+.bp-rest-title { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.3; }
+.bp[data-expanded="false"][data-phase="open"] .bp-full { display: none; }
+.bp[data-expanded="true"] .bp-rest,
+.bp[data-phase="sent"] .bp-rest { display: none; }
+.bp[data-expanded="true"],
+.bp[data-phase="sent"] { padding: 14px 16px calc(18px + env(safe-area-inset-bottom, 0px)); }
+
+.bp-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.bp-title {
+  margin: 0;
+  padding-top: 2px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.bp-why { margin: 4px 0 14px; font-size: 13px; line-height: 1.55; color: var(--muted); }
+.bp-form { display: flex; flex-direction: column; gap: 8px; }
+.bp-error { margin: 0; font-size: 13px; color: var(--red-ink); }
+.bp-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.bp-note { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.bp-sent { display: flex; gap: 12px; align-items: flex-start; }
+.bp-sent .bp-why { margin-bottom: 4px; }
+.bp-tick {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: var(--green-bg);
+  color: var(--green-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+@media (min-width: 1424px) {
+  .bp {
+    left: auto;
+    right: 20px;
+    bottom: 20px;
+    width: 320px;
+    border: 1px solid var(--border);
+    border-radius: var(--md-shape-lg);
+    padding: 18px 18px 14px;
+  }
+  .bp[data-expanded="true"],
+  .bp[data-phase="sent"] { padding: 18px 18px 14px; }
+  /* The card is always open: the resting bar is a phone affordance. */
+  .bp .bp-rest { display: none; }
+  .bp[data-expanded="false"][data-phase="open"] .bp-full { display: block; }
 }

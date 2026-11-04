@@ -408,10 +408,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
           onPrep={onPrep}
           prepStatus={prepStatus}
           prepLaunching={prepLaunching}
-          onContactSignIn={() => openSignIn({
-            title: "Sign in to view hiring contacts",
-            reason: "Create a free account to reveal available recruiter or HR contact information for this job.",
-          })}
+          onContactSignIn={() => openSignIn({ ask: "contacts" })}
         />
       )}
 
@@ -456,11 +453,7 @@ function ApplyLink({
     (e: MouseEvent<HTMLAnchorElement>) => {
       if (signedIn === false) {
         e.preventDefault();
-        openSignIn({
-          title: "Create an account or sign in",
-          reason:
-            "Sign in before applying on the company site — we’ll track this application and can tailor your résumé to the role.",
-        });
+        openSignIn({ ask: "apply" });
         return;
       }
       void trackJobEvent(job.id, "apply_click");

@@ -16,9 +16,10 @@ import {
   referralRequestsThisMonth,
   referralCandidatePath,
   referrerInitials,
+  isUsableCompanyUrl,
   referrerPublicPath,
   safeHttpUrl,
-  signedReferralResumeUrl,
+  openReferralResumePdf,
   updateReferralRequestStatus,
   upsertMyReferrerProfile,
   type CompanyReferralRequest,
@@ -46,19 +47,19 @@ import { SentReferralsCard } from "@/components/profile/SentReferralsCard";
 
 const cardStyle: CSSProperties = {
   borderRadius: 18,
-  border: "1px solid rgba(15,23,42,0.08)",
-  background: "#ffffff",
-  boxShadow: "0 8px 30px rgba(15,23,42,0.05)",
+  border: "1px solid var(--border)",
+  background: "var(--surface)",
+  boxShadow: "var(--shadow-card)",
 };
 
 const fieldStyle: CSSProperties = {
   width: "100%",
   borderRadius: 12,
-  border: "1px solid rgba(15,23,42,0.10)",
-  background: "#f8fafc",
+  border: "1px solid var(--border)",
+  background: "var(--surface2)",
   padding: "12px 14px",
   fontSize: 14,
-  color: "#111827",
+  color: "var(--text)",
   fontFamily: "inherit",
 };
 
@@ -111,9 +112,9 @@ function NoteButton({
         type="button"
         onClick={() => void onCopy()}
         style={{
-          border: "1px solid rgba(15,23,42,0.10)",
-          background: "#fff",
-          color: "#2563eb",
+          border: "1px solid var(--border)",
+          background: "var(--surface)",
+          color: "var(--accent-ink)",
           borderRadius: 10,
           padding: "6px 10px",
           fontWeight: 800,
@@ -137,11 +138,11 @@ function NoteButton({
 }
 
 const pillTones: Record<"neutral" | "green" | "amber" | "blue" | "red", CSSProperties> = {
-  neutral: { background: "#f3f4f6", color: "#6b7280" },
-  green: { background: "#dcfce7", color: "#15803d" },
-  amber: { background: "#fef3c7", color: "#b45309" },
-  blue: { background: "#dbeafe", color: "#2563eb" },
-  red: { background: "#fee2e2", color: "#dc2626" },
+  neutral: { background: "var(--surface2)", color: "var(--muted)" },
+  green: { background: "var(--green-bg)", color: "var(--green-ink)" },
+  amber: { background: "var(--amber-bg)", color: "var(--amber-ink)" },
+  blue: { background: "var(--accent-bg)", color: "var(--accent-ink)" },
+  red: { background: "var(--red-bg)", color: "var(--red-ink)" },
 };
 
 function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) {
@@ -164,8 +165,8 @@ function Avatar({ name, size = 64 }: { name: string; size?: number }) {
         width: size,
         height: size,
         borderRadius: "50%",
-        background: "linear-gradient(135deg, #516b7b, #3f5563)",
-        color: "#fff",
+        background: "var(--surface3)",
+        color: "var(--text)",
         display: "grid",
         placeItems: "center",
         fontSize: size * 0.38,
@@ -194,8 +195,8 @@ function PrimaryButton({
       disabled={disabled}
       style={{
         border: "none",
-        background: "linear-gradient(135deg, #3b82f6, #4f46e5)",
-        color: "#fff",
+        background: "var(--accent)",
+        color: "var(--on-fill)",
         borderRadius: 12,
         padding: "12px 16px",
         fontWeight: 800,
@@ -208,6 +209,14 @@ function PrimaryButton({
     </button>
   );
 }
+
+/**
+ * Shown when the company website fails `isUsableCompanyUrl`. It names the likely
+ * mistake, a personal /in/ profile pasted here, because candidates open this
+ * link as their check that the employer is real.
+ */
+const WEBSITE_INVALID_MESSAGE =
+  "Use the company's own site, or its linkedin.com/company/… page. Your personal profile goes in the LinkedIn field.";
 
 type ReferrerForm = {
   displayName: string;
@@ -223,19 +232,26 @@ type ReferrerForm = {
 function Field({
   label,
   hint,
+  invalid = false,
   style,
   children,
 }: {
   label: string;
   hint?: string;
+  /** Recolours the hint as an error. The words carry it too, so colour is never the only signal. */
+  invalid?: boolean;
   style?: CSSProperties;
   children: ReactNode;
 }) {
+  // Tokens, not #111827 / #6b7280: this panel mounts inside the THEMED profile
+  // hub, so a hardcoded colour is a light-mode label on a dark page.
   return (
     <label style={{ display: "grid", gap: 6, minWidth: 0, ...style }}>
-      <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{label}</span>
       {children}
-      {hint ? <span style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.4 }}>{hint}</span> : null}
+      {hint ? (
+        <span style={{ fontSize: 12, color: invalid ? "var(--red-ink)" : "var(--muted)", lineHeight: 1.4 }}>{hint}</span>
+      ) : null}
     </label>
   );
 }
@@ -247,6 +263,7 @@ function ReferrerFields({
   form: ReferrerForm;
   onChange: (next: ReferrerForm) => void;
 }) {
+  const websiteInvalid = form.companyWebsite.trim().length > 0 && !isUsableCompanyUrl(form.companyWebsite);
   return (
     <>
       <Field label="Your name at work">
@@ -271,7 +288,8 @@ function ReferrerFields({
       </Field>
       <Field
         label="Company website"
-        hint="Homepage or careers page. Candidates see this on /refer."
+        hint={websiteInvalid ? WEBSITE_INVALID_MESSAGE : "Homepage or careers page. Candidates see this on /refer."}
+        invalid={websiteInvalid}
       >
         <input
           aria-label="Company website"
@@ -350,9 +368,9 @@ function GhostButton({
       onClick={onClick}
       disabled={disabled}
       style={{
-        border: "1px solid rgba(15,23,42,0.10)",
-        background: "#fff",
-        color: "#2563eb",
+        border: "1px solid var(--border)",
+        background: "var(--surface)",
+        color: "var(--accent-ink)",
         borderRadius: 12,
         padding: "12px 16px",
         fontWeight: 800,
@@ -458,8 +476,10 @@ export function CompanyReferrerPanel({
     setSaving(true);
     setError(null);
     const creating = !profile;
-    if (!form.companyLocation.trim() || !safeHttpUrl(form.companyWebsite)) {
-      const message = REFERRER_PROFILE_REQUIRED;
+    if (!form.companyLocation.trim() || !isUsableCompanyUrl(form.companyWebsite)) {
+      const message = form.companyWebsite.trim() && !isUsableCompanyUrl(form.companyWebsite)
+        ? WEBSITE_INVALID_MESSAGE
+        : REFERRER_PROFILE_REQUIRED;
       setSaving(false);
       setError(message);
       setToast({ title: "Could not save", description: message, variant: "error" });
@@ -468,7 +488,12 @@ export function CompanyReferrerPanel({
     const saved = await upsertMyReferrerProfile(form);
     setSaving(false);
     if (!saved) {
-      const message = REFERRER_PROFILE_REQUIRED;
+      // The website is named when IT is what failed: the generic line lists five
+      // fields, and the likeliest mistake is pasting a personal /in/ profile
+      // into the website box, which that line gives no way to discover.
+      const message = !isUsableCompanyUrl(form.companyWebsite)
+        ? WEBSITE_INVALID_MESSAGE
+        : REFERRER_PROFILE_REQUIRED;
       setError(message);
       setToast({ title: "Could not save", description: message, variant: "error" });
       return;
@@ -491,6 +516,9 @@ export function CompanyReferrerPanel({
       companyLocation: profile.companyLocation ?? form.companyLocation,
       companyWebsite: profile.companyWebsite ?? form.companyWebsite,
       linkedin: profile.linkedin ?? "",
+      // ⚠️ Carry the stored value through. Pausing a desk must not have to
+      // re-validate a field the user is not editing — omitting it would make
+      // the now-required check reject the toggle.
       bio: profile.bio ?? "",
       openToRefer: nextOpen,
     });
@@ -565,7 +593,7 @@ export function CompanyReferrerPanel({
                 <Pill>Not signed up</Pill>
               )}
             </div>
-            <div style={{ marginTop: 6, color: "#6b7280", fontSize: 14 }}>
+            <div style={{ marginTop: 6, color: "var(--muted)", fontSize: 14 }}>
               {loading
                 ? "Loading your referrer profile..."
                 : profile
@@ -580,13 +608,13 @@ export function CompanyReferrerPanel({
                 href={profile.companyWebsite}
                 target="_blank"
                 rel="noreferrer"
-                style={{ display: "inline-block", marginTop: 4, fontSize: 13, fontWeight: 700, color: "#2563eb", textDecoration: "none" }}
+                style={{ display: "inline-block", marginTop: 4, fontSize: 13, fontWeight: 700, color: "var(--accent-ink)", textDecoration: "none" }}
               >
                 Company website
               </a>
             ) : null}
             {profile?.bio ? (
-              <div style={{ marginTop: 6, fontSize: 13, color: "#4b5563" }}>Can refer for {profile.bio}</div>
+              <div style={{ marginTop: 6, fontSize: 13, color: "var(--muted)" }}>Can refer for {profile.bio}</div>
             ) : null}
           </div>
           {profile ? (
@@ -606,7 +634,7 @@ export function CompanyReferrerPanel({
                 <input readOnly value={shareUrl} aria-label="Referral link" style={{ ...fieldStyle, flex: 1 }} />
                 <PrimaryButton onClick={() => void onCopy()}>{copied ? "Copied" : "Copy link"}</PrimaryButton>
               </div>
-              <p style={{ margin: "10px 0 0", fontSize: 13, color: "#9ca3af" }}>
+              <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--dim)" }}>
                 Share this privately. Candidates land on a one-page ask form, not your full profile.
               </p>
             </div>
@@ -616,7 +644,7 @@ export function CompanyReferrerPanel({
             <div style={{ padding: 22, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }} className="refer-desk-grid">
               <div style={{ gridColumn: "1 / -1" }}>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>Referrer profile</div>
-                <p style={{ margin: "6px 0 0", fontSize: 13, color: "#6b7280" }}>One company per account. Update this if you change jobs. The public link stays the same.</p>
+                <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)" }}>One company per account. Update this if you change jobs. The public link stays the same.</p>
               </div>
               <ReferrerFields form={form} onChange={setForm} />
               <div style={{ gridColumn: "1 / -1" }}>
@@ -632,7 +660,7 @@ export function CompanyReferrerPanel({
               <div style={{ padding: "22px 22px 8px", display: "flex", justifyContent: "space-between", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 17, fontWeight: 800 }}>Incoming requests</div>
-                  <div style={{ marginTop: 4, fontSize: 14, color: "#6b7280" }}>
+                  <div style={{ marginTop: 4, fontSize: 14, color: "var(--muted)" }}>
                     People asking you to refer them at {profile.company}.
                   </div>
                 </div>
@@ -640,7 +668,7 @@ export function CompanyReferrerPanel({
               </div>
               <div style={{ padding: 22, display: "grid", gap: 12 }}>
                 {incoming.length === 0 ? (
-                  <p style={{ margin: 0, fontSize: 14, color: "#6b7280" }}>No requests yet. Share your link to start receiving them.</p>
+                  <p style={{ margin: 0, fontSize: 14, color: "var(--muted)" }}>No requests yet. Share your link to start receiving them.</p>
                 ) : incoming.map((row) => (
                   <RequestCard
                     key={row.id}
@@ -691,11 +719,11 @@ export function CompanyReferrerPanel({
                   <div style={{ display: "flex", marginTop: 18 }}>
                     <div style={{ flex: 1, textAlign: "center" }}>
                       <div style={{ fontSize: 32, fontWeight: 800 }}>{month.requested + month.reviewing}</div>
-                      <div style={{ fontSize: 13, color: "#6b7280" }}>Requested</div>
+                      <div style={{ fontSize: 13, color: "var(--muted)" }}>Requested</div>
                     </div>
                     <div style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ fontSize: 32, fontWeight: 800, color: "#2563eb" }}>{month.referred}</div>
-                      <div style={{ fontSize: 13, color: "#6b7280" }}>Referred</div>
+                      <div style={{ fontSize: 32, fontWeight: 800, color: "var(--accent-ink)" }}>{month.referred}</div>
+                      <div style={{ fontSize: 13, color: "var(--muted)" }}>Referred</div>
                     </div>
                   </div>
                 </div>
@@ -706,9 +734,9 @@ export function CompanyReferrerPanel({
       ) : (
         <Card>
           <div style={{ padding: "28px 28px 22px" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: "#2563eb" }}>I can refer</div>
+            <span style={{ display: "inline-flex", alignItems: "center", alignSelf: "flex-start", background: "var(--accent-bg)", color: "var(--accent-ink)", borderRadius: 999, padding: "5px 11px", fontSize: 12, fontWeight: 700 }}>I can refer</span>
             <h2 style={{ margin: "10px 0 0", fontSize: 28, fontWeight: 800, letterSpacing: -0.8 }}>Sign up to refer candidates at your company</h2>
-            <p style={{ margin: "10px 0 0", maxWidth: 560, color: "#6b7280", lineHeight: 1.6 }}>
+            <p style={{ margin: "10px 0 0", maxWidth: 560, color: "var(--muted)", lineHeight: 1.6 }}>
               Publish that you work there. Share a private link. People can ask you for a referral, and you decide who to submit.
             </p>
           </div>
@@ -718,7 +746,7 @@ export function CompanyReferrerPanel({
               <PrimaryButton onClick={() => void onSave()} disabled={saving}>
                 {saving ? "Saving..." : "Sign up as a referrer"}
               </PrimaryButton>
-              <Link href="/refer" style={{ color: "#2563eb", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+              <Link href="/refer" style={{ color: "var(--accent-ink)", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
                 Find employees who can refer
               </Link>
             </div>
@@ -730,7 +758,10 @@ export function CompanyReferrerPanel({
       <ReferralRewardsCard requests={requests} />
       <ReferralNotifyCard />
 
-      {error ? <p role="alert" style={{ margin: 0, color: "#dc2626", fontSize: 13 }}>{error}</p> : null}
+      {/* --red-ink, not #dc2626: this panel mounts inside the THEMED profile hub,
+          so a hardcoded red is the light-mode-card-on-a-dark-page defect that
+          made this whole feature render identically in both themes. */}
+      {error ? <p role="alert" style={{ margin: 0, color: "var(--red-ink)", fontSize: 13 }}>{error}</p> : null}
       {toast ? (
         <FeedbackToastCard
           title={toast.title}
@@ -764,12 +795,8 @@ function RequestCard({
   const openResume = async () => {
     if (!row.resumePdfPath) return;
     setResumeError(null);
-    const url = await signedReferralResumeUrl(row.resumePdfPath);
-    if (!url) {
-      setResumeError("Could not open that resume. Try again in a moment.");
-      return;
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
+    const result = await openReferralResumePdf(row.resumePdfPath);
+    if (!result.ok) setResumeError(result.error);
   };
   const metaBits = [
     row.role,
@@ -778,14 +805,14 @@ function RequestCard({
     row.candidateYearsExperience != null ? `${row.candidateYearsExperience} yr exp` : null,
   ].filter(Boolean);
   return (
-    <div style={{ border: "1px solid rgba(15,23,42,0.08)", borderRadius: 14, padding: 16, background: "#f8fafc" }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 14, padding: 16, background: "var(--surface2)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
         <div>
           <div style={{ fontWeight: 800 }}>{row.candidateName}</div>
           {row.candidateHeadline ? (
-            <div style={{ marginTop: 2, fontSize: 13, color: "#374151", fontWeight: 600 }}>{row.candidateHeadline}</div>
+            <div style={{ marginTop: 2, fontSize: 13, color: "var(--text)", fontWeight: 600 }}>{row.candidateHeadline}</div>
           ) : null}
-          <div style={{ marginTop: 3, fontSize: 13, color: "#6b7280" }}>
+          <div style={{ marginTop: 3, fontSize: 13, color: "var(--muted)" }}>
             {metaBits.join(" · ")}
           </div>
         </div>
@@ -794,13 +821,13 @@ function RequestCard({
           <Pill tone={REFERRAL_REQUEST_STATUS_TONES[row.status]}>{REFERRAL_REQUEST_STATUS_LABELS[row.status]}</Pill>
         </span>
       </div>
-      {row.notes ? <p style={{ margin: "10px 0 0", fontSize: 13, color: "#4b5563", lineHeight: 1.55 }}>{row.notes}</p> : null}
+      {row.notes ? <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>{row.notes}</p> : null}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 10 }}>
-        <Link href={referralCandidatePath(row.id)} style={{ color: "#2563eb", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+        <Link href={referralCandidatePath(row.id)} style={{ color: "var(--accent)", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
           View profile
         </Link>
         {linkedinHref ? (
-          <a href={linkedinHref} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+          <a href={linkedinHref} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
             LinkedIn
           </a>
         ) : null}
@@ -808,7 +835,7 @@ function RequestCard({
           <button
             type="button"
             onClick={() => void openResume()}
-            style={{ border: "none", background: "none", color: "#2563eb", fontWeight: 700, fontSize: 13, cursor: "pointer", padding: 0 }}
+            style={{ border: "none", background: "none", color: "var(--accent)", fontWeight: 700, fontSize: 13, cursor: "pointer", padding: 0 }}
           >
             Open resume PDF
           </button>
@@ -820,7 +847,7 @@ function RequestCard({
           referrerCompany={referrerCompany}
         />
       </div>
-      {resumeError ? <p role="alert" style={{ margin: "8px 0 0", color: "#dc2626", fontSize: 13 }}>{resumeError}</p> : null}
+      {resumeError ? <p role="alert" style={{ margin: "8px 0 0", color: "var(--red-ink)", fontSize: 13 }}>{resumeError}</p> : null}
       <label style={{ display: "block", marginTop: 12 }}>
         <select
           aria-label={`Status for ${row.candidateName}`}
@@ -845,7 +872,7 @@ function RemoveRequestButton({ onRemove }: { onRemove: () => void | Promise<void
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        style={{ marginTop: 8, border: "none", background: "none", color: "#9ca3af", fontWeight: 700, cursor: "pointer", padding: 0 }}
+        style={{ marginTop: 8, border: "none", background: "none", color: "var(--dim)", fontWeight: 700, cursor: "pointer", padding: 0 }}
       >
         Remove
       </button>
@@ -856,14 +883,14 @@ function RemoveRequestButton({ onRemove }: { onRemove: () => void | Promise<void
       <button
         type="button"
         onClick={() => { setConfirming(false); void onRemove(); }}
-        style={{ border: "none", background: "none", color: "#dc2626", fontWeight: 800, cursor: "pointer", padding: 0 }}
+        style={{ border: "none", background: "none", color: "var(--red-ink)", fontWeight: 800, cursor: "pointer", padding: 0 }}
       >
         Confirm remove
       </button>
       <button
         type="button"
         onClick={() => setConfirming(false)}
-        style={{ border: "none", background: "none", color: "#6b7280", fontWeight: 700, cursor: "pointer", padding: 0 }}
+        style={{ border: "none", background: "none", color: "var(--muted)", fontWeight: 700, cursor: "pointer", padding: 0 }}
       >
         Keep
       </button>

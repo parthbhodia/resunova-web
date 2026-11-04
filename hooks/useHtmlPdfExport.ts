@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
+import { trackEvent } from "@/lib/analytics";
 import { saveBlobAsDownload } from "@/lib/saveBlobDownload";
 
 /**
@@ -202,6 +203,12 @@ export function useHtmlPdfExport() {
       }
 
       const blob = await resp.blob();
+      // Reported here, not on the button: this is the one line that runs only
+      // once a PDF actually came back. Every surface that lets someone leave
+      // with a document — Analyze, Tailor, Template Builder, Boost, cover
+      // letters, the SEO examples — goes through this hook, so one call covers
+      // the whole download funnel and a seventh surface inherits it free.
+      trackEvent("download", { kind: "resume_pdf", bytes: blob.size });
       saveBlobAsDownload(blob, filename);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "PDF export failed");

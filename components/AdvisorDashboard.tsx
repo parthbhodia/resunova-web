@@ -1251,7 +1251,7 @@ export default function AdvisorDashboard() {
       </CardHeader>
       <Separator />
       <CardContent>
-        <Button onClick={() => openSignIn({ title: "Sign in to open the advisor dashboard", reason: "UMBC advisors use their Google account so access can be checked against the institution roster." })}>
+        <Button onClick={() => openSignIn({ ask: "advisor" })}>
           Sign in with Google
         </Button>
       </CardContent>

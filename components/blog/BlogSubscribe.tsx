@@ -14,7 +14,14 @@
  */
 
 import { useId, useState } from "react";
-import { isLikelyEmail, subscribeToBlog } from "@/lib/blogSubscribe";
+import {
+  isLikelyEmail,
+  subscribeToBlog,
+  SUBSCRIBE_CONFIRM_MESSAGE,
+  SUBSCRIBE_ERROR_MESSAGE,
+  SUBSCRIBE_INVALID_MESSAGE,
+} from "@/lib/blogSubscribe";
+import { rememberNever } from "@/lib/blogPrompt";
 
 type Status = "idle" | "busy" | "done" | "error";
 
@@ -35,7 +42,7 @@ export default function BlogSubscribe({
 
     if (!isLikelyEmail(email)) {
       setStatus("error");
-      setMessage("That doesn't look like an email address.");
+      setMessage(SUBSCRIBE_INVALID_MESSAGE);
       return;
     }
 
@@ -51,17 +58,24 @@ export default function BlogSubscribe({
       // Same copy whether the address is new, already pending, already
       // confirmed, or opted out: the endpoint deliberately does not tell us
       // which, so that it cannot be used to test whether someone is subscribed.
-      setMessage("Check your email for a link to confirm. It should arrive in a minute.");
+      setMessage(SUBSCRIBE_CONFIRM_MESSAGE);
       setEmail("");
+      // Someone who just signed up here has answered the reader prompt's
+      // question; asking them again from the slide-in would be nagging.
+      try { rememberNever(window.localStorage); } catch { /* blocked storage */ }
     } catch {
       setStatus("error");
-      setMessage("That didn't go through. Try again in a moment.");
+      setMessage(SUBSCRIBE_ERROR_MESSAGE);
     }
   }
 
   return (
     <section
       aria-labelledby={`${inputId}-heading`}
+      // The reader prompt watches this node and steps aside while it is on
+      // screen: two asks for the same address in one viewport is the pair of
+      // loud boxes this component's own header comment warns about.
+      data-blog-subscribe=""
       style={{
         margin: "44px 0 0",
         borderRadius: 14,
@@ -126,7 +140,7 @@ export default function BlogSubscribe({
               borderRadius: 9,
               border: "none",
               background: "var(--accent)",
-              color: "#fff",
+              color: "var(--on-fill)",
               fontSize: 14,
               fontWeight: 700,
               fontFamily: "inherit",

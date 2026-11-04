@@ -15,7 +15,7 @@ import {
   REFERRAL_REQUEST_STATUS_LABELS,
   fetchReferralRequestById,
   safeHttpUrl,
-  signedReferralResumeUrl,
+  openReferralResumePdf,
   type CompanyReferralRequest,
 } from "@/lib/companyReferrers";
 import {
@@ -89,12 +89,8 @@ export default function ReferralCandidatePacket() {
 
   const openResume = async (path: string) => {
     setResumeError(null);
-    const url = await signedReferralResumeUrl(path);
-    if (!url) {
-      setResumeError(RESUME_OPEN_FAILED);
-      return;
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
+    const result = await openReferralResumePdf(path);
+    if (!result.ok) setResumeError(RESUME_OPEN_FAILED);
   };
 
   const body = (() => {
@@ -169,7 +165,7 @@ export default function ReferralCandidatePacket() {
             </Stack>
             {resumeError ? <ReferAlert>{resumeError}</ReferAlert> : null}
             <Typography sx={{ ...mutedTextSx, fontSize: FS.small }}>
-              Snapshot from when they asked. Fields marked "{PACKET_NOT_PROVIDED}" were left blank. This is not a live read of their full Resunova account.
+              Snapshot from when they asked. Fields marked “{PACKET_NOT_PROVIDED}” were left blank. This is not a live read of their full Resunova account.
             </Typography>
           </Stack>
         </Card>

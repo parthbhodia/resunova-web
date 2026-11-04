@@ -26,7 +26,14 @@ import { scoreLabel, type JobDetail as JobDetailData } from "@/lib/jobsApi";
 import { canBoost } from "@/lib/boostPrefill";
 import { useHtmlPdfExport } from "@/hooks/useHtmlPdfExport";
 import { TailoringModeModal } from "@/components/TailoringModeModal";
-import { fetchTailoringMode, getCachedTailoringMode, saveTailoringMode, type TailoringMode } from "@/lib/tailoringMode";
+import {
+  DEFAULT_TAILORING_MODE,
+  fetchTailoringMode,
+  getCachedTailoringMode,
+  resolveTailoringMode,
+  saveTailoringMode,
+  type TailoringMode,
+} from "@/lib/tailoringMode";
 import AnalyzeLiveResumeBody from "@/components/AnalyzeLiveResumeBody";
 import { GapFixSuggestionCard, type GapFixSuggestion } from "@/components/ratings/GapFixSuggestionCard";
 import { resumeLayoutFromPreviewStyle, resumeLayoutCssVars, resumePageRootStyle, RESUME_BULLET_STYLESHEET } from "@/lib/resumeLayout";
@@ -233,7 +240,7 @@ function BoostPanelInner({
     <>
       <TailoringModeModal
         open={showTailoringModal}
-        initialMode={tailoringMode ?? "honest"}
+        initialMode={resolveTailoringMode(tailoringMode)}
         onSave={(mode) => {
           setTailoringMode(mode);
           void saveTailoringMode(mode);
@@ -244,11 +251,11 @@ function BoostPanelInner({
           }
         }}
         onCancel={() => {
-          // "Not now" = boost once with the honest default; keep asking later.
+          // "Not now" = boost once with the default mode; keep asking later.
           setShowTailoringModal(false);
           if (pendingBoostAfterModeRef.current) {
             pendingBoostAfterModeRef.current = false;
-            void handleGenerate("honest");
+            void handleGenerate(DEFAULT_TAILORING_MODE);
           }
         }}
       />

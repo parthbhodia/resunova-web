@@ -10,6 +10,7 @@ import { filledButtonSx, mutedTextSx, outlineButtonSx, surfaceCardSx } from "@/c
 import { useSignInDialog } from "@/components/SignInDialog";
 import { useUpgradeDialog } from "@/components/UpgradeDialog";
 import {
+  joinReferrerSentences,
   REFERRAL_ASK_BLOCKED_COPY,
   REFERRER_LIMITS,
   safeHttpUrl,
@@ -28,10 +29,9 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
     event.preventDefault();
     const outcome = await ask.submit();
     if (outcome === "sign_in") {
-      openSignIn({
-        title: "Sign in to ask for a referral",
-        reason: "Your request is saved to your account so you can track it.",
-      });
+      // `ask`, not `{ title, reason }`: that shape no longer exists, and main's
+      // wording for this ("Sign in to ask for a referral") is the key's copy.
+      openSignIn({ ask: "referral_ask" });
       return;
     }
     if (outcome === "upgrade") {
@@ -56,10 +56,18 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
           {referrer.companyLocation ? ` · ${referrer.companyLocation}` : ""}
         </Typography>
         <Typography sx={{ mt: 0.75, fontSize: FS.bodyLg, color: "var(--muted)", lineHeight: LH.normal }}>
-          {referrer.title}{referrer.bio ? `. ${referrer.bio}` : ". They signed up to refer candidates at this company."}
+          {joinReferrerSentences(
+            referrer.title,
+            referrer.bio || "They signed up to refer candidates at this company.",
+          )}
         </Typography>
         <Stack direction="row" spacing={1.5} sx={{ mt: 0.75, flexWrap: "wrap" }}>
           {linkedinHref ? <AccentLink href={linkedinHref} external>LinkedIn</AccentLink> : null}
+          {/* The point of collecting the company website: a candidate is about to
+              send a stranger their résumé, phone number and email on the strength
+              of a free-text employer name. This is the one link that lets them
+              check the company is real first. It was validated on the way in
+              (isUsableCompanyUrl), so it is safe to offer as that check. */}
           {referrer.companyWebsite ? (
             <AccentLink href={referrer.companyWebsite} external>Company website</AccentLink>
           ) : null}
@@ -136,10 +144,7 @@ export function ReferrerRequestForm({ referrer }: { referrer: CompanyReferrer })
                   type="button"
                   variant="outlined"
                   onClick={() => (ask.entitlement?.reason === "sign_in"
-                    ? openSignIn({
-                        title: "Sign in to ask for a referral",
-                        reason: "Your request is saved to your account so you can track it.",
-                      })
+                    ? openSignIn({ ask: "referral_ask" })
                     : openUpgrade({ source: "referral-ask" }))}
                   sx={{ ...outlineButtonSx, textTransform: "none" }}
                 >

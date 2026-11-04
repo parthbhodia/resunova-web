@@ -35,7 +35,7 @@ vi.mock("@/lib/supabase", () => ({
   fetchExtractedProfile: h.fetchExtractedProfile,
   upsertExtractedProfile: h.upsertExtractedProfile,
 }));
-vi.mock("@/components/ScanUsageWidget", () => ({ ScanUsageWidget: () => <div>usage</div> }));
+vi.mock("@/components/account/UsageLimitsCard", () => ({ default: () => <div>usage</div> }));
 vi.mock("@/components/PlanBillingCard", () => ({ default: () => <div>billing</div> }));
 vi.mock("@/components/profile/ProfileHubPanels", () => ({
   IntegrationsPanel: () => <div>integrations</div>,

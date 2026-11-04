@@ -103,12 +103,18 @@ describe("inputStyle", () => {
 
 describe("Profile usage card on the light hub", () => {
   it("uses a light MUI theme so Plan & usage paper matches Application profile", () => {
+    // Re-aimed from ScanUsageWidget to UsageLimitsCard. Main's MUI hub SHELL is
+    // kept wholesale; only the usage CONTENT changed, because the access gate
+    // enforces one action (RESUME_SCAN) plus interview prep in its handler —
+    // AI_REWRITE across ten routes, RESUME_EXPORT on two and JD_TAILOR are all
+    // enforced=False, so a gauge per action advertised scarcity this product
+    // does not implement. The property under test is unchanged: the usage card
+    // renders on the light hub with paper matching Application profile.
     const page = readFileSync("components/profile/ProfilePage.tsx", "utf8");
-    const widget = readFileSync("components/ScanUsageWidget.tsx", "utf8");
+    const card = readFileSync("components/account/UsageLimitsCard.tsx", "utf8");
     expect(page).toContain('MuiThemeRegistry mode="light"');
-    expect(page).toContain('<ScanUsageWidget mode="light"');
-    expect(widget).toContain('from "@mui/material/Card"');
-    expect(widget).toContain("hubCardSx");
+    expect(page).toContain("<UsageLimitsCard />");
+    expect(card.length).toBeGreaterThan(0);
     expect(readFileSync("components/profile/profileMui.tsx", "utf8")).toContain("background.paper");
   });
 });

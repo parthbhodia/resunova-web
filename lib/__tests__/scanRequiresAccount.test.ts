@@ -89,6 +89,13 @@ const TRUE_CLAIMS: Array<{ line: string; because: string }> = [
     line: `a: "Yes. The Template Builder creates an ATS-safe resume from a blank start, no existing PDF required, and it's free with no sign-up needed to try it.",`,
     because: "FAQ answer naming the Template Builder explicitly",
   },
+  {
+    line: 'desc: "Every template, and the builder itself. No account needed for the builder.",',
+    because:
+      "the Usage & limits row for templates. The sentence is scoped to the " +
+      "builder on purpose — the same row's first clause is about templates, " +
+      "which also need no account, and neither claim is about scanning.",
+  },
 ];
 
 function walk(dir: string, out: string[] = []): string[] {

@@ -6,7 +6,7 @@
  * Reads the AUTHORITATIVE plan from GET /api/billing/status (never client
  * Supabase — the billing tables are service-only). Free → Upgrade opens Stripe
  * Checkout (falling back to /pricing when checkout isn't live); Pro → "Manage
- * billing" opens the Stripe Billing Portal. Sits alongside ScanUsageWidget,
+ * billing" opens the Stripe Billing Portal. Sits alongside UsageLimitsCard,
  * which keeps showing live scan usage.
  */
 

@@ -12,7 +12,7 @@ import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
 import { signOutAndReturnHome } from "@/lib/authSignOut";
 import { Card } from "@/components/profileSettingsUi";
-import { ScanUsageWidget } from "@/components/ScanUsageWidget";
+import UsageLimitsCard from "@/components/account/UsageLimitsCard";
 import PlanBillingCard from "@/components/PlanBillingCard";
 import ConnectedExtensionsCard from "@/components/ConnectedExtensionsCard";
 import { EmailPreferencesCard, TailoringModeCard } from "@/components/accountSettingsCards";
@@ -163,7 +163,7 @@ export default function AccountSettingsPage() {
 
         <AccountCard />
         <PlanBillingCard />
-        <ScanUsageWidget />
+        <UsageLimitsCard />
         <EmailPreferencesCard />
 
         <TailoringModeCard />

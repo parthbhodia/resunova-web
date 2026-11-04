@@ -245,7 +245,7 @@ export default function ExtensionConnect() {
               <Action
                 phase={phase}
                 onConnect={() => void connect()}
-                onSignIn={() => openSignIn({ reason: "Sign in to connect the Resunova extension." })}
+                onSignIn={() => openSignIn({ ask: "extension_connect" })}
               />
               {(phase === "waiting") && IS_STORE_LIVE && (
                 <Button component="a" href={CHROME_STORE_URL} target="_blank" rel="noopener noreferrer" variant="outlined" disableElevation>

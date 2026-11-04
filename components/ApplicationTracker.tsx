@@ -697,7 +697,7 @@ export default function ApplicationTracker() {
             <p style={{ fontSize: 14, color: "var(--muted)", margin: "10px auto 18px", maxWidth: 420 }}>
               Your application tracker is saved to your account — sign in to get started.
             </p>
-            <Button onClick={() => openSignIn({ title: "Sign in to use the tracker", reason: "Your application tracker is saved to your account — sign in to get started." })}>
+            <Button onClick={() => openSignIn({ ask: "tracker" })}>
               Sign in with Google
             </Button>
           </CardContent>
