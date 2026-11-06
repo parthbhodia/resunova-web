@@ -106,8 +106,8 @@ export const CONTROL_POINTS = [
 
 export const PRIVACY_POINTS = [
   {
-    title: "It runs on job application pages",
-    body: "The fill logic is injected only on the four supported ATS domains, so it cannot read your email, banking, or anything else you have open.",
+    title: "It checks pages on your device",
+    body: "The extension looks at each page you open to tell whether it is a job application, and that check runs on your device. A page that is not an application is not sent anywhere or remembered, and it does not read your email, messages or browsing history.",
   },
   {
     title: "It reads your Resunova profile",
@@ -138,7 +138,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "What happens to my data?",
-    a: "It uses your saved Resunova profile to fill forms, and nothing else. Your data stays on your account, is never sold, and an employer sees it only when you submit an application to them.",
+    a: "It uses your saved Resunova profile and the résumé you choose to fill forms. Your data stays on your account, is never sold, and an employer sees it only when you submit an application to them. If you press Draft with AI or Check match, the question or posting text you chose is sent to Resunova to do that and nothing else. Usage counts are collected only if you choose Accept on its welcome page, and they never include what you typed into a form. The privacy policy lists all of it.",
   },
   {
     q: "Do I need a Pro account?",

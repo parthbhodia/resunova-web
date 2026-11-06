@@ -36,6 +36,7 @@ import { useTailorJobSwitcher } from "@/hooks/useTailorJobSwitcher";
 import { Field, InfoTip, StepCard } from "@/components/builder/BuilderFields";
 import TailorJobTabs from "@/components/tailor/TailorJobTabs";
 import { resolveIntentJobRedirect } from "@/lib/tailorIntentRedirect";
+import { consumeExtensionJobHandoff } from "@/lib/extensionHandoff";
 import { accentCardBorder } from "@/lib/accentCardBorder";
 import { getBaseResumeBanner } from "@/lib/libraryFolderLabel";
 import { apiUrl, isResumeUploadFile, parseJsonOrThrow, scoreColor } from "@/lib/utils";
@@ -1391,6 +1392,10 @@ export default function ResumeBuilder({
       setStudioHandoff(false);
       try {
         sessionStorage.removeItem(RN_BUILDER_LAYOUT_ONLY_KEY);
+        // A posting from the Chrome extension arrives in the URL fragment,
+        // which never reaches a server. Take it into the same keys every
+        // other handoff uses, then read them below like any other.
+        consumeExtensionJobHandoff();
         const profile = sessionStorage.getItem("rn_builder_profile_prefill");
         const structRaw = sessionStorage.getItem("rn_builder_structured_prefill");
         const jdPre = sessionStorage.getItem(TAILOR_PREFILL_JD);
