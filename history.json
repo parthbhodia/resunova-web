@@ -1,6 +1,12 @@
 {
-  "updated": "2026-10-26T17:31:53Z",
+  "updated": "2026-11-09T20:25:39Z",
   "events": [
+    {
+      "at": "2026-11-09T15:53:22.127981+00:00",
+      "kind": "ui",
+      "state": "crash",
+      "detail": "/ Failed to load chunk https://www.resunova.io/_next/static/chunks/01xlw8hd842-c.js from module 64893"
+    },
     {
       "at": "2026-10-26T13:41:06.878924+00:00",
       "kind": "ui",
