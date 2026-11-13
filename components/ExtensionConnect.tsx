@@ -27,6 +27,14 @@
  *   - nothing within 4s: no extension answered           -> waiting
  * The bridge has always emitted the error event; this page used to ignore it,
  * so every failed exchange read as "the extension did not respond".
+ *
+ * When the extension opened this page itself (its Connect button opens it in a
+ * small window), the page connects without a second click. The page says
+ * "hello" when it is ready to listen; the extension's bridge answers "present"
+ * with `asked: true` only for the window it opened, and also announces once on
+ * its own, so it works whichever loads first. A connect page the person opened
+ * themselves, or one a link elsewhere opened, keeps its button. Connecting by
+ * itself happens once per page load, so a refused code does not loop.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -53,6 +61,8 @@ export type Phase =
 const AUTH_EVENT = "resunova-extension-auth";
 const ACK_EVENT = "resunova-extension-ack";
 const ERROR_EVENT = "resunova-extension-error";
+const HELLO_EVENT = "resunova-extension-hello";
+const PRESENT_EVENT = "resunova-extension-present";
 const ANSWER_TIMEOUT_MS = 4000;
 
 type StepState = "todo" | "now" | "busy" | "done" | "fail";
@@ -92,6 +102,10 @@ export default function ExtensionConnect() {
   // without re-subscribing on every change.
   const phaseRef = useRef<Phase>("checking");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The extension opened this page to connect: connect once the person is signed in,
+  // and only once per page load.
+  const [asked, setAsked] = useState(false);
+  const autoUsedRef = useRef(false);
 
   const go = useCallback((next: Phase, note?: string) => {
     phaseRef.current = next;
@@ -105,8 +119,9 @@ export default function ExtensionConnect() {
 
   useEffect(() => {
     let cancelled = false;
-    getSupabaseClient()
-      .auth.getSession()
+    const auth = getSupabaseClient().auth;
+    auth
+      .getSession()
       .then(({ data }) => {
         if (cancelled) return;
         if (data.session) {
@@ -119,8 +134,21 @@ export default function ExtensionConnect() {
       .catch(() => {
         if (!cancelled) go("error", "Could not read your session. Try reloading.");
       });
+    // Signing in from the dialog with an email and password does not reload the page,
+    // so the page has to hear about it, or it stays on "Sign in to connect".
+    const { data: sub } = auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
+      if (session && (phaseRef.current === "signed_out" || phaseRef.current === "checking")) {
+        setEmail(session.user.email ?? "");
+        go("ready");
+      } else if (!session && phaseRef.current === "ready") {
+        setEmail("");
+        go("signed_out");
+      }
+    });
     return () => {
       cancelled = true;
+      sub.subscription.unsubscribe();
     };
   }, [go]);
 
@@ -134,11 +162,18 @@ export default function ExtensionConnect() {
       setReference(referenceFrom(e));
       go("failed");
     };
+    const onPresent = (e: Event) => {
+      if (askedFrom(e)) setAsked(true);
+    };
     window.addEventListener(ACK_EVENT, onAck);
     window.addEventListener(ERROR_EVENT, onErr);
+    window.addEventListener(PRESENT_EVENT, onPresent);
+    // Listening now: ask the extension whether it opened this page.
+    window.dispatchEvent(new CustomEvent(HELLO_EVENT));
     return () => {
       window.removeEventListener(ACK_EVENT, onAck);
       window.removeEventListener(ERROR_EVENT, onErr);
+      window.removeEventListener(PRESENT_EVENT, onPresent);
     };
   }, [go]);
 
@@ -192,7 +227,14 @@ export default function ExtensionConnect() {
     }, ANSWER_TIMEOUT_MS);
   }, [go]);
 
-  const copy = copyFor(phase, email);
+  // Opened by the extension and signed in: connect without asking for the click.
+  useEffect(() => {
+    if (!asked || phase !== "ready" || autoUsedRef.current) return;
+    autoUsedRef.current = true;
+    void connect();
+  }, [asked, phase, connect]);
+
+  const copy = copyFor(phase, email, asked);
   const steps = progressFor(phase);
 
   return (
@@ -254,7 +296,7 @@ export default function ExtensionConnect() {
               )}
               {phase === "connected" && (
                 <Button component={Link} href="/extension/" variant="outlined" disableElevation>
-                  Supported sites
+                  About the extension
                 </Button>
               )}
             </div>
@@ -308,6 +350,11 @@ export default function ExtensionConnect() {
  * Only a short snake_case token is shown: this value comes from a window event,
  * so anything else is dropped rather than rendered.
  */
+/** Only a literal `true` counts: anything else on the event leaves the button in place. */
+export function askedFrom(e: Event): boolean {
+  return (e as CustomEvent<{ asked?: unknown }>).detail?.asked === true;
+}
+
 export function referenceFrom(e: Event): string | null {
   const raw = (e as CustomEvent<{ error?: unknown }>).detail?.error;
   return typeof raw === "string" && /^[a-z][a-z0-9_]{1,63}$/i.test(raw) ? raw : null;
@@ -341,12 +388,12 @@ type Copy = {
   popSub: string;
 };
 
-export function copyFor(phase: Phase, email: string): Copy {
+export function copyFor(phase: Phase, email: string, asked = false): Copy {
   switch (phase) {
     case "connected":
-      return { pill: "Connected", tone: "ok", title: "You're connected", body: "Open any supported job posting and use Auto-Fill. The extension reads your profile from Resunova each time.", led: "on", popTitle: "Connected", popSub: email || "Signed in" };
+      return { pill: "Connected", tone: "ok", title: "You're connected", body: asked ? "Taking you back to where you were. On any job application, press Autofill." : "On any job application, press Autofill. The extension reads your profile from Resunova each time.", led: "on", popTitle: "Connected", popSub: email || "Signed in" };
     case "signed_out":
-      return { pill: "Chrome extension", tone: "info", title: "Sign in to connect", body: "Your Resunova profile is what the extension fills forms from, so this browser needs to be signed in first.", led: "off", popTitle: "Not connected", popSub: "Sign in to enable auto-fill" };
+      return { pill: "Chrome extension", tone: "info", title: "Sign in to connect", body: asked ? "Sign in and the extension connects by itself. Your Resunova profile is what it fills forms from." : "Your Resunova profile is what the extension fills forms from, so this browser needs to be signed in first.", led: "off", popTitle: "Not connected", popSub: "Sign in to enable auto-fill" };
     case "ready":
       return { pill: email ? `Signed in as ${email}` : "Signed in", tone: "ok", title: "Connect Resunova Auto-Fill", body: "One click links this browser's extension to your profile. You can disconnect it whenever you like.", led: "off", popTitle: "Not connected", popSub: email ? `Ready to link to ${email}` : "Ready to link" };
     case "minting":

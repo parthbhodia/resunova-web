@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const LAST_UPDATED = "May 2026";
+const LAST_UPDATED = "November 2026";
 const EFFECTIVE    = "May 1, 2026";
 
 export default function PrivacyPage() {
@@ -174,25 +174,50 @@ export default function PrivacyPage() {
           <Section title="6. Browser Extension (Chrome)">
             <p>
               The Resunova Auto-Fill extension fills job application forms using the profile on
-              your Resunova account. It supports Greenhouse, Ashby, Lever and Workday. This
-              section describes exactly what it handles.
+              your Resunova account. It has dedicated support for several applicant tracking
+              systems (including Greenhouse, Lever, Ashby and Workday) and works on other
+              application pages it recognises. This section describes exactly what it handles.
             </p>
 
             <SubSection title="What the extension handles">
               <DataTable rows={[
-                ["The page you are on", "The URL of the job posting, and only when you fill a form on it"],
+                ["The page you are on", "Every page you open is checked on your device for whether it looks like a job application. If it does not, nothing about it leaves your device. The address of a job posting is sent only when you fill a form on it"],
                 ["Company, job title, location", "Read from that page's own metadata, and taken from our job database instead when we recognise the posting"],
                 ["Your Resunova profile", "Name, contact details, links, work history and the optional EEO answers you saved. Read only; the extension never writes to your profile"],
+                ["Your chosen résumé", "When you attach a résumé, the extension downloads the file you chose in its settings from your account and puts it in the form's upload field. It is not sent anywhere else"],
+                ["Questions you ask it to draft", "Only when you press Draft with AI on a question: that question, the company, job title and description of the posting, and the text of your profile are sent to Resunova and on to our AI providers (see section 5) to write a draft. We do not keep the question or the draft. We keep a count of drafts per application, filed under a one-way hash of the job's address, so your daily allowance can be applied, and the token counts of the AI call"],
+                ["A job posting you ask it to check", "Only when you press Check match on a posting: the visible text of the posting is sent to Resunova and compared with the résumé you chose. An AI model turns the posting into a list of requirements; that list is kept, keyed only by a hash of the posting's text and not attached to you, to an address, to a company or to a copy of the page, so the same posting is read once however many people look at it"],
+                ["Usage counts (only if you choose Accept)", "Described below. Nothing is sent unless you chose Accept on the extension's welcome page"],
                 ["An extension session token", "Stored only in hashed form. Lets the extension read your profile, and revocable at any time"],
               ]} />
             </SubSection>
 
             <SubSection title="What it does not handle">
               <ul>
-                <li><b>The contents of your application forms.</b> Answers you type, cover-letter text and screening responses are never sent to us.</li>
-                <li><b>Pages you are not filling a form on.</b> The fill logic is injected only on the four supported job-board domains.</li>
-                <li><b>Your email, messages, or browsing elsewhere.</b> It cannot see them.</li>
-                <li><b>Usage telemetry.</b> The extension sends no analytics of its own.</li>
+                <li><b>The contents of your application forms.</b> Answers you type, cover-letter text and screening responses are never sent to us. The one exception is a question you yourself ask it to draft, above.</li>
+                <li><b>Pages you are not filling a form on.</b> The extension can read any page you open, because it has to look at a page to tell whether it is an application. That check runs on your device, and a page that is not an application is not sent anywhere and not remembered.</li>
+                <li><b>Your email, messages, or browsing history.</b> It does not read them and does not keep a list of the pages you visit.</li>
+                <li><b>Answers it remembers for you.</b> When you pick an answer by hand on a question it has no saved answer for, the extension can remember it on your device so it can fill the same question next time. Those answers stay in the browser&apos;s local extension storage, are never sent to us, and the extension&apos;s popup lists them with a delete button and a Forget all. It never remembers race, gender, sexual orientation, veteran or disability status, religion, a date of birth, a government or tax number, a password or bank details.</li>
+              </ul>
+            </SubSection>
+
+            <SubSection title="Usage counts, if you choose Accept">
+              <p>
+                On its welcome page the extension asks whether Resunova may collect usage counts.
+                If you choose <b>Essentials only</b>, none are collected or sent. If you choose{" "}
+                <b>Accept</b>, the extension sends a short, fixed list of events: that the welcome
+                page was finished (and whether a résumé was chosen and the practice form done),
+                that a fill was used (from the page widget or the popup, how many fields it filled
+                and skipped, and how many required fields there were and were still open), that a
+                fill was undone, whether a résumé attached, which button on a job-page panel was
+                pressed, and a problem code such as &ldquo;no fields found&rdquo;. Each event also
+                names which of eight kinds of site it was (for example Greenhouse or Workday) and
+                is stamped with the time and the extension&apos;s version.
+              </p>
+              <ul>
+                <li><b>What an event never contains:</b> a web address or host name, a page title, the label or value of any field, a question or an answer, your name, email or phone, or anything from your résumé or profile. The server accepts only the events and properties on that list and discards anything else, so this does not depend on the extension behaving.</li>
+                <li><b>Whose they are:</b> events are tied to your account, because usage is only useful if one person filling a form twice is not counted as two people. They are used to see which features people use and where they get stuck, and are not sold or shared.</li>
+                <li><b>Your control:</b> change your choice from the extension at any time. Switching to Essentials only stops collection and clears any events not yet sent. Events already sent are deleted with your account.</li>
               </ul>
             </SubSection>
 
@@ -209,7 +234,8 @@ export default function PrivacyPage() {
             <SubSection title="Where extension data is stored">
               <ul>
                 <li><b>On your device:</b> the session token and a cached copy of your profile, in the browser&apos;s local extension storage. Disconnecting removes both.</li>
-                <li><b>On our servers:</b> your application tracker entries, and the hashed session token. Raw tokens are never stored.</li>
+                <li><b>On your device:</b> also the answers it remembers (above), your choice of résumé, and, if you chose Accept, any usage events waiting to be sent.</li>
+                <li><b>On our servers:</b> your application tracker entries, the hashed session token, the per-application draft counts, the posting-text requirement lists described above, and, if you chose Accept, the usage events. Raw tokens are never stored.</li>
               </ul>
             </SubSection>
           </Section>
@@ -222,6 +248,8 @@ export default function PrivacyPage() {
               <li><b>Uploaded PDF text:</b> Processed in memory during generation; not permanently stored</li>
               <li><b>Browser extension sessions:</b> Expire after 30 days without use, and after 90 days at most however often they are used. Changing your password, signing out, or disconnecting in Account settings ends them immediately. The one-time code used to create one is discarded within minutes.</li>
               <li><b>Tracked applications:</b> Kept until you delete the entry or your account, like any other tracker row</li>
+              <li><b>Extension usage events</b> (only if you chose Accept): Kept until you delete your account, which deletes them. They hold counts and fixed labels only, never the contents of anything you filled</li>
+              <li><b>Posting requirement lists:</b> The list extracted from a job posting is kept with nothing about you or the address attached, because it describes the posting and not a person</li>
               <li><b>Analytics data:</b> Governed by Google Analytics retention settings (typically 14 months)</li>
             </ul>
           </Section>
