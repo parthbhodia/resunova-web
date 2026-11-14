@@ -28,6 +28,8 @@ import type { ExtractedProfileState } from "@/lib/resumeExtractorService";
 import {
   APPLICATION_ANSWER_QUESTIONS,
   answeredCount,
+  isTypableYearsExperience,
+  yearsExperienceProblem,
   type ApplicationAnswerQuestion,
 } from "@/lib/applicationAnswers";
 
@@ -69,8 +71,10 @@ export default function ApplicationAnswers({ value, onChange, saveState, resume,
   const disabled = saveState === "loading";
   const eligibility = APPLICATION_ANSWER_QUESTIONS.filter((q) => q.group === "eligibility");
   const voluntary = APPLICATION_ANSWER_QUESTIONS.filter((q) => q.group === "voluntary");
+  const communication = APPLICATION_ANSWER_QUESTIONS.filter((q) => q.group === "communication");
   const answered = answeredCount(value);
   const dobProblem = birthDateProblem(value.dateOfBirth);
+  const yearsProblem = yearsExperienceProblem(value.yearsExperience);
 
   const set = (q: ApplicationAnswerQuestion, next: string) => onChange({ ...value, [q.key]: next });
 
@@ -140,6 +144,22 @@ export default function ApplicationAnswers({ value, onChange, saveState, resume,
               fullWidth
               size="small"
             />
+            <TextField
+              label="Years of professional experience"
+              value={value.yearsExperience ?? ""}
+              onChange={(event) => {
+                // Letters, a second dot and anything over 60 never get in; a clear always does.
+                if (isTypableYearsExperience(event.target.value)) onChange({ ...value, yearsExperience: event.target.value });
+              }}
+              autoComplete="off"
+              placeholder="e.g. 6 or 5.5"
+              error={yearsProblem !== ""}
+              helperText={yearsProblem || "Used when an application asks how many years you have worked. Leave it blank to skip."}
+              disabled={disabled}
+              fullWidth
+              size="small"
+              slotProps={{ htmlInput: { inputMode: "decimal" } }}
+            />
           </div>
         </Group>
 
@@ -182,6 +202,15 @@ export default function ApplicationAnswers({ value, onChange, saveState, resume,
               <Question key={q.key} q={q} value={value[q.key]} disabled={disabled} onSet={(v) => set(q, v)} />
             ),
           )}
+        </Group>
+
+        <Group
+          title="Messages from employers"
+          help="Used only when an application asks. This is a consent you give, so it is never chosen for you, and a blank one stays blank."
+        >
+          {communication.map((q) => (
+            <Question key={q.key} q={q} value={value[q.key]} disabled={disabled} onSet={(v) => set(q, v)} />
+          ))}
         </Group>
 
         <div className="aa-foot">
