@@ -50,8 +50,15 @@ export type ProfileFormState = {
   eeoVeteran: string;
   eeoGender: string;
   eeoLgbtq: string;
-  /** One of `RACE_OPTIONS` (the EEO-1 category names) or "Decline to state". Blank is unanswered. */
+  /** One of `RACE_OPTIONS` (the EEO-1 category names, Asian by subregion) or "Decline to state". Blank is unanswered. */
   eeoRace: string;
+  /**
+   * "Yes" or "No" to "Is it OK to text you about your application?". A consent the
+   * person gives: blank is never answered for them and nothing pre-selects it.
+   */
+  smsOptIn: string;
+  /** Years of professional experience as typed text ("6", "5.5"). Blank is not given. */
+  yearsExperience: string;
   /**
    * Date of birth as YYYY-MM-DD, typed by the person. Only the Chrome extension
    * reads it, and only to fill a field that asks for it. Never taken from a
@@ -94,6 +101,8 @@ export const EMPTY_PROFILE: ProfileFormState = {
   eeoGender: "",
   eeoLgbtq: "",
   eeoRace: "",
+  smsOptIn: "",
+  yearsExperience: "",
   dateOfBirth: "",
 };
 
