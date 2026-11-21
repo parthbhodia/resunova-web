@@ -181,6 +181,40 @@ describe("saving", () => {
     expect(written.roles).toBe("Data Analyst");
   }, 10000);
 
+  it("saves the text-message consent, years of experience and an Asian subregion without dropping the rest of the record", async () => {
+    // Three more keys on the same jsonb record. A save that rebuilt the record from a fixed list
+    // of keys would drop them, or drop everything else when they were set.
+    h.fetchUserProfile.mockResolvedValue(saved({ eeoWorkUs: "Yes", typedPhone: "555-9999", dateOfBirth: "1990-03-04" }));
+    render(<ProfilePage />);
+    await waitFor(() => expect(within(workAuth()).getByRole("radio", { name: "Yes" })).toBeChecked());
+
+    await userEvent.click(
+      within(screen.getByRole("radiogroup", { name: /OK to text you/i })).getByRole("radio", { name: "No" }),
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Years of professional experience" }), { target: { value: "6.5" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /race and ethnicity/i }), {
+      target: { value: "Asian: South Asian (Not Hispanic or Latino)" },
+    });
+    await waitFor(() => expect(h.upsertUserProfile).toHaveBeenCalled(), { timeout: 5000 });
+    const written = h.upsertUserProfile.mock.calls.at(-1)?.[0] as ProfileFormState;
+    expect(written.smsOptIn).toBe("No");
+    expect(written.yearsExperience).toBe("6.5");
+    expect(written.eeoRace).toBe("Asian: South Asian (Not Hispanic or Latino)");
+    expect(written.eeoWorkUs).toBe("Yes");
+    expect(written.typedPhone).toBe("555-9999");
+    expect(written.dateOfBirth).toBe("1990-03-04");
+    expect(written.roles).toBe("Data Analyst");
+  }, 10000);
+
+  it("shows the consent and years that were saved earlier", async () => {
+    h.fetchUserProfile.mockResolvedValue(saved({ smsOptIn: "Yes", yearsExperience: "4" }));
+    render(<ProfilePage />);
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Years of professional experience" })).toHaveValue("4"));
+    expect(
+      within(screen.getByRole("radiogroup", { name: /OK to text you/i })).getByRole("radio", { name: "Yes" }),
+    ).toBeChecked();
+  });
+
   it("shows a date of birth and race that were saved earlier", async () => {
     h.fetchUserProfile.mockResolvedValue(
       saved({ dateOfBirth: "1985-07-21", eeoRace: "Hispanic or Latino" }),

@@ -41,3 +41,23 @@ Claims used in the copy (keep honest, update when stale):
 - 160k+ live US postings / 8,000+ company boards — jobs corpus as of 2026-07
 - 400+ early users — landing-page social proof figure
 - 8-dimension score, <60s, free, no account — product facts
+
+## Chrome Web Store images (`assets/cws/`)
+
+Listing images for the Resunova Auto-Fill extension. The screenshots embed REAL captures of the
+extension (`assets/cws/raw/`) taken on an invented demo page (Northwind Labs); regenerate the
+captures with `python3 e2e/store_shots.py <out dir>` in the `autoapply-extension` repo, then render.
+
+| File | Size | Use |
+|---|---|---|
+| `cws-screenshot-1-1280x800.png` to `cws-screenshot-4-1280x800.png` | 1280x800, 24-bit PNG | Store screenshots (1 to 5 allowed) |
+| `cws-small-tile-440x280.png` | 440x280 | Small promo tile |
+| `cws-marquee-1400x560.png` | 1400x560 | Marquee promo tile (optional) |
+
+```bash
+python marketing/render_cws.py          # all
+python marketing/render_cws.py marquee  # one, by part of the name
+```
+
+Rules for these: exact pixel sizes (scale factor 1), no alpha channel, no dashes in copy, and only
+screens that have run end to end (Draft with AI and Check match are not demonstrated).

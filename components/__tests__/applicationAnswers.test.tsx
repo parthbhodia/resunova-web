@@ -29,9 +29,9 @@ const workAuth = () => screen.getByRole("radiogroup", { name: /authorized to wor
 const lastValue = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)?.[0] as ProfileFormState;
 
 describe("the questions", () => {
-  it("asks six as chip groups, each its own group, and race and ethnicity as a dropdown", () => {
+  it("asks seven as chip groups, each its own group, and race and ethnicity as a dropdown", () => {
     setup();
-    expect(screen.getAllByRole("radiogroup")).toHaveLength(6);
+    expect(screen.getAllByRole("radiogroup")).toHaveLength(7);
     expect(screen.getByRole("combobox", { name: /race and ethnicity/i })).toBeInTheDocument();
     expect(workAuth()).toBeInTheDocument();
     expect(sponsorship()).toBeInTheDocument();
@@ -39,6 +39,7 @@ describe("the questions", () => {
     expect(screen.getByRole("radiogroup", { name: /veteran/i })).toBeInTheDocument();
     expect(screen.getByRole("radiogroup", { name: /gender/i })).toBeInTheDocument();
     expect(screen.getByRole("radiogroup", { name: /LGBTQ/i })).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: /OK to text you/i })).toBeInTheDocument();
   });
 
   it("offers Yes and No only on the two eligibility questions", () => {
@@ -312,12 +313,30 @@ describe("race and ethnicity", () => {
       "Black or African American (Not Hispanic or Latino)",
       "Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino)",
       "Asian (Not Hispanic or Latino)",
+      "Asian: East Asian (Not Hispanic or Latino)",
+      "Asian: South Asian (Not Hispanic or Latino)",
+      "Asian: Southeast Asian (Not Hispanic or Latino)",
       "American Indian or Alaska Native (Not Hispanic or Latino)",
+      "Middle Eastern or North African (Not Hispanic or Latino)",
       "Two or More Races (Not Hispanic or Latino)",
       "Decline to state",
     ]);
     // The same list the extension is told to read.
     expect(shown.slice(1)).toEqual([...RACE_OPTIONS]);
+  });
+
+  it("saves the subregion of Asian that a form such as DoorDash's asks for", () => {
+    const { onChange } = setup({ roles: "Data Analyst" });
+    fireEvent.change(race(), { target: { value: "Asian: South Asian (Not Hispanic or Latino)" } });
+    const next = lastValue(onChange);
+    expect(next.eeoRace).toBe("Asian: South Asian (Not Hispanic or Latino)");
+    expect(next.roles).toBe("Data Analyst");
+  });
+
+  it("shows a saved subregion as selected instead of reading as unanswered", () => {
+    setup({ eeoRace: "Asian: East Asian (Not Hispanic or Latino)" });
+    expect(race()).toHaveValue("Asian: East Asian (Not Hispanic or Latino)");
+    expect(screen.queryByText(/Saved as/)).not.toBeInTheDocument();
   });
 
   it("writes the chosen category to its own key and nothing else", () => {
@@ -349,10 +368,10 @@ describe("race and ethnicity", () => {
 
   it("counts as an answer only when it is one of the categories", () => {
     setup({ eeoRace: "Asian (Not Hispanic or Latino)" });
-    expect(screen.getByText("1 of 7 answered")).toBeInTheDocument();
+    expect(screen.getByText("1 of 8 answered")).toBeInTheDocument();
     document.body.innerHTML = "";
     setup({ eeoRace: "Caucasian" });
-    expect(screen.getByText("0 of 7 answered")).toBeInTheDocument();
+    expect(screen.getByText("0 of 8 answered")).toBeInTheDocument();
   });
 
   it("is disabled until the saved profile has loaded", () => {
@@ -457,6 +476,106 @@ describe("before the saved profile has loaded", () => {
   });
 });
 
+describe("text messages from employers", () => {
+  const sms = () => screen.getByRole("radiogroup", { name: /OK to text you/i });
+
+  it("offers Yes and No only, with nothing chosen and nothing to clear until the person answers", () => {
+    // A consent is never pre-selected. A card that opened with "Yes" ticked would be giving
+    // the person's consent for them.
+    setup();
+    expect(within(sms()).getAllByRole("radio").map((r) => (r as HTMLInputElement).value)).toEqual(["Yes", "No"]);
+    for (const r of within(sms()).getAllByRole("radio")) expect(r).not.toBeChecked();
+    expect(within(sms()).queryByRole("button", { name: /Clear/ })).not.toBeInTheDocument();
+  });
+
+  it("writes the answer to its own key and nothing else", async () => {
+    const { onChange } = setup({ eeoWorkUs: "Yes", roles: "Data Analyst" });
+    await userEvent.click(within(sms()).getByRole("radio", { name: "Yes" }));
+    const next = lastValue(onChange);
+    expect(next.smsOptIn).toBe("Yes");
+    expect(next.eeoWorkUs).toBe("Yes");
+    expect(next.roles).toBe("Data Analyst");
+  });
+
+  it("shows a saved answer, and Clear is the way back to unanswered", async () => {
+    const { onChange } = setup({ smsOptIn: "No" });
+    expect(within(sms()).getByRole("radio", { name: "No" })).toBeChecked();
+    await userEvent.click(within(sms()).getByRole("button", { name: /Clear your answer/ }));
+    expect(lastValue(onChange).smsOptIn).toBe("");
+  });
+
+  it("says it is a consent that is never chosen for the person", () => {
+    setup();
+    expect(screen.getByRole("heading", { name: "Messages from employers" })).toBeInTheDocument();
+    expect(screen.getByText(/consent you give, so it is never chosen for you/)).toBeInTheDocument();
+  });
+
+  it("writes nothing just because the card was opened", () => {
+    const { onChange } = setup({ smsOptIn: "Yes", yearsExperience: "6" });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("is disabled until the saved profile has loaded", () => {
+    setup({}, "loading");
+    for (const r of within(sms()).getAllByRole("radio")) expect(r).toBeDisabled();
+  });
+});
+
+describe("years of professional experience", () => {
+  const years = () => screen.getByRole("textbox", { name: "Years of professional experience" }) as HTMLInputElement;
+
+  it("saves what is typed to its own key and nothing else", () => {
+    const { onChange } = setup({ roles: "Data Analyst" });
+    fireEvent.change(years(), { target: { value: "6" } });
+    const next = lastValue(onChange);
+    expect(next.yearsExperience).toBe("6");
+    expect(next.roles).toBe("Data Analyst");
+  });
+
+  it("takes one decimal, and a clear", () => {
+    const { onChange } = setup({ yearsExperience: "5" });
+    fireEvent.change(years(), { target: { value: "5.5" } });
+    expect(lastValue(onChange).yearsExperience).toBe("5.5");
+    fireEvent.change(years(), { target: { value: "" } });
+    expect(lastValue(onChange).yearsExperience).toBe("");
+  });
+
+  it.each(["abc", "6 years", "-1", "5.55", "61", "99", "1e2", "5,5"])("does not take %j as it is typed", (typed) => {
+    const { onChange } = setup({ yearsExperience: "6" });
+    fireEvent.change(years(), { target: { value: typed } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("shows a saved value that will not be used as it is, says so, and never rewrites it", () => {
+    const { onChange } = setup({ yearsExperience: "six" });
+    expect(years()).toHaveValue("six");
+    expect(screen.getByText(/That will not be used\. Enter a number from 0 to 60/)).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("says what it is for when the value is fine, so blank reads as a choice", () => {
+    setup({ yearsExperience: "6" });
+    expect(screen.getByText(/Leave it blank to skip/)).toBeInTheDocument();
+    expect(screen.queryByText(/will not be used/)).not.toBeInTheDocument();
+  });
+
+  it("brings up a number pad on a phone, and turns browser autofill off", () => {
+    setup();
+    expect(years()).toHaveAttribute("inputmode", "decimal");
+    expect(years()).toHaveAttribute("autocomplete", "off");
+  });
+
+  it("survives a stored null where a string was expected", () => {
+    setup({ yearsExperience: null as unknown as string });
+    expect(years()).toHaveValue("");
+  });
+
+  it("is disabled until the saved profile has loaded", () => {
+    setup({}, "loading");
+    expect(years()).toBeDisabled();
+  });
+});
+
 describe("the save line", () => {
   it.each([
     ["saved", "Saved automatically"],
@@ -470,6 +589,6 @@ describe("the save line", () => {
 
   it("counts the answers", () => {
     setup({ eeoWorkUs: "Yes", eeoSponsor: "No", eeoGender: "Male" });
-    expect(screen.getByText("3 of 7 answered")).toBeInTheDocument();
+    expect(screen.getByText("3 of 8 answered")).toBeInTheDocument();
   });
 });
