@@ -50,7 +50,7 @@ captures with `python3 e2e/store_shots.py <out dir>` in the `autoapply-extension
 
 | File | Size | Use |
 |---|---|---|
-| `cws-screenshot-1-1280x800.png` to `cws-screenshot-4-1280x800.png` | 1280x800, 24-bit PNG | Store screenshots (1 to 5 allowed) |
+| `cws-screenshot-1-1280x800.png` to `cws-screenshot-5-1280x800.png` | 1280x800, 24-bit PNG | Store screenshots (1 to 5 allowed): AI draft, one-click fill, learns from you, needs your answer, never submits |
 | `cws-small-tile-440x280.png` | 440x280 | Small promo tile |
 | `cws-marquee-1400x560.png` | 1400x560 | Marquee promo tile (optional) |
 
@@ -59,5 +59,7 @@ python marketing/render_cws.py          # all
 python marketing/render_cws.py marquee  # one, by part of the name
 ```
 
-Rules for these: exact pixel sizes (scale factor 1), no alpha channel, no dashes in copy, and only
-screens that have run end to end (Draft with AI and Check match are not demonstrated).
+Rules for these: exact pixel sizes (scale factor 1), no alpha channel, no dashes in copy, and no
+claim the product does not keep. Screenshot 1 and the marquee show a SAMPLE AI draft written for
+the listing (the extension is real, the sentence is not model output); say so if asked, and retake
+them with a real draft once one has run on production.
