@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  /* Chrome Web Store small promo tile, 440x280. One amber element: the mark. */
+  body { width: 440px; height: 280px; }
+  .stage { width: 440px; height: 280px; padding: 30px 32px; display: flex; flex-direction: column; justify-content: space-between; }
+  .top { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; }
+  .top .wordmark { font-size: 19px; color: var(--muted); font-weight: 700; }
+  h1 { position: relative; z-index: 1; font-size: 46px; font-weight: 800; letter-spacing: -1.8px; line-height: 1.02; }
+  h1 span { color: var(--blue); }
+  .sub { position: relative; z-index: 1; font-size: 17px; line-height: 1.35; color: var(--muted); margin-top: 10px; max-width: 250px; letter-spacing: -0.1px; text-wrap: balance; }
+  .rows { position: absolute; z-index: 1; right: 28px; bottom: 30px; width: 128px; display: flex; flex-direction: column; gap: 7px; }
+  .row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 9px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); font-size: 12px; font-weight: 600; color: var(--ink); }
+  .row i { width: 14px; height: 14px; border-radius: 50%; background: rgba(52,211,153,0.18); border: 1.5px solid #34d399; display: grid; place-items: center; flex: none; }
+  .row i::after { content: ""; width: 4px; height: 7px; border: solid #34d399; border-width: 0 1.8px 1.8px 0; transform: translateY(-1px) rotate(45deg); }
+</style></head>
+<body>
+<div class="stage">
+  <div class="top">
+    <svg width="30" height="30" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#c4793a"/>
+      <path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#fff" opacity="0.88"/>
+    </svg>
+    <span class="wordmark">Resunova</span>
+  </div>
+  <div>
+    <h1>Auto<span>-Fill</span></h1>
+    <p class="sub">Job applications, filled in one click.</p>
+  </div>
+  <div class="rows">
+    <div class="row"><i></i>Name</div>
+    <div class="row"><i></i>Email</div>
+    <div class="row"><i></i>Phone</div>
+  </div>
+</div>
+</body></html>

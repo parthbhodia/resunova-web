@@ -1,0 +1,19 @@
+/* Chrome Web Store listing images. Builds on base.css. One amber element per image: the mark.
+   Copy rules (marketing-assets skill): no em or en dashes anywhere in visible text. */
+body { margin: 0; }
+.stage { padding: 0; }
+.mark { flex: none; }
+.brandrow { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
+.brandrow .wordmark { font-size: 24px; color: var(--muted); }
+h2 { position: relative; z-index: 1; font-size: 54px; font-weight: 800; line-height: 1.04; letter-spacing: -2px; margin: 30px 0 20px; text-wrap: balance; }
+h2 em { font-style: normal; color: var(--blue); }
+p.lede { position: relative; z-index: 1; font-size: 22px; line-height: 1.5; color: var(--muted); letter-spacing: -0.2px; text-wrap: pretty; }
+
+/* A real capture, cropped. --cx/--cy/--w/--h are in page CSS pixels of the 1280x800 capture,
+   --s is the display scale, so the widget text stays readable. */
+.frame { flex: none; position: relative; z-index: 1; border-radius: 16px; overflow: hidden; background: #fff;
+  border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 0 6px rgba(255,255,255,0.04); }
+.frame .bar { height: 30px; background: #e9edf3; display: flex; align-items: center; gap: 7px; padding: 0 14px; border-bottom: 1px solid #d5dbe5; }
+.frame .bar i { width: 10px; height: 10px; border-radius: 50%; background: #c4ccd8; display: block; }
+.crop { position: relative; overflow: hidden; width: calc(var(--w) * var(--s) * 1px); height: calc(var(--h) * var(--s) * 1px); }
+.crop img { position: absolute; display: block; width: calc(1280 * var(--s) * 1px); height: auto; left: calc(var(--cx) * var(--s) * -1px); top: calc(var(--cy) * var(--s) * -1px); }
