@@ -6,7 +6,7 @@
  * as closed, and any other 404 keeps the generic message and never calls the
  * API.
  */
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -15,8 +15,13 @@ const fetchJobDetail = vi.fn();
 vi.mock("@/lib/jobsApi", () => ({
   fetchJobDetail: (id: string) => fetchJobDetail(id),
 }));
+// jsdom cannot navigate, so the redirect goes through a seam the test can watch.
+const goTo = vi.fn();
+vi.mock("@/lib/navigate", () => ({
+  goTo: (href: string) => goTo(href),
+}));
 
-import StaleJobRescue from "@/components/seo/StaleJobRescue";
+import StaleJobRescue, { MESSAGE_REDIRECT_MS } from "@/components/seo/StaleJobRescue";
 
 const ID = "3f2b1c9e-8a47-4d1e-9c55-0a1b2c3d4e5f";
 // next/link drops the trailing slash in jsdom (trailingSlash is a next.config
@@ -37,7 +42,9 @@ function mount() {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   fetchJobDetail.mockReset();
+  goTo.mockReset();
   visit("/");
 });
 
@@ -115,6 +122,107 @@ describe("StaleJobRescue", () => {
   });
 });
 
+describe("StaleJobRescue redirects", () => {
+  const OPEN = { isActive: true, title: "Backend Engineer", company: "Stripe", location: "New York, NY" };
+  const CLOSED = { isActive: false, title: "Old role", company: "Acme", location: "" };
+
+  it("sends a still-open job straight to its posting in the app", async () => {
+    visit(`/jobs/${ID}/`);
+    fetchJobDetail.mockResolvedValue(OPEN);
+    mount();
+
+    await waitFor(() => expect(goTo).toHaveBeenCalledTimes(1));
+    expect(goTo).toHaveBeenCalledWith(`/?view=jobs&job=${ID}`);
+  });
+
+  it("does not redirect before the lookup has answered", async () => {
+    visit(`/jobs/${ID}/`);
+    fetchJobDetail.mockReturnValue(new Promise(() => {})); // never resolves
+    mount();
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(goTo).not.toHaveBeenCalled();
+  });
+
+  it("shows the closed message first, then takes the visitor to the job search", async () => {
+    visit(`/jobs/${ID}/`);
+    fetchJobDetail.mockResolvedValue(CLOSED);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    mount();
+
+    // let the resolved lookup flush without advancing the redirect timer
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("heading", { name: /no longer listed/i })).toBeTruthy();
+    expect(goTo).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(MESSAGE_REDIRECT_MS - 1);
+    });
+    expect(goTo).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(goTo).toHaveBeenCalledTimes(1);
+    expect(goTo).toHaveBeenCalledWith("/?view=jobs");
+  });
+
+  it("takes a failed lookup to the job search too, and still never calls it closed", async () => {
+    visit(`/jobs/${ID}/`);
+    fetchJobDetail.mockRejectedValue(new Error("HTTP 503"));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    mount();
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("heading", { name: /couldn't find this job/i })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: /no longer listed/i })).toBeNull();
+
+    await act(async () => {
+      vi.advanceTimersByTime(MESSAGE_REDIRECT_MS);
+    });
+    expect(goTo).toHaveBeenCalledWith("/?view=jobs");
+  });
+
+  it("cancels the pending redirect when the page is left", async () => {
+    visit(`/jobs/${ID}/`);
+    fetchJobDetail.mockResolvedValue(CLOSED);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const view = mount();
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    view.unmount();
+    await act(async () => {
+      vi.advanceTimersByTime(MESSAGE_REDIRECT_MS * 2);
+    });
+    expect(goTo).not.toHaveBeenCalled();
+  });
+
+  it("never redirects any other 404", async () => {
+    visit("/some/old/page/");
+    mount();
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(goTo).not.toHaveBeenCalled();
+  });
+
+  it("keeps working links on screen in case the redirect is blocked", async () => {
+    visit(`/jobs/${ID}/`);
+    fetchJobDetail.mockResolvedValue(OPEN);
+    mount();
+
+    expect((await screen.findByRole("link", { name: /view this job/i })).getAttribute("href")).toBe(`/?view=jobs&job=${ID}`);
+  });
+});
+
 describe("not-found wiring", () => {
   // `app/not-found.tsx` is a route file, not something a unit test can mount.
   // This pin is what holds the one call that connects the component to the
@@ -131,5 +239,13 @@ describe("not-found wiring", () => {
 
   it("keeps the page out of the index", () => {
     expect(source).toMatch(/index:\s*false/);
+  });
+
+  it("navigates through the lib/navigate seam", () => {
+    const component = readFileSync(join(__dirname, "..", "seo", "StaleJobRescue.tsx"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    expect(component).toMatch(/import \{ goTo \} from "@\/lib\/navigate"/);
+    expect(component).not.toMatch(/window\.location\.(replace|assign|href\s*=)/);
   });
 });

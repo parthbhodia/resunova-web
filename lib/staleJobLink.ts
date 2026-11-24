@@ -41,3 +41,6 @@ export function jobIdFromPath(pathname: string): string | null {
 export function inAppJobHref(id: string): string {
   return `/?view=jobs&job=${encodeURIComponent(id)}`;
 }
+
+/** Where a visitor goes when there is no specific posting to show: the in-app job search, open to guests. */
+export const JOBS_PORTAL_HREF = "/?view=jobs";

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { fetchJobDetail } from "@/lib/jobsApi";
-import { inAppJobHref, jobIdFromPath } from "@/lib/staleJobLink";
+import { goTo } from "@/lib/navigate";
+import { JOBS_PORTAL_HREF, inAppJobHref, jobIdFromPath } from "@/lib/staleJobLink";
 
 /**
  * What the 404 page shows when the address is a retired public job link.
@@ -13,6 +14,11 @@ import { inAppJobHref, jobIdFromPath } from "@/lib/staleJobLink";
  * still open. So instead of "the page does not exist" this asks the API about
  * the posting and answers the question the visitor actually has: is it still
  * open, and where can I read it.
+ *
+ * It does not leave the visitor on a message. A job that is still open sends
+ * them straight to it. Otherwise the message shows for a moment and they are
+ * taken to the in-app job search. Both pages stay on screen with working links
+ * in case the redirect is blocked.
  *
  * It reports only what it learned. A failed lookup is its own state, so an
  * outage never reads as "this job has closed".
@@ -24,6 +30,9 @@ type Outcome =
   | { id: string; kind: "open"; title: string; company: string; location: string }
   | { id: string; kind: "gone" }
   | { id: string; kind: "unknown" };
+
+/** How long the "no longer listed" message shows before the visitor is taken to the job search. */
+export const MESSAGE_REDIRECT_MS = 2500;
 
 const noopSubscribe = () => () => {};
 
@@ -58,6 +67,18 @@ export default function StaleJobRescue({ children }: { children: ReactNode }) {
     };
   }, [id]);
 
+  // Once the answer is in, send the visitor on. An open job goes immediately;
+  // anything else after the message has been readable for a moment.
+  useEffect(() => {
+    if (!outcome) return;
+    if (outcome.kind === "open") {
+      goTo(inAppJobHref(outcome.id));
+      return;
+    }
+    const timer = setTimeout(() => goTo(JOBS_PORTAL_HREF), MESSAGE_REDIRECT_MS);
+    return () => clearTimeout(timer);
+  }, [outcome]);
+
   if (!id) return <>{children}</>;
 
   const result = outcome && outcome.id === id ? outcome : null;
@@ -80,7 +101,7 @@ export default function StaleJobRescue({ children }: { children: ReactNode }) {
           </p>
           <p className="mt-4 text-base text-rn-muted">
             Our public job pages are replaced as new postings come in, so this link no longer works. The posting itself
-            is still live.
+            is still live. Taking you to it now.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href={inAppJobHref(result.id)} className={primaryLink} style={{ color: "var(--on-fill)" }}>
@@ -97,7 +118,8 @@ export default function StaleJobRescue({ children }: { children: ReactNode }) {
         <>
           <h1 className="text-3xl font-bold tracking-tight">This job is no longer listed</h1>
           <p className="mt-4 text-base text-rn-muted">
-            It has probably been filled or taken off the company&apos;s career site. Other roles are open.
+            It has probably been filled or taken off the company&apos;s career site. Other roles are open. Taking you to
+            the job search.
           </p>
           <BrowseLinks />
         </>
@@ -107,7 +129,8 @@ export default function StaleJobRescue({ children }: { children: ReactNode }) {
         <>
           <h1 className="text-3xl font-bold tracking-tight">We couldn&apos;t find this job</h1>
           <p className="mt-4 text-base text-rn-muted">
-            The link may be out of date, or we couldn&apos;t reach the job service just now. Here is what is open.
+            The link may be out of date, or we couldn&apos;t reach the job service just now. Taking you to the job
+            search.
           </p>
           <BrowseLinks />
         </>
@@ -122,7 +145,7 @@ function BrowseLinks() {
       <Link href="/jobs/" className={primaryLink} style={{ color: "var(--on-fill)" }}>
         Browse current jobs
       </Link>
-      <Link href="/?view=jobs" className={secondaryLink}>
+      <Link href={JOBS_PORTAL_HREF} className={secondaryLink}>
         Search all jobs
       </Link>
     </div>
