@@ -114,7 +114,9 @@ function destinationProblem(href: string, body = ""): string | null {
 describe("blog CTA destinations", () => {
   it("the checker flags each way a landing goes wrong, and passes the good ones", () => {
     expect(destinationProblem("/")).toMatch(/homepage/);
-    expect(destinationProblem("/?view=jobs")).toMatch(/not a public app view/);
+    // A signed-in-only view. (This used /?view=jobs while JOBS_ENABLED was off;
+    // jobs is a public view whenever the flag is on, so it can't be the example.)
+    expect(destinationProblem("/?view=library")).toMatch(/not a public app view/);
     // /interview-prep is a gated route. (/refer was the example here until main
     // opened the directory in #342, which moved it to the public set.)
     expect(destinationProblem("/interview-prep/", "Practice questions from your résumé")).toMatch(/gated/);
