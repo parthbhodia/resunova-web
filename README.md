@@ -32,9 +32,11 @@ Most contributors use the **remote Railway API** — the NLP backend is in a sep
 
 ## Deploy
 
-Pushes to `main` trigger [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) → GitHub Pages (`www.resunova.io`).
+Pushes to `main` deploy on Vercel (`www.resunova.io`). The build command in [`vercel.json`](vercel.json) typechecks, runs the tests, refreshes the role data and runs `next build`, so a failure stops the deploy and the previous build keeps serving.
 
-Required GitHub Actions secrets: `RAILWAY_API_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`.
+Required Vercel environment variables (Production): `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL`.
+
+The public job pages (`/jobs/`, `/jobs/<id>/`) and the sitemap are rendered on demand from the API, so they need `NEXT_PUBLIC_API_URL` at runtime and nothing at build time.
 
 ## Key paths
 
