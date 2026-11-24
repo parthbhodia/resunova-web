@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 
+// The sitemap now lists today's job postings from the API. This file is about
+// the /extension/ entry, so the job list is empty rather than a network call.
+vi.mock("@/lib/publicJobs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/publicJobs")>()),
+  fetchPublicJobIndex: async () => ({ jobs: [], generatedAt: null }),
+}));
+
 // IS_STORE_LIVE is read at module load, so each case re-imports with its env.
 async function load(url: string | undefined) {
   vi.resetModules();
@@ -7,7 +14,7 @@ async function load(url: string | undefined) {
   else process.env.NEXT_PUBLIC_CHROME_STORE_URL = url;
   const sitemap = (await import("@/app/sitemap")).default;
   const page = await import("@/app/extension/page");
-  return { urls: sitemap().map((e) => e.url), robots: page.metadata.robots };
+  return { urls: (await sitemap()).map((e) => e.url), robots: page.metadata.robots };
 }
 
 afterEach(() => {

@@ -23,6 +23,11 @@ const RESERVED = new Set(["sponsors"]);
 /** Posting ids are UUIDs; accept anything id-shaped, nothing that could carry a path or markup. */
 const ID_SHAPE = /^[A-Za-z0-9_-]{1,128}$/;
 
+/** True when `id` could be a posting id: safe to put in an API path and never a route name. */
+export function isPostingId(id: string): boolean {
+  return ID_SHAPE.test(id) && !RESERVED.has(id.toLowerCase());
+}
+
 /** The posting id in `/jobs/<id>` or `/jobs/<id>/`, or null for any other path. */
 export function jobIdFromPath(pathname: string): string | null {
   const match = JOB_PATH.exec(pathname);

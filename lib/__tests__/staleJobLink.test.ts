@@ -5,7 +5,7 @@
  * generic dead end. Both directions are pinned.
  */
 import { describe, expect, it } from "vitest";
-import { JOBS_PORTAL_HREF, inAppJobHref, jobIdFromPath } from "@/lib/staleJobLink";
+import { JOBS_PORTAL_HREF, inAppJobHref, isPostingId, jobIdFromPath } from "@/lib/staleJobLink";
 
 const UUID = "3f2b1c9e-8a47-4d1e-9c55-0a1b2c3d4e5f";
 
@@ -60,5 +60,18 @@ describe("inAppJobHref", () => {
 describe("JOBS_PORTAL_HREF", () => {
   it("is the in-app job search, which guests may open", () => {
     expect(JOBS_PORTAL_HREF).toBe("/?view=jobs");
+  });
+});
+
+describe("isPostingId", () => {
+  it("accepts an id-shaped string", () => {
+    expect(isPostingId(UUID)).toBe(true);
+    expect(isPostingId("a".repeat(128))).toBe(true);
+  });
+
+  it("rejects anything that could carry a path, markup or a route name", () => {
+    for (const bad of ["", "a/b", "../x", "<script>", "a b", "a".repeat(129), "sponsors", "Sponsors"]) {
+      expect(isPostingId(bad)).toBe(false);
+    }
   });
 });

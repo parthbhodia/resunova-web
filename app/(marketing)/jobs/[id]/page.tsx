@@ -3,13 +3,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import JsonLd from "@/components/seo/JsonLd";
 import { SITE_URL } from "@/lib/brand";
-import { PUBLIC_JOBS, getPublicJob, jobHref, type PublicJob } from "@/lib/jobsSeoData";
+import { fetchPublicJob, isIndexablePosting, jobHref, type PublicJob } from "@/lib/publicJobs";
 
-export const dynamic = "force-static";
-export const dynamicParams = false;
+// Rendered when first asked for, then cached for an hour. Nothing is generated
+// at build time, so a deploy never depends on the API being up and never
+// replaces the set of pages that exist: any posting the API holds as open has a
+// page, whether or not it existed at the last deploy. These must stay literals
+// (Next reads them statically); `lib/__tests__/jobPageOnDemand.test.ts` pins
+// the 3600 to JOB_REVALIDATE_SECONDS.
+export const dynamicParams = true;
+export const revalidate = 3600;
 
 export function generateStaticParams() {
-  return PUBLIC_JOBS.map((job) => ({ id: job.id }));
+  return [];
 }
 
 function canonicalFor(id: string) {
@@ -24,7 +30,7 @@ function summary(job: PublicJob) {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const job = getPublicJob(id);
+  const job = await fetchPublicJob(id);
   if (!job) return { title: "Job not found", robots: { index: false, follow: false } };
   const canonical = canonicalFor(job.id);
   const description = summary(job);
@@ -32,7 +38,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     title: `${job.title} at ${job.company}`,
     description,
     alternates: { canonical },
-    robots: { index: true, follow: true },
+    // An open posting with no date, apply link or real location is thin. It
+    // still renders for the person who has the link; it is just not offered to
+    // a search index.
+    robots: { index: isIndexablePosting(job), follow: true },
     openGraph: { type: "website", url: canonical, title: `${job.title} at ${job.company}`, description },
   };
 }
@@ -72,12 +81,15 @@ function jobPostingSchema(job: PublicJob) {
 
 export default async function PublicJobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const job = getPublicJob(id);
+  // null = closed or unknown: a real 404, which the not-found page turns into
+  // "no longer listed" for a person and which tells search to drop the URL.
+  // An API that cannot answer throws instead, so it is never cached as a 404.
+  const job = await fetchPublicJob(id);
   if (!job) notFound();
 
   return (
     <div className="mx-auto min-h-screen max-w-4xl px-5 py-8 text-text sm:px-8">
-      <JsonLd data={jobPostingSchema(job)} />
+      {isIndexablePosting(job) && <JsonLd data={jobPostingSchema(job)} />}
 <article>
         <p className="text-sm font-bold text-accent">{job.company}</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-5xl">{job.title}</h1>
