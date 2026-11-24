@@ -1,11 +1,13 @@
 /**
  * Build-time product flags.
  *
- * JOBS_ENABLED — the Jobs feed is hidden while the local extraction pipeline is
- * stopped (2026-08-14). The feed ranks postings against `requirement_concepts`
- * produced by the on-desktop GPU worker; with that worker off, the corpus stops
+ * JOBS_ENABLED — the in-app Jobs section. It was hidden on 2026-08-14 while the
+ * local extraction pipeline was stopped, and turned back on 2026-11-23 once the
+ * GPU worker was running again and caught up. The feed ranks postings against
+ * `requirement_concepts` produced by that worker; if it stops, the corpus stops
  * being refreshed and stale postings are worse than no postings — a candidate
- * who applies to a filled role gets silence, and blames us for it.
+ * who applies to a filled role gets silence, and blames us for it. Set this back
+ * to `false` if the worker is off for more than a day or two.
  *
  * Deliberately a FLAG and not a deletion: every Jobs surface stays built and
  * tested, so turning the pipeline back on is one boolean rather than a revert
@@ -17,4 +19,4 @@
  * longer tail than a hidden nav item. Raise that separately if the pipeline
  * stays off.
  */
-export const JOBS_ENABLED = false;
+export const JOBS_ENABLED = true;
