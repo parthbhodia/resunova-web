@@ -2,15 +2,9 @@
 <html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css"><link rel="stylesheet" href="cws.css">
 <style>
   body { width: 1280px; height: 800px; }
-  .stage { width: 1280px; height: 800px; display: flex; align-items: center; gap: 64px; padding: 0 64px; }
-  .copy { width: 430px; flex: none; position: relative; z-index: 1; }
-  .copy h2 { font-size: 58px; }
-  .pts { flex: 1; position: relative; z-index: 1; display: flex; flex-direction: column; gap: 18px; }
-  .pt { display: flex; gap: 20px; align-items: flex-start; padding: 26px 28px; }
-  .pt i { flex: none; width: 34px; height: 34px; border-radius: 50%; background: rgba(52,211,153,0.16); border: 2px solid #34d399; display: grid; place-items: center; margin-top: 3px; }
-  .pt i::after { content: ""; width: 8px; height: 14px; border: solid #34d399; border-width: 0 3px 3px 0; transform: translateY(-2px) rotate(45deg); }
-  .pt b { display: block; font-size: 25px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 6px; }
-  .pt span { display: block; font-size: 19px; line-height: 1.5; color: var(--muted); }
+  .stage { width: 1280px; height: 800px; display: flex; align-items: center; gap: 56px; padding: 0 64px; }
+  .copy { width: 400px; flex: none; position: relative; z-index: 1; }
+  .copy h2 { font-size: 50px; }
 </style></head>
 <body>
 <div class="stage">
@@ -19,13 +13,12 @@
         <rect width="28" height="28" rx="7" fill="#c4793a"/>
         <path d="M8.7 8.2v12.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M8.7 8.2h4.1a4.1 4.1 0 0 1 0 8.2H8.7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M13.2 16.4l4.4 4.4" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.4 4.6c.35 1.75 1.25 2.65 3 3-1.75.35-2.65 1.25-3 3-.35-1.75-1.25-2.65-3-3 1.75-.35 2.65-1.25 3-3z" fill="#fff" opacity="0.88"/>
       </svg><span class="wordmark">Auto-Fill</span></div>
-    <h2>Fills it.<br><em>You submit it.</em></h2>
-    <p class="lede">It stops before the last step, on purpose.</p>
+    <h2>What it cannot answer, <em>it lists</em></h2>
+    <p class="lede">Work authorization and similar questions come from answers you saved once. Anything missing is left for you, never guessed.</p>
   </div>
-  <div class="pts">
-    <div class="card pt"><i></i><div><b>You press Submit</b><span>It fills the form and stops. Applications are sent by you, never by the extension.</span></div></div>
-    <div class="card pt"><i></i><div><b>Checked on your device</b><span>Pages are read on your device. Nothing about a page is sent until you press a button that needs it.</span></div></div>
-    <div class="card pt"><i></i><div><b>Answers stay yours</b><span>What it remembers lives in your browser, with a list you can delete from.</span></div></div>
+  <div class="frame" style="--s:0.96; --cx:557; --cy:96; --w:723; --h:640; --iw:1280;">
+    <div class="bar"><i></i><i></i><i></i></div>
+    <div class="crop"><img src="../assets/cws/raw/raw-3-needs-answer.png" alt=""></div>
   </div>
 </div>
 </body></html>

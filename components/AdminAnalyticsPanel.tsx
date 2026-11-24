@@ -5,6 +5,7 @@ import type { AdminAnalyticsJobsBlock, AdminAnalyticsResponse, AdminAnalyticsToo
 import ExtractionProgressWidget from "@/components/ExtractionProgressWidget";
 import JobMarketPanel from "@/components/JobMarketPanel";
 import FunnelPanel from "@/components/FunnelPanel";
+import ExtensionUsagePanel from "@/components/ExtensionUsagePanel";
 import { apiFetch } from "@/lib/apiClient";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -562,9 +563,10 @@ function BusinessSection({ jobs }: { jobs: AdminAnalyticsJobsBlock }) {
 
 // ─── panel (exported) ────────────────────────────────────────────────────────
 
-type TabKey = "product" | "jobs" | "business" | "market" | "funnel";
+type TabKey = "product" | "jobs" | "business" | "market" | "funnel" | "extension";
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "funnel", label: "Funnel" },
+  { key: "extension", label: "Extension" },
   { key: "product", label: "Product & cost" },
   { key: "jobs", label: "Jobs pipeline" },
   { key: "business", label: "Data & revenue" },
@@ -574,7 +576,7 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 // Tabs that fetch their own endpoint rather than reading the windowed analytics
 // payload — they own their loading and error states, and the day picker above
 // does not apply to them.
-const SELF_FETCHING_TABS: TabKey[] = ["market", "funnel"];
+const SELF_FETCHING_TABS: TabKey[] = ["market", "funnel", "extension"];
 
 // Module-level payload cache keyed by window: survives the panel unmount/remount
 // that happens on every Cohort <-> Platform tab flip in the host dashboard.
@@ -674,7 +676,7 @@ export default function AdminAnalyticsPanel() {
             </button>
           ))}
         </div>
-        {/* Job market and Funnel are live snapshots with their own controls. */}
+        {/* Job market, Funnel and Extension are live snapshots with their own controls. */}
         {!SELF_FETCHING_TABS.includes(tab) && (
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
             <span style={{ color: "var(--muted)" }}>Window</span>
@@ -691,6 +693,7 @@ export default function AdminAnalyticsPanel() {
       {/* Both fetch their own endpoint independently of the analytics window. */}
       {tab === "market" && <JobMarketPanel />}
       {tab === "funnel" && <FunnelPanel />}
+      {tab === "extension" && <ExtensionUsagePanel />}
 
       {!SELF_FETCHING_TABS.includes(tab) && loading && !data && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
