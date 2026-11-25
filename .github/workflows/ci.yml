@@ -1,8 +1,8 @@
 name: CI
 
-# Nothing used to run on a pull request into main: deploy.yml is push-to-main
-# and staging.yml only covers PRs into staging. A type error or a failing test
-# reached production and the first signal was a red deploy, after the merge.
+# Nothing used to run on a pull request into main: the production deploy only
+# runs after a merge. A type error or a failing test reached production and the
+# first signal was a red deploy, after the merge.
 #
 # main requires these two checks before a pull request can merge:
 # "Typecheck, tests, lint" and "Build". Renaming either job also renames the
@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
   # Fast signal (~1 min). Split from the build so a type error does not wait
-  # behind a three-minute Next export to surface.
+  # behind a three-minute Next build to surface.
   check:
     name: Typecheck, tests, lint
     runs-on: ubuntu-latest
@@ -81,10 +81,15 @@ jobs:
         run: npm ci
 
       # Placeholders, not secrets. The Supabase client only has to CONSTRUCT for
-      # the static export to prerender — with these unset it throws on mount and
-      # every page renders empty, which looks like a build pass but is not one.
+      # the build to prerender — with these unset it throws on mount and every
+      # page renders empty, which looks like a build pass but is not one.
       # Literals also keep this job working on a fork PR, which cannot read
       # secrets.
+      #
+      # NEXT_PUBLIC_API_URL points at a host that does not exist on purpose: the
+      # build must not call the API. The public job pages and the sitemap are
+      # rendered on request, so a build that needed the API would be a build
+      # that fails whenever the API is down.
       #
       # `build:seo-data` is deliberately skipped: it calls the backend, and the
       # generator falls back to the committed snapshot when that fails, so

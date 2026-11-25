@@ -3,12 +3,19 @@ import { SITE_URL } from "@/lib/brand";
 import { BLOG_LAST_MODIFIED, BLOG_POSTS } from "@/lib/atsBlogPosts";
 import { ROLE_RESUME_DATA, ROLE_DATA_LAST_UPDATED, roleResumeHref, skillsForResumeHref } from "@/lib/roleResumeData";
 import { COMPARISONS, comparisonHref } from "@/lib/competitorComparison";
-import { JOBS_GENERATED_AT, PUBLIC_JOBS, jobHref } from "@/lib/jobsSeoData";
+import { fetchPublicJobIndex, jobHref } from "@/lib/publicJobs";
 import { IS_STORE_LIVE } from "@/lib/extensionContent";
 
-export const dynamic = "force-static";
+// Per request, so the job entries are today's postings and a build never needs
+// the API. The API response is cached for 15 minutes.
+export const dynamic = "force-dynamic";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Throws when the API cannot be reached. A sitemap that quietly dropped every
+  // job on an outage would tell search the postings were gone.
+  const { jobs, generatedAt } = await fetchPublicJobIndex();
+  const jobsGeneratedAt = generatedAt ? new Date(generatedAt) : new Date();
+
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, lastModified: new Date(), changeFrequency: "weekly", priority: 1.0 },
     { url: `${SITE_URL}/blog/`, lastModified: new Date(BLOG_LAST_MODIFIED), changeFrequency: "weekly", priority: 0.9 },
@@ -22,7 +29,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/terms/`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/privacy/`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/contact/`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
-    { url: `${SITE_URL}/jobs/`, lastModified: JOBS_GENERATED_AT ? new Date(JOBS_GENERATED_AT) : new Date(), changeFrequency: "daily", priority: 0.9 },
+    { url: `${SITE_URL}/jobs/`, lastModified: jobsGeneratedAt, changeFrequency: "daily", priority: 0.9 },
     // Advertised only once the Web Store listing exists (NEXT_PUBLIC_CHROME_STORE_URL).
     ...(IS_STORE_LIVE
       ? [{ url: `${SITE_URL}/extension/`, lastModified: new Date(), changeFrequency: "monthly" as const, priority: 0.8 }]
@@ -57,9 +64,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  const jobPages: MetadataRoute.Sitemap = PUBLIC_JOBS.map((job) => ({
+  const jobPages: MetadataRoute.Sitemap = jobs.map((job) => ({
     url: `${SITE_URL}${jobHref(job.id)}/`,
-    lastModified: job.postedAt ? new Date(job.postedAt) : (JOBS_GENERATED_AT ? new Date(JOBS_GENERATED_AT) : new Date()),
+    lastModified: job.postedAt ? new Date(job.postedAt) : jobsGeneratedAt,
     changeFrequency: "daily" as const,
     priority: 0.7,
   }));

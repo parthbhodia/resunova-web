@@ -53,8 +53,8 @@ than complementing it.
 
 ## Capabilities and Constraints
 
-- Next.js static export (`output: "export"`) on GitHub Pages. No server
-  components for data; everything user-specific is client-fetched.
+- Next.js on Vercel. The public job pages and the sitemap are rendered on
+  demand from the API; everything user-specific is client-fetched.
 - Supabase with owner-only RLS; the Python API holds the service role.
 - `/profile` is in AuthGate's PUBLIC_ROUTES — it is reachable signed out and
   must degrade rather than blank.

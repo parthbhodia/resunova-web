@@ -21,8 +21,8 @@ export default defineConfig({
     // and time out at 5000ms in the full run — 88 files sharing a machine,
     // with jsdom environment setup alone reporting several minutes across the
     // suite. That is the harness starving, not the components breaking, and it
-    // made `npm test` fail intermittently — which matters because deploy.yml
-    // gates the production Pages upload on this exact command.
+    // made `npm test` fail intermittently — which matters because vercel.json
+    // gates the production deploy on this exact command.
     //
     // Raised globally rather than marking individual tests slow: any future
     // userEvent test hits the same wall, and a per-test timeout has to be
