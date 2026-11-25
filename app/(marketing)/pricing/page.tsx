@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Newsreader } from "next/font/google";
+import localFont from "next/font/local";
 import PricingPlans from "@/components/PricingPlans";
 import { FREE_SCAN_DAILY_LIMIT, PRO_SCAN_DAILY_LIMIT } from "@/components/UpgradeDialog";
 
 // Display italic only, and only on this route, so the extra face is not paid
-// for on any other page. Weight 400 is the only one used.
-const newsreader = Newsreader({ subsets: ["latin"], weight: ["400"], style: ["italic"], display: "swap" });
+// for on any other page. Weight 400 is the only one used. Self-hosted from
+// app/fonts so the build never asks Google for it.
+const newsreader = localFont({
+  src: "../../fonts/newsreader-latin-400-italic.woff2",
+  weight: "400",
+  style: "italic",
+  display: "swap",
+  adjustFontFallback: "Times New Roman",
+});
 
 export const metadata: Metadata = {
   title: "Pricing",
