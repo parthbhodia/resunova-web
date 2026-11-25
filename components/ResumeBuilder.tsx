@@ -5458,7 +5458,14 @@ export default function ResumeBuilder({
                     />
                     {queueUi && (
                       <TailorQueuePanel
-                        onAddEducation={handleAddEducation}
+                        // Gated on there BEING a document to write into.
+                        // handleAddEducation starts `if (!prev) return prev`,
+                        // so without a structured résumé the entry is dropped
+                        // while the form still closes and the score is still
+                        // marked stale -- a silent no-op wearing the costume
+                        // of a fix. Absent, the card degrades to instructions,
+                        // which is what that path was built for.
+                        onAddEducation={structuredUpload ? handleAddEducation : undefined}
                         onAddSkill={handleAddSkill}
                         onAddOwnBullet={addOwnBulletForGap}
                         structuredResume={structuredUpload?.structured ?? null}
