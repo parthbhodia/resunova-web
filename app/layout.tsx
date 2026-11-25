@@ -8,14 +8,24 @@ import AuthHostRedirect from "@/components/AuthHostRedirect";
 import GoogleOneTap from "@/components/GoogleOneTap";
 import { APP_VIEW_TITLES } from "@/lib/appViewTitle";
 import { SignInDialogProvider } from "@/components/SignInDialog";
-import { Geist, Inter, DM_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 import { SITE_URL as BRAND_SITE_URL } from "@/lib/brand";
 
-// Self-hosted via next/font — no render-blocking Google Fonts request.
-const geist  = Geist({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
-const inter  = Inter({ subsets: ['latin'], variable: '--font-inter', weight: ['400','500','600','700'], style: ['normal','italic'], display: 'swap' });
-const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans', weight: ['300','400','500','600','700','800'], style: ['normal','italic'], display: 'swap' });
+// Self-hosted: the file is in the repo (app/fonts), so a build makes no network
+// request for a font. next/font/google fetched from Google at build time, and
+// when that fetch failed on Vercel the production deploy errored outright.
+// Inter and DM Sans were also loaded here and preloaded on every page, but
+// nothing read --font-inter or --font-dm-sans (the 'DM Sans' and 'Inter' names
+// in CSS are literal family names, which next/font's generated family does not
+// answer to), so they cost a download and did nothing; they are gone.
+const geist = localFont({
+  src: "./fonts/geist-latin-wght-normal.woff2",
+  weight: "100 900",
+  style: "normal",
+  variable: "--font-sans",
+  display: "swap",
+});
 
 const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL ?? BRAND_SITE_URL;
 const SITE_NAME = "Resunova";
@@ -158,7 +168,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable, inter.variable, dmSans.variable)}>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable)}>
       <head>
         {/* Modern-API shims for pdf.js's browser baseline — must precede every app chunk. */}
         <script dangerouslySetInnerHTML={{ __html: MODERN_API_POLYFILL_SCRIPT }} />
