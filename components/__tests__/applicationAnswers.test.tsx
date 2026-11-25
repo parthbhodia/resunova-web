@@ -555,7 +555,7 @@ describe("years of professional experience", () => {
 
   it("says what it is for when the value is fine, so blank reads as a choice", () => {
     setup({ yearsExperience: "6" });
-    expect(screen.getByText(/Leave it blank to skip/)).toBeInTheDocument();
+    expect(screen.getByText(/Left blank, the extension works it out from the dates on your résumé/)).toBeInTheDocument();
     expect(screen.queryByText(/will not be used/)).not.toBeInTheDocument();
   });
 
