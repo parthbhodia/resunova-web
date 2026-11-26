@@ -17,7 +17,9 @@
  *    fixed.
  * 2. ⚠️ "Free resume scoring in 60 seconds" is a number we cannot stand
  *    behind. A real scan runs 30–65s, so 60 was near the worst case sold as
- *    the promise. The three assurances that replace it are each checkable.
+ *    the promise. It was first replaced by a row of three checkable badges,
+ *    and that row is now gone too — checkable turned out not to be the bar.
+ *    The reasoning lives beside the gap it left, in `AuthMethods`.
  * 3. A 190px marketing block sat between the headline and the first control.
  *    This dialog only opens because someone clicked something: they have
  *    already decided, and the box spent their attention re-selling.

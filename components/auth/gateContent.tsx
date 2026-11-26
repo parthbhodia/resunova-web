@@ -28,7 +28,11 @@ export type GateContent = {
 const GENERIC: GateContent = {
   eyebrow: "Resunova",
   headline: "Your work, saved and waiting when you come back.",
-  lede: "An account keeps your scans, your tailored versions and your history in one place. Free, and it takes one click.",
+  // The tail used to read "Free, and it takes one click." — the same two
+  // claims the trust-badge row underneath was making, one line up. The row
+  // went; so does the restatement. Every other lede here names what is behind
+  // the gate rather than what signing in costs, and this one now matches.
+  lede: "An account keeps your scans, your tailored versions and your history in one place.",
 };
 
 const BY_PREFIX: Array<[string, GateContent]> = [

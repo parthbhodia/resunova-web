@@ -55,15 +55,6 @@ export function GoogleGlyph({ size = 18 }: { size?: number }) {
   );
 }
 
-function Tick() {
-  return (
-    <svg viewBox="0 0 16 16" width={13} height={13} aria-hidden="true"
-      style={{ stroke: "var(--green-ink)", fill: "none", strokeWidth: 2.4 }}>
-      <path d="M3 8.5l3.2 3L13 5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 const fieldStyle: CSSProperties = {
   width: "100%",
   padding: "12px 13px",
@@ -142,7 +133,6 @@ export default function AuthMethods({
   idPrefix,
   onSignedIn,
   confirmationCopy,
-  assurances = true,
 }: {
   /** Input ids are scoped so the gate and the modal can both be mounted. */
   idPrefix: string;
@@ -154,7 +144,6 @@ export default function AuthMethods({
   onSignedIn?: () => void;
   /** Where to come back to after confirming, named. */
   confirmationCopy: string;
-  assurances?: boolean;
 }) {
   const [emailOpen, setEmailOpen] = useState(false);
   const [mode, setMode] = useState<EmailMode>("sign-in");
@@ -365,17 +354,22 @@ export default function AuthMethods({
         </p>
       ) : null}
 
-      {/* ⚠️ Every one of these three is checkable. The comp's "About 10
-          seconds" and the shipped modal's "Free resume scoring in 60 seconds"
-          are not — a real scan runs 30–65s, so 60 was near the worst case sold
-          as the promise. Google sign-in genuinely is one click. */}
-      {assurances ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 16, fontSize: 12, color: "var(--muted)" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Tick />Free</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Tick />No credit card</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Tick />One click with Google</span>
-        </div>
-      ) : null}
+      {/* ⚠️ THERE IS NO TRUST-BADGE ROW HERE ON PURPOSE, and the tempting edit
+          is to put one back. It read "✓ Free · ✓ No credit card · ✓ One click
+          with Google", and each of the three failed differently. "No credit
+          card" answers an objection nobody raised — this product has never
+          asked for one at sign-up, so the sentence introduces the idea of
+          being charged in order to deny it, and `docs/COMPANY_REFERRER_HLD.md`
+          already names that exact string as inaccurate trust copy. "One click
+          with Google" restates the button directly above it. "Free" is the
+          thinnest of the three: it is true of the account and false of the
+          product, which has a Pro plan and a metered free tier, so on a dialog
+          that opens mid-task it reads as a claim about what you are about to
+          do. Checkable is not the bar. Worth saying is.
+
+          The one thing the row did carry is kept by the tests rather than by
+          copy: the "60 seconds" / "10 seconds" promise it replaced must not
+          come back, because a real scan runs 30–65s. */}
     </>
   );
 }

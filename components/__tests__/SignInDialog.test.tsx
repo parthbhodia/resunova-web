@@ -73,13 +73,23 @@ describe("SignInDialog — the resting state is one decision", () => {
     expect(screen.getByRole("button", { name: /new here\? create an account/i })).toBeInTheDocument();
   });
 
-  /** A real scan runs 30–65s, so "60 seconds" was the worst case sold as the promise. */
-  it("makes only checkable assurances", async () => {
+  /**
+   * ⚠️ TWO RULES IN ONE TEST, and they were learned in opposite directions.
+   *
+   * "60 seconds" went because it is not sourceable — a real scan runs 30–65s,
+   * so it sold the worst case as the promise. The trust-badge row that
+   * replaced it then went too, for the opposite reason: each of its three
+   * items WAS checkable and none was worth the line. "No credit card"
+   * introduces the idea of being charged in order to deny it on a product
+   * that has never asked for one, "One click with Google" restated the button
+   * above it, and "Free" is true of the account while the product is metered.
+   */
+  it("sells nothing beside the sign-in controls", async () => {
     const user = userEvent.setup();
     renderDialog();
     await open(user);
-    expect(screen.getByText("Free")).toBeInTheDocument();
-    expect(screen.getByText("No credit card")).toBeInTheDocument();
+    expect(screen.queryByText("No credit card")).toBeNull();
+    expect(screen.queryByText("One click with Google")).toBeNull();
     expect(screen.queryByText(/60 seconds/i)).toBeNull();
   });
 
