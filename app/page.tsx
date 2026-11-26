@@ -4,16 +4,18 @@ import { FAQ_ITEMS } from "@/lib/faqContent";
 
 const SITE_URL = "https://www.resunova.io";
 
+const HOME_TITLE = "Free AI Resume Builder: Get Past the ATS | Resunova";
+const HOME_DESCRIPTION =
+  "See the 8 checks that decide whether an ATS passes your resume on. Rewrites from the facts already on it, a tailored PDF, and 3 free scans a day with a free account.";
+
 export const metadata: Metadata = {
-  // Keeps the existing head term and adds the frame the h1 now leads on. It
-  // deliberately does NOT reuse "ATS Resume Checker": /ats-resume-checker owns
-  // that exact match, and two pages bidding on one phrase split the result.
-  title: "Free AI Resume Builder: Get Past the ATS | Resunova",
-  // 3 free scans a day is the signed-in free plan, and it is the whole offer:
-  // scanning requires an account (see lib/anonScan.ts). The template builder is
-  // the surface that still needs no sign-up, and it says so on its own page.
-  description:
-    "See the 8 checks that decide whether an ATS passes your resume on. Honest rewrites, a tailored PDF, and 3 free scans a day with a free account.",
+  // Absolute so the root template cannot append another "· Resunova" or fall
+  // back to the layout default. Does not reuse "ATS Resume Checker": that
+  // exact match belongs to /ats-resume-checker.
+  title: { absolute: HOME_TITLE },
+  description: HOME_DESCRIPTION,
+  openGraph: { title: HOME_TITLE, description: HOME_DESCRIPTION },
+  twitter: { title: HOME_TITLE, description: HOME_DESCRIPTION },
   alternates: {
     canonical: `${SITE_URL}/`,
   },

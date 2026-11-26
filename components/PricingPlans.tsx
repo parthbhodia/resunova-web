@@ -181,6 +181,10 @@ function PricingPlansInner() {
         ))}
       </ToggleButtonGroup>
 
+      <Typography component="p" sx={{ mt: 1.75, fontSize: 14, fontWeight: 700, color: "var(--accent-ink)" }}>
+        Monthly $19/mo → quarterly $13/mo
+      </Typography>
+
       <Typography
         component="p"
         sx={{

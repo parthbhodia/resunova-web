@@ -15,10 +15,14 @@ const newsreader = localFont({
   adjustFontFallback: "Times New Roman",
 });
 
+const PRICING_TITLE = "Pro Pricing | Resunova";
+const PRICING_DESCRIPTION = `Resunova Pro raises the daily caps from ${FREE_SCAN_DAILY_LIMIT} résumé scans to ${PRO_SCAN_DAILY_LIMIT}, with ${PRO_SCAN_DAILY_LIMIT} job-match scores, tailored résumés and interview-prep runs a day. From $4.99 a week, cancel any time.`;
+
 export const metadata: Metadata = {
-  title: "Pricing",
-  description:
-    "Resunova Pro raises the daily caps from 3 résumé scans to 30, with 30 job-match scores, tailored résumés and interview-prep runs a day. From $4.99 a week, cancel any time.",
+  title: { absolute: PRICING_TITLE },
+  description: PRICING_DESCRIPTION,
+  openGraph: { title: PRICING_TITLE, description: PRICING_DESCRIPTION },
+  twitter: { title: PRICING_TITLE, description: PRICING_DESCRIPTION },
   robots: { index: true, follow: true },
 };
 
@@ -32,9 +36,8 @@ export default function PricingPage() {
           <div className="pr-body">
             <div>
               <p className="pr-eyebrow pr-rise">Resunova Pro</p>
-              <h1 className="pr-disp pr-rise" style={{ animationDelay: "60ms" }}>
-                Tailor every application,{" "}
-                <em className={newsreader.className}>not just the first three.</em>
+              <h1 className={`pr-disp pr-rise ${newsreader.className}`} style={{ animationDelay: "60ms" }}>
+                Tailor every application, not just the first three.
               </h1>
               <p className="pr-lede pr-rise" style={{ animationDelay: "110ms" }}>
                 Free stops at {FREE_SCAN_DAILY_LIMIT} résumé scans a day. Pro raises every cap to{" "}
@@ -48,12 +51,36 @@ export default function PricingPage() {
       </section>
 
       <div className="pr-after">
-        <p className="pr-legal">
-          Payments are processed securely by Stripe. Cancel any time from Account settings and you
-          keep Pro until the end of the period you paid for. Students at partner universities scan
-          free. The free plan stays available at {FREE_SCAN_DAILY_LIMIT} scans a day.{" "}
-          <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link>
-        </p>
+        <div>
+          <aside className="pr-campus">
+            <strong>Students at partner universities scan free.</strong>
+            <p>
+              If your school is a partner, the scan allowance is already included. Pro is for
+              everyone else.
+            </p>
+          </aside>
+          <div className="pr-faq">
+            <h2>Questions</h2>
+            <details>
+              <summary>Is the free plan limited?</summary>
+              <p>
+                Yes. The free plan stays at {FREE_SCAN_DAILY_LIMIT} scans a day. Pro raises every cap
+                to {PRO_SCAN_DAILY_LIMIT}.
+              </p>
+            </details>
+            <details>
+              <summary>Can I cancel mid-month?</summary>
+              <p>
+                Yes. Cancel any time from Account settings. You keep Pro until the end of the period
+                you paid for.
+              </p>
+            </details>
+          </div>
+          <p className="pr-legal">
+            Payments are processed securely by Stripe.{" "}
+            <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

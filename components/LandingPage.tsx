@@ -1,8 +1,7 @@
 "use client";
 import { JOBS_ENABLED } from "@/lib/featureFlags";
 import { IS_STORE_LIVE } from "@/lib/extensionContent";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { TAILOR_ROUTE, tailorHref } from "@/lib/tailorRoute";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { goToFreeScan } from "@/lib/anonScan";
 import { useSignInDialog } from "@/components/SignInDialog";
@@ -23,6 +22,9 @@ import LandingHeader from "@/components/landing/LandingHeader";
 import { T, useLandingTheme } from "@/components/landing/landingTheme";
 import { RESUME_STYLE_PRESETS, type TBStylePreset } from "@/lib/resumeLayout";
 import { FREE_SCAN_DAILY_LIMIT } from "@/lib/planLimits";
+
+/** One conversion phrase. Secondary actions stay their own verbs, outlined. */
+const SCORE_CTA = "Score my résumé free";
 
 // ── Data ────────────────────────────────────────────────────────────────────
 /** Toggle "Three steps…" / How it works block on the landing page. */
@@ -442,13 +444,13 @@ export default function LandingPage() {
   };
 
   return (
-    <div style={{ background: C.bg, color: C.ink, fontFamily: "'DM Sans', -apple-system, sans-serif", minHeight: "100vh" }}>
+    <div className="lp-root" style={{ background: C.bg, color: C.ink, fontFamily: "'DM Sans', -apple-system, sans-serif", minHeight: "100vh" }}>
 
       {/* ───────────── Announcement banner ──────────────────── */}
       {showBanner && (
         <div style={{
           position: "relative", zIndex: 101,
-          background: "linear-gradient(90deg, #1e40af 0%, #2563eb 50%, #0ea5e9 100%)",
+          background: T.blockIndigo,
           padding: "11px 48px 11px 20px",
           display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
           textAlign: "center",
@@ -468,7 +470,7 @@ export default function LandingPage() {
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.28)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.18)"; }}
-            >Try it free →</button>
+            >{SCORE_CTA}</button>
           </span>
           <button
             onClick={dismissBanner}
@@ -500,23 +502,12 @@ export default function LandingPage() {
             fontWeight: 800, lineHeight: 1.02, letterSpacing: "-0.04em",
             color: C.ink, margin: "0 0 20px",
           }}>
-            <span className="lp-hero-sub-full">
-              An ATS résumé<br />
-              <span className="lp-hero-punch">that gets you the job.</span>
-            </span>
-            <span className="lp-hero-sub-short">
-              An ATS résumé<br />
-              <span className="lp-hero-punch">that gets you the job.</span>
-            </span>
+            An ATS résumé<br />
+            <span className="lp-hero-punch">that gets you the job.</span>
           </h1>
 
           <p style={{ fontSize: 19, color: C.ink, fontWeight: 500, lineHeight: 1.45, maxWidth: 460, margin: "0 0 26px" }}>
-            <span className="lp-hero-sub-full">
-              Score the résumé you have, eight ways. If a line is only a duty, you get a rewrite, then a PDF for the job you want. {FREE_SCAN_DAILY_LIMIT} scans a day are free.
-            </span>
-            <span className="lp-hero-sub-short">
-              Score the résumé you have, eight ways. If a line is only a duty, you get a rewrite, then a PDF for the job you want. {FREE_SCAN_DAILY_LIMIT} scans a day are free.
-            </span>
+            Score the résumé you have, eight ways. If a line is only a duty, you get a rewrite, then a PDF for the job you want. {FREE_SCAN_DAILY_LIMIT} scans a day are free.
           </p>
 
           {/* CTA row */}
@@ -550,7 +541,7 @@ export default function LandingPage() {
                   el.style.boxShadow = "0 8px 18px rgba(212,119,47,0.28)";
                 }}
               >
-                Analyze my résumé
+                {SCORE_CTA}
               </button>
             </div>
           </div>
@@ -595,19 +586,23 @@ export default function LandingPage() {
       {/* ───────────── Stats ticker — trust bar directly under the hero ─── */}
       <div style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, overflow: "hidden", padding: "18px 0" }}>
         <div style={{ display: "flex", gap: 0, width: "max-content", animation: "ticker 36s linear infinite" }}>
-          {[...Array(4)].flatMap(() => [
-            ["Free",    "Start free, upgrade anytime"],
-            ["400+",    "Job seekers so far"],
-            ["60s",     "Typical tailoring time"],
-            ["4.7 ★",   "Early user rating"],
-            ["ATS",     "Best-practices checklist"],
-            ["Callbacks", "Recruiter & phone screens"],
-            ["FERPA",   "FERPA-informed student privacy"],
-          ]).map(([stat, lbl], i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 40px", flexShrink: 0 }}>
-              <span style={{ fontSize: "var(--font-size-2xl)", fontWeight: 700, color: T.blue, letterSpacing: -0.5 }}>{stat}</span>
-              <span style={{ fontSize: "var(--font-size-base)", color: C.muted, whiteSpace: "nowrap" }}>{lbl}</span>
-              <span style={{ color: C.border, marginLeft: 12, fontSize: "var(--font-size-xl)" }}>·</span>
+          {[false, true].map((hidden) => (
+            <div key={hidden ? "clone" : "live"} aria-hidden={hidden || undefined} style={{ display: "flex" }}>
+              {[
+                ["Free", "Start free, upgrade anytime"],
+                ["400+", "Job seekers so far"],
+                ["60s", "Typical tailoring time"],
+                ["4.7 ★", "Early user rating"],
+                ["ATS", "Best-practices checklist"],
+                ["Callbacks", "Recruiter and phone screens"],
+                ["FERPA", "FERPA-informed student privacy"],
+              ].map(([stat, lbl]) => (
+                <div key={stat} style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 40px", flexShrink: 0 }}>
+                  <span style={{ fontSize: "var(--font-size-2xl)", fontWeight: 700, color: T.blue, letterSpacing: -0.5 }}>{stat}</span>
+                  <span style={{ fontSize: "var(--font-size-base)", color: C.muted, whiteSpace: "nowrap" }}>{lbl}</span>
+                  <span style={{ color: C.border, marginLeft: 12, fontSize: "var(--font-size-xl)" }}>·</span>
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -644,7 +639,7 @@ export default function LandingPage() {
         C={C}
         wide
         animationOnly={!SHOW_LANDING_CARDS}
-        ctaLabel="Fix my bullets free"
+        ctaLabel={SCORE_CTA}
         ctaHref="/?view=analyze"
       >
         <VariantB embedded />
@@ -680,7 +675,7 @@ export default function LandingPage() {
         C={C}
         wide
         animationOnly={!SHOW_LANDING_CARDS}
-        ctaLabel="Scan my résumé free"
+        ctaLabel={SCORE_CTA}
         ctaHref="/?view=analyze"
       >
         <VariantE embedded />
@@ -713,28 +708,28 @@ export default function LandingPage() {
       <LandingPreviewSection
         id="product-tour"
         eyebrow="Tailor to the role"
-        title="Paste the job description. Close every gap. Export."
+        title={<>Paste the job description. <span className="lp-hero-punch">Close every gap. Export.</span></>}
         desc="Score your fit against the posting, fix missing keywords across your bullets, then export an ATS-safe PDF that matches the preview exactly."
         C={C}
         bg={C.surface}
         curve="left"
         wide
         animationOnly={!SHOW_LANDING_CARDS}
-        ctaLabel="Tailor my résumé now"
-        ctaHref={tailorHref()}
+        ctaLabel={SCORE_CTA}
+        ctaHref="/?view=analyze"
       >
         <VariantD embedded />
       </LandingPreviewSection>
 
       {/* ───────────── Templates showcase — gold block ───────── */}
-      <section id="templates" className="lp-sec" style={{ background: T.blockGold, borderRadius: "0 clamp(36px, 8vw, 110px) 0 0", padding: "108px 40px 100px", scrollMarginTop: 120 }}>
+      <section id="templates" className="lp-sec" style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: "108px 40px 100px", scrollMarginTop: 120 }}>
         <div style={{ maxWidth: 1080, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: "#7a5416", textTransform: "uppercase", margin: "0 0 14px" }}>Templates</p>
-            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", color: T.blockGoldInk, margin: "0 0 14px" }}>
-              Clean enough for recruiters. Plain enough for the ATS.
+            <p style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em", color: T.blue, textTransform: "uppercase", margin: "0 0 14px" }}>Templates</p>
+            <h2 className="lp-h2" style={{ fontSize: "clamp(30px, 4vw, 46px)", fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", color: C.ink, margin: "0 0 14px" }}>
+              Clean enough for recruiters. <span className="lp-hero-punch">Plain enough for the ATS.</span>
             </h2>
-            <p style={{ fontSize: "var(--font-size-lg)", color: "#6b4e1c", lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
+            <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, lineHeight: 1.65, maxWidth: 560, margin: "0 auto" }}>
               Start from the look that fits your field, tailor it to the job description, and export an ATS-safe PDF. Any template works for any role, so nothing here locks you in.
             </p>
           </div>
@@ -751,9 +746,9 @@ export default function LandingPage() {
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
                 padding: "14px 30px",
-                background: T.blockGoldInk, color: T.blockGold,
-                border: "none", borderRadius: 999,
-                fontSize: 15, fontWeight: 800, letterSpacing: -0.2,
+                background: "transparent", color: C.ink,
+                border: `1.5px solid ${C.border}`, borderRadius: 999,
+                fontSize: 15, fontWeight: 700, letterSpacing: -0.2,
                 cursor: "pointer", fontFamily: "inherit",
                 transition: "transform 0.15s",
               }}
@@ -827,40 +822,21 @@ export default function LandingPage() {
       {/* ───────────── Company logos ────────────────────────── */}
       <section id="reviews" className="lp-sec" style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.bg2, padding: "72px 40px", scrollMarginTop: 76 }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p style={{ textAlign: "center", fontSize: "var(--font-size-sm)", fontWeight: 600, color: C.muted, letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 48px" }}>
-            Where our users are interviewing
+          <p style={{ textAlign: "center", fontSize: "var(--font-size-sm)", fontWeight: 600, color: C.muted, letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 28px" }}>
+            What early users are seeing
           </p>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 56, flexWrap: "wrap" }}>
-            {/* Google */}
-            <svg height="24" viewBox="0 0 74 24" fill="none" aria-label="Google" style={{ opacity: dark ? 0.55 : 0.5 }}>
-              <path d="M9.24 8.19v2.46h5.88c-.26 1.57-1.67 4.22-5.88 4.22-3.54 0-6.43-2.93-6.43-6.54S5.7 1.79 9.24 1.79c2.03 0 3.39.86 4.16 1.61l2.84-2.73C14.45.5 12.03-.5 9.24-.5 4.13-.5.01 3.63.01 8.73s4.12 9.23 9.23 9.23c5.33 0 8.86-3.75 8.86-9.03 0-.6-.07-1.07-.16-1.53L9.24 8.19z" fill="currentColor" transform="translate(0,6)" style={{ color: dark ? "#e6edf3" : "#57606a" }} />
-              <text x="22" y="19" fontFamily="-apple-system,sans-serif" fontSize="18" fontWeight="500" fill={dark ? "#8b949e" : "#57606a"}>Google</text>
-            </svg>
-            {/* Meta */}
-            <svg height="22" viewBox="0 0 80 22" aria-label="Meta" style={{ opacity: dark ? 0.55 : 0.5 }}>
-              <text x="0" y="17" fontFamily="-apple-system,sans-serif" fontSize="20" fontWeight="700" letterSpacing="-0.5" fill={dark ? "#8b949e" : "#57606a"}>Meta</text>
-            </svg>
-            {/* Amazon */}
-            <svg height="26" viewBox="0 0 90 26" aria-label="Amazon" style={{ opacity: dark ? 0.55 : 0.5 }}>
-              <text x="0" y="18" fontFamily="-apple-system,sans-serif" fontSize="18" fontWeight="500" fill={dark ? "#8b949e" : "#57606a"}>amazon</text>
-              <path d="M2 23 Q22 29 46 23" stroke={dark ? "#8b949e" : "#57606a"} strokeWidth="2" fill="none" strokeLinecap="round"/>
-            </svg>
-            {/* Microsoft */}
-            <svg height="22" viewBox="0 0 110 22" aria-label="Microsoft" style={{ opacity: dark ? 0.55 : 0.5 }}>
-              <rect x="0" y="1" width="9" height="9" fill={dark ? "#8b949e" : "#57606a"} />
-              <rect x="10" y="1" width="9" height="9" fill={dark ? "#8b949e" : "#57606a"} />
-              <rect x="0" y="11" width="9" height="9" fill={dark ? "#8b949e" : "#57606a"} />
-              <rect x="10" y="11" width="9" height="9" fill={dark ? "#8b949e" : "#57606a"} />
-              <text x="24" y="16" fontFamily="-apple-system,sans-serif" fontSize="15" fontWeight="400" fill={dark ? "#8b949e" : "#57606a"}>Microsoft</text>
-            </svg>
-            {/* Apple */}
-            <svg height="24" viewBox="0 0 60 24" aria-label="Apple" style={{ opacity: dark ? 0.55 : 0.5 }}>
-              <path d="M11.5 0C10.2 0 8.7.8 7.9 1.9 7.2 2.9 6.6 4.4 6.8 5.9c1.4.1 2.9-.7 3.7-1.8C11.3 3 11.9 1.5 11.5 0zm3.4 6c-1.9 0-3.5 1.1-4.4 1.1-.9 0-2.4-1-4-1-2 0-4 1.2-5 3-2.2 3.8-.6 9.4 1.6 12.5 1 1.5 2.3 3.1 3.9 3.1 1.6 0 2.2-1 4.1-1 1.9 0 2.4 1 4.1 1 1.7 0 2.8-1.5 3.9-3 1.2-1.7 1.7-3.4 1.7-3.5-.1 0-3.2-1.2-3.2-4.7 0-3 2.4-4.4 2.5-4.5C18.7 6.5 16.6 6 14.9 6z" fill={dark ? "#8b949e" : "#57606a"} />
-            </svg>
-            {/* Stripe */}
-            <svg height="22" viewBox="0 0 52 22" aria-label="Stripe" style={{ opacity: dark ? 0.55 : 0.5 }}>
-              <text x="0" y="17" fontFamily="-apple-system,sans-serif" fontSize="20" fontWeight="600" fill={dark ? "#8b949e" : "#57606a"}>Stripe</text>
-            </svg>
+          <div className="lp-outcomes" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+            {[
+              [`${FREE_SCAN_DAILY_LIMIT}`, "free scans a day"],
+              ["60s", "to a tailored PDF"],
+              ["8", "checks on every résumé"],
+              ["400+", "early users, more callbacks"],
+            ].map(([stat, label]) => (
+              <div key={label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "22px 18px", textAlign: "center" }}>
+                <div style={{ fontSize: 28, fontWeight: 750, letterSpacing: "-0.03em", color: C.ink }}>{stat}</div>
+                <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.4, color: C.muted }}>{label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -870,7 +846,7 @@ export default function LandingPage() {
           curved corner directly below carves out of clean matching whitespace. */}
       <div style={{ background: C.bg, padding: "36px 40px 76px", textAlign: "center" }}>
         <p style={{ fontSize: "var(--font-size-lg)", color: C.muted, margin: "0 0 18px", fontWeight: 500 }}>
-          Is your résumé ready for these companies?
+          See the score before you apply.
         </p>
         <button
           onClick={() => { goToFreeScan(); }}
@@ -895,7 +871,7 @@ export default function LandingPage() {
             el.style.background = T.hot;
           }}
         >
-          Check my résumé score — it&apos;s free <span style={{ fontSize: 18 }}>→</span>
+          {SCORE_CTA}
         </button>
       </div>
 
@@ -905,7 +881,7 @@ export default function LandingPage() {
           Re-enable by removing `false &&`. */}
 
       {/* ───────────── Interview coaching ───────────────────── */}
-      <section id="interview" className="lp-interview-sec" style={{ background: T.blockGreen, borderRadius: "clamp(36px, 8vw, 110px) 0 0 0", padding: "108px 40px 100px", scrollMarginTop: 120 }}>
+      <section id="interview" className="lp-interview-sec" style={{ background: T.blockIndigo, borderRadius: "clamp(36px, 8vw, 110px) 0 0 0", padding: "108px 40px 100px", scrollMarginTop: 120 }}>
         <div style={{ maxWidth: 1040, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
             <div style={{
@@ -950,15 +926,14 @@ export default function LandingPage() {
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
                 padding: "15px 32px",
-                background: T.hot, color: T.hotInk,
-                border: "none", borderRadius: 999,
-                fontSize: 16, fontWeight: 800, letterSpacing: -0.2,
+                background: "transparent", color: "#fff",
+                border: "1.5px solid rgba(255,255,255,0.55)", borderRadius: 999,
+                fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
                 cursor: "pointer", fontFamily: "inherit",
-                boxShadow: "0 12px 30px -10px rgba(0,0,0,0.55)",
                 transition: "transform 0.15s, background 0.15s",
               }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = T.hotHover; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.background = T.hot; }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = "rgba(255,255,255,0.08)"; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.background = "transparent"; }}
             >
               Practice my interview free <span style={{ fontSize: 18 }}>→</span>
             </button>
@@ -970,7 +945,7 @@ export default function LandingPage() {
       <LandingFAQ C={C} accent={T.blue} />
 
       {/* ───────────── Final CTA ────────────────────────────── */}
-      <section className="lp-sec" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #0ea5e9 100%)", padding: "100px 40px", textAlign: "center" }}>
+      <section className="lp-sec" style={{ background: T.blockIndigo, padding: "100px 40px", textAlign: "center" }}>
         <h2 style={{ fontSize: "clamp(40px, 5.5vw, 68px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", color: "#fff", margin: "0 0 20px" }}>
           In about sixty seconds,<br />you&apos;ll know exactly what to fix.
         </h2>
@@ -1005,7 +980,7 @@ export default function LandingPage() {
               el.style.background = T.hot;
             }}
           >
-            Analyze my résumé
+            {SCORE_CTA}
           </button>
 
           <button
@@ -1016,7 +991,7 @@ export default function LandingPage() {
               background: "rgba(255,255,255,0.12)",
               color: "#fff",
               border: "1.5px solid rgba(255,255,255,0.30)",
-              borderRadius: 14,
+              borderRadius: 999,
               fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
               cursor: "pointer", fontFamily: "inherit",
               transition: "background 0.15s, border-color 0.15s",
@@ -1161,14 +1136,14 @@ export default function LandingPage() {
             className="lp-sticky-cta-btn"
             style={{
               flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
-              padding: "15px 20px", background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
-              color: "#fff", border: "none", borderRadius: 13,
+              padding: "15px 20px", background: T.hot,
+              color: T.hotInk, border: "none", borderRadius: 999,
               fontSize: 15, fontWeight: 800, letterSpacing: -0.2,
               cursor: "pointer", fontFamily: "inherit",
-              boxShadow: "0 10px 30px rgba(30,58,138,0.45)",
+              boxShadow: "0 10px 30px rgba(212,119,47,0.35)",
             }}
           >
-            Analyze my résumé
+            {SCORE_CTA}
           </button>
           <button
             onClick={dismissStickyCta}
@@ -1198,7 +1173,12 @@ export default function LandingPage() {
         @keyframes lpTapPress { 0% { transform: translate(0,0); } 45% { transform: translate(-2px,-3px) scale(0.86); } 100% { transform: translate(0,0); } }
         @keyframes lpScorePulse { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
         @keyframes lpArrowPop { from { transform: translateY(4px) scale(0); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
-        .lp-hero-sub-short { display: none; }
+        .lp-root h1,
+        .lp-root h2,
+        .lp-root h1 span,
+        .lp-root h2 span {
+          font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+        }
         .lp-hero-stage { position: relative; }
         .lp-hero-stage::before {
           content: "";
@@ -1300,9 +1280,10 @@ export default function LandingPage() {
           /* Tabbed tailor demo: trim the desktop-sized reserved panel height. */
           .lp-demo-tabbody { min-height: 200px !important; }
         }
+        @media (max-width: 860px) {
+          .lp-outcomes { grid-template-columns: 1fr 1fr !important; }
+        }
         @media (max-width: 640px) {
-          .lp-hero-sub-full { display: none !important; }
-          .lp-hero-sub-short { display: inline !important; }
           /* Eye-catchy mobile hero: tighter, centered, visual pulled above the fold */
           .lp-hero-grid { padding: 26px 20px 48px !important; min-height: 0 !important; gap: 26px !important; }
           .lp-hero-left { text-align: center !important; }
@@ -1315,7 +1296,7 @@ export default function LandingPage() {
           .lp-hero-social { justify-content: center !important; }
           .lp-interview-sec { padding: 64px 20px !important; }
           .lp-footer-top { flex-direction: column !important; gap: 24px !important; }
-          .lp-footer-nav { width: 100%; flex-direction: column; align-items: flex-start !important; gap: 16px !important; }
+          .lp-footer-nav { width: 100%; flex-direction: row !important; flex-wrap: wrap !important; align-items: center !important; gap: 10px 18px !important; }
           .lp-ph-badge { margin-left: 0 !important; }
           .lp-footer-bottom { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
         }
@@ -1362,7 +1343,7 @@ function LandingPreviewSection({
 }: {
   id?: string;
   eyebrow: string;
-  title: string;
+  title: ReactNode;
   desc?: string;
   dark?: boolean;
   wide?: boolean;
@@ -1380,7 +1361,7 @@ function LandingPreviewSection({
       id={id}
       style={{
         padding: animationOnly ? "88px 40px" : "108px 40px 100px",
-        background: bg ?? (dark ? "#0f172a" : C.bg2),
+        background: bg ?? (dark ? T.blockIndigo : C.bg2),
         borderTop: dark || curve ? undefined : `1px solid ${C.border}`,
         borderRadius: curve === "left" ? "clamp(36px, 8vw, 110px) 0 0 0" : curve === "right" ? "0 clamp(36px, 8vw, 110px) 0 0" : undefined,
         scrollMarginTop: 120,
@@ -1389,7 +1370,7 @@ function LandingPreviewSection({
       <div style={{ maxWidth: wide ? 960 : 800, margin: "0 auto", textAlign: animationOnly ? "center" : undefined }}>
         <p style={{
           fontSize: "var(--font-size-sm)", fontWeight: 700, letterSpacing: "0.15em",
-          color: T.blue, textTransform: "uppercase", margin: "0 0 12px",
+          color: dark ? "rgba(255,255,255,0.72)" : T.blue, textTransform: "uppercase", margin: "0 0 12px",
         }}>{eyebrow}</p>
         <h2 className="lp-h2" style={{
           fontSize: animationOnly ? "clamp(24px, 3vw, 36px)" : "clamp(28px, 3.5vw, 44px)",
@@ -1437,7 +1418,7 @@ function LandingPreviewSection({
                 el.style.background = T.hot;
               }}
             >
-              {ctaLabel} <span style={{ fontSize: 17 }}>→</span>
+              {ctaLabel}
             </button>
           </div>
         )}
@@ -1696,17 +1677,17 @@ function JobsBand({ C, dark }: { C: Record<string, string>; dark: boolean }) {
               style={{
                 display: "inline-flex", alignItems: "center", gap: 8,
                 padding: "14px 30px",
-                background: T.hot,
-                color: T.hotInk, border: "none", borderRadius: 999,
+                background: "transparent",
+                color: "#fff", border: "1.5px solid rgba(255,255,255,0.55)", borderRadius: 999,
                 fontSize: "var(--font-size-base)", fontWeight: 800,
                 cursor: "pointer", fontFamily: "inherit",
                 boxShadow: "0 10px 26px -8px rgba(0,0,0,0.5)",
                 transition: "transform 0.15s, background 0.15s",
               }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = T.hotHover; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.background = T.hot; }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.background = "rgba(255,255,255,0.08)"; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.background = "transparent"; }}
             >
-              Browse the job board <span style={{ fontSize: 18 }}>→</span>
+              Browse the job board
             </button>
           </div>
           </Reveal>

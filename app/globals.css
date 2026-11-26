@@ -1735,6 +1735,20 @@ select option { background: var(--surface); }
 }
 .pr-legal { font-size: 12px; line-height: 1.7; color: var(--muted); max-width: 62ch; margin: 0; }
 .pr-legal a { color: var(--muted); }
+.pr-campus {
+  max-width: 62ch; margin: 0 0 22px; padding: 18px 20px;
+  border: 1px solid var(--border); border-radius: var(--md-shape-md); background: var(--surface);
+}
+.pr-campus strong { display: block; font-size: 16px; line-height: 1.35; margin-bottom: 6px; color: var(--text); }
+.pr-campus p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--muted); }
+.pr-faq { max-width: 62ch; margin: 0 0 22px; }
+.pr-faq h2 {
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  font-size: 28px; line-height: 1.15; font-weight: 650; margin: 0 0 8px; color: var(--text);
+}
+.pr-faq details { border-top: 1px solid var(--border); padding: 12px 0; }
+.pr-faq summary { cursor: pointer; font-weight: 700; font-size: 15px; color: var(--text); }
+.pr-faq details p { margin: 8px 0 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
 
 @media (max-width: 960px) {
   .pr-body { grid-template-columns: 1fr; gap: 26px; }

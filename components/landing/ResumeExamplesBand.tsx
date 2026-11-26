@@ -7,6 +7,7 @@ import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import MuiThemeRegistry from "@/components/mui/MuiThemeRegistry";
+import { T } from "@/components/landing/landingTheme";
 import { RESUME_CATEGORIES, TOTAL_RESUME_EXAMPLES } from "@/lib/resumeExampleCategories";
 import { roleDataYear } from "@/lib/roleResumeData";
 
@@ -26,7 +27,7 @@ export default function ResumeExamplesBand() {
           sx={{
             maxWidth: 1080,
             mx: "auto",
-            bgcolor: "#6a6ff0",
+            bgcolor: T.blockIndigo,
             borderRadius: "28px",
             px: { xs: 2, sm: 3.5 },
             pt: { xs: 5, sm: 8 },
@@ -34,17 +35,17 @@ export default function ResumeExamplesBand() {
             textAlign: "center",
           }}
         >
-          <Typography id="lp-examples-heading" variant="h2" sx={{ color: "#fff", fontWeight: 800, letterSpacing: "-0.035em", fontSize: "clamp(30px, 4vw, 44px)" }}>
+          <Typography id="lp-examples-heading" variant="h2" sx={{ color: "#fff", fontWeight: 650, letterSpacing: "-0.035em", fontSize: "clamp(30px, 4vw, 44px)", fontFamily: "Georgia, 'Iowan Old Style', 'Palatino Linotype', serif" }}>
             Job Winning Resume Examples for {year}
           </Typography>
-          <Typography sx={{ mt: 1.75, mx: "auto", maxWidth: 560, color: "rgba(255,255,255,0.9)" }}>
+          <Typography sx={{ mt: 1.75, mx: "auto", maxWidth: 560, color: "rgba(255,255,255,0.82)", fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
             {TOTAL_RESUME_EXAMPLES}+ résumé examples across {RESUME_CATEGORIES.length} careers, built from the skills employers ask for.
           </Typography>
           <Button
             component={Link}
             href="/resume-examples/"
-            variant="contained"
-            sx={{ mt: 2.75, bgcolor: "#f5c400", color: "#1c1917", "&:hover": { bgcolor: "#ffd21a" } }}
+            variant="outlined"
+            sx={{ mt: 2.75, color: "#fff", borderColor: "rgba(255,255,255,0.7)", borderRadius: 999, fontWeight: 700, "&:hover": { borderColor: "#fff", bgcolor: "rgba(255,255,255,0.08)" } }}
           >
             All resume examples
           </Button>
@@ -70,8 +71,8 @@ export default function ResumeExamplesBand() {
                   label={name}
                   variant="outlined"
                   sx={{
-                    borderColor: "#d7dbf8",
-                    color: "#4f46e5",
+                    borderColor: "#d0d7de",
+                    color: "#0d1117",
                     bgcolor: "#fff",
                     fontWeight: 600,
                     "& .MuiChip-icon": { color: "inherit", ml: 1 },
