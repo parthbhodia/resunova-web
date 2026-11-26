@@ -1,6 +1,6 @@
 "use client";
 import { JOBS_ENABLED } from "@/lib/featureFlags";
-import { IS_STORE_LIVE } from "@/lib/extensionContent";
+import { TOTAL_RESUME_CATEGORIES } from "@/lib/resumeExampleCategories";
 import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { goToFreeScan } from "@/lib/anonScan";
@@ -16,7 +16,7 @@ import {
 } from "@/components/LandingFeatureShowcase";
 import LandingFAQ from "@/components/LandingFAQ";
 import LandingTopCompanies from "@/components/LandingTopCompanies";
-import { FloatingFeatureNav, Reveal, TealScrollStyles } from "@/components/landing/TealScroll";
+import { Reveal, TealScrollStyles } from "@/components/landing/TealScroll";
 import ResumeExamplesBand from "@/components/landing/ResumeExamplesBand";
 import LandingHeader from "@/components/landing/LandingHeader";
 import { T, useLandingTheme } from "@/components/landing/landingTheme";
@@ -611,20 +611,6 @@ export default function LandingPage() {
       <LandingPreviewStyles />
       <TealScrollStyles />
 
-      {/* ───────────── Floating feature nav (tracks the product sections) ── */}
-      <FloatingFeatureNav
-        C={C}
-        dark={dark}
-        accent={T.hotHover}
-        items={[
-          ...(JOBS_ENABLED ? [{ id: "jobs", label: "Jobs", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/></svg> }] : []),
-          { id: "product-rewrite", label: "AI Rewrites", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> },
-          { id: "product-tour", label: "Tailor", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg> },
-          { id: "templates", label: "Templates", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 8h6M9 12h6M9 16h4"/></svg> },
-          { id: "interview", label: "Interview", icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5h16v10H9l-4 4z"/><path d="M8 9h8M8 12h5"/></svg> },
-        ]}
-      />
-
       {/* ───────────── Jobs — promoted to first band after the hero ─────── */}
       {JOBS_ENABLED && <JobsBand C={C} dark={dark} />}
 
@@ -1034,43 +1020,55 @@ export default function LandingPage() {
             marginBottom: 32,
           }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, maxWidth: 320 }}>
-              <Link href="/" prefetch={false} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "inherit", width: "fit-content" }}>
+              <Link href="/?view=analyze" prefetch={false} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "inherit", width: "fit-content" }}>
                 <LogoMark size={24} />
                 <span style={{ fontSize: "var(--font-size-lg)", fontWeight: 700, color: C.ink, letterSpacing: -0.3 }}>Resunova</span>
               </Link>
               <p style={{ fontSize: "var(--font-size-sm)", color: C.muted, margin: 0, lineHeight: 1.55 }}>
-                Résumé scoring and tailoring — free for students and job seekers.
+                Résumé scoring and tailoring, free for students and job seekers.
               </p>
             </div>
 
-            <nav className="lp-footer-nav" aria-label="Footer" style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
-              {[
-                ["Blog", "/blog"],
-                ...(JOBS_ENABLED ? [["Jobs", "/jobs/"] as [string, string]] : []),
-                ["Resume Examples", "/resume-examples"],
-                ["Skills for Resume", "/skills-for-resume"],
-                ["Cover Letter", "/cover-letter"],
-                ["ATS Checker", "/ats-resume-checker"],
-                // Hidden until the Web Store listing exists: before that the page
-                // can only lead to a connect flow nobody can complete.
-                ...(IS_STORE_LIVE ? [["Chrome Extension", "/extension/"] as [string, string]] : []),
-                ["Contact", "/contact"],
-                ["Privacy", "/privacy"],
-                ["Terms", "/terms"],
-              ].map(([label, href]) => (
-                <Link
-                  key={href}
-                  href={href}
-                  prefetch={false}
-                  className="lp-footer-link"
-                  style={{ fontSize: "var(--font-size-sm)", color: C.muted, textDecoration: "none", fontWeight: 500, transition: "color 0.15s" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = C.ink; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = C.muted; }}
-                >
-                  {label}
-                </Link>
+            <nav className="lp-footer-nav" aria-label="Footer" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(140px, 1fr))", gap: "28px 40px", flex: 1 }}>
+              {([
+                ["Product", [
+                  ["Resume Analyzer", "/?view=analyze"],
+                  ...(JOBS_ENABLED ? [["Job Board", "/jobs/"] as [string, string]] : []),
+                  ["Templates", "/templates"],
+                  ["Interview Prep", "/interview-prep"],
+                  ["Pricing", "/pricing"],
+                ]],
+                ["Examples", [
+                  ["Résumé examples", "/resume-examples"],
+                  ["Cover letters", "/cover-letter"],
+                  [`${TOTAL_RESUME_CATEGORIES} career hubs`, "/resume-examples"],
+                ]],
+                ["Company", [
+                  ["How we build", "/#approach"],
+                  ["Privacy", "/privacy"],
+                  ["Terms", "/terms"],
+                  ["Contact", "/contact"],
+                ]],
+              ] as [string, [string, string][]][]).map(([title, links]) => (
+                <div key={title} style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: C.ink }}>{title}</p>
+                  {links.map(([label, href]) => (
+                    <Link
+                      key={label}
+                      href={href}
+                      prefetch={false}
+                      className="lp-footer-link"
+                      style={{ fontSize: "var(--font-size-sm)", color: C.muted, textDecoration: "none", fontWeight: 500 }}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </div>
               ))}
+            </nav>
+          </div>
 
+          <div style={{ marginBottom: 28 }}>
               {/* Product Hunt badge — theme-aware (light/dark) */}
               <a
                 href="https://www.producthunt.com/products/resunova?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-resunova"
@@ -1102,7 +1100,6 @@ export default function LandingPage() {
                   style={{ display: "block", maxWidth: "100%", height: "auto" }}
                 />
               </a>
-            </nav>
           </div>
 
           <div className="lp-footer-bottom" style={{
@@ -1296,7 +1293,7 @@ export default function LandingPage() {
           .lp-hero-social { justify-content: center !important; }
           .lp-interview-sec { padding: 64px 20px !important; }
           .lp-footer-top { flex-direction: column !important; gap: 24px !important; }
-          .lp-footer-nav { width: 100%; flex-direction: row !important; flex-wrap: wrap !important; align-items: center !important; gap: 10px 18px !important; }
+          .lp-footer-nav { width: 100%; display: grid !important; grid-template-columns: 1fr !important; gap: 22px !important; }
           .lp-ph-badge { margin-left: 0 !important; }
           .lp-footer-bottom { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
         }

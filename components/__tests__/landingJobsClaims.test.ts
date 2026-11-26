@@ -30,9 +30,9 @@ const SRC = readFileSync(join(process.cwd(), "components/LandingPage.tsx"), "utf
 
 /** The [stat, label] pairs rendered by the hero ticker. */
 function tickerStats(): Array<[string, string]> {
-  const start = SRC.indexOf("[...Array(4)].flatMap");
+  const start = SRC.indexOf("Stats ticker");
   expect(start, "the landing stats ticker should exist").toBeGreaterThan(-1);
-  const end = SRC.indexOf("]).map(", start);
+  const end = SRC.indexOf(".map(([stat, lbl])", start);
   expect(end, "the ticker array should be closed").toBeGreaterThan(start);
   return [...SRC.slice(start, end).matchAll(/\[\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\]/g)].map(
     (m) => [m[1], m[2]] as [string, string],

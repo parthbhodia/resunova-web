@@ -467,10 +467,10 @@ select option { background: var(--surface); }
 
 /* Landing page footer */
 .lp-footer-nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 28px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 28px 40px;
+  align-items: start;
 }
 
 @media (max-width: 768px) {
