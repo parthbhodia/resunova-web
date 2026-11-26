@@ -212,9 +212,17 @@ export default function PrivacyPage() {
                 that a fill was used (from the page widget or the popup, how many fields it filled
                 and skipped, and how many required fields there were and were still open), that a
                 fill was undone, whether a résumé attached, which button on a job-page panel was
-                pressed, and a problem code such as &ldquo;no fields found&rdquo;. Each event also
-                names which of eight kinds of site it was (for example Greenhouse or Workday) and
-                is stamped with the time and the extension&apos;s version.
+                pressed, and a problem code such as &ldquo;no fields found&rdquo;. On LinkedIn it
+                also counts what was done with the referral message card: that it was offered,
+                opened, its message copied (or the page refused the copy), written with AI or not
+                (with the reason in one of five words such as &ldquo;limit&rdquo;), and the
+                template changed. A copy also says whether you typed in the message or the AI
+                wrote it, how many blanks you changed and how many were still empty, and whether
+                the card found a name beside the message box, skills in the posting and the whole
+                job description. It never contains the message, the name, the company or the
+                role. Every event except the referral ones names which of eight kinds of site it
+                was (for example Greenhouse or Workday), and every event is stamped with the time
+                and the extension&apos;s version.
               </p>
               <ul>
                 <li><b>What an event never contains:</b> a web address or host name, a page title, the label or value of any field, a question or an answer, your name, email or phone, or anything from your résumé or profile. The server accepts only the events and properties on that list and discards anything else, so this does not depend on the extension behaving.</li>

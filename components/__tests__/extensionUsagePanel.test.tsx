@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { dayBars, isEmptyUsage, sumDays, type ExtensionUsageResponse } from "@/lib/adminExtensionUsage";
+import { dayBars, isEmptyUsage, sumDays, type ExtensionUsageResponse, type ReferralUsage } from "@/lib/adminExtensionUsage";
 
 const apiFetch = vi.fn();
 vi.mock("@/lib/apiClient", () => ({ apiFetch: (...a: unknown[]) => apiFetch(...a) }));
@@ -189,6 +189,89 @@ describe("two populations stay apart", () => {
     await screen.findByText("Usage counts");
     expect(document.querySelector("[data-ext-no-events]")).toBeTruthy();
     expect(document.querySelector("[data-ext-events]")).toBeNull();
+  });
+});
+
+const REF_ACTIONS: [string, string][] = [
+  ["shown", "Button shown"], ["opened", "Card opened"], ["copied", "Message copied"],
+  ["copy_failed", "Copy refused by the page"], ["ai_written", "Written with AI"],
+  ["ai_failed", "AI could not write it"], ["template_saved", "Template changed"],
+];
+const part = (count: number, outOf: number, pct: number | null = null) => ({ count, outOf, pct });
+
+function referral(over: Partial<ReferralUsage> = {}): ReferralUsage {
+  const counts: Record<string, number> = { shown: 9, opened: 6, copied: 5, copy_failed: 1, ai_written: 2 };
+  return {
+    accounts: 2,
+    actions: REF_ACTIONS.map(([key, label]) => ({ key, label, count: counts[key] ?? 0, accounts: counts[key] ? 1 : 0 })),
+    copyRefusedPct: null,
+    copied: {
+      count: 5, accounts: 2,
+      handEdited: part(3, 5), fromAi: part(2, 5), fieldsChanged: part(1, 5), withBlanks: part(0, 5),
+      recipientFound: part(2, 4), skillsFound: part(3, 3), fullText: part(1, 2),
+    },
+    aiFailures: [{ key: "limit", label: "Daily allowance used", count: 1, accounts: 1 }],
+    ...over,
+  };
+}
+
+function withReferral(r: ReferralUsage) {
+  const p = payload();
+  p.events = { ...p.events, referral: r };
+  return p;
+}
+
+const refPart = (id: string) => (document.querySelector(`[data-ext-ref-part=${id}]`) as HTMLElement).textContent;
+
+describe("the LinkedIn referral card", () => {
+  it("lists every action in order, zeros included", async () => {
+    apiFetch.mockResolvedValue(ok(withReferral(referral())));
+    render(<ExtensionUsagePanel />);
+    await screen.findByText("Card opened");
+    const section = document.querySelector("[data-ext-referral]") as HTMLElement;
+    expect(section.textContent).toMatch(/Referral messages on LinkedIn · 2 accounts/);
+    for (const [, label] of REF_ACTIONS.filter(([k]) => ["shown", "opened", "copied", "copy_failed", "ai_written"].includes(k))) {
+      expect(section.textContent).toContain(label);
+    }
+  });
+
+  it("shows each copy detail as a count out of its own denominator, and the threshold while it is too small", async () => {
+    apiFetch.mockResolvedValue(ok(withReferral(referral())));
+    render(<ExtensionUsagePanel />);
+    await screen.findByText("Card opened");
+    expect(refPart("typed")).toMatch(/3 of 5 · rate shows from 30 copies/);
+    // Found parts are out of the copies that reported them, not all five copies.
+    expect(refPart("name")).toMatch(/2 of 4 /);
+    expect(refPart("full")).toMatch(/1 of 2 /);
+    for (const id of ["typed", "ai", "fields", "blanks", "name", "skills", "full"]) expect(refPart(id)).not.toMatch(/%/);
+    expect((document.querySelector("[data-ext-ref-refused]") as HTMLElement).textContent).toBe("rate shows from 30 presses of Copy");
+  });
+
+  it("shows a rate once the backend supplies one", async () => {
+    const r = referral({ copyRefusedPct: 4.2 });
+    r.copied.handEdited = part(18, 40, 45);
+    apiFetch.mockResolvedValue(ok(withReferral(r)));
+    render(<ExtensionUsagePanel />);
+    await screen.findByText("Card opened");
+    expect(refPart("typed")).toMatch(/18 of 40 · 45%/);
+    expect((document.querySelector("[data-ext-ref-refused]") as HTMLElement).textContent).toBe("4.2%");
+  });
+
+  it("says there was no activity rather than drawing a list of zeros", async () => {
+    const r = referral();
+    r.actions = r.actions.map((a) => ({ ...a, count: 0, accounts: 0 }));
+    apiFetch.mockResolvedValue(ok(withReferral(r)));
+    render(<ExtensionUsagePanel />);
+    await screen.findByText("Usage counts");
+    expect(document.querySelector("[data-ext-no-referral]")).toBeTruthy();
+    expect(document.querySelector("[data-ext-ref-part]")).toBeNull();
+  });
+
+  it("an API that predates the referral counts shows no section and does not break the tab", async () => {
+    render(<ExtensionUsagePanel />);
+    await screen.findByText("Usage counts");
+    expect(document.querySelector("[data-ext-referral]")).toBeNull();
+    expect(document.querySelector("[data-ext-events]")).toBeTruthy();
   });
 });
 

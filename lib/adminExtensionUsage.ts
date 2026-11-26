@@ -35,6 +35,40 @@ export interface UsageDay {
   count: number;
 }
 
+/** A count out of the copies it is measured against. `pct` null means suppressed. */
+export interface UsagePart {
+  count: number;
+  outOf: number;
+  pct: number | null;
+}
+
+/**
+ * The LinkedIn referral card, from people who chose Accept.
+ *
+ * ⚠️ There is no "opened, then copied" rate on purpose: one card open can be
+ * copied several times, so dividing the two counts is a share of nothing. The
+ * three "found" parts are out of the copies that REPORTED them (a copy made
+ * before the card finished reading the page says nothing), so their `outOf` is
+ * not the copy count. Show each part's own `outOf`.
+ */
+export interface ReferralUsage {
+  accounts: number;
+  actions: UsageCountRow[];
+  copyRefusedPct: number | null;
+  copied: {
+    count: number;
+    accounts: number;
+    handEdited: UsagePart;
+    fromAi: UsagePart;
+    fieldsChanged: UsagePart;
+    withBlanks: UsagePart;
+    recipientFound: UsagePart;
+    skillsFound: UsagePart;
+    fullText: UsagePart;
+  };
+  aiFailures: UsageCountRow[];
+}
+
 export interface ExtensionUsageResponse {
   windowDays: number;
   includeStaff: boolean;
@@ -77,6 +111,8 @@ export interface ExtensionUsageResponse {
     problems: UsageCountRow[];
     panel: UsageCountRow[];
     fillsByDay: UsageDay[];
+    /** Absent from an API that predates the referral counts. */
+    referral?: ReferralUsage;
   };
   cached?: boolean;
 }
