@@ -49,6 +49,18 @@ export interface AddressedGapAction {
   entryPath?: string;
   /** For via "title": the role as it read before the change. */
   originalText?: string;
+  /**
+   * Words the server flagged as not backed by the résumé on the suggestion
+   * that was applied (`unverified_terms` + `unverified_numerals`).
+   *
+   * ⚠️ Carried so the change log can mark them AFTER the fix lands. Aggressive
+   * is the default tailoring mode, so these additions ship by design rather
+   * than being dropped — which only stays honest while the mark is visible,
+   * and the version picker's badge goes away on apply. Like the other extra
+   * keys here it is inert on the wire: the api's `parse_addressed_gaps` picks
+   * known keys.
+   */
+  unverifiedTerms?: string[];
 }
 
 export interface JobTitleRating {

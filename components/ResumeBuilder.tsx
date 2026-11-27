@@ -813,6 +813,8 @@ export default function ResumeBuilder({
     employer?: string;
     /** Server-flagged tech the résumé does not otherwise evidence. */
     unverified_terms?: string[];
+    /** Same, for a figure with no source in the résumé. */
+    unverified_numerals?: string[];
     suggested_role?: string;
     original_role?: string;
   };
@@ -3381,6 +3383,9 @@ export default function ResumeBuilder({
       id: string; section: string; original: string; suggested: string;
       reason: string; priority: string; employer?: string;
       suggested_role?: string; original_role?: string;
+      /** Carried onto the receipt so the change log can mark what rests on
+       *  the user's word once the version picker's badge is gone. */
+      unverified_terms?: string[]; unverified_numerals?: string[];
     }>,
     gapNameOverride?: string,
     opts?: { closePanel?: boolean; gapType?: AddressedGapAction["type"] },
@@ -3392,6 +3397,18 @@ export default function ResumeBuilder({
     const gapType: AddressedGapAction["type"] = opts?.gapType ?? gapFixPanel?.gapType ?? "qualification";
     const draftedItems = suggestionsWithDrafts(items, gapFixDrafts);
     const appliedText = draftedItems.map((s) => s.suggested).filter(Boolean).join("\n");
+    // Collected from the suggestions actually applied, so the change log can
+    // mark what rests on the user's word once the version picker's badge is
+    // gone. `survivingUnverifiedTerms` drops any the user edited out, so this
+    // can over-collect but never over-claim.
+    const appliedUnverified = Array.from(
+      new Set(
+        draftedItems
+          .flatMap((s) => [...(s.unverified_terms ?? []), ...(s.unverified_numerals ?? [])])
+          .map((t) => String(t).trim())
+          .filter(Boolean),
+      ),
+    );
     const closePanel = opts?.closePanel !== false;
     const appliedIds = new Set(draftedItems.map((s) => s.id));
 
@@ -3400,7 +3417,7 @@ export default function ResumeBuilder({
       setAddressedGapActions((prev) => {
         const id = makeStableGapId(gapName, gapType);
         if (prev.some((a) => a.id === id)) return prev;
-        return [...prev, { id, label: gapName, type: gapType, appliedText }];
+        return [...prev, { id, label: gapName, type: gapType, appliedText, unverifiedTerms: appliedUnverified }];
       });
     }
 
