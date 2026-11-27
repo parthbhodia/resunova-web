@@ -21,7 +21,7 @@ describe("NotificationBell", () => {
     expect(screen.getByRole("button", { name: "Notifications, 3 new" })).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Notifications, 3 new" }));
-    expect(screen.getByText("Refer candidates at your company")).toBeInTheDocument();
+    expect(screen.getByText(PRODUCT_NOTICES[0].title)).toBeInTheDocument();
     // ⚠️ Two outcomes, two DIFFERENT rows naming the step each reached — the
     // defect was one aggregate row reading "a request you sent was updated".
     expect(screen.getByText("You were referred")).toBeInTheDocument();
