@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tailor v10 — the résumé is the product</title>
+<style>
+  :root {
+    --bg: #f4f7fb;
+    --surface: #ffffff;
+    --text: #0f172a;
+    --muted: #475569;
+    --dim: #64748b;
+    --accent: #0969da;
+    --accent-ink: #0550ae;
+    --accent-bg: rgba(9, 105, 218, 0.10);
+    --border: rgba(15, 23, 42, 0.12);
+    --green-bg: rgba(5, 150, 105, 0.14);
+    --green-ink: #047857;
+    --amber-bg: rgba(180, 83, 9, 0.14);
+    --amber-ink: #92400e;
+    --red-bg: rgba(185, 28, 28, 0.12);
+    --red-ink: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: #d9e2ec;
+    color: var(--text);
+    font: 14px/1.45 "Geist", "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  button { font: inherit; cursor: pointer; }
+
+  /* Hold the desktop composition even when the browser pane is narrow. */
+  .stage {
+    width: 1280px;
+    min-height: 100vh;
+    margin: 0 auto;
+    background: var(--bg);
+    display: grid;
+    grid-template-columns: 88px 1fr;
+  }
+
+  .rail {
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    padding: 12px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .rail a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    text-decoration: none;
+    color: var(--muted);
+    border-radius: 10px;
+    padding: 8px 2px 7px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .rail a.on { background: var(--accent-bg); color: var(--accent-ink); }
+  .rail svg { display: block; }
+
+  .main { min-width: 0; display: flex; flex-direction: column; }
+
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 14px 22px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  h1.role { margin: 0; font-size: 18px; font-weight: 750; letter-spacing: -0.02em; }
+  .where { color: var(--muted); font-size: 13px; margin-top: 1px; }
+  .gain {
+    margin-left: auto;
+    text-align: right;
+  }
+  .gain b { display: block; font-size: 14px; }
+  .gain span { color: var(--muted); font-size: 12px; }
+  .dl {
+    background: var(--accent);
+    color: #fff;
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .body { display: grid; grid-template-columns: 360px 1fr; min-height: 0; flex: 1; }
+
+  .side {
+    padding: 16px 16px 28px;
+    border-right: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .band { margin-top: 22px; }
+  .band:first-child { margin-top: 0; }
+  .band-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .band h2, .band summary {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+  }
+  .band summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .band summary::-webkit-details-marker { display: none; }
+  .count { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; font-weight: 650; }
+  .band-note { margin: 2px 0 6px; color: var(--muted); font-size: 13px; }
+  .fix {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    column-gap: 10px;
+    row-gap: 8px;
+    align-items: center;
+    padding: 12px 4px;
+    border-top: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .fix:hover, .fix:focus-within { background: rgba(9, 105, 218, 0.05); }
+  .fix b { display: block; font-size: 14px; letter-spacing: -0.01em; }
+  .fix p { grid-column: 2; margin: 2px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .chip {
+    grid-row: 1 / span 2;
+    align-self: start;
+    margin-top: 1px;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .chip.warn { background: var(--amber-bg); color: var(--amber-ink); }
+  .chip.crit { background: var(--red-bg); color: var(--red-ink); }
+  .chip.good { background: var(--green-bg); color: var(--green-ink); }
+  .verb, .tell, .use {
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--accent-ink);
+    font-weight: 700;
+    font-size: 13px;
+    transition: background-color 180ms ease, border-color 180ms ease;
+  }
+  .verb:hover, .tell:hover, .use:hover { background: var(--accent-bg); border-color: transparent; }
+  .verb:focus-visible, .tell:focus-visible, .use:focus-visible, .dl:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .verb:disabled, .use:disabled {
+    background: var(--green-bg);
+    color: var(--green-ink);
+    border-color: transparent;
+    cursor: default;
+  }
+  .ask { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 8px; }
+  .ask[hidden] { display: none; }
+  .ask label { font-size: 13px; color: var(--muted); }
+  .ask textarea {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    min-height: 64px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    font: inherit;
+    color: var(--text);
+    resize: vertical;
+  }
+  .ask textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .off-line { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .loc { background: var(--accent-bg); box-shadow: inset 0 0 0 2px var(--accent); border-radius: 3px; }
+  li.moved { background: var(--green-bg); border-radius: 3px; }
+  @media (prefers-reduced-motion: reduce) {
+    .verb, .tell, .use { transition: none; }
+  }
+
+  .paper-wrap { padding: 22px 28px 48px; background: #e7eef6; }
+  .paper {
+    max-width: 700px;
+    margin: 0 auto;
+    background: white;
+    color: #141414;
+    padding: 40px 46px 48px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 18px 40px rgba(15, 23, 42, 0.10);
+    font-family: Georgia, "Iowan Old Style", Palatino, serif;
+    font-size: 13px;
+    line-height: 1.42;
+  }
+  .nm {
+    font-family: "Geist", "Segoe UI", sans-serif;
+    font-size: 26px;
+    font-weight: 750;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .ct { font-family: "Geist", "Segoe UI", sans-serif; color: #444; font-size: 11.5px; margin-top: 4px; }
+  .paper h3 {
+    font-family: "Geist", "Segoe UI", sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.09em;
+    margin: 16px 0 5px;
+    border-bottom: 1.5px solid #141414;
+    padding-bottom: 2px;
+  }
+  .paper p { margin: 0; }
+  mark {
+    background: var(--green-bg);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 2px;
+  }
+  .roleline {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 8px;
+    font-family: "Geist", "Segoe UI", sans-serif;
+  }
+  .roleline b { font-size: 13.5px; }
+  .paper ul { margin: 4px 0 0; padding-left: 18px; }
+  .paper li { margin: 3px 0; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <nav class="rail" aria-label="Primary">
+      <a href="#home">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+        Home
+      </a>
+      <a href="#analyze">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6"/><path d="m20 20-3.5-3.5"/></svg>
+        Analyze
+      </a>
+      <a class="on" href="#tailor" aria-current="page">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M5 8v11h11"/></svg>
+        Tailor
+      </a>
+      <a href="#jobs">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5h8v2"/></svg>
+        Jobs
+      </a>
+      <a href="#resumes">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h9l3 3v13H6z"/><path d="M15 4v3h3"/></svg>
+        Resumes
+      </a>
+    </nav>
+
+    <div class="main">
+      <header class="top">
+        <div>
+          <h1 class="role">Tailored for Software Engineer, AI/ML</h1>
+          <div class="where">Google · Ads Quality · New York</div>
+        </div>
+        <div class="gain">
+          <b id="score">55% → 71%</b>
+          <span id="score-note">When the wording fixes are applied</span>
+        </div>
+        <button class="dl" type="button">Download PDF</button>
+      </header>
+
+      <div class="body">
+        <aside class="side">
+          <section class="band" aria-labelledby="wording-title">
+            <div class="band-head">
+              <h2 id="wording-title">Wording fixes · <span id="wording-left">4</span></h2>
+            </div>
+            <p class="band-note">Moves your score. Hover a row to see where it lands.</p>
+
+            <article class="fix" data-locate="role-title">
+              <span class="chip warn" role="img" aria-label="Needs a wording change"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="8" r="2.2" fill="currentColor"/></svg></span>
+              <div>
+                <b>Software Engineer, AI/ML</b>
+                <p>Exact words missing. Retitle the Eccalon role. Same job, another name.</p>
+              </div>
+              <button class="verb" type="button" data-change="title">Retitle</button>
+            </article>
+
+            <article class="fix" data-locate="bullet-bedrock">
+              <span class="chip warn" role="img" aria-label="Needs a wording change"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="8" r="2.2" fill="currentColor"/></svg></span>
+              <div>
+                <b>Deployment, evaluation, data processing</b>
+                <p>Exact words missing. Their words, on the Bedrock bullet.</p>
+              </div>
+              <button class="verb" type="button" data-change="words">Use their words</button>
+            </article>
+
+            <article class="fix" data-locate="bullet-bedrock bullet-lang">
+              <span class="chip warn" role="img" aria-label="Partial match"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="8" r="2.2" fill="currentColor"/></svg></span>
+              <div>
+                <b>End-to-end Machine Learning</b>
+                <p>Partial match. Move the two AI bullets first.</p>
+              </div>
+              <button class="verb" type="button" data-change="order">Move up</button>
+            </article>
+
+            <article class="fix" data-locate="summary-text">
+              <span class="chip warn" role="img" aria-label="Partial match"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="8" r="2.2" fill="currentColor"/></svg></span>
+              <div>
+                <b>Master’s in Computer Science</b>
+                <p>Partial match. The summary opens on the MS and the AI systems you already shipped.</p>
+              </div>
+              <button class="verb" type="button" data-change="summary">Rewrite</button>
+            </article>
+          </section>
+
+          <details class="band" open>
+            <summary>Only if you've actually done this <span class="count">3</span></summary>
+            <p class="band-note">Doesn't move the match score. Only if you'd stand behind it in an interview.</p>
+
+            <article class="fix" data-locate="skills-block">
+              <span class="chip crit" role="img" aria-label="Not on the résumé"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2v6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="12.2" r="1" fill="currentColor"/></svg></span>
+              <div>
+                <b>C++</b>
+                <p>Scanner didn't find it. Goes on your skills line, next to Java.</p>
+              </div>
+              <button class="tell" type="button">Tell us about it</button>
+              <form class="ask" hidden>
+                <label>What should the résumé say?
+                  <textarea name="note"></textarea>
+                </label>
+                <button class="use" type="submit">Use my words</button>
+              </form>
+            </article>
+
+            <article class="fix">
+              <span class="chip crit" role="img" aria-label="Not on the résumé"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2v6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="12.2" r="1" fill="currentColor"/></svg></span>
+              <div>
+                <b>Auction theory</b>
+                <p>Scanner didn't find it. A line you write, in your own words.</p>
+              </div>
+              <button class="tell" type="button">Tell us about it</button>
+              <form class="ask" hidden>
+                <label>What should the résumé say?
+                  <textarea name="note"></textarea>
+                </label>
+                <button class="use" type="submit">Use my words</button>
+              </form>
+            </article>
+
+            <article class="fix" data-locate="skills-block">
+              <span class="chip crit" role="img" aria-label="Not on the résumé"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2v6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="12.2" r="1" fill="currentColor"/></svg></span>
+              <div>
+                <b>Accessible technologies</b>
+                <p>Scanner didn't find it. Goes on your skills line.</p>
+              </div>
+              <button class="tell" type="button">Tell us about it</button>
+              <form class="ask" hidden>
+                <label>What should the résumé say?
+                  <textarea name="note"></textarea>
+                </label>
+                <button class="use" type="submit">Use my words</button>
+              </form>
+            </article>
+          </details>
+
+          <details class="band">
+            <summary>Left off on purpose <span class="count">1</span></summary>
+            <p class="off-line">Ads Quality. Their team, not a skill.</p>
+          </details>
+        </aside>
+
+        <div class="paper-wrap">
+          <article class="paper" aria-label="Tailored résumé">
+            <div class="nm">Parth Bhodia</div>
+            <div class="ct">Jersey City, NJ · (443) 929-4371 · parthbhodia11@gmail.com · linkedin.com/in/parthbhodia · parthbhodia.com</div>
+
+            <h3>Summary</h3>
+            <p id="summary-text">Senior Fullstack Developer with 7+ years building web applications, internal engineering tools, and cloud-native services. Well-positioned to contribute to developer portals and the Backstage.io ecosystem.</p>
+
+            <h3>Skills</h3>
+            <p id="skills-ai" hidden></p>
+            <p id="skills-block">Languages and UI: TypeScript, JavaScript, Python, Java, React, Vue.js, Next.js<br>
+            Backend and cloud: FastAPI, Django, Spring Boot, AWS (Lambda, API Gateway, ECS, Cognito, Bedrock), Terraform, Docker, PostgreSQL</p>
+
+            <h3>Experience</h3>
+            <div class="roleline">
+              <b><span id="role-title">Senior Fullstack Developer</span>, Eccalon LLC</b>
+              <span>May 2022 – Present</span>
+            </div>
+            <ul id="eccalon">
+              <li id="bullet-delivery">Owned feature delivery for federal compliance platforms, from design through production. Built TypeScript and Vue.js interfaces and the patterns for a migration to Next.js.</li>
+              <li id="bullet-reviews">Collaborated in sprint planning and peer code reviews, and set shared Python and TypeScript test practices across the team.</li>
+              <li id="bullet-terraform">Built deployment workflows with Terraform, GitHub Actions, and Bitbucket, plus Cognito, Lambda, API Gateway, and JWT.</li>
+              <li id="bullet-postgres">Architected PostgreSQL models and indexes for a CMS serving 100,000+ users. Admin load time down 20%. Retrieval latency down 10%.</li>
+              <li id="bullet-bedrock"><span id="bedrock-body">Built an AI vendor assistant in Python on Amazon Bedrock and Pinecone that cut lookup time by 50%.</span></li>
+              <li id="bullet-lang">Deployed a LangGraph security-analysis workflow on Docker and ECS, with LiteLLM and Bedrock, producing classification, mitigations, and summaries.</li>
+            </ul>
+
+            <div class="roleline">
+              <b>Research Assistant, University of Maryland, Baltimore County</b>
+              <span>Jan 2022 – Dec 2022</span>
+            </div>
+            <ul>
+              <li>Built Java Spring Boot services and RabbitMQ messaging for a distributed edge-device system, with real-time GIS anomaly views in Elasticsearch and Kibana.</li>
+            </ul>
+
+            <div class="roleline">
+              <b>Software Developer, Tata Communications</b>
+              <span>Jul 2018 – May 2021</span>
+            </div>
+            <ul>
+              <li>Developed a React, Django, and Python operations dashboard for 10,000+ users, covering access, usage, and security metrics.</li>
+              <li>Automated testing and CI/CD across 12 microservices. Release cycles shortened 40%. Production incidents down 10%.</li>
+              <li>Built a Python and Leaflet network-cost tool for sales-route decisions, contributing to 36% APAC revenue growth.</li>
+            </ul>
+
+            <h3>Projects</h3>
+            <p><b>ResuNova.</b> Python-backed AI résumé tailoring and ATS analysis. 400+ daily active users.<br>
+            <b>Stock Trader.</b> React and Python. WebSocket market data, portfolio tracking, and AI-assisted trade recommendations.</p>
+
+            <h3>Education</h3>
+            <p>MS, Computer Science, UMBC, 2023<br>
+            MS, AI and Data Science, Monroe Kings Graduate College, 2026–2028, in progress<br>
+            BE, Information Technology, University of Mumbai, 2018</p>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const score = document.getElementById("score");
+    const scoreNote = document.getElementById("score-note");
+    const wordingLeft = document.getElementById("wording-left");
+    let openWording = 4;
+    const check = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 8.4 6.4 11.6 12.8 4.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    const changes = {
+      summary() {
+        document.getElementById("summary-text").innerHTML = "<mark>Software engineer with 7 years shipping production systems in Python, TypeScript, and Java, and an MS in Computer Science.</mark> <mark>Built and deployed AI systems on Amazon Bedrock and LangGraph,</mark> including a vendor assistant that cut retrieval time by 50% and a security-analysis workflow for classification and summarization. Platforms served 100,000+ users.";
+        const skills = document.getElementById("skills-ai");
+        skills.hidden = false;
+        skills.innerHTML = "<mark>AI systems:</mark> Amazon Bedrock, LangGraph, LiteLLM, Pinecone, Python";
+      },
+      title() {
+        document.getElementById("role-title").innerHTML = "<mark>Software Engineer</mark>";
+      },
+      order() {
+        const list = document.getElementById("eccalon");
+        const bedrock = document.getElementById("bullet-bedrock");
+        const lang = document.getElementById("bullet-lang");
+        list.prepend(lang);
+        list.prepend(bedrock);
+        bedrock.classList.add("moved");
+        lang.classList.add("moved");
+      },
+      words() {
+        document.getElementById("bedrock-body").innerHTML = "<mark>Built and deployed an AI vendor assistant in Python on Amazon Bedrock and Pinecone: data processing, answer evaluation, and retrieval debugging that cut lookup time by 50%.</mark>";
+      },
+    };
+
+    function markDone(row, button) {
+      row.classList.add("done");
+      const chip = row.querySelector(".chip");
+      chip.className = "chip good";
+      chip.setAttribute("aria-label", "You have this");
+      chip.innerHTML = check;
+      button.disabled = true;
+      button.textContent = "Added";
+    }
+
+    document.querySelectorAll("[data-change]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (button.disabled) return;
+        changes[button.dataset.change]();
+        markDone(button.closest(".fix"), button);
+        openWording -= 1;
+        wordingLeft.textContent = String(openWording);
+        if (openWording === 0) {
+          score.textContent = "71%";
+          scoreNote.textContent = "Wording fixes are in.";
+        }
+      });
+    });
+
+    document.querySelectorAll(".tell").forEach((button) => {
+      button.addEventListener("click", () => {
+        const form = button.closest(".fix").querySelector(".ask");
+        form.hidden = !form.hidden;
+        if (!form.hidden) form.querySelector("textarea").focus();
+      });
+    });
+
+    document.querySelectorAll(".ask").forEach((form) => {
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const note = form.querySelector("textarea").value.trim();
+        if (!note) return;
+        const line = document.createElement("span");
+        line.innerHTML = "<br><mark>" + note.replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])) + "</mark>";
+        document.getElementById("skills-block").appendChild(line);
+        const row = form.closest(".fix");
+        markDone(row, form.querySelector(".use"));
+        row.querySelector(".tell").disabled = true;
+        row.querySelector(".tell").textContent = "Added";
+      });
+    });
+
+    document.querySelectorAll("[data-locate]").forEach((row) => {
+      const ids = row.dataset.locate.split(" ");
+      const on = () => ids.forEach((id) => document.getElementById(id)?.classList.add("loc"));
+      const off = () => ids.forEach((id) => document.getElementById(id)?.classList.remove("loc"));
+      row.addEventListener("mouseenter", on);
+      row.addEventListener("mouseleave", off);
+      row.addEventListener("focusin", on);
+      row.addEventListener("focusout", off);
+    });
+  </script>
+</body>
+</html>
