@@ -43,6 +43,73 @@ export interface ResumeChange {
   requirements: string[];
   /** For `added`: the structured entry the line sits under, for undo. */
   entryPath?: string;
+  /**
+   * Words on this line that the résumé does not back, so the reader can judge
+   * what rests on their word without reopening the fix.
+   *
+   * ⚠️ FILTERED TO WHAT IS ACTUALLY STILL THERE. The server marks the
+   * suggestion it wrote, and the user can edit a suggestion before applying
+   * it — including deleting the very word that was flagged. Carrying the
+   * server's list verbatim would then warn about a word that is not in the
+   * document, which is the same class of false claim the mark exists to
+   * prevent, pointing the other way.
+   *
+   * ⚠️ UNION ACROSS THE BULLET, because the unit here is the bullet and two
+   * fixes merge onto one line. If either addition rests on the user's word,
+   * the line does.
+   */
+  unverifiedTerms: string[];
+}
+
+/** Union a second fix's surviving terms onto a row two fixes merged into. */
+function mergeUnverified(
+  row: ResumeChange,
+  terms: readonly string[] | undefined,
+  appliedText: string,
+): void {
+  const seen = new Set(row.unverifiedTerms.map((t) => t.toLowerCase()));
+  for (const term of survivingUnverifiedTerms(terms, appliedText)) {
+    if (seen.has(term.toLowerCase())) continue;
+    seen.add(term.toLowerCase());
+    row.unverifiedTerms.push(term);
+  }
+}
+
+/**
+ * Case- and whitespace-insensitive "is this word still in the line?".
+ *
+ * Punctuation is deliberately NOT folded: `C++` and `Node.js` are terms, and
+ * stripping their punctuation would make them match text that does not say
+ * them.
+ */
+function stillPresent(term: string, text: string): boolean {
+  const fold = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  const t = fold(term);
+  if (!t) return false;
+  return fold(text).includes(t);
+}
+
+/**
+ * The unverified words from one action that survive into the applied line.
+ *
+ * Exported for the test that pins the edit case: the whole point is that a
+ * user who deletes the flagged word is not then warned about it.
+ */
+export function survivingUnverifiedTerms(
+  terms: readonly string[] | undefined,
+  appliedText: string,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of terms ?? []) {
+    const term = String(raw).trim();
+    if (!term || !stillPresent(term, appliedText)) continue;
+    const key = term.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(term);
+  }
+  return out;
 }
 
 interface AppliedAction {
@@ -54,6 +121,19 @@ interface AppliedAction {
   via?: string;
   entryPath?: string;
   originalText?: string;
+  /**
+   * Words the résumé does not back, from the server's `unverified_terms` /
+   * `unverified_numerals` on the suggestion that was applied.
+   *
+   * ⚠️ AGGRESSIVE IS THE DEFAULT (`DEFAULT_TAILORING_MODE`, founder-directed
+   * 2026-10-26), so the product WRITES additions that rest on the
+   * candidate's word rather than dropping them. That only stays honest while
+   * the mark is visible, and the version picker's badge disappears the moment
+   * the fix is applied. After a bulk pass the change log was the only record
+   * left, and it showed a grounded rewrite and one riding on an unevidenced
+   * tool identically — so "keep it or not" meant reopening every row.
+   */
+  unverifiedTerms?: string[];
 }
 
 /**
@@ -100,6 +180,10 @@ export function deriveResumeChanges(
           applied: (action.appliedText ?? item.name).trim(),
           requirements: [item.name],
           entryPath: action.entryPath,
+          unverifiedTerms: survivingUnverifiedTerms(
+            action.unverifiedTerms,
+            (action.appliedText ?? item.name).trim(),
+          ),
         });
       }
       continue;
@@ -117,6 +201,7 @@ export function deriveResumeChanges(
           original: "",
           applied: term,
           requirements: [item.name],
+          unverifiedTerms: survivingUnverifiedTerms(action.unverifiedTerms, term),
         });
       }
       continue;
@@ -131,6 +216,7 @@ export function deriveResumeChanges(
       const existing = addedRows.get(key);
       if (existing) {
         if (!existing.requirements.includes(item.name)) existing.requirements.push(item.name);
+        mergeUnverified(existing, action.unverifiedTerms, text);
       } else {
         addedRows.set(key, {
           key,
@@ -140,6 +226,7 @@ export function deriveResumeChanges(
           applied: text,
           requirements: [item.name],
           entryPath: action.entryPath,
+          unverifiedTerms: survivingUnverifiedTerms(action.unverifiedTerms, text),
         });
       }
       continue;
@@ -152,6 +239,7 @@ export function deriveResumeChanges(
     const existing = byBullet.get(idx);
     if (existing) {
       if (!existing.requirements.includes(item.name)) existing.requirements.push(item.name);
+      mergeUnverified(existing, action?.unverifiedTerms, applied.trim());
       continue;
     }
     byBullet.set(idx, {
@@ -161,6 +249,7 @@ export function deriveResumeChanges(
       original: (bullets[idx]?.originalBullet ?? "").trim(),
       applied: applied.trim(),
       requirements: [item.name],
+      unverifiedTerms: survivingUnverifiedTerms(action?.unverifiedTerms, applied.trim()),
     });
   }
 
@@ -180,6 +269,10 @@ export function deriveResumeChanges(
       original,
       applied: applied.trim(),
       requirements: [],
+      // An override with no queue row has no suggestion behind it, so there
+      // is no server mark to carry. A hand edit is the user's own words by
+      // definition; claiming otherwise would invent a warning.
+      unverifiedTerms: [],
     });
   }
 
@@ -202,6 +295,7 @@ export function deriveResumeChanges(
         applied,
         requirements: [action.label],
         entryPath: path,
+        unverifiedTerms: survivingUnverifiedTerms(action.unverifiedTerms, applied),
       });
       continue;
     }
@@ -214,6 +308,7 @@ export function deriveResumeChanges(
       key: `skill:${seenKey}`,
       kind: "skill",
       bulletIndex: -1,
+      unverifiedTerms: survivingUnverifiedTerms(action.unverifiedTerms, term),
       original: "",
       applied: term,
       requirements: [action.label],

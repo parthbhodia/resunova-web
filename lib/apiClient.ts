@@ -196,11 +196,22 @@ export function scanLimitFrom(body: unknown): ScanLimitStatus {
   };
 }
 
+/**
+ * Badge copy for a named plan.
+ *
+ * Split out of `planLabel` so the account menu, which holds a plan string from
+ * `useScansRemaining` rather than a whole status, does not carry a second copy
+ * of this mapping. Two copies drift, and the drift shows up as a subscriber
+ * being shown the wrong badge.
+ */
+export function planName(plan: string | null | undefined): string | null {
+  if (plan === "pro") return "Pro";
+  if (plan === "institution") return "University";
+  if (plan === "admin") return "Admin";
+  return null;
+}
+
 /** Badge copy for a plan. Metered Pro still shows "Pro"; Free metered returns null. */
 export function planLabel(status: ScanLimitStatus): string | null {
-  if (status.plan === "pro") return "Pro";
-  if (status.plan === "institution") return "University";
-  if (status.plan === "admin") return "Admin";
-  if (status.unlimited) return "Unlimited";
-  return null;
+  return planName(status.plan) ?? (status.unlimited ? "Unlimited" : null);
 }

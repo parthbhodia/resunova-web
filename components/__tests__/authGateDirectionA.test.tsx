@@ -117,12 +117,15 @@ describe("the gate does not promise what the product lacks", () => {
     expect(content).not.toMatch(/Lead with that one/i);
   });
 
-  it("makes only checkable assurances", () => {
+  /**
+   * ⚠️ The comp's "About 10 seconds" went because it is not sourceable. The
+   * trust-badge row that replaced it went for the opposite reason: each item
+   * was checkable and none earned its line. See the note in `AuthMethods`.
+   */
+  it("sells nothing beside the sign-in controls", () => {
     render(<SignInRequiredPage pathname="/interview-prep" />);
-    expect(screen.getByText("Free")).toBeInTheDocument();
-    expect(screen.getByText("No credit card")).toBeInTheDocument();
-    // "About 10 seconds" from the comp is not checkable; this is.
-    expect(screen.getByText("One click with Google")).toBeInTheDocument();
+    expect(screen.queryByText("No credit card")).toBeNull();
+    expect(screen.queryByText("One click with Google")).toBeNull();
     expect(screen.queryByText(/10 seconds/i)).toBeNull();
   });
 });

@@ -269,6 +269,15 @@ function AppShellBody({ children }: { children: ReactNode }) {
   const onSignIn = () => openSignIn();
 
   const initial = (user?.email || "?").charAt(0).toUpperCase();
+  /**
+   * For the account menu header. Google sign-in fills `full_name`; email
+   * sign-up fills neither, and the menu falls back to the address rather than
+   * inventing a name — the one thing it exists to tell you is which account
+   * you are in, so a guess there is worse than a blank.
+   */
+  const userName =
+    (typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null) ??
+    (typeof user?.user_metadata?.name === "string" ? user.user_metadata.name : null);
   const builderActive = active === "builder" || onTemplateBuilderPage || onTailor2Page;
   const navBuilderSubflow: "tailor" | "template" = onTemplateBuilderPage
     ? "template"
@@ -302,6 +311,8 @@ function AppShellBody({ children }: { children: ReactNode }) {
                 theme={theme}
                 onToggleTheme={toggleTheme}
                 userInitial={initial}
+                userName={userName}
+                userEmail={user?.email ?? null}
                 onHistoryOpenChange={setHistoryOpen}
                 onSwitchView={switchView}
                 onGoBuilderFlow={goBuilderFlow}

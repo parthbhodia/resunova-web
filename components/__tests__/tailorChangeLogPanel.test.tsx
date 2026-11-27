@@ -10,6 +10,7 @@ const ONE: ResumeChange = {
   original: "Built and deployed backend services in Python.",
   applied: "Built and deployed backend services in Python on Kubernetes.",
   requirements: ["Kubernetes"],
+  unverifiedTerms: [],
 };
 
 const SHARED: ResumeChange = {
@@ -19,6 +20,7 @@ const SHARED: ResumeChange = {
   original: "Ran the release pipeline.",
   applied: "Ran the release pipeline on Kubernetes with Terraform.",
   requirements: ["Kubernetes", "Terraform"],
+  unverifiedTerms: [],
 };
 
 const EDIT: ResumeChange = {
@@ -28,6 +30,7 @@ const EDIT: ResumeChange = {
   original: "Led migration of legacy services.",
   applied: "Led migration of legacy services, cutting spend 31%.",
   requirements: [],
+  unverifiedTerms: [],
 };
 
 const SKILL: ResumeChange = {
@@ -37,6 +40,7 @@ const SKILL: ResumeChange = {
   original: "",
   applied: "Terraform",
   requirements: ["Terraform"],
+  unverifiedTerms: [],
 };
 
 const TITLE: ResumeChange = {
@@ -46,6 +50,7 @@ const TITLE: ResumeChange = {
   original: "Software Engineer",
   applied: "Senior Fullstack Engineer",
   requirements: ["Job title"],
+  unverifiedTerms: [],
   entryPath: "exp.0",
 };
 

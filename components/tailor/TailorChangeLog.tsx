@@ -150,6 +150,32 @@ export function TailorChangeLog({
                 ) : null}
               </span>
             ) : null}
+            {/*
+              ⚠️ ON THE COLLAPSED ROW, and that is the whole point. Aggressive
+              is the default, so the product writes additions that rest on the
+              candidate's word; the version picker badges them, and that badge
+              is gone the moment the fix is applied. After a bulk pass this
+              list was the only record left and it drew a grounded rewrite and
+              one riding on an unevidenced tool identically, so deciding
+              "keep it or not" meant opening every row. Founder, 2026-11-27:
+              "keep it aggressive for real and have them be the judge of it".
+              You cannot judge what you have to open to see.
+            */}
+            {c.unverifiedTerms.length > 0 ? (
+              <span
+                data-testid="your-word"
+                title={`Not backed by your résumé: ${c.unverifiedTerms.join(", ")}`}
+                style={{
+                  ...ADDED_CHIP,
+                  flexShrink: 0,
+                  background: "var(--amber-bg)",
+                  color: "var(--amber-ink)",
+                  border: "none",
+                }}
+              >
+                Your word
+              </span>
+            ) : null}
             <span aria-hidden style={{ marginLeft: "auto", color: "var(--muted)", fontSize: FS.caption, flexShrink: 0 }}>
               {open ? "▴" : "▾"}
             </span>
@@ -171,6 +197,27 @@ export function TailorChangeLog({
 
         {open ? (
           <div style={{ padding: "0 16px 11px 42px", background: "var(--surface-2, rgba(127,127,127,0.06))" }}>
+            {/*
+              Names the exact words, because "Your word" alone tells you a
+              decision is needed without telling you what it is about. The
+              chip's title attribute carries the same list for a mouse, but a
+              hover is not an answer on touch.
+            */}
+            {c.unverifiedTerms.length > 0 ? (
+              <p
+                data-testid="your-word-detail"
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: FS.caption,
+                  lineHeight: 1.5,
+                  color: "var(--amber-ink)",
+                }}
+              >
+                Your résumé doesn&apos;t back{" "}
+                <strong>{c.unverifiedTerms.join(", ")}</strong>. Keep it only if the
+                work is real; an interviewer will ask.
+              </p>
+            ) : null}
             {c.kind === "skill" ? (
               <p style={{ margin: 0, fontSize: FS.small, color: "var(--text)" }}>
                 Added <strong>{c.applied}</strong> to your Skills section.
