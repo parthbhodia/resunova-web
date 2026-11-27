@@ -16,7 +16,12 @@ import type {
   StructuredResume,
   StructuredResumeEducation,
 } from "@/store/resumeAnalyzeStore";
-import { requiredDegreeLevel, type DegreeLevel } from "@/lib/degreeRequirement";
+import {
+  DEGREE_RANK,
+  highestDegreeIn,
+  requiredDegreeLevel,
+  type DegreeLevel,
+} from "@/lib/degreeRequirement";
 
 export interface EducationDraft {
   /** "Master's", "Ph.D." — the credential itself. */
@@ -130,10 +135,26 @@ export function educationAlreadyPresent(
 ): boolean {
   const fold = (s: string) =>
     s.toLowerCase().replace(/['’.]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
-  const deg = fold(entry.degree);
   const inst = fold(entry.institution);
-  if (!deg || !inst) return false;
-  return (structured.education ?? []).some(
-    (e) => fold(e.degree) === deg && fold(e.institution) === inst,
-  );
+  if (!inst || !entry.degree.trim()) return false;
+  const level = highestDegreeIn(entry.degree);
+  const deg = fold(entry.degree);
+  return (structured.education ?? []).some((e) => {
+    if (fold(e.institution) !== inst) return false;
+    // Same school. Same LEVEL is the same credential, whatever words either
+    // side used -- the form seeds "Bachelor's" while a résumé writes "Bachelor
+    // of Science", "B.S." or "BSc". Comparing the formatted strings matched
+    // only "Bachelors" and missed every other realistic spelling, so this
+    // warning was very nearly dead. The first test did not catch it because it
+    // happened to use the one spelling that folded the same.
+    //
+    // The level still has to MATCH rather than merely exist: two degrees from
+    // one university is a real case, and a Master's must not shadow the
+    // Bachelor's listed beneath it.
+    const theirs = highestDegreeIn(e.degree);
+    if (level && theirs) return DEGREE_RANK[level] === DEGREE_RANK[theirs];
+    // Neither names a level we recognise (a certificate, a diploma): the
+    // spelling is all there is to go on.
+    return fold(e.degree) === deg;
+  });
 }

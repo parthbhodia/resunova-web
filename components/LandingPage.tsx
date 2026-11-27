@@ -22,6 +22,7 @@ import ResumeExamplesBand from "@/components/landing/ResumeExamplesBand";
 import LandingHeader from "@/components/landing/LandingHeader";
 import { T, useLandingTheme } from "@/components/landing/landingTheme";
 import { RESUME_STYLE_PRESETS, type TBStylePreset } from "@/lib/resumeLayout";
+import { FREE_SCAN_DAILY_LIMIT } from "@/lib/planLimits";
 
 // ── Data ────────────────────────────────────────────────────────────────────
 /** Toggle "Three steps…" / How it works block on the landing page. */
@@ -489,55 +490,37 @@ export default function LandingPage() {
       {/* overflow-x only below header — overflow on a sticky ancestor breaks position:sticky */}
       <div className="lp-main" style={{ overflowX: "hidden", minWidth: 0 }}>
       {/* ───────────── Hero ─────────────────────────────────── */}
-      <section className="lp-hero-grid" style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 40px 80px", display: "grid", gridTemplateColumns: "1fr 460px", gap: 56, alignItems: "center", minHeight: "88vh" }}>
+      <section className="lp-hero-stage">
+      <div className="lp-hero-grid" style={{ maxWidth: 1200, margin: "0 auto", padding: "36px 40px 48px", display: "grid", gridTemplateColumns: "1fr 460px", gap: 48, alignItems: "center" }}>
 
         {/* Left */}
         <div className="lp-hero-left" style={{ animation: "lpFadeUp 0.7s ease both" }}>
-          {/* Pill badge */}
-          <div className="lp-hero-badge" style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            padding: "5px 14px", marginBottom: 36,
-            background: C.glow, border: `1px solid ${T.blue}28`,
-            borderRadius: 100, fontSize: "var(--font-size-sm)", color: T.blue,
-            fontWeight: 600, letterSpacing: 0.2, maxWidth: "100%",
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.blue, display: "inline-block", flexShrink: 0 }} />
-            <span className="lp-hero-sub-full">Start free · 3 scans a day · Built for students &amp; career switchers · ATS-safe</span>
-            <span className="lp-hero-sub-short">Start free · 3 scans a day · ATS-safe</span>
-          </div>
-
-          {/* Headline — DM Sans 800. Full on desktop; punchy 2-liner on phones. */}
           <h1 className="lp-hero-h1" style={{
-            fontSize: "clamp(48px, 5.5vw, 72px)",
-            fontWeight: 800, lineHeight: 1.05, letterSpacing: "-0.03em",
-            color: C.ink, margin: "0 0 28px",
+            fontSize: "clamp(40px, 4.6vw, 64px)",
+            fontWeight: 800, lineHeight: 1.02, letterSpacing: "-0.04em",
+            color: C.ink, margin: "0 0 20px",
           }}>
             <span className="lp-hero-sub-full">
-              Eight things decide<br />
-              whether an ATS passes<br />
-              your résumé on.<br />
-              <span style={{ color: T.blue }}>You are guessing at all eight.</span>
+              An ATS résumé<br />
+              <span className="lp-hero-punch">that gets you the job.</span>
             </span>
             <span className="lp-hero-sub-short">
-              Eight things decide<br />if an ATS passes you on.{" "}
-              <span style={{ color: T.blue }}>You are guessing.</span>
+              An ATS résumé<br />
+              <span className="lp-hero-punch">that gets you the job.</span>
             </span>
           </h1>
 
-          <p style={{ fontSize: "var(--font-size-xl)", color: C.muted, lineHeight: 1.72, maxWidth: 480, margin: "0 0 44px", letterSpacing: -0.15 }}>
-            {/* Full copy on desktop; trimmed on phones. Key phrases highlighted. */}
+          <p style={{ fontSize: 19, color: C.ink, fontWeight: 500, lineHeight: 1.45, maxWidth: 460, margin: "0 0 26px" }}>
             <span className="lp-hero-sub-full">
-              See all <b style={{ color: T.blue, fontWeight: 700 }}>8 scores</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>, with <b style={{ color: T.blue, fontWeight: 700 }}>honest rewrites</b> and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b>. Every score under 95 shows its reasoning, so you know which one to fix first.{" "}
+              Score the résumé you have, eight ways. If a line is only a duty, you get a rewrite, then a PDF for the job you want. {FREE_SCAN_DAILY_LIMIT} scans a day are free.
             </span>
             <span className="lp-hero-sub-short">
-              All <b style={{ color: T.blue, fontWeight: 700 }}>8 scores</b> in about <b style={{ color: C.ink, fontWeight: 700 }}>60 seconds</b>, with <b style={{ color: T.blue, fontWeight: 700 }}>honest rewrites</b> and a <b style={{ color: T.blue, fontWeight: 700 }}>tailored PDF</b>.{" "}
+              Score the résumé you have, eight ways. If a line is only a duty, you get a rewrite, then a PDF for the job you want. {FREE_SCAN_DAILY_LIMIT} scans a day are free.
             </span>
-            <strong style={{ color: C.ink, fontWeight: 700 }}>Free to start.</strong>{" "}
-            <strong style={{ color: "#16a34a", fontWeight: 700 }}>No credit card.</strong>
           </p>
 
           {/* CTA row */}
-          <div className="lp-hero-actions" style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 40, alignItems: "flex-start" }}>
+          <div className="lp-hero-actions" style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 22, alignItems: "flex-start" }}>
             <div className="lp-hero-cta-row" style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
               {/* Primary — lands on Analyze, which asks for sign-in before the file picker */}
               <button
@@ -545,12 +528,12 @@ export default function LandingPage() {
                 onClick={() => { goToFreeScan(); }}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 10,
-                  padding: "18px 38px",
+                  height: 48, padding: "0 22px",
                   background: T.hot,
                   color: T.hotInk, border: "none", borderRadius: 999,
-                  fontSize: 18, fontWeight: 800, letterSpacing: -0.3,
+                  fontSize: 16, fontWeight: 700, letterSpacing: -0.01,
                   cursor: "pointer", fontFamily: "inherit",
-                  boxShadow: "0 10px 32px rgba(212,119,47,0.45)",
+                  boxShadow: "0 8px 18px rgba(212,119,47,0.28)",
                   transition: "transform 0.15s, box-shadow 0.15s, background 0.15s",
                   whiteSpace: "nowrap",
                 }}
@@ -558,24 +541,18 @@ export default function LandingPage() {
                   const el = e.currentTarget as HTMLElement;
                   el.style.transform = "translateY(-2px)";
                   el.style.background = T.hotHover;
-                  el.style.boxShadow = "0 14px 40px rgba(212,119,47,0.55)";
+                  el.style.boxShadow = "0 10px 22px rgba(212,119,47,0.36)";
                 }}
                 onMouseLeave={e => {
                   const el = e.currentTarget as HTMLElement;
                   el.style.transform = "";
                   el.style.background = T.hot;
-                  el.style.boxShadow = "0 10px 32px rgba(212,119,47,0.45)";
+                  el.style.boxShadow = "0 8px 18px rgba(212,119,47,0.28)";
                 }}
               >
-                Score my résumé free
-                <span style={{ fontSize: 20, lineHeight: 1 }}>→</span>
+                Analyze my résumé
               </button>
             </div>
-
-            {/* Trust micro-copy */}
-            <p style={{ fontSize: 13, color: C.muted, margin: 0, letterSpacing: -0.1 }}>
-              Free account &nbsp;·&nbsp; 3 scans a day &nbsp;·&nbsp; Every report saved to your history
-            </p>
           </div>
 
 
@@ -592,8 +569,8 @@ export default function LandingPage() {
                 }}>{l}</div>
               ))}
             </div>
-            <span style={{ fontSize: "var(--font-size-base)", color: C.muted }}>
-              <b style={{ color: C.ink, fontWeight: 600 }}>400+</b> early users · more interview callbacks reported
+            <span style={{ fontSize: 15, color: C.ink, fontWeight: 600, lineHeight: 1.35 }}>
+              400+ early users are getting more interview callbacks.
             </span>
           </div>
         </div>
@@ -608,24 +585,9 @@ export default function LandingPage() {
             position: "relative",
           }}
         >
-          <div style={{
-            position: "absolute", top: -14, right: 18, zIndex: 2,
-            display: "inline-flex", alignItems: "center", gap: 6,
-            background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-            color: "#fff",
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
-            padding: "5px 12px", borderRadius: 20, textTransform: "uppercase",
-            boxShadow: "0 4px 16px rgba(37,99,235,0.35), 0 0 0 1px rgba(255,255,255,0.15) inset",
-          }}>
-            <span style={{
-              width: 6, height: 6, borderRadius: "50%",
-              background: "#4ade80", boxShadow: "0 0 8px #4ade80",
-              animation: "pulse 2s infinite",
-            }} />
-            Live analysis
-          </div>
           <VariantA embedded />
         </div>
+      </div>
       </section>
 
       <ResumeExamplesBand />
@@ -1043,7 +1005,7 @@ export default function LandingPage() {
               el.style.background = T.hot;
             }}
           >
-            Score my résumé free <span style={{ fontSize: 20 }}>→</span>
+            Analyze my résumé
           </button>
 
           <button
@@ -1206,7 +1168,7 @@ export default function LandingPage() {
               boxShadow: "0 10px 30px rgba(30,58,138,0.45)",
             }}
           >
-            Score my résumé free →
+            Analyze my résumé
           </button>
           <button
             onClick={dismissStickyCta}
@@ -1237,6 +1199,33 @@ export default function LandingPage() {
         @keyframes lpScorePulse { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
         @keyframes lpArrowPop { from { transform: translateY(4px) scale(0); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
         .lp-hero-sub-short { display: none; }
+        .lp-hero-stage { position: relative; }
+        .lp-hero-stage::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background:
+            radial-gradient(680px 380px at 14% 0%, rgba(37,99,235,0.14), transparent 70%),
+            radial-gradient(520px 360px at 86% 42%, rgba(224,137,78,0.13), transparent 68%);
+        }
+        html[data-theme="dark"] .lp-hero-stage::before {
+          background:
+            radial-gradient(680px 380px at 14% 0%, rgba(37,99,235,0.22), transparent 70%),
+            radial-gradient(520px 360px at 86% 42%, rgba(224,137,78,0.10), transparent 68%);
+        }
+        .lp-hero-grid { position: relative; z-index: 1; }
+        .lp-hero-punch {
+          color: #1d4ed8;
+          background-image: linear-gradient(#dbe6ff, #dbe6ff);
+          background-repeat: no-repeat;
+          background-size: 100% 0.42em;
+          background-position: 0 86%;
+        }
+        html[data-theme="dark"] .lp-hero-punch {
+          color: #93c5fd;
+          background-image: linear-gradient(rgba(147,197,253,0.22), rgba(147,197,253,0.22));
+        }
         .lp-nav-burger { display: none; }
         @media (min-width: 1024px) { .lp-nav-menu { display: none !important; } }
         @media (max-width: 1023.98px) {

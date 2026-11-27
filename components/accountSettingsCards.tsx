@@ -14,14 +14,21 @@ import {
 } from "@/lib/tailoringMode";
 import { apiFetch } from "@/lib/apiClient";
 
-type NotifyPrefs = { accountChanges: boolean; scanLimit: boolean; features: boolean };
-const NOTIFY_DEFAULTS: NotifyPrefs = { accountChanges: true, scanLimit: false, features: false };
+type NotifyPrefs = { accountChanges: boolean; scanLimit: boolean; features: boolean; jobDigest: boolean };
+// jobDigest is opt-in (default off): the daily "new jobs for you" email, sent by
+// the API's services/job_digest.py. Unsubscribing from that email clears it.
+const NOTIFY_DEFAULTS: NotifyPrefs = { accountChanges: true, scanLimit: false, features: false, jobDigest: false };
 const NOTIFY_PREFS_KEY = "rn_notify_prefs_v1";
 
 const NOTIFY_ROWS: { key: keyof NotifyPrefs; label: string; sub: string | null }[] = [
   { key: "accountChanges", label: "Email me when my account changes", sub: "password, email, profile updates" },
   { key: "scanLimit", label: "Notify me when I reach my daily scan limit", sub: null },
   { key: "features", label: "Tell me about new features and updates", sub: null },
+  {
+    key: "jobDigest",
+    label: "Email me new jobs every day",
+    sub: "up to 20 new postings that fit your saved role and location, ranked against your résumé",
+  },
 ];
 
 /** Email preferences — persisted to user_profiles.notify_prefs via
@@ -100,7 +107,7 @@ export function EmailPreferencesCard() {
       }
     >
       <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.55, margin: "0 0 8px" }}>
-        We&apos;ll send at most 1–2 emails per week.
+        Apart from the daily jobs email (if you turn it on), we&apos;ll send at most 1–2 emails per week.
       </p>
       <div style={{ display: "flex", flexDirection: "column" }}>
         {NOTIFY_ROWS.map(({ key, label, sub }, i) => (

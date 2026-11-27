@@ -45,7 +45,13 @@ export type AnalyticsEventName =
   | "blog_prompt_shown"
   | "blog_prompt_dismissed"
   | "blog_prompt_submitted"
-  | "blog_prompt_clicked";
+  | "blog_prompt_clicked"
+  // Job alerts (the daily jobs email). Each carries `place`: "feed", "empty"
+  // or "sidebar", so we can see which ask actually turns people on.
+  | "job_alert_ask_shown"
+  | "job_alert_ask_dismissed"
+  | "job_alert_enabled"
+  | "job_alert_disabled";
 
 export type AnalyticsParams = Record<string, string | number | boolean | undefined>;
 
