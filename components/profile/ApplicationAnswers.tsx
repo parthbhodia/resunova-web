@@ -154,7 +154,7 @@ export default function ApplicationAnswers({ value, onChange, saveState, resume,
               autoComplete="off"
               placeholder="e.g. 6 or 5.5"
               error={yearsProblem !== ""}
-              helperText={yearsProblem || "Used when an application asks how many years you have worked. Leave it blank to skip."}
+              helperText={yearsProblem || "Used when an application asks how many years you have worked. Left blank, the extension works it out from the dates on your résumé, internships left out."}
               disabled={disabled}
               fullWidth
               size="small"

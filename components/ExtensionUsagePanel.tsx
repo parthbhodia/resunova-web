@@ -23,8 +23,10 @@ import {
   isEmptyUsage,
   sumDays,
   type ExtensionUsageResponse,
+  type ReferralUsage,
   type UsageCountRow,
   type UsageDay,
+  type UsagePart,
 } from "@/lib/adminExtensionUsage";
 
 // Survives the RouterView unmount that drops every ?view= page.
@@ -94,6 +96,62 @@ function Rows({ rows, empty }: { rows: UsageCountRow[]; empty: string }) {
       label={(k) => labels.get(k) ?? k}
       labelWidth={150}
     />
+  );
+}
+
+function PartLine({ label, part, min, unit, id }: { label: string; part: UsagePart; min: number; unit: string; id: string }) {
+  return (
+    <div data-ext-ref-part={id} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
+      <span>{label}</span>
+      <span style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
+        {fmt(part.count)} of {fmt(part.outOf)} · {rateOr(part.pct, min, unit)}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The LinkedIn referral card. What people did with it, how their copies looked,
+ * and whether the card's guesses about the live page held. No opened-to-copied
+ * rate: one open can be copied several times.
+ */
+function ReferralSection({ referral, min }: { referral: ReferralUsage; min: number }) {
+  const c = referral.copied;
+  const any = referral.actions.some((a) => a.count > 0);
+  return (
+    <div data-ext-referral style={{ marginTop: 18 }}>
+      <div style={{ fontSize: 12, fontWeight: 650, color: "var(--muted)", marginBottom: 8 }}>
+        Referral messages on LinkedIn · {fmt(referral.accounts)} accounts
+      </div>
+      {!any ? (
+        <p data-ext-no-referral style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>No referral card activity in this window.</p>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 22 }}>
+          <div>
+            <Rows rows={referral.actions} empty="No card actions." />
+            <p style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 0" }}>
+              Copy refused by the page: <span data-ext-ref-refused>{rateOr(referral.copyRefusedPct, min, "presses of Copy")}</span>
+            </p>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--dim)", marginBottom: 4 }}>
+              {fmt(c.count)} copies by {fmt(c.accounts)} accounts
+            </div>
+            <PartLine id="typed" label="Typed in by hand" part={c.handEdited} min={min} unit="copies" />
+            <PartLine id="ai" label="Written with AI" part={c.fromAi} min={min} unit="copies" />
+            <PartLine id="fields" label="A blank changed on the card" part={c.fieldsChanged} min={min} unit="copies" />
+            <PartLine id="blanks" label="Copied with a blank still in it" part={c.withBlanks} min={min} unit="copies" />
+            <PartLine id="name" label="Name found beside the box" part={c.recipientFound} min={min} unit="copies" />
+            <PartLine id="skills" label="Skills found in the posting" part={c.skillsFound} min={min} unit="copies" />
+            <PartLine id="full" label="Whole description read" part={c.fullText} min={min} unit="copies" />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--dim)", marginBottom: 4 }}>Why the AI could not write it</div>
+            <Rows rows={referral.aiFailures} empty="No AI failures." />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -295,6 +353,7 @@ export default function ExtensionUsagePanel() {
                     <Rows rows={data.events.problems} empty="No problems reported." />
                   </div>
                 </div>
+                {data.events.referral && <ReferralSection referral={data.events.referral} min={min} />}
                 <div style={{ marginTop: 18 }}>
                   <div style={{ fontSize: 12, fontWeight: 650, color: "var(--muted)", marginBottom: 8 }}>
                     Every event, last {data.windowDays} days

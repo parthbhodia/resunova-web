@@ -186,6 +186,7 @@ export default function PrivacyPage() {
                 ["Your Resunova profile", "Name, contact details, links, work history and the optional EEO answers you saved. Read only; the extension never writes to your profile"],
                 ["Your chosen résumé", "When you attach a résumé, the extension downloads the file you chose in its settings from your account and puts it in the form's upload field. It is not sent anywhere else"],
                 ["Questions you ask it to draft", "Only when you press Draft with AI on a question: that question, the company, job title and description of the posting, and the text of your profile are sent to Resunova and on to our AI providers (see section 5) to write a draft. We do not keep the question or the draft. We keep a count of drafts per application, filed under a one-way hash of the job's address, so your daily allowance can be applied, and the token counts of the AI call"],
+                ["A referral message you ask it to write with AI", "Only when you press Write with AI for this role on LinkedIn: the first name, company and role shown in the referral card, the job's address and posting text, your message template, and the text of your profile are sent to Resunova and on to our AI providers (see section 5) to write the message. We do not keep the message. It is counted the same way as a draft, against the job's address"],
                 ["A job posting you ask it to check", "Only when you press Check match on a posting: the visible text of the posting is sent to Resunova and compared with the résumé you chose. An AI model turns the posting into a list of requirements; that list is kept, keyed only by a hash of the posting's text and not attached to you, to an address, to a company or to a copy of the page, so the same posting is read once however many people look at it"],
                 ["Usage counts (only if you choose Accept)", "Described below. Nothing is sent unless you chose Accept on the extension's welcome page"],
                 ["An extension session token", "Stored only in hashed form. Lets the extension read your profile, and revocable at any time"],
@@ -195,8 +196,9 @@ export default function PrivacyPage() {
             <SubSection title="What it does not handle">
               <ul>
                 <li><b>The contents of your application forms.</b> Answers you type, cover-letter text and screening responses are never sent to us. The one exception is a question you yourself ask it to draft, above.</li>
-                <li><b>Pages you are not filling a form on.</b> The extension can read any page you open, because it has to look at a page to tell whether it is an application. That check runs on your device, and a page that is not an application is not sent anywhere and not remembered.</li>
-                <li><b>Your email, messages, or browsing history.</b> It does not read them and does not keep a list of the pages you visit.</li>
+                <li><b>Pages you are not filling a form on.</b> The extension can read any page you open, because it has to look at a page to tell whether it is an application. That check runs on your device, and a page that is not an application is not sent anywhere and not remembered (the one exception is the job you looked at last, below).</li>
+                <li><b>Your email, messages, or browsing history.</b> It does not read your email or the messages in a conversation, and does not keep a list of the pages you visit. On LinkedIn, while a message box is open, it looks on your device at the names shown in that conversation&apos;s window, so the referral message it writes on its own card is addressed to the right person. It never types into LinkedIn&apos;s message box: you copy the message and paste it yourself. None of that is sent unless you press Write with AI, and then only the first name shown in the card.</li>
+                <li><b>The job you looked at last.</b> When you look at a job posting, the extension keeps its title, company, address and text on your device for a day, so a referral message can name it. It is replaced by the next job you look at, is never sent to us unless you press a button that sends it, and is forgotten when you disconnect. LinkedIn shows only the start of a job&apos;s description, so for a LinkedIn job the extension reads the whole description from LinkedIn&apos;s public page for that job, without sending your LinkedIn cookies; nothing about you goes with that request. A referral template you write is kept on your device too.</li>
                 <li><b>Answers it remembers for you.</b> When you answer something by hand that the extension had no saved answer for, it can remember that answer on your device so it can fill the same question next time. That covers options you pick, short answers you type, name, email, phone and address boxes you filled in yourself, and the voluntary race, gender and veteran questions (those are only reused for the option that says the same thing, never one that merely looks similar, and an answer saved on your Resunova profile always wins). These answers stay in the browser&apos;s local extension storage, are never sent to us, and the extension&apos;s popup lists them with a delete button and a Forget all. It never remembers sexual orientation, disability status, religion, a date of birth, a government, tax or ID number, a password, a username, card or bank details, a box about someone else (a reference or an emergency contact), or anything it filled in from your profile itself.</li>
               </ul>
             </SubSection>
@@ -210,9 +212,17 @@ export default function PrivacyPage() {
                 that a fill was used (from the page widget or the popup, how many fields it filled
                 and skipped, and how many required fields there were and were still open), that a
                 fill was undone, whether a résumé attached, which button on a job-page panel was
-                pressed, and a problem code such as &ldquo;no fields found&rdquo;. Each event also
-                names which of eight kinds of site it was (for example Greenhouse or Workday) and
-                is stamped with the time and the extension&apos;s version.
+                pressed, and a problem code such as &ldquo;no fields found&rdquo;. On LinkedIn it
+                also counts what was done with the referral message card: that it was offered,
+                opened, its message copied (or the page refused the copy), written with AI or not
+                (with the reason in one of five words such as &ldquo;limit&rdquo;), and the
+                template changed. A copy also says whether you typed in the message or the AI
+                wrote it, how many blanks you changed and how many were still empty, and whether
+                the card found a name beside the message box, skills in the posting and the whole
+                job description. It never contains the message, the name, the company or the
+                role. Every event except the referral ones names which of eight kinds of site it
+                was (for example Greenhouse or Workday), and every event is stamped with the time
+                and the extension&apos;s version.
               </p>
               <ul>
                 <li><b>What an event never contains:</b> a web address or host name, a page title, the label or value of any field, a question or an answer, your name, email or phone, or anything from your résumé or profile. The server accepts only the events and properties on that list and discards anything else, so this does not depend on the extension behaving.</li>
