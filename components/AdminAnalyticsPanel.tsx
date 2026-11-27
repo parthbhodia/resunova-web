@@ -7,6 +7,7 @@ import JobMarketPanel from "@/components/JobMarketPanel";
 import FunnelPanel from "@/components/FunnelPanel";
 import AnnouncementsPanel from "@/components/AnnouncementsPanel";
 import ExtensionUsagePanel from "@/components/ExtensionUsagePanel";
+import PipelineCharts from "@/components/admin/PipelineCharts";
 import { apiFetch } from "@/lib/apiClient";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -391,27 +392,6 @@ function AppliersTable({ users }: { users: AdminAnalyticsJobsBlock["engagement"]
   );
 }
 
-function DailyJobsAddedSparkline({ daily }: { daily: AdminAnalyticsJobsBlock["scan_runs"]["daily"] }) {
-  if (!daily.length) return <p style={{ color: "var(--dim)", fontSize: 13 }}>No daily scan data yet.</p>;
-  const max = Math.max(...daily.map(d => d.jobs_added), 1);
-  const last14 = daily.slice(-14);
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 48 }}>
-        {last14.map(d => {
-          const h = Math.max(3, Math.round((48 * d.jobs_added) / max));
-          return <div key={d.date} title={`${fmtDate(d.date)}: ${d.jobs_added} added, ${d.runs} runs, ${d.extracted} extracted`}
-            style={{ flex: 1, height: h, background: "var(--green-ink, #10b981)", borderRadius: "2px 2px 0 0", opacity: 0.8 }} />;
-        })}
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5, fontSize: 11, color: "var(--dim)" }}>
-        <span>{fmtDate(last14[0]?.date ?? "")}</span>
-        <span>{fmtDate(last14[last14.length - 1]?.date ?? "")}</span>
-      </div>
-    </div>
-  );
-}
-
 function JobsPipelineSection({
   jobs,
   tools,
@@ -437,22 +417,21 @@ function JobsPipelineSection({
         lastUpdatedAt={lastUpdatedAt}
       />
 
+      {/* Per-day and per-hour history, rolled up in the database (GET /api/admin/pipeline). */}
+      <PipelineCharts days={windowDays} />
+
       {/* KPI strip */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
         <KPICard title="Active postings" value={fmtInt(jobs.postings.active)} sub={`${fmtInt(jobs.postings.total)} total`} />
         <KPICard title="Extracted" value={fmtInt(jobs.postings.extracted)} sub={`${fmtInt(jobs.postings.pending_extraction)} pending`} />
-        <KPICard title="Jobs added (window)" value={fmtInt(jobs.scan_runs.jobs_added)} sub={`${fmtInt(jobs.scan_runs.total_runs)} scan runs`} />
         <KPICard title="Apply clicks (window)" value={fmtInt(jobs.engagement.apply_clicks)} sub={`${fmtInt(jobs.engagement.unique_appliers)} unique users`} />
         <KPICard title="Extraction LLM tokens" value={extractionTool ? fmtK(extractionTool.tokens) : "0"}
           sub={extractionTool ? `${fmtInt(extractionTool.runs)} runs` : "no data"} />
       </section>
 
-      {/* Daily jobs added + sources/companies */}
+      {/* Sources. The old "jobs added per day" chart read a 2,000-row sample of
+          scan runs (about a day of batches); the charts above replace it. */}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 22 }}>
-        <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 14, background: "var(--surface)" }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Jobs added per day (last 14 days)</div>
-          <DailyJobsAddedSparkline daily={jobs.scan_runs.daily} />
-        </div>
         <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 14, background: "var(--surface)" }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Active postings by source</div>
           {jobs.postings.by_source.length === 0
@@ -470,8 +449,8 @@ function JobsPipelineSection({
 
       {/* Scan runs table */}
       <section style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 14, background: "var(--surface)", marginBottom: 22 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>Scan runs</div>
-        <div style={{ fontSize: 12, color: "var(--dim)", marginBottom: 10 }}>Most recent runs of the job-board scanner (max 20).</div>
+        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>Recent runs</div>
+        <div style={{ fontSize: 12, color: "var(--dim)", marginBottom: 10 }}>The 20 most recent runs, nearly all 3-minute extraction batches. Full scans have their own table above.</div>
         <ScanRunsTable recent={jobs.scan_runs.recent} />
       </section>
 
