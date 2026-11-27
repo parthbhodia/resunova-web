@@ -54,6 +54,9 @@ export type AppSidebarProps = {
   theme: "dark" | "light";
   onToggleTheme: () => void;
   userInitial: string;
+  /** Identity for the account menu header, so it can say whose account it is. */
+  userName?: string | null;
+  userEmail?: string | null;
   onHistoryOpenChange: (open: boolean) => void;
   onSwitchView: (view: AppView) => void;
   onGoBuilderFlow: (flow: "tailor" | "template") => void;
@@ -120,6 +123,8 @@ export function AppSidebar({
   theme,
   onToggleTheme,
   userInitial,
+  userName,
+  userEmail,
   onHistoryOpenChange,
   onSwitchView,
   onGoBuilderFlow,
@@ -294,7 +299,13 @@ export function AppSidebar({
         ) : null}
         <AppSidebarUser
           initial={userInitial}
+          userName={userName}
+          userEmail={userEmail}
           anonMode={anonMode}
+          // `showUpgrade` is the same predicate as the rail button above, so
+          // the two can never disagree about whether this account has
+          // anything to upgrade to.
+          onUpgrade={showUpgrade ? () => openUpgrade() : undefined}
           advisorAllowed={advisorAllowed}
           theme={theme}
           onToggleTheme={onToggleTheme}

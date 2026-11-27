@@ -46,6 +46,15 @@ export type ScansRemainingState =
   | { kind: "requires_sign_in" }
   | {
       kind: "metered";
+      /**
+       * ⚠️ Carried so a surface that names the plan in words cannot name it
+       * WRONG. `planLabel`'s own contract allows a metered Pro account, and
+       * the account menu's plan strip used to hard-code "Free plan" for every
+       * metered reading — which is the repo rule "never show a metered Free
+       * badge to a subscriber", broken. A badge needs only the count; a
+       * sentence about the plan needs this.
+       */
+      plan: string | null;
       remaining: number;
       limit: number;
       resetAt: string | null;
@@ -99,6 +108,7 @@ export function scansStateFromStatus(body: unknown): ScansRemainingState {
   if (status.remaining == null || status.limit == null) return { kind: "error" };
   return {
     kind: "metered",
+    plan: status.plan,
     remaining: status.remaining,
     limit: status.limit,
     resetAt: status.resetAt,

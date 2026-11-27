@@ -144,7 +144,7 @@ describe("metered rendering", () => {
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     await waitFor(() => expect(container).toBeEmptyDOMElement());
     expect(scansTabAriaLabel({
-      kind: "metered", remaining: 1, limit: 1, resetAt: null, anonymous: true,
+      kind: "metered", plan: null, remaining: 1, limit: 1, resetAt: null, anonymous: true,
     })).toBe("More");
   });
 });
@@ -187,9 +187,9 @@ describe("mobile surfaces carry the same reading", () => {
   it("the badge is not visual-only — the tab label carries the count", () => {
     // A number with no accessible name is invisible to a screen reader, which
     // is the same "nobody sees it" problem in a different form.
-    expect(scansTabAriaLabel({ kind: "metered", remaining: 2, limit: 3, resetAt: null, anonymous: false }))
+    expect(scansTabAriaLabel({ kind: "metered", plan: null, remaining: 2, limit: 3, resetAt: null, anonymous: false }))
       .toBe("More · 2 of 3 scans left today");
-    expect(scansTabAriaLabel({ kind: "metered", remaining: 0, limit: 3, resetAt: null, anonymous: false }))
+    expect(scansTabAriaLabel({ kind: "metered", plan: null, remaining: 0, limit: 3, resetAt: null, anonymous: false }))
       .toBe("More · no scans left today");
     expect(scansTabAriaLabel({ kind: "error" })).toBe("More · scan quota unavailable");
     expect(scansTabAriaLabel({ kind: "unlimited", plan: "admin" })).toBe("More");
@@ -302,6 +302,9 @@ describe("scansStateFromStatus", () => {
   it("a full metered payload maps through", () => {
     expect(scansStateFromStatus({ ...FREE, resetAt: "2026-08-11T00:00:00Z" })).toEqual({
       kind: "metered",
+      // Carried so a surface naming the plan in words cannot name it wrong;
+      // a metered Pro account is allowed and must not read as Free.
+      plan: null,
       remaining: 2,
       limit: 3,
       resetAt: "2026-08-11T00:00:00Z",
