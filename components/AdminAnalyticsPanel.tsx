@@ -5,6 +5,7 @@ import type { AdminAnalyticsJobsBlock, AdminAnalyticsResponse, AdminAnalyticsToo
 import ExtractionProgressWidget from "@/components/ExtractionProgressWidget";
 import JobMarketPanel from "@/components/JobMarketPanel";
 import FunnelPanel from "@/components/FunnelPanel";
+import AnnouncementsPanel from "@/components/AnnouncementsPanel";
 import ExtensionUsagePanel from "@/components/ExtensionUsagePanel";
 import { apiFetch } from "@/lib/apiClient";
 
@@ -563,10 +564,11 @@ function BusinessSection({ jobs }: { jobs: AdminAnalyticsJobsBlock }) {
 
 // ─── panel (exported) ────────────────────────────────────────────────────────
 
-type TabKey = "product" | "jobs" | "business" | "market" | "funnel" | "extension";
+type TabKey = "product" | "jobs" | "business" | "market" | "funnel" | "extension" | "announcements";
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "funnel", label: "Funnel" },
   { key: "extension", label: "Extension" },
+  { key: "announcements", label: "Announcements" },
   { key: "product", label: "Product & cost" },
   { key: "jobs", label: "Jobs pipeline" },
   { key: "business", label: "Data & revenue" },
@@ -576,7 +578,7 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 // Tabs that fetch their own endpoint rather than reading the windowed analytics
 // payload — they own their loading and error states, and the day picker above
 // does not apply to them.
-const SELF_FETCHING_TABS: TabKey[] = ["market", "funnel", "extension"];
+const SELF_FETCHING_TABS: TabKey[] = ["market", "funnel", "extension", "announcements"];
 
 // Module-level payload cache keyed by window: survives the panel unmount/remount
 // that happens on every Cohort <-> Platform tab flip in the host dashboard.
@@ -694,6 +696,7 @@ export default function AdminAnalyticsPanel() {
       {tab === "market" && <JobMarketPanel />}
       {tab === "funnel" && <FunnelPanel />}
       {tab === "extension" && <ExtensionUsagePanel />}
+      {tab === "announcements" && <AnnouncementsPanel />}
 
       {!SELF_FETCHING_TABS.includes(tab) && loading && !data && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>

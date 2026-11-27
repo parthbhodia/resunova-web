@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FeedbackToastCard } from "@/components/FeedbackToastCard";
+import { fetchLiveAnnouncements } from "@/lib/announcements";
 import { fetchMyReferralRequests, fetchMyReferrerProfile, fetchMySentReferralRequests,
   type CompanyReferralRequest } from "@/lib/companyReferrers";
 import {
@@ -138,7 +139,11 @@ export function ProductNoticesHost() {
       if (!userId || cancelled || gen !== generation) return;
       const state = await loadNoticeState();
       if (cancelled || gen !== generation) return;
-      setNotice(pendingProductNotice(state.dismissedIds));
+      // Announcements written in the admin dashboard. Any failure is an empty
+      // list (see lib/announcements.ts), so the rest of this effect is unaffected.
+      const announcements = await fetchLiveAnnouncements();
+      if (cancelled || gen !== generation) return;
+      setNotice(pendingProductNotice(state.dismissedIds, announcements));
 
       const profile = await fetchMyReferrerProfile();
       if (cancelled || gen !== generation) return;

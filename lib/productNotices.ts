@@ -65,8 +65,16 @@ let inboxOpen = false;
 const inboxRefreshers = new Set<() => void>();
 const sentRefreshers = new Set<() => void>();
 
-export function pendingProductNotice(dismissedIds: readonly string[]): ProductNotice | null {
-  return PRODUCT_NOTICES.find((notice) => !dismissedIds.includes(notice.id)) ?? null;
+/**
+ * The one notice to show now: the first one this person has not dismissed.
+ * Announcements from the admin dashboard come first (newest first, as read),
+ * then the notices written in code above.
+ */
+export function pendingProductNotice(
+  dismissedIds: readonly string[],
+  announcements: readonly ProductNotice[] = [],
+): ProductNotice | null {
+  return [...announcements, ...PRODUCT_NOTICES].find((notice) => !dismissedIds.includes(notice.id)) ?? null;
 }
 
 export type AppNotification = {
