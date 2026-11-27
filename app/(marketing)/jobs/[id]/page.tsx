@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import JsonLd from "@/components/seo/JsonLd";
+import OpenJobInApp from "@/components/seo/OpenJobInApp";
 import { SITE_URL } from "@/lib/brand";
 import { fetchPublicJob, isIndexablePosting, jobHref, type PublicJob } from "@/lib/publicJobs";
 
@@ -90,6 +91,7 @@ export default async function PublicJobPage({ params }: { params: Promise<{ id: 
   return (
     <div className="mx-auto min-h-screen max-w-4xl px-5 py-8 text-text sm:px-8">
       {isIndexablePosting(job) && <JsonLd data={jobPostingSchema(job)} />}
+      <OpenJobInApp id={job.id} />
 <article>
         <p className="text-sm font-bold text-accent">{job.company}</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-5xl">{job.title}</h1>
