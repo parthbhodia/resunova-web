@@ -144,7 +144,7 @@ describe("product notices", () => {
     expect(feed.count).toBe(4);
     // ⚠️ The point of this test: referred and declined must NOT read alike.
     expect(feed.items.map((item) => item.title)).toEqual([
-      "Refer candidates at your company",
+      PRODUCT_NOTICES[0].title,
       "New referral request",
       "You were referred",
       "Referral declined",
@@ -172,9 +172,38 @@ describe("product notices", () => {
     expect(notificationFeed({ notice: null })).toEqual({ count: 0, items: [] });
   });
 
-  it("shows the referrals launch until that id is dismissed", () => {
-    expect(pendingProductNotice([])?.id).toBe("company-referrals-2026-10");
-    expect(pendingProductNotice(["company-referrals-2026-10"])).toBeNull();
+  it("announces job alerts first, then the referrals launch, one at a time", () => {
+    // ⚠️ Order is behaviour: the first undismissed entry wins, so the newest
+    // announcement must sit at the top or people who never dismissed the older
+    // one would never see it.
+    expect(pendingProductNotice([])?.id).toBe("job-alerts-2026-11");
+    expect(pendingProductNotice(["job-alerts-2026-11"])?.id).toBe("company-referrals-2026-10");
+    expect(pendingProductNotice(["company-referrals-2026-10"])?.id).toBe("job-alerts-2026-11");
+    expect(pendingProductNotice(["job-alerts-2026-11", "company-referrals-2026-10"])).toBeNull();
+  });
+
+  it("links the job alerts notice to the Jobs page, where the toggle is", () => {
+    const notice = PRODUCT_NOTICES.find((n) => n.id === "job-alerts-2026-11");
+    expect(notice?.href).toBe("/?view=jobs");
+    // It must not promise more than the email does: opt-in, at most one a day.
+    expect(notice?.body).toMatch(/up to 20/i);
+    expect(notice?.body).toMatch(/until you switch it on/i);
+    expect(notice?.body).toMatch(/at most one email a day/i);
+  });
+
+  it("does not announce job alerts while the Jobs section is switched off", async () => {
+    // The notice links to a page that falls through to Home when
+    // JOBS_ENABLED is false, so it has to disappear with the flag.
+    vi.resetModules();
+    vi.doMock("@/lib/featureFlags", () => ({ JOBS_ENABLED: false }));
+    try {
+      const mod = await import("@/lib/productNotices");
+      expect(mod.PRODUCT_NOTICES.some((n) => n.id === "job-alerts-2026-11")).toBe(false);
+      expect(mod.pendingProductNotice([])?.id).toBe("company-referrals-2026-10");
+    } finally {
+      vi.doUnmock("@/lib/featureFlags");
+      vi.resetModules();
+    }
   });
 
   it("counts only requested asks newer than the last inbox open", () => {

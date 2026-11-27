@@ -101,7 +101,7 @@ beforeEach(() => {
 describe("ProductNoticesHost", () => {
   it("shows the feature card and a referral toast", async () => {
     render(<ProductNoticesHost />);
-    expect(await screen.findByText("Refer candidates at your company")).toBeInTheDocument();
+    expect(await screen.findByText("Daily job alerts")).toBeInTheDocument();
     expect(await screen.findByText("Alex Kim asked you for a referral at Acme.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Open inbox" }));
     expect(mockPush).toHaveBeenCalledWith("/profile?tab=referrals");
@@ -109,21 +109,41 @@ describe("ProductNoticesHost", () => {
 
   it("dismisses the feature card once", async () => {
     render(<ProductNoticesHost />);
-    await screen.findByText("Refer candidates at your company");
+    await screen.findByText("Daily job alerts");
     const dismissButtons = screen.getAllByRole("button", { name: "Dismiss" });
     await userEvent.click(dismissButtons[dismissButtons.length - 1]);
-    expect(mockDismiss).toHaveBeenCalledWith("company-referrals-2026-10");
-    expect(screen.queryByText("Refer candidates at your company")).not.toBeInTheDocument();
+    expect(mockDismiss).toHaveBeenCalledWith("job-alerts-2026-11");
+    expect(screen.queryByText("Daily job alerts")).not.toBeInTheDocument();
   });
 
-  it("skips the feature card after it has been dismissed", async () => {
+  it("takes a person to the Jobs page from the job alerts card", async () => {
+    render(<ProductNoticesHost />);
+    await screen.findByText("Daily job alerts");
+    await userEvent.click(screen.getByRole("button", { name: "Turn it on" }));
+    expect(mockPush).toHaveBeenCalledWith("/?view=jobs");
+    expect(mockDismiss).toHaveBeenCalledWith("job-alerts-2026-11");
+  });
+
+  it("shows the referrals card to someone who already dismissed job alerts", async () => {
     mockLoad.mockResolvedValue({
-      dismissedIds: ["company-referrals-2026-10"],
+      dismissedIds: ["job-alerts-2026-11"],
+      lastSeenReferralAt: null,
+    });
+    mockFetchRequests.mockResolvedValue([]);
+    render(<ProductNoticesHost />);
+    expect(await screen.findByText("Refer candidates at your company")).toBeInTheDocument();
+    expect(screen.queryByText("Daily job alerts")).not.toBeInTheDocument();
+  });
+
+  it("skips the feature cards after both have been dismissed", async () => {
+    mockLoad.mockResolvedValue({
+      dismissedIds: ["job-alerts-2026-11", "company-referrals-2026-10"],
       lastSeenReferralAt: null,
     });
     mockFetchRequests.mockResolvedValue([]);
     render(<ProductNoticesHost />);
     await vi.waitFor(() => expect(mockFetchRequests).toHaveBeenCalled());
+    expect(screen.queryByText("Daily job alerts")).not.toBeInTheDocument();
     expect(screen.queryByText("Refer candidates at your company")).not.toBeInTheDocument();
   });
 });

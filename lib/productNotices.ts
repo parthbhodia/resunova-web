@@ -3,6 +3,7 @@
  * a signed-up referrer for a referral. Email prefs are a separate channel.
  */
 import type { CompanyReferralRequest } from "@/lib/companyReferrers";
+import { JOBS_ENABLED } from "@/lib/featureFlags";
 import { getSupabaseClient } from "@/lib/supabase";
 import { fetchMyReferralRewards, rewardDaysLabel, rewardToastCopy, type RewardEntry } from "@/lib/referralRewards";
 
@@ -32,7 +33,30 @@ export type ProductNotice = {
   cta: string;
 };
 
+/**
+ * Newest first. ⚠️ ORDER IS BEHAVIOUR: `pendingProductNotice` returns the first
+ * entry a person has not dismissed, so a notice added at the END would stay
+ * hidden behind every older one they never dismissed. Add new announcements at
+ * the top.
+ *
+ * The text lives here, not in a table, so announcing something is a deploy.
+ * What is stored per person (in Supabase, `user_profiles.dismissed_notices`) is
+ * only which ids they have dismissed.
+ */
 export const PRODUCT_NOTICES: ProductNotice[] = [
+  // Points at the Jobs page, which is hidden while JOBS_ENABLED is false, so
+  // the notice goes away with it rather than sending people to Home.
+  ...(JOBS_ENABLED
+    ? [
+        {
+          id: "job-alerts-2026-11",
+          title: "Daily job alerts",
+          body: "Turn on the daily email and get up to 20 new jobs that match your saved role and location. It stays off until you switch it on, and you get at most one email a day.",
+          href: "/?view=jobs",
+          cta: "Turn it on",
+        },
+      ]
+    : []),
   {
     id: "company-referrals-2026-10",
     title: "Refer candidates at your company",
