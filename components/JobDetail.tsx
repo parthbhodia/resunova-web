@@ -12,7 +12,7 @@
  * No navigation to the builder.
  */
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode, type CSSProperties, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type CSSProperties, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import BoostPanel from "@/components/BoostPanel";
 import CompanyLogo from "@/components/CompanyLogo";
 import { apiFetch } from "@/lib/apiClient";
+import { useResumeEpoch } from "@/hooks/useResumeEpoch";
 
 type LoadState =
   | { status: "loading" }
@@ -284,6 +285,37 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
     void load();
   }, [load]);
 
+  // The résumé this pane was scored against can change while it is open: an
+  // upload in the feed beside it, Optimize's "Use as my résumé", or a scan in
+  // Analyze. Refetch in place rather than through `load`, which would show the
+  // skeleton and unmount an open Optimize panel mid-task. A failed refetch
+  // keeps what is on screen; the next open fetches again.
+  const resumeEpoch = useResumeEpoch();
+  const seenEpoch = useRef(resumeEpoch);
+  const currentJobId = useRef(jobId);
+  useEffect(() => {
+    currentJobId.current = jobId;
+  }, [jobId]);
+  useEffect(() => {
+    if (resumeEpoch === seenEpoch.current) return;
+    seenEpoch.current = resumeEpoch;
+    const id = jobId;
+    void fetchJobDetail(id, { force: true }).then(
+      (job) => {
+        if (currentJobId.current === id) setState({ status: "ready", job });
+      },
+      () => {},
+    );
+  }, [resumeEpoch, jobId]);
+
+  // Optimize keeps its step and result while mounted, so reopening it does not
+  // re-run it. Once the résumé underneath changes that result is the old
+  // résumé's, so the panel is re-keyed to the résumé the pane now shows. Only
+  // while it is closed: an open panel is never pulled away from someone.
+  const paneResume = state.status === "ready" ? state.job.resumeAnalysisId ?? "" : "";
+  const [boostResume, setBoostResume] = useState(paneResume);
+  if (!boostOpen && paneResume !== boostResume) setBoostResume(paneResume);
+
   // Has the user already built a prep kit for this job? (signed-in only)
   useEffect(() => {
     let cancelled = false;
@@ -416,6 +448,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
           survives closing + reopening the slide-over (no re-generation). */}
       {state.status === "ready" && (
         <BoostPanel
+          key={boostResume}
           job={state.job}
           open={boostOpen}
           onClose={() => setBoostOpen(false)}

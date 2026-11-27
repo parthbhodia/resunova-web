@@ -38,6 +38,7 @@ import AnalyzeLiveResumeBody from "@/components/AnalyzeLiveResumeBody";
 import { GapFixSuggestionCard, type GapFixSuggestion } from "@/components/ratings/GapFixSuggestionCard";
 import { resumeLayoutFromPreviewStyle, resumeLayoutCssVars, resumePageRootStyle, RESUME_BULLET_STYLESHEET } from "@/lib/resumeLayout";
 import { apiFetch } from "@/lib/apiClient";
+import { notifyResumeChanged } from "@/lib/resumeChange";
 
 // ─── Boost API response ────────────────────────────────────────────────────
 // Contract mirrors resunova-api's /api/jobs/boost (docs/boost-frontend-spec.md).
@@ -755,7 +756,10 @@ function Step3({
       });
       const body = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(body?.message || body?.error || `HTTP ${resp.status}`);
-      if (typeof body?.analysisId === "string") onResumePromoted?.(body.analysisId);
+      if (typeof body?.analysisId === "string") {
+        notifyResumeChanged();
+        onResumePromoted?.(body.analysisId);
+      }
       setPromoteMessage(body?.message || "Optimized resume is now used for future job matching.");
     } catch (err) {
       setPromoteError(err instanceof Error ? err.message : "Could not save this optimized resume.");
