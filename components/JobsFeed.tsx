@@ -24,6 +24,7 @@ import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, fetchAnalys
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, prefetchJobDetail, invalidateJobDetail, fetchCompanyOptions, fetchTitleOptions, type JobDetail as JobDetailData, type CompanyOption, type TitleOption } from "@/lib/jobsApi";
 import SearchableSelect, { type SelectItem } from "@/components/SearchableSelect";
+import { trackApply } from "@/lib/analytics";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -2426,7 +2427,7 @@ const JobCard = memo(function JobCard({
               href={job.url}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => { e.stopPropagation(); onApply(job.id); }}
+              onClick={(e) => { e.stopPropagation(); trackApply("apply_click", "feed", job); onApply(job.id); }}
               style={{
                 fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 8, textAlign: "center",
                 flex: isMobile ? "1 1 100%" : undefined,

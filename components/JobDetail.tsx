@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJobDetail, peekJobDetail, scoreLabel, trackJobEvent, type JobDetail as JobDetailData } from "@/lib/jobsApi";
+import { trackApply } from "@/lib/analytics";
 import { fetchJobPrepStatuses, getSupabaseClient, type JobPrepStatus } from "@/lib/supabase";
 import { goToFreeScan, stashAnalyzeJd } from "@/lib/anonScan";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
@@ -453,12 +454,14 @@ function ApplyLink({
     (e: MouseEvent<HTMLAnchorElement>) => {
       if (signedIn === false) {
         e.preventDefault();
+        trackApply("apply_gated", "job_detail", job);
         openSignIn({ ask: "apply" });
         return;
       }
+      trackApply("apply_click", "job_detail", job);
       void trackJobEvent(job.id, "apply_click");
     },
-    [signedIn, openSignIn, job.id],
+    [signedIn, openSignIn, job],
   );
   if (!job.url) return null;
   return (
