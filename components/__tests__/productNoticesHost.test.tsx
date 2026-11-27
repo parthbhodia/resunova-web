@@ -2,7 +2,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { mockLoad, mockDismiss, mockFetchProfile, mockFetchRequests, mockPush } = vi.hoisted(() => ({
+const { mockLoad, mockDismiss, mockFetchProfile, mockFetchRequests, mockPush, mockAnnouncements } = vi.hoisted(() => ({
+  mockAnnouncements: vi.fn(),
   mockLoad: vi.fn(),
   mockDismiss: vi.fn(),
   mockFetchProfile: vi.fn(),
@@ -30,6 +31,8 @@ vi.mock("@/lib/supabase", () => ({
     removeChannel: vi.fn(),
   }),
 }));
+
+vi.mock("@/lib/announcements", () => ({ fetchLiveAnnouncements: mockAnnouncements }));
 
 vi.mock("@/lib/companyReferrers", () => ({
   fetchMyReferrerProfile: mockFetchProfile,
@@ -75,6 +78,8 @@ beforeEach(() => {
   mockFetchProfile.mockReset();
   mockFetchRequests.mockReset();
   mockPush.mockReset();
+  mockAnnouncements.mockReset();
+  mockAnnouncements.mockResolvedValue([]);
   mockLoad.mockResolvedValue({ dismissedIds: [], lastSeenReferralAt: null });
   mockFetchProfile.mockResolvedValue(referrer);
   mockFetchRequests.mockResolvedValue([
@@ -99,6 +104,16 @@ beforeEach(() => {
 });
 
 describe("ProductNoticesHost", () => {
+  it("shows an announcement from the dashboard ahead of the code notice, and dismisses it under its own id", async () => {
+    mockAnnouncements.mockResolvedValue([{ id: "announcement:a1", title: "Daily job alerts", body: "Up to 20 new jobs.", href: "/?view=jobs", cta: "Turn it on" }]);
+    render(<ProductNoticesHost />);
+    expect(await screen.findByText("Daily job alerts")).toBeInTheDocument();
+    expect(screen.queryByText("Refer candidates at your company")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Turn it on" }));
+    expect(mockDismiss).toHaveBeenCalledWith("announcement:a1");
+    expect(mockPush).toHaveBeenCalledWith("/?view=jobs");
+  });
+
   it("shows the feature card and a referral toast", async () => {
     render(<ProductNoticesHost />);
     expect(await screen.findByText("Refer candidates at your company")).toBeInTheDocument();

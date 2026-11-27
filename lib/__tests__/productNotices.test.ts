@@ -177,6 +177,12 @@ describe("product notices", () => {
     expect(pendingProductNotice(["company-referrals-2026-10"])).toBeNull();
   });
 
+  it("shows announcements from the dashboard before the notices written in code", () => {
+    const announcement = { id: "announcement:a1", title: "T", body: "B", href: "/x", cta: "Open" };
+    expect(pendingProductNotice([], [announcement])?.id).toBe("announcement:a1");
+    expect(pendingProductNotice(["announcement:a1"], [announcement])?.id).toBe("company-referrals-2026-10");
+  });
+
   it("counts only requested asks newer than the last inbox open", () => {
     const rows = [
       request({ id: "new", createdAt: "2026-10-12T15:00:00Z" }),
