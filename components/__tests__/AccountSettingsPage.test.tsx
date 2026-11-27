@@ -123,6 +123,23 @@ describe("AccountSettingsPage — Email preferences", () => {
     expect(JSON.parse(localStorage.getItem(NOTIFY_KEY)!).scanLimit).toBe(true);
   });
 
+  it("the daily jobs email is off by default and turns on with one click", async () => {
+    const fetchMock = installFetch(true);
+    render(<AccountSettingsPage />);
+    const sw = await screen.findByRole("switch", { name: /new jobs every day/i });
+    expect(sw).toHaveAttribute("aria-checked", "false");
+
+    await userEvent.click(sw);
+    expect(await screen.findByText("✓ Saved", undefined, { timeout: 3000 })).toBeInTheDocument();
+    const postCall = fetchMock.mock.calls.find(
+      ([u, o]) => String(u).includes("notify-prefs") && (o as RequestInit | undefined)?.method === "POST",
+    );
+    const body = JSON.parse((postCall![1] as RequestInit).body as string);
+    expect(body.jobDigest).toBe(true);
+    // The other prefs ride along unchanged, so the save never resets them.
+    expect(body.accountChanges).toBe(true);
+  });
+
   it("shows an error state when the save fails", async () => {
     installFetch(false); // POST returns ok:false
     render(<AccountSettingsPage />);

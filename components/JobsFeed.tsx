@@ -12,7 +12,7 @@
  * submits applications on the user's behalf.
  */
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,8 @@ import FeaturedCompaniesRail from "@/components/FeaturedCompaniesRail";
 import BoostPanel from "@/components/BoostPanel";
 import JobsOnboardingWizard from "@/components/JobsOnboardingWizard";
 import { JobTopMatchesCard } from "@/components/jobs/JobTopMatchesCard";
+import { JobAlertNudge, JobAlertsCard } from "@/components/jobs/JobAlerts";
+import { alertCriteria, useJobAlertsPref, type JobAlertsPref } from "@/lib/jobAlerts";
 import { useJobTopMatches, type JobTopMatch } from "@/lib/useJobTopMatches";
 import type { JobsBrowseSelection } from "@/lib/jobsTaxonomy";
 import { SENIORITY_BUCKET_VALS, NATIONWIDE_LOCATION, matchRoleSuggestions } from "@/lib/jobsTaxonomy";
@@ -802,6 +804,15 @@ export default function JobsFeed({
   const [familyOverride, setFamilyOverride] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>(() => (urlInit("sort") as SortKey) ?? "match");
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
+  // Job alerts = the daily jobs email (notify_prefs.jobDigest). Loaded only once
+  // the feed is ready, i.e. signed in; anonymous visitors get the sign-in card.
+  const jobAlerts = useJobAlertsPref(state.status === "ready");
+  const feedReady = state.status === "ready";
+  const alertCriteriaText = useMemo(() => {
+    if (!feedReady) return null;
+    const p = loadProfile();
+    return alertCriteria(p.roles || "", p.locations || "");
+  }, [feedReady]);
   const [scoreFilter, setScoreFilter] = useState<ScoreFilterKey>(() => (urlInit("score") as ScoreFilterKey) ?? "all");
   const [ageFilter, setAgeFilter] = useState<AgeFilterKey>(() => (urlInit("date") as AgeFilterKey) ?? DEFAULT_AGE_FILTER);
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
@@ -2106,6 +2117,11 @@ export default function JobsFeed({
             </CardContent>
           </Card>
         )}
+        {showEmptyCard && (
+          <div style={{ marginTop: 10 }}>
+            <JobAlertNudge pref={jobAlerts} place="empty" />
+          </div>
+        )}
 
         {state.status === "ready" && state.jobs.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2114,7 +2130,13 @@ export default function JobsFeed({
                 without disturbing the filters. */}
             {pinnedJob && !pagedJobs.some((j) => j.id === pinnedJob.id) &&
               renderJobCard(pinnedJob, "Selected job")}
-            {pagedJobs.map((job) => renderJobCard(job))}
+            {pagedJobs.map((job, i) => (
+              <Fragment key={job.id}>
+                {renderJobCard(job)}
+                {/* The ask comes after a few results, once they've seen what we'd send. */}
+                {i === Math.min(2, pagedJobs.length - 1) && <JobAlertNudge pref={jobAlerts} place="feed" />}
+              </Fragment>
+            ))}
             {visibleJobs.length === 0 && (
               <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", padding: "28px 0" }}>
                 No openings match the current filters.
@@ -2191,6 +2213,8 @@ export default function JobsFeed({
           onDeleted={(id) => setSavedFilters((prev) => prev.filter((x) => x.id !== id))}
           onNavigate={(v) => router.push(`/?view=${v}`)}
           onOpenJob={openJobUrl}
+          jobAlerts={jobAlerts}
+          alertCriteria={alertCriteriaText}
         />
       )}
 
@@ -2437,6 +2461,8 @@ function JobsSidebar({
   onDeleted,
   onNavigate,
   onOpenJob,
+  jobAlerts,
+  alertCriteria: alertCriteriaText,
 }: {
   isMobile: boolean;
   savedFilters: SavedFilter[];
@@ -2448,6 +2474,8 @@ function JobsSidebar({
   onDeleted: (id: string) => void;
   onNavigate: (view: string) => void;
   onOpenJob: (id: string) => void;
+  jobAlerts: JobAlertsPref;
+  alertCriteria: string | null;
 }) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
@@ -2500,6 +2528,7 @@ function JobsSidebar({
       {showCards && (
       <>
       <JobTopMatchesCard jobs={topMatches} loading={topMatchesLoading} onOpenJob={onOpenJob} />
+      <JobAlertsCard pref={jobAlerts} criteria={alertCriteriaText} onEditCriteria={() => onNavigate("profile")} />
       <div style={SIDEBAR_CARD}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Your saved filters</span>
