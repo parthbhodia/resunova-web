@@ -92,7 +92,7 @@ function jobPostingSchema(job: PublicJob) {
 
 const CARD_PAD: CSSProperties = { padding: "24px 28px" };
 const H2: CSSProperties = { fontSize: 16, fontWeight: 700, color: "var(--text)", margin: "0 0 14px" };
-const BODY: CSSProperties = { fontSize: 13, lineHeight: 1.5, color: "var(--muted)", margin: 0 };
+const BODY: CSSProperties = { fontSize: 13, lineHeight: 1.5, color: "var(--muted)", margin: 0, textWrap: "pretty" };
 const PRIMARY: CSSProperties = {
   display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
   minHeight: 44, padding: "0 22px", borderRadius: 10, border: "none", cursor: "pointer",

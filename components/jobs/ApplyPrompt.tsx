@@ -48,7 +48,9 @@ export default function ApplyPrompt({
         <div className="flex flex-col gap-2">
           <Button
             size="lg"
-            className="w-full"
+            // px, not rem: this app's root font size is 14px, so rem sizes
+            // come out short of the 44px touch target.
+            className="min-h-[44px] w-full"
             onClick={() => {
               trackApply("apply_prompt_accepted", place, job);
               stashAnalyzeJd(job.jd);
@@ -66,7 +68,7 @@ export default function ApplyPrompt({
               onFollow?.();
               onOpenChange(false);
             }}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold text-[color:var(--accent-ink)] underline-offset-4 hover:underline"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg px-4 text-sm font-semibold text-[color:var(--accent-ink)] underline-offset-4 hover:underline"
           >
             Continue to application
           </a>
