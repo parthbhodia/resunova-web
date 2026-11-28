@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseJdBlocks } from "@/components/JobDetail";
+import { parseJdBlocks } from "@/lib/jdBlocks";
 
 describe("parseJdBlocks", () => {
   it("splits blank-line-less JDs into structured blocks (AppOne blob regression)", () => {

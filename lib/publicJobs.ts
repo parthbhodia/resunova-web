@@ -45,6 +45,12 @@ export type PublicJob = {
   industry: string | null;
   /** ISO-2 code for a posting outside the US; null for US or unknown. */
   country?: string | null;
+  /** "entry" | "mid" | "senior" | … as the API classified it; null when unknown. */
+  seniority?: string | null;
+  /** "listing" when the ATS stated the pay, "jd" when it was read from the text. */
+  salarySource?: string | null;
+  /** Requirements extracted from the posting; 0 when none were. */
+  totalRequirements?: number;
 };
 
 /** The API could not be reached or answered something this module does not understand. */
@@ -126,6 +132,9 @@ function fromDetail(raw: Record<string, unknown>, requestedId: string): PublicJo
     employmentType: strOrNull(raw.employmentType),
     industry: strOrNull(raw.industry),
     country: strOrNull(raw.country),
+    seniority: strOrNull(raw.seniority),
+    salarySource: strOrNull(raw.salarySource),
+    totalRequirements: numOrNull(raw.totalRequirements) ?? 0,
   };
 }
 

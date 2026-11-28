@@ -77,6 +77,61 @@ describe("public job page: an open posting", () => {
   });
 });
 
+describe("public job page: laid out like the job inside the app", () => {
+  const rendered = async (over: Partial<PublicJob> = {}) => {
+    fetchPublicJob.mockResolvedValue(job(over));
+    return render(await PublicJobPage(params())).container;
+  };
+  const factLabels = (c: HTMLElement) =>
+    Array.from(c.querySelectorAll("h2"))
+      .find((h) => h.textContent === "Job details")
+      ?.parentElement?.textContent ?? "";
+
+  it("shows only the facts the posting states, labelled the way the app labels them", async () => {
+    const c = await rendered({
+      salaryMin: 120000, salaryMax: 150000, salaryCurrency: "USD", salaryPeriod: "year", salarySource: "jd",
+      employmentType: "full_time", workModel: "hybrid", seniority: "senior", industry: "Fintech",
+    });
+    const facts = factLabels(c);
+    expect(facts).toContain("$120,000 - $150,000 a year");
+    expect(facts).toContain("Estimated from the job description");
+    expect(facts).toContain("Full-time");
+    expect(facts).toContain("Hybrid");
+    expect(facts).toContain("Senior");
+    expect(facts).toContain("Fintech");
+  });
+
+  it("never invents a job type or level the posting did not state", async () => {
+    const c = await rendered({ employmentType: null, seniority: null });
+    expect(factLabels(c)).not.toContain("Job type");
+    expect(factLabels(c)).not.toContain("Level");
+    expect(c.textContent).not.toContain("Full-time");
+  });
+
+  it("renders the description as headings and lists, all of it in the HTML", async () => {
+    const c = await rendered({
+      description: "About the role\n\nWe build payments.\n\nRequirements:\n- 5 years of Go\n- Postgres",
+    });
+    expect(Array.from(c.querySelectorAll("h3")).map((h) => h.textContent)).toEqual(["About the role", "Requirements:"]);
+    expect(Array.from(c.querySelectorAll("li")).map((li) => li.textContent)).toEqual(["5 years of Go", "Postgres"]);
+  });
+
+  it("offers Apply in the header and the rail, and a way into the app's match", async () => {
+    const c = await rendered();
+    expect(c.querySelectorAll('a[href="https://stripe.com/jobs/1"]').length).toBe(2);
+    // By attribute, not a selector: jsdom's engine misreads "?" and "&" inside one.
+    const link = (href: string) => Array.from(c.querySelectorAll("a")).find((a) => a.getAttribute("href") === href);
+    expect(link(`/?view=jobs&job=${ID}`)?.textContent).toBe("Match your résumé");
+    expect(link("/?view=analyze")?.textContent).toBe("Upload your résumé");
+  });
+
+  it("names the extracted requirement count when there is one, and does not claim one when there is not", async () => {
+    expect((await rendered({ totalRequirements: 13 })).textContent).toContain("13 requirements extracted from this posting");
+    cleanup();
+    expect((await rendered({ totalRequirements: 0 })).textContent).not.toContain("requirements extracted");
+  });
+});
+
 describe("public job page: an open posting too thin to index", () => {
   const thin = () => job({ postedAt: null, location: "12 locations" });
 
