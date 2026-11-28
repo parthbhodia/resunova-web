@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 import CompanyLogo from "@/components/CompanyLogo";
 import JsonLd from "@/components/seo/JsonLd";
+import OpenJobInApp from "@/components/seo/OpenJobInApp";
 import { AccountAction, PublicApplyLink, ResumeCheckLink } from "@/components/seo/PublicJobActions";
 import { JobChip, JobDescriptionBlocks, JobFact } from "@/components/jobs/JobPresentation";
 import { Card, CardContent } from "@/components/ui/card";
@@ -141,6 +142,7 @@ export default async function PublicJobPage({ params }: { params: Promise<{ id: 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-4 py-8 text-text sm:px-6">
       {isIndexablePosting(job) && <JsonLd data={jobPostingSchema(job)} />}
+      <OpenJobInApp id={job.id} />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <article className="flex min-w-0 flex-col gap-5">
           {/* Header: title, company, place and work model, pay and type, apply */}

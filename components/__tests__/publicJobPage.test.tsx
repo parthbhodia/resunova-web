@@ -19,6 +19,10 @@ vi.mock("@/lib/publicJobs", async (importOriginal) => ({
   fetchPublicJobIndex: () => fetchPublicJobIndex(),
 }));
 
+// The signed-in redirect has its own tests (openJobInApp.test.tsx); here it
+// would only add a session lookup that has nothing to do with what is rendered.
+vi.mock("@/components/seo/OpenJobInApp", () => ({ default: () => null }));
+
 import JobsIndexPage from "@/app/(marketing)/jobs/page";
 import PublicJobPage, { generateMetadata, generateStaticParams } from "@/app/(marketing)/jobs/[id]/page";
 
