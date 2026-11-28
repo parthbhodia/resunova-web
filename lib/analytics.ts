@@ -51,9 +51,21 @@ export type AnalyticsEventName =
   | "job_alert_ask_shown"
   | "job_alert_ask_dismissed"
   | "job_alert_enabled"
-  | "job_alert_disabled";
+  | "job_alert_disabled"
+  // The Apply link on a job. `apply_click` is a click on the real link that
+  // leaves for the employer's site; `apply_gated` is a signed-out visitor
+  // stopped by the sign-in wall instead. Both carry `place` and `posting_id`.
+  // Neither says the person finished applying: we never see the employer's form.
+  | "apply_click"
+  | "apply_gated";
 
 export type AnalyticsParams = Record<string, string | number | boolean | undefined>;
+
+/**
+ * Where an Apply link sits. `job_page` is the public /jobs/<id>/ page that
+ * search sends people to, which has no account behind it at all.
+ */
+export type ApplyPlace = "job_detail" | "feed" | "home" | "job_page";
 
 type GtagFn = (command: string, ...args: unknown[]) => void;
 
@@ -88,4 +100,18 @@ export function trackEvent(name: AnalyticsEventName, params?: AnalyticsParams): 
   } catch {
     /* analytics is never load-bearing */
   }
+}
+
+/**
+ * Report an Apply link click, or a signed-out visitor stopped at the wall.
+ * One function so the parameter names cannot drift between the four places an
+ * Apply link lives: a report that splits `posting_id` from `postingId` shows
+ * the same job as two rows.
+ */
+export function trackApply(
+  name: "apply_click" | "apply_gated",
+  place: ApplyPlace,
+  job: { id: string; company?: string | null },
+): void {
+  trackEvent(name, { place, posting_id: job.id, company: job.company ?? undefined });
 }

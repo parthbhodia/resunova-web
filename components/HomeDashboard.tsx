@@ -31,6 +31,7 @@ import { apiFetch, type ScanLimitStatus } from "@/lib/apiClient";
 import { loadScanLimitStatus } from "@/components/app-shell/useScansRemaining";
 import { useJobTopMatches, type JobTopMatch } from "@/lib/useJobTopMatches";
 import { trackJobEvent } from "@/lib/jobsApi";
+import { trackApply } from "@/lib/analytics";
 import { safeHttpUrl } from "@/lib/companyReferrers";
 import {
   computeScoreProgress,
@@ -243,7 +244,10 @@ function MatchedJobs({
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={() => void trackJobEvent(job.id, "apply_click")}
+                    onClick={() => {
+                      trackApply("apply_click", "home", job);
+                      void trackJobEvent(job.id, "apply_click");
+                    }}
                     className={rowClass}
                   >
                     {body}

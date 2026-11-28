@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import JsonLd from "@/components/seo/JsonLd";
+import ApplyOutLink from "@/components/seo/ApplyOutLink";
 import { SITE_URL } from "@/lib/brand";
 import { fetchPublicJob, isIndexablePosting, jobHref, type PublicJob } from "@/lib/publicJobs";
 
@@ -97,7 +98,7 @@ export default async function PublicJobPage({ params }: { params: Promise<{ id: 
         {job.postedAt && <p className="mt-2 text-xs text-dim">Posted {new Date(job.postedAt).toLocaleDateString("en-US", { dateStyle: "long" })}</p>}
 
         <div className="mt-7 flex flex-wrap gap-3">
-          <a href={job.url} rel="nofollow noopener" className="rounded-lg bg-accent px-5 py-3 text-sm font-bold text-white no-underline">Apply on company site</a>
+          <ApplyOutLink job={job} href={job.url} className="rounded-lg bg-accent px-5 py-3 text-sm font-bold text-white no-underline">Apply on company site</ApplyOutLink>
           <Link href={`/?view=jobs&job=${encodeURIComponent(job.id)}`} className="rounded-lg border border-border px-5 py-3 text-sm font-bold text-text no-underline">Match this job to your resume</Link>
         </div>
 
