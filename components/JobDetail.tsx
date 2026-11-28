@@ -26,6 +26,7 @@ import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import BoostPanel from "@/components/BoostPanel";
 import CompanyLogo from "@/components/CompanyLogo";
 import { apiFetch } from "@/lib/apiClient";
+import { FREE_SCAN_DAILY_LIMIT } from "@/lib/planLimits";
 
 type LoadState =
   | { status: "loading" }
@@ -973,8 +974,8 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
             </div>
             <div style={{ width: "100%", fontSize: 12, lineHeight: 1.45, color: "var(--muted)" }}>
               {job.missing.length === 0
-                ? "Every requirement covered — you're ready to apply."
-                : `You're ${matchPct}% there — add a few below to stand out.`}
+                ? "Every requirement covered. You're ready to apply."
+                : `You're ${matchPct}% there. Add a few below to stand out.`}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, width: "100%" }}>
               {visibleReqs.map((r) => (
@@ -1017,7 +1018,7 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
         {signedIn === false ? (
           <>
             <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
-              See how you match this role. Free with an account, 3 scans a day.
+              {job.totalRequirements > 0 ? "" : "See how you match this role. "}Free with an account, {FREE_SCAN_DAILY_LIMIT} scans a day.
             </div>
             <button
               onClick={() => { stashAnalyzeJd(job.jdText); goToFreeScan(); }}
@@ -1040,7 +1041,7 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
           <>
             {job.missing.length > 0 && (
               <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
-                One tap tailors your résumé to add {job.missing.length} of these — from your real experience.
+                One tap tailors your résumé to add {job.missing.length} of these from your real experience.
               </div>
             )}
             <button
@@ -1094,8 +1095,8 @@ function PrepCard({
         </div>
         <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--muted)" }}>
           {ready
-            ? `Your prep kit for ${job.company || "this role"} is ready — ${prepStatus!.questionCount} questions with STAR+R answers and best-story matches.`
-            : `Generate company-specific questions for ${job.company || "this role"} from your résumé and this job description — with STAR+R answer structures.`}
+            ? `Your prep kit for ${job.company || "this role"} is ready: ${prepStatus!.questionCount} questions with STAR+R answers and best-story matches.`
+            : `Generate company-specific questions for ${job.company || "this role"} from your résumé and this job description, with STAR+R answer structures.`}
         </div>
         <button
           onClick={onPrep}
@@ -1107,7 +1108,7 @@ function PrepCard({
             display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
             border: ready ? "1px solid color-mix(in srgb, var(--green-ink) 40%, transparent)" : "none",
             background: ready ? "color-mix(in srgb, var(--green-ink) 12%, transparent)" : "var(--accent)",
-            color: ready ? "var(--green-ink)" : "var(--accent-ink, #fff)",
+            color: ready ? "var(--green-ink)" : "var(--on-fill)",
             fontSize: 14,
             fontWeight: 600,
             cursor: prepLaunching ? "wait" : "pointer",
