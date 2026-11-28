@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { apiFetch } from "@/lib/apiClient";
+import { useResumeEpoch } from "@/hooks/useResumeEpoch";
 
 export type JobTopMatch = {
   id: string;
@@ -42,6 +43,8 @@ export function useJobTopMatches({
   const [error, setError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const latestKeyRef = useRef("");
+  // Top matches are ranked against the latest résumé; a new one reranks them.
+  const resumeEpoch = useResumeEpoch();
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -65,7 +68,7 @@ export function useJobTopMatches({
     }
 
     const controller = new AbortController();
-    const key = `${query}|r:${refreshNonce}`;
+    const key = `${query}|r:${refreshNonce}|e:${resumeEpoch}`;
     latestKeyRef.current = key;
     setLoading(true);
     setError(null);
@@ -95,7 +98,7 @@ export function useJobTopMatches({
     })();
 
     return () => controller.abort();
-  }, [enabled, query, refreshKey, refreshNonce]);
+  }, [enabled, query, refreshKey, refreshNonce, resumeEpoch]);
 
   const refresh = useCallback(() => setRefreshNonce((n) => n + 1), []);
 

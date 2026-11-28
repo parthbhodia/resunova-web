@@ -24,6 +24,7 @@ import { getSupabaseClient, upsertUserProfile, fetchJobPrepStatuses, fetchAnalys
 import { loadProfile, saveProfile } from "@/lib/profileStorage";
 import { fetchJobDetail, prefetchJobDetail, invalidateJobDetail, fetchCompanyOptions, fetchTitleOptions, type JobDetail as JobDetailData, type CompanyOption, type TitleOption } from "@/lib/jobsApi";
 import SearchableSelect, { type SelectItem } from "@/components/SearchableSelect";
+import { trackApply } from "@/lib/analytics";
 import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -48,6 +49,7 @@ import { SENIORITY_BUCKET_VALS, NATIONWIDE_LOCATION, matchRoleSuggestions } from
 import { Tip } from "@/components/ui/tip";
 import { usePrefetchOnIntent } from "@/hooks/usePrefetchOnIntent";
 import { apiFetch } from "@/lib/apiClient";
+import { notifyResumeChanged, subscribeResumeChanged } from "@/lib/resumeChange";
 
 export type FeedJob = {
   id: string;
@@ -505,6 +507,12 @@ function appendBrowseParams(
 type FeedReady = Extract<FeedState, { status: "ready" }>;
 const FEED_TTL_MS = 5 * 60 * 1000;
 let feedCache: { key: string; at: number; data: FeedReady } | null = null;
+// A feed ranked against the previous résumé must not be served from cache
+// after the résumé changes, including a scan saved in Analyze while this view
+// was unmounted (its 5-minute window would otherwise outlive the change).
+subscribeResumeChanged(() => {
+  feedCache = null;
+});
 // Current page index, persisted at module scope so selecting a job (which remounts
 // JobsFeed as JobsView swaps to the split layout) restores the page instead of
 // snapping back to page 1. Reset to 0 on a genuine filter/search change.
@@ -630,6 +638,12 @@ async function analyzeResumeUpload(file: File): Promise<{ seniorityGuess?: strin
   // Optional: the backend may return an inferred experience-level bucket
   // (entry|mid|senior|lead) from the résumé's tenure, used to auto-default the
   // feed's seniority filter when the user didn't pick a level. Absent → no-op.
+  // The file was read but the scan was not saved, so every surface is still
+  // scored against the previous résumé. Saying "ranked against your résumé"
+  // then would be false, so it is an error the person can retry.
+  if (json?.analysisPersisted === false) {
+    throw new Error("We read your résumé but couldn't save it, so jobs are still ranked against your previous one. Try again.");
+  }
   const guess = typeof json?.seniorityGuess === "string" ? json.seniorityGuess : undefined;
   return { seniorityGuess: guess };
 }
@@ -1322,6 +1336,7 @@ export default function JobsFeed({
     const p = (async () => {
       try {
         const { seniorityGuess } = await analyzeResumeUpload(file);
+        notifyResumeChanged();
         if (!mountedRef.current || roleQueryRef.current !== sel.role.trim()) return;
         // Auto-default the experience-level filter from the résumé when the user
         // skipped the wizard's level step ("Any") — so a new-grad isn't buried
@@ -2426,7 +2441,7 @@ const JobCard = memo(function JobCard({
               href={job.url}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => { e.stopPropagation(); onApply(job.id); }}
+              onClick={(e) => { e.stopPropagation(); trackApply("apply_click", "feed", job); onApply(job.id); }}
               style={{
                 fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 8, textAlign: "center",
                 flex: isMobile ? "1 1 100%" : undefined,

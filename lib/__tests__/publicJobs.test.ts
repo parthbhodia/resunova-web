@@ -41,6 +41,9 @@ const detail = (over: Record<string, unknown> = {}) => ({
   employmentType: "full_time",
   industry: "Fintech",
   country: null,
+  seniority: "senior",
+  salarySource: "listing",
+  totalRequirements: 13,
   // fields the public page must never depend on
   contacts: [],
   matched: [],
@@ -85,7 +88,16 @@ describe("fetchPublicJob: a job that is open", () => {
       employmentType: "full_time",
       industry: "Fintech",
       country: null,
+      seniority: "senior",
+      salarySource: "listing",
+      totalRequirements: 13,
     });
+  });
+
+  it("reads a missing level, pay source or requirement count as unknown, not as a fact", async () => {
+    fetchMock.mockReturnValue(respond(200, detail({ seniority: undefined, salarySource: undefined, totalRequirements: undefined })));
+    const job = await fetchPublicJob(ID);
+    expect(job).toMatchObject({ seniority: null, salarySource: null, totalRequirements: 0 });
   });
 
   it("asks the API for exactly that id, anonymously, with a revalidate window and a timeout", async () => {
