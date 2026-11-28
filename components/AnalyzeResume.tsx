@@ -61,6 +61,7 @@ import { Tip } from "@/components/ui/tip";
 import { apiFetch, refusalFrom } from "@/lib/apiClient";
 import { clearRun, startRun } from "@/lib/analyzeRun";
 import { useAdoptedRun } from "@/components/analyze/useAdoptedRun";
+import { notifyResumeChanged } from "@/lib/resumeChange";
 
 /** Everything the UI needs from a scan, captured so it can be applied later by
  *  whatever component is mounted when the answer arrives. */
@@ -241,6 +242,7 @@ export default function AnalyzeResume() {
         sourceFilename,
       });
       if (newId) {
+        notifyResumeChanged();
         migrateEdits(optimistic.id, newId);
         setActiveEditDraftId((cur) => (cur === optimistic.id ? newId : cur));
         // Replace optimistic row with real DB id

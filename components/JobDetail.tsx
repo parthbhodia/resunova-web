@@ -12,7 +12,7 @@
  * No navigation to the builder.
  */
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { useSignInDialog } from "@/components/SignInDialog";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ import { prefillPrepFromJob } from "@/lib/interviewPrepLaunch";
 import BoostPanel from "@/components/BoostPanel";
 import CompanyLogo from "@/components/CompanyLogo";
 import { apiFetch } from "@/lib/apiClient";
+import { FREE_SCAN_DAILY_LIMIT } from "@/lib/planLimits";
+import { useResumeEpoch } from "@/hooks/useResumeEpoch";
 import { JobChip, JobDescriptionBlocks, JobFact } from "@/components/jobs/JobPresentation";
 import JobApplyLink from "@/components/jobs/JobApplyLink";
 import { SEN_LABEL, WM_LABEL, formatPostedAt, formatSalaryFull } from "@/lib/jobFacts";
@@ -102,6 +104,37 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // The résumé this pane was scored against can change while it is open: an
+  // upload in the feed beside it, Optimize's "Use as my résumé", or a scan in
+  // Analyze. Refetch in place rather than through `load`, which would show the
+  // skeleton and unmount an open Optimize panel mid-task. A failed refetch
+  // keeps what is on screen; the next open fetches again.
+  const resumeEpoch = useResumeEpoch();
+  const seenEpoch = useRef(resumeEpoch);
+  const currentJobId = useRef(jobId);
+  useEffect(() => {
+    currentJobId.current = jobId;
+  }, [jobId]);
+  useEffect(() => {
+    if (resumeEpoch === seenEpoch.current) return;
+    seenEpoch.current = resumeEpoch;
+    const id = jobId;
+    void fetchJobDetail(id, { force: true }).then(
+      (job) => {
+        if (currentJobId.current === id) setState({ status: "ready", job });
+      },
+      () => {},
+    );
+  }, [resumeEpoch, jobId]);
+
+  // Optimize keeps its step and result while mounted, so reopening it does not
+  // re-run it. Once the résumé underneath changes that result is the old
+  // résumé's, so the panel is re-keyed to the résumé the pane now shows. Only
+  // while it is closed: an open panel is never pulled away from someone.
+  const paneResume = state.status === "ready" ? state.job.resumeAnalysisId ?? "" : "";
+  const [boostResume, setBoostResume] = useState(paneResume);
+  if (!boostOpen && paneResume !== boostResume) setBoostResume(paneResume);
 
   // Has the user already built a prep kit for this job? (signed-in only)
   useEffect(() => {
@@ -235,6 +268,7 @@ export default function JobDetail({ jobId, embedded = false }: { jobId: string; 
           survives closing + reopening the slide-over (no re-generation). */}
       {state.status === "ready" && (
         <BoostPanel
+          key={boostResume}
           job={state.job}
           open={boostOpen}
           onClose={() => setBoostOpen(false)}
@@ -778,8 +812,8 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
             </div>
             <div style={{ width: "100%", fontSize: 12, lineHeight: 1.45, color: "var(--muted)" }}>
               {job.missing.length === 0
-                ? "Every requirement covered — you're ready to apply."
-                : `You're ${matchPct}% there — add a few below to stand out.`}
+                ? "Every requirement covered. You're ready to apply."
+                : `You're ${matchPct}% there. Add a few below to stand out.`}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, width: "100%" }}>
               {visibleReqs.map((r) => (
@@ -822,7 +856,7 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
         {signedIn === false ? (
           <>
             <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
-              See how you match this role. Free with an account, 3 scans a day.
+              {job.totalRequirements > 0 ? "" : "See how you match this role. "}Free with an account, {FREE_SCAN_DAILY_LIMIT} scans a day.
             </div>
             <button
               onClick={() => { stashAnalyzeJd(job.jdText); goToFreeScan(); }}
@@ -845,7 +879,7 @@ function MatchPanel({ job, onBoost, signedIn }: { job: JobDetailData; onBoost: (
           <>
             {job.missing.length > 0 && (
               <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", width: "100%" }}>
-                One tap tailors your résumé to add {job.missing.length} of these — from your real experience.
+                One tap tailors your résumé to add {job.missing.length} of these from your real experience.
               </div>
             )}
             <button
@@ -899,8 +933,8 @@ function PrepCard({
         </div>
         <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--muted)" }}>
           {ready
-            ? `Your prep kit for ${job.company || "this role"} is ready — ${prepStatus!.questionCount} questions with STAR+R answers and best-story matches.`
-            : `Generate company-specific questions for ${job.company || "this role"} from your résumé and this job description — with STAR+R answer structures.`}
+            ? `Your prep kit for ${job.company || "this role"} is ready: ${prepStatus!.questionCount} questions with STAR+R answers and best-story matches.`
+            : `Generate company-specific questions for ${job.company || "this role"} from your résumé and this job description, with STAR+R answer structures.`}
         </div>
         <button
           onClick={onPrep}
@@ -912,7 +946,7 @@ function PrepCard({
             display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
             border: ready ? "1px solid color-mix(in srgb, var(--green-ink) 40%, transparent)" : "none",
             background: ready ? "color-mix(in srgb, var(--green-ink) 12%, transparent)" : "var(--accent)",
-            color: ready ? "var(--green-ink)" : "var(--accent-ink, #fff)",
+            color: ready ? "var(--green-ink)" : "var(--on-fill)",
             fontSize: 14,
             fontWeight: 600,
             cursor: prepLaunching ? "wait" : "pointer",
